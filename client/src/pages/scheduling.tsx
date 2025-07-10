@@ -1,0 +1,534 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { CalendarDays, Clock, Plus, Users, Filter, Search } from "lucide-react";
+import { getQueryFn, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+// Session form schema
+const sessionFormSchema = z.object({
+  clientId: z.number().min(1, "Client is required"),
+  therapistId: z.number().min(1, "Therapist is required"),
+  sessionDate: z.string().min(1, "Date is required"),
+  sessionTime: z.string().min(1, "Time is required"),
+  sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
+  duration: z.number().min(15, "Duration must be at least 15 minutes").max(180, "Duration cannot exceed 3 hours"),
+  room: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type SessionFormData = z.infer<typeof sessionFormSchema>;
+
+interface Session {
+  id: number;
+  clientId: number;
+  therapistId: number;
+  sessionDate: string;
+  sessionType: string;
+  status: string;
+  duration: number;
+  notes?: string;
+  room?: string;
+  therapist: {
+    id: number;
+    fullName: string;
+  };
+  client?: {
+    id: number;
+    fullName: string;
+  };
+}
+
+export default function SchedulingPage() {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("week");
+  const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch sessions for the selected date range
+  const { data: sessions = [], isLoading } = useQuery({
+    queryKey: ["/api/sessions", selectedDate.toISOString().split('T')[0], viewMode],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Fetch clients and therapists for dropdowns
+  const { data: clients = [] } = useQuery({
+    queryKey: ["/api/clients"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: therapists = [] } = useQuery({
+    queryKey: ["/api/therapists"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const form = useForm<SessionFormData>({
+    resolver: zodResolver(sessionFormSchema),
+    defaultValues: {
+      sessionType: "psychotherapy",
+      duration: 60,
+    },
+  });
+
+  const createSessionMutation = useMutation({
+    mutationFn: (data: SessionFormData) => {
+      const sessionDateTime = new Date(`${data.sessionDate}T${data.sessionTime}`);
+      return apiRequest("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          sessionDate: sessionDateTime.toISOString(),
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      toast({
+        title: "Success",
+        description: "Session scheduled successfully",
+      });
+      setIsNewSessionModalOpen(false);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to schedule session",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: SessionFormData) => {
+    createSessionMutation.mutate(data);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'no_show': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSessionTypeColor = (type: string) => {
+    switch (type) {
+      case 'assessment': return 'bg-purple-100 text-purple-800';
+      case 'psychotherapy': return 'bg-green-100 text-green-800';
+      case 'consultation': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour <= 18; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        slots.push(time);
+      }
+    }
+    return slots;
+  };
+
+  const getTodaysSessions = () => {
+    const today = selectedDate.toISOString().split('T')[0];
+    return sessions.filter((session: Session) => 
+      session.sessionDate.split('T')[0] === today
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Scheduling & Calendar</h1>
+              <p className="text-slate-600 mt-1">Manage appointments and sessions</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1 bg-slate-100 rounded-lg p-1">
+                <Button
+                  variant={viewMode === "day" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("day")}
+                >
+                  Day
+                </Button>
+                <Button
+                  variant={viewMode === "week" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("week")}
+                >
+                  Week
+                </Button>
+                <Button
+                  variant={viewMode === "month" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("month")}
+                >
+                  Month
+                </Button>
+              </div>
+              <Dialog open={isNewSessionModalOpen} onOpenChange={setIsNewSessionModalOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Session
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Schedule New Session</DialogTitle>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="clientId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Client</FormLabel>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select client" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {clients.clients?.map((client: any) => (
+                                    <SelectItem key={client.id} value={client.id.toString()}>
+                                      {client.fullName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="therapistId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Therapist</FormLabel>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select therapist" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {therapists?.map((therapist: any) => (
+                                    <SelectItem key={therapist.id} value={therapist.id.toString()}>
+                                      {therapist.fullName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="sessionDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Date</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  type="date"
+                                  min={new Date().toISOString().split('T')[0]}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="sessionTime"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Time</FormLabel>
+                              <Select onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select time" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {getTimeSlots().map((time) => (
+                                    <SelectItem key={time} value={time}>
+                                      {time}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="sessionType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Session Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="assessment">Assessment</SelectItem>
+                                  <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
+                                  <SelectItem value="consultation">Consultation</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="duration"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Duration (minutes)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  type="number"
+                                  min={15}
+                                  max={180}
+                                  step={15}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="room"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Room (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Room number or name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Notes (optional)</FormLabel>
+                            <FormControl>
+                              <Textarea {...field} placeholder="Session notes or special instructions" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex justify-end space-x-4 pt-4">
+                        <Button type="button" variant="outline" onClick={() => setIsNewSessionModalOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={createSessionMutation.isPending}>
+                          {createSessionMutation.isPending ? "Scheduling..." : "Schedule Session"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Calendar Sidebar */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CalendarDays className="w-5 h-5" />
+                  <span>Calendar</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  className="rounded-md border"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Today's Summary */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5" />
+                  <span>Today's Sessions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {getTodaysSessions().length === 0 ? (
+                  <p className="text-slate-600 text-sm">No sessions scheduled for today</p>
+                ) : (
+                  <div className="space-y-3">
+                    {getTodaysSessions().slice(0, 5).map((session: Session) => (
+                      <div key={session.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">
+                            {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          <p className="text-xs text-slate-600">{session.therapist.fullName}</p>
+                        </div>
+                        <Badge className={getStatusColor(session.status)} variant="secondary">
+                          {session.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Schedule View */}
+          <div className="lg:col-span-3">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>
+                    {selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="outline" size="sm">
+                      <Filter className="w-4 h-4 mr-2" />
+                      Filter
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-slate-600">Loading schedule...</p>
+                    </div>
+                  </div>
+                ) : getTodaysSessions().length === 0 ? (
+                  <div className="text-center py-12">
+                    <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No sessions scheduled</h3>
+                    <p className="text-slate-600 mb-4">Schedule your first appointment for this day.</p>
+                    <Button onClick={() => setIsNewSessionModalOpen(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Schedule Session
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {getTodaysSessions()
+                      .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
+                      .map((session: Session) => (
+                        <div
+                          key={session.id}
+                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer"
+                          onClick={() => setSelectedSession(session)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="text-center">
+                                <p className="font-semibold text-lg">
+                                  {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                                <p className="text-xs text-slate-600">{session.duration}min</p>
+                              </div>
+                              <div>
+                                <p className="font-medium">{session.client?.fullName || 'Unknown Client'}</p>
+                                <p className="text-sm text-slate-600">with {session.therapist.fullName}</p>
+                                {session.room && (
+                                  <p className="text-xs text-slate-500">Room: {session.room}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge className={getSessionTypeColor(session.sessionType)} variant="secondary">
+                                {session.sessionType}
+                              </Badge>
+                              <Badge className={getStatusColor(session.status)} variant="secondary">
+                                {session.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          {session.notes && (
+                            <p className="text-sm text-slate-600 mt-2">{session.notes}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -115,6 +115,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sessions routes
+  app.get("/api/sessions", async (req, res) => {
+    try {
+      // Get all sessions with date filtering if provided
+      const { date, viewMode } = req.query;
+      // For now, return all sessions - this can be enhanced with date filtering
+      const sessions = await storage.getAllSessions();
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/sessions", async (req, res) => {
+    try {
+      const validatedData = insertSessionSchema.parse(req.body);
+      const session = await storage.createSession(validatedData);
+      res.status(201).json(session);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid session data", errors: error.errors });
+      }
+      console.error("Error creating session:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/clients/:clientId/sessions", async (req, res) => {
     try {
       const clientId = parseInt(req.params.clientId);

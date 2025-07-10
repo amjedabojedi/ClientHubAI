@@ -15,10 +15,10 @@ export default function ClientHeader() {
             </div>
             
             <nav className="hidden lg:flex space-x-8">
-              <a href="#" className="text-primary font-medium border-b-2 border-primary pb-4">
+              <a href="/clients" className="text-primary font-medium border-b-2 border-primary pb-4">
                 <i className="fas fa-users mr-2"></i>Clients
               </a>
-              <a href="#" className="text-slate-600 hover:text-slate-900 pb-4">
+              <a href="/scheduling" className="text-slate-600 hover:text-slate-900 pb-4">
                 <i className="fas fa-calendar-alt mr-2"></i>Scheduling
               </a>
               <a href="#" className="text-slate-600 hover:text-slate-900 pb-4">

@@ -64,6 +64,7 @@ export interface IStorage {
   }>;
 
   // Session methods
+  getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
   createSession(session: InsertSession): Promise<Session>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
@@ -298,6 +299,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session methods
+  async getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]> {
+    const results = await db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .orderBy(desc(sessions.sessionDate));
+
+    return results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client 
+    }));
+  }
+
   async getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]> {
     const results = await db
       .select({
