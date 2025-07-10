@@ -133,8 +133,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [aiGeneratedContent, setAiGeneratedContent] = useState<string>('');
   const [showAiContent, setShowAiContent] = useState(false);
   const [smartSuggestions, setSmartSuggestions] = useState<Record<string, string[]>>({});
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [templates, setTemplates] = useState<Record<string, any>>({});
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -261,17 +260,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
   });
 
-  // Fetch available templates
-  const { data: templatesData } = useQuery({
-    queryKey: ['/api/ai/templates'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', '/api/ai/templates');
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setTemplates(data.templates || {});
-    },
-  });
+
 
   // Generate connected suggestions when a field changes
   const generateConnectedSuggestions = async (templateId: string, sourceField: string, sourceValue: string) => {
