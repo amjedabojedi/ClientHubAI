@@ -369,30 +369,35 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   )}
                 />
 
-                <div className="space-y-2">
-                  <FormField
-                    control={form.control}
-                    name="emailNotifications"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Enable Email Notifications</FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="emailNotifications"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Email Notifications</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Client wants to receive email updates
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
 
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Client Portal Access</h4>
+                  
                   <FormField
                     control={form.control}
                     name="hasPortalAccess"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-4">
                         <FormControl>
                           <Checkbox
                             checked={field.value}
@@ -401,6 +406,9 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel>Enable Portal Access</FormLabel>
+                          <p className="text-sm text-muted-foreground">
+                            Allow client to access online portal
+                          </p>
                         </div>
                       </FormItem>
                     )}
@@ -424,9 +432,9 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                 </div>
               </TabsContent>
 
-              {/* Contact Tab - Simplified version */}
+              {/* Contact & Address Tab */}
               <TabsContent value="contact" className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact & Address Information</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -434,7 +442,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel>Primary Phone</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="555-0123" />
                         </FormControl>
@@ -445,12 +453,12 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
                   <FormField
                     control={form.control}
-                    name="email"
+                    name="emergencyPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>Emergency Phone</FormLabel>
                         <FormControl>
-                          <Input {...field} type="email" placeholder="client@example.com" />
+                          <Input {...field} placeholder="555-0456" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -460,42 +468,30 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
                 <FormField
                   control={form.control}
-                  name="city"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City</FormLabel>
+                      <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="City name" />
+                        <Input {...field} type="email" placeholder="client@example.com" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </TabsContent>
 
-              {/* Clinical Tab */}
-              <TabsContent value="clinical" className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Clinical Information</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Address Information</h4>
+                  
                   <FormField
                     control={form.control}
-                    name="status"
+                    name="streetAddress1"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Street Address 1</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="123 Main Street" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -503,28 +499,132 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
                   <FormField
                     control={form.control}
-                    name="stage"
+                    name="streetAddress2"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Stage</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="intake">Intake</SelectItem>
-                            <SelectItem value="assessment">Assessment</SelectItem>
-                            <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Street Address 2 (Optional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Apt, Unit, or Suite" />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="City name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="province"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State/Province</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="CA, NY, etc." />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="postalCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Postal/Zip Code</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="12345 or A1B 2C3" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="country"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Country</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="United States" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Emergency Contact</h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="emergencyContactName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Emergency Contact Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Contact person name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="emergencyContactPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Emergency Contact Phone</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="555-0789" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="emergencyContactRelationship"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Relationship</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Spouse, Parent, etc." />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Clinical Status & Progress Tab */}
+              <TabsContent value="clinical" className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Status & Progress</h3>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -543,6 +643,54 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             <SelectItem value="couple">Couple</SelectItem>
                             <SelectItem value="family">Family</SelectItem>
                             <SelectItem value="group">Group</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="stage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Stage</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="intake">Intake</SelectItem>
+                            <SelectItem value="assessment">Assessment</SelectItem>
+                            <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -577,39 +725,183 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="General notes about the client..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Service Type & Frequency</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="serviceType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Service Type</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Treatment service details" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
+                              <SelectItem value="counseling">Counseling</SelectItem>
+                              <SelectItem value="assessment">Assessment</SelectItem>
+                              <SelectItem value="consultation">Consultation</SelectItem>
+                              <SelectItem value="group_therapy">Group Therapy</SelectItem>
+                              <SelectItem value="family_therapy">Family Therapy</SelectItem>
+                              <SelectItem value="couples_therapy">Couples Therapy</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="serviceFrequency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Service Frequency</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Frequency of treatment" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="weekly">Weekly</SelectItem>
+                              <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                              <SelectItem value="monthly">Monthly</SelectItem>
+                              <SelectItem value="as_needed">As Needed</SelectItem>
+                              <SelectItem value="intensive">Intensive (Multiple per week)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Insurance Information</h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="insuranceProvider"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Insurance Provider</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., Blue Cross, Aetna" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="policyNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Policy Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Policy number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="groupNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Group Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="Group number" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="copayAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Copay Amount</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="25.00" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="deductible"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Deductible</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="500.00" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="insurancePhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Insurance Phone</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="1-800-123-4567" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Additional Notes</h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Clinical Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            {...field} 
+                            placeholder="Important notes, observations, or special considerations for this client..."
+                            className="min-h-[100px]"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </TabsContent>
 
-              {/* Simplified other tabs */}
+              {/* Referral & Case Information Tab */}
               <TabsContent value="referral" className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Referral Information</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Referral & Case Information</h3>
                 
-                <FormField
-                  control={form.control}
-                  name="referrerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Referrer Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Who referred this client" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <FormField
                   control={form.control}
                   name="startDate"
@@ -623,19 +915,161 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     </FormItem>
                   )}
                 />
+
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Referral Details</h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="referrerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Referrer Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Who referred this client" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="referralDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Referral Date</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="date" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="referenceNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reference Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="REF-12345" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="clientSource"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Source</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="How did the client find us?" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="referral">Professional Referral</SelectItem>
+                            <SelectItem value="insurance">Insurance Directory</SelectItem>
+                            <SelectItem value="online_search">Online Search</SelectItem>
+                            <SelectItem value="social_media">Social Media</SelectItem>
+                            <SelectItem value="word_of_mouth">Word of Mouth</SelectItem>
+                            <SelectItem value="advertisement">Advertisement</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </TabsContent>
 
+              {/* Employment & Socioeconomic Tab */}
               <TabsContent value="employment" className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Employment Information</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Employment & Socioeconomic Information</h3>
                 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="employmentStatus"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Employment Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Current employment status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="employed_full_time">Employed Full-time</SelectItem>
+                            <SelectItem value="employed_part_time">Employed Part-time</SelectItem>
+                            <SelectItem value="self_employed">Self-employed</SelectItem>
+                            <SelectItem value="unemployed">Unemployed</SelectItem>
+                            <SelectItem value="student">Student</SelectItem>
+                            <SelectItem value="retired">Retired</SelectItem>
+                            <SelectItem value="disabled">Disabled</SelectItem>
+                            <SelectItem value="homemaker">Homemaker</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="educationLevel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Education Level</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Highest education completed" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="elementary">Elementary School</SelectItem>
+                            <SelectItem value="high_school">High School</SelectItem>
+                            <SelectItem value="some_college">Some College</SelectItem>
+                            <SelectItem value="associates">Associate's Degree</SelectItem>
+                            <SelectItem value="bachelors">Bachelor's Degree</SelectItem>
+                            <SelectItem value="masters">Master's Degree</SelectItem>
+                            <SelectItem value="doctorate">Doctorate</SelectItem>
+                            <SelectItem value="trade_school">Trade/Technical School</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
-                  name="employmentStatus"
+                  name="dependents"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Employment Status</FormLabel>
+                      <FormLabel>Number of Dependents</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="e.g., Employed, Unemployed" />
+                        <Input 
+                          {...field} 
+                          type="number" 
+                          min="0" 
+                          placeholder="0"
+                          onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
