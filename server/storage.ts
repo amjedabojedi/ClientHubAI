@@ -670,16 +670,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLibraryEntries(categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]> {
-    let query = db
+    let whereConditions = [eq(libraryEntries.isActive, true)];
+    
+    if (categoryId) {
+      whereConditions.push(eq(libraryEntries.categoryId, categoryId));
+    }
+
+    const query = db
       .select({ entry: libraryEntries, category: libraryCategories, createdBy: users })
       .from(libraryEntries)
       .leftJoin(libraryCategories, eq(libraryEntries.categoryId, libraryCategories.id))
       .leftJoin(users, eq(libraryEntries.createdById, users.id))
-      .where(eq(libraryEntries.isActive, true));
-
-    if (categoryId) {
-      query = query.where(eq(libraryEntries.categoryId, categoryId));
-    }
+      .where(and(...whereConditions));
 
     const results = await query.orderBy(asc(libraryEntries.sortOrder), asc(libraryEntries.title));
     return results.map(result => ({ ...result.entry, category: result.category!, createdBy: result.createdBy! }));
@@ -716,16 +718,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchLibraryEntries(query: string, categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]> {
-    let dbQuery = db
+    let whereConditions = [
+      eq(libraryEntries.isActive, true),
+      or(ilike(libraryEntries.title, `%${query}%`), ilike(libraryEntries.content, `%${query}%`))
+    ];
+    
+    if (categoryId) {
+      whereConditions.push(eq(libraryEntries.categoryId, categoryId));
+    }
+
+    const dbQuery = db
       .select({ entry: libraryEntries, category: libraryCategories, createdBy: users })
       .from(libraryEntries)
       .leftJoin(libraryCategories, eq(libraryEntries.categoryId, libraryCategories.id))
       .leftJoin(users, eq(libraryEntries.createdById, users.id))
-      .where(and(eq(libraryEntries.isActive, true), or(ilike(libraryEntries.title, `%${query}%`), ilike(libraryEntries.content, `%${query}%`))));
-
-    if (categoryId) {
-      dbQuery = dbQuery.where(eq(libraryEntries.categoryId, categoryId));
-    }
+      .where(and(...whereConditions));
 
     const results = await dbQuery.orderBy(desc(libraryEntries.usageCount), asc(libraryEntries.title));
     return results.map(result => ({ ...result.entry, category: result.category!, createdBy: result.createdBy! }));
