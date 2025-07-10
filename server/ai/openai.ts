@@ -3,6 +3,55 @@ import OpenAI from "openai";
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// Clinical Note Templates
+export const clinicalTemplates = {
+  'cognitive_behavioral': {
+    name: 'Cognitive Behavioral Therapy (CBT)',
+    description: 'Focus on thought patterns, cognitive restructuring, and behavioral interventions',
+    sessionFocusTemplate: 'Explored cognitive patterns related to [presenting concern]. Identified negative thought cycles and worked on cognitive restructuring techniques.',
+    symptomsTemplate: 'Client presented with [specific symptoms]. Noted [behavioral/emotional indicators]. Assessed cognitive distortions including [types].',
+    interventionTemplate: 'Applied CBT techniques including [specific interventions]. Practiced thought challenging and behavioral activation strategies.',
+    progressTemplate: 'Client demonstrated improved awareness of [cognitive patterns]. Progress toward goals shows [specific improvements].',
+    recommendationsTemplate: 'Continue CBT approach focusing on [specific areas]. Homework: [specific assignments]. Next session focus: [topics].'
+  },
+  'trauma_focused': {
+    name: 'Trauma-Focused Therapy',
+    description: 'Specialized approach for trauma processing and PTSD treatment',
+    sessionFocusTemplate: 'Addressed trauma-related triggers and coping mechanisms. Focused on safety, stabilization, and processing.',
+    symptomsTemplate: 'Trauma symptoms included [specific presentations]. Assessed for hypervigilance, dissociation, and avoidance behaviors.',
+    interventionTemplate: 'Utilized trauma-informed interventions including [EMDR/CPT/PE]. Implemented grounding and stabilization techniques.',
+    progressTemplate: 'Client shows decreased trauma reactivity in [areas]. Improved coping strategies for [triggers].',
+    recommendationsTemplate: 'Continue trauma-focused work with emphasis on [phase of treatment]. Safety planning and coping skill reinforcement.'
+  },
+  'mindfulness_based': {
+    name: 'Mindfulness-Based Therapy',
+    description: 'Integration of mindfulness practices with therapeutic interventions',
+    sessionFocusTemplate: 'Practiced mindfulness techniques and present-moment awareness. Explored relationship between thoughts, emotions, and sensations.',
+    symptomsTemplate: 'Client reported [emotional/physical symptoms]. Noted patterns of rumination, anxiety, or emotional dysregulation.',
+    interventionTemplate: 'Guided mindfulness meditation and body awareness exercises. Taught [specific mindfulness techniques].',
+    progressTemplate: 'Increased mindfulness skills and emotional regulation. Client reports better ability to [specific improvements].',
+    recommendationsTemplate: 'Continue daily mindfulness practice. Home practice: [specific exercises]. Integration of mindfulness in daily activities.'
+  },
+  'solution_focused': {
+    name: 'Solution-Focused Brief Therapy',
+    description: 'Goal-oriented approach focusing on solutions and client strengths',
+    sessionFocusTemplate: 'Explored client strengths and previous successful coping strategies. Identified solution-focused goals and desired outcomes.',
+    symptomsTemplate: 'Client described [challenges] while acknowledging [existing strengths and resources].',
+    interventionTemplate: 'Used scaling questions, miracle question, and exception-finding techniques. Highlighted client competencies.',
+    progressTemplate: 'Client identified [specific solutions] and demonstrated [strengths]. Movement toward preferred future noted.',
+    recommendationsTemplate: 'Build on identified solutions and strengths. Focus on [specific goals]. Continue solution-building approach.'
+  },
+  'psychodynamic': {
+    name: 'Psychodynamic Therapy',
+    description: 'Insight-oriented exploration of unconscious patterns and relationships',
+    sessionFocusTemplate: 'Explored unconscious patterns and their impact on current relationships. Examined transference and defense mechanisms.',
+    symptomsTemplate: 'Client presented with [symptoms] connected to [underlying dynamics]. Noted defense mechanisms and relational patterns.',
+    interventionTemplate: 'Used interpretation, clarification, and insight-oriented interventions. Explored childhood experiences and their current impact.',
+    progressTemplate: 'Increased insight into [patterns/relationships]. Client demonstrates greater self-awareness regarding [areas].',
+    recommendationsTemplate: 'Continue insight-oriented work. Focus on [specific dynamics]. Process emerging material in next sessions.'
+  }
+};
+
 interface SessionNoteAIRequest {
   sessionFocus?: string;
   symptoms?: string;
@@ -17,6 +66,7 @@ interface SessionNoteAIRequest {
   clientName?: string;
   sessionType?: string;
   sessionDate?: string;
+  selectedTemplate?: string;
 }
 
 interface AIGeneratedContent {
@@ -70,7 +120,7 @@ Generate a professional clinical summary and provide smart suggestions for each 
       response_format: { type: "json_object" },
       temperature: 0.7,
       max_tokens: 2000,
-      timeout: 30000 // 30 second timeout
+
     });
 
     const result = JSON.parse(response.choices[0].message.content || '{}');
@@ -98,7 +148,7 @@ Return only a JSON array of strings, each suggestion should be 1-2 sentences max
       response_format: { type: "json_object" },
       temperature: 0.8,
       max_tokens: 500,
-      timeout: 15000 // 15 second timeout
+
     });
 
     const result = JSON.parse(response.choices[0].message.content || '{"suggestions": []}');
@@ -145,7 +195,7 @@ ${sessionNoteData.moodBefore && sessionNoteData.moodAfter ? `Mood Assessment: Be
       ],
       temperature: 0.6,
       max_tokens: 1500,
-      timeout: 30000
+
     });
 
     return response.choices[0].message.content || '';
@@ -153,4 +203,59 @@ ${sessionNoteData.moodBefore && sessionNoteData.moodAfter ? `Mood Assessment: Be
     console.error('Clinical report generation error:', error);
     throw new Error(`Clinical report generation failed: ${error.message}`);
   }
+}
+
+// Generate content using templates
+export async function generateFromTemplate(templateId: string, field: string, context?: string): Promise<string> {
+  const template = clinicalTemplates[templateId];
+  if (!template) {
+    throw new Error(`Template ${templateId} not found`);
+  }
+
+  const fieldTemplateKey = `${field}Template`;
+  const baseTemplate = template[fieldTemplateKey];
+  
+  if (!baseTemplate) {
+    throw new Error(`Template field ${field} not found in ${templateId}`);
+  }
+
+  const systemPrompt = `You are a clinical psychology assistant specializing in ${template.name}. Generate professional clinical content based on the provided template and context. Fill in the placeholder brackets with appropriate content based on the context provided.
+
+Template approach: ${template.description}
+Base template: ${baseTemplate}
+
+Instructions:
+- Replace bracketed placeholders with specific, relevant content
+- Maintain professional clinical language
+- Keep the structure and tone of the template
+- Adapt content to the specific context provided`;
+
+  const userPrompt = `Generate ${field} content using the ${template.name} template.
+${context ? `Context: ${context}` : 'No additional context provided'}
+
+Base template: ${baseTemplate}
+
+Return only the completed text with placeholders filled in appropriately.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 300
+    });
+
+    return response.choices[0].message.content || baseTemplate;
+  } catch (error) {
+    console.error('Template generation error:', error);
+    return baseTemplate; // Return base template as fallback
+  }
+}
+
+// Get all available templates
+export function getAllTemplates() {
+  return clinicalTemplates;
 }

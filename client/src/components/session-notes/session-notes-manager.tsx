@@ -118,6 +118,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [aiGeneratedContent, setAiGeneratedContent] = useState<string>('');
   const [showAiContent, setShowAiContent] = useState(false);
   const [smartSuggestions, setSmartSuggestions] = useState<Record<string, string[]>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [templates, setTemplates] = useState<Record<string, any>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -227,6 +229,32 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
     onError: () => {
       toast({ title: "Error generating clinical report", variant: "destructive" });
+    },
+  });
+
+  const generateFromTemplateMutation = useMutation({
+    mutationFn: async ({ templateId, field, context }: { templateId: string; field: string; context?: string }) => {
+      const response = await apiRequest('POST', '/api/ai/generate-from-template', { templateId, field, context });
+      return await response.json();
+    },
+    onSuccess: (data, variables) => {
+      form.setValue(variables.field, data.content);
+      toast({ title: `Template content generated for ${variables.field}` });
+    },
+    onError: () => {
+      toast({ title: "Error generating template content", variant: "destructive" });
+    },
+  });
+
+  // Fetch available templates
+  const { data: templatesData } = useQuery({
+    queryKey: ['/api/ai/templates'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/ai/templates');
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setTemplates(data.templates || {});
     },
   });
 
@@ -1071,6 +1099,108 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     )}
                   />
 
+                  {/* Template Selection */}
+                  {form.watch('aiEnabled') && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Clinical Template Library</Label>
+                        <Select onValueChange={setSelectedTemplate} value={selectedTemplate}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a therapy approach template..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(templates).map(([key, template]) => (
+                              <SelectItem key={key} value={key}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedTemplate && templates[selectedTemplate] && (
+                          <p className="text-xs text-muted-foreground">
+                            {templates[selectedTemplate].description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Template Actions */}
+                      {selectedTemplate && (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateFromTemplateMutation.mutate({ 
+                              templateId: selectedTemplate, 
+                              field: 'sessionFocus',
+                              context: form.getValues('sessionFocus') || ''
+                            })}
+                            disabled={generateFromTemplateMutation.isPending}
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            Session Focus
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateFromTemplateMutation.mutate({ 
+                              templateId: selectedTemplate, 
+                              field: 'symptoms',
+                              context: form.getValues('symptoms') || ''
+                            })}
+                            disabled={generateFromTemplateMutation.isPending}
+                          >
+                            <Target className="h-3 w-3 mr-1" />
+                            Symptoms
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateFromTemplateMutation.mutate({ 
+                              templateId: selectedTemplate, 
+                              field: 'intervention',
+                              context: form.getValues('intervention') || ''
+                            })}
+                            disabled={generateFromTemplateMutation.isPending}
+                          >
+                            <Brain className="h-3 w-3 mr-1" />
+                            Intervention
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateFromTemplateMutation.mutate({ 
+                              templateId: selectedTemplate, 
+                              field: 'progress',
+                              context: form.getValues('progress') || ''
+                            })}
+                            disabled={generateFromTemplateMutation.isPending}
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Progress
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generateFromTemplateMutation.mutate({ 
+                              templateId: selectedTemplate, 
+                              field: 'recommendations',
+                              context: form.getValues('recommendations') || ''
+                            })}
+                            disabled={generateFromTemplateMutation.isPending}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Recommendations
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Custom AI Prompt */}
                   {form.watch('aiEnabled') && (
                     <FormField
@@ -1087,7 +1217,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             />
                           </FormControl>
                           <p className="text-xs text-muted-foreground">
-                            Customize how AI structures your notes: tone, focus areas, clinical approach, etc.
+                            Override template with specific instructions for your approach
                           </p>
                           <FormMessage />
                         </FormItem>
