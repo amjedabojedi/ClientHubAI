@@ -41,6 +41,7 @@ import type { Client, Session, Note, Task, Document } from "@/types/client";
 // Components
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
+import SessionNotesManager from "@/components/session-notes/session-notes-manager";
 
 export default function ClientDetailPage() {
   // Routing
@@ -186,7 +187,7 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span>Overview</span>
@@ -194,6 +195,10 @@ export default function ClientDetailPage() {
             <TabsTrigger value="sessions" className="flex items-center space-x-2">
               <Calendar className="w-4 h-4" />
               <span>Sessions</span>
+            </TabsTrigger>
+            <TabsTrigger value="session-notes" className="flex items-center space-x-2">
+              <FileText className="w-4 h-4" />
+              <span>Session Notes</span>
             </TabsTrigger>
             <TabsTrigger value="notes" className="flex items-center space-x-2">
               <FileText className="w-4 h-4" />
@@ -612,6 +617,11 @@ export default function ClientDetailPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Session Notes Tab */}
+          <TabsContent value="session-notes" className="space-y-6">
+            <SessionNotesManager clientId={clientId!} sessions={sessions} />
           </TabsContent>
 
           {/* Notes Tab */}

@@ -1,0 +1,86 @@
+1. Database Structure & Relationships
+Session Notes Table Fields:
+
+sessionId - Direct link to the session (required)
+clientId - Links to the client (required)
+therapistId - Links to the therapist (required)
+date - Session date
+Clinical content fields:
+sessionFocus - Main focus of the session
+symptoms - Observed/reported symptoms
+shortTermGoals - Goals worked on
+intervention - Interventions used
+progress - Progress made
+remarks - Additional observations
+recommendations - Future recommendations
+Rating & Outcome Fields:
+
+clientRating (0-10) - Client's session rating
+therapistRating (0-10) - Therapist's session rating
+progressTowardGoals (0-100%) - Progress percentage
+moodBefore (1-10) - Client mood before session
+moodAfter (1-10) - Client mood after session
+AI & Content Management:
+
+generatedContent - AI-generated draft content
+draftContent - Editable draft version
+finalContent - Finalized note content
+isDraft - Whether note is still in draft
+isFinalized - Whether note is completed
+2. How Session Notes Connect to Sessions
+Direct Relationship:
+
+Session (ID: 123) → Session Note (sessionId: 123)
+Database Relations:
+
+Each Session can have multiple Session Notes (one-to-many)
+Each Session Note belongs to exactly one Session (many-to-one)
+Session Notes inherit client and therapist from the session
+Date is automatically populated from session date
+3. Session Note Creation Process
+When a Session is Created:
+
+Session gets scheduled with basic info (client, therapist, date, time)
+Session Note can be created during or after the session
+Note automatically links to the session via sessionId
+All session details (client, therapist, date) auto-populate
+Session Note Workflow:
+
+Draft Creation - Note starts as draft (isDraft: true)
+AI Generation - Optional AI-assisted content creation
+Manual Editing - Therapist edits/refines content
+Finalization - Note marked as complete (isFinalized: true)
+4. Features & Integration
+Document Library Integration:
+
+Quick insert of standardized content
+Template-based note generation
+Consistent terminology across notes
+AI Assistance:
+
+OpenAI-powered note generation
+Template-based prompts
+Content suggestions based on session type
+Progress Tracking:
+
+Mood before/after ratings
+Goal progress percentages
+Client and therapist session ratings
+Barriers identification
+5. User Interface Components
+Session Notes List (SessionNotesList.tsx):
+
+Shows all notes grouped by month
+Displays note status (draft/finalized)
+Links to edit or view notes
+Session Note Form (SessionNoteForm.tsx):
+
+Rich text editor for note content
+AI template selection
+Progress rating inputs
+Auto-save functionality
+Session Note Modal (SessionNoteModal.tsx):
+
+Creates new notes for specific sessions
+Links directly to session via sessionId
+Populates session context automatically

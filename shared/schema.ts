@@ -194,6 +194,41 @@ export const documents = pgTable("documents", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Session Notes table
+export const sessionNotes = pgTable("session_notes", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+  date: timestamp("date").notNull(),
+  
+  // Clinical content fields
+  sessionFocus: text("session_focus"),
+  symptoms: text("symptoms"),
+  shortTermGoals: text("short_term_goals"),
+  intervention: text("intervention"),
+  progress: text("progress"),
+  remarks: text("remarks"),
+  recommendations: text("recommendations"),
+  
+  // Rating & outcome fields
+  clientRating: integer("client_rating"), // 0-10
+  therapistRating: integer("therapist_rating"), // 0-10
+  progressTowardGoals: integer("progress_toward_goals"), // 0-100%
+  moodBefore: integer("mood_before"), // 1-10
+  moodAfter: integer("mood_after"), // 1-10
+  
+  // AI & content management
+  generatedContent: text("generated_content"),
+  draftContent: text("draft_content"),
+  finalContent: text("final_content"),
+  isDraft: boolean("is_draft").notNull().default(true),
+  isFinalized: boolean("is_finalized").notNull().default(false),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
@@ -201,6 +236,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   tasks: many(tasks),
   notes: many(notes),
   documents: many(documents),
+  sessionNotes: many(sessionNotes),
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
@@ -212,9 +248,10 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   tasks: many(tasks),
   notes: many(notes),
   documents: many(documents),
+  sessionNotes: many(sessionNotes),
 }));
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   client: one(clients, {
     fields: [sessions.clientId],
     references: [clients.id],
@@ -223,6 +260,7 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
     fields: [sessions.therapistId],
     references: [users.id],
   }),
+  sessionNotes: many(sessionNotes),
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
@@ -254,6 +292,21 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   }),
   uploadedBy: one(users, {
     fields: [documents.uploadedById],
+    references: [users.id],
+  }),
+}));
+
+export const sessionNotesRelations = relations(sessionNotes, ({ one }) => ({
+  session: one(sessions, {
+    fields: [sessionNotes.sessionId],
+    references: [sessions.id],
+  }),
+  client: one(clients, {
+    fields: [sessionNotes.clientId],
+    references: [clients.id],
+  }),
+  therapist: one(users, {
+    fields: [sessionNotes.therapistId],
     references: [users.id],
   }),
 }));
@@ -293,6 +346,12 @@ export const insertDocumentSchema = createInsertSchema(documents).omit({
   createdAt: true,
 });
 
+export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -311,3 +370,6 @@ export type InsertNote = z.infer<typeof insertNoteSchema>;
 
 export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+
+export type SessionNote = typeof sessionNotes.$inferSelect;
+export type InsertSessionNote = z.infer<typeof insertSessionNoteSchema>;

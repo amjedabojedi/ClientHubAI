@@ -6,6 +6,7 @@ import {
   tasks, 
   notes, 
   documents,
+  sessionNotes,
   type Client, 
   type InsertClient,
   type User, 
@@ -17,7 +18,9 @@ import {
   type Note,
   type InsertNote,
   type Document,
-  type InsertDocument
+  type InsertDocument,
+  type SessionNote,
+  type InsertSessionNote
 } from "@shared/schema";
 
 // Database Connection and Operators
@@ -91,6 +94,14 @@ export interface IStorage {
   getDocumentsByClient(clientId: number): Promise<(Document & { uploadedBy: User })[]>;
   createDocument(document: InsertDocument): Promise<Document>;
   deleteDocument(id: number): Promise<void>;
+
+  // Session Notes Management
+  getSessionNotesBySession(sessionId: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session })[]>;
+  getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session })[]>;
+  createSessionNote(sessionNote: InsertSessionNote): Promise<SessionNote>;
+  updateSessionNote(id: number, sessionNote: Partial<InsertSessionNote>): Promise<SessionNote>;
+  deleteSessionNote(id: number): Promise<void>;
+  getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session }) | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -463,6 +474,96 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDocument(id: number): Promise<void> {
     await db.delete(documents).where(eq(documents.id, id));
+  }
+
+  // Session Notes methods
+  async getSessionNotesBySession(sessionId: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session })[]> {
+    const results = await db
+      .select({
+        sessionNote: sessionNotes,
+        therapist: users,
+        client: clients,
+        session: sessions
+      })
+      .from(sessionNotes)
+      .innerJoin(users, eq(sessionNotes.therapistId, users.id))
+      .innerJoin(clients, eq(sessionNotes.clientId, clients.id))
+      .innerJoin(sessions, eq(sessionNotes.sessionId, sessions.id))
+      .where(eq(sessionNotes.sessionId, sessionId))
+      .orderBy(desc(sessionNotes.createdAt));
+
+    return results.map(r => ({ 
+      ...r.sessionNote, 
+      therapist: r.therapist, 
+      client: r.client, 
+      session: r.session 
+    }));
+  }
+
+  async getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session })[]> {
+    const results = await db
+      .select({
+        sessionNote: sessionNotes,
+        therapist: users,
+        session: sessions
+      })
+      .from(sessionNotes)
+      .innerJoin(users, eq(sessionNotes.therapistId, users.id))
+      .innerJoin(sessions, eq(sessionNotes.sessionId, sessions.id))
+      .where(eq(sessionNotes.clientId, clientId))
+      .orderBy(desc(sessionNotes.createdAt));
+
+    return results.map(r => ({ 
+      ...r.sessionNote, 
+      therapist: r.therapist, 
+      session: r.session 
+    }));
+  }
+
+  async createSessionNote(sessionNote: InsertSessionNote): Promise<SessionNote> {
+    const [newSessionNote] = await db
+      .insert(sessionNotes)
+      .values(sessionNote)
+      .returning();
+    return newSessionNote;
+  }
+
+  async updateSessionNote(id: number, sessionNoteData: Partial<InsertSessionNote>): Promise<SessionNote> {
+    const [sessionNote] = await db
+      .update(sessionNotes)
+      .set({ ...sessionNoteData, updatedAt: new Date() })
+      .where(eq(sessionNotes.id, id))
+      .returning();
+    return sessionNote;
+  }
+
+  async deleteSessionNote(id: number): Promise<void> {
+    await db.delete(sessionNotes).where(eq(sessionNotes.id, id));
+  }
+
+  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session }) | undefined> {
+    const results = await db
+      .select({
+        sessionNote: sessionNotes,
+        therapist: users,
+        client: clients,
+        session: sessions
+      })
+      .from(sessionNotes)
+      .innerJoin(users, eq(sessionNotes.therapistId, users.id))
+      .innerJoin(clients, eq(sessionNotes.clientId, clients.id))
+      .innerJoin(sessions, eq(sessionNotes.sessionId, sessions.id))
+      .where(eq(sessionNotes.id, id));
+
+    if (results.length === 0) return undefined;
+    
+    const r = results[0];
+    return { 
+      ...r.sessionNote, 
+      therapist: r.therapist, 
+      client: r.client, 
+      session: r.session 
+    };
   }
 }
 

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema } from "@shared/schema";
+import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertSessionNoteSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -264,6 +264,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ count });
     } catch (error) {
       console.error("Error fetching pending tasks count:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Session Notes routes
+  app.get("/api/sessions/:sessionId/notes", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const sessionNotes = await storage.getSessionNotesBySession(sessionId);
+      res.json(sessionNotes);
+    } catch (error) {
+      console.error("Error fetching session notes:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/clients/:clientId/session-notes", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const sessionNotes = await storage.getSessionNotesByClient(clientId);
+      res.json(sessionNotes);
+    } catch (error) {
+      console.error("Error fetching client session notes:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/session-notes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const sessionNote = await storage.getSessionNote(id);
+      
+      if (!sessionNote) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+      
+      res.json(sessionNote);
+    } catch (error) {
+      console.error("Error fetching session note:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/session-notes", async (req, res) => {
+    try {
+      const validatedData = insertSessionNoteSchema.parse(req.body);
+      const sessionNote = await storage.createSessionNote(validatedData);
+      res.status(201).json(sessionNote);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid session note data", errors: error.errors });
+      }
+      console.error("Error creating session note:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/session-notes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertSessionNoteSchema.partial().parse(req.body);
+      const sessionNote = await storage.updateSessionNote(id, validatedData);
+      res.json(sessionNote);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid session note data", errors: error.errors });
+      }
+      console.error("Error updating session note:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/session-notes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteSessionNote(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting session note:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
