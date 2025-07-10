@@ -454,16 +454,27 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       return matchesCategory && matchesSearch;
     });
 
-    const handleSelect = async (entry: LibraryEntry) => {
+    // Mutation for incrementing usage count
+    const incrementUsageMutation = useMutation({
+      mutationFn: async (entryId: number) => {
+        const response = await apiRequest('POST', `/api/library/entries/${entryId}/increment-usage`);
+        return response.json();
+      },
+      onSuccess: () => {
+        // Invalidate library entries to refresh usage counts
+        queryClient.invalidateQueries({ queryKey: ['/api/library/entries'] });
+      },
+      onError: (error) => {
+        console.error('Failed to increment usage count:', error);
+      }
+    });
+
+    const handleSelect = (entry: LibraryEntry) => {
       onSelect(entry.content);
       setIsOpen(false);
       
       // Increment usage count
-      try {
-        await apiRequest('POST', `/api/library/entries/${entry.id}/increment-usage`);
-      } catch (error) {
-        console.error('Failed to increment usage count:', error);
-      }
+      incrementUsageMutation.mutate(entry.id);
     };
 
     return (
