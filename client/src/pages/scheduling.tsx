@@ -425,16 +425,34 @@ export default function SchedulingPage() {
                 ) : (
                   <div className="space-y-3">
                     {getTodaysSessions().slice(0, 5).map((session: Session) => (
-                      <div key={session.id} className="flex items-center justify-between">
-                        <div>
+                      <div key={session.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50">
+                        <div className="flex items-center justify-between mb-2">
                           <p className="font-medium text-sm">
                             {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
-                          <p className="text-xs text-slate-600">{session.therapist.fullName}</p>
+                          <Badge className={`${getStatusColor(session.status)} text-xs`} variant="secondary">
+                            {session.status}
+                          </Badge>
                         </div>
-                        <Badge className={getStatusColor(session.status)} variant="secondary">
-                          {session.status}
-                        </Badge>
+                        <div className="space-y-1">
+                          <p className="text-xs text-blue-600 font-medium">
+                            📋 {session.client?.fullName || 'Unknown Client'}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            👨‍⚕️ {session.therapist.fullName}
+                          </p>
+                          <p className="text-xs text-purple-600">
+                            🏥 {session.sessionType} • {session.duration}min
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full mt-2 text-xs h-6"
+                          onClick={() => window.location.href = `/clients/${session.clientId}`}
+                        >
+                          View Client
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -500,25 +518,54 @@ export default function SchedulingPage() {
                                 </p>
                                 <p className="text-xs text-slate-600">{session.duration}min</p>
                               </div>
-                              <div>
-                                <p className="font-medium">{session.client?.fullName || 'Unknown Client'}</p>
-                                <p className="text-sm text-slate-600">with {session.therapist.fullName}</p>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                  <div>
+                                    <p className="font-medium text-blue-600">
+                                      {session.client?.fullName || 'Unknown Client'}
+                                    </p>
+                                    <p className="text-sm text-slate-600">Client ID: {session.clientId}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-3 mt-1 ml-5">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <p className="text-sm text-slate-600">Therapist: {session.therapist.fullName}</p>
+                                </div>
                                 {session.room && (
-                                  <p className="text-xs text-slate-500">Room: {session.room}</p>
+                                  <div className="flex items-center space-x-3 mt-1 ml-5">
+                                    <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                                    <p className="text-xs text-slate-500">Room: {session.room}</p>
+                                  </div>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge className={getSessionTypeColor(session.sessionType)} variant="secondary">
-                                {session.sessionType}
-                              </Badge>
-                              <Badge className={getStatusColor(session.status)} variant="secondary">
-                                {session.status}
-                              </Badge>
+                            <div className="flex flex-col items-end space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Badge className={getSessionTypeColor(session.sessionType)} variant="secondary">
+                                  {session.sessionType}
+                                </Badge>
+                                <Badge className={getStatusColor(session.status)} variant="secondary">
+                                  {session.status}
+                                </Badge>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.location.href = `/clients/${session.clientId}`;
+                                }}
+                              >
+                                View Client Profile
+                              </Button>
                             </div>
                           </div>
                           {session.notes && (
-                            <p className="text-sm text-slate-600 mt-2">{session.notes}</p>
+                            <div className="mt-3 p-3 bg-slate-50 rounded-md">
+                              <p className="text-sm text-slate-700 font-medium">Session Notes:</p>
+                              <p className="text-sm text-slate-600 mt-1">{session.notes}</p>
+                            </div>
                           )}
                         </div>
                       ))}
