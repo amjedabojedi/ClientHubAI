@@ -5,12 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import ClientsPage from "@/pages/clients";
+import ClientDetailPage from "@/pages/client-detail";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={ClientsPage} />
       <Route path="/clients" component={ClientsPage} />
+      <Route path="/clients/:id" component={ClientDetailPage} />
       <Route component={NotFound} />
     </Switch>
   );

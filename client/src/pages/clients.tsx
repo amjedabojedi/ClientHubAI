@@ -1,15 +1,15 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import ClientHeader from "@/components/client-management/client-header";
 import ClientSidebar from "@/components/client-management/client-sidebar";
 import ClientTabs from "@/components/client-management/client-tabs";
 import SearchFilters from "@/components/client-management/search-filters";
 import ClientDataGrid from "@/components/client-management/client-data-grid";
-import ClientDetailModal from "@/components/client-management/client-detail-modal";
 import AddClientModal from "@/components/client-management/add-client-modal";
 import { Client } from "@/types/client";
 
 export default function ClientsPage() {
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [, setLocation] = useLocation();
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,11 +22,7 @@ export default function ClientsPage() {
   });
 
   const handleViewClient = (client: Client) => {
-    setSelectedClient(client);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedClient(null);
+    setLocation(`/clients/${client.id}`);
   };
 
   const handleOpenAddClientModal = () => {
@@ -88,13 +84,6 @@ export default function ClientsPage() {
           </div>
         </main>
       </div>
-
-      {selectedClient && (
-        <ClientDetailModal 
-          client={selectedClient} 
-          onClose={handleCloseModal}
-        />
-      )}
 
       <AddClientModal 
         isOpen={isAddClientModalOpen}
