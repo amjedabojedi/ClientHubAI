@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { Download, Upload, Plus } from "lucide-react";
 import ClientHeader from "@/components/client-management/client-header";
 import ClientSidebar from "@/components/client-management/client-sidebar";
 import ClientTabs from "@/components/client-management/client-tabs";
@@ -74,18 +75,18 @@ export default function ClientsPage() {
               </div>
               <div className="flex items-center space-x-3">
                 <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
-                  <i className="fas fa-download"></i>
+                  <Download className="w-4 h-4" />
                   <span>Export</span>
                 </button>
                 <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
-                  <i className="fas fa-upload"></i>
+                  <Upload className="w-4 h-4" />
                   <span>Import</span>
                 </button>
                 <button 
                   onClick={handleOpenAddClientModal}
                   className="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
                 >
-                  <i className="fas fa-plus"></i>
+                  <Plus className="w-4 h-4" />
                   <span>Add Client</span>
                 </button>
               </div>

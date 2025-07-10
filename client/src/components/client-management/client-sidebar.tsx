@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Users, CalendarCheck, ClipboardList, Lightbulb, TrendingUp } from "lucide-react";
 
 export default function ClientSidebar() {
   const { data: stats } = useQuery({
@@ -20,21 +21,21 @@ export default function ClientSidebar() {
                 <p className="text-sm text-slate-600">Total Clients</p>
                 <p className="text-xl font-bold text-primary">{stats?.totalClients?.toLocaleString() || '0'}</p>
               </div>
-              <i className="fas fa-users text-primary"></i>
+              <Users className="w-6 h-6 text-primary" />
             </div>
             <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
               <div>
                 <p className="text-sm text-slate-600">Active Today</p>
                 <p className="text-xl font-bold text-emerald-600">{stats?.activeClients?.toLocaleString() || '0'}</p>
               </div>
-              <i className="fas fa-calendar-check text-emerald-600"></i>
+              <CalendarCheck className="w-6 h-6 text-emerald-600" />
             </div>
             <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
               <div>
                 <p className="text-sm text-slate-600">Pending Tasks</p>
                 <p className="text-xl font-bold text-amber-600">{pendingTasks?.count?.toLocaleString() || '0'}</p>
               </div>
-              <i className="fas fa-tasks text-amber-600"></i>
+              <ClipboardList className="w-6 h-6 text-amber-600" />
             </div>
           </div>
         </div>
@@ -44,7 +45,7 @@ export default function ClientSidebar() {
           <div className="space-y-3">
             <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
               <div className="flex items-start space-x-2">
-                <i className="fas fa-lightbulb text-purple-500 mt-1"></i>
+                <Lightbulb className="w-4 h-4 text-purple-500 mt-1" />
                 <div>
                   <p className="text-sm font-medium text-slate-900">Risk Assessment Alert</p>
                   <p className="text-xs text-slate-600 mt-1">3 clients may need priority follow-up</p>
@@ -53,7 +54,7 @@ export default function ClientSidebar() {
             </div>
             <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg">
               <div className="flex items-start space-x-2">
-                <i className="fas fa-chart-line text-blue-500 mt-1"></i>
+                <TrendingUp className="w-4 h-4 text-blue-500 mt-1" />
                 <div>
                   <p className="text-sm font-medium text-slate-900">Progress Insights</p>
                   <p className="text-xs text-slate-600 mt-1">85% improvement rate this month</p>
