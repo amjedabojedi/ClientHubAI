@@ -197,3 +197,12 @@ Advanced appointment management with multi-view calendar system:
 - **Predictable Behavior**: Filter now works identically from any starting category tab
 - **User Experience**: Eliminated confusion where different tabs showed different available categories
 - **Complete Coverage**: All main therapeutic categories (Session Focus, Symptoms, Short-term Goals, Interventions, Progress) always visible in connection dialog
+
+### Library-Session Notes Integration (January 2025)
+- **Direct Field Integration**: Added Library picker buttons (📚) to all clinical documentation fields in session notes
+- **Category-Specific Content**: Each field shows only relevant library entries (Session Focus → Category 1, Symptoms → Category 2, etc.)
+- **Seamless Content Insertion**: Click library entries to auto-populate session note fields with professional clinical content
+- **Smart Content Combination**: New content appends to existing text instead of overwriting for flexible documentation
+- **Usage Analytics**: Automatic tracking of which library entries are most frequently used in session documentation
+- **Search Integration**: Built-in search within library picker for quick content discovery
+- **Professional Workflow**: Enables rapid session documentation using pre-written, clinically-appropriate content templates

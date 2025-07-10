@@ -139,11 +139,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Fetch session notes for the client
   const { data: sessionNotes = [], isLoading } = useQuery({
-    queryKey: ['/api/clients', clientId, 'session-notes'],
-    queryFn: async () => {
-      const response = await apiRequest('GET', `/api/clients/${clientId}/session-notes`);
-      return await response.json();
-    },
+    queryKey: [`/api/clients/${clientId}/session-notes`],
   });
 
   // Create session note mutation
@@ -153,7 +149,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
       setIsAddNoteOpen(false);
       setEditingNote(null);
       resetFormForNewNote();
@@ -171,7 +167,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
       setIsAddNoteOpen(false);
       setEditingNote(null);
       resetFormForNewNote();
@@ -189,7 +185,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       return response.status === 204 ? { success: true } : await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
       toast({ title: "Session note deleted successfully" });
     },
     onError: () => {
@@ -223,7 +219,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     onSuccess: (data) => {
       setAiGeneratedContent(data.content);
       setShowAiContent(true);
-      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
       toast({ title: "AI content regenerated successfully" });
     },
     onError: () => {
