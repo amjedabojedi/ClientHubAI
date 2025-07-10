@@ -28,9 +28,8 @@ interface LibraryEntryWithDetails extends LibraryEntry {
 }
 
 export default function LibraryPage() {
+  const [activeTab, setActiveTab] = useState("session-focus");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LibraryCategoryWithChildren | null>(null);
@@ -42,7 +41,19 @@ export default function LibraryPage() {
   const queryClient = useQueryClient();
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Fetch categories
+  // Main category mappings
+  const mainCategories = {
+    "session-focus": { id: 1, name: "Session Focus", description: "Primary focus areas for therapy sessions" },
+    "symptoms": { id: 2, name: "Symptoms", description: "Observable symptoms and presentations" },
+    "short-term-goals": { id: 3, name: "Short-term Goals", description: "Immediate therapeutic objectives" },
+    "interventions": { id: 4, name: "Interventions", description: "Therapeutic techniques and approaches" },
+    "progress": { id: 5, name: "Progress", description: "Progress indicators and measurements" }
+  };
+
+  // Get current category ID from active tab
+  const currentCategoryId = mainCategories[activeTab as keyof typeof mainCategories]?.id;
+
+  // Fetch all categories (still needed for form dropdowns)
   const { data: categories = [], isLoading: loadingCategories } = useQuery<LibraryCategoryWithChildren[]>({
     queryKey: ["/api/library/categories"],
     queryFn: async () => {
@@ -52,11 +63,11 @@ export default function LibraryPage() {
     },
   });
 
-  // Fetch entries for selected category
+  // Fetch entries for current active tab category
   const { data: entries = [], isLoading: loadingEntries } = useQuery<LibraryEntryWithDetails[]>({
-    queryKey: ["/api/library/entries", selectedCategory],
+    queryKey: ["/api/library/entries", currentCategoryId],
     queryFn: async () => {
-      const url = selectedCategory ? `/api/library/entries?categoryId=${selectedCategory}` : "/api/library/entries";
+      const url = currentCategoryId ? `/api/library/entries?categoryId=${currentCategoryId}` : "/api/library/entries";
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch entries");
       return response.json();
@@ -65,11 +76,11 @@ export default function LibraryPage() {
 
   // Search entries
   const { data: searchResults = [], isLoading: searching } = useQuery<LibraryEntryWithDetails[]>({
-    queryKey: ["/api/library/search", debouncedSearchQuery, selectedCategory],
+    queryKey: ["/api/library/search", debouncedSearchQuery, currentCategoryId],
     queryFn: async () => {
       if (!debouncedSearchQuery.trim()) return [];
-      const url = selectedCategory 
-        ? `/api/library/search?q=${encodeURIComponent(debouncedSearchQuery)}&categoryId=${selectedCategory}`
+      const url = currentCategoryId 
+        ? `/api/library/search?q=${encodeURIComponent(debouncedSearchQuery)}&categoryId=${currentCategoryId}`
         : `/api/library/search?q=${encodeURIComponent(debouncedSearchQuery)}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to search entries");
@@ -174,17 +185,7 @@ export default function LibraryPage() {
     },
   });
 
-  // Helper functions
-  const toggleCategoryExpansion = (categoryId: number) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId);
-    } else {
-      newExpanded.add(categoryId);
-    }
-    setExpandedCategories(newExpanded);
-  };
-
+  // Helper function
   const getAllCategories = (cats: LibraryCategoryWithChildren[], level = 0): Array<LibraryCategoryWithChildren & { level: number }> => {
     let result: Array<LibraryCategoryWithChildren & { level: number }> = [];
     for (const cat of cats) {
@@ -194,66 +195,6 @@ export default function LibraryPage() {
       }
     }
     return result;
-  };
-
-  const renderCategoryTree = (cats: LibraryCategoryWithChildren[], level = 0) => {
-    return cats.map((category) => (
-      <div key={category.id} className={`ml-${level * 4}`}>
-        <div 
-          className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
-            selectedCategory === category.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-          }`}
-          onClick={() => setSelectedCategory(category.id)}
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCategoryExpansion(category.id);
-            }}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-          >
-            {category.children && category.children.length > 0 ? (
-              expandedCategories.has(category.id) ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )
-            ) : (
-              <div className="w-4 h-4" />
-            )}
-          </button>
-          <FolderOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span className="flex-1 text-sm font-medium">{category.name}</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingCategory(category);
-              }}
-            >
-              <Edit className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteCategoryMutation.mutate(category.id);
-              }}
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-        {category.children && expandedCategories.has(category.id) && (
-          <div className="ml-4">
-            {renderCategoryTree(category.children, level + 1)}
-          </div>
-        )}
-      </div>
-    ));
   };
 
   const displayedEntries = searchQuery.trim() ? searchResults : entries;
@@ -298,79 +239,49 @@ export default function LibraryPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Categories Sidebar */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Categories</CardTitle>
-                  <Button
-                    size="sm"
-                    onClick={() => setShowAddCategoryDialog(true)}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Category
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[600px]">
-                  <div className="space-y-1">
-                    <div
-                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                        selectedCategory === null ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                      }`}
-                      onClick={() => setSelectedCategory(null)}
-                    >
-                      <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                      <span className="text-sm font-medium">All Entries</span>
-                    </div>
-                    {loadingCategories ? (
-                      <div className="p-4 text-center text-gray-500">Loading categories...</div>
-                    ) : (
-                      renderCategoryTree(categories)
-                    )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Tab-based Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="session-focus">Session Focus</TabsTrigger>
+            <TabsTrigger value="symptoms">Symptoms</TabsTrigger>
+            <TabsTrigger value="short-term-goals">Short-term Goals</TabsTrigger>
+            <TabsTrigger value="interventions">Interventions</TabsTrigger>
+            <TabsTrigger value="progress">Progress</TabsTrigger>
+          </TabsList>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    {selectedCategory ? 
-                      categories.find(c => c.id === selectedCategory)?.name || 'Category' : 
-                      'All Entries'
-                    }
-                  </CardTitle>
-                  <Button
-                    size="sm"
-                    onClick={() => setShowAddEntryDialog(true)}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Entry
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 mt-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search entries..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
+          {Object.entries(mainCategories).map(([tabKey, category]) => (
+            <TabsContent key={tabKey} value={tabKey} className="mt-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{category.name}</CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {category.description}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowAddEntryDialog(true)}
+                      className="flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Entry
+                    </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
+                  <div className="flex items-center gap-2 mt-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        placeholder={`Search ${category.name.toLowerCase()}...`}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
                 <ScrollArea className="h-[600px]">
                   {loadingEntries || searching ? (
                     <div className="p-4 text-center text-gray-500">Loading entries...</div>
@@ -491,10 +402,11 @@ export default function LibraryPage() {
                     </div>
                   )}
                 </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+        </Tabs>
 
         {/* Add Category Dialog */}
         <Dialog open={showAddCategoryDialog} onOpenChange={setShowAddCategoryDialog}>
@@ -536,7 +448,7 @@ export default function LibraryPage() {
             <EntryForm
               onSubmit={(data) => createEntryMutation.mutate(data as any)}
               categories={getAllCategories(categories)}
-              selectedCategoryId={selectedCategory}
+              selectedCategoryId={currentCategoryId}
               isLoading={createEntryMutation.isPending}
               allEntries={entries}
             />
