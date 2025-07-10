@@ -5,10 +5,12 @@ import ClientTabs from "@/components/client-management/client-tabs";
 import SearchFilters from "@/components/client-management/search-filters";
 import ClientDataGrid from "@/components/client-management/client-data-grid";
 import ClientDetailModal from "@/components/client-management/client-detail-modal";
+import AddClientModal from "@/components/client-management/add-client-modal";
 import { Client } from "@/types/client";
 
 export default function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
@@ -25,6 +27,14 @@ export default function ClientsPage() {
 
   const handleCloseModal = () => {
     setSelectedClient(null);
+  };
+
+  const handleOpenAddClientModal = () => {
+    setIsAddClientModalOpen(true);
+  };
+
+  const handleCloseAddClientModal = () => {
+    setIsAddClientModalOpen(false);
   };
 
   return (
@@ -50,7 +60,10 @@ export default function ClientsPage() {
                   <i className="fas fa-upload"></i>
                   <span>Import</span>
                 </button>
-                <button className="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors">
+                <button 
+                  onClick={handleOpenAddClientModal}
+                  className="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
+                >
                   <i className="fas fa-plus"></i>
                   <span>Add Client</span>
                 </button>
@@ -82,6 +95,11 @@ export default function ClientsPage() {
           onClose={handleCloseModal}
         />
       )}
+
+      <AddClientModal 
+        isOpen={isAddClientModalOpen}
+        onClose={handleCloseAddClientModal}
+      />
     </div>
   );
 }
