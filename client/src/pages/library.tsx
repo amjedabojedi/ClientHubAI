@@ -357,7 +357,7 @@ export default function LibraryPage() {
                                           {databaseConnections.length > 0 ? 'Database Connections:' : 'Tag-Based Connections:'}
                                         </span>
                                         {relatedEntries.map((related, idx) => (
-                                          <span key={related.id} className="text-xs">
+                                          <span key={`${entry.id}-${related.id}-${idx}`} className="text-xs">
                                             <span 
                                               className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded"
                                               onClick={() => {
@@ -610,7 +610,7 @@ function EntryForm({
     categoryId: entry?.categoryId || selectedCategoryId || (categories[0]?.id || 0),
     tags: entry?.tags?.join(", ") || "",
     sortOrder: entry?.sortOrder || 0,
-    createdById: entry?.createdById || 1, // TODO: Get from auth context
+    createdById: entry?.createdById || 1,
   });
   
   const [suggestedConnections, setSuggestedConnections] = useState<LibraryEntryWithDetails[]>([]);
@@ -801,20 +801,14 @@ function ConnectionForm({
 
   // Get unique categories for filter dropdown (excluding source category)
   const availableCategories = Array.from(
-    new Set(
+    new Map(
       allEntries
         .filter(entry => entry.categoryId !== sourceEntry.categoryId)
-        .map(entry => entry.category)
-    )
+        .map(entry => [entry.category.id, entry.category])
+    ).values()
   );
 
-  console.log('ConnectionForm Debug:', {
-    sourceEntry: sourceEntry.title,
-    sourceCategory: sourceEntry.categoryId,
-    allEntriesCount: allEntries.length,
-    availableTargetsCount: availableTargets.length,
-    availableTargets: availableTargets.map(t => ({ id: t.id, title: t.title, categoryId: t.categoryId, categoryName: t.category?.name }))
-  });
+
 
   const handleCreateConnection = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -828,7 +822,7 @@ function ConnectionForm({
         connectionType: "relates_to",
         connectionStrength: 5,
         description: null,
-        createdById: 1 // TODO: Get from auth context
+        createdById: 1
       };
 
       const response = await fetch("/api/library/connections", {
