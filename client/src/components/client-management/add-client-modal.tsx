@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -95,7 +96,6 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
   });
 
   const onSubmit = (data: ClientFormData) => {
-    // Convert string IDs to numbers where needed
     const processedData = {
       ...data,
       assignedTherapistId: data.assignedTherapistId || undefined,
@@ -117,10 +117,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-900">Personal Information</h3>
+            <Tabs defaultValue="personal" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="personal">Personal</TabsTrigger>
+                <TabsTrigger value="clinical">Clinical</TabsTrigger>
+                <TabsTrigger value="contact">Contact</TabsTrigger>
+                <TabsTrigger value="referral">Referral</TabsTrigger>
+                <TabsTrigger value="insurance">Insurance</TabsTrigger>
+              </TabsList>
+
+              {/* Personal Information Tab */}
+              <TabsContent value="personal" className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Personal Information</h3>
                 
                 <FormField
                   control={form.control}
@@ -136,19 +144,45 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="dateOfBirth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date of Birth</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="date" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="dateOfBirth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date of Birth</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gender</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="non_binary">Non-binary</SelectItem>
+                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -180,168 +214,36 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gender</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                            <SelectItem value="non_binary">Non-binary</SelectItem>
-                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="preferredLanguage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Preferred Language</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="English">English</SelectItem>
-                            <SelectItem value="Spanish">Spanish</SelectItem>
-                            <SelectItem value="French">French</SelectItem>
-                            <SelectItem value="Chinese">Chinese</SelectItem>
-                            <SelectItem value="Korean">Korean</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Address */}
                 <FormField
                   control={form.control}
-                  name="address"
+                  name="preferredLanguage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Street address" />
-                      </FormControl>
+                      <FormLabel>Preferred Language</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="English">English</SelectItem>
+                          <SelectItem value="Spanish">Spanish</SelectItem>
+                          <SelectItem value="French">French</SelectItem>
+                          <SelectItem value="Chinese">Chinese</SelectItem>
+                          <SelectItem value="Korean">Korean</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </TabsContent>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="City" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="State" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="zipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="ZIP" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Emergency Contact */}
-                <h4 className="text-md font-medium text-slate-900 mt-6">Emergency Contact</h4>
-                
-                <FormField
-                  control={form.control}
-                  name="emergencyContactName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Emergency contact name" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="emergencyContactPhone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact Phone</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="555-0123" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="emergencyContactRelationship"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Relationship</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g., Spouse, Parent" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Clinical Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-900">Clinical Information</h3>
+              {/* Clinical Information Tab */}
+              <TabsContent value="clinical" className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Clinical Information</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -457,7 +359,6 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   )}
                 />
 
-                {/* Portal Access */}
                 <div className="space-y-2">
                   <FormField
                     control={form.control}
@@ -493,9 +394,120 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     />
                   )}
                 </div>
+              </TabsContent>
 
-                {/* Referral Information */}
-                <h4 className="text-md font-medium text-slate-900 mt-6">Referral Information</h4>
+              {/* Contact Information Tab */}
+              <TabsContent value="contact" className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact & Address</h3>
+                
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Street address" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="City" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="State" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="zipCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="ZIP" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <h4 className="text-md font-medium text-slate-900 mt-6">Emergency Contact</h4>
+                
+                <FormField
+                  control={form.control}
+                  name="emergencyContactName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Emergency contact name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="emergencyContactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Contact Phone</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="555-0123" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="emergencyContactRelationship"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Relationship</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., Spouse, Parent" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Referral Information Tab */}
+              <TabsContent value="referral" className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Referral Information</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -555,8 +567,24 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   )}
                 />
 
-                {/* Insurance Information */}
-                <h4 className="text-md font-medium text-slate-900 mt-6">Insurance Information</h4>
+                <FormField
+                  control={form.control}
+                  name="referralNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Referral Notes</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} placeholder="Additional referral information..." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+
+              {/* Insurance Information Tab */}
+              <TabsContent value="insurance" className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Insurance Information</h3>
                 
                 <FormField
                   control={form.control}
@@ -589,6 +617,22 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
 
                   <FormField
                     control={form.control}
+                    name="groupNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Group Number</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Group number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
                     name="copayAmount"
                     render={({ field }) => (
                       <FormItem>
@@ -600,9 +644,37 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="deductible"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deductible</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="500.00" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-              </div>
-            </div>
+
+                <FormField
+                  control={form.control}
+                  name="insurancePhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Insurance Phone</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="1-800-123-4567" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
 
             <div className="flex justify-end space-x-4 pt-6 border-t">
               <Button type="button" variant="outline" onClick={handleClose}>
