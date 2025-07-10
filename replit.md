@@ -41,6 +41,19 @@ The core feature providing comprehensive client lifecycle management:
 - **Stage Management**: Intake, assessment, and psychotherapy phases
 - **Search & Filtering**: Advanced filtering by multiple criteria
 - **Bulk Operations**: Mass actions on multiple client records
+- **Direct Scheduling**: Schedule button on each client for immediate appointment creation
+
+### Scheduling & Calendar System
+Advanced appointment management with multi-view calendar system:
+- **Monthly Calendar View**: Full calendar grid with session indicators and click-to-edit
+- **Day/Week Views**: Detailed timeline views with session blocks
+- **Client Integration**: Direct links between sessions and client profiles
+- **Search & Filtering**: Find sessions by client name or therapist
+- **Session Management**: Create, edit, reschedule, and cancel appointments
+- **Role-Based Access**: Therapist-specific views and admin oversight
+- **Quick Actions**: Schedule additional sessions, view client profiles
+- **Visual Indicators**: Color-coded session types and status badges
+- **Avatar Integration**: Client initials and profile pictures in session cards
 
 ### Data Models
 - **Clients**: Full client profiles with demographics, contact info, and clinical data

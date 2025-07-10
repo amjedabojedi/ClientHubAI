@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Edit, Trash2, CalendarDays } from "lucide-react";
 import Pagination from "./pagination";
 import { Client } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -294,6 +294,15 @@ export default function ClientDataGrid({
                           title="Edit Client"
                         >
                           <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => window.location.href = `/scheduling?clientId=${client.id}`}
+                          className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50"
+                          title="Schedule Session"
+                        >
+                          <CalendarDays className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
