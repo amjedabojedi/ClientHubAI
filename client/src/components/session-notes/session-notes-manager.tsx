@@ -10,9 +10,11 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 
 // Icons
-import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield, Sparkles, Wand2, RefreshCw, Download, Copy } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -59,6 +61,17 @@ interface SessionNote {
   riskLevel?: 'low' | 'medium' | 'high';
   confidentialityLevel: 'standard' | 'restricted' | 'highly_confidential';
   isPrivate: boolean;
+  
+  // AI & content management
+  generatedContent?: string;
+  draftContent?: string;
+  finalContent?: string;
+  isDraft: boolean;
+  isFinalized: boolean;
+  aiEnabled: boolean;
+  customAiPrompt?: string;
+  aiProcessingStatus?: 'idle' | 'processing' | 'completed' | 'error';
+  
   createdAt: string;
   updatedAt: string;
   therapist: {
@@ -85,6 +98,8 @@ const sessionNoteFormSchema = insertSessionNoteSchema.extend({
   content: z.string().min(10, "Note content must be at least 10 characters"),
   moodBefore: z.number().min(1).max(10).optional(),
   moodAfter: z.number().min(1).max(10).optional(),
+  aiEnabled: z.boolean().default(false),
+  customAiPrompt: z.string().optional(),
 });
 
 type SessionNoteFormData = z.infer<typeof sessionNoteFormSchema>;
@@ -100,6 +115,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
+  const [aiGeneratedContent, setAiGeneratedContent] = useState<string>('');
+  const [showAiContent, setShowAiContent] = useState(false);
+  const [smartSuggestions, setSmartSuggestions] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -148,6 +166,65 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
   });
 
+  // AI generation mutations
+  const generateSuggestionsMutation = useMutation({
+    mutationFn: ({ field, context }: { field: string; context: string }) =>
+      apiRequest('POST', '/api/ai/generate-suggestions', { field, context }),
+    onSuccess: (data, variables) => {
+      setSmartSuggestions(prev => ({
+        ...prev,
+        [variables.field]: data.suggestions
+      }));
+    },
+    onError: () => {
+      toast({ title: "Error generating AI suggestions", variant: "destructive" });
+    },
+  });
+
+  const regenerateContentMutation = useMutation({
+    mutationFn: ({ sessionNoteId, customPrompt }: { sessionNoteId: number; customPrompt?: string }) =>
+      apiRequest('POST', `/api/ai/regenerate-content/${sessionNoteId}`, { customPrompt }),
+    onSuccess: (data) => {
+      setAiGeneratedContent(data.content);
+      setShowAiContent(true);
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
+      toast({ title: "AI content regenerated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error regenerating AI content", variant: "destructive" });
+    },
+  });
+
+  const generateClinicalReportMutation = useMutation({
+    mutationFn: (sessionNoteData: any) =>
+      apiRequest('POST', '/api/ai/generate-clinical-report', sessionNoteData),
+    onSuccess: (data) => {
+      setAiGeneratedContent(data.report);
+      setShowAiContent(true);
+      toast({ title: "Clinical report generated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error generating clinical report", variant: "destructive" });
+    },
+  });
+
+  // AI Helper Functions
+  const generateSuggestions = (field: string, context: string) => {
+    if (!context.trim()) return;
+    generateSuggestionsMutation.mutate({ field, context });
+  };
+
+  const insertSuggestion = (field: string, suggestion: string, form: any) => {
+    const currentValue = form.getValues()[field] || '';
+    const newValue = currentValue ? `${currentValue}\n\n${suggestion}` : suggestion;
+    form.setValue(field, newValue);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Content copied to clipboard" });
+  };
+
   // Form setup
   const form = useForm<SessionNoteFormData>({
     resolver: zodResolver(sessionNoteFormSchema),
@@ -160,6 +237,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       isPrivate: false,
       followUpNeeded: false,
       riskLevel: 'low',
+      aiEnabled: false,
     },
   });
 
@@ -175,6 +253,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       isPrivate: false,
       followUpNeeded: false,
       riskLevel: 'low',
+      aiEnabled: false,
     });
   };
 
@@ -186,16 +265,23 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       therapistId: note.therapistId,
       noteType: note.noteType,
       content: note.content,
+      sessionFocus: note.sessionFocus,
+      symptoms: note.symptoms,
+      shortTermGoals: note.shortTermGoals,
+      intervention: note.intervention,
+      progress: note.progress,
+      remarks: note.remarks,
+      recommendations: note.recommendations,
       moodBefore: note.moodBefore,
       moodAfter: note.moodAfter,
-      goals: note.goals,
-      interventions: note.interventions,
       assessments: note.assessments,
       homework: note.homework,
       followUpNeeded: note.followUpNeeded,
       riskLevel: note.riskLevel,
       confidentialityLevel: note.confidentialityLevel,
       isPrivate: note.isPrivate,
+      aiEnabled: note.aiEnabled,
+      customAiPrompt: note.customAiPrompt,
     });
   };
 
@@ -337,8 +423,27 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         Private
                       </Badge>
                     )}
+                    {note.aiEnabled && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        AI Enhanced
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {note.aiEnabled && note.generatedContent && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAiGeneratedContent(note.generatedContent);
+                          setShowAiContent(true);
+                        }}
+                        title="View AI Generated Content"
+                      >
+                        <Brain className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -457,6 +562,39 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   )}
                 </div>
 
+                {/* AI Content Preview */}
+                {note.aiEnabled && note.generatedContent && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-blue-600" />
+                        AI Generated Summary
+                      </h4>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(note.generatedContent)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                        {note.aiProcessingStatus === 'processing' && (
+                          <div className="flex items-center gap-1">
+                            <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
+                            <span className="text-xs text-blue-600">Processing...</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-sm leading-relaxed text-blue-900 dark:text-blue-100 line-clamp-3">
+                        {note.generatedContent}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Follow-up indicator */}
                 {note.followUpNeeded && (
                   <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
@@ -561,9 +699,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="clinical">Clinical Documentation</TabsTrigger>
                   <TabsTrigger value="tracking">Assessment & Tracking</TabsTrigger>
+                  <TabsTrigger value="ai-features">
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    AI Features
+                  </TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -575,13 +717,44 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       name="sessionFocus"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Session Focus</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            Session Focus
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => generateSuggestions('sessionFocus', field.value || '')}
+                              disabled={generateSuggestionsMutation.isPending}
+                            >
+                              <Wand2 className="h-3 w-3 mr-1" />
+                              Suggestions
+                            </Button>
+                          </FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Main topics or issues addressed during the session..."
                               {...field}
                             />
                           </FormControl>
+                          {smartSuggestions.sessionFocus && (
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">AI Suggestions:</Label>
+                              <div className="flex flex-wrap gap-1">
+                                {smartSuggestions.sessionFocus.map((suggestion, idx) => (
+                                  <Button
+                                    key={idx}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-6"
+                                    onClick={() => insertSuggestion('sessionFocus', suggestion, form)}
+                                  >
+                                    {suggestion.substring(0, 50)}...
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -592,13 +765,44 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       name="symptoms"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Symptoms</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            Symptoms
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => generateSuggestions('symptoms', field.value || '')}
+                              disabled={generateSuggestionsMutation.isPending}
+                            >
+                              <Wand2 className="h-3 w-3 mr-1" />
+                              Suggestions
+                            </Button>
+                          </FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Observed or reported symptoms..."
                               {...field}
                             />
                           </FormControl>
+                          {smartSuggestions.symptoms && (
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">AI Suggestions:</Label>
+                              <div className="flex flex-wrap gap-1">
+                                {smartSuggestions.symptoms.map((suggestion, idx) => (
+                                  <Button
+                                    key={idx}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-6"
+                                    onClick={() => insertSuggestion('symptoms', suggestion, form)}
+                                  >
+                                    {suggestion.substring(0, 50)}...
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -628,13 +832,44 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       name="intervention"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Intervention</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            Intervention
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => generateSuggestions('intervention', field.value || '')}
+                              disabled={generateSuggestionsMutation.isPending}
+                            >
+                              <Wand2 className="h-3 w-3 mr-1" />
+                              Suggestions
+                            </Button>
+                          </FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Therapeutic techniques/interventions used..."
                               {...field}
                             />
                           </FormControl>
+                          {smartSuggestions.intervention && (
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">AI Suggestions:</Label>
+                              <div className="flex flex-wrap gap-1">
+                                {smartSuggestions.intervention.map((suggestion, idx) => (
+                                  <Button
+                                    key={idx}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-6"
+                                    onClick={() => insertSuggestion('intervention', suggestion, form)}
+                                  >
+                                    {suggestion.substring(0, 50)}...
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -775,6 +1010,161 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         </FormItem>
                       )}
                     />
+                  </div>
+                </TabsContent>
+
+                {/* AI Features Tab */}
+                <TabsContent value="ai-features" className="space-y-6">
+                  <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+                    <Sparkles className="h-6 w-6 text-blue-600" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">AI Session Note Features</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Enable AI-powered content generation, smart suggestions, and clinical language optimization
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Toggle */}
+                  <FormField
+                    control={form.control}
+                    name="aiEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">
+                            Enable AI Generation
+                          </FormLabel>
+                          <p className="text-sm text-muted-foreground">
+                            Automatically generate professional clinical summaries after form submission
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Custom AI Prompt */}
+                  {form.watch('aiEnabled') && (
+                    <FormField
+                      control={form.control}
+                      name="customAiPrompt"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Custom AI Instructions</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Focus on trauma-related triggers and coping mechanisms. Use concise clinical language. Emphasize patient progress and next steps."
+                              className="min-h-[100px]"
+                              {...field}
+                            />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground">
+                            Customize how AI structures your notes: tone, focus areas, clinical approach, etc.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* AI Content Management */}
+                  {showAiContent && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-base font-semibold">AI Generated Content</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(aiGeneratedContent)}
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => form.setValue('content', aiGeneratedContent)}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Use Content
+                          </Button>
+                        </div>
+                      </div>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="prose prose-sm max-w-none">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                              {aiGeneratedContent}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* AI Actions */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const formData = form.getValues();
+                        generateClinicalReportMutation.mutate(formData);
+                      }}
+                      disabled={generateClinicalReportMutation.isPending}
+                      className="h-auto p-4 flex flex-col items-start space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-4 w-4" />
+                        <span className="font-medium">Generate Clinical Report</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-left">
+                        Create professional third-person clinical narrative
+                      </p>
+                      {generateClinicalReportMutation.isPending && (
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          <span className="text-xs">Generating...</span>
+                        </div>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const allFieldsContext = Object.entries(form.getValues())
+                          .filter(([key, value]) => value && typeof value === 'string')
+                          .map(([key, value]) => `${key}: ${value}`)
+                          .join('\n');
+                        generateSuggestions('comprehensive', allFieldsContext);
+                      }}
+                      disabled={generateSuggestionsMutation.isPending}
+                      className="h-auto p-4 flex flex-col items-start space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Target className="h-4 w-4" />
+                        <span className="font-medium">Smart Suggestions</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-left">
+                        Get AI recommendations for all clinical fields
+                      </p>
+                      {generateSuggestionsMutation.isPending && (
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          <span className="text-xs">Analyzing...</span>
+                        </div>
+                      )}
+                    </Button>
                   </div>
                 </TabsContent>
 

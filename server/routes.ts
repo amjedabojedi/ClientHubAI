@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertSessionNoteSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -311,6 +312,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertSessionNoteSchema.parse(req.body);
       const sessionNote = await storage.createSessionNote(validatedData);
+      
+      // Generate AI content if enabled
+      if (validatedData.aiEnabled && process.env.OPENAI_API_KEY) {
+        try {
+          // Update status to processing
+          await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'processing' });
+          
+          const aiContent = await generateSessionNoteSummary({
+            sessionFocus: validatedData.sessionFocus,
+            symptoms: validatedData.symptoms,
+            shortTermGoals: validatedData.shortTermGoals,
+            intervention: validatedData.intervention,
+            progress: validatedData.progress,
+            remarks: validatedData.remarks,
+            recommendations: validatedData.recommendations,
+            moodBefore: validatedData.moodBefore,
+            moodAfter: validatedData.moodAfter,
+            customPrompt: validatedData.customAiPrompt,
+            sessionType: 'therapy session'
+          });
+          
+          // Update with generated content
+          await storage.updateSessionNote(sessionNote.id, {
+            generatedContent: aiContent.generatedContent,
+            draftContent: aiContent.generatedContent,
+            aiProcessingStatus: 'completed'
+          });
+        } catch (aiError) {
+          console.error('AI generation failed:', aiError);
+          await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'error' });
+        }
+      }
+      
       res.status(201).json(sessionNote);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -344,6 +378,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting session note:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // AI-powered routes
+  app.post("/api/ai/generate-suggestions", async (req, res) => {
+    try {
+      const { field, context } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: "AI features not available" });
+      }
+      
+      const suggestions = await generateSmartSuggestions(field, context);
+      res.json({ suggestions });
+    } catch (error) {
+      console.error('Smart suggestions error:', error);
+      res.status(500).json({ error: "Failed to generate suggestions" });
+    }
+  });
+
+  app.post("/api/ai/generate-clinical-report", async (req, res) => {
+    try {
+      const sessionNoteData = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: "AI features not available" });
+      }
+      
+      const report = await generateClinicalReport(sessionNoteData);
+      res.json({ report });
+    } catch (error) {
+      console.error('Clinical report generation error:', error);
+      res.status(500).json({ error: "Failed to generate clinical report" });
+    }
+  });
+
+  app.post("/api/ai/regenerate-content/:sessionNoteId", async (req, res) => {
+    try {
+      const sessionNoteId = parseInt(req.params.sessionNoteId);
+      const { customPrompt } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: "AI features not available" });
+      }
+      
+      const sessionNote = await storage.getSessionNote(sessionNoteId);
+      if (!sessionNote) {
+        return res.status(404).json({ error: "Session note not found" });
+      }
+      
+      // Update status to processing
+      await storage.updateSessionNote(sessionNoteId, { aiProcessingStatus: 'processing' });
+      
+      const aiContent = await generateSessionNoteSummary({
+        sessionFocus: sessionNote.sessionFocus,
+        symptoms: sessionNote.symptoms,
+        shortTermGoals: sessionNote.shortTermGoals,
+        intervention: sessionNote.intervention,
+        progress: sessionNote.progress,
+        remarks: sessionNote.remarks,
+        recommendations: sessionNote.recommendations,
+        moodBefore: sessionNote.moodBefore,
+        moodAfter: sessionNote.moodAfter,
+        customPrompt: customPrompt || sessionNote.customAiPrompt,
+        sessionType: sessionNote.session?.sessionType || 'therapy session'
+      });
+      
+      // Update with regenerated content
+      const updatedNote = await storage.updateSessionNote(sessionNoteId, {
+        generatedContent: aiContent.generatedContent,
+        draftContent: aiContent.generatedContent,
+        customAiPrompt: customPrompt || sessionNote.customAiPrompt,
+        aiProcessingStatus: 'completed'
+      });
+      
+      res.json({ content: aiContent.generatedContent, sessionNote: updatedNote });
+    } catch (error) {
+      console.error('AI regeneration error:', error);
+      await storage.updateSessionNote(parseInt(req.params.sessionNoteId), { aiProcessingStatus: 'error' });
+      res.status(500).json({ error: "Failed to regenerate AI content" });
     }
   });
 

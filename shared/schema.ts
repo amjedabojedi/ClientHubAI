@@ -224,6 +224,9 @@ export const sessionNotes = pgTable("session_notes", {
   finalContent: text("final_content"),
   isDraft: boolean("is_draft").notNull().default(true),
   isFinalized: boolean("is_finalized").notNull().default(false),
+  aiEnabled: boolean("ai_enabled").notNull().default(false),
+  customAiPrompt: text("custom_ai_prompt"),
+  aiProcessingStatus: varchar("ai_processing_status", { length: 50 }).default('idle'), // idle, processing, completed, error
   
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
