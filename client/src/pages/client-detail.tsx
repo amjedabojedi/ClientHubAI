@@ -26,7 +26,12 @@ import {
   Download, 
   Upload, 
   Edit, 
-  Trash2 
+  Trash2,
+  Home,
+  Phone,
+  Mail,
+  MapPin,
+  Clock
 } from "lucide-react";
 
 // Utils and Types
@@ -135,9 +140,22 @@ export default function ClientDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" onClick={() => window.history.back()}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Clients
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setLocation("/")}
+                className="flex items-center space-x-2"
+              >
+                <Home className="w-4 h-4" />
+                <span>Home</span>
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setLocation("/clients")}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Clients</span>
               </Button>
               <Separator orientation="vertical" className="h-6" />
               <div>

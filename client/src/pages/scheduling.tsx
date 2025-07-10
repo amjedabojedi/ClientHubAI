@@ -34,12 +34,15 @@ import {
   Edit,
   Trash2,
   Eye,
-  Upload
+  Upload,
+  Home,
+  ArrowLeft
 } from "lucide-react";
 
 // Utils and Hooks
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 // Session form schema
 const sessionFormSchema = z.object({
@@ -76,6 +79,10 @@ interface Session {
 }
 
 export default function SchedulingPage() {
+  // Routing
+  const [, setLocation] = useLocation();
+  
+  // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("month");
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
@@ -269,9 +276,20 @@ export default function SchedulingPage() {
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Scheduling & Calendar</h1>
-              <p className="text-slate-600 mt-1">Manage appointments and sessions across your practice</p>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setLocation("/")}
+                className="flex items-center space-x-2"
+              >
+                <Home className="w-4 h-4" />
+                <span>Home</span>
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">Scheduling & Calendar</h1>
+                <p className="text-slate-600 mt-1">Manage appointments and sessions across your practice</p>
+              </div>
             </div>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
