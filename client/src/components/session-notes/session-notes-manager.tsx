@@ -237,10 +237,11 @@ export default function SessionNotesManager({ clientId, sessions }: SessionNotes
     }
   };
 
-  // Filter notes by selected session
+  // Filter notes by selected session - ensure sessionNotes is an array
+  const notesArray = Array.isArray(sessionNotes) ? sessionNotes : [];
   const filteredNotes = selectedSession 
-    ? sessionNotes.filter((note: SessionNote) => note.sessionId === selectedSession)
-    : sessionNotes;
+    ? notesArray.filter((note: SessionNote) => note.sessionId === selectedSession)
+    : notesArray;
 
   if (isLoading) {
     return <div className="space-y-4">
