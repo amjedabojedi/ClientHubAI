@@ -143,15 +143,15 @@ Advanced appointment management with multi-view calendar system:
 
 ### AI Session Note Features Implementation (January 2025)
 - **AI Integration**: Implemented comprehensive OpenAI-powered session note features with GPT-4o model
-- **Smart Content Generation**: Real-time AI generation of clinical summaries, assessments, and professional language
-- **AI-Enhanced Form**: Added AI suggestions for clinical fields (Session Focus, Symptoms, Interventions) with one-click insertion
-- **Three Content States**: Generated Content (AI draft), Draft Content (editable), Final Content (approved clinical notes)
-- **Custom AI Prompts**: Therapists can customize AI behavior with specific clinical instructions and therapy approaches
-- **Processing Indicators**: Real-time status tracking for AI content generation with timeout protection
+- **Connected Template Library**: Built intelligent clinical content library with therapy-specific approaches (CBT, Trauma-Focused, Mindfulness-Based)
+- **Smart Field Connections**: Automatic field population based on clinical relationships (e.g., selecting "anxiety management" auto-fills related symptoms, interventions, progress)
+- **Clinical Content Options**: Each field provides multiple professional options specific to the selected therapy approach
+- **Therapy-Specific Language**: Templates ensure evidence-based clinical terminology matching therapeutic modalities
+- **One-Click Professional Content**: Select from pre-written clinical options that maintain consistency across documentation
+- **Auto-Population System**: Connected fields automatically suggest and populate related clinical content
 - **Professional Clinical Reports**: AI generates flowing prose suitable for formal medical records and documentation
-- **Smart Suggestions System**: Category-based AI recommendations for different clinical documentation sections
-- **AI Content Management**: Copy, edit, and integrate AI-generated content with manual clinical documentation
-- **Visual AI Indicators**: Enhanced UI with AI status badges, processing indicators, and dedicated AI Features tab
+- **Template-Based Workflow**: Therapists select therapy approach, then choose from curated clinical content options for each field
+- **Intelligent Suggestions**: System recognizes field relationships and suggests appropriate connected content automatically
 
 ### Session Notes Feature Implementation (January 2025)
 - **Database Schema**: Added comprehensive session notes table with detailed tracking fields and AI management columns

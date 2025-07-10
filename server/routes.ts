@@ -410,6 +410,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/ai/field-options/:templateId/:field", async (req, res) => {
+    try {
+      const { templateId, field } = req.params;
+      const { getFieldOptions } = await import("./ai/openai");
+      const options = getFieldOptions(templateId, field);
+      res.json({ options });
+    } catch (error) {
+      console.error('Field options error:', error);
+      res.status(500).json({ error: "Failed to get field options" });
+    }
+  });
+
+  app.post("/api/ai/connected-suggestions", async (req, res) => {
+    try {
+      const { templateId, sourceField, sourceValue } = req.body;
+      const { getConnectedSuggestions } = await import("./ai/openai");
+      const suggestions = await getConnectedSuggestions(templateId, sourceField, sourceValue);
+      res.json({ suggestions });
+    } catch (error) {
+      console.error('Connected suggestions error:', error);
+      res.status(500).json({ error: "Failed to get connected suggestions" });
+    }
+  });
+
   app.post("/api/ai/generate-suggestions", async (req, res) => {
     try {
       const { field, context } = req.body;

@@ -258,6 +258,28 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
   });
 
+  // Generate connected suggestions when a field changes
+  const generateConnectedSuggestions = async (templateId: string, sourceField: string, sourceValue: string) => {
+    try {
+      const response = await apiRequest('POST', '/api/ai/connected-suggestions', {
+        templateId,
+        sourceField,
+        sourceValue
+      });
+      const data = await response.json();
+      
+      // Auto-populate connected fields
+      Object.entries(data.suggestions || {}).forEach(([field, suggestions]: [string, any]) => {
+        if (suggestions && suggestions.length > 0) {
+          form.setValue(field, suggestions[0]);
+          toast({ title: `Auto-filled ${field} based on ${sourceField}` });
+        }
+      });
+    } catch (error) {
+      console.error('Connected suggestions error:', error);
+    }
+  };
+
   // AI Helper Functions
   const generateSuggestions = (field: string, context: string) => {
     if (!context.trim()) return;
@@ -400,6 +422,47 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
     </div>;
   }
+
+  // Field Options Selector Component
+  const FieldOptionsSelector = ({ templateId, field, fieldLabel, onSelect }: {
+    templateId: string;
+    field: string;
+    fieldLabel: string;
+    onSelect: (content: string) => void;
+  }) => {
+    const { data: optionsData } = useQuery({
+      queryKey: ['/api/ai/field-options', templateId, field],
+      queryFn: async () => {
+        const response = await apiRequest('GET', `/api/ai/field-options/${templateId}/${field}`);
+        return await response.json();
+      },
+      enabled: !!templateId && !!field,
+    });
+
+    const options = optionsData?.options || [];
+
+    return (
+      <div className="space-y-2">
+        {options.map((option: any) => (
+          <Button
+            key={option.key}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-auto p-3 text-left justify-start whitespace-normal"
+            onClick={() => onSelect(option.template)}
+          >
+            <div>
+              <div className="font-medium text-xs">{option.label}</div>
+              <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                {option.template.substring(0, 100)}...
+              </div>
+            </div>
+          </Button>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -1123,79 +1186,79 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         )}
                       </div>
 
-                      {/* Template Actions */}
+                      {/* Connected Template Options */}
                       {selectedTemplate && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => generateFromTemplateMutation.mutate({ 
-                              templateId: selectedTemplate, 
-                              field: 'sessionFocus',
-                              context: form.getValues('sessionFocus') || ''
-                            })}
-                            disabled={generateFromTemplateMutation.isPending}
-                          >
-                            <FileText className="h-3 w-3 mr-1" />
-                            Session Focus
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => generateFromTemplateMutation.mutate({ 
-                              templateId: selectedTemplate, 
-                              field: 'symptoms',
-                              context: form.getValues('symptoms') || ''
-                            })}
-                            disabled={generateFromTemplateMutation.isPending}
-                          >
-                            <Target className="h-3 w-3 mr-1" />
-                            Symptoms
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => generateFromTemplateMutation.mutate({ 
-                              templateId: selectedTemplate, 
-                              field: 'intervention',
-                              context: form.getValues('intervention') || ''
-                            })}
-                            disabled={generateFromTemplateMutation.isPending}
-                          >
-                            <Brain className="h-3 w-3 mr-1" />
-                            Intervention
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => generateFromTemplateMutation.mutate({ 
-                              templateId: selectedTemplate, 
-                              field: 'progress',
-                              context: form.getValues('progress') || ''
-                            })}
-                            disabled={generateFromTemplateMutation.isPending}
-                          >
-                            <RefreshCw className="h-3 w-3 mr-1" />
-                            Progress
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => generateFromTemplateMutation.mutate({ 
-                              templateId: selectedTemplate, 
-                              field: 'recommendations',
-                              context: form.getValues('recommendations') || ''
-                            })}
-                            disabled={generateFromTemplateMutation.isPending}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Recommendations
-                          </Button>
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-medium">Connected Clinical Content</h4>
+                          
+                          {/* Session Focus Options */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Session Focus Options</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <FieldOptionsSelector 
+                                templateId={selectedTemplate}
+                                field="sessionFocus"
+                                fieldLabel="Session Focus"
+                                onSelect={(content) => {
+                                  form.setValue('sessionFocus', content);
+                                  // Auto-suggest connected fields
+                                  generateConnectedSuggestions(selectedTemplate, 'sessionFocus', content);
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Symptoms Options */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Symptoms Options</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <FieldOptionsSelector 
+                                templateId={selectedTemplate}
+                                field="symptoms"
+                                fieldLabel="Symptoms"
+                                onSelect={(content) => form.setValue('symptoms', content)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Intervention Options */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Intervention Options</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <FieldOptionsSelector 
+                                templateId={selectedTemplate}
+                                field="intervention"
+                                fieldLabel="Intervention"
+                                onSelect={(content) => form.setValue('intervention', content)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Progress Options */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Progress Options</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <FieldOptionsSelector 
+                                templateId={selectedTemplate}
+                                field="progress"
+                                fieldLabel="Progress"
+                                onSelect={(content) => form.setValue('progress', content)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Recommendations Options */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Recommendations Options</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <FieldOptionsSelector 
+                                templateId={selectedTemplate}
+                                field="recommendations"
+                                fieldLabel="Recommendations"
+                                onSelect={(content) => form.setValue('recommendations', content)}
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

@@ -3,52 +3,253 @@ import OpenAI from "openai";
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Clinical Note Templates
+// Clinical Content Library - Connected templates for intelligent field suggestions
 export const clinicalTemplates = {
   'cognitive_behavioral': {
     name: 'Cognitive Behavioral Therapy (CBT)',
     description: 'Focus on thought patterns, cognitive restructuring, and behavioral interventions',
-    sessionFocusTemplate: 'Explored cognitive patterns related to [presenting concern]. Identified negative thought cycles and worked on cognitive restructuring techniques.',
-    symptomsTemplate: 'Client presented with [specific symptoms]. Noted [behavioral/emotional indicators]. Assessed cognitive distortions including [types].',
-    interventionTemplate: 'Applied CBT techniques including [specific interventions]. Practiced thought challenging and behavioral activation strategies.',
-    progressTemplate: 'Client demonstrated improved awareness of [cognitive patterns]. Progress toward goals shows [specific improvements].',
-    recommendationsTemplate: 'Continue CBT approach focusing on [specific areas]. Homework: [specific assignments]. Next session focus: [topics].'
+    
+    // Session Focus Options
+    sessionFocusOptions: {
+      'anxiety_management': {
+        label: 'Anxiety Management',
+        template: 'Explored cognitive patterns related to anxiety. Identified negative thought cycles and worked on cognitive restructuring techniques for anxiety reduction.',
+        connects: {
+          symptoms: 'anxiety_symptoms',
+          intervention: 'cbt_anxiety_interventions',
+          progress: 'anxiety_progress',
+          recommendations: 'anxiety_recommendations'
+        }
+      },
+      'depression_treatment': {
+        label: 'Depression Treatment',
+        template: 'Addressed depressive thought patterns and behavioral activation. Focused on cognitive restructuring for negative self-talk and mood improvement.',
+        connects: {
+          symptoms: 'depression_symptoms',
+          intervention: 'cbt_depression_interventions',
+          progress: 'depression_progress',
+          recommendations: 'depression_recommendations'
+        }
+      },
+      'trauma_processing': {
+        label: 'Trauma Processing',
+        template: 'Explored trauma-related cognitive distortions and safety mechanisms. Worked on processing traumatic memories using CBT techniques.',
+        connects: {
+          symptoms: 'trauma_symptoms',
+          intervention: 'cbt_trauma_interventions',
+          progress: 'trauma_progress',
+          recommendations: 'trauma_recommendations'
+        }
+      }
+    },
+
+    // Symptoms connected to session focus
+    symptomsOptions: {
+      'anxiety_symptoms': {
+        label: 'Anxiety Symptoms',
+        template: 'Client presented with elevated anxiety including physical symptoms (racing heart, sweating), cognitive symptoms (catastrophic thinking, worry), and behavioral avoidance patterns.'
+      },
+      'depression_symptoms': {
+        label: 'Depression Symptoms', 
+        template: 'Client reported depressive symptoms including low mood, decreased energy, negative self-talk, sleep disturbances, and reduced interest in activities.'
+      },
+      'trauma_symptoms': {
+        label: 'Trauma Symptoms',
+        template: 'Trauma symptoms included hypervigilance, intrusive thoughts, emotional numbing, dissociative episodes, and avoidance of trauma-related triggers.'
+      }
+    },
+
+    // Interventions connected to focus areas
+    interventionOptions: {
+      'cbt_anxiety_interventions': {
+        label: 'CBT Anxiety Interventions',
+        template: 'Applied cognitive restructuring for catastrophic thoughts, taught breathing techniques, practiced thought challenging worksheets, and implemented gradual exposure planning.'
+      },
+      'cbt_depression_interventions': {
+        label: 'CBT Depression Interventions', 
+        template: 'Used behavioral activation techniques, challenged negative self-statements, implemented activity scheduling, and practiced cognitive reframing exercises.'
+      },
+      'cbt_trauma_interventions': {
+        label: 'CBT Trauma Interventions',
+        template: 'Utilized cognitive processing techniques, implemented grounding exercises, practiced trauma-focused cognitive restructuring, and worked on safety planning.'
+      }
+    },
+
+    // Progress tracking connected to interventions
+    progressOptions: {
+      'anxiety_progress': {
+        label: 'Anxiety Progress',
+        template: 'Client demonstrated improved ability to identify and challenge anxious thoughts. Reduced avoidance behaviors and increased use of coping strategies in anxiety-provoking situations.'
+      },
+      'depression_progress': {
+        label: 'Depression Progress',
+        template: 'Client showed increased engagement in pleasurable activities, improved mood regulation, and better recognition of negative thought patterns with successful challenging.'
+      },
+      'trauma_progress': {
+        label: 'Trauma Progress',
+        template: 'Client exhibited decreased trauma reactivity, improved grounding skills, and increased capacity to discuss traumatic experiences without overwhelming distress.'
+      }
+    },
+
+    // Recommendations connected to progress
+    recommendationsOptions: {
+      'anxiety_recommendations': {
+        label: 'Anxiety Recommendations',
+        template: 'Continue CBT anxiety protocol with daily thought records, practice exposure exercises between sessions, implement relaxation techniques, and monitor anxiety levels using rating scales.'
+      },
+      'depression_recommendations': {
+        label: 'Depression Recommendations',
+        template: 'Maintain behavioral activation schedule, continue mood monitoring, practice cognitive restructuring techniques daily, and increase social engagement activities.'
+      },
+      'trauma_recommendations': {
+        label: 'Trauma Recommendations',
+        template: 'Continue trauma-focused CBT sessions, practice grounding techniques daily, maintain safety planning, and gradually increase trauma processing work as tolerated.'
+      }
+    }
   },
+
   'trauma_focused': {
     name: 'Trauma-Focused Therapy',
     description: 'Specialized approach for trauma processing and PTSD treatment',
-    sessionFocusTemplate: 'Addressed trauma-related triggers and coping mechanisms. Focused on safety, stabilization, and processing.',
-    symptomsTemplate: 'Trauma symptoms included [specific presentations]. Assessed for hypervigilance, dissociation, and avoidance behaviors.',
-    interventionTemplate: 'Utilized trauma-informed interventions including [EMDR/CPT/PE]. Implemented grounding and stabilization techniques.',
-    progressTemplate: 'Client shows decreased trauma reactivity in [areas]. Improved coping strategies for [triggers].',
-    recommendationsTemplate: 'Continue trauma-focused work with emphasis on [phase of treatment]. Safety planning and coping skill reinforcement.'
+    
+    sessionFocusOptions: {
+      'trauma_stabilization': {
+        label: 'Trauma Stabilization',
+        template: 'Focused on safety, stabilization, and developing coping resources. Worked on building distress tolerance and emotional regulation skills.',
+        connects: {
+          symptoms: 'ptsd_symptoms',
+          intervention: 'stabilization_interventions',
+          progress: 'stabilization_progress',
+          recommendations: 'stabilization_recommendations'
+        }
+      },
+      'trauma_processing': {
+        label: 'Trauma Processing',
+        template: 'Engaged in direct trauma processing work. Focused on integrating traumatic memories and reducing trauma-related distress.',
+        connects: {
+          symptoms: 'processing_symptoms',
+          intervention: 'processing_interventions',
+          progress: 'processing_progress',
+          recommendations: 'processing_recommendations'
+        }
+      }
+    },
+
+    symptomsOptions: {
+      'ptsd_symptoms': {
+        label: 'PTSD Symptoms',
+        template: 'Client presented with PTSD symptoms including intrusive memories, nightmares, hypervigilance, emotional numbing, and avoidance of trauma reminders.'
+      },
+      'processing_symptoms': {
+        label: 'Processing Symptoms',
+        template: 'During processing work, client experienced manageable activation including emotional flooding, dissociative episodes, and somatic trauma responses.'
+      }
+    },
+
+    interventionOptions: {
+      'stabilization_interventions': {
+        label: 'Stabilization Interventions',
+        template: 'Implemented grounding techniques, taught emotional regulation skills, practiced breathing exercises, and established safety planning protocols.'
+      },
+      'processing_interventions': {
+        label: 'Processing Interventions',
+        template: 'Utilized EMDR bilateral stimulation, implemented CPT cognitive processing techniques, and guided trauma narrative development with titrated exposure.'
+      }
+    },
+
+    progressOptions: {
+      'stabilization_progress': {
+        label: 'Stabilization Progress',
+        template: 'Client demonstrated improved emotional regulation, decreased dissociative episodes, and increased capacity to use grounding techniques effectively.'
+      },
+      'processing_progress': {
+        label: 'Processing Progress',
+        template: 'Client showed reduced emotional charge around traumatic memories, improved narrative coherence, and decreased avoidance of trauma-related triggers.'
+      }
+    },
+
+    recommendationsOptions: {
+      'stabilization_recommendations': {
+        label: 'Stabilization Recommendations',
+        template: 'Continue stabilization phase work, practice grounding techniques daily, maintain safety planning, and monitor dissociative symptoms closely.'
+      },
+      'processing_recommendations': {
+        label: 'Processing Recommendations',
+        template: 'Continue trauma processing sessions, practice self-care between sessions, monitor trauma symptoms, and prepare for integration phase work.'
+      }
+    }
   },
+
   'mindfulness_based': {
     name: 'Mindfulness-Based Therapy',
     description: 'Integration of mindfulness practices with therapeutic interventions',
-    sessionFocusTemplate: 'Practiced mindfulness techniques and present-moment awareness. Explored relationship between thoughts, emotions, and sensations.',
-    symptomsTemplate: 'Client reported [emotional/physical symptoms]. Noted patterns of rumination, anxiety, or emotional dysregulation.',
-    interventionTemplate: 'Guided mindfulness meditation and body awareness exercises. Taught [specific mindfulness techniques].',
-    progressTemplate: 'Increased mindfulness skills and emotional regulation. Client reports better ability to [specific improvements].',
-    recommendationsTemplate: 'Continue daily mindfulness practice. Home practice: [specific exercises]. Integration of mindfulness in daily activities.'
-  },
-  'solution_focused': {
-    name: 'Solution-Focused Brief Therapy',
-    description: 'Goal-oriented approach focusing on solutions and client strengths',
-    sessionFocusTemplate: 'Explored client strengths and previous successful coping strategies. Identified solution-focused goals and desired outcomes.',
-    symptomsTemplate: 'Client described [challenges] while acknowledging [existing strengths and resources].',
-    interventionTemplate: 'Used scaling questions, miracle question, and exception-finding techniques. Highlighted client competencies.',
-    progressTemplate: 'Client identified [specific solutions] and demonstrated [strengths]. Movement toward preferred future noted.',
-    recommendationsTemplate: 'Build on identified solutions and strengths. Focus on [specific goals]. Continue solution-building approach.'
-  },
-  'psychodynamic': {
-    name: 'Psychodynamic Therapy',
-    description: 'Insight-oriented exploration of unconscious patterns and relationships',
-    sessionFocusTemplate: 'Explored unconscious patterns and their impact on current relationships. Examined transference and defense mechanisms.',
-    symptomsTemplate: 'Client presented with [symptoms] connected to [underlying dynamics]. Noted defense mechanisms and relational patterns.',
-    interventionTemplate: 'Used interpretation, clarification, and insight-oriented interventions. Explored childhood experiences and their current impact.',
-    progressTemplate: 'Increased insight into [patterns/relationships]. Client demonstrates greater self-awareness regarding [areas].',
-    recommendationsTemplate: 'Continue insight-oriented work. Focus on [specific dynamics]. Process emerging material in next sessions.'
+    
+    sessionFocusOptions: {
+      'mindfulness_training': {
+        label: 'Mindfulness Training',
+        template: 'Practiced core mindfulness techniques including breath awareness, body scanning, and present-moment attention skills.',
+        connects: {
+          symptoms: 'mindfulness_symptoms',
+          intervention: 'mindfulness_interventions',
+          progress: 'mindfulness_progress',
+          recommendations: 'mindfulness_recommendations'
+        }
+      },
+      'emotional_regulation': {
+        label: 'Emotional Regulation',
+        template: 'Focused on using mindfulness for emotional regulation, distress tolerance, and reducing emotional reactivity.',
+        connects: {
+          symptoms: 'emotional_symptoms',
+          intervention: 'regulation_interventions',
+          progress: 'regulation_progress',
+          recommendations: 'regulation_recommendations'
+        }
+      }
+    },
+
+    symptomsOptions: {
+      'mindfulness_symptoms': {
+        label: 'Mindfulness-Related Symptoms',
+        template: 'Client reported difficulty with present-moment awareness, mind wandering, rumination patterns, and challenges with acceptance of current experiences.'
+      },
+      'emotional_symptoms': {
+        label: 'Emotional Dysregulation',
+        template: 'Client experienced emotional overwhelm, difficulty managing intense emotions, reactive responses to triggers, and challenges with distress tolerance.'
+      }
+    },
+
+    interventionOptions: {
+      'mindfulness_interventions': {
+        label: 'Mindfulness Interventions',
+        template: 'Guided breathing meditation, body scan exercises, mindful movement practices, and awareness of thoughts and emotions without judgment.'
+      },
+      'regulation_interventions': {
+        label: 'Emotional Regulation Interventions',
+        template: 'Taught STOP technique, implemented loving-kindness meditation, practiced distress tolerance skills, and used mindful self-compassion exercises.'
+      }
+    },
+
+    progressOptions: {
+      'mindfulness_progress': {
+        label: 'Mindfulness Progress',
+        template: 'Client demonstrated increased present-moment awareness, improved ability to observe thoughts without attachment, and reduced rumination patterns.'
+      },
+      'regulation_progress': {
+        label: 'Emotional Regulation Progress',
+        template: 'Client showed improved emotional regulation skills, increased distress tolerance, and better ability to respond rather than react to triggers.'
+      }
+    },
+
+    recommendationsOptions: {
+      'mindfulness_recommendations': {
+        label: 'Mindfulness Recommendations',
+        template: 'Continue daily mindfulness practice, use mindfulness apps for guided sessions, integrate mindful moments throughout the day, and maintain meditation journal.'
+      },
+      'regulation_recommendations': {
+        label: 'Emotional Regulation Recommendations',
+        template: 'Practice emotional regulation techniques daily, use mindfulness during triggering situations, continue self-compassion exercises, and monitor emotional patterns.'
+      }
+    }
   }
 };
 
@@ -205,54 +406,85 @@ ${sessionNoteData.moodBefore && sessionNoteData.moodAfter ? `Mood Assessment: Be
   }
 }
 
-// Generate content using templates
+// Generate content using connected templates
 export async function generateFromTemplate(templateId: string, field: string, context?: string): Promise<string> {
   const template = clinicalTemplates[templateId];
   if (!template) {
     throw new Error(`Template ${templateId} not found`);
   }
 
-  const fieldTemplateKey = `${field}Template`;
-  const baseTemplate = template[fieldTemplateKey];
+  // Use the template system to get the appropriate content
+  const fieldOptionsKey = `${field}Options`;
+  const fieldOptions = template[fieldOptionsKey];
   
-  if (!baseTemplate) {
+  if (!fieldOptions) {
     throw new Error(`Template field ${field} not found in ${templateId}`);
   }
 
-  const systemPrompt = `You are a clinical psychology assistant specializing in ${template.name}. Generate professional clinical content based on the provided template and context. Fill in the placeholder brackets with appropriate content based on the context provided.
+  // For now, return the first available option template
+  // This could be enhanced to use AI to select the most appropriate option
+  const firstOption = Object.values(fieldOptions)[0];
+  return firstOption?.template || `${field} content for ${template.name}`;
+}
 
-Template approach: ${template.description}
-Base template: ${baseTemplate}
-
-Instructions:
-- Replace bracketed placeholders with specific, relevant content
-- Maintain professional clinical language
-- Keep the structure and tone of the template
-- Adapt content to the specific context provided`;
-
-  const userPrompt = `Generate ${field} content using the ${template.name} template.
-${context ? `Context: ${context}` : 'No additional context provided'}
-
-Base template: ${baseTemplate}
-
-Return only the completed text with placeholders filled in appropriately.`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 300
-    });
-
-    return response.choices[0].message.content || baseTemplate;
-  } catch (error) {
-    console.error('Template generation error:', error);
-    return baseTemplate; // Return base template as fallback
+// Get connected content suggestions based on current field value
+export async function getConnectedSuggestions(templateId: string, sourceField: string, sourceValue: string): Promise<{[key: string]: string[]}> {
+  const template = clinicalTemplates[templateId];
+  if (!template) {
+    return {};
   }
+
+  const sourceOptionsKey = `${sourceField}Options`;
+  const sourceOptions = template[sourceOptionsKey];
+  
+  if (!sourceOptions) {
+    return {};
+  }
+
+  // Find matching option based on sourceValue
+  const matchingOption = Object.values(sourceOptions).find((option: any) => 
+    option.label.toLowerCase().includes(sourceValue.toLowerCase()) || 
+    option.template.toLowerCase().includes(sourceValue.toLowerCase())
+  );
+
+  if (!matchingOption?.connects) {
+    return {};
+  }
+
+  // Build suggestions for connected fields
+  const suggestions: {[key: string]: string[]} = {};
+  
+  for (const [targetField, optionKey] of Object.entries(matchingOption.connects)) {
+    const targetOptionsKey = `${targetField}Options`;
+    const targetOptions = template[targetOptionsKey];
+    
+    if (targetOptions && targetOptions[optionKey]) {
+      suggestions[targetField] = [targetOptions[optionKey].template];
+    }
+  }
+
+  return suggestions;
+}
+
+// Get all options for a specific field in a template
+export function getFieldOptions(templateId: string, field: string): Array<{key: string, label: string, template: string}> {
+  const template = clinicalTemplates[templateId];
+  if (!template) {
+    return [];
+  }
+
+  const fieldOptionsKey = `${field}Options`;
+  const fieldOptions = template[fieldOptionsKey];
+  
+  if (!fieldOptions) {
+    return [];
+  }
+
+  return Object.entries(fieldOptions).map(([key, option]: [string, any]) => ({
+    key,
+    label: option.label,
+    template: option.template
+  }));
 }
 
 // Get all available templates
