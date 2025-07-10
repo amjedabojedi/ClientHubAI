@@ -31,12 +31,6 @@ export default function ClientHeader() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <button className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200">
-              <i className="fas fa-robot"></i>
-              <span className="hidden sm:inline">AI Assistant</span>
-              <span className="bg-white bg-opacity-20 text-xs px-2 py-1 rounded-full">BETA</span>
-            </button>
-            
             <button className="relative p-2 text-slate-600 hover:text-slate-900">
               <i className="fas fa-bell text-lg"></i>
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
