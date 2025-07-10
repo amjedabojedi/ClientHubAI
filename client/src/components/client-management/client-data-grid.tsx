@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Eye, Edit, Trash2 } from "lucide-react";
 import Pagination from "./pagination";
 import { Client } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -280,28 +281,28 @@ export default function ClientDataGrid({
                           variant="ghost" 
                           size="sm"
                           onClick={() => onViewClient(client)}
-                          className="p-1 text-slate-600 hover:text-primary hover:bg-primary-50"
+                          className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50"
                           title="View Client"
                         >
-                          <i className="fas fa-eye"></i>
+                          <Eye className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => onEditClient(client)}
-                          className="p-1 text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                          className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50"
                           title="Edit Client"
                         >
-                          <i className="fas fa-edit"></i>
+                          <Edit className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => onDeleteClient(client)}
-                          className="p-1 text-slate-600 hover:text-red-600 hover:bg-red-50"
+                          className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50"
                           title="Delete Client"
                         >
-                          <i className="fas fa-trash"></i>
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
