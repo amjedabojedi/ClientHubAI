@@ -120,19 +120,20 @@ export default function SchedulingPage() {
       clientId: clientIdFromUrl ? parseInt(clientIdFromUrl) : undefined,
       sessionType: "psychotherapy",
       duration: 60,
+      sessionDate: "",
+      sessionTime: "",
+      therapistId: undefined,
+      room: "",
+      notes: "",
     },
   });
 
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
       const sessionDateTime = new Date(`${data.sessionDate}T${data.sessionTime}`);
-      return apiRequest("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          sessionDate: sessionDateTime.toISOString(),
-        }),
+      return apiRequest("POST", "/api/sessions", {
+        ...data,
+        sessionDate: sessionDateTime.toISOString(),
       });
     },
     onSuccess: () => {

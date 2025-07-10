@@ -110,10 +110,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
   });
 
   const createClientMutation = useMutation({
-    mutationFn: (data: ClientFormData) => apiRequest(`/api/clients`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: ClientFormData) => apiRequest("POST", "/api/clients", data),
     onSuccess: () => {
       toast({
         title: "Success",
