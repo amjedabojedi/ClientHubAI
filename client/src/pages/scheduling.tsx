@@ -76,7 +76,7 @@ export default function SchedulingPage() {
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTherapist, setSelectedTherapist] = useState<string>("");
+  const [selectedTherapist, setSelectedTherapist] = useState<string>("all");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showMySessionsOnly, setShowMySessionsOnly] = useState(false);
   const { toast } = useToast();
@@ -185,7 +185,7 @@ export default function SchedulingPage() {
       );
     }
     
-    if (selectedTherapist) {
+    if (selectedTherapist && selectedTherapist !== "all") {
       filtered = filtered.filter((session: Session) =>
         session.therapistId.toString() === selectedTherapist
       );
@@ -261,7 +261,7 @@ export default function SchedulingPage() {
                   <SelectValue placeholder="All Therapists" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Therapists</SelectItem>
+                  <SelectItem value="all">All Therapists</SelectItem>
                   {therapists?.map((therapist: any) => (
                     <SelectItem key={therapist.id} value={therapist.id.toString()}>
                       {therapist.fullName}
