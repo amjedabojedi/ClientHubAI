@@ -191,3 +191,9 @@ Advanced appointment management with multi-view calendar system:
 - **Automatic Database Connections**: Selected suggestions automatically create database relationships when entry is created
 - **Connection Intelligence**: System uses keyword matching to identify related clinical content across categories
 - **User-Friendly Interface**: Green suggestion boxes show exactly how connections will help in session notes workflow
+
+### Category Filter Consistency Fix (January 2025)
+- **Consistent Filter Display**: Fixed category filter to show ALL 5 main categories regardless of entry count
+- **Predictable Behavior**: Filter now works identically from any starting category tab
+- **User Experience**: Eliminated confusion where different tabs showed different available categories
+- **Complete Coverage**: All main therapeutic categories (Session Focus, Symptoms, Short-term Goals, Interventions, Progress) always visible in connection dialog
