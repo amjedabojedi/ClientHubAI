@@ -144,7 +144,7 @@ export default function SchedulingPage() {
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
       const sessionDateTime = new Date(`${data.sessionDate}T${data.sessionTime}`);
-      return apiRequest("POST", "/api/sessions", {
+      return apiRequest("/api/sessions", "POST", {
         ...data,
         sessionDate: sessionDateTime.toISOString(),
       });

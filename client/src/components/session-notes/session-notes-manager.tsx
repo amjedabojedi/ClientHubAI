@@ -147,7 +147,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Create session note mutation
   const createSessionNoteMutation = useMutation({
     mutationFn: async (data: SessionNoteFormData) => {
-      const response = await apiRequest('POST', '/api/session-notes', data);
+      const response = await apiRequest('/api/session-notes', 'POST', data);
       return await response.json();
     },
     onSuccess: () => {
@@ -165,7 +165,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Update session note mutation
   const updateSessionNoteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<SessionNoteFormData> }) => {
-      const response = await apiRequest('PUT', `/api/session-notes/${id}`, data);
+      const response = await apiRequest(`/api/session-notes/${id}`, 'PUT', data);
       return await response.json();
     },
     onSuccess: () => {
@@ -183,7 +183,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Delete session note mutation
   const deleteSessionNoteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest('DELETE', `/api/session-notes/${id}`);
+      const response = await apiRequest(`/api/session-notes/${id}`, 'DELETE');
       return response.status === 204 ? { success: true } : await response.json();
     },
     onSuccess: () => {
@@ -584,46 +584,7 @@ Therapist: Dr. Williams`;
     );
   };
 
-  // Field Options Selector Component
-  const FieldOptionsSelector = ({ templateId, field, fieldLabel, onSelect }: {
-    templateId: string;
-    field: string;
-    fieldLabel: string;
-    onSelect: (content: string) => void;
-  }) => {
-    const { data: optionsData } = useQuery({
-      queryKey: ['/api/ai/field-options', templateId, field],
-      queryFn: async () => {
-        const response = await apiRequest('GET', `/api/ai/field-options/${templateId}/${field}`);
-        return await response.json();
-      },
-      enabled: !!templateId && !!field,
-    });
 
-    const options = optionsData?.options || [];
-
-    return (
-      <div className="space-y-2">
-        {options.map((option: any) => (
-          <Button
-            key={option.key}
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-auto p-3 text-left justify-start whitespace-normal"
-            onClick={() => onSelect(option.template)}
-          >
-            <div>
-              <div className="font-medium text-xs">{option.label}</div>
-              <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {option.template.substring(0, 100)}...
-              </div>
-            </div>
-          </Button>
-        ))}
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6">
