@@ -281,6 +281,80 @@ interface AIGeneratedContent {
   };
 }
 
+// Generate AI template based on custom instructions
+export async function generateAITemplate(
+  clientData: any,
+  sessionData: any,
+  formData: any,
+  customInstructions: string
+): Promise<{ generatedContent: string }> {
+  try {
+    const prompt = `You are a professional clinical therapist AI assistant specializing in session note documentation.
+
+CLIENT INFORMATION:
+- Name: ${clientData?.fullName || 'Client'}
+- Client ID: ${clientData?.clientId || 'Not specified'}
+- Age: ${clientData?.dateOfBirth ? new Date().getFullYear() - new Date(clientData.dateOfBirth).getFullYear() : 'Not specified'}
+- Gender: ${clientData?.gender || 'Not specified'}
+- Treatment Stage: ${clientData?.stage || 'Not specified'}
+
+SESSION INFORMATION:
+- Date: ${sessionData?.sessionDate ? new Date(sessionData.sessionDate).toLocaleDateString() : 'Not specified'}
+- Type: ${sessionData?.sessionType || 'Not specified'}
+- Duration: ${sessionData?.duration || 'Not specified'} minutes
+
+EXISTING FORM DATA:
+- Session Focus: ${formData?.sessionFocus || 'Not filled'}
+- Symptoms: ${formData?.symptoms || 'Not filled'}
+- Short-term Goals: ${formData?.shortTermGoals || 'Not filled'}
+- Interventions: ${formData?.intervention || 'Not filled'}
+- Progress: ${formData?.progress || 'Not filled'}
+- Mood Before: ${formData?.moodBefore || 'Not rated'}/10
+- Mood After: ${formData?.moodAfter || 'Not rated'}/10
+- Additional Notes: ${formData?.remarks || 'None'}
+
+CUSTOM INSTRUCTIONS FROM THERAPIST:
+${customInstructions}
+
+Based on the above information and custom instructions, generate a comprehensive, professional session note template. Follow these guidelines:
+
+1. Use professional clinical language appropriate for mental health documentation
+2. Structure the content logically and clearly
+3. Include all relevant sections based on the form fields
+4. Follow the specific instructions provided by the therapist
+5. Make the content specific to this client and session
+6. Ensure compliance with clinical documentation standards
+7. Use the existing form data when available, but expand and enhance it
+
+Generate a complete session note template that can be used directly for clinical documentation. Format it as a structured clinical note.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional clinical therapist AI assistant. Generate comprehensive, professional session note templates based on the provided information and custom instructions."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000
+    });
+
+    const generatedContent = response.choices[0].message.content || "Failed to generate content";
+
+    return {
+      generatedContent
+    };
+  } catch (error) {
+    console.error("Error generating AI template:", error);
+    throw new Error("Failed to generate AI template: " + (error as Error).message);
+  }
+}
+
 export async function generateSessionNoteSummary(data: SessionNoteAIRequest): Promise<AIGeneratedContent> {
   const systemPrompt = `You are a professional clinical psychologist assistant. Generate comprehensive session notes in third-person clinical narrative format suitable for formal medical records. Focus on:
 

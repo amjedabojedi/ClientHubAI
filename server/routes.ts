@@ -382,6 +382,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI-powered routes
+  app.post("/api/ai/generate-template", async (req, res) => {
+    try {
+      const { clientId, sessionId, formData, customInstructions } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: "AI features not available. Please configure OPENAI_API_KEY." });
+      }
+      
+      if (!customInstructions) {
+        return res.status(400).json({ error: "Custom instructions are required" });
+      }
+      
+      // Get client and session data
+      const clientData = await storage.getClient(clientId);
+      const sessionData = sessionId ? (await storage.getSessionsByClient(clientId)).find(s => s.id === sessionId) : null;
+      
+      const { generateAITemplate } = await import("./ai/openai");
+      const result = await generateAITemplate(clientData, sessionData, formData, customInstructions);
+      
+      res.json(result);
+    } catch (error) {
+      console.error('AI template generation error:', error);
+      res.status(500).json({ error: "Failed to generate AI template: " + error.message });
+    }
+  });
+
   app.get("/api/ai/templates", async (req, res) => {
     try {
       const { getAllTemplates } = await import("./ai/openai");

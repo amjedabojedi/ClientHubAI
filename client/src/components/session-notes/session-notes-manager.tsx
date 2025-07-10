@@ -293,6 +293,57 @@ Therapist: Dr. Williams`;
     toast({ title: "Template generated successfully" });
   };
 
+  // AI Template generation with custom instructions
+  const [isAITemplateOpen, setIsAITemplateOpen] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState('');
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  const generateAITemplateMutation = useMutation({
+    mutationFn: async (data: { clientId: number; sessionId?: number; formData: any; customInstructions: string }) => {
+      const response = await apiRequest('/api/ai/generate-template', 'POST', data);
+      return await response.json();
+    },
+    onSuccess: (result) => {
+      form.setValue('content', result.generatedContent);
+      setIsAITemplateOpen(false);
+      setCustomInstructions('');
+      setIsGeneratingAI(false);
+      toast({ title: "AI template generated successfully" });
+    },
+    onError: (error: any) => {
+      console.error('AI template generation error:', error);
+      setIsGeneratingAI(false);
+      toast({ 
+        title: "Failed to generate AI template", 
+        description: error.message || "Please check your OpenAI API key configuration",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleGenerateAITemplate = () => {
+    if (!customInstructions.trim()) {
+      toast({ title: "Please provide custom instructions", variant: "destructive" });
+      return;
+    }
+
+    const formValues = form.getValues();
+    const sessionId = formValues.sessionId;
+
+    if (!sessionId) {
+      toast({ title: "Please select a session first", variant: "destructive" });
+      return;
+    }
+
+    setIsGeneratingAI(true);
+    generateAITemplateMutation.mutate({
+      clientId,
+      sessionId,
+      formData: formValues,
+      customInstructions
+    });
+  };
+
   // Quick fill helper - fills empty fields with template prompts
   const handleQuickFill = () => {
     const formValues = form.getValues();
@@ -886,6 +937,17 @@ Therapist: Dr. Williams`;
                         </Button>
                         <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setIsAITemplateOpen(true)}
+                          className="text-xs"
+                          disabled={generateAITemplateMutation.isPending}
+                        >
+                          <Brain className="h-3 w-3 mr-1" />
+                          AI Template
+                        </Button>
+                        <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
                           onClick={handleQuickFill}
@@ -904,7 +966,7 @@ Therapist: Dr. Williams`;
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground">
-                      Use "Generate Template" to create a structured note with client details and form sections, or "Quick Fill" to populate fields with prompts.
+                      Use "Generate Template" for structured notes, "AI Template" for custom AI-generated content based on your instructions, or "Quick Fill" to populate fields with prompts.
                     </p>
                     <FormMessage />
                   </FormItem>
@@ -1299,6 +1361,62 @@ Therapist: Dr. Williams`;
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Template Dialog */}
+      <Dialog open={isAITemplateOpen} onOpenChange={setIsAITemplateOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>AI Template Generator</DialogTitle>
+            <DialogDescription>
+              Provide custom instructions for AI to generate a personalized session note template based on your specific requirements.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Custom Instructions</label>
+              <Textarea
+                placeholder="Example: Create a session note template focused on cognitive behavioral therapy techniques, including detailed mood tracking, homework assignments, and specific CBT interventions used. Format it professionally for clinical documentation."
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                className="min-h-[120px] mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Provide specific instructions about the format, focus areas, therapy approach, or any special requirements for your session note template.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAITemplateOpen(false);
+                setCustomInstructions('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleGenerateAITemplate}
+              disabled={generateAITemplateMutation.isPending || !customInstructions.trim()}
+            >
+              {generateAITemplateMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Generate AI Template
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
