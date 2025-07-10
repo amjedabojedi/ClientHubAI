@@ -27,6 +27,15 @@ interface LibraryEntryWithDetails extends LibraryEntry {
   createdBy: { id: number; username: string };
 }
 
+// Main category mappings (moved outside component for reuse)
+const mainCategories = {
+  "session-focus": { id: 1, name: "Session Focus", description: "Primary focus areas for therapy sessions" },
+  "symptoms": { id: 2, name: "Symptoms", description: "Observable symptoms and presentations" },
+  "short-term-goals": { id: 3, name: "Short-term Goals", description: "Immediate therapeutic objectives" },
+  "interventions": { id: 4, name: "Interventions", description: "Therapeutic techniques and approaches" },
+  "progress": { id: 5, name: "Progress", description: "Progress indicators and measurements" }
+};
+
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState("session-focus");
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,14 +50,7 @@ export default function LibraryPage() {
   const queryClient = useQueryClient();
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Main category mappings
-  const mainCategories = {
-    "session-focus": { id: 1, name: "Session Focus", description: "Primary focus areas for therapy sessions" },
-    "symptoms": { id: 2, name: "Symptoms", description: "Observable symptoms and presentations" },
-    "short-term-goals": { id: 3, name: "Short-term Goals", description: "Immediate therapeutic objectives" },
-    "interventions": { id: 4, name: "Interventions", description: "Therapeutic techniques and approaches" },
-    "progress": { id: 5, name: "Progress", description: "Progress indicators and measurements" }
-  };
+
 
   // Get current category ID from active tab
   const currentCategoryId = mainCategories[activeTab as keyof typeof mainCategories]?.id;
@@ -799,14 +801,16 @@ function ConnectionForm({
     (selectedCategoryFilter === null || entry.categoryId === selectedCategoryFilter)
   );
 
-  // Get unique categories for filter dropdown (excluding source category)
-  const availableCategories = Array.from(
-    new Map(
-      allEntries
-        .filter(entry => entry.categoryId !== sourceEntry.categoryId)
-        .map(entry => [entry.category.id, entry.category])
-    ).values()
-  );
+  // Get all main categories for filter dropdown (excluding source category)
+  const allMainCategories = [
+    { id: 1, name: "Session Focus", description: "Primary focus areas for therapy sessions" },
+    { id: 2, name: "Symptoms", description: "Observable symptoms and presentations" },
+    { id: 3, name: "Short-term Goals", description: "Immediate therapeutic objectives" },
+    { id: 4, name: "Interventions", description: "Therapeutic techniques and approaches" },
+    { id: 5, name: "Progress", description: "Progress indicators and measurements" }
+  ];
+  
+  const availableCategories = allMainCategories.filter(cat => cat.id !== sourceEntry.categoryId);
 
 
 
