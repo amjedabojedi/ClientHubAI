@@ -457,7 +457,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     // Mutation for incrementing usage count
     const incrementUsageMutation = useMutation({
       mutationFn: async (entryId: number) => {
-        const response = await apiRequest('POST', `/api/library/entries/${entryId}/increment-usage`);
+        const response = await apiRequest(`/api/library/entries/${entryId}/increment-usage`, 'POST');
         return response.status === 204 ? { success: true } : await response.json();
       },
       onSuccess: () => {
