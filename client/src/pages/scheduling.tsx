@@ -1,5 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -12,9 +17,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+
+// Icons
 import { 
   CalendarDays, 
   Clock, 
@@ -32,6 +36,8 @@ import {
   Eye,
   Upload
 } from "lucide-react";
+
+// Utils and Hooks
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -82,12 +88,12 @@ export default function SchedulingPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Check for URL parameters to pre-fill client information
+  // URL Parameters for client pre-filling
   const urlParams = new URLSearchParams(window.location.search);
   const clientIdFromUrl = urlParams.get('clientId');
   const clientNameFromUrl = urlParams.get('clientName');
   
-  // Auto-open modal if coming from client page
+  // Auto-open scheduling modal when navigating from client page
   React.useEffect(() => {
     if (clientIdFromUrl) {
       setIsNewSessionModalOpen(true);
@@ -154,31 +160,33 @@ export default function SchedulingPage() {
     },
   });
 
+  // Event Handlers
   const onSubmit = (data: SessionFormData) => {
     createSessionMutation.mutate(data);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'no_show': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  // Utility Functions
+  const getStatusColor = (status: string): string => {
+    const statusColors = {
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'completed': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'no_show': 'bg-yellow-100 text-yellow-800'
+    };
+    return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
   };
 
-  const getSessionTypeColor = (type: string) => {
-    switch (type) {
-      case 'assessment': return 'bg-purple-100 text-purple-800';
-      case 'psychotherapy': return 'bg-green-100 text-green-800';
-      case 'consultation': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getSessionTypeColor = (type: string): string => {
+    const typeColors = {
+      'assessment': 'bg-purple-100 text-purple-800',
+      'psychotherapy': 'bg-green-100 text-green-800',
+      'consultation': 'bg-blue-100 text-blue-800'
+    };
+    return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
   };
 
-  const getTimeSlots = () => {
-    const slots = [];
+  const getTimeSlots = (): string[] => {
+    const slots: string[] = [];
     for (let hour = 8; hour <= 18; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -188,10 +196,11 @@ export default function SchedulingPage() {
     return slots;
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string): string => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  // Session Filtering and Data Processing
   const filteredSessions = useMemo(() => {
     let filtered = sessions;
     
@@ -211,14 +220,14 @@ export default function SchedulingPage() {
     return filtered;
   }, [sessions, searchQuery, selectedTherapist]);
 
-  const getTodaysSessions = () => {
+  const getTodaysSessions = (): Session[] => {
     const today = selectedDate.toISOString().split('T')[0];
     return filteredSessions.filter((session: Session) => 
       session.sessionDate.split('T')[0] === today
     );
   };
 
-  const getMonthSessions = () => {
+  const getMonthSessions = (): Session[] => {
     const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
     const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
     
@@ -228,14 +237,15 @@ export default function SchedulingPage() {
     });
   };
 
-  const getSessionsForDate = (date: Date) => {
+  const getSessionsForDate = (date: Date): Session[] => {
     const dateStr = date.toISOString().split('T')[0];
     return filteredSessions.filter((session: Session) => 
       session.sessionDate.split('T')[0] === dateStr
     );
   };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  // Navigation Functions
+  const navigateMonth = (direction: 'prev' | 'next'): void => {
     setCurrentMonth(prev => {
       const newMonth = new Date(prev);
       if (direction === 'prev') {
@@ -247,7 +257,7 @@ export default function SchedulingPage() {
     });
   };
 
-  const goToToday = () => {
+  const goToToday = (): void => {
     const today = new Date();
     setCurrentMonth(today);
     setSelectedDate(today);

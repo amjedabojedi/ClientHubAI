@@ -1,3 +1,4 @@
+// Database Schema and Types
 import { 
   clients, 
   users, 
@@ -18,6 +19,8 @@ import {
   type Document,
   type InsertDocument
 } from "@shared/schema";
+
+// Database Connection and Operators
 import { db } from "./db";
 import { eq, and, or, ilike, desc, asc, count, sql } from "drizzle-orm";
 
@@ -40,14 +43,15 @@ export interface ClientsQueryResult {
   totalPages: number;
 }
 
+// Storage Interface - defines all data operations
 export interface IStorage {
-  // User methods
+  // User Management
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getAllTherapists(): Promise<User[]>;
 
-  // Client methods
+  // Client Management
   getClients(params: ClientsQueryParams): Promise<ClientsQueryResult>;
   getClient(id: number): Promise<(Client & { assignedTherapist?: User }) | undefined>;
   getClientByClientId(clientId: string): Promise<Client | undefined>;
@@ -63,21 +67,21 @@ export interface IStorage {
     psychotherapy: number;
   }>;
 
-  // Session methods
+  // Session Management
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
   createSession(session: InsertSession): Promise<Session>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
 
-  // Task methods
+  // Task Management
   getTasksByClient(clientId: number): Promise<(Task & { assignedTo?: User })[]>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
   deleteTask(id: number): Promise<void>;
   getPendingTasksCount(): Promise<number>;
 
-  // Note methods
+  // Note Management
   getNotesByClient(clientId: number): Promise<(Note & { author: User })[]>;
   createNote(note: InsertNote): Promise<Note>;
   updateNote(id: number, note: Partial<InsertNote>): Promise<Note>;

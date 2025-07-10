@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,33 +10,49 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
+// Icons
+import { 
+  ArrowLeft, 
+  User, 
+  Calendar, 
+  FileText, 
+  ClipboardList, 
+  FolderOpen, 
+  CreditCard, 
+  CheckSquare, 
+  Plus, 
+  Search, 
+  Download, 
+  Upload, 
+  Edit, 
+  Trash2 
+} from "lucide-react";
+
+// Utils and Types
 import { getQueryFn } from "@/lib/queryClient";
-import { ArrowLeft, User, Calendar, FileText, ClipboardList, FolderOpen, CreditCard, CheckSquare, Phone, Mail, MapPin, Clock, Plus, Search, Filter, Download, Upload, Edit, Trash2 } from "lucide-react";
 import type { Client, Session, Note, Task, Document } from "@/types/client";
+
+// Components
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 
 export default function ClientDetailPage() {
+  // Routing
   const [match, params] = useRoute("/clients/:id");
   const [, setLocation] = useLocation();
+  const clientId = params?.id ? parseInt(params.id) : null;
+  
+  // State
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
-  const clientId = params?.id ? parseInt(params.id) : null;
 
-  const handleEditClient = () => {
-    setIsEditModalOpen(true);
-  };
-
-  const handleDeleteClient = () => {
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleDeleteSuccess = () => {
-    setLocation("/clients");
-  };
+  // Event Handlers
+  const handleEditClient = () => setIsEditModalOpen(true);
+  const handleDeleteClient = () => setIsDeleteDialogOpen(true);
+  const handleDeleteSuccess = () => setLocation("/clients");
 
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
