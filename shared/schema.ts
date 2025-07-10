@@ -38,47 +38,70 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Clients table with proper indexing for 5000+ records
+// Clients table with comprehensive fields and proper indexing for 5000+ records
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   clientId: varchar("client_id", { length: 20 }).notNull().unique(), // CL-2024-0001 format
-  fullName: text("full_name").notNull(),
-  dateOfBirth: date("date_of_birth"),
-  phone: varchar("phone", { length: 20 }),
-  email: text("email"),
-  gender: genderEnum("gender"),
-  preferredLanguage: varchar("preferred_language", { length: 50 }).default('English'),
-  pronouns: varchar("pronouns", { length: 20 }),
   
-  // Address fields
-  address: text("address"),
-  city: varchar("city", { length: 100 }),
+  // Personal Information (Tab 1)
+  fullName: text("full_name").notNull(), // Required field for client identification
+  dateOfBirth: date("date_of_birth"), // Client's birth date
+  gender: genderEnum("gender"), // Client's gender
+  maritalStatus: varchar("marital_status", { length: 50 }), // Single, married, divorced, etc.
+  preferredLanguage: varchar("preferred_language", { length: 50 }).default('English'), // Client's communication preference
+  pronouns: varchar("pronouns", { length: 20 }),
+  emailNotifications: boolean("email_notifications").notNull().default(true), // Whether client wants email updates
+  
+  // Client Portal Access
+  hasPortalAccess: boolean("has_portal_access").notNull().default(false), // Portal Enabled - Whether client can access online portal
+  portalEmail: text("portal_email"),
+  portalPassword: varchar("portal_password", { length: 255 }), // Portal Password - Login credentials for portal (hashed)
+  lastLogin: timestamp("last_login"), // Last Login - When client last accessed portal
+  passwordResetToken: varchar("password_reset_token", { length: 255 }), // Password Reset Token - For portal password recovery
+  activationToken: varchar("activation_token", { length: 255 }), // Activation Token - For initial portal setup
+  
+  // Contact & Address Information (Tab 2)
+  phone: varchar("phone", { length: 20 }), // Primary contact number
+  emergencyPhone: varchar("emergency_phone", { length: 20 }), // Backup contact number
+  email: text("email"), // Email address (optional)
+  streetAddress1: text("street_address_1"), // Primary address line
+  streetAddress2: text("street_address_2"), // Apartment, suite, etc.
+  city: varchar("city", { length: 100 }), // City name
+  province: varchar("province", { length: 50 }), // State/province
+  postalCode: varchar("postal_code", { length: 20 }), // ZIP/postal code
+  country: varchar("country", { length: 100 }).default('United States'), // Country name
+  
+  // Referral & Case Information (Tab 3)
+  startDate: date("start_date"), // When therapy began
+  referrerName: text("referrer_name"), // Who referred this client
+  referralDate: date("referral_date"), // When referral was made
+  referenceNumber: varchar("reference_number", { length: 100 }), // Case reference ID
+  clientSource: text("client_source"), // How client found the practice
+  
+  // Employment & Socioeconomic (Tab 4)
+  employmentStatus: varchar("employment_status", { length: 100 }), // Working, unemployed, retired, etc.
+  educationLevel: varchar("education_level", { length: 100 }), // Highest education completed
+  dependents: integer("dependents"), // Number of dependents
+  
+  // Client Status & Progress (Tab 5)
+  clientType: clientTypeEnum("client_type").notNull().default('individual'), // New, returning, or referred
+  status: clientStatusEnum("status").notNull().default('pending'), // Active, inactive, or closed
+  stage: clientStageEnum("stage").notNull().default('intake'), // Current stage in treatment process
+  lastUpdateDate: timestamp("last_update_date").notNull().defaultNow(), // When profile was last modified
+  assignedTherapistId: integer("assigned_therapist_id").references(() => users.id), // Primary therapist for this client
+  
+  // Additional Information
+  notes: text("notes"), // General notes about the client
+  
+  // Legacy Fields (For Compatibility)
+  address: text("address"), // Old address field (replaced by structured address)
   state: varchar("state", { length: 50 }),
   zipCode: varchar("zip_code", { length: 10 }),
-  
-  // Emergency contact
-  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactName: text("emergency_contact_name"), // Legacy emergency contact
   emergencyContactPhone: varchar("emergency_contact_phone", { length: 20 }),
   emergencyContactRelationship: varchar("emergency_contact_relationship", { length: 50 }),
   
-  // Status and assignment
-  status: clientStatusEnum("status").notNull().default('pending'),
-  stage: clientStageEnum("stage").notNull().default('intake'),
-  clientType: clientTypeEnum("client_type").notNull().default('individual'),
-  assignedTherapistId: integer("assigned_therapist_id").references(() => users.id),
-  
-  // Portal and access
-  hasPortalAccess: boolean("has_portal_access").notNull().default(false),
-  portalEmail: text("portal_email"),
-  
-  // Referral information
-  referralSource: text("referral_source"),
-  referralType: text("referral_type"),
-  referringPerson: text("referring_person"),
-  referralDate: date("referral_date"),
-  referralNotes: text("referral_notes"),
-  
-  // Insurance information
+  // Insurance Information - Provider, policy, and group numbers
   insuranceProvider: text("insurance_provider"),
   policyNumber: text("policy_number"),
   groupNumber: text("group_number"),
@@ -86,8 +109,17 @@ export const clients = pgTable("clients", {
   copayAmount: decimal("copay_amount", { precision: 10, scale: 2 }),
   deductible: decimal("deductible", { precision: 10, scale: 2 }),
   
+  // Service Type & Frequency - Treatment service details
+  serviceType: text("service_type"), // Treatment service details
+  serviceFrequency: varchar("service_frequency", { length: 100 }), // Frequency of treatment
+  
+  // Referral information (Legacy)
+  referralSource: text("referral_source"),
+  referralType: text("referral_type"),
+  referringPerson: text("referring_person"),
+  referralNotes: text("referral_notes"),
+  
   // Timestamps
-  startDate: date("start_date"),
   lastSessionDate: timestamp("last_session_date"),
   nextAppointmentDate: timestamp("next_appointment_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
