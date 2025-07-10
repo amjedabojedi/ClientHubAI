@@ -37,8 +37,21 @@ interface SessionNote {
   therapistId: number;
   noteType: 'progress' | 'assessment' | 'intervention' | 'homework' | 'crisis' | 'general';
   content: string;
+  
+  // Core clinical documentation fields
+  sessionFocus?: string;
+  symptoms?: string;
+  shortTermGoals?: string;
+  intervention?: string;
+  progress?: string;
+  remarks?: string;
+  recommendations?: string;
+  
+  // Mood tracking
   moodBefore?: number;
   moodAfter?: number;
+  
+  // Additional clinical fields
   goals?: string;
   interventions?: string;
   assessments?: string;
@@ -379,7 +392,57 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   </div>
                 )}
 
-                {/* Goals, Interventions, etc. */}
+                {/* Core Clinical Documentation */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {note.sessionFocus && (
+                    <div>
+                      <h4 className="font-medium mb-1">Session Focus</h4>
+                      <p className="text-sm text-muted-foreground">{note.sessionFocus}</p>
+                    </div>
+                  )}
+                  {note.symptoms && (
+                    <div>
+                      <h4 className="font-medium mb-1">Symptoms</h4>
+                      <p className="text-sm text-muted-foreground">{note.symptoms}</p>
+                    </div>
+                  )}
+                  {note.shortTermGoals && (
+                    <div>
+                      <h4 className="font-medium mb-1">Short-term Goals</h4>
+                      <p className="text-sm text-muted-foreground">{note.shortTermGoals}</p>
+                    </div>
+                  )}
+                  {note.intervention && (
+                    <div>
+                      <h4 className="font-medium mb-1">Intervention</h4>
+                      <p className="text-sm text-muted-foreground">{note.intervention}</p>
+                    </div>
+                  )}
+                  {note.progress && (
+                    <div>
+                      <h4 className="font-medium mb-1">Progress</h4>
+                      <p className="text-sm text-muted-foreground">{note.progress}</p>
+                    </div>
+                  )}
+                  {note.remarks && (
+                    <div>
+                      <h4 className="font-medium mb-1">Remarks</h4>
+                      <p className="text-sm text-muted-foreground">{note.remarks}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Recommendations */}
+                {note.recommendations && (
+                  <div>
+                    <h4 className="font-medium mb-2">Recommendations</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {note.recommendations}
+                    </p>
+                  </div>
+                )}
+
+                {/* Additional Clinical Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {note.goals && (
                     <div>
@@ -502,6 +565,132 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       <Textarea 
                         placeholder="Document the session details, observations, and key points..."
                         className="min-h-[120px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Core Clinical Documentation Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="sessionFocus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Session Focus</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Main topics or issues addressed during the session..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="symptoms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Symptoms</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Observed or reported symptoms..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="shortTermGoals"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Short-term Goals</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Goals worked on during this session..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="intervention"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Intervention</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Therapeutic techniques/interventions used..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="progress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Progress</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Progress made toward goals..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="remarks"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Remarks</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Additional clinical observations..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="recommendations"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Recommendations</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Future treatment recommendations..."
                         {...field}
                       />
                     </FormControl>
