@@ -787,13 +787,25 @@ function ConnectionForm({
   onConnectionCreated: () => void;
 }) {
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
 
   // Get available target entries (from different categories than source)
   const availableTargets = allEntries.filter(entry => 
-    entry.id !== sourceEntry.id && entry.categoryId !== sourceEntry.categoryId
+    entry.id !== sourceEntry.id && 
+    entry.categoryId !== sourceEntry.categoryId &&
+    (selectedCategoryFilter === null || entry.categoryId === selectedCategoryFilter)
+  );
+
+  // Get unique categories for filter dropdown (excluding source category)
+  const availableCategories = Array.from(
+    new Set(
+      allEntries
+        .filter(entry => entry.categoryId !== sourceEntry.categoryId)
+        .map(entry => entry.category)
+    )
   );
 
   console.log('ConnectionForm Debug:', {
@@ -859,9 +871,33 @@ function ConnectionForm({
       </div>
 
       <form onSubmit={handleCreateConnection} className="space-y-4">
+        {/* Category Filter */}
+        <div>
+          <Label htmlFor="categoryFilter">Filter by Category (optional)</Label>
+          <Select
+            value={selectedCategoryFilter?.toString() || "all"}
+            onValueChange={(value) => {
+              setSelectedCategoryFilter(value === "all" ? null : parseInt(value));
+              setSelectedTargetId(null); // Reset selection when filter changes
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {availableCategories.map(category => (
+                <SelectItem key={category.id} value={category.id.toString()}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Target Entry Selection */}
         <div>
-          <Label htmlFor="targetEntry">Connect to Entry (different category)</Label>
+          <Label htmlFor="targetEntry">Connect to Entry</Label>
           <Select
             value={selectedTargetId?.toString() || "none"}
             onValueChange={(value) => setSelectedTargetId(value === "none" ? null : parseInt(value))}
@@ -883,7 +919,12 @@ function ConnectionForm({
               ))}
             </SelectContent>
           </Select>
-          {availableTargets.length === 0 && (
+          {availableTargets.length === 0 && selectedCategoryFilter !== null && (
+            <p className="text-sm text-gray-500 mt-1">
+              No entries in this category available for connection.
+            </p>
+          )}
+          {availableTargets.length === 0 && selectedCategoryFilter === null && (
             <p className="text-sm text-gray-500 mt-1">
               No entries from different categories available for connection.
             </p>
