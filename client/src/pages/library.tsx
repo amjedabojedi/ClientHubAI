@@ -794,6 +794,14 @@ function ConnectionForm({
     entry.id !== sourceEntry.id && entry.categoryId !== sourceEntry.categoryId
   );
 
+  console.log('ConnectionForm Debug:', {
+    sourceEntry: sourceEntry.title,
+    sourceCategory: sourceEntry.categoryId,
+    allEntriesCount: allEntries.length,
+    availableTargetsCount: availableTargets.length,
+    availableTargets: availableTargets.map(t => ({ id: t.id, title: t.title, categoryId: t.categoryId, categoryName: t.category?.name }))
+  });
+
   const handleCreateConnection = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTargetId) return;
