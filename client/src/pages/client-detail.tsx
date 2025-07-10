@@ -163,28 +163,32 @@ export default function ClientDetailPage() {
                 <p className="text-slate-600">Client ID: {client.clientId}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="default"
-                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Schedule Session
-              </Button>
-              <Badge className={getStatusColor(client.status)}>
-                {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-              </Badge>
-              <Badge className={getStageColor(client.stage)}>
-                {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
-              </Badge>
-              <Button onClick={handleEditClient}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Client
-              </Button>
-              <Button variant="outline" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Badge className={`${getStatusColor(client.status)} px-3 py-1 text-sm font-medium`}>
+                  {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                </Badge>
+                <Badge className={`${getStageColor(client.stage)} px-3 py-1 text-sm font-medium`}>
+                  {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
+                </Badge>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button onClick={handleEditClient} variant="outline">
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button 
+                  variant="default"
+                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Schedule Session
+                </Button>
+                <Button variant="outline" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
             </div>
           </div>
         </div>
