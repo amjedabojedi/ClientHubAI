@@ -225,164 +225,278 @@ export default function ClientDetailPage() {
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Personal Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <User className="w-5 h-5" />
-                    <span>Personal Information</span>
+          <TabsContent value="overview" className="space-y-8">
+            {/* Client Summary Header */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-blue-100 p-3 rounded-full">
+                    <User className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{client.fullName}</h2>
+                    <p className="text-slate-600 flex items-center space-x-4">
+                      <span>ID: {client.clientId}</span>
+                      {client.dateOfBirth && (
+                        <span>• Age: {Math.floor((new Date().getTime() - new Date(client.dateOfBirth).getTime()) / (1000 * 3600 * 24 * 365))}</span>
+                      )}
+                      {client.clientType && (
+                        <span>• {client.clientType.charAt(0).toUpperCase() + client.clientType.slice(1)} Client</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex space-x-3">
+                  <Badge className={`${getStatusColor(client.status)} px-3 py-1 text-sm font-medium`}>
+                    {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                  </Badge>
+                  <Badge className={`${getStageColor(client.stage)} px-3 py-1 text-sm font-medium`}>
+                    {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Information Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Contact Information Card */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2 text-lg">
+                    <Phone className="w-5 h-5 text-blue-600" />
+                    <span>Contact Information</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Full Name</p>
-                    <p className="text-slate-600">{client.fullName}</p>
-                  </div>
-                  {client.dateOfBirth && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Date of Birth</p>
-                      <p className="text-slate-600">{new Date(client.dateOfBirth).toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  {client.gender && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Gender</p>
-                      <p className="text-slate-600">{client.gender.replace('_', ' ')}</p>
-                    </div>
-                  )}
+                <CardContent className="p-6 space-y-4">
                   {client.phone && (
-                    <div className="flex items-center space-x-2">
-                      <Phone className="w-4 h-4 text-slate-400" />
-                      <p className="text-slate-600">{client.phone}</p>
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <div className="flex items-center space-x-3">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-600">Primary Phone</span>
+                      </div>
+                      <span className="text-slate-900 font-medium">{client.phone}</span>
                     </div>
                   )}
                   {client.email && (
-                    <div className="flex items-center space-x-2">
-                      <Mail className="w-4 h-4 text-slate-400" />
-                      <p className="text-slate-600">{client.email}</p>
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <div className="flex items-center space-x-3">
+                        <Mail className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-600">Email</span>
+                      </div>
+                      <span className="text-slate-900 font-medium">{client.email}</span>
                     </div>
                   )}
-                  {(client.city || client.province) && (
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="w-4 h-4 text-slate-400" />
-                      <p className="text-slate-600">{[client.city, client.province].filter(Boolean).join(', ')}</p>
+                  {(client.address || client.city || client.state) && (
+                    <div className="flex items-start justify-between py-2 border-b border-slate-100">
+                      <div className="flex items-center space-x-3">
+                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
+                        <span className="text-sm font-medium text-slate-600">Address</span>
+                      </div>
+                      <div className="text-right text-slate-900 font-medium">
+                        {client.address && <div>{client.address}</div>}
+                        <div>{[client.city, client.state, client.zipCode].filter(Boolean).join(', ')}</div>
+                      </div>
+                    </div>
+                  )}
+                  {client.emergencyContactName && (
+                    <div className="bg-orange-50 p-3 rounded-lg">
+                      <div className="text-sm font-medium text-orange-800 mb-1">Emergency Contact</div>
+                      <div className="text-orange-700">
+                        <div className="font-medium">{client.emergencyContactName}</div>
+                        {client.emergencyContactPhone && <div>{client.emergencyContactPhone}</div>}
+                        {client.emergencyContactRelationship && (
+                          <div className="text-sm">({client.emergencyContactRelationship})</div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Client Status */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Clock className="w-5 h-5" />
-                    <span>Client Status</span>
+              {/* Clinical Status Card */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2 text-lg">
+                    <Clock className="w-5 h-5 text-green-600" />
+                    <span>Clinical Status</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Current Status</p>
-                    <Badge className={getStatusColor(client.status)}>
-                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Stage</p>
-                    <Badge className={getStageColor(client.stage)}>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <span className="text-sm font-medium text-slate-600">Treatment Stage</span>
+                    <Badge className={`${getStageColor(client.stage)} px-3 py-1`}>
                       {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
                     </Badge>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Client Type</p>
-                    <p className="text-slate-600">{client.clientType.charAt(0).toUpperCase() + client.clientType.slice(1)}</p>
+                  <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                    <span className="text-sm font-medium text-slate-600">Client Type</span>
+                    <span className="text-slate-900 font-medium">
+                      {client.clientType.charAt(0).toUpperCase() + client.clientType.slice(1)}
+                    </span>
                   </div>
-                  {client.startDate && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Start Date</p>
-                      <p className="text-slate-600">{new Date(client.startDate).toLocaleDateString()}</p>
+                  {client.serviceType && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Service Type</span>
+                      <span className="text-slate-900 font-medium">
+                        {client.serviceType.replace('_', ' ').charAt(0).toUpperCase() + client.serviceType.replace('_', ' ').slice(1)}
+                      </span>
                     </div>
                   )}
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Sessions</p>
-                    <p className="text-slate-600">{client.sessionCount || 0} total sessions</p>
+                  {client.serviceFrequency && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Frequency</span>
+                      <span className="text-slate-900 font-medium">
+                        {client.serviceFrequency.charAt(0).toUpperCase() + client.serviceFrequency.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                  {client.startDate && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Start Date</span>
+                      <span className="text-slate-900 font-medium">
+                        {new Date(client.startDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-green-800 mb-1">Session Progress</div>
+                    <div className="text-2xl font-bold text-green-700">{client.sessionCount || 0}</div>
+                    <div className="text-sm text-green-600">Total Sessions Completed</div>
                   </div>
                 </CardContent>
               </Card>
+            </div>
 
+            {/* Additional Information Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
               {/* Assigned Therapist */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assigned Therapist</CardTitle>
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2">
+                    <User className="w-5 h-5 text-purple-600" />
+                    <span>Assigned Therapist</span>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {client.assignedTherapist ? (
-                    <div className="space-y-2">
-                      <p className="font-medium text-slate-900">{client.assignedTherapist.fullName}</p>
-                      <p className="text-slate-600">{client.assignedTherapist.email}</p>
+                    <div className="text-center">
+                      <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                        <User className="w-8 h-8 text-purple-600" />
+                      </div>
+                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist.fullName}</h4>
+                      <p className="text-slate-600 text-sm">{client.assignedTherapist.email}</p>
                     </div>
                   ) : (
-                    <p className="text-slate-600">No therapist assigned</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Referral Information & Portal Access */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Referral Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {client.referrerName && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Referrer</p>
-                      <p className="text-slate-600">{client.referrerName}</p>
-                    </div>
-                  )}
-                  {client.referralDate && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Referral Date</p>
-                      <p className="text-slate-600">{new Date(client.referralDate).toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  {client.referenceNumber && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Reference Number</p>
-                      <p className="text-slate-600">{client.referenceNumber}</p>
-                    </div>
-                  )}
-                  {client.clientSource && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Client Source</p>
-                      <p className="text-slate-600">{client.clientSource.replace('_', ' ')}</p>
+                    <div className="text-center py-4">
+                      <div className="bg-gray-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                        <User className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-slate-500">No therapist assigned</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Portal Access</CardTitle>
+              {/* Portal Access */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2">
+                    <CreditCard className="w-5 h-5 text-indigo-600" />
+                    <span>Portal Access</span>
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">Portal Access</p>
-                    <Badge className={client.hasPortalAccess ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                      {client.hasPortalAccess ? 'Enabled' : 'Disabled'}
+                <CardContent className="p-6">
+                  <div className="text-center">
+                    <div className={`p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center ${
+                      client.hasPortalAccess ? 'bg-green-100' : 'bg-gray-100'
+                    }`}>
+                      <CreditCard className={`w-8 h-8 ${client.hasPortalAccess ? 'text-green-600' : 'text-gray-400'}`} />
+                    </div>
+                    <Badge className={`mb-2 px-3 py-1 ${client.hasPortalAccess ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                      {client.hasPortalAccess ? 'Access Enabled' : 'Access Disabled'}
                     </Badge>
+                    {client.portalEmail && (
+                      <p className="text-slate-600 text-sm mt-2">{client.portalEmail}</p>
+                    )}
                   </div>
-                  {client.portalEmail && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Portal Email</p>
-                      <p className="text-slate-600">{client.portalEmail}</p>
+                </CardContent>
+              </Card>
+
+              {/* Insurance Information */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2">
+                    <CreditCard className="w-5 h-5 text-blue-600" />
+                    <span>Insurance</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {client.insuranceProvider ? (
+                    <div className="space-y-2">
+                      <div className="text-center mb-3">
+                        <div className="bg-blue-100 p-3 rounded-full w-16 h-16 mx-auto mb-2 flex items-center justify-center">
+                          <CreditCard className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <h4 className="font-semibold text-slate-900">{client.insuranceProvider}</h4>
+                      </div>
+                      {client.policyNumber && (
+                        <p className="text-sm text-slate-600">Policy: {client.policyNumber}</p>
+                      )}
+                      {client.copayAmount && (
+                        <p className="text-sm text-slate-600">Copay: ${client.copayAmount}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <div className="bg-gray-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                        <CreditCard className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <p className="text-slate-500 text-sm">No insurance information</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* Referral Information */}
+            {(client.referrerName || client.referralDate || client.clientSource) && (
+              <Card className="shadow-sm">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="w-5 h-5 text-orange-600" />
+                    <span>Referral Information</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {client.referrerName && (
+                      <div className="text-center p-4 bg-orange-50 rounded-lg">
+                        <div className="text-sm font-medium text-orange-800 mb-1">Referred By</div>
+                        <div className="text-orange-700 font-semibold">{client.referrerName}</div>
+                      </div>
+                    )}
+                    {client.referralDate && (
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <div className="text-sm font-medium text-blue-800 mb-1">Referral Date</div>
+                        <div className="text-blue-700 font-semibold">
+                          {new Date(client.referralDate).toLocaleDateString()}
+                        </div>
+                      </div>
+                    )}
+                    {client.clientSource && (
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <div className="text-sm font-medium text-green-800 mb-1">Source</div>
+                        <div className="text-green-700 font-semibold">
+                          {client.clientSource.replace('_', ' ').charAt(0).toUpperCase() + client.clientSource.replace('_', ' ').slice(1)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Sessions Tab */}
