@@ -35,6 +35,7 @@ export default function LibraryPage() {
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LibraryCategoryWithChildren | null>(null);
   const [editingEntry, setEditingEntry] = useState<LibraryEntryWithDetails | null>(null);
+  const [connectingEntry, setConnectingEntry] = useState<LibraryEntryWithDetails | null>(null);
   const [connectedEntriesMap, setConnectedEntriesMap] = useState<Record<number, any[]>>({});
   
   const { toast } = useToast();
@@ -440,6 +441,14 @@ export default function LibraryPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
+                                    onClick={() => setConnectingEntry(entry)}
+                                    title="Connect to other entries"
+                                  >
+                                    <Link2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => setEditingEntry(entry)}
                                   >
                                     <Edit className="w-4 h-4" />
@@ -524,6 +533,26 @@ export default function LibraryPage() {
                 categories={getAllCategories(categories)}
                 selectedCategoryId={editingEntry.categoryId}
                 isLoading={updateEntryMutation.isPending}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Connect Entry Dialog */}
+        <Dialog open={!!connectingEntry} onOpenChange={() => setConnectingEntry(null)}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Connect "{connectingEntry?.title}" to Other Entries</DialogTitle>
+            </DialogHeader>
+            {connectingEntry && (
+              <ConnectionForm
+                sourceEntry={connectingEntry}
+                allEntries={entries}
+                onConnectionCreated={() => {
+                  // Refresh connections
+                  setConnectedEntriesMap({});
+                  setConnectingEntry(null);
+                }}
               />
             )}
           </DialogContent>
@@ -710,5 +739,187 @@ function EntryForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+// Connection Form Component
+function ConnectionForm({
+  sourceEntry,
+  allEntries,
+  onConnectionCreated
+}: {
+  sourceEntry: LibraryEntryWithDetails;
+  allEntries: LibraryEntryWithDetails[];
+  onConnectionCreated: () => void;
+}) {
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [connectionType, setConnectionType] = useState<string>("relates_to");
+  const [connectionStrength, setConnectionStrength] = useState<number>(5);
+  const [description, setDescription] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { toast } = useToast();
+
+  // Get available target entries (from different categories than source)
+  const availableTargets = allEntries.filter(entry => 
+    entry.id !== sourceEntry.id && entry.categoryId !== sourceEntry.categoryId
+  );
+
+  const handleCreateConnection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTargetId) return;
+
+    setIsLoading(true);
+    try {
+      const connectionData = {
+        fromEntryId: sourceEntry.id,
+        toEntryId: selectedTargetId,
+        connectionType,
+        connectionStrength,
+        description: description.trim() || null,
+        createdById: 1 // TODO: Get from auth context
+      };
+
+      const response = await fetch("/api/library/connections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(connectionData)
+      });
+
+      if (!response.ok) throw new Error("Failed to create connection");
+
+      toast({ title: "Connection created successfully" });
+      onConnectionCreated();
+    } catch (error) {
+      toast({ title: "Failed to create connection", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Source Entry Info */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+          Connecting from: {sourceEntry.title}
+        </h3>
+        <div className="flex items-center gap-2 text-sm">
+          <Badge variant="secondary">{sourceEntry.category.name}</Badge>
+          {sourceEntry.tags && sourceEntry.tags.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Tag className="w-3 h-3" />
+              {sourceEntry.tags.slice(0, 3).map((tag, idx) => (
+                <Badge key={idx} variant="outline" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <form onSubmit={handleCreateConnection} className="space-y-4">
+        {/* Target Entry Selection */}
+        <div>
+          <Label htmlFor="targetEntry">Connect to Entry (different category)</Label>
+          <Select
+            value={selectedTargetId?.toString() || "none"}
+            onValueChange={(value) => setSelectedTargetId(value === "none" ? null : parseInt(value))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select an entry to connect to" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Select an entry...</SelectItem>
+              {availableTargets.map(entry => (
+                <SelectItem key={entry.id} value={entry.id.toString()}>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {entry.category.name}
+                    </Badge>
+                    <span>{entry.title}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {availableTargets.length === 0 && (
+            <p className="text-sm text-gray-500 mt-1">
+              No entries from different categories available for connection.
+            </p>
+          )}
+        </div>
+
+        {/* Connection Type */}
+        <div>
+          <Label htmlFor="connectionType">Connection Type</Label>
+          <Select
+            value={connectionType}
+            onValueChange={setConnectionType}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="supports">Supports - This entry supports the target</SelectItem>
+              <SelectItem value="relates_to">Relates to - General relationship</SelectItem>
+              <SelectItem value="prerequisite_for">Prerequisite for - Must come before target</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Connection Strength */}
+        <div>
+          <Label htmlFor="strength">Connection Strength (1-10)</Label>
+          <Select
+            value={connectionStrength.toString()}
+            onValueChange={(value) => setConnectionStrength(parseInt(value))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                <SelectItem key={num} value={num.toString()}>
+                  {num} - {num <= 3 ? 'Weak' : num <= 6 ? 'Moderate' : 'Strong'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Description */}
+        <div>
+          <Label htmlFor="description">Description (optional)</Label>
+          <Textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe how these entries are connected..."
+            rows={3}
+          />
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button type="submit" disabled={isLoading || !selectedTargetId}>
+            {isLoading ? "Creating Connection..." : "Create Connection"}
+          </Button>
+        </div>
+      </form>
+
+      {/* Example of how this helps */}
+      {selectedTargetId && (
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+          <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
+            💡 How this helps in session notes:
+          </h4>
+          <p className="text-sm text-green-800 dark:text-green-200">
+            When you select "{sourceEntry.title}" in session notes, the system will automatically 
+            suggest "{availableTargets.find(e => e.id === selectedTargetId)?.title}" as a related {connectionType} option.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
