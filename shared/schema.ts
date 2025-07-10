@@ -232,6 +232,32 @@ export const sessionNotes = pgTable("session_notes", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Hierarchical Library Tables for Clinical Content
+export const libraryCategories = pgTable("library_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  parentId: integer("parent_id").references(() => libraryCategories.id, { onDelete: "cascade" }),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const libraryEntries = pgTable("library_entries", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull().references(() => libraryCategories.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  tags: text("tags").array(),
+  createdById: integer("created_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  usageCount: integer("usage_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
@@ -314,6 +340,26 @@ export const sessionNotesRelations = relations(sessionNotes, ({ one }) => ({
   }),
 }));
 
+export const libraryCategoriesRelations = relations(libraryCategories, ({ one, many }) => ({
+  parent: one(libraryCategories, {
+    fields: [libraryCategories.parentId],
+    references: [libraryCategories.id],
+  }),
+  children: many(libraryCategories),
+  entries: many(libraryEntries),
+}));
+
+export const libraryEntriesRelations = relations(libraryEntries, ({ one }) => ({
+  category: one(libraryCategories, {
+    fields: [libraryEntries.categoryId],
+    references: [libraryCategories.id],
+  }),
+  createdBy: one(users, {
+    fields: [libraryEntries.createdById],
+    references: [users.id],
+  }),
+}));
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -355,6 +401,18 @@ export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
   updatedAt: true,
 });
 
+export const insertLibraryCategorySchema = createInsertSchema(libraryCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLibraryEntrySchema = createInsertSchema(libraryEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -376,3 +434,9 @@ export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 
 export type SessionNote = typeof sessionNotes.$inferSelect;
 export type InsertSessionNote = z.infer<typeof insertSessionNoteSchema>;
+
+export type LibraryCategory = typeof libraryCategories.$inferSelect;
+export type InsertLibraryCategory = z.infer<typeof insertLibraryCategorySchema>;
+
+export type LibraryEntry = typeof libraryEntries.$inferSelect;
+export type InsertLibraryEntry = z.infer<typeof insertLibraryEntrySchema>;

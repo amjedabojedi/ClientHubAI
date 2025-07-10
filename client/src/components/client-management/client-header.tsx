@@ -21,6 +21,9 @@ export default function ClientHeader() {
               <a href="/scheduling" className="text-slate-600 hover:text-slate-900 pb-4">
                 <i className="fas fa-calendar-alt mr-2"></i>Scheduling
               </a>
+              <a href="/library" className="text-slate-600 hover:text-slate-900 pb-4">
+                <i className="fas fa-book mr-2"></i>Library
+              </a>
               <a href="#" className="text-slate-600 hover:text-slate-900 pb-4">
                 <i className="fas fa-chart-line mr-2"></i>Reports
               </a>

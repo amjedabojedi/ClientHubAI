@@ -7,6 +7,8 @@ import {
   notes, 
   documents,
   sessionNotes,
+  libraryCategories,
+  libraryEntries,
   type Client, 
   type InsertClient,
   type User, 
@@ -20,7 +22,11 @@ import {
   type Document,
   type InsertDocument,
   type SessionNote,
-  type InsertSessionNote
+  type InsertSessionNote,
+  type LibraryCategory,
+  type InsertLibraryCategory,
+  type LibraryEntry,
+  type InsertLibraryEntry
 } from "@shared/schema";
 
 // Database Connection and Operators
@@ -102,6 +108,21 @@ export interface IStorage {
   updateSessionNote(id: number, sessionNote: Partial<InsertSessionNote>): Promise<SessionNote>;
   deleteSessionNote(id: number): Promise<void>;
   getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session }) | undefined>;
+
+  // Hierarchical Library Management
+  getLibraryCategories(): Promise<(LibraryCategory & { children?: LibraryCategory[]; entries?: LibraryEntry[] })[]>;
+  getLibraryCategory(id: number): Promise<(LibraryCategory & { children: LibraryCategory[]; entries: LibraryEntry[] }) | undefined>;
+  createLibraryCategory(category: InsertLibraryCategory): Promise<LibraryCategory>;
+  updateLibraryCategory(id: number, category: Partial<InsertLibraryCategory>): Promise<LibraryCategory>;
+  deleteLibraryCategory(id: number): Promise<void>;
+
+  getLibraryEntries(categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]>;
+  getLibraryEntry(id: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User }) | undefined>;
+  createLibraryEntry(entry: InsertLibraryEntry): Promise<LibraryEntry>;
+  updateLibraryEntry(id: number, entry: Partial<InsertLibraryEntry>): Promise<LibraryEntry>;
+  deleteLibraryEntry(id: number): Promise<void>;
+  searchLibraryEntries(query: string, categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]>;
+  incrementLibraryEntryUsage(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -564,6 +585,147 @@ export class DatabaseStorage implements IStorage {
       client: r.client, 
       session: r.session 
     };
+  }
+
+  // Hierarchical Library Implementation
+  async getLibraryCategories(): Promise<(LibraryCategory & { children?: LibraryCategory[]; entries?: LibraryEntry[] })[]> {
+    const categories = await db
+      .select()
+      .from(libraryCategories)
+      .where(eq(libraryCategories.isActive, true))
+      .orderBy(asc(libraryCategories.sortOrder), asc(libraryCategories.name));
+
+    // Build hierarchical structure
+    const categoryMap = new Map<number, LibraryCategory & { children: LibraryCategory[]; entries: LibraryEntry[] }>();
+    const rootCategories: (LibraryCategory & { children: LibraryCategory[]; entries: LibraryEntry[] })[] = [];
+
+    categories.forEach(cat => {
+      categoryMap.set(cat.id, { ...cat, children: [], entries: [] });
+    });
+
+    categories.forEach(cat => {
+      const categoryWithChildren = categoryMap.get(cat.id)!;
+      if (cat.parentId) {
+        const parent = categoryMap.get(cat.parentId);
+        if (parent) {
+          parent.children.push(categoryWithChildren);
+        }
+      } else {
+        rootCategories.push(categoryWithChildren);
+      }
+    });
+
+    return rootCategories;
+  }
+
+  async getLibraryCategory(id: number): Promise<(LibraryCategory & { children: LibraryCategory[]; entries: LibraryEntry[] }) | undefined> {
+    const [category] = await db
+      .select()
+      .from(libraryCategories)
+      .where(and(eq(libraryCategories.id, id), eq(libraryCategories.isActive, true)));
+
+    if (!category) return undefined;
+
+    const children = await db
+      .select()
+      .from(libraryCategories)
+      .where(and(eq(libraryCategories.parentId, id), eq(libraryCategories.isActive, true)))
+      .orderBy(asc(libraryCategories.sortOrder), asc(libraryCategories.name));
+
+    const entries = await db
+      .select()
+      .from(libraryEntries)
+      .where(and(eq(libraryEntries.categoryId, id), eq(libraryEntries.isActive, true)))
+      .orderBy(asc(libraryEntries.sortOrder), asc(libraryEntries.title));
+
+    return { ...category, children, entries };
+  }
+
+  async createLibraryCategory(categoryData: InsertLibraryCategory): Promise<LibraryCategory> {
+    const [category] = await db.insert(libraryCategories).values(categoryData).returning();
+    return category;
+  }
+
+  async updateLibraryCategory(id: number, categoryData: Partial<InsertLibraryCategory>): Promise<LibraryCategory> {
+    const [category] = await db
+      .update(libraryCategories)
+      .set({ ...categoryData, updatedAt: new Date() })
+      .where(eq(libraryCategories.id, id))
+      .returning();
+    return category;
+  }
+
+  async deleteLibraryCategory(id: number): Promise<void> {
+    await db.update(libraryCategories).set({ isActive: false, updatedAt: new Date() }).where(eq(libraryCategories.id, id));
+  }
+
+  async getLibraryEntries(categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]> {
+    let query = db
+      .select({ entry: libraryEntries, category: libraryCategories, createdBy: users })
+      .from(libraryEntries)
+      .leftJoin(libraryCategories, eq(libraryEntries.categoryId, libraryCategories.id))
+      .leftJoin(users, eq(libraryEntries.createdById, users.id))
+      .where(eq(libraryEntries.isActive, true));
+
+    if (categoryId) {
+      query = query.where(eq(libraryEntries.categoryId, categoryId));
+    }
+
+    const results = await query.orderBy(asc(libraryEntries.sortOrder), asc(libraryEntries.title));
+    return results.map(result => ({ ...result.entry, category: result.category!, createdBy: result.createdBy! }));
+  }
+
+  async getLibraryEntry(id: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User }) | undefined> {
+    const [result] = await db
+      .select({ entry: libraryEntries, category: libraryCategories, createdBy: users })
+      .from(libraryEntries)
+      .leftJoin(libraryCategories, eq(libraryEntries.categoryId, libraryCategories.id))
+      .leftJoin(users, eq(libraryEntries.createdById, users.id))
+      .where(and(eq(libraryEntries.id, id), eq(libraryEntries.isActive, true)));
+
+    if (!result) return undefined;
+    return { ...result.entry, category: result.category!, createdBy: result.createdBy! };
+  }
+
+  async createLibraryEntry(entryData: InsertLibraryEntry): Promise<LibraryEntry> {
+    const [entry] = await db.insert(libraryEntries).values(entryData).returning();
+    return entry;
+  }
+
+  async updateLibraryEntry(id: number, entryData: Partial<InsertLibraryEntry>): Promise<LibraryEntry> {
+    const [entry] = await db
+      .update(libraryEntries)
+      .set({ ...entryData, updatedAt: new Date() })
+      .where(eq(libraryEntries.id, id))
+      .returning();
+    return entry;
+  }
+
+  async deleteLibraryEntry(id: number): Promise<void> {
+    await db.update(libraryEntries).set({ isActive: false, updatedAt: new Date() }).where(eq(libraryEntries.id, id));
+  }
+
+  async searchLibraryEntries(query: string, categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]> {
+    let dbQuery = db
+      .select({ entry: libraryEntries, category: libraryCategories, createdBy: users })
+      .from(libraryEntries)
+      .leftJoin(libraryCategories, eq(libraryEntries.categoryId, libraryCategories.id))
+      .leftJoin(users, eq(libraryEntries.createdById, users.id))
+      .where(and(eq(libraryEntries.isActive, true), or(ilike(libraryEntries.title, `%${query}%`), ilike(libraryEntries.content, `%${query}%`))));
+
+    if (categoryId) {
+      dbQuery = dbQuery.where(eq(libraryEntries.categoryId, categoryId));
+    }
+
+    const results = await dbQuery.orderBy(desc(libraryEntries.usageCount), asc(libraryEntries.title));
+    return results.map(result => ({ ...result.entry, category: result.category!, createdBy: result.createdBy! }));
+  }
+
+  async incrementLibraryEntryUsage(id: number): Promise<void> {
+    await db
+      .update(libraryEntries)
+      .set({ usageCount: sql`${libraryEntries.usageCount} + 1`, updatedAt: new Date() })
+      .where(eq(libraryEntries.id, id));
   }
 }
 

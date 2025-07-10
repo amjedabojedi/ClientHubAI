@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
-import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertSessionNoteSchema } from "@shared/schema";
+import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -510,6 +510,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('AI regeneration error:', error);
       await storage.updateSessionNote(parseInt(req.params.sessionNoteId), { aiProcessingStatus: 'error' });
       res.status(500).json({ error: "Failed to regenerate AI content" });
+    }
+  });
+
+  // Library routes
+  app.get("/api/library/categories", async (req, res) => {
+    try {
+      const categories = await storage.getLibraryCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching library categories:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/library/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const category = await storage.getLibraryCategory(id);
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching library category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/library/categories", async (req, res) => {
+    try {
+      const validatedData = insertLibraryCategorySchema.parse(req.body);
+      const category = await storage.createLibraryCategory(validatedData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      console.error("Error creating library category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/library/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertLibraryCategorySchema.partial().parse(req.body);
+      const category = await storage.updateLibraryCategory(id, validatedData);
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      console.error("Error updating library category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/library/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteLibraryCategory(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting library category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/library/entries", async (req, res) => {
+    try {
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      const entries = await storage.getLibraryEntries(categoryId);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching library entries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/library/entries/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const entry = await storage.getLibraryEntry(id);
+      if (!entry) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      res.json(entry);
+    } catch (error) {
+      console.error("Error fetching library entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/library/entries", async (req, res) => {
+    try {
+      const validatedData = insertLibraryEntrySchema.parse(req.body);
+      const entry = await storage.createLibraryEntry(validatedData);
+      res.status(201).json(entry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid entry data", errors: error.errors });
+      }
+      console.error("Error creating library entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/library/entries/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertLibraryEntrySchema.partial().parse(req.body);
+      const entry = await storage.updateLibraryEntry(id, validatedData);
+      res.json(entry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid entry data", errors: error.errors });
+      }
+      console.error("Error updating library entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/library/entries/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteLibraryEntry(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting library entry:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/library/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      
+      if (!query) {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+      
+      const entries = await storage.searchLibraryEntries(query, categoryId);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error searching library entries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/library/entries/:id/increment-usage", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.incrementLibraryEntryUsage(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error incrementing library entry usage:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
