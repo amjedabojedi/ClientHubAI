@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock } from "lucide-react";
+import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -326,60 +326,93 @@ export default function LibraryPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {displayedEntries.map((entry) => (
-                        <Card key={entry.id} className="border-l-4 border-l-blue-500">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                  {entry.title}
-                                </h3>
-                                <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
-                                  {entry.content}
-                                </p>
-                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {entry.category.name}
-                                  </Badge>
-                                  {entry.tags && entry.tags.length > 0 && (
+                      {displayedEntries.map((entry) => {
+                        // Find related entries with common tags
+                        const relatedEntries = displayedEntries.filter(e => 
+                          e.id !== entry.id && 
+                          e.tags && entry.tags && 
+                          e.tags.some(tag => entry.tags.includes(tag))
+                        ).slice(0, 3);
+
+                        return (
+                          <Card key={entry.id} data-entry-id={entry.id} className="border-l-4 border-l-blue-500">
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                                    {entry.title}
+                                  </h3>
+                                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
+                                    {entry.content}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {entry.category.name}
+                                    </Badge>
+                                    {entry.tags && entry.tags.length > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        <Tag className="w-3 h-3" />
+                                        {entry.tags.slice(0, 2).map((tag, idx) => (
+                                          <Badge key={idx} variant="outline" className="text-xs">
+                                            {tag}
+                                          </Badge>
+                                        ))}
+                                        {entry.tags.length > 2 && (
+                                          <span className="text-xs">+{entry.tags.length - 2} more</span>
+                                        )}
+                                      </div>
+                                    )}
                                     <div className="flex items-center gap-1">
-                                      <Tag className="w-3 h-3" />
-                                      {entry.tags.slice(0, 2).map((tag, idx) => (
-                                        <Badge key={idx} variant="outline" className="text-xs">
-                                          {tag}
-                                        </Badge>
-                                      ))}
-                                      {entry.tags.length > 2 && (
-                                        <span className="text-xs">+{entry.tags.length - 2} more</span>
-                                      )}
+                                      <Clock className="w-3 h-3" />
+                                      <span>Used {entry.usageCount || 0} times</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Related Entries Section */}
+                                  {relatedEntries.length > 0 && (
+                                    <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                                        <Link2 className="w-3 h-3" />
+                                        <span className="font-medium">Connected Entries:</span>
+                                        {relatedEntries.map((related, idx) => (
+                                          <span key={related.id} className="text-xs">
+                                            <span 
+                                              className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded"
+                                              onClick={() => {
+                                                const element = document.querySelector(`[data-entry-id="${related.id}"]`);
+                                                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                              }}
+                                            >
+                                              {related.title}
+                                            </span>
+                                            {idx < relatedEntries.length - 1 && ", "}
+                                          </span>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
-                                  <div className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    <span>Used {entry.usageCount || 0} times</span>
-                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 ml-4">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setEditingEntry(entry)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteEntryMutation.mutate(entry.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 ml-4">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditingEntry(entry)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteEntryMutation.mutate(entry.id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </ScrollArea>
