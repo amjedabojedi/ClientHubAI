@@ -53,8 +53,6 @@ interface SessionNote {
   moodAfter?: number;
   
   // Additional clinical fields
-  goals?: string;
-  interventions?: string;
   assessments?: string;
   homework?: string;
   followUpNeeded?: boolean;
@@ -445,21 +443,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
                 {/* Additional Clinical Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {note.goals && (
-                    <div>
-                      <h4 className="font-medium mb-1">Goals</h4>
-                      <p className="text-sm text-muted-foreground">{note.goals}</p>
-                    </div>
-                  )}
-                  {note.interventions && (
-                    <div>
-                      <h4 className="font-medium mb-1">Interventions</h4>
-                      <p className="text-sm text-muted-foreground">{note.interventions}</p>
-                    </div>
-                  )}
                   {note.assessments && (
                     <div>
-                      <h4 className="font-medium mb-1">Assessments</h4>
+                      <h4 className="font-medium mb-1">Clinical Assessments</h4>
                       <p className="text-sm text-muted-foreground">{note.assessments}</p>
                     </div>
                   )}
@@ -575,10 +561,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="clinical">Clinical</TabsTrigger>
-                  <TabsTrigger value="assessment">Assessment</TabsTrigger>
-                  <TabsTrigger value="tracking">Tracking</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="clinical">Clinical Documentation</TabsTrigger>
+                  <TabsTrigger value="tracking">Assessment & Tracking</TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -710,51 +695,15 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   />
                 </TabsContent>
 
-                {/* Assessment Tab */}
-                <TabsContent value="assessment" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="goals"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Goals</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Session goals and objectives..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="interventions"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Interventions</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Therapeutic interventions used..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
+                {/* Assessment & Tracking Tab */}
+                <TabsContent value="tracking" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="assessments"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Assessments</FormLabel>
+                          <FormLabel>Clinical Assessments</FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Clinical assessments and observations..."
@@ -783,10 +732,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       )}
                     />
                   </div>
-                </TabsContent>
 
-                {/* Mood & Progress Tracking Tab */}
-                <TabsContent value="tracking" className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
