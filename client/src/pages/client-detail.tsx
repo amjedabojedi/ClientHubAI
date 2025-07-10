@@ -160,35 +160,24 @@ export default function ClientDetailPage() {
               <Separator orientation="vertical" className="h-6" />
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">{client.fullName}</h1>
-                <p className="text-slate-600">Client ID: {client.clientId}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Badge className={`${getStatusColor(client.status)} px-3 py-1 text-sm font-medium`}>
-                  {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
-                </Badge>
-                <Badge className={`${getStageColor(client.stage)} px-3 py-1 text-sm font-medium`}>
-                  {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
-                </Badge>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button onClick={handleEditClient} variant="outline">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-                <Button 
-                  variant="default"
-                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Schedule Session
-                </Button>
-                <Button variant="outline" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              </div>
+            <div className="flex items-center space-x-2">
+              <Button onClick={handleEditClient} variant="outline">
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+              <Button 
+                variant="default"
+                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Schedule Session
+              </Button>
+              <Button variant="outline" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
             </div>
           </div>
         </div>
@@ -230,6 +219,36 @@ export default function ClientDetailPage() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-8">
+            {/* Client Summary Header */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-blue-100 p-3 rounded-full">
+                    <User className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{client.fullName}</h2>
+                    <p className="text-slate-600 flex items-center space-x-4">
+                      <span>ID: {client.clientId}</span>
+                      {client.dateOfBirth && (
+                        <span>• Age: {Math.floor((new Date().getTime() - new Date(client.dateOfBirth).getTime()) / (1000 * 3600 * 24 * 365))}</span>
+                      )}
+                      {client.clientType && (
+                        <span>• {client.clientType.charAt(0).toUpperCase() + client.clientType.slice(1)} Client</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex space-x-3">
+                  <Badge className={`${getStatusColor(client.status)} px-3 py-1 text-sm font-medium`}>
+                    {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                  </Badge>
+                  <Badge className={`${getStageColor(client.stage)} px-3 py-1 text-sm font-medium`}>
+                    {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
+                  </Badge>
+                </div>
+              </div>
+            </div>
 
             {/* Main Information Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
