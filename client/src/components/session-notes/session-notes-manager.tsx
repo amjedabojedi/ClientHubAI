@@ -442,10 +442,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
     const { data: libraryEntries } = useQuery({
       queryKey: ['/api/library/entries'],
-      queryFn: async () => {
-        const response = await apiRequest('GET', '/api/library/entries');
-        return await response.json();
-      },
     });
 
     // Filter entries by category and search
