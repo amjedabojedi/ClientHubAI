@@ -13,54 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { insertClientSchema } from "@shared/schema";
 import { Client } from "@/types/client";
 
-const clientFormSchema = z.object({
-  fullName: z.string().min(1, "Full name is required"),
-  dateOfBirth: z.string().optional(),
-  gender: z.enum(["male", "female", "non_binary", "prefer_not_to_say"]).optional(),
-  maritalStatus: z.string().optional(),
-  preferredLanguage: z.string().optional(),
-  pronouns: z.string().optional(),
-  emailNotifications: z.boolean().default(false),
-  phone: z.string().optional(),
-  emergencyPhone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  streetAddress1: z.string().optional(),
-  streetAddress2: z.string().optional(),
-  city: z.string().optional(),
-  province: z.string().optional(),
-  postalCode: z.string().optional(),
-  country: z.string().optional(),
-  address: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  emergencyContactRelationship: z.string().optional(),
-  startDate: z.string().optional(),
-  referrerName: z.string().optional(),
-  referralDate: z.string().optional(),
-  referenceNumber: z.string().optional(),
-  clientSource: z.string().optional(),
-  employmentStatus: z.string().optional(),
-  educationLevel: z.string().optional(),
-  dependents: z.number().optional(),
-  clientType: z.enum(["individual", "couple", "family", "group"]).default("individual"),
-  status: z.enum(["active", "inactive", "pending"]).default("pending"),
-  stage: z.enum(["intake", "assessment", "psychotherapy"]).default("intake"),
+// Use the same schema as Add Client modal for consistency
+const clientFormSchema = insertClientSchema.extend({
   assignedTherapistId: z.number().optional(),
-  hasPortalAccess: z.boolean().default(false),
-  portalEmail: z.string().optional(),
-  insuranceProvider: z.string().optional(),
-  policyNumber: z.string().optional(),
-  groupNumber: z.string().optional(),
-  copayAmount: z.string().optional(),
-  deductible: z.string().optional(),
-  insurancePhone: z.string().optional(),
-  serviceType: z.string().optional(),
-  serviceFrequency: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
@@ -84,12 +42,74 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
+      // Personal Information
       fullName: "",
-      emailNotifications: false,
+      dateOfBirth: "",
+      gender: "prefer_not_to_say",
+      maritalStatus: "",
+      preferredLanguage: "English",
+      pronouns: "",
+      emailNotifications: true,
+      
+      // Portal Access
       hasPortalAccess: false,
+      portalEmail: "",
+      
+      // Contact & Address
+      phone: "",
+      emergencyPhone: "",
+      email: "",
+      streetAddress1: "",
+      streetAddress2: "",
+      city: "",
+      province: "",
+      postalCode: "",
+      country: "United States",
+      
+      // Referral & Case
+      startDate: "",
+      referrerName: "",
+      referralDate: "",
+      referenceNumber: "",
+      clientSource: "",
+      
+      // Employment & Socioeconomic
+      employmentStatus: "",
+      educationLevel: "",
+      dependents: undefined,
+      
+      // Status & Progress
       clientType: "individual",
       status: "pending",
       stage: "intake",
+      assignedTherapistId: undefined,
+      
+      // Insurance
+      insuranceProvider: "",
+      policyNumber: "",
+      groupNumber: "",
+      insurancePhone: "",
+      copayAmount: "",
+      deductible: "",
+      
+      // Service
+      serviceType: "",
+      serviceFrequency: "",
+      
+      // Additional
+      notes: "",
+      
+      // Legacy fields
+      address: "",
+      state: "",
+      zipCode: "",
+      emergencyContactName: "",
+      emergencyContactPhone: "",
+      emergencyContactRelationship: "",
+      referralSource: "",
+      referralType: "",
+      referringPerson: "",
+      referralNotes: "",
     },
   });
 
@@ -97,13 +117,20 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   useEffect(() => {
     if (client) {
       form.reset({
+        // Personal Information
         fullName: client.fullName || "",
         dateOfBirth: client.dateOfBirth || "",
-        gender: client.gender || undefined,
+        gender: client.gender || "prefer_not_to_say",
         maritalStatus: client.maritalStatus || "",
-        preferredLanguage: client.preferredLanguage || "",
+        preferredLanguage: client.preferredLanguage || "English",
         pronouns: client.pronouns || "",
-        emailNotifications: client.emailNotifications || false,
+        emailNotifications: client.emailNotifications || true,
+        
+        // Portal Access
+        hasPortalAccess: client.hasPortalAccess || false,
+        portalEmail: client.portalEmail || "",
+        
+        // Contact & Address
         phone: client.phone || "",
         emergencyPhone: client.emergencyPhone || "",
         email: client.email || "",
@@ -112,36 +139,52 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         city: client.city || "",
         province: client.province || "",
         postalCode: client.postalCode || "",
-        country: client.country || "",
+        country: client.country || "United States",
+        
+        // Referral & Case
+        startDate: client.startDate || "",
+        referrerName: client.referrerName || "",
+        referralDate: client.referralDate || "",
+        referenceNumber: client.referenceNumber || "",
+        clientSource: client.clientSource || "",
+        
+        // Employment & Socioeconomic
+        employmentStatus: client.employmentStatus || "",
+        educationLevel: client.educationLevel || "",
+        dependents: client.dependents || undefined,
+        
+        // Status & Progress
+        clientType: client.clientType || "individual",
+        status: client.status || "pending",
+        stage: client.stage || "intake",
+        assignedTherapistId: client.assignedTherapistId || undefined,
+        
+        // Insurance
+        insuranceProvider: client.insuranceProvider || "",
+        policyNumber: client.policyNumber || "",
+        groupNumber: client.groupNumber || "",
+        insurancePhone: client.insurancePhone || "",
+        copayAmount: client.copayAmount || "",
+        deductible: client.deductible || "",
+        
+        // Service
+        serviceType: client.serviceType || "",
+        serviceFrequency: client.serviceFrequency || "",
+        
+        // Additional
+        notes: client.notes || "",
+        
+        // Legacy fields
         address: client.address || "",
         state: client.state || "",
         zipCode: client.zipCode || "",
         emergencyContactName: client.emergencyContactName || "",
         emergencyContactPhone: client.emergencyContactPhone || "",
         emergencyContactRelationship: client.emergencyContactRelationship || "",
-        startDate: client.startDate || "",
-        referrerName: client.referrerName || "",
-        referralDate: client.referralDate || "",
-        referenceNumber: client.referenceNumber || "",
-        clientSource: client.clientSource || "",
-        employmentStatus: client.employmentStatus || "",
-        educationLevel: client.educationLevel || "",
-        dependents: client.dependents || undefined,
-        clientType: client.clientType || "individual",
-        status: client.status || "pending",
-        stage: client.stage || "intake",
-        assignedTherapistId: client.assignedTherapistId || undefined,
-        hasPortalAccess: client.hasPortalAccess || false,
-        portalEmail: client.portalEmail || "",
-        insuranceProvider: client.insuranceProvider || "",
-        policyNumber: client.policyNumber || "",
-        groupNumber: client.groupNumber || "",
-        copayAmount: client.copayAmount || "",
-        deductible: client.deductible || "",
-        insurancePhone: client.insurancePhone || "",
-        serviceType: client.serviceType || "",
-        serviceFrequency: client.serviceFrequency || "",
-        notes: client.notes || "",
+        referralSource: client.referralSource || "",
+        referralType: client.referralType || "",
+        referringPerson: client.referringPerson || "",
+        referralNotes: client.referralNotes || "",
       });
     }
   }, [client, form]);
@@ -168,7 +211,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   const onSubmit = (data: ClientFormData) => {
-    updateClientMutation.mutate(data);
+    const processedData = {
+      ...data,
+      assignedTherapistId: data.assignedTherapistId || undefined,
+    };
+    updateClientMutation.mutate(processedData);
   };
 
   const handleClose = () => {
