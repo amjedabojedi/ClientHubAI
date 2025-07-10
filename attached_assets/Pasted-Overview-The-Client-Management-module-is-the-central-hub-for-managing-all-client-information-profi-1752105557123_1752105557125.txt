@@ -1,0 +1,288 @@
+Overview
+The Client Management module is the central hub for managing all client information, profiles, and related data. It provides comprehensive client lifecycle management with advanced search, filtering, and organizational capabilities.
+
+Main Client Page Interface
+Navigation Tabs
+All Clients (Default view)
+Active Clients
+Inactive Clients
+New Intakes
+Assessment Phase
+Psychotherapy
+Toolbar Functions
+Add New Client - Opens client creation modal
+Import Clients - Excel/CSV bulk import functionality
+Export Data - Export client list to Excel/CSV
+Check Duplicates - Scan for duplicate client records
+Bulk Actions - Multi-select operations on clients
+Search & Filter Panel
+Quick Search - Name, email, phone number search
+Advanced Filters:
+Client Status (dropdown)
+Client Type (dropdown)
+Assigned Therapist (dropdown)
+Referral Source (dropdown)
+Date Range (start date to end date)
+Has Portal Access (Yes/No toggle)
+Has Pending Tasks (Yes/No toggle)
+Client Cards Display
+Card Layout: 2-column responsive grid
+Card Information:
+Full Name (clickable to client detail)
+Client ID and Status Badge
+Contact Information (phone, email)
+Assigned Therapist
+Last Session Date
+Next Appointment
+Progress Checklist Bar (if checklist exists)
+Quick Action Buttons
+Quick Action Buttons
+View Profile - Navigate to client detail page
+Schedule Session - Quick session scheduling
+Send Message - Direct message to client
+Add Note - Quick note addition
+Generate Invoice - Create new invoice
+Client Detail Page
+Client Profile Tabs
+1. Overview Tab
+Personal Information Section:
+
+Full Name (editable)
+Date of Birth (editable)
+Phone Number (editable)
+Email Address (editable, optional)
+Emergency Contact (name, phone, relationship)
+Preferred Language
+Gender Identity
+Pronouns
+Client Status Section:
+
+Current Status (dropdown selection)
+Current Stage (dropdown selection)
+Client Type (dropdown selection)
+Assigned Therapist (dropdown selection)
+Start Date (first session date)
+Portal Access (enabled/disabled toggle)
+Referral Information Section:
+
+Referral Source (dropdown)
+Referral Type (dropdown)
+Referring Person/Organization
+Referral Date
+Referral Notes
+Insurance Information Section:
+
+Primary Insurance Provider
+Policy Number
+Group Number
+Insurance Phone Number
+Coverage Details
+Copay Amount
+Deductible Information
+2. Sessions Tab
+Sessions List Display:
+
+Session Date and Time
+Session Type (Assessment/Psychotherapy)
+Service Provided (with duration and price)
+Session Status (Scheduled/Completed/Cancelled/No-Show)
+Therapist Name
+Room/Location
+Session Notes Preview
+Quick Actions (View Notes, Edit, Reschedule, Cancel)
+Session Management Functions:
+
+Schedule New Session - Opens session scheduling modal
+Bulk Reschedule - Move multiple sessions
+Session Templates - Quick scheduling with predefined types
+Print Schedule - Generate printable session calendar
+Export Sessions - Export session data to Excel/CSV
+Session Statistics:
+
+Total Sessions Count
+Attendance Rate Percentage
+Average Session Duration
+Last Session Date
+Next Scheduled Session
+Missed Appointments Count
+3. Assessments Tab
+Assessment Management:
+
+Available Assessments - List of assigned assessment templates
+Completed Assessments - History of finished assessments
+In Progress Assessments - Partially completed assessments
+Assessment Scores - Scoring results and interpretations
+Assessment Functions:
+
+Assign Assessment - Select from template library
+Complete Assessment - Therapist completion interface
+View Results - Assessment scoring and interpretation
+Generate Report - Comprehensive assessment report
+Share with Client - Portal access for client completion
+Print Assessment - Generate printable forms
+Assessment Display:
+
+Assessment Name and Type
+Assignment Date
+Completion Status (Not Started/In Progress/Completed)
+Completion Percentage
+Assigned Sections (Client vs Therapist)
+Score Summary (if completed)
+Quick Actions (Continue, View, Print, Share)
+4. Documents Tab
+Document Categories:
+
+Uploaded Documents - Client-uploaded files
+Shared Documents - Therapist-shared resources
+Generated Reports - System-generated documentation
+Forms & Consents - Legal and consent documents
+Insurance Documents - Insurance-related paperwork
+Document Management Functions:
+
+Upload Document - File upload with categorization
+Share Document - Make available in client portal
+Generate Report - Create assessment/session reports
+Organize Documents - Folder and category management
+Document Templates - Predefined document types
+Bulk Download - Download multiple documents
+Document Display:
+
+Document Name and Type
+Upload Date and Uploader
+File Size and Format
+Category/Folder
+Shared Status (Portal Visible/Private)
+Download Counter
+Quick Actions (Download, View, Share, Delete, Move)
+5. Tasks Tab
+Task Categories:
+
+Active Tasks - Currently pending tasks
+Completed Tasks - Finished task history
+Overdue Tasks - Past due date tasks
+Recurring Tasks - Automatically generated tasks
+Task Management Functions:
+
+Create Task - Manual task creation
+Assign Task - Assign to therapist or supervisor
+Set Reminders - Email/system reminder setup
+Task Templates - Predefined task types
+Bulk Actions - Mark multiple tasks complete
+Task Automation - Rule-based task generation
+Task Display:
+
+Task Title and Description
+Assigned To (therapist/supervisor)
+Due Date and Priority Level
+Task Category/Type
+Creation Date and Creator
+Completion Status
+Quick Actions (Complete, Edit, Reassign, Delete, Set Reminder)
+6. Notes Tab
+Note Categories:
+
+Session Notes - Notes from therapy sessions
+General Notes - Administrative and general notes
+Clinical Notes - Clinical observations and assessments
+Communication Notes - Client communication records
+Supervisor Notes - Supervision and oversight notes
+Note Management Functions:
+
+Add Note - Create new note entry
+Note Templates - Predefined note formats
+Search Notes - Full-text search within notes
+Export Notes - Generate note summaries
+Print Notes - Printable note compilation
+Note Categories - Organize notes by type
+Note Display:
+
+Note Title and Preview
+Note Type/Category
+Created Date and Author
+Last Modified Date
+Character/Word Count
+Privacy Level (Private/Shared)
+Quick Actions (View, Edit, Delete, Share, Print)
+7. Billing Tab
+Billing Overview:
+
+Account Balance - Current outstanding balance
+Payment History - Record of all payments
+Outstanding Invoices - Unpaid invoice list
+Payment Plan - Payment arrangement details
+Insurance Claims - Insurance billing status
+Billing Functions:
+
+Generate Invoice - Create new invoice from sessions
+Record Payment - Manual payment entry
+Process Refund - Handle refund transactions
+Payment Plan Setup - Arrange payment schedules
+Insurance Billing - Submit insurance claims
+Financial Reports - Generate financial summaries
+Billing Display:
+
+Invoice Number and Date
+Service Period
+Amount Due and Status
+Payment Method
+Due Date
+Insurance Information
+Quick Actions (View, Pay, Edit, Send, Print, Void)
+8. Messages Tab
+Message Management:
+
+Inbox - Received messages from client
+Sent - Messages sent to client
+Drafts - Unsent message drafts
+Templates - Message templates for common communications
+Automated Messages - System-generated communications
+Messaging Functions:
+
+Send Message - Compose new message to client
+Message Templates - Use predefined message formats
+Attach Documents - Include files with messages
+Schedule Message - Send message at specific time
+Message History - Complete communication timeline
+Export Messages - Save message conversations
+Message Display:
+
+Message Subject and Preview
+Sender/Recipient Information
+Send/Receive Timestamp
+Read Status (Read/Unread)
+Attachment Indicator
+Message Priority
+Quick Actions (Reply, Forward, Delete, Mark Read, Archive)
+Client Management Functions
+Client Creation Process
+Basic Information Entry - Name, DOB, contact details
+Duplicate Check - Automatic duplicate detection
+Status Assignment - Initial status and stage selection
+Therapist Assignment - Assign primary therapist
+Portal Setup - Configure client portal access
+Initial Tasks - Generate welcome tasks
+Client Import Process
+File Upload - Excel/CSV file selection
+Column Mapping - Map file columns to system fields
+Data Validation - Check for errors and duplicates
+Preview Import - Review data before processing
+Import Processing - Bulk client creation
+Import Summary - Success/failure report
+Duplicate Management
+Duplicate Detection - Name + DOB matching algorithm
+Duplicate Review - Manual review of potential duplicates
+Merge Clients - Combine duplicate records
+Bulk Cleanup - Automated duplicate removal
+Prevention Rules - Block duplicate creation
+Advanced Search Features
+Multi-field Search - Search across multiple fields simultaneously
+Saved Searches - Save and reuse search criteria
+Search History - Access previous searches
+Export Search Results - Export filtered client lists
+Bulk Operations - Perform actions on search results
+Data Export Options
+Excel Export - Full client data with all fields
+CSV Export - Simplified comma-separated format
+PDF Reports - Formatted client summaries
+Custom Reports - User-defined field selection
+Scheduled Exports - Automated regular exports
