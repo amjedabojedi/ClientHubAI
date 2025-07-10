@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
-import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield, Sparkles, Wand2, RefreshCw, Download, Copy, BookOpen, Search } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -130,9 +130,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
-  const [aiGeneratedContent, setAiGeneratedContent] = useState<string>('');
-  const [showAiContent, setShowAiContent] = useState(false);
-  const [smartSuggestions, setSmartSuggestions] = useState<Record<string, string[]>>({});
+
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -193,104 +191,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
   });
 
-  // AI generation mutations
-  const generateSuggestionsMutation = useMutation({
-    mutationFn: async ({ field, context }: { field: string; context: string }) => {
-      const response = await apiRequest('POST', '/api/ai/generate-suggestions', { field, context });
-      return await response.json();
-    },
-    onSuccess: (data, variables) => {
-      setSmartSuggestions(prev => ({
-        ...prev,
-        [variables.field]: data.suggestions
-      }));
-      toast({ title: "AI suggestions generated" });
-    },
-    onError: () => {
-      toast({ title: "Error generating AI suggestions", variant: "destructive" });
-    },
-  });
 
-  const regenerateContentMutation = useMutation({
-    mutationFn: async ({ sessionNoteId, customPrompt }: { sessionNoteId: number; customPrompt?: string }) => {
-      const response = await apiRequest('POST', `/api/ai/regenerate-content/${sessionNoteId}`, { customPrompt });
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setAiGeneratedContent(data.content);
-      setShowAiContent(true);
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
-      toast({ title: "AI content regenerated successfully" });
-    },
-    onError: () => {
-      toast({ title: "Error regenerating AI content", variant: "destructive" });
-    },
-  });
-
-  const generateClinicalReportMutation = useMutation({
-    mutationFn: async (sessionNoteData: any) => {
-      const response = await apiRequest('POST', '/api/ai/generate-clinical-report', sessionNoteData);
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setAiGeneratedContent(data.report);
-      setShowAiContent(true);
-      toast({ title: "Clinical report generated successfully" });
-    },
-    onError: () => {
-      toast({ title: "Error generating clinical report", variant: "destructive" });
-    },
-  });
-
-  const generateFromTemplateMutation = useMutation({
-    mutationFn: async ({ templateId, field, context }: { templateId: string; field: string; context?: string }) => {
-      const response = await apiRequest('POST', '/api/ai/generate-from-template', { templateId, field, context });
-      return await response.json();
-    },
-    onSuccess: (data, variables) => {
-      form.setValue(variables.field, data.content);
-      toast({ title: `Template content generated for ${variables.field}` });
-    },
-    onError: () => {
-      toast({ title: "Error generating template content", variant: "destructive" });
-    },
-  });
-
-
-
-  // Generate connected suggestions when a field changes
-  const generateConnectedSuggestions = async (templateId: string, sourceField: string, sourceValue: string) => {
-    try {
-      const response = await apiRequest('POST', '/api/ai/connected-suggestions', {
-        templateId,
-        sourceField,
-        sourceValue
-      });
-      const data = await response.json();
-      
-      // Auto-populate connected fields
-      Object.entries(data.suggestions || {}).forEach(([field, suggestions]: [string, any]) => {
-        if (suggestions && suggestions.length > 0) {
-          form.setValue(field, suggestions[0]);
-          toast({ title: `Auto-filled ${field} based on ${sourceField}` });
-        }
-      });
-    } catch (error) {
-      console.error('Connected suggestions error:', error);
-    }
-  };
-
-  // AI Helper Functions
-  const generateSuggestions = (field: string, context: string) => {
-    if (!context.trim()) return;
-    generateSuggestionsMutation.mutate({ field, context });
-  };
-
-  const insertSuggestion = (field: string, suggestion: string, form: any) => {
-    const currentValue = form.getValues()[field] || '';
-    const newValue = currentValue ? `${currentValue}\n\n${suggestion}` : suggestion;
-    form.setValue(field, newValue);
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -666,27 +567,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         Private
                       </Badge>
                     )}
-                    {note.aiEnabled && (
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        AI Enhanced
-                      </Badge>
-                    )}
+
                   </div>
                   <div className="flex items-center gap-2">
-                    {note.aiEnabled && note.generatedContent && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setAiGeneratedContent(note.generatedContent);
-                          setShowAiContent(true);
-                        }}
-                        title="View AI Generated Content"
-                      >
-                        <Brain className="h-4 w-4" />
-                      </Button>
-                    )}
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -805,38 +689,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   )}
                 </div>
 
-                {/* AI Content Preview */}
-                {note.aiEnabled && note.generatedContent && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-blue-600" />
-                        AI Generated Summary
-                      </h4>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(note.generatedContent)}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        {note.aiProcessingStatus === 'processing' && (
-                          <div className="flex items-center gap-1">
-                            <RefreshCw className="h-3 w-3 animate-spin text-blue-600" />
-                            <span className="text-xs text-blue-600">Processing...</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-sm leading-relaxed text-blue-900 dark:text-blue-100 line-clamp-3">
-                        {note.generatedContent}
-                      </p>
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Follow-up indicator */}
                 {note.followUpNeeded && (
@@ -942,13 +795,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="clinical">Clinical Documentation</TabsTrigger>
                   <TabsTrigger value="tracking">Assessment & Tracking</TabsTrigger>
-                  <TabsTrigger value="ai-features">
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    AI Features
-                  </TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -962,26 +811,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormItem>
                           <FormLabel className="flex items-center justify-between">
                             Session Focus
-                            <div className="flex items-center gap-1">
-                              <LibraryPicker 
-                                fieldType="session-focus" 
-                                onSelect={(content) => {
-                                  const currentValue = field.value || '';
-                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                  field.onChange(newValue);
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => generateSuggestions('sessionFocus', field.value || '')}
-                                disabled={generateSuggestionsMutation.isPending}
-                              >
-                                <Wand2 className="h-3 w-3 mr-1" />
-                                AI
-                              </Button>
-                            </div>
+                            <LibraryPicker 
+                              fieldType="session-focus" 
+                              onSelect={(content) => {
+                                const currentValue = field.value || '';
+                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                field.onChange(newValue);
+                              }}
+                            />
                           </FormLabel>
                           <FormControl>
                             <Textarea 
@@ -989,25 +826,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                               {...field}
                             />
                           </FormControl>
-                          {smartSuggestions.sessionFocus && (
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">AI Suggestions:</Label>
-                              <div className="flex flex-wrap gap-1">
-                                {smartSuggestions.sessionFocus.map((suggestion, idx) => (
-                                  <Button
-                                    key={idx}
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs h-6"
-                                    onClick={() => insertSuggestion('sessionFocus', suggestion, form)}
-                                  >
-                                    {suggestion.substring(0, 50)}...
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1020,26 +839,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormItem>
                           <FormLabel className="flex items-center justify-between">
                             Symptoms
-                            <div className="flex items-center gap-1">
-                              <LibraryPicker 
-                                fieldType="symptoms" 
-                                onSelect={(content) => {
-                                  const currentValue = field.value || '';
-                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                  field.onChange(newValue);
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => generateSuggestions('symptoms', field.value || '')}
-                                disabled={generateSuggestionsMutation.isPending}
-                              >
-                                <Wand2 className="h-3 w-3 mr-1" />
-                                AI
-                              </Button>
-                            </div>
+                            <LibraryPicker 
+                              fieldType="symptoms" 
+                              onSelect={(content) => {
+                                const currentValue = field.value || '';
+                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                field.onChange(newValue);
+                              }}
+                            />
                           </FormLabel>
                           <FormControl>
                             <Textarea 
@@ -1047,25 +854,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                               {...field}
                             />
                           </FormControl>
-                          {smartSuggestions.symptoms && (
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">AI Suggestions:</Label>
-                              <div className="flex flex-wrap gap-1">
-                                {smartSuggestions.symptoms.map((suggestion, idx) => (
-                                  <Button
-                                    key={idx}
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs h-6"
-                                    onClick={() => insertSuggestion('symptoms', suggestion, form)}
-                                  >
-                                    {suggestion.substring(0, 50)}...
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1107,26 +896,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormItem>
                           <FormLabel className="flex items-center justify-between">
                             Intervention
-                            <div className="flex items-center gap-1">
-                              <LibraryPicker 
-                                fieldType="interventions" 
-                                onSelect={(content) => {
-                                  const currentValue = field.value || '';
-                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                  field.onChange(newValue);
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => generateSuggestions('intervention', field.value || '')}
-                                disabled={generateSuggestionsMutation.isPending}
-                              >
-                                <Wand2 className="h-3 w-3 mr-1" />
-                                AI
-                              </Button>
-                            </div>
+                            <LibraryPicker 
+                              fieldType="interventions" 
+                              onSelect={(content) => {
+                                const currentValue = field.value || '';
+                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                field.onChange(newValue);
+                              }}
+                            />
                           </FormLabel>
                           <FormControl>
                             <Textarea 
@@ -1134,25 +911,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                               {...field}
                             />
                           </FormControl>
-                          {smartSuggestions.intervention && (
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">AI Suggestions:</Label>
-                              <div className="flex flex-wrap gap-1">
-                                {smartSuggestions.intervention.map((suggestion, idx) => (
-                                  <Button
-                                    key={idx}
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs h-6"
-                                    onClick={() => insertSuggestion('intervention', suggestion, form)}
-                                  >
-                                    {suggestion.substring(0, 50)}...
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1381,8 +1140,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                                 fieldLabel="Session Focus"
                                 onSelect={(content) => {
                                   form.setValue('sessionFocus', content);
-                                  // Auto-suggest connected fields
-                                  generateConnectedSuggestions(selectedTemplate, 'sessionFocus', content);
                                 }}
                               />
                             </div>
@@ -1468,99 +1225,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     />
                   )}
 
-                  {/* AI Content Management */}
-                  {showAiContent && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-base font-semibold">AI Generated Content</Label>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyToClipboard(aiGeneratedContent)}
-                          >
-                            <Copy className="h-3 w-3 mr-1" />
-                            Copy
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => form.setValue('content', aiGeneratedContent)}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Use Content
-                          </Button>
-                        </div>
-                      </div>
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="prose prose-sm max-w-none">
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                              {aiGeneratedContent}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
 
-                  {/* AI Actions */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const formData = form.getValues();
-                        generateClinicalReportMutation.mutate(formData);
-                      }}
-                      disabled={generateClinicalReportMutation.isPending}
-                      className="h-auto p-4 flex flex-col items-start space-y-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Brain className="h-4 w-4" />
-                        <span className="font-medium">Generate Clinical Report</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-left">
-                        Create professional third-person clinical narrative
-                      </p>
-                      {generateClinicalReportMutation.isPending && (
-                        <div className="flex items-center gap-2">
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                          <span className="text-xs">Generating...</span>
-                        </div>
-                      )}
-                    </Button>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const allFieldsContext = Object.entries(form.getValues())
-                          .filter(([key, value]) => value && typeof value === 'string')
-                          .map(([key, value]) => `${key}: ${value}`)
-                          .join('\n');
-                        generateSuggestions('comprehensive', allFieldsContext);
-                      }}
-                      disabled={generateSuggestionsMutation.isPending}
-                      className="h-auto p-4 flex flex-col items-start space-y-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Target className="h-4 w-4" />
-                        <span className="font-medium">Smart Suggestions</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-left">
-                        Get AI recommendations for all clinical fields
-                      </p>
-                      {generateSuggestionsMutation.isPending && (
-                        <div className="flex items-center gap-2">
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                          <span className="text-xs">Analyzing...</span>
-                        </div>
-                      )}
-                    </Button>
-                  </div>
+
                 </TabsContent>
 
                 {/* Risk & Privacy Settings Tab */}
