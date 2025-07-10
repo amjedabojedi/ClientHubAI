@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,15 +9,32 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getQueryFn } from "@/lib/queryClient";
-import { ArrowLeft, User, Calendar, FileText, ClipboardList, FolderOpen, CreditCard, CheckSquare, Phone, Mail, MapPin, Clock, Plus, Search, Filter, Download, Upload, Edit } from "lucide-react";
+import { ArrowLeft, User, Calendar, FileText, ClipboardList, FolderOpen, CreditCard, CheckSquare, Phone, Mail, MapPin, Clock, Plus, Search, Filter, Download, Upload, Edit, Trash2 } from "lucide-react";
 import type { Client, Session, Note, Task, Document } from "@/types/client";
+import EditClientModal from "@/components/client-management/edit-client-modal";
+import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 
 export default function ClientDetailPage() {
   const [match, params] = useRoute("/clients/:id");
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const clientId = params?.id ? parseInt(params.id) : null;
+
+  const handleEditClient = () => {
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteClient = () => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteSuccess = () => {
+    setLocation("/clients");
+  };
 
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
@@ -117,9 +134,13 @@ export default function ClientDetailPage() {
               <Badge className={getStageColor(client.stage)}>
                 {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
               </Badge>
-              <Button>
+              <Button onClick={handleEditClient}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Client
+              </Button>
+              <Button variant="outline" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
               </Button>
             </div>
           </div>
@@ -623,6 +644,22 @@ export default function ClientDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit and Delete Modals */}
+      {client && (
+        <EditClientModal 
+          client={client}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
+
+      <DeleteClientDialog 
+        client={client}
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onDeleteSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 }

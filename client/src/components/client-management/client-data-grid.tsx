@@ -21,13 +21,17 @@ interface ClientDataGridProps {
     hasPendingTasks?: boolean;
   };
   onViewClient: (client: Client) => void;
+  onEditClient: (client: Client) => void;
+  onDeleteClient: (client: Client) => void;
 }
 
 export default function ClientDataGrid({ 
   activeTab, 
   searchQuery, 
   filters, 
-  onViewClient 
+  onViewClient,
+  onEditClient,
+  onDeleteClient
 }: ClientDataGridProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -277,29 +281,27 @@ export default function ClientDataGrid({
                           size="sm"
                           onClick={() => onViewClient(client)}
                           className="p-1 text-slate-600 hover:text-primary hover:bg-primary-50"
+                          title="View Client"
                         >
                           <i className="fas fa-eye"></i>
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          className="p-1 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50"
-                        >
-                          <i className="fas fa-calendar-plus"></i>
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
+                          onClick={() => onEditClient(client)}
                           className="p-1 text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                          title="Edit Client"
                         >
-                          <i className="fas fa-envelope"></i>
+                          <i className="fas fa-edit"></i>
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                          onClick={() => onDeleteClient(client)}
+                          className="p-1 text-slate-600 hover:text-red-600 hover:bg-red-50"
+                          title="Delete Client"
                         >
-                          <i className="fas fa-ellipsis-h"></i>
+                          <i className="fas fa-trash"></i>
                         </Button>
                       </div>
                     </TableCell>

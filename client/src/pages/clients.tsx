@@ -6,11 +6,16 @@ import ClientTabs from "@/components/client-management/client-tabs";
 import SearchFilters from "@/components/client-management/search-filters";
 import ClientDataGrid from "@/components/client-management/client-data-grid";
 import AddClientModal from "@/components/client-management/add-client-modal";
+import EditClientModal from "@/components/client-management/edit-client-modal";
+import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import { Client } from "@/types/client";
 
 export default function ClientsPage() {
   const [, setLocation] = useLocation();
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+  const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
@@ -25,12 +30,32 @@ export default function ClientsPage() {
     setLocation(`/clients/${client.id}`);
   };
 
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client);
+    setIsEditClientModalOpen(true);
+  };
+
+  const handleDeleteClient = (client: Client) => {
+    setSelectedClient(client);
+    setIsDeleteDialogOpen(true);
+  };
+
   const handleOpenAddClientModal = () => {
     setIsAddClientModalOpen(true);
   };
 
   const handleCloseAddClientModal = () => {
     setIsAddClientModalOpen(false);
+  };
+
+  const handleCloseEditClientModal = () => {
+    setSelectedClient(null);
+    setIsEditClientModalOpen(false);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setSelectedClient(null);
+    setIsDeleteDialogOpen(false);
   };
 
   return (
@@ -80,6 +105,8 @@ export default function ClientsPage() {
               searchQuery={searchQuery}
               filters={filters}
               onViewClient={handleViewClient}
+              onEditClient={handleEditClient}
+              onDeleteClient={handleDeleteClient}
             />
           </div>
         </main>
@@ -88,6 +115,20 @@ export default function ClientsPage() {
       <AddClientModal 
         isOpen={isAddClientModalOpen}
         onClose={handleCloseAddClientModal}
+      />
+
+      {selectedClient && (
+        <EditClientModal 
+          client={selectedClient}
+          isOpen={isEditClientModalOpen}
+          onClose={handleCloseEditClientModal}
+        />
+      )}
+
+      <DeleteClientDialog 
+        client={selectedClient}
+        isOpen={isDeleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
       />
     </div>
   );
