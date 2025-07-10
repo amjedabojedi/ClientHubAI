@@ -565,38 +565,57 @@ export default function ClientDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Recent Sessions</CardTitle>
+                <CardTitle>Session History</CardTitle>
               </CardHeader>
               <CardContent>
                 {sessions.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {sessions.map((session: Session) => (
-                      <div key={session.id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-slate-900">
-                              {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
-                            </p>
-                            <p className="text-slate-600">
-                              {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString() : 'Date TBD'}
-                            </p>
+                      <div key={session.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-3 h-3 rounded-full ${
+                              session.status === 'completed' ? 'bg-green-500' :
+                              session.status === 'scheduled' ? 'bg-blue-500' :
+                              'bg-red-500'
+                            }`}></div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900">
+                                {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
+                              </h4>
+                              <p className="text-sm text-slate-600">
+                                {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString() : 'Date TBD'}
+                                {session.duration && ` • ${session.duration} minutes`}
+                              </p>
+                            </div>
                           </div>
-                          <Badge className={
+                          <Badge className={`px-3 py-1 text-sm font-medium ${
                             session.status === 'completed' ? 'bg-green-100 text-green-800' :
                             session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
                             'bg-red-100 text-red-800'
-                          }>
+                          }`}>
                             {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
                           </Badge>
                         </div>
+                        {session.therapist && (
+                          <p className="text-sm text-slate-600 mb-2">
+                            <span className="font-medium">Therapist:</span> {session.therapist.fullName}
+                          </p>
+                        )}
                         {session.notes && (
-                          <p className="text-slate-600 mt-2">{session.notes}</p>
+                          <div className="bg-slate-50 p-3 rounded-md mt-2">
+                            <p className="text-sm text-slate-700">{session.notes}</p>
+                          </div>
                         )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-slate-600 text-center py-8">No sessions recorded yet.</p>
+                  <div className="text-center py-12">
+                    <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No sessions recorded yet</p>
+                    <p className="text-slate-400 text-sm">Schedule the first session to get started</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -624,9 +643,12 @@ export default function ClientDetailPage() {
             </div>
 
             <Card>
-              <CardContent className="p-6">
+              <CardHeader>
+                <CardTitle>Clinical Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
                 {notes.length > 0 ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {notes
                       .filter((note: Note) => 
                         !searchQuery || 
@@ -634,22 +656,34 @@ export default function ClientDetailPage() {
                         note.title?.toLowerCase().includes(searchQuery.toLowerCase())
                       )
                       .map((note: Note) => (
-                      <div key={note.id} className="border-l-4 border-blue-500 pl-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-slate-900">{note.title || 'Untitled Note'}</h4>
-                          <span className="text-sm text-slate-500">
-                            {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'No date'}
-                          </span>
+                      <div key={note.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-slate-900 mb-1">
+                              {note.title || 'Clinical Note'}
+                            </h4>
+                            <div className="flex items-center space-x-4 text-sm text-slate-500">
+                              <span>
+                                {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'No date'}
+                              </span>
+                              {note.author && (
+                                <span>By: {note.author.fullName}</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-slate-700 whitespace-pre-wrap">{note.content}</p>
-                        {note.author && (
-                          <p className="text-sm text-slate-500 mt-2">By: {note.author.fullName}</p>
-                        )}
+                        <div className="bg-slate-50 p-3 rounded-md">
+                          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-slate-600 text-center py-8">No notes available.</p>
+                  <div className="text-center py-12">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No clinical notes yet</p>
+                    <p className="text-slate-400 text-sm">Add your first note to track client progress</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
