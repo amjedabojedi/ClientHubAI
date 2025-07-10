@@ -671,6 +671,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Library entry connections routes
+  app.get("/api/library/connections", async (req, res) => {
+    try {
+      const entryId = req.query.entryId ? parseInt(req.query.entryId as string) : undefined;
+      const connections = await storage.getLibraryEntryConnections(entryId);
+      res.json(connections);
+    } catch (error) {
+      console.error("Error fetching library connections:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/library/entries/:id/connected", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const connectedEntries = await storage.getConnectedEntries(id);
+      res.json(connectedEntries);
+    } catch (error) {
+      console.error("Error fetching connected entries:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/library/connections", async (req, res) => {
+    try {
+      const connection = await storage.createLibraryEntryConnection(req.body);
+      res.status(201).json(connection);
+    } catch (error) {
+      console.error("Error creating library connection:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/library/connections/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const connection = await storage.updateLibraryEntryConnection(id, req.body);
+      res.json(connection);
+    } catch (error) {
+      console.error("Error updating library connection:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/library/connections/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteLibraryEntryConnection(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting library connection:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

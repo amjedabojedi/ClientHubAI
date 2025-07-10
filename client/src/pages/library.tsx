@@ -35,6 +35,7 @@ export default function LibraryPage() {
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LibraryCategoryWithChildren | null>(null);
   const [editingEntry, setEditingEntry] = useState<LibraryEntryWithDetails | null>(null);
+  const [connectedEntriesMap, setConnectedEntriesMap] = useState<Record<number, any[]>>({});
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -234,6 +235,36 @@ export default function LibraryPage() {
 
   const displayedEntries = searchQuery.trim() ? searchResults : entries;
 
+  // Fetch connected entries for displayed entries
+  useEffect(() => {
+    const fetchConnections = async () => {
+      const entryIds = displayedEntries.map(e => e.id);
+      const connectionsPromises = entryIds.map(async (id) => {
+        try {
+          const response = await fetch(`/api/library/entries/${id}/connected`);
+          if (response.ok) {
+            const connected = await response.json();
+            return { entryId: id, connected };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch connections for entry ${id}:`, error);
+        }
+        return { entryId: id, connected: [] };
+      });
+
+      const results = await Promise.all(connectionsPromises);
+      const newMap: Record<number, any[]> = {};
+      results.forEach(({ entryId, connected }) => {
+        newMap[entryId] = connected;
+      });
+      setConnectedEntriesMap(newMap);
+    };
+
+    if (displayedEntries.length > 0) {
+      fetchConnections();
+    }
+  }, [displayedEntries]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
@@ -327,12 +358,17 @@ export default function LibraryPage() {
                   ) : (
                     <div className="space-y-4">
                       {displayedEntries.map((entry) => {
-                        // Find related entries with common tags
-                        const relatedEntries = displayedEntries.filter(e => 
-                          e.id !== entry.id && 
-                          e.tags && entry.tags && 
-                          e.tags.some(tag => entry.tags.includes(tag))
-                        ).slice(0, 3);
+                        // Get database connections (preferred) or fallback to tag-based
+                        const databaseConnections = connectedEntriesMap[entry.id] || [];
+                        const tagRelatedEntries = databaseConnections.length === 0 
+                          ? displayedEntries.filter(e => 
+                              e.id !== entry.id && 
+                              e.tags && entry.tags && 
+                              e.tags.some(tag => entry.tags.includes(tag))
+                            ).slice(0, 3)
+                          : [];
+                        
+                        const relatedEntries = databaseConnections.length > 0 ? databaseConnections : tagRelatedEntries;
 
                         return (
                           <Card key={entry.id} data-entry-id={entry.id} className="border-l-4 border-l-blue-500">
@@ -373,7 +409,9 @@ export default function LibraryPage() {
                                     <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
                                       <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
                                         <Link2 className="w-3 h-3" />
-                                        <span className="font-medium">Connected Entries:</span>
+                                        <span className="font-medium">
+                                          {databaseConnections.length > 0 ? 'Database Connections:' : 'Tag-Based Connections:'}
+                                        </span>
                                         {relatedEntries.map((related, idx) => (
                                           <span key={related.id} className="text-xs">
                                             <span 
@@ -382,8 +420,14 @@ export default function LibraryPage() {
                                                 const element = document.querySelector(`[data-entry-id="${related.id}"]`);
                                                 element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                               }}
+                                              title={databaseConnections.length > 0 ? `${related.connectionType} (strength: ${related.connectionStrength})` : 'Related by tags'}
                                             >
                                               {related.title}
+                                              {databaseConnections.length > 0 && (
+                                                <Badge variant="outline" className="ml-1 text-xs">
+                                                  {related.connectionType}
+                                                </Badge>
+                                              )}
                                             </span>
                                             {idx < relatedEntries.length - 1 && ", "}
                                           </span>

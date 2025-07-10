@@ -9,6 +9,7 @@ import {
   sessionNotes,
   libraryCategories,
   libraryEntries,
+  libraryEntryConnections,
   type Client, 
   type InsertClient,
   type User, 
@@ -26,12 +27,14 @@ import {
   type LibraryCategory,
   type InsertLibraryCategory,
   type LibraryEntry,
-  type InsertLibraryEntry
+  type InsertLibraryEntry,
+  type LibraryEntryConnection,
+  type InsertLibraryEntryConnection
 } from "@shared/schema";
 
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, count, sql, alias } from "drizzle-orm";
 
 export interface ClientsQueryParams {
   page?: number;
@@ -116,13 +119,20 @@ export interface IStorage {
   updateLibraryCategory(id: number, category: Partial<InsertLibraryCategory>): Promise<LibraryCategory>;
   deleteLibraryCategory(id: number): Promise<void>;
 
-  getLibraryEntries(categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]>;
-  getLibraryEntry(id: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User }) | undefined>;
+  getLibraryEntries(categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User; connections?: LibraryEntryConnection[] })[]>;
+  getLibraryEntry(id: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User; connections?: LibraryEntryConnection[] }) | undefined>;
   createLibraryEntry(entry: InsertLibraryEntry): Promise<LibraryEntry>;
   updateLibraryEntry(id: number, entry: Partial<InsertLibraryEntry>): Promise<LibraryEntry>;
   deleteLibraryEntry(id: number): Promise<void>;
   searchLibraryEntries(query: string, categoryId?: number): Promise<(LibraryEntry & { category: LibraryCategory; createdBy: User })[]>;
   incrementLibraryEntryUsage(id: number): Promise<void>;
+
+  // Library Entry Connections Management
+  getLibraryEntryConnections(entryId?: number): Promise<(LibraryEntryConnection & { fromEntry: LibraryEntry; toEntry: LibraryEntry; createdBy: User })[]>;
+  createLibraryEntryConnection(connection: InsertLibraryEntryConnection): Promise<LibraryEntryConnection>;
+  updateLibraryEntryConnection(id: number, connection: Partial<InsertLibraryEntryConnection>): Promise<LibraryEntryConnection>;
+  deleteLibraryEntryConnection(id: number): Promise<void>;
+  getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; category: LibraryCategory })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -726,6 +736,86 @@ export class DatabaseStorage implements IStorage {
       .update(libraryEntries)
       .set({ usageCount: sql`${libraryEntries.usageCount} + 1`, updatedAt: new Date() })
       .where(eq(libraryEntries.id, id));
+  }
+
+  // Library Entry Connections Management
+  async getLibraryEntryConnections(entryId?: number): Promise<(LibraryEntryConnection & { fromEntry: LibraryEntry; toEntry: LibraryEntry; createdBy: User })[]> {
+    // For now, let's simplify and just return the connections without the full entry details
+    let query = db
+      .select()
+      .from(libraryEntryConnections)
+      .where(eq(libraryEntryConnections.isActive, true));
+
+    if (entryId) {
+      query = query.where(or(eq(libraryEntryConnections.fromEntryId, entryId), eq(libraryEntryConnections.toEntryId, entryId)));
+    }
+
+    const connections = await query.orderBy(desc(libraryEntryConnections.strength), asc(libraryEntryConnections.createdAt));
+    
+    // For each connection, fetch the related entries and user separately
+    const resultsWithDetails = await Promise.all(
+      connections.map(async (connection) => {
+        const [fromEntry] = await db.select().from(libraryEntries).where(eq(libraryEntries.id, connection.fromEntryId));
+        const [toEntry] = await db.select().from(libraryEntries).where(eq(libraryEntries.id, connection.toEntryId));
+        const [createdBy] = await db.select().from(users).where(eq(users.id, connection.createdById));
+        
+        return {
+          ...connection,
+          fromEntry: fromEntry!,
+          toEntry: toEntry!,
+          createdBy: createdBy!
+        };
+      })
+    );
+    
+    return resultsWithDetails;
+  }
+
+  async createLibraryEntryConnection(connectionData: InsertLibraryEntryConnection): Promise<LibraryEntryConnection> {
+    const [connection] = await db.insert(libraryEntryConnections).values(connectionData).returning();
+    return connection;
+  }
+
+  async updateLibraryEntryConnection(id: number, connectionData: Partial<InsertLibraryEntryConnection>): Promise<LibraryEntryConnection> {
+    const [connection] = await db
+      .update(libraryEntryConnections)
+      .set({ ...connectionData, updatedAt: new Date() })
+      .where(eq(libraryEntryConnections.id, id))
+      .returning();
+    return connection;
+  }
+
+  async deleteLibraryEntryConnection(id: number): Promise<void> {
+    await db.delete(libraryEntryConnections).where(eq(libraryEntryConnections.id, id));
+  }
+
+  async getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; category: LibraryCategory })[]> {
+    const results = await db
+      .select({
+        entry: libraryEntries,
+        category: libraryCategories,
+        connectionType: libraryEntryConnections.connectionType,
+        connectionStrength: libraryEntryConnections.strength
+      })
+      .from(libraryEntryConnections)
+      .leftJoin(libraryEntries, or(
+        and(eq(libraryEntryConnections.toEntryId, libraryEntries.id), eq(libraryEntryConnections.fromEntryId, entryId)),
+        and(eq(libraryEntryConnections.fromEntryId, libraryEntries.id), eq(libraryEntryConnections.toEntryId, entryId))
+      ))
+      .leftJoin(libraryCategories, eq(libraryEntries.categoryId, libraryCategories.id))
+      .where(and(
+        eq(libraryEntryConnections.isActive, true),
+        eq(libraryEntries.isActive, true),
+        or(eq(libraryEntryConnections.fromEntryId, entryId), eq(libraryEntryConnections.toEntryId, entryId))
+      ))
+      .orderBy(desc(libraryEntryConnections.strength));
+
+    return results.map(result => ({ 
+      ...result.entry!, 
+      category: result.category!,
+      connectionType: result.connectionType!,
+      connectionStrength: result.connectionStrength! 
+    }));
   }
 }
 

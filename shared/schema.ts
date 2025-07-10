@@ -258,6 +258,23 @@ export const libraryEntries = pgTable("library_entries", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const connectionTypeEnum = pgEnum('connection_type', [
+  'relates_to', 'follows_from', 'supports', 'alternative_to', 'prerequisite_for', 'expands_on'
+]);
+
+export const libraryEntryConnections = pgTable("library_entry_connections", {
+  id: serial("id").primaryKey(),
+  fromEntryId: integer("from_entry_id").notNull().references(() => libraryEntries.id, { onDelete: "cascade" }),
+  toEntryId: integer("to_entry_id").notNull().references(() => libraryEntries.id, { onDelete: "cascade" }),
+  connectionType: connectionTypeEnum("connection_type").notNull(),
+  description: text("description"), // Optional description of the connection
+  strength: integer("strength").default(1), // 1-5 scale for connection strength
+  isActive: boolean("is_active").default(true),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
@@ -349,13 +366,32 @@ export const libraryCategoriesRelations = relations(libraryCategories, ({ one, m
   entries: many(libraryEntries),
 }));
 
-export const libraryEntriesRelations = relations(libraryEntries, ({ one }) => ({
+export const libraryEntriesRelations = relations(libraryEntries, ({ one, many }) => ({
   category: one(libraryCategories, {
     fields: [libraryEntries.categoryId],
     references: [libraryCategories.id],
   }),
   createdBy: one(users, {
     fields: [libraryEntries.createdById],
+    references: [users.id],
+  }),
+  connectionsFrom: many(libraryEntryConnections, { relationName: "fromEntry" }),
+  connectionsTo: many(libraryEntryConnections, { relationName: "toEntry" }),
+}));
+
+export const libraryEntryConnectionsRelations = relations(libraryEntryConnections, ({ one }) => ({
+  fromEntry: one(libraryEntries, {
+    fields: [libraryEntryConnections.fromEntryId],
+    references: [libraryEntries.id],
+    relationName: "fromEntry",
+  }),
+  toEntry: one(libraryEntries, {
+    fields: [libraryEntryConnections.toEntryId],
+    references: [libraryEntries.id],
+    relationName: "toEntry",
+  }),
+  createdBy: one(users, {
+    fields: [libraryEntryConnections.createdById],
     references: [users.id],
   }),
 }));
@@ -413,6 +449,12 @@ export const insertLibraryEntrySchema = createInsertSchema(libraryEntries).omit(
   updatedAt: true,
 });
 
+export const insertLibraryEntryConnectionSchema = createInsertSchema(libraryEntryConnections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -440,3 +482,6 @@ export type InsertLibraryCategory = z.infer<typeof insertLibraryCategorySchema>;
 
 export type LibraryEntry = typeof libraryEntries.$inferSelect;
 export type InsertLibraryEntry = z.infer<typeof insertLibraryEntrySchema>;
+
+export type LibraryEntryConnection = typeof libraryEntryConnections.$inferSelect;
+export type InsertLibraryEntryConnection = z.infer<typeof insertLibraryEntryConnectionSchema>;
