@@ -183,3 +183,11 @@ Advanced appointment management with multi-view calendar system:
 - **Sample Data**: Seeded 5 main categories (Session Focus, Symptoms, Short-term Goals, Interventions, Progress) with sample clinical content
 - **Connected Entries**: Implemented intelligent connection system that identifies related entries through shared tags
 - **Smart Navigation**: Added click-to-scroll functionality for navigating between connected library entries
+
+### Auto-Connection System Enhancement (January 2025)
+- **Smart Entry Creation**: Entry forms now auto-detect related entries from different categories based on shared keywords and tags
+- **Cross-Category Focus**: Auto-suggestions only show entries from different categories, encouraging meaningful cross-category connections
+- **Real-time Suggestions**: As users type titles or tags, system shows related entries with checkboxes for instant connection
+- **Automatic Database Connections**: Selected suggestions automatically create database relationships when entry is created
+- **Connection Intelligence**: System uses keyword matching to identify related clinical content across categories
+- **User-Friendly Interface**: Green suggestion boxes show exactly how connections will help in session notes workflow

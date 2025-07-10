@@ -117,11 +117,33 @@ export default function LibraryPage() {
 
   // Entry mutations
   const createEntryMutation = useMutation({
-    mutationFn: (data: InsertLibraryEntry) => apiRequest("/api/library/entries", "POST", data),
+    mutationFn: async (data: InsertLibraryEntry & { selectedConnections?: number[] }) => {
+      const { selectedConnections, ...entryData } = data;
+      
+      // Create the entry first
+      const entry = await apiRequest("/api/library/entries", "POST", entryData);
+      
+      // Create auto-connections if any were selected
+      if (selectedConnections && selectedConnections.length > 0) {
+        const connectionPromises = selectedConnections.map(targetId => 
+          apiRequest("/api/library/connections", "POST", {
+            fromEntryId: entry.id,
+            toEntryId: targetId,
+            connectionType: "relates_to",
+            connectionStrength: 7, // Default strong connection for auto-detected
+            description: "Auto-connected based on shared keywords",
+            createdById: 1
+          })
+        );
+        await Promise.all(connectionPromises);
+      }
+      
+      return entry;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
       setShowAddEntryDialog(false);
-      toast({ title: "Entry created successfully" });
+      toast({ title: "Entry created successfully with auto-connections" });
     },
     onError: () => {
       toast({ title: "Failed to create entry", variant: "destructive" });
@@ -512,10 +534,11 @@ export default function LibraryPage() {
               <DialogTitle>Add New Entry</DialogTitle>
             </DialogHeader>
             <EntryForm
-              onSubmit={(data) => createEntryMutation.mutate(data)}
+              onSubmit={(data) => createEntryMutation.mutate(data as any)}
               categories={getAllCategories(categories)}
               selectedCategoryId={selectedCategory}
               isLoading={createEntryMutation.isPending}
+              allEntries={entries}
             />
           </DialogContent>
         </Dialog>
@@ -533,6 +556,7 @@ export default function LibraryPage() {
                 categories={getAllCategories(categories)}
                 selectedCategoryId={editingEntry.categoryId}
                 isLoading={updateEntryMutation.isPending}
+                allEntries={entries}
               />
             )}
           </DialogContent>
@@ -552,6 +576,8 @@ export default function LibraryPage() {
                   // Refresh connections
                   setConnectedEntriesMap({});
                   setConnectingEntry(null);
+                  // Refresh entries to show new connections
+                  queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
                 }}
               />
             )}
@@ -651,13 +677,15 @@ function EntryForm({
   onSubmit, 
   categories, 
   selectedCategoryId,
-  isLoading 
+  isLoading,
+  allEntries = []
 }: { 
   entry?: LibraryEntryWithDetails;
   onSubmit: (data: InsertLibraryEntry) => void;
   categories: Array<LibraryCategoryWithChildren & { level: number }>;
   selectedCategoryId?: number | null;
   isLoading: boolean;
+  allEntries?: LibraryEntryWithDetails[];
 }) {
   const [formData, setFormData] = useState({
     title: entry?.title || "",
@@ -667,13 +695,53 @@ function EntryForm({
     sortOrder: entry?.sortOrder || 0,
     createdById: entry?.createdById || 1, // TODO: Get from auth context
   });
+  
+  const [suggestedConnections, setSuggestedConnections] = useState<LibraryEntryWithDetails[]>([]);
+  const [selectedConnections, setSelectedConnections] = useState<number[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Auto-suggest connections based on title and tags
+  useEffect(() => {
+    if (!formData.title && !formData.tags) {
+      setSuggestedConnections([]);
+      return;
+    }
+
+    const keywords = [
+      ...formData.title.toLowerCase().split(' '),
+      ...formData.tags.toLowerCase().split(',').map(t => t.trim())
+    ].filter(k => k.length > 2); // Only meaningful keywords
+
+    const suggestions = allEntries.filter(existing => {
+      // Don't suggest entries from same category
+      if (existing.categoryId === formData.categoryId) return false;
+      
+      // Check if entry shares keywords
+      const existingKeywords = [
+        ...existing.title.toLowerCase().split(' '),
+        ...(existing.tags || []).map(t => t.toLowerCase())
+      ];
+      
+      return keywords.some(keyword => 
+        existingKeywords.some(existing => 
+          existing.includes(keyword) || keyword.includes(existing)
+        )
+      );
+    }).slice(0, 5); // Limit to 5 suggestions
+    
+    setSuggestedConnections(suggestions);
+  }, [formData.title, formData.tags, formData.categoryId, allEntries]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+    
+    // Create the entry with selected connections
+    const entryData = {
       ...formData,
       tags: formData.tags.split(",").map(t => t.trim()).filter(t => t.length > 0),
-    });
+      selectedConnections: selectedConnections.length > 0 ? selectedConnections : undefined,
+    };
+    
+    onSubmit(entryData);
   };
 
   return (
@@ -733,9 +801,58 @@ function EntryForm({
           onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
         />
       </div>
+      {/* Auto-suggested Connections */}
+      {suggestedConnections.length > 0 && (
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+          <h4 className="font-medium text-green-900 dark:text-green-100 mb-3">
+            🔗 Auto-detected Related Entries
+          </h4>
+          <p className="text-sm text-green-800 dark:text-green-200 mb-3">
+            These entries seem related to "{formData.title}". Select ones to automatically connect:
+          </p>
+          <div className="space-y-2">
+            {suggestedConnections.map(suggestion => (
+              <label key={suggestion.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border">
+                <input
+                  type="checkbox"
+                  checked={selectedConnections.includes(suggestion.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedConnections([...selectedConnections, suggestion.id]);
+                    } else {
+                      setSelectedConnections(selectedConnections.filter(id => id !== suggestion.id));
+                    }
+                  }}
+                  className="rounded"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {categories.find(c => c.id === suggestion.categoryId)?.name}
+                    </Badge>
+                    <span className="font-medium">{suggestion.title}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {suggestion.content.substring(0, 80)}...
+                  </p>
+                </div>
+              </label>
+            ))}
+          </div>
+          {selectedConnections.length > 0 && (
+            <p className="text-sm text-green-700 dark:text-green-300 mt-2">
+              ✓ {selectedConnections.length} connection(s) will be created automatically
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={isLoading}>
           {isLoading ? "Saving..." : entry ? "Update" : "Create"}
+          {!entry && selectedConnections.length > 0 && (
+            <span className="ml-1">+ {selectedConnections.length} connections</span>
+          )}
         </Button>
       </div>
     </form>
