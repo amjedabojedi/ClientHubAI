@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Icons
 import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield } from "lucide-react";
@@ -499,8 +500,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Basic Session Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Session Selection */}
                 <FormField
                   control={form.control}
                   name="sessionId"
@@ -526,7 +527,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   )}
                 />
 
-                {/* Note Type */}
                 <FormField
                   control={form.control}
                   name="noteType"
@@ -554,7 +554,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 />
               </div>
 
-              {/* Main Content */}
+              {/* General Notes */}
               <FormField
                 control={form.control}
                 name="content"
@@ -573,341 +573,358 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 )}
               />
 
-              {/* Core Clinical Documentation Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="sessionFocus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Session Focus</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Main topics or issues addressed during the session..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Organized Clinical Documentation Tabs */}
+              <Tabs defaultValue="clinical" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="clinical">Clinical</TabsTrigger>
+                  <TabsTrigger value="assessment">Assessment</TabsTrigger>
+                  <TabsTrigger value="tracking">Tracking</TabsTrigger>
+                  <TabsTrigger value="settings">Settings</TabsTrigger>
+                </TabsList>
 
-                <FormField
-                  control={form.control}
-                  name="symptoms"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Symptoms</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Observed or reported symptoms..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                {/* Clinical Documentation Tab */}
+                <TabsContent value="clinical" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="sessionFocus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Session Focus</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Main topics or issues addressed during the session..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="shortTermGoals"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Short-term Goals</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Goals worked on during this session..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="symptoms"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Symptoms</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Observed or reported symptoms..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="intervention"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Intervention</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Therapeutic techniques/interventions used..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="shortTermGoals"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Short-term Goals</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Goals worked on during this session..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="progress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Progress</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Progress made toward goals..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="intervention"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Intervention</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Therapeutic techniques/interventions used..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                <FormField
-                  control={form.control}
-                  name="remarks"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Remarks</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Additional clinical observations..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="progress"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Progress</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Progress made toward goals..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-              <FormField
-                control={form.control}
-                name="recommendations"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Recommendations</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Future treatment recommendations..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Mood Assessment */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="moodBefore"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mood Before Session (1-10)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min="1" 
-                          max="10" 
-                          placeholder="Rate 1-10"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="moodAfter"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mood After Session (1-10)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min="1" 
-                          max="10" 
-                          placeholder="Rate 1-10"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Goals and Interventions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="goals"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Goals (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Session goals and objectives..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="interventions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Interventions (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Therapeutic interventions used..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Assessments and Homework */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="assessments"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assessments (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Clinical assessments and observations..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="homework"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Homework/Action Items (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Tasks and assignments for client..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Risk and Privacy Settings */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="riskLevel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Risk Level</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="confidentialityLevel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confidentiality</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="standard">Standard</SelectItem>
-                          <SelectItem value="restricted">Restricted</SelectItem>
-                          <SelectItem value="highly_confidential">Highly Confidential</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="isPrivate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            checked={field.value}
-                            onChange={field.onChange}
-                            className="h-4 w-4"
-                          />
-                        </FormControl>
-                        <FormLabel className="text-sm font-normal">
-                          Private Note
-                        </FormLabel>
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="remarks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Remarks</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Additional clinical observations..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}
-                    name="followUpNeeded"
+                    name="recommendations"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormItem>
+                        <FormLabel>Recommendations</FormLabel>
                         <FormControl>
-                          <input
-                            type="checkbox"
-                            checked={field.value}
-                            onChange={field.onChange}
-                            className="h-4 w-4"
+                          <Textarea 
+                            placeholder="Future treatment recommendations..."
+                            {...field}
                           />
                         </FormControl>
-                        <FormLabel className="text-sm font-normal">
-                          Follow-up Needed
-                        </FormLabel>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
-              </div>
+                </TabsContent>
+
+                {/* Assessment Tab */}
+                <TabsContent value="assessment" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="goals"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Goals</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Session goals and objectives..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="interventions"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Interventions</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Therapeutic interventions used..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="assessments"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assessments</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Clinical assessments and observations..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="homework"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Homework/Action Items</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Tasks and assignments for client..."
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Mood & Progress Tracking Tab */}
+                <TabsContent value="tracking" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="moodBefore"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mood Before Session (1-10)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min="1" 
+                              max="10" 
+                              placeholder="Rate 1-10"
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="moodAfter"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mood After Session (1-10)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min="1" 
+                              max="10" 
+                              placeholder="Rate 1-10"
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Risk & Privacy Settings Tab */}
+                <TabsContent value="settings" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="riskLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Risk Level</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="confidentialityLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confidentiality</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="restricted">Restricted</SelectItem>
+                              <SelectItem value="highly_confidential">Highly Confidential</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="flex gap-6">
+                    <FormField
+                      control={form.control}
+                      name="isPrivate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={field.onChange}
+                              className="h-4 w-4"
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            Private Note
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="followUpNeeded"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <input
+                              type="checkbox"
+                              checked={field.value}
+                              onChange={field.onChange}
+                              className="h-4 w-4"
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">
+                            Follow-up Needed
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <DialogFooter>
                 <Button
