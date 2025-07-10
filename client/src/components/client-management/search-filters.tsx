@@ -38,7 +38,9 @@ export default function SearchFilters({
   ).length;
 
   const handleFilterChange = (key: string, value: any) => {
-    onFiltersChange({ ...filters, [key]: value });
+    // Convert "all" back to empty string for backend compatibility
+    const processedValue = value === "all" ? "" : value;
+    onFiltersChange({ ...filters, [key]: processedValue });
   };
 
   const clearFilters = () => {
@@ -83,12 +85,12 @@ export default function SearchFilters({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Client Status</label>
-                <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+                <Select value={filters.status || "all"} onValueChange={(value) => handleFilterChange('status', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Statuses</SelectItem>
+                    <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
@@ -98,12 +100,12 @@ export default function SearchFilters({
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Therapist</label>
-                <Select value={filters.therapistId} onValueChange={(value) => handleFilterChange('therapistId', value)}>
+                <Select value={filters.therapistId || "all"} onValueChange={(value) => handleFilterChange('therapistId', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Therapists" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Therapists</SelectItem>
+                    <SelectItem value="all">All Therapists</SelectItem>
                     {therapists?.map((therapist: any) => (
                       <SelectItem key={therapist.id} value={therapist.id.toString()}>
                         {therapist.fullName}
@@ -115,12 +117,12 @@ export default function SearchFilters({
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Client Type</label>
-                <Select value={filters.clientType} onValueChange={(value) => handleFilterChange('clientType', value)}>
+                <Select value={filters.clientType || "all"} onValueChange={(value) => handleFilterChange('clientType', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
+                    <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="individual">Individual</SelectItem>
                     <SelectItem value="couple">Couple</SelectItem>
                     <SelectItem value="family">Family</SelectItem>

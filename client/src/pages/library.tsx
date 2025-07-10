@@ -580,14 +580,14 @@ function CategoryForm({
       <div>
         <Label htmlFor="parentId">Parent Category</Label>
         <Select
-          value={formData.parentId?.toString() || ""}
-          onValueChange={(value) => setFormData({ ...formData, parentId: value ? parseInt(value) : null })}
+          value={formData.parentId?.toString() || "root"}
+          onValueChange={(value) => setFormData({ ...formData, parentId: value === "root" ? null : parseInt(value) })}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select parent category (optional)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">None (Root Category)</SelectItem>
+            <SelectItem value="root">None (Root Category)</SelectItem>
             {categories
               .filter(cat => cat.id !== category?.id) // Prevent self-parenting
               .map(cat => (
