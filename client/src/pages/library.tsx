@@ -74,6 +74,16 @@ export default function LibraryPage() {
     },
   });
 
+  // Fetch ALL entries for connections (regardless of active tab)
+  const { data: allEntries = [] } = useQuery<LibraryEntryWithDetails[]>({
+    queryKey: ["/api/library/entries"],
+    queryFn: async () => {
+      const response = await fetch("/api/library/entries");
+      if (!response.ok) throw new Error("Failed to fetch all entries");
+      return response.json();
+    },
+  });
+
   // Search entries
   const { data: searchResults = [], isLoading: searching } = useQuery<LibraryEntryWithDetails[]>({
     queryKey: ["/api/library/search", debouncedSearchQuery, currentCategoryId],
@@ -450,7 +460,7 @@ export default function LibraryPage() {
               categories={getAllCategories(categories)}
               selectedCategoryId={currentCategoryId}
               isLoading={createEntryMutation.isPending}
-              allEntries={entries}
+              allEntries={allEntries}
             />
           </DialogContent>
         </Dialog>
@@ -468,7 +478,7 @@ export default function LibraryPage() {
                 categories={getAllCategories(categories)}
                 selectedCategoryId={editingEntry.categoryId}
                 isLoading={updateEntryMutation.isPending}
-                allEntries={entries}
+                allEntries={allEntries}
               />
             )}
           </DialogContent>
@@ -483,7 +493,7 @@ export default function LibraryPage() {
             {connectingEntry && (
               <ConnectionForm
                 sourceEntry={connectingEntry}
-                allEntries={entries}
+                allEntries={allEntries}
                 onConnectionCreated={() => {
                   // Refresh connections
                   setConnectedEntriesMap({});
