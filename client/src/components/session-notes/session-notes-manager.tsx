@@ -81,9 +81,10 @@ type SessionNoteFormData = z.infer<typeof sessionNoteFormSchema>;
 interface SessionNotesManagerProps {
   clientId: number;
   sessions: Session[];
+  preSelectedSessionId?: number;
 }
 
-export default function SessionNotesManager({ clientId, sessions }: SessionNotesManagerProps) {
+export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId }: SessionNotesManagerProps) {
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
@@ -153,6 +154,7 @@ export default function SessionNotesManager({ clientId, sessions }: SessionNotes
   // Reset form for new note
   const resetFormForNewNote = () => {
     form.reset({
+      sessionId: preSelectedSessionId || undefined,
       clientId,
       therapistId: 3,
       noteType: 'general',
@@ -258,7 +260,7 @@ export default function SessionNotesManager({ clientId, sessions }: SessionNotes
         <div>
           <h3 className="text-lg font-semibold">Session Notes</h3>
           <p className="text-sm text-muted-foreground">
-            Detailed notes and assessments from therapy sessions
+            View and manage detailed notes from completed therapy sessions
           </p>
         </div>
         <Button onClick={handleAddNote} className="flex items-center gap-2">
@@ -297,7 +299,7 @@ export default function SessionNotesManager({ clientId, sessions }: SessionNotes
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-muted-foreground mb-2">No session notes yet</h3>
               <p className="text-sm text-muted-foreground text-center mb-4">
-                Start documenting therapy sessions by creating your first note.
+                Session notes will appear here after you complete sessions and add documentation from the Sessions tab.
               </p>
               <Button onClick={handleAddNote} variant="outline">
                 Create First Note

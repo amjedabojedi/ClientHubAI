@@ -587,13 +587,28 @@ export default function ClientDetailPage() {
                               </p>
                             </div>
                           </div>
-                          <Badge className={`px-3 py-1 text-sm font-medium ${
-                            session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
-                          </Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge className={`px-3 py-1 text-sm font-medium ${
+                              session.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
+                            </Badge>
+                            {session.status === 'completed' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setActiveTab('session-notes');
+                                  // You could also pass session info to pre-populate the form
+                                }}
+                              >
+                                <FileText className="w-4 h-4 mr-1" />
+                                Add Notes
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         {session.therapist && (
                           <p className="text-sm text-slate-600 mb-2">
