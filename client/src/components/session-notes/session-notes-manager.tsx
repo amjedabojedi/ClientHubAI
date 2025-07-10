@@ -124,15 +124,23 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Fetch session notes for the client
   const { data: sessionNotes = [], isLoading } = useQuery({
     queryKey: ['/api/clients', clientId, 'session-notes'],
-    queryFn: () => apiRequest('GET', `/api/clients/${clientId}/session-notes`),
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/clients/${clientId}/session-notes`);
+      return await response.json();
+    },
   });
 
   // Create session note mutation
   const createSessionNoteMutation = useMutation({
-    mutationFn: (data: SessionNoteFormData) => apiRequest('POST', '/api/session-notes', data),
+    mutationFn: async (data: SessionNoteFormData) => {
+      const response = await apiRequest('POST', '/api/session-notes', data);
+      return await response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
       setIsAddNoteOpen(false);
+      setEditingNote(null);
+      resetFormForNewNote();
       toast({ title: "Session note created successfully" });
     },
     onError: () => {
@@ -142,11 +150,15 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Update session note mutation
   const updateSessionNoteMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<SessionNoteFormData> }) =>
-      apiRequest('PUT', `/api/session-notes/${id}`, data),
+    mutationFn: async ({ id, data }: { id: number; data: Partial<SessionNoteFormData> }) => {
+      const response = await apiRequest('PUT', `/api/session-notes/${id}`, data);
+      return await response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
+      setIsAddNoteOpen(false);
       setEditingNote(null);
+      resetFormForNewNote();
       toast({ title: "Session note updated successfully" });
     },
     onError: () => {
@@ -156,7 +168,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Delete session note mutation
   const deleteSessionNoteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest('DELETE', `/api/session-notes/${id}`),
+    mutationFn: async (id: number) => {
+      const response = await apiRequest('DELETE', `/api/session-notes/${id}`);
+      return response.status === 204 ? { success: true } : await response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'session-notes'] });
       toast({ title: "Session note deleted successfully" });
@@ -168,13 +183,16 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // AI generation mutations
   const generateSuggestionsMutation = useMutation({
-    mutationFn: ({ field, context }: { field: string; context: string }) =>
-      apiRequest('POST', '/api/ai/generate-suggestions', { field, context }),
+    mutationFn: async ({ field, context }: { field: string; context: string }) => {
+      const response = await apiRequest('POST', '/api/ai/generate-suggestions', { field, context });
+      return await response.json();
+    },
     onSuccess: (data, variables) => {
       setSmartSuggestions(prev => ({
         ...prev,
         [variables.field]: data.suggestions
       }));
+      toast({ title: "AI suggestions generated" });
     },
     onError: () => {
       toast({ title: "Error generating AI suggestions", variant: "destructive" });
@@ -182,8 +200,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   });
 
   const regenerateContentMutation = useMutation({
-    mutationFn: ({ sessionNoteId, customPrompt }: { sessionNoteId: number; customPrompt?: string }) =>
-      apiRequest('POST', `/api/ai/regenerate-content/${sessionNoteId}`, { customPrompt }),
+    mutationFn: async ({ sessionNoteId, customPrompt }: { sessionNoteId: number; customPrompt?: string }) => {
+      const response = await apiRequest('POST', `/api/ai/regenerate-content/${sessionNoteId}`, { customPrompt });
+      return await response.json();
+    },
     onSuccess: (data) => {
       setAiGeneratedContent(data.content);
       setShowAiContent(true);
@@ -196,8 +216,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   });
 
   const generateClinicalReportMutation = useMutation({
-    mutationFn: (sessionNoteData: any) =>
-      apiRequest('POST', '/api/ai/generate-clinical-report', sessionNoteData),
+    mutationFn: async (sessionNoteData: any) => {
+      const response = await apiRequest('POST', '/api/ai/generate-clinical-report', sessionNoteData);
+      return await response.json();
+    },
     onSuccess: (data) => {
       setAiGeneratedContent(data.report);
       setShowAiContent(true);
