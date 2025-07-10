@@ -128,6 +128,13 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <Button 
+                variant="default"
+                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Schedule Session
+              </Button>
               <Badge className={getStatusColor(client.status)}>
                 {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
               </Badge>
@@ -385,9 +392,30 @@ export default function ClientDetailPage() {
               </Card>
             </div>
 
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Session History</h3>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  size="sm"
+                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Schedule Session
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.location.href = '/scheduling'}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  View Calendar
+                </Button>
+              </div>
+            </div>
+
             <Card>
               <CardHeader>
-                <CardTitle>Session History</CardTitle>
+                <CardTitle>Recent Sessions</CardTitle>
               </CardHeader>
               <CardContent>
                 {sessions.length > 0 ? (

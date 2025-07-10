@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,6 +82,21 @@ export default function SchedulingPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Check for URL parameters to pre-fill client information
+  const urlParams = new URLSearchParams(window.location.search);
+  const clientIdFromUrl = urlParams.get('clientId');
+  const clientNameFromUrl = urlParams.get('clientName');
+  
+  // Auto-open modal if coming from client page
+  React.useEffect(() => {
+    if (clientIdFromUrl) {
+      setIsNewSessionModalOpen(true);
+      if (clientNameFromUrl) {
+        setSearchQuery(decodeURIComponent(clientNameFromUrl));
+      }
+    }
+  }, [clientIdFromUrl, clientNameFromUrl]);
+
   // Fetch sessions for the selected date range
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["/api/sessions", selectedDate.toISOString().split('T')[0], viewMode],
@@ -102,6 +117,7 @@ export default function SchedulingPage() {
   const form = useForm<SessionFormData>({
     resolver: zodResolver(sessionFormSchema),
     defaultValues: {
+      clientId: clientIdFromUrl ? parseInt(clientIdFromUrl) : undefined,
       sessionType: "psychotherapy",
       duration: 60,
     },
@@ -296,11 +312,21 @@ export default function SchedulingPage() {
                 <Upload className="w-4 h-4 mr-2" />
                 Import
               </Button>
-              <Dialog open={isNewSessionModalOpen} onOpenChange={setIsNewSessionModalOpen}>
+              <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
+                setIsNewSessionModalOpen(open);
+                if (open && clientIdFromUrl) {
+                  // Auto-open modal if coming from client page
+                  form.setValue('clientId', parseInt(clientIdFromUrl));
+                  // Also set search to show the client name for clarity
+                  if (clientNameFromUrl) {
+                    setSearchQuery(decodeURIComponent(clientNameFromUrl));
+                  }
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="w-4 h-4 mr-2" />
-                    New Session
+                    {clientNameFromUrl ? `Schedule for ${decodeURIComponent(clientNameFromUrl)}` : 'New Session'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
