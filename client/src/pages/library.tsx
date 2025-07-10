@@ -364,14 +364,9 @@ export default function LibraryPage() {
                                                 const element = document.querySelector(`[data-entry-id="${related.id}"]`);
                                                 element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                               }}
-                                              title={databaseConnections.length > 0 ? `${related.connectionType} (strength: ${related.connectionStrength})` : 'Related by tags'}
+                                              title={databaseConnections.length > 0 ? 'Connected entry' : 'Related by tags'}
                                             >
                                               {related.title}
-                                              {databaseConnections.length > 0 && (
-                                                <Badge variant="outline" className="ml-1 text-xs">
-                                                  {related.connectionType}
-                                                </Badge>
-                                              )}
                                             </span>
                                             {idx < relatedEntries.length - 1 && ", "}
                                           </span>
@@ -792,9 +787,6 @@ function ConnectionForm({
   onConnectionCreated: () => void;
 }) {
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
-  const [connectionType, setConnectionType] = useState<string>("relates_to");
-  const [connectionStrength, setConnectionStrength] = useState<number>(5);
-  const [description, setDescription] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
@@ -821,9 +813,9 @@ function ConnectionForm({
       const connectionData = {
         fromEntryId: sourceEntry.id,
         toEntryId: selectedTargetId,
-        connectionType,
-        connectionStrength,
-        description: description.trim() || null,
+        connectionType: "relates_to",
+        connectionStrength: 5,
+        description: null,
         createdById: 1 // TODO: Get from auth context
       };
 
@@ -898,55 +890,7 @@ function ConnectionForm({
           )}
         </div>
 
-        {/* Connection Type */}
-        <div>
-          <Label htmlFor="connectionType">Connection Type</Label>
-          <Select
-            value={connectionType}
-            onValueChange={setConnectionType}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="supports">Supports - This entry supports the target</SelectItem>
-              <SelectItem value="relates_to">Relates to - General relationship</SelectItem>
-              <SelectItem value="prerequisite_for">Prerequisite for - Must come before target</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Connection Strength */}
-        <div>
-          <Label htmlFor="strength">Connection Strength (1-10)</Label>
-          <Select
-            value={connectionStrength.toString()}
-            onValueChange={(value) => setConnectionStrength(parseInt(value))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[1,2,3,4,5,6,7,8,9,10].map(num => (
-                <SelectItem key={num} value={num.toString()}>
-                  {num} - {num <= 3 ? 'Weak' : num <= 6 ? 'Moderate' : 'Strong'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Description */}
-        <div>
-          <Label htmlFor="description">Description (optional)</Label>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe how these entries are connected..."
-            rows={3}
-          />
-        </div>
 
         <div className="flex justify-end gap-2">
           <Button type="submit" disabled={isLoading || !selectedTargetId}>
@@ -959,11 +903,11 @@ function ConnectionForm({
       {selectedTargetId && (
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
           <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
-            💡 How this helps in session notes:
+            How this helps in session notes:
           </h4>
           <p className="text-sm text-green-800 dark:text-green-200">
             When you select "{sourceEntry.title}" in session notes, the system will automatically 
-            suggest "{availableTargets.find(e => e.id === selectedTargetId)?.title}" as a related {connectionType} option.
+            suggest "{availableTargets.find(e => e.id === selectedTargetId)?.title}" as a related option.
           </p>
         </div>
       )}
