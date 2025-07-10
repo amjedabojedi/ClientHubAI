@@ -12,9 +12,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
-import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield, Sparkles, Wand2, RefreshCw, Download, Copy } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield, Sparkles, Wand2, RefreshCw, Download, Copy, BookOpen, Search } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -31,6 +32,20 @@ import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import { insertSessionNoteSchema } from "@shared/schema";
 import { format } from "date-fns";
+
+// Library Types
+interface LibraryEntry {
+  id: number;
+  categoryId: number;
+  title: string;
+  content: string;
+  tags?: string[];
+  usageCount?: number;
+  category: {
+    id: number;
+    name: string;
+  };
+}
 
 // Session Note Types
 interface SessionNote {
@@ -422,6 +437,129 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
     </div>;
   }
+
+  // Library Picker Component
+  const LibraryPicker = ({ fieldType, onSelect }: {
+    fieldType: 'session-focus' | 'symptoms' | 'short-term-goals' | 'interventions' | 'progress';
+    onSelect: (content: string) => void;
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Category mapping
+    const categoryIds = {
+      'session-focus': 1,
+      'symptoms': 2,
+      'short-term-goals': 3,
+      'interventions': 4,
+      'progress': 5
+    };
+
+    const { data: libraryEntries } = useQuery({
+      queryKey: ['/api/library/entries'],
+      queryFn: async () => {
+        const response = await apiRequest('GET', '/api/library/entries');
+        return await response.json();
+      },
+    });
+
+    // Filter entries by category and search
+    const filteredEntries = (libraryEntries || []).filter((entry: LibraryEntry) => {
+      const matchesCategory = entry.categoryId === categoryIds[fieldType];
+      const matchesSearch = !searchQuery || 
+        entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (entry.tags && entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
+      return matchesCategory && matchesSearch;
+    });
+
+    const handleSelect = async (entry: LibraryEntry) => {
+      onSelect(entry.content);
+      setIsOpen(false);
+      
+      // Increment usage count
+      try {
+        await apiRequest('POST', `/api/library/entries/${entry.id}/increment-usage`);
+      } catch (error) {
+        console.error('Failed to increment usage count:', error);
+      }
+    };
+
+    return (
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2"
+          >
+            <BookOpen className="h-3 w-3 mr-1" />
+            Library
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Select from Library - {fieldType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</DialogTitle>
+            <DialogDescription>
+              Choose from pre-written clinical content to insert into this field
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search library entries..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <ScrollArea className="h-96">
+              <div className="space-y-2">
+                {filteredEntries.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No entries found in this category
+                  </div>
+                ) : (
+                  filteredEntries.map((entry: LibraryEntry) => (
+                    <div
+                      key={entry.id}
+                      className="p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                      onClick={() => handleSelect(entry)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{entry.title}</h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                            {entry.content}
+                          </p>
+                          {entry.tags && entry.tags.length > 0 && (
+                            <div className="flex items-center gap-1 mt-2">
+                              {entry.tags.slice(0, 3).map((tag, idx) => (
+                                <span key={idx} className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 ml-2">
+                          Used {entry.usageCount || 0}x
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
 
   // Field Options Selector Component
   const FieldOptionsSelector = ({ templateId, field, fieldLabel, onSelect }: {
@@ -832,16 +970,26 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormItem>
                           <FormLabel className="flex items-center justify-between">
                             Session Focus
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => generateSuggestions('sessionFocus', field.value || '')}
-                              disabled={generateSuggestionsMutation.isPending}
-                            >
-                              <Wand2 className="h-3 w-3 mr-1" />
-                              Suggestions
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <LibraryPicker 
+                                fieldType="session-focus" 
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => generateSuggestions('sessionFocus', field.value || '')}
+                                disabled={generateSuggestionsMutation.isPending}
+                              >
+                                <Wand2 className="h-3 w-3 mr-1" />
+                                AI
+                              </Button>
+                            </div>
                           </FormLabel>
                           <FormControl>
                             <Textarea 
@@ -880,16 +1028,26 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormItem>
                           <FormLabel className="flex items-center justify-between">
                             Symptoms
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => generateSuggestions('symptoms', field.value || '')}
-                              disabled={generateSuggestionsMutation.isPending}
-                            >
-                              <Wand2 className="h-3 w-3 mr-1" />
-                              Suggestions
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <LibraryPicker 
+                                fieldType="symptoms" 
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => generateSuggestions('symptoms', field.value || '')}
+                                disabled={generateSuggestionsMutation.isPending}
+                              >
+                                <Wand2 className="h-3 w-3 mr-1" />
+                                AI
+                              </Button>
+                            </div>
                           </FormLabel>
                           <FormControl>
                             <Textarea 
@@ -928,7 +1086,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       name="shortTermGoals"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Short-term Goals</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            Short-term Goals
+                            <LibraryPicker 
+                              fieldType="short-term-goals" 
+                              onSelect={(content) => {
+                                const currentValue = field.value || '';
+                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                field.onChange(newValue);
+                              }}
+                            />
+                          </FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Goals worked on during this session..."
@@ -947,16 +1115,26 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormItem>
                           <FormLabel className="flex items-center justify-between">
                             Intervention
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => generateSuggestions('intervention', field.value || '')}
-                              disabled={generateSuggestionsMutation.isPending}
-                            >
-                              <Wand2 className="h-3 w-3 mr-1" />
-                              Suggestions
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <LibraryPicker 
+                                fieldType="interventions" 
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => generateSuggestions('intervention', field.value || '')}
+                                disabled={generateSuggestionsMutation.isPending}
+                              >
+                                <Wand2 className="h-3 w-3 mr-1" />
+                                AI
+                              </Button>
+                            </div>
                           </FormLabel>
                           <FormControl>
                             <Textarea 
@@ -995,7 +1173,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       name="progress"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Progress</FormLabel>
+                          <FormLabel className="flex items-center justify-between">
+                            Progress
+                            <LibraryPicker 
+                              fieldType="progress" 
+                              onSelect={(content) => {
+                                const currentValue = field.value || '';
+                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                field.onChange(newValue);
+                              }}
+                            />
+                          </FormLabel>
                           <FormControl>
                             <Textarea 
                               placeholder="Progress made toward goals..."
