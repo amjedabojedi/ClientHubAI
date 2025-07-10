@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
-import { Plus, Edit, Trash2, FileText, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -202,96 +202,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     toast({ title: "Content copied to clipboard" });
   };
 
-  // Template generator function
-  const generateNoteTemplate = () => {
-    const formValues = form.getValues();
-    const selectedSessionData = sessions.find(s => s.id === formValues.sessionId);
-    
-    if (!selectedSessionData) {
-      toast({ title: "Please select a session first", variant: "destructive" });
-      return;
-    }
 
-    // Get actual client data
-    const client = clientData || {
-      fullName: "Client Name",
-      clientId: `CL-${String(clientId).padStart(4, '0')}`,
-      dateOfBirth: null,
-      gender: null,
-      stage: null
-    };
-
-    // Generate template based on note type and available information
-    const template = `SESSION NOTE TEMPLATE
-===================
-
-Client Information:
-- Name: ${client.fullName}
-- Client ID: ${client.clientId}
-- Date of Birth: ${client.dateOfBirth ? format(new Date(client.dateOfBirth), 'MMMM dd, yyyy') : 'Not specified'}
-- Gender: ${client.gender || 'Not specified'}
-- Treatment Stage: ${client.stage || 'Not specified'}
-- Session Date: ${format(new Date(selectedSessionData.sessionDate), 'MMMM dd, yyyy')}
-- Session Type: ${selectedSessionData.sessionType}
-- Note Type: ${formValues.noteType || 'General'}
-
-Clinical Documentation:
-----------------------
-
-Session Focus:
-${formValues.sessionFocus || '[Document the main topics or issues addressed during this session]'}
-
-Symptoms Observed/Reported:
-${formValues.symptoms || '[Note any symptoms observed or reported by the client]'}
-
-Short-term Goals:
-${formValues.shortTermGoals || '[List the specific goals worked on during this session]'}
-
-Interventions Used:
-${formValues.intervention || '[Describe therapeutic techniques and interventions employed]'}
-
-Progress Notes:
-${formValues.progress || '[Document progress made toward treatment goals]'}
-
-Assessment & Tracking:
----------------------
-
-Mood Assessment:
-- Before Session: ${formValues.moodBefore || '[Rate 1-10]'}/10
-- After Session: ${formValues.moodAfter || '[Rate 1-10]'}/10
-
-Clinical Assessments:
-${formValues.assessments || '[Document any clinical assessments performed]'}
-
-Homework/Action Items:
-${formValues.homework || '[List any homework assignments or action items given to client]'}
-
-Additional Notes:
-${formValues.remarks || '[Any additional observations or notes]'}
-
-Recommendations:
-${formValues.recommendations || '[Treatment recommendations and next steps]'}
-
-Risk & Privacy Settings:
------------------------
-- Risk Level: ${formValues.riskLevel || 'Low'}
-- Confidentiality: ${formValues.confidentialityLevel || 'Standard'}
-- Follow-up Needed: ${formValues.followUpNeeded ? 'Yes' : 'No'}
-- Private Note: ${formValues.isPrivate ? 'Yes' : 'No'}
-
----
-Generated on ${format(new Date(), 'MMMM dd, yyyy \'at\' h:mm a')}
-Therapist: Dr. Williams`;
-
-    return template;
-  };
-
-  // Generate and populate template
-  const handleGenerateTemplate = () => {
-    const template = generateNoteTemplate();
-    form.setValue('content', template);
-    toast({ title: "Template generated successfully" });
-  };
 
   // AI Template generation with custom instructions
   const [isAITemplateOpen, setIsAITemplateOpen] = useState(false);
@@ -344,40 +255,7 @@ Therapist: Dr. Williams`;
     });
   };
 
-  // Quick fill helper - fills empty fields with template prompts
-  const handleQuickFill = () => {
-    const formValues = form.getValues();
-    
-    if (!formValues.sessionFocus) {
-      form.setValue('sessionFocus', 'Main focus areas addressed in this session');
-    }
-    if (!formValues.symptoms) {
-      form.setValue('symptoms', 'Symptoms observed or reported by client');
-    }
-    if (!formValues.shortTermGoals) {
-      form.setValue('shortTermGoals', 'Specific goals worked on during session');
-    }
-    if (!formValues.intervention) {
-      form.setValue('intervention', 'Therapeutic techniques and interventions used');
-    }
-    if (!formValues.progress) {
-      form.setValue('progress', 'Progress made toward treatment objectives');
-    }
-    if (!formValues.assessments) {
-      form.setValue('assessments', 'Clinical assessments performed');
-    }
-    if (!formValues.homework) {
-      form.setValue('homework', 'Homework assignments or action items');
-    }
-    if (!formValues.remarks) {
-      form.setValue('remarks', 'Additional observations and notes');
-    }
-    if (!formValues.recommendations) {
-      form.setValue('recommendations', 'Treatment recommendations and next steps');
-    }
 
-    toast({ title: "Form fields populated with prompts" });
-  };
 
   // Form setup
   const form = useForm<SessionNoteFormData>({
@@ -924,49 +802,27 @@ Therapist: Dr. Williams`;
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Session Notes</FormLabel>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGenerateTemplate}
-                          className="text-xs"
-                        >
-                          <FileText className="h-3 w-3 mr-1" />
-                          Generate Template
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setIsAITemplateOpen(true)}
-                          className="text-xs"
-                          disabled={generateAITemplateMutation.isPending}
-                        >
-                          <Brain className="h-3 w-3 mr-1" />
-                          AI Template
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleQuickFill}
-                          className="text-xs"
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Quick Fill
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsAITemplateOpen(true)}
+                        className="text-xs"
+                        disabled={generateAITemplateMutation.isPending}
+                      >
+                        <Brain className="h-3 w-3 mr-1" />
+                        AI Template
+                      </Button>
                     </div>
                     <FormControl>
                       <Textarea 
-                        placeholder="Document the session details, observations, and key points... Use 'Generate Template' to create a structured note format."
+                        placeholder="Document the session details, observations, and key points... Use 'AI Template' to generate custom content based on your instructions."
                         className="min-h-[120px]"
                         {...field}
                       />
                     </FormControl>
                     <p className="text-xs text-muted-foreground">
-                      Use "Generate Template" for structured notes, "AI Template" for custom AI-generated content based on your instructions, or "Quick Fill" to populate fields with prompts.
+                      Use "AI Template" to generate custom session notes based on your specific instructions and requirements.
                     </p>
                     <FormMessage />
                   </FormItem>

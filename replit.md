@@ -141,17 +141,16 @@ Advanced appointment management with multi-view calendar system:
 
 ## Recent Changes
 
-### Template-Based Session Note Generation (January 2025)
-- **Structured Template System**: Implemented comprehensive template generation using client details and form sections
-- **Client Data Integration**: Templates automatically pull real client information (name, ID, demographics, treatment stage)
-- **Session Context**: Templates include session date, type, and selected therapist information
-- **Form Field References**: Templates structure all clinical documentation fields with proper formatting
-- **Two-Button Workflow**: "Generate Template" creates full structured note, "Quick Fill" populates individual fields with prompts
-- **Professional Formatting**: Templates use medical record formatting with clear sections and professional language
-- **Real-Time Data**: Templates pull actual client and session data instead of placeholder information
-- **Clinical Structure**: Templates organize content into Client Information, Clinical Documentation, Assessment & Tracking, and Risk/Privacy sections
-- **Field Population**: Quick Fill feature populates empty fields with appropriate clinical prompts for efficient documentation
-- **Integration Ready**: Works seamlessly with existing Library system for content insertion into template structure
+### AI-Powered Session Note Generation (January 2025)
+- **Custom AI Template System**: Implemented AI-powered template generation using OpenAI with user-provided custom instructions
+- **Personalized Content**: AI generates session notes based on specific user requirements and therapy approaches
+- **Brain Icon Interface**: Single, clean Brain icon button opens custom instruction dialog for AI template generation
+- **Custom Instructions Dialog**: Users provide detailed instructions for AI to generate personalized session note templates
+- **Real-Time Processing**: AI processes user instructions along with client and session data for contextual content generation
+- **Error Handling**: Comprehensive error handling with loading states and user-friendly error messages
+- **Clean Interface**: Streamlined UI with only AI Template functionality for focused user experience
+- **Professional Output**: AI generates clinically appropriate content formatted for professional documentation
+- **Integration Ready**: Works seamlessly with existing Library system for content insertion into AI-generated templates
 
 ### Session Notes Feature Implementation (January 2025)
 - **Database Schema**: Added comprehensive session notes table with detailed tracking fields and AI management columns
