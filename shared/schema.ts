@@ -309,6 +309,7 @@ export const assessmentSections = pgTable("assessment_sections", {
   aiReportPrompt: text("ai_report_prompt"), // Optional AI prompt for report generation
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const assessmentQuestions = pgTable("assessment_questions", {

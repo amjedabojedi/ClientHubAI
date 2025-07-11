@@ -207,8 +207,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           description: section.description,
           accessLevel: section.accessLevel,
           isScoring: section.isScoring,
-          reportMapping: section.reportMapping,
-          order: section.order
+          reportMapping: section.reportMapping || null,
+          aiReportPrompt: section.aiReportPrompt || null,
+          sortOrder: section.order
         };
 
         let sectionId = section.id;
@@ -301,7 +302,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <GripVertical className="h-4 w-4 text-gray-400" />
-                  <CardTitle className="text-lg">Section {sectionIndex + 1}</CardTitle>
+                  <CardTitle className="text-lg">
+                    {section.title || `Section ${sectionIndex + 1}`}
+                  </CardTitle>
                   <Badge className={getAccessLevelColor(section.accessLevel)}>
                     {section.accessLevel}
                   </Badge>
@@ -353,11 +356,21 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Report Mapping</Label>
-                  <Input
-                    value={section.reportMapping}
-                    onChange={(e) => updateSection(sectionIndex, "reportMapping", e.target.value)}
-                    placeholder="e.g., Presenting Symptoms"
-                  />
+                  <Select value={section.reportMapping} onValueChange={(value) => updateSection(sectionIndex, "reportMapping", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select report section..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="referral_reason">Referral Reason</SelectItem>
+                      <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
+                      <SelectItem value="background_history">Background History</SelectItem>
+                      <SelectItem value="mental_status_exam">Mental Status Exam</SelectItem>
+                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
+                      <SelectItem value="treatment_recommendations">Treatment Recommendations</SelectItem>
+                      <SelectItem value="goals_objectives">Goals & Objectives</SelectItem>
+                      <SelectItem value="summary_impressions">Summary & Impressions</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center space-x-2 pt-6">
                   <Switch
