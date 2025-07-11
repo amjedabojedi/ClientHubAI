@@ -207,6 +207,12 @@ Advanced appointment management with multi-view calendar system:
 - **AI Template Optimization**: Removed outdated mood rating references from AI generation, focusing on clinical documentation fields
 - **Streamlined Interface**: Removed redundant privacy settings, focusing purely on clinical risk assessment
 
+### Interface Streamlining (January 2025)
+- **Redundant Tab Removal**: Removed basic "Notes" tab since comprehensive "Session Notes" tab provides all needed functionality
+- **Session Integration**: Added "Add Notes" button to every session in the session list for direct access to session note creation
+- **Workflow Enhancement**: Users can now click "Add Notes" from any session to jump directly to the Session Notes tab
+- **UI Consistency**: Standardized session note access across all session entries regardless of status
+
 ### Library-Session Notes Integration (January 2025)
 - **Direct Field Integration**: Added Library picker buttons (📚) to all clinical documentation fields in session notes
 - **Category-Specific Content**: Each field shows only relevant library entries (Session Focus → Category 1, Symptoms → Category 2, etc.)

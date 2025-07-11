@@ -592,19 +592,17 @@ export default function ClientDetailPage() {
                             }`}>
                               {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
                             </Badge>
-                            {session.status === 'completed' && (
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setActiveTab('session-notes');
-                                  // You could also pass session info to pre-populate the form
-                                }}
-                              >
-                                <FileText className="w-4 h-4 mr-1" />
-                                Add Notes
-                              </Button>
-                            )}
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setActiveTab('session-notes');
+                                // You could also pass session info to pre-populate the form
+                              }}
+                            >
+                              <FileText className="w-4 h-4 mr-1" />
+                              Add Notes
+                            </Button>
                           </div>
                         </div>
                         {session.therapist && (
