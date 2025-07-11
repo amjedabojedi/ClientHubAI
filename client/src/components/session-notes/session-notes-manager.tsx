@@ -996,8 +996,80 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 />
               </div>
 
-              {/* General Notes */}
-
+              {/* AI Template Controls */}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">AI Session Note Generation</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {/* Template Selection */}
+                  {savedTemplates.length > 0 && (
+                    <select
+                      className="text-xs border rounded px-2 py-1"
+                      value={selectedTemplateId}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleLoadTemplate(e.target.value);
+                        } else {
+                          setSelectedTemplateId('');
+                          setSavedTemplate('');
+                        }
+                      }}
+                    >
+                      <option value="">Select Template...</option>
+                      {savedTemplates.map(template => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleEditTemplate}
+                    className="text-xs"
+                  >
+                    <Brain className="h-3 w-3 mr-1" />
+                    {selectedTemplateId ? 'Edit Template' : 'Create Template'}
+                  </Button>
+                  
+                  {selectedTemplateId && savedTemplates.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteTemplate(selectedTemplateId)}
+                      className="text-xs text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                  
+                  {savedTemplate && (
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={handleGenerateContent}
+                      className="text-xs"
+                      disabled={generateAITemplateMutation.isPending}
+                    >
+                      {generateAITemplateMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Generate Content
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
 
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
