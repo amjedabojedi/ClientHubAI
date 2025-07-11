@@ -119,12 +119,23 @@ function PDFContentViewer({ clientId, document }: { clientId: string; document: 
           </div>
         </div>
         
-        <div className="bg-slate-50 rounded-lg p-2 h-96">
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full border-0 rounded"
-            title={`PDF Preview: ${document.fileName}`}
-          />
+        <div className="bg-slate-50 rounded-lg p-4 h-96 flex flex-col items-center justify-center">
+          <FileText className="w-16 h-16 text-slate-400 mb-4" />
+          <p className="text-slate-600 mb-4 text-center">PDF Preview</p>
+          <p className="text-sm text-slate-500 mb-6 text-center">
+            Due to browser security restrictions, PDF files cannot be previewed inline.<br />
+            Click the button below to open the PDF in a new tab.
+          </p>
+          <Button 
+            onClick={() => window.open(pdfUrl, '_blank')}
+            className="mb-2"
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Open PDF in New Tab
+          </Button>
+          <p className="text-xs text-slate-400 text-center">
+            File: {document.fileName} • {Math.round(document.fileSize / 1024)} KB
+          </p>
         </div>
       </div>
     </div>

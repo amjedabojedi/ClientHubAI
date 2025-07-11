@@ -417,6 +417,8 @@ This happens because only the file metadata was stored, not the actual file cont
       if (fs.existsSync(filePath)) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
         res.sendFile(path.resolve(filePath));
       } else {
         res.status(404).json({ message: "File not found on server" });
