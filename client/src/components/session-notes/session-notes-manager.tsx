@@ -208,6 +208,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [isAITemplateOpen, setIsAITemplateOpen] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [savedTemplate, setSavedTemplate] = useState<string>('');
 
   const generateAITemplateMutation = useMutation({
     mutationFn: async (data: { clientId: number; sessionId?: number; formData: any; customInstructions: string }) => {
@@ -232,9 +233,22 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
   });
 
-  const handleGenerateAITemplate = () => {
+  // Save template for future guidance
+  const handleSaveTemplate = () => {
     if (!customInstructions.trim()) {
       toast({ title: "Please provide custom instructions", variant: "destructive" });
+      return;
+    }
+    
+    setSavedTemplate(customInstructions);
+    setIsAITemplateOpen(false);
+    toast({ title: "Template saved! Fill out fields and click 'Generate Content' to create session notes" });
+  };
+
+  // Generate content using saved template + filled fields
+  const handleGenerateContent = () => {
+    if (!savedTemplate) {
+      toast({ title: "Please create a template first", variant: "destructive" });
       return;
     }
 
@@ -246,12 +260,22 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       return;
     }
 
+    // Check if at least some fields are filled
+    const hasContent = formValues.sessionFocus || formValues.symptoms || formValues.shortTermGoals || 
+                      formValues.intervention || formValues.progress || formValues.assessments || 
+                      formValues.homework || formValues.remarks;
+
+    if (!hasContent) {
+      toast({ title: "Please fill out some clinical fields first", variant: "destructive" });
+      return;
+    }
+
     setIsGeneratingAI(true);
     generateAITemplateMutation.mutate({
       clientId,
       sessionId,
       formData: formValues,
-      customInstructions
+      customInstructions: savedTemplate
     });
   };
 
@@ -802,17 +826,45 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Session Notes</FormLabel>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setIsAITemplateOpen(true)}
-                        className="text-xs"
-                        disabled={generateAITemplateMutation.isPending}
-                      >
-                        <Brain className="h-3 w-3 mr-1" />
-                        AI Template
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={savedTemplate ? "outline" : "secondary"}
+                          size="sm"
+                          onClick={() => {
+                            if (savedTemplate) {
+                              setCustomInstructions(savedTemplate);
+                            }
+                            setIsAITemplateOpen(true);
+                          }}
+                          className="text-xs"
+                        >
+                          <Brain className="h-3 w-3 mr-1" />
+                          {savedTemplate ? 'Edit Template' : 'Create Template'}
+                        </Button>
+                        {savedTemplate && (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={handleGenerateContent}
+                            className="text-xs"
+                            disabled={generateAITemplateMutation.isPending}
+                          >
+                            {generateAITemplateMutation.isPending ? (
+                              <>
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Generate Content
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <FormControl>
                       <Textarea 
@@ -1224,9 +1276,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       <Dialog open={isAITemplateOpen} onOpenChange={setIsAITemplateOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>AI Template Generator</DialogTitle>
+            <DialogTitle>{savedTemplate ? 'Edit Template Instructions' : 'Create AI Template'}</DialogTitle>
             <DialogDescription>
-              Provide custom instructions for AI to generate a personalized session note template based on your specific requirements.
+              {savedTemplate 
+                ? 'Edit your template instructions. These will guide the AI when generating content after you fill out clinical fields.'
+                : 'Create template instructions to guide AI generation. After saving, fill out clinical fields and click "Generate Content" to create session notes.'
+              }
             </DialogDescription>
           </DialogHeader>
           
@@ -1257,20 +1312,11 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               Cancel
             </Button>
             <Button 
-              onClick={handleGenerateAITemplate}
-              disabled={generateAITemplateMutation.isPending || !customInstructions.trim()}
+              onClick={handleSaveTemplate}
+              disabled={!customInstructions.trim()}
             >
-              {generateAITemplateMutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Brain className="h-4 w-4 mr-2" />
-                  Generate AI Template
-                </>
-              )}
+              <Brain className="h-4 w-4 mr-2" />
+              Save Template
             </Button>
           </DialogFooter>
         </DialogContent>
