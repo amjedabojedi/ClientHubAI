@@ -116,8 +116,24 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const updateQuestion = (sectionIndex: number, questionIndex: number, field: keyof QuestionForm, value: any) => {
     const updated = [...sections];
+    const question = updated[sectionIndex].questions[questionIndex];
+    
+    // If changing question type to one that needs options, initialize them
+    if (field === 'type' && (value === 'multiple_choice' || value === 'rating' || value === 'checkbox')) {
+      if (!question.options || question.options.length === 0) {
+        question.options = ['Option 1', 'Option 2'];
+        question.scoreValues = [1, 2];
+      }
+    }
+    
+    // If changing away from option types, clear options
+    if (field === 'type' && value !== 'multiple_choice' && value !== 'rating' && value !== 'checkbox') {
+      question.options = [];
+      question.scoreValues = [];
+    }
+    
     updated[sectionIndex].questions[questionIndex] = {
-      ...updated[sectionIndex].questions[questionIndex],
+      ...question,
       [field]: value
     };
     setSections(updated);
@@ -146,8 +162,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const addOption = (sectionIndex: number, questionIndex: number) => {
     const updated = [...sections];
     const question = updated[sectionIndex].questions[questionIndex];
-    question.options.push("");
-    question.scoreValues.push(0);
+    
+    // Initialize arrays if they don't exist
+    if (!question.options) question.options = [];
+    if (!question.scoreValues) question.scoreValues = [];
+    
+    const optionNumber = question.options.length + 1;
+    question.options.push(`Option ${optionNumber}`);
+    question.scoreValues.push(optionNumber);
     setSections(updated);
   };
 
@@ -409,13 +431,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       {(question.type === "multiple_choice" || question.type === "rating" || question.type === "checkbox") && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <Label>Options</Label>
+                            <Label>
+                              Options {section.isScoring && <span className="text-xs text-muted-foreground">(with scores)</span>}
+                            </Label>
                             <Button variant="outline" size="sm" onClick={() => addOption(sectionIndex, questionIndex)}>
                               <Plus className="h-4 w-4 mr-1" />
                               Add Option
                             </Button>
                           </div>
-                          {question.options.map((option, optionIndex) => (
+                          {question.options && question.options.length > 0 ? question.options.map((option, optionIndex) => (
                             <div key={optionIndex} className="flex items-center space-x-2">
                               <div className="text-xs text-muted-foreground w-8">{optionIndex + 1}.</div>
                               <Input
@@ -440,7 +464,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                          ))}
+                          )) : (
+                            <div className="text-center py-4 text-muted-foreground text-sm">
+                              No options added yet. Click "Add Option" to create choices.
+                            </div>
+                          )}
                         </div>
                       )}
                     </CardContent>
