@@ -32,9 +32,10 @@ interface SectionForm {
   id?: number;
   title: string;
   description: string;
-  accessLevel: "therapist" | "client" | "shared";
+  accessLevel: "therapist_only" | "client_only" | "shared";
   isScoring: boolean;
   reportMapping: string;
+  aiReportPrompt: string;
   order: number;
   questions: QuestionForm[];
 }
@@ -59,6 +60,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       accessLevel: section.accessLevel,
       isScoring: section.isScoring,
       reportMapping: section.reportMapping,
+      aiReportPrompt: section.aiReportPrompt || "",
       order: section.order,
       questions: section.questions?.map((q: any) => ({
         id: q.id,
@@ -85,6 +87,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       accessLevel: "shared",
       isScoring: false,
       reportMapping: "",
+      aiReportPrompt: "",
       order: sections.length + 1,
       questions: []
     };
@@ -257,8 +260,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const getAccessLevelColor = (level: string) => {
     switch (level) {
-      case "therapist": return "bg-blue-100 text-blue-800";
-      case "client": return "bg-green-100 text-green-800";
+      case "therapist_only": return "bg-blue-100 text-blue-800";
+      case "client_only": return "bg-green-100 text-green-800";
       case "shared": return "bg-purple-100 text-purple-800";
       default: return "bg-gray-100 text-gray-800";
     }
@@ -329,8 +332,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="therapist">Therapist Only</SelectItem>
-                      <SelectItem value="client">Client Only</SelectItem>
+                      <SelectItem value="therapist_only">Therapist Only</SelectItem>
+                      <SelectItem value="client_only">Client Only</SelectItem>
                       <SelectItem value="shared">Shared</SelectItem>
                     </SelectContent>
                   </Select>
@@ -363,6 +366,19 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                   />
                   <Label>Enable Scoring</Label>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>AI Report Prompt (Optional)</Label>
+                <Textarea
+                  value={section.aiReportPrompt}
+                  onChange={(e) => updateSection(sectionIndex, "aiReportPrompt", e.target.value)}
+                  placeholder="Provide instructions for how this section should be analyzed and included in the AI-generated report..."
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This prompt will guide the AI when generating reports from this section's responses.
+                </p>
               </div>
 
               <Separator />

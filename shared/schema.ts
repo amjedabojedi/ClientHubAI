@@ -306,6 +306,7 @@ export const assessmentSections = pgTable("assessment_sections", {
   accessLevel: sectionAccessEnum("access_level").notNull().default('therapist_only'),
   isScoring: boolean("is_scoring").default(false), // Whether this section contributes to scoring
   reportMapping: reportSectionEnum("report_mapping"), // Maps to AI report sections
+  aiReportPrompt: text("ai_report_prompt"), // Optional AI prompt for report generation
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
