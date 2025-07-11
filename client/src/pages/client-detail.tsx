@@ -301,7 +301,7 @@ export default function ClientDetailPage() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "documents"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
       toast({
         title: "Success",
         description: "Document deleted successfully",
