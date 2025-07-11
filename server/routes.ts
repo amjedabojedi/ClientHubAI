@@ -283,37 +283,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // For images, return a placeholder preview
-      if (document.mimeType?.startsWith('image/')) {
+      // Generate a proper preview based on file type
+      const isPDF = document.mimeType === 'application/pdf';
+      const isImage = document.mimeType?.startsWith('image/');
+      const isText = document.mimeType?.startsWith('text/');
+      
+      if (isPDF) {
+        // For PDFs, create a document-style preview
         res.setHeader('Content-Type', 'image/svg+xml');
         res.send(`
-          <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-            <rect width="300" height="200" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
-            <rect x="50" y="50" width="200" height="100" fill="#e2e8f0" rx="8"/>
-            <text x="150" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">
-              ${document.fileName}
-            </text>
-            <text x="150" y="125" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#94a3b8">
-              Image Preview
-            </text>
+          <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="lines" patternUnits="userSpaceOnUse" width="320" height="20">
+                <line x1="20" y1="10" x2="300" y2="10" stroke="#e2e8f0" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <!-- PDF Document Background -->
+            <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
+            <rect x="20" y="20" width="360" height="260" fill="#fafafa" rx="4"/>
+            
+            <!-- PDF Header -->
+            <rect x="40" y="40" width="320" height="30" fill="#ef4444" rx="4"/>
+            <text x="200" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="bold">PDF</text>
+            
+            <!-- Document Lines -->
+            <rect x="40" y="80" width="320" height="180" fill="white" stroke="#e5e7eb"/>
+            <rect x="40" y="80" width="320" height="180" fill="url(#lines)"/>
+            
+            <!-- File Info -->
+            <text x="200" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
+            <text x="200" y="298" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB</text>
+          </svg>
+        `);
+      } else if (isImage) {
+        // For images, show image icon preview
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send(`
+          <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
+            <rect x="20" y="20" width="360" height="220" fill="#f3f4f6" rx="4"/>
+            
+            <!-- Image Icon -->
+            <circle cx="120" cy="80" r="15" fill="#10b981"/>
+            <rect x="150" y="120" width="100" height="60" fill="#34d399" rx="8"/>
+            <polygon points="200,140 220,120 240,140 240,160 200,160" fill="#059669"/>
+            
+            <!-- File Info -->
+            <text x="200" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
+            <text x="200" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB • Image</text>
           </svg>
         `);
       } else {
-        // For other files, return a generic preview
+        // For other files, show generic document preview
         res.setHeader('Content-Type', 'image/svg+xml');
         res.send(`
-          <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-            <rect width="300" height="200" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
-            <rect x="50" y="50" width="200" height="100" fill="#e2e8f0" rx="8"/>
-            <text x="150" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">
-              📄
-            </text>
-            <text x="150" y="115" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">
-              ${document.fileName}
-            </text>
-            <text x="150" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">
-              ${Math.round(document.fileSize / 1024)} KB
-            </text>
+          <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
+            <rect x="20" y="20" width="360" height="260" fill="#f9fafb" rx="4"/>
+            
+            <!-- Document Icon -->
+            <rect x="160" y="80" width="80" height="100" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2" rx="4"/>
+            <polygon points="240,80 240,100 220,100" fill="#9ca3af"/>
+            <line x1="170" y1="110" x2="220" y2="110" stroke="#9ca3af" stroke-width="2"/>
+            <line x1="170" y1="125" x2="230" y2="125" stroke="#9ca3af" stroke-width="2"/>
+            <line x1="170" y1="140" x2="215" y2="140" stroke="#9ca3af" stroke-width="2"/>
+            
+            <!-- File Info -->
+            <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
+            <text x="200" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB</text>
           </svg>
         `);
       }
