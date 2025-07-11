@@ -266,6 +266,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/clients/:clientId/documents/:id/preview", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      
+      // For now, return a placeholder image for preview
+      // In a real implementation, you would retrieve the actual file from storage
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(`
+        <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100" height="100" fill="#f1f5f9"/>
+          <text x="50" y="55" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">
+            Preview
+          </text>
+        </svg>
+      `);
+    } catch (error) {
+      console.error("Error getting document preview:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.delete("/api/clients/:clientId/documents/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

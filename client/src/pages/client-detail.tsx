@@ -59,12 +59,50 @@ export default function ClientDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Event Handlers
   const handleEditClient = () => setIsEditModalOpen(true);
   const handleDeleteClient = () => setIsDeleteDialogOpen(true);
   const handleDeleteSuccess = () => setLocation("/clients");
-  const handleUploadDocument = () => setIsUploadDialogOpen(true);
+  const handleUploadDocument = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    
+    // Generate preview URL for images
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleUploadSubmit = () => {
+    if (selectedFile) {
+      uploadDocumentMutation.mutate({
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size,
+        description: `Uploaded file: ${selectedFile.name}`
+      });
+    }
+  };
+
+  const handleUploadCancel = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setIsUploadDialogOpen(false);
+  };
 
   // Hooks
   const { toast } = useToast();
@@ -91,7 +129,7 @@ export default function ClientDetailPage() {
         title: "Success",
         description: "Document uploaded successfully",
       });
-      setIsUploadDialogOpen(false);
+      handleUploadCancel();
     },
     onError: (error) => {
       toast({
@@ -733,18 +771,41 @@ export default function ClientDetailPage() {
                     {documents.map((doc: Document) => (
                       <div key={doc.id} className="flex items-center justify-between border rounded-lg p-4">
                         <div className="flex items-center space-x-3">
-                          <FolderOpen className="w-5 h-5 text-slate-400" />
+                          {doc.mimeType?.startsWith('image/') ? (
+                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
+                              <img 
+                                src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
+                                alt={doc.fileName}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                }}
+                              />
+                              <FolderOpen className="w-5 h-5 text-slate-400" style={{ display: 'none' }} />
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                              <FolderOpen className="w-5 h-5 text-slate-400" />
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-slate-900">{doc.fileName}</p>
                             <p className="text-sm text-slate-500">
+                              {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : ''} • 
                               Uploaded {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date'}
                             </p>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm">
-                          <Download className="w-4 h-4 mr-2" />
-                          Download
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="outline" size="sm">
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -874,35 +935,62 @@ export default function ClientDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="file-upload" className="text-right">
-                File
-              </Label>
-              <Input
-                id="file-upload"
-                type="file"
-                className="col-span-3"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    uploadDocumentMutation.mutate({
-                      fileName: file.name,
-                      fileType: file.type,
-                      fileSize: file.size,
-                      description: `Uploaded file: ${file.name}`
-                    });
-                  }
-                }}
-              />
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="file-upload">Choose File</Label>
+                <Input
+                  id="file-upload"
+                  type="file"
+                  className="mt-2"
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.bmp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleFileSelect(file);
+                    }
+                  }}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+              </div>
+              
+              {selectedFile && (
+                <div className="border rounded-lg p-4 bg-slate-50">
+                  <div className="flex items-center space-x-3">
+                    {previewUrl ? (
+                      <img 
+                        src={previewUrl} 
+                        alt={selectedFile.name}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center">
+                        <FolderOpen className="w-6 h-6 text-slate-400" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-900">{selectedFile.name}</p>
+                      <p className="text-sm text-slate-500">
+                        {Math.round(selectedFile.size / 1024)} KB • {selectedFile.type}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setIsUploadDialogOpen(false)}
+              onClick={handleUploadCancel}
               disabled={uploadDocumentMutation.isPending}
             >
               Cancel
+            </Button>
+            <Button 
+              onClick={handleUploadSubmit}
+              disabled={!selectedFile || uploadDocumentMutation.isPending}
+            >
+              {uploadDocumentMutation.isPending ? "Uploading..." : "Upload"}
             </Button>
           </DialogFooter>
         </DialogContent>
