@@ -61,6 +61,8 @@ export default function ClientDetailPage() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
 
   // Event Handlers
   const handleEditClient = () => setIsEditModalOpen(true);
@@ -102,6 +104,79 @@ export default function ClientDetailPage() {
     setSelectedFile(null);
     setPreviewUrl(null);
     setIsUploadDialogOpen(false);
+  };
+
+  const handlePreviewDocument = (doc: Document) => {
+    setPreviewDocument(doc);
+    setIsPreviewDialogOpen(true);
+  };
+
+  const renderDocumentPreview = (doc: Document) => {
+    if (!doc) return null;
+
+    const isImage = doc.mimeType?.startsWith('image/');
+    const isPDF = doc.mimeType === 'application/pdf';
+    const isText = doc.mimeType?.startsWith('text/') || doc.mimeType === 'application/txt';
+
+    if (isImage) {
+      return (
+        <div className="flex justify-center">
+          <img 
+            src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
+            alt={doc.fileName}
+            className="max-w-full max-h-96 object-contain rounded-lg"
+          />
+        </div>
+      );
+    }
+
+    if (isPDF) {
+      return (
+        <div className="text-center py-8">
+          <FileText className="w-16 h-16 mx-auto text-slate-400 mb-4" />
+          <p className="text-slate-600 mb-4">PDF Preview</p>
+          <p className="text-sm text-slate-500">
+            File: {doc.fileName} ({Math.round(doc.fileSize / 1024)} KB)
+          </p>
+          <Button 
+            variant="outline" 
+            className="mt-4"
+            onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download to View
+          </Button>
+        </div>
+      );
+    }
+
+    if (isText) {
+      return (
+        <div className="text-center py-8">
+          <FileText className="w-16 h-16 mx-auto text-slate-400 mb-4" />
+          <p className="text-slate-600 mb-4">Text Document</p>
+          <p className="text-sm text-slate-500">
+            File: {doc.fileName} ({Math.round(doc.fileSize / 1024)} KB)
+          </p>
+          <div className="mt-4 p-4 bg-slate-50 rounded-lg text-left">
+            <p className="text-sm text-slate-600">Text file content preview would appear here...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-center py-8">
+        <FolderOpen className="w-16 h-16 mx-auto text-slate-400 mb-4" />
+        <p className="text-slate-600 mb-4">File Preview</p>
+        <p className="text-sm text-slate-500">
+          File: {doc.fileName} ({Math.round(doc.fileSize / 1024)} KB)
+        </p>
+        <p className="text-sm text-slate-500 mt-2">
+          Preview not available for this file type
+        </p>
+      </div>
+    );
   };
 
   // Hooks
@@ -798,7 +873,15 @@ export default function ClientDetailPage() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            Preview
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
+                          >
                             <Download className="w-4 h-4 mr-2" />
                             Download
                           </Button>
@@ -992,6 +1075,37 @@ export default function ClientDetailPage() {
             >
               {uploadDocumentMutation.isPending ? "Uploading..." : "Upload"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Document Preview</DialogTitle>
+            <DialogDescription>
+              {previewDocument?.fileName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-auto">
+            {renderDocumentPreview(previewDocument)}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsPreviewDialogOpen(false)}
+            >
+              Close
+            </Button>
+            {previewDocument && (
+              <Button 
+                onClick={() => window.open(`/api/clients/${clientId}/documents/${previewDocument.id}/download`, '_blank')}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

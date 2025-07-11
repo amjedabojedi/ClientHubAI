@@ -271,19 +271,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
       
-      // For now, return a placeholder image for preview
-      // In a real implementation, you would retrieve the actual file from storage
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.send(`
-        <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100" height="100" fill="#f1f5f9"/>
-          <text x="50" y="55" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">
-            Preview
-          </text>
-        </svg>
-      `);
+      // Get document info from database
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // For images, return a placeholder preview
+      if (document.mimeType?.startsWith('image/')) {
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send(`
+          <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="200" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+            <rect x="50" y="50" width="200" height="100" fill="#e2e8f0" rx="8"/>
+            <text x="150" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">
+              ${document.fileName}
+            </text>
+            <text x="150" y="125" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#94a3b8">
+              Image Preview
+            </text>
+          </svg>
+        `);
+      } else {
+        // For other files, return a generic preview
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send(`
+          <svg width="300" height="200" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="200" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+            <rect x="50" y="50" width="200" height="100" fill="#e2e8f0" rx="8"/>
+            <text x="150" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">
+              📄
+            </text>
+            <text x="150" y="115" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748b">
+              ${document.fileName}
+            </text>
+            <text x="150" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">
+              ${Math.round(document.fileSize / 1024)} KB
+            </text>
+          </svg>
+        `);
+      }
     } catch (error) {
       console.error("Error getting document preview:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/clients/:clientId/documents/:id/download", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      
+      // Get document info from database
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // In a real implementation, you would serve the actual file from storage
+      // For now, return a placeholder response
+      res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+      res.send(`This is a placeholder for the document: ${document.fileName}`);
+    } catch (error) {
+      console.error("Error downloading document:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
