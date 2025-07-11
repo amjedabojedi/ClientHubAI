@@ -251,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients/:clientId/documents", async (req, res) => {
     try {
-      console.log("Document upload request:", { ...req.body, fileContent: req.body.fileContent ? `${req.body.fileContent.length} bytes` : 'no content' });
+
       const clientId = parseInt(req.params.clientId);
       const { fileContent, ...documentData } = req.body;
       
@@ -260,11 +260,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientId,
         uploadedById: 3 // Default to first therapist for now
       });
-      console.log("Validated data:", validatedData);
+
       
       // Create document record
       const document = await storage.createDocument(validatedData);
-      console.log("Created document:", document);
+
       
       // Store actual file content if provided
       if (fileContent) {
@@ -277,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const buffer = Buffer.from(fileContent, 'base64');
         fs.writeFileSync(filePath, buffer);
         
-        console.log(`File stored at: ${filePath}`);
+
       }
       
       res.status(201).json(document);
@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
           
           if (fs.existsSync(filePath)) {
-            console.log(`Serving PDF file for preview: ${filePath}`);
+
             
             // Return PDF file URL for the browser to display
             res.setHeader('Content-Type', 'application/json');

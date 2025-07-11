@@ -308,7 +308,6 @@ export default function ClientDetailPage() {
       });
     },
     onError: (error) => {
-      console.error("Delete document error:", error);
       toast({
         title: "Error",
         description: "Failed to delete document. Please try again.",
@@ -326,8 +325,6 @@ export default function ClientDetailPage() {
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
     mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string; fileContent?: string }) => {
-      console.log("Starting upload for:", data.fileName);
-      
       try {
         const response = await fetch(`/api/clients/${clientId}/documents`, {
           method: "POST",
@@ -349,10 +346,8 @@ export default function ClientDetailPage() {
         }
         
         const result = await response.json();
-        console.log("Upload response:", result);
         return result;
       } catch (error) {
-        console.error("Upload error:", error);
         throw error;
       }
     },
@@ -365,7 +360,6 @@ export default function ClientDetailPage() {
       handleUploadCancel();
     },
     onError: (error) => {
-      console.error("Upload error:", error);
       toast({
         title: "Error",
         description: `Failed to upload document: ${error.message || 'Unknown error'}`,
