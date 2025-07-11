@@ -30,10 +30,7 @@ export function CreateTemplateModal({ open, onOpenChange }: CreateTemplateModalP
 
   const createTemplateMutation = useMutation({
     mutationFn: async (data: InsertAssessmentTemplate) => {
-      return apiRequest(`/api/assessments/templates`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest(`/api/assessments/templates`, "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assessments/templates"] });
