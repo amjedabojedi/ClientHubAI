@@ -1601,76 +1601,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     </div>
                   </div>
 
-                  {/* Additional Settings */}
-                  <div className="border-t pt-4 space-y-4">
-                    <h3 className="font-medium">Additional Settings</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="confidentialityLevel"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Confidentiality</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="standard">Standard</SelectItem>
-                                <SelectItem value="restricted">Restricted</SelectItem>
-                                <SelectItem value="highly_confidential">Highly Confidential</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
 
-                      <div className="flex gap-6 items-center">
-                        <FormField
-                          control={form.control}
-                          name="isPrivate"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <input
-                                  type="checkbox"
-                                  checked={field.value}
-                                  onChange={field.onChange}
-                                  className="h-4 w-4"
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-normal">
-                                Private Note
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="followUpNeeded"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <input
-                                  type="checkbox"
-                                  checked={field.value}
-                                  onChange={field.onChange}
-                                  className="h-4 w-4"
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-normal">
-                                Follow-up Needed
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </TabsContent>
               </Tabs>
 
