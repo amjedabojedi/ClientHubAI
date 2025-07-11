@@ -1176,26 +1176,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Assessment Section Methods
-  async getAssessmentSections(templateId: number): Promise<AssessmentSection[]> {
-    const sections = await db.select().from(assessmentSections)
-      .where(eq(assessmentSections.templateId, templateId))
-      .orderBy(assessmentSections.order);
+  async getAssessmentSections(templateId: number): Promise<any[]> {
+    try {
+      const sections = await db.select().from(assessmentSections)
+        .where(eq(assessmentSections.templateId, templateId));
 
-    // Get questions for each section
-    const sectionsWithQuestions = await Promise.all(
-      sections.map(async (section) => {
+      if (!sections || sections.length === 0) {
+        return [];
+      }
+
+      // Get questions for each section
+      const sectionsWithQuestions = [];
+      for (const section of sections) {
         const questions = await db.select().from(assessmentQuestions)
-          .where(eq(assessmentQuestions.sectionId, section.id))
-          .orderBy(assessmentQuestions.id);
+          .where(eq(assessmentQuestions.sectionId, section.id));
 
-        return {
+        sectionsWithQuestions.push({
           ...section,
-          questions
-        };
-      })
-    );
+          questions: questions || []
+        });
+      }
 
-    return sectionsWithQuestions as any[];
+      return sectionsWithQuestions;
+    } catch (error) {
+      console.error("Error in getAssessmentSections:", error);
+      return [];
+    }
   }
 
   async createAssessmentSection(data: InsertAssessmentSection): Promise<AssessmentSection> {

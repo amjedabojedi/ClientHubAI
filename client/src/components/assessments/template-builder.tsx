@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, GripVertical, Save, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, GripVertical, Save, ArrowLeft, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,11 +72,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   });
 
   // Initialize sections when data loads
-  useState(() => {
-    if (existingSections.length > 0) {
+  useEffect(() => {
+    if (existingSections && existingSections.length > 0) {
       setSections(existingSections);
     }
-  });
+  }, [existingSections]);
 
   const addSection = () => {
     const newSection: SectionForm = {
@@ -126,6 +126,20 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const removeQuestion = (sectionIndex: number, questionIndex: number) => {
     const updated = [...sections];
     updated[sectionIndex].questions.splice(questionIndex, 1);
+    setSections(updated);
+  };
+
+  const copyQuestion = (sectionIndex: number, questionIndex: number) => {
+    const updated = [...sections];
+    const originalQuestion = updated[sectionIndex].questions[questionIndex];
+    const copiedQuestion: QuestionForm = {
+      text: originalQuestion.text + " (Copy)",
+      type: originalQuestion.type,
+      options: [...originalQuestion.options],
+      required: originalQuestion.required,
+      scoreValues: [...originalQuestion.scoreValues]
+    };
+    updated[sectionIndex].questions.splice(questionIndex + 1, 0, copiedQuestion);
     setSections(updated);
   };
 
@@ -346,9 +360,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">Question {questionIndex + 1}</span>
-                        <Button variant="ghost" size="sm" onClick={() => removeQuestion(sectionIndex, questionIndex)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex space-x-1">
+                          <Button variant="ghost" size="sm" onClick={() => copyQuestion(sectionIndex, questionIndex)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => removeQuestion(sectionIndex, questionIndex)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
@@ -398,6 +417,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                           </div>
                           {question.options.map((option, optionIndex) => (
                             <div key={optionIndex} className="flex items-center space-x-2">
+                              <div className="text-xs text-muted-foreground w-8">{optionIndex + 1}.</div>
                               <Input
                                 value={option}
                                 onChange={(e) => updateOption(sectionIndex, questionIndex, optionIndex, e.target.value)}
@@ -405,13 +425,16 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                                 className="flex-1"
                               />
                               {section.isScoring && (
-                                <Input
-                                  type="number"
-                                  value={question.scoreValues[optionIndex] || 0}
-                                  onChange={(e) => updateScoreValue(sectionIndex, questionIndex, optionIndex, parseInt(e.target.value) || 0)}
-                                  placeholder="Score"
-                                  className="w-20"
-                                />
+                                <div className="flex items-center space-x-1">
+                                  <Label className="text-xs">Score:</Label>
+                                  <Input
+                                    type="number"
+                                    value={question.scoreValues[optionIndex] || 0}
+                                    onChange={(e) => updateScoreValue(sectionIndex, questionIndex, optionIndex, parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                    className="w-16"
+                                  />
+                                </div>
                               )}
                               <Button variant="ghost" size="sm" onClick={() => removeOption(sectionIndex, questionIndex, optionIndex)}>
                                 <Trash2 className="h-4 w-4" />
