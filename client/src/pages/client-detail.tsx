@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 // Icons
 import { 
@@ -35,7 +37,9 @@ import {
 } from "lucide-react";
 
 // Utils and Types
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, apiRequest } from "@/lib/queryClient";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import type { Client, Session, Note, Task, Document } from "@/types/client";
 
 // Components
@@ -54,11 +58,49 @@ export default function ClientDetailPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   // Event Handlers
   const handleEditClient = () => setIsEditModalOpen(true);
   const handleDeleteClient = () => setIsDeleteDialogOpen(true);
   const handleDeleteSuccess = () => setLocation("/clients");
+  const handleUploadDocument = () => setIsUploadDialogOpen(true);
+
+  // Hooks
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Document upload mutation
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string }) => {
+      return await apiRequest({
+        url: `/api/clients/${clientId}/documents`,
+        method: "POST",
+        data: {
+          fileName: data.fileName,
+          fileType: data.fileType,
+          fileSize: data.fileSize,
+          description: data.description,
+          uploadDate: new Date().toISOString()
+        }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
+      toast({
+        title: "Success",
+        description: "Document uploaded successfully",
+      });
+      setIsUploadDialogOpen(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to upload document",
+        variant: "destructive",
+      });
+    }
+  });
 
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
@@ -678,7 +720,7 @@ export default function ClientDetailPage() {
           <TabsContent value="documents" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-900">Document Management</h2>
-              <Button>
+              <Button onClick={handleUploadDocument}>
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Document
               </Button>
@@ -821,6 +863,50 @@ export default function ClientDetailPage() {
         onClose={() => setIsDeleteDialogOpen(false)}
         onDeleteSuccess={handleDeleteSuccess}
       />
+
+      {/* Upload Document Dialog */}
+      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Upload Document</DialogTitle>
+            <DialogDescription>
+              Upload a document for {client?.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="file-upload" className="text-right">
+                File
+              </Label>
+              <Input
+                id="file-upload"
+                type="file"
+                className="col-span-3"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    uploadDocumentMutation.mutate({
+                      fileName: file.name,
+                      fileType: file.type,
+                      fileSize: file.size,
+                      description: `Uploaded file: ${file.name}`
+                    });
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsUploadDialogOpen(false)}
+              disabled={uploadDocumentMutation.isPending}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

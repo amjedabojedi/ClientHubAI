@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
-import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema } from "@shared/schema";
+import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -243,6 +243,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(documents);
     } catch (error) {
       console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/documents", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const validatedData = insertDocumentSchema.parse({
+        ...req.body,
+        clientId,
+        uploadedById: 3 // Default to first therapist for now
+      });
+      const document = await storage.createDocument(validatedData);
+      res.status(201).json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid document data", errors: error.errors });
+      }
+      console.error("Error creating document:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/clients/:clientId/documents/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteDocument(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting document:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
