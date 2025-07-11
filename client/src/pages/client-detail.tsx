@@ -282,15 +282,18 @@ export default function ClientDetailPage() {
                       <span className="text-slate-900 font-medium">{client.email}</span>
                     </div>
                   )}
-                  {(client.address || client.city || client.state) && (
+                  {(client.streetAddress1 || client.address || client.city || client.province || client.state) && (
                     <div className="flex items-start justify-between py-2 border-b border-slate-100">
                       <div className="flex items-center space-x-3">
                         <MapPin className="w-4 h-4 text-slate-400 mt-0.5" />
                         <span className="text-sm font-medium text-slate-600">Address</span>
                       </div>
                       <div className="text-right text-slate-900 font-medium">
-                        {client.address && <div>{client.address}</div>}
-                        <div>{[client.city, client.state, client.zipCode].filter(Boolean).join(', ')}</div>
+                        {(client.streetAddress1 || client.address) && (
+                          <div>{client.streetAddress1 || client.address}</div>
+                        )}
+                        {client.streetAddress2 && <div>{client.streetAddress2}</div>}
+                        <div>{[client.city, client.province || client.state, client.postalCode || client.zipCode].filter(Boolean).join(', ')}</div>
                       </div>
                     </div>
                   )}

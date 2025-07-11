@@ -65,9 +65,7 @@ interface SessionNote {
   remarks?: string;
   recommendations?: string;
   
-  // Mood tracking
-  moodBefore?: number;
-  moodAfter?: number;
+
   
   // Additional clinical fields
   assessments?: string;
@@ -111,8 +109,6 @@ interface Session {
 // Form Schema
 const sessionNoteFormSchema = insertSessionNoteSchema.extend({
   content: z.string().min(10, "Note content must be at least 10 characters"),
-  moodBefore: z.number().min(1).max(10).optional(),
-  moodAfter: z.number().min(1).max(10).optional(),
   aiEnabled: z.boolean().default(false),
   customAiPrompt: z.string().optional(),
 });
