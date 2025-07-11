@@ -316,58 +316,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (fs.existsSync(filePath)) {
             try {
-              console.log(`Attempting to parse PDF file: ${filePath}`);
+              console.log(`Extracting text from PDF: ${filePath}`);
               
-              // Check file exists and size
-              const stats = fs.statSync(filePath);
-              console.log(`PDF file size: ${stats.size} bytes`);
-              
-              // Read the file as buffer for basic PDF analysis
+              // Read the PDF file as buffer
               const dataBuffer = fs.readFileSync(filePath);
               
-              // Check if it's a valid PDF by looking for PDF header
-              const isPDFValid = dataBuffer.toString('ascii', 0, 4) === '%PDF';
+              // Simple PDF text extraction approach
+              // Convert buffer to string and look for text patterns
+              const pdfString = dataBuffer.toString('binary');
               
-              if (!isPDFValid) {
-                throw new Error('File is not a valid PDF format');
+              // Extract readable text from PDF using regex patterns
+              const textMatches = pdfString.match(/\((.*?)\)/g);
+              let extractedText = '';
+              
+              if (textMatches) {
+                extractedText = textMatches
+                  .map(match => match.replace(/[()]/g, ''))
+                  .filter(text => text.length > 2 && /[A-Za-z0-9]/.test(text))
+                  .join(' ');
               }
               
-              // Since pdf-parse has library issues, provide a comprehensive file preview
-              // Extract basic PDF info by reading the buffer
-              const pdfContent = `REAL PDF FILE CONTENT PREVIEW
-
-📄 File: ${document.fileName}
-📊 Size: ${Math.round(document.fileSize / 1024)} KB (${document.fileSize} bytes)
-✅ Status: Successfully uploaded and stored
-🔍 Format: Valid PDF document
-
-FILE ANALYSIS:
-- PDF Header: ${dataBuffer.toString('ascii', 0, 8)}
-- File signature verified: ✅ Valid PDF
-- Storage location: Server uploads directory
-- Upload time: ${new Date(document.createdAt).toLocaleString()}
-
-CONTENT SUMMARY:
-This is your actual uploaded PDF file. The file has been successfully stored on the server and is ready for download or viewing.
-
-📋 WHAT YOU CAN DO:
-1. ✅ Download the full PDF file to view all content
-2. ✅ The original file is preserved exactly as uploaded
-3. ✅ File can be shared or processed further
-4. ✅ All metadata and content is maintained
-
-Note: Advanced text extraction requires additional PDF processing libraries. The file is completely intact and ready for use.`;
-
-              console.log(`PDF file analysis completed for: ${document.fileName}`);
+              // If no text found with simple method, try stream parsing
+              if (!extractedText || extractedText.length < 10) {
+                const streamMatches = pdfString.match(/stream\s*(.*?)\s*endstream/gs);
+                if (streamMatches) {
+                  const combinedStreams = streamMatches
+                    .map(stream => stream.replace(/stream|endstream/g, ''))
+                    .join(' ');
+                  
+                  // Extract printable characters and clean up
+                  const readable = combinedStreams
+                    .replace(/[\x00-\x1F\x7F-\xFF]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                  
+                  if (readable.length > extractedText.length) {
+                    extractedText = readable;
+                  }
+                }
+              }
+              
+              // Clean up the extracted text for better readability
+              let finalText = extractedText || 'PDF processed but no readable text content found';
+              
+              // Remove excessive special characters and clean up spacing
+              finalText = finalText
+                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ')  // Remove control characters
+                .replace(/\s+/g, ' ')  // Normalize whitespace
+                .replace(/(.)\1{4,}/g, '$1$1$1')  // Limit repeated characters
+                .trim();
+              
+              // Add document structure if text is found
+              if (finalText.length > 10) {
+                finalText = `=== PDF CONTENT EXTRACTED ===\n\nFile: ${document.fileName}\nSize: ${Math.round(document.fileSize / 1024)} KB\n\n=== DOCUMENT TEXT ===\n\n${finalText}`;
+              }
+              
+              console.log(`Successfully extracted ${finalText.length} characters from PDF`);
               
               res.setHeader('Content-Type', 'application/json');
               res.json({
                 type: 'pdf',
-                content: pdfContent,
+                content: finalText,
                 fileName: document.fileName,
                 fileSize: document.fileSize,
-                pages: 1,
-                isValidPDF: true
+                pages: 1
               });
             } catch (pdfError) {
               console.error('PDF file error:', pdfError);
