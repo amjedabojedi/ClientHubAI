@@ -71,6 +71,25 @@ export interface ClientStats {
   psychotherapy: number;
 }
 
+export interface Document {
+  id: number;
+  clientId: number;
+  uploadedById: number;
+  fileName: string;
+  originalName: string;
+  fileSize: number;
+  mimeType: string;
+  category: string;
+  isSharedInPortal: boolean;
+  downloadCount: number;
+  createdAt: string;
+  uploadedBy?: {
+    id: number;
+    fullName: string;
+    email: string;
+  };
+}
+
 export interface ClientsQueryResult {
   clients: Client[];
   total: number;

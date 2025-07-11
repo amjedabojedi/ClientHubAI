@@ -78,10 +78,10 @@ export default function ClientDetailPage() {
         method: "POST",
         data: {
           fileName: data.fileName,
-          fileType: data.fileType,
+          originalName: data.fileName,
+          mimeType: data.fileType,
           fileSize: data.fileSize,
-          description: data.description,
-          uploadDate: new Date().toISOString()
+          category: "uploaded"
         }
       });
     },
@@ -737,7 +737,7 @@ export default function ClientDetailPage() {
                           <div>
                             <p className="font-medium text-slate-900">{doc.fileName}</p>
                             <p className="text-sm text-slate-500">
-                              Uploaded {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString() : 'Unknown date'}
+                              Uploaded {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date'}
                             </p>
                           </div>
                         </div>
