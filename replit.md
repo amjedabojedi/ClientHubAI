@@ -141,15 +141,17 @@ Advanced appointment management with multi-view calendar system:
 
 ## Recent Changes
 
-### AI-Powered Session Note Generation (January 2025)
-- **Custom AI Template System**: Implemented AI-powered template generation using OpenAI with user-provided custom instructions
-- **Personalized Content**: AI generates session notes based on specific user requirements and therapy approaches
-- **Brain Icon Interface**: Single, clean Brain icon button opens custom instruction dialog for AI template generation
-- **Custom Instructions Dialog**: Users provide detailed instructions for AI to generate personalized session note templates
+### Two-Step AI Session Note Generation (January 2025)
+- **Two-Step Workflow**: Implemented separate template creation and content generation phases for optimal AI assistance
+- **Template Creation**: Users save custom instructions that guide AI generation process for consistent, personalized output
+- **Content Generation**: AI generates session notes after clinical fields are filled, using saved template instructions
+- **Dual Button Interface**: "Create Template" button for saving instructions, "Generate Content" button for actual AI generation
+- **State Management**: UI dynamically shows template status (create vs edit) and enables content generation only after template is saved
+- **Field-Based Generation**: AI processes filled clinical fields combined with saved template instructions for contextual content
+- **Professional Workflow**: Separates planning phase (template creation) from documentation phase (content generation)
+- **Custom Instructions**: Users provide detailed therapy approach, formatting preferences, and clinical focus areas
 - **Real-Time Processing**: AI processes user instructions along with client and session data for contextual content generation
-- **Error Handling**: Comprehensive error handling with loading states and user-friendly error messages
-- **Clean Interface**: Streamlined UI with only AI Template functionality for focused user experience
-- **Professional Output**: AI generates clinically appropriate content formatted for professional documentation
+- **Error Handling**: Comprehensive validation ensuring template exists before content generation
 - **Integration Ready**: Works seamlessly with existing Library system for content insertion into AI-generated templates
 
 ### Session Notes Feature Implementation (January 2025)
