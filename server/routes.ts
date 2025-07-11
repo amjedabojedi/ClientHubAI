@@ -6,7 +6,6 @@ import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSc
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
-import pdf from "pdf-parse";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Client routes
@@ -252,16 +251,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients/:clientId/documents", async (req, res) => {
     try {
-      console.log("Document upload request:", req.body);
+      console.log("Document upload request:", { ...req.body, fileContent: req.body.fileContent ? `${req.body.fileContent.length} bytes` : 'no content' });
       const clientId = parseInt(req.params.clientId);
+      const { fileContent, ...documentData } = req.body;
+      
       const validatedData = insertDocumentSchema.parse({
-        ...req.body,
+        ...documentData,
         clientId,
         uploadedById: 3 // Default to first therapist for now
       });
       console.log("Validated data:", validatedData);
+      
+      // Create document record
       const document = await storage.createDocument(validatedData);
       console.log("Created document:", document);
+      
+      // Store actual file content if provided
+      if (fileContent) {
+        const uploadsDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+        
+        const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
+        const buffer = Buffer.from(fileContent, 'base64');
+        fs.writeFileSync(filePath, buffer);
+        
+        console.log(`File stored at: ${filePath}`);
+      }
+      
       res.status(201).json(document);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -292,40 +310,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isText = document.mimeType?.startsWith('text/');
       
       if (isPDF) {
-        // For PDFs, extract and return actual text content
+        // For PDFs, extract actual text content from the stored file
         try {
-          // In a real implementation, you would read the PDF from your file storage
-          // For now, we'll create a simulated PDF content preview
-          const pdfContent = `
-            DOCUMENT PREVIEW
-            
-            File: ${document.fileName}
-            Size: ${Math.round(document.fileSize / 1024)} KB
-            Type: PDF Document
-            
-            This is a preview of the document content. In a real implementation, 
-            the actual PDF text would be extracted and displayed here.
-            
-            Document Information:
-            - Created: ${new Date(document.createdAt).toLocaleDateString()}
-            - Original Name: ${document.originalName}
-            - Category: ${document.category}
-            
-            [Note: This is a simulated preview. To implement real PDF text extraction,
-            the system would need to store and process the actual PDF file content.]
-          `;
+          const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
           
-          res.setHeader('Content-Type', 'application/json');
-          res.json({
-            type: 'pdf',
-            content: pdfContent,
-            fileName: document.fileName,
-            fileSize: document.fileSize,
-            pages: 1
-          });
+          if (fs.existsSync(filePath)) {
+            try {
+              // Dynamic import to avoid initialization issues
+              const pdf = (await import('pdf-parse')).default;
+              const dataBuffer = fs.readFileSync(filePath);
+              const pdfData = await pdf(dataBuffer);
+              
+              console.log(`Extracted text from PDF: ${pdfData.text.length} characters`);
+              
+              res.setHeader('Content-Type', 'application/json');
+              res.json({
+                type: 'pdf',
+                content: pdfData.text,
+                fileName: document.fileName,
+                fileSize: document.fileSize,
+                pages: pdfData.numpages
+              });
+            } catch (pdfError) {
+              console.error('PDF parsing error:', pdfError);
+              res.setHeader('Content-Type', 'application/json');
+              res.json({
+                type: 'pdf',
+                content: `Error extracting text from PDF: ${pdfError.message}\n\nThe PDF file exists but couldn't be processed for text extraction.`,
+                fileName: document.fileName,
+                fileSize: document.fileSize,
+                pages: 1
+              });
+            }
+          } else {
+            // File doesn't exist - return explanation
+            const pdfContent = `PDF file not found on server.
+
+The file ${document.fileName} (${Math.round(document.fileSize / 1024)} KB) was uploaded but the actual file content is not available for preview.
+
+To see the actual content, you would need to:
+1. Re-upload the file with actual file content
+2. Or download the file to view it locally
+
+This happens because only the file metadata was stored, not the actual file content.`;
+            
+            res.setHeader('Content-Type', 'application/json');
+            res.json({
+              type: 'pdf',
+              content: pdfContent,
+              fileName: document.fileName,
+              fileSize: document.fileSize,
+              pages: 1
+            });
+          }
         } catch (error) {
           console.error('Error processing PDF:', error);
-          res.status(500).json({ error: 'Failed to process PDF content' });
+          res.status(500).json({ error: 'Failed to process PDF content: ' + error.message });
         }
       } else if (isImage) {
         // For images, show image icon preview

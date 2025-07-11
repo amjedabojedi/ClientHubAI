@@ -178,14 +178,39 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (selectedFile) {
-      uploadDocumentMutation.mutate({
-        fileName: selectedFile.name,
-        fileType: selectedFile.type,
-        fileSize: selectedFile.size,
-        description: `Uploaded file: ${selectedFile.name}`
-      });
+      try {
+        // Convert file to base64 for storage
+        const fileContent = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (reader.result) {
+              const base64 = (reader.result as string).split(',')[1]; // Remove data:mime;base64, prefix
+              resolve(base64);
+            } else {
+              reject(new Error('Failed to read file'));
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+
+        uploadDocumentMutation.mutate({
+          fileName: selectedFile.name,
+          fileType: selectedFile.type,
+          fileSize: selectedFile.size,
+          description: `Uploaded file: ${selectedFile.name}`,
+          fileContent // Include actual file content
+        });
+      } catch (error) {
+        console.error("Failed to read file:", error);
+        toast({
+          title: "Error",
+          description: "Failed to read file. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -265,7 +290,7 @@ export default function ClientDetailPage() {
 
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
-    mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string }) => {
+    mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string; fileContent?: string }) => {
       console.log("Starting upload for:", data.fileName);
       
       try {
@@ -279,7 +304,8 @@ export default function ClientDetailPage() {
             originalName: data.fileName,
             mimeType: data.fileType,
             fileSize: data.fileSize,
-            category: "uploaded"
+            category: "uploaded",
+            fileContent: data.fileContent // Include file content for server storage
           })
         });
 
