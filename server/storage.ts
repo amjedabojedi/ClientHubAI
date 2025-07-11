@@ -10,6 +10,13 @@ import {
   libraryCategories,
   libraryEntries,
   libraryEntryConnections,
+  assessmentTemplates,
+  assessmentSections,
+  assessmentQuestions,
+  assessmentQuestionOptions,
+  assessmentAssignments,
+  assessmentResponses,
+  assessmentReports,
   type Client, 
   type InsertClient,
   type User, 
@@ -29,7 +36,21 @@ import {
   type LibraryEntry,
   type InsertLibraryEntry,
   type LibraryEntryConnection,
-  type InsertLibraryEntryConnection
+  type InsertLibraryEntryConnection,
+  type AssessmentTemplate,
+  type InsertAssessmentTemplate,
+  type AssessmentSection,
+  type InsertAssessmentSection,
+  type AssessmentQuestion,
+  type InsertAssessmentQuestion,
+  type AssessmentQuestionOption,
+  type InsertAssessmentQuestionOption,
+  type AssessmentAssignment,
+  type InsertAssessmentAssignment,
+  type AssessmentResponse,
+  type InsertAssessmentResponse,
+  type AssessmentReport,
+  type InsertAssessmentReport
 } from "@shared/schema";
 
 // Database Connection and Operators
@@ -133,6 +154,47 @@ export interface IStorage {
   updateLibraryEntryConnection(id: number, connection: Partial<InsertLibraryEntryConnection>): Promise<LibraryEntryConnection>;
   deleteLibraryEntryConnection(id: number): Promise<void>;
   getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; category: LibraryCategory })[]>;
+
+  // Assessment Templates Management
+  getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User; sectionsCount: number })[]>;
+  getAssessmentTemplate(id: number): Promise<(AssessmentTemplate & { createdBy: User; sections: (AssessmentSection & { questions: (AssessmentQuestion & { options: AssessmentQuestionOption[] })[] })[] }) | undefined>;
+  createAssessmentTemplate(template: InsertAssessmentTemplate): Promise<AssessmentTemplate>;
+  updateAssessmentTemplate(id: number, template: Partial<InsertAssessmentTemplate>): Promise<AssessmentTemplate>;
+  deleteAssessmentTemplate(id: number): Promise<void>;
+
+  // Assessment Sections Management
+  createAssessmentSection(section: InsertAssessmentSection): Promise<AssessmentSection>;
+  updateAssessmentSection(id: number, section: Partial<InsertAssessmentSection>): Promise<AssessmentSection>;
+  deleteAssessmentSection(id: number): Promise<void>;
+
+  // Assessment Questions Management
+  createAssessmentQuestion(question: InsertAssessmentQuestion): Promise<AssessmentQuestion>;
+  updateAssessmentQuestion(id: number, question: Partial<InsertAssessmentQuestion>): Promise<AssessmentQuestion>;
+  deleteAssessmentQuestion(id: number): Promise<void>;
+
+  // Assessment Question Options Management
+  createAssessmentQuestionOption(option: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption>;
+  updateAssessmentQuestionOption(id: number, option: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption>;
+  deleteAssessmentQuestionOption(id: number): Promise<void>;
+
+  // Assessment Assignments Management
+  getAssessmentAssignments(clientId?: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User })[]>;
+  getAssessmentAssignment(id: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User; responses: AssessmentResponse[] }) | undefined>;
+  createAssessmentAssignment(assignment: InsertAssessmentAssignment): Promise<AssessmentAssignment>;
+  updateAssessmentAssignment(id: number, assignment: Partial<InsertAssessmentAssignment>): Promise<AssessmentAssignment>;
+  deleteAssessmentAssignment(id: number): Promise<void>;
+
+  // Assessment Responses Management
+  getAssessmentResponses(assignmentId: number): Promise<(AssessmentResponse & { question: AssessmentQuestion; responder: User })[]>;
+  createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse>;
+  updateAssessmentResponse(id: number, response: Partial<InsertAssessmentResponse>): Promise<AssessmentResponse>;
+  deleteAssessmentResponse(id: number): Promise<void>;
+
+  // Assessment Reports Management
+  getAssessmentReport(assignmentId: number): Promise<(AssessmentReport & { assignment: AssessmentAssignment; createdBy: User }) | undefined>;
+  createAssessmentReport(report: InsertAssessmentReport): Promise<AssessmentReport>;
+  updateAssessmentReport(id: number, report: Partial<InsertAssessmentReport>): Promise<AssessmentReport>;
+  deleteAssessmentReport(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -823,6 +885,294 @@ export class DatabaseStorage implements IStorage {
       connectionType: result.connectionType!,
       connectionStrength: result.connectionStrength! 
     }));
+  }
+
+  // Assessment Templates Management
+  async getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User; sectionsCount: number })[]> {
+    const templates = await db
+      .select({
+        id: assessmentTemplates.id,
+        name: assessmentTemplates.name,
+        description: assessmentTemplates.description,
+        category: assessmentTemplates.category,
+        isStandardized: assessmentTemplates.isStandardized,
+        isActive: assessmentTemplates.isActive,
+        createdById: assessmentTemplates.createdById,
+        version: assessmentTemplates.version,
+        createdAt: assessmentTemplates.createdAt,
+        updatedAt: assessmentTemplates.updatedAt,
+        createdBy: users,
+        sectionsCount: count(assessmentSections.id)
+      })
+      .from(assessmentTemplates)
+      .leftJoin(users, eq(assessmentTemplates.createdById, users.id))
+      .leftJoin(assessmentSections, eq(assessmentTemplates.id, assessmentSections.templateId))
+      .where(eq(assessmentTemplates.isActive, true))
+      .groupBy(assessmentTemplates.id, users.id)
+      .orderBy(desc(assessmentTemplates.createdAt));
+
+    return templates.map(template => ({
+      ...template,
+      sectionsCount: Number(template.sectionsCount)
+    }));
+  }
+
+  async getAssessmentTemplate(id: number): Promise<(AssessmentTemplate & { createdBy: User; sections: (AssessmentSection & { questions: (AssessmentQuestion & { options: AssessmentQuestionOption[] })[] })[] }) | undefined> {
+    // This would be a complex query - implementing basic version for now
+    const [template] = await db
+      .select()
+      .from(assessmentTemplates)
+      .leftJoin(users, eq(assessmentTemplates.createdById, users.id))
+      .where(eq(assessmentTemplates.id, id));
+
+    if (!template) return undefined;
+
+    // Get sections with questions and options - simplified implementation
+    const sections = await db
+      .select()
+      .from(assessmentSections)
+      .where(eq(assessmentSections.templateId, id))
+      .orderBy(asc(assessmentSections.sortOrder));
+
+    return {
+      ...template.assessment_templates,
+      createdBy: template.users!,
+      sections: sections.map(section => ({ ...section, questions: [] })) // Simplified for now
+    };
+  }
+
+  async createAssessmentTemplate(templateData: InsertAssessmentTemplate): Promise<AssessmentTemplate> {
+    const [template] = await db
+      .insert(assessmentTemplates)
+      .values(templateData)
+      .returning();
+    return template;
+  }
+
+  async updateAssessmentTemplate(id: number, templateData: Partial<InsertAssessmentTemplate>): Promise<AssessmentTemplate> {
+    const [template] = await db
+      .update(assessmentTemplates)
+      .set(templateData)
+      .where(eq(assessmentTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteAssessmentTemplate(id: number): Promise<void> {
+    await db.delete(assessmentTemplates).where(eq(assessmentTemplates.id, id));
+  }
+
+  // Assessment Sections Management
+  async createAssessmentSection(sectionData: InsertAssessmentSection): Promise<AssessmentSection> {
+    const [section] = await db
+      .insert(assessmentSections)
+      .values(sectionData)
+      .returning();
+    return section;
+  }
+
+  async updateAssessmentSection(id: number, sectionData: Partial<InsertAssessmentSection>): Promise<AssessmentSection> {
+    const [section] = await db
+      .update(assessmentSections)
+      .set(sectionData)
+      .where(eq(assessmentSections.id, id))
+      .returning();
+    return section;
+  }
+
+  async deleteAssessmentSection(id: number): Promise<void> {
+    await db.delete(assessmentSections).where(eq(assessmentSections.id, id));
+  }
+
+  // Assessment Questions Management
+  async createAssessmentQuestion(questionData: InsertAssessmentQuestion): Promise<AssessmentQuestion> {
+    const [question] = await db
+      .insert(assessmentQuestions)
+      .values(questionData)
+      .returning();
+    return question;
+  }
+
+  async updateAssessmentQuestion(id: number, questionData: Partial<InsertAssessmentQuestion>): Promise<AssessmentQuestion> {
+    const [question] = await db
+      .update(assessmentQuestions)
+      .set(questionData)
+      .where(eq(assessmentQuestions.id, id))
+      .returning();
+    return question;
+  }
+
+  async deleteAssessmentQuestion(id: number): Promise<void> {
+    await db.delete(assessmentQuestions).where(eq(assessmentQuestions.id, id));
+  }
+
+  // Assessment Question Options Management
+  async createAssessmentQuestionOption(optionData: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption> {
+    const [option] = await db
+      .insert(assessmentQuestionOptions)
+      .values(optionData)
+      .returning();
+    return option;
+  }
+
+  async updateAssessmentQuestionOption(id: number, optionData: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption> {
+    const [option] = await db
+      .update(assessmentQuestionOptions)
+      .set(optionData)
+      .where(eq(assessmentQuestionOptions.id, id))
+      .returning();
+    return option;
+  }
+
+  async deleteAssessmentQuestionOption(id: number): Promise<void> {
+    await db.delete(assessmentQuestionOptions).where(eq(assessmentQuestionOptions.id, id));
+  }
+
+  // Assessment Assignments Management
+  async getAssessmentAssignments(clientId?: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User })[]> {
+    const query = db
+      .select()
+      .from(assessmentAssignments)
+      .leftJoin(assessmentTemplates, eq(assessmentAssignments.templateId, assessmentTemplates.id))
+      .leftJoin(clients, eq(assessmentAssignments.clientId, clients.id))
+      .leftJoin(users, eq(assessmentAssignments.assignedById, users.id))
+      .orderBy(desc(assessmentAssignments.createdAt));
+
+    if (clientId) {
+      query.where(eq(assessmentAssignments.clientId, clientId));
+    }
+
+    const results = await query;
+    return results.map(result => ({
+      ...result.assessment_assignments,
+      template: result.assessment_templates!,
+      client: result.clients!,
+      assignedBy: result.users!
+    }));
+  }
+
+  async getAssessmentAssignment(id: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User; responses: AssessmentResponse[] }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(assessmentAssignments)
+      .leftJoin(assessmentTemplates, eq(assessmentAssignments.templateId, assessmentTemplates.id))
+      .leftJoin(clients, eq(assessmentAssignments.clientId, clients.id))
+      .leftJoin(users, eq(assessmentAssignments.assignedById, users.id))
+      .where(eq(assessmentAssignments.id, id));
+
+    if (!result) return undefined;
+
+    // Get responses - simplified for now
+    const responses = await db
+      .select()
+      .from(assessmentResponses)
+      .where(eq(assessmentResponses.assignmentId, id));
+
+    return {
+      ...result.assessment_assignments,
+      template: result.assessment_templates!,
+      client: result.clients!,
+      assignedBy: result.users!,
+      responses
+    };
+  }
+
+  async createAssessmentAssignment(assignmentData: InsertAssessmentAssignment): Promise<AssessmentAssignment> {
+    const [assignment] = await db
+      .insert(assessmentAssignments)
+      .values(assignmentData)
+      .returning();
+    return assignment;
+  }
+
+  async updateAssessmentAssignment(id: number, assignmentData: Partial<InsertAssessmentAssignment>): Promise<AssessmentAssignment> {
+    const [assignment] = await db
+      .update(assessmentAssignments)
+      .set(assignmentData)
+      .where(eq(assessmentAssignments.id, id))
+      .returning();
+    return assignment;
+  }
+
+  async deleteAssessmentAssignment(id: number): Promise<void> {
+    await db.delete(assessmentAssignments).where(eq(assessmentAssignments.id, id));
+  }
+
+  // Assessment Responses Management
+  async getAssessmentResponses(assignmentId: number): Promise<(AssessmentResponse & { question: AssessmentQuestion; responder: User })[]> {
+    const results = await db
+      .select()
+      .from(assessmentResponses)
+      .leftJoin(assessmentQuestions, eq(assessmentResponses.questionId, assessmentQuestions.id))
+      .leftJoin(users, eq(assessmentResponses.responderId, users.id))
+      .where(eq(assessmentResponses.assignmentId, assignmentId))
+      .orderBy(asc(assessmentResponses.createdAt));
+
+    return results.map(result => ({
+      ...result.assessment_responses,
+      question: result.assessment_questions!,
+      responder: result.users!
+    }));
+  }
+
+  async createAssessmentResponse(responseData: InsertAssessmentResponse): Promise<AssessmentResponse> {
+    const [response] = await db
+      .insert(assessmentResponses)
+      .values(responseData)
+      .returning();
+    return response;
+  }
+
+  async updateAssessmentResponse(id: number, responseData: Partial<InsertAssessmentResponse>): Promise<AssessmentResponse> {
+    const [response] = await db
+      .update(assessmentResponses)
+      .set(responseData)
+      .where(eq(assessmentResponses.id, id))
+      .returning();
+    return response;
+  }
+
+  async deleteAssessmentResponse(id: number): Promise<void> {
+    await db.delete(assessmentResponses).where(eq(assessmentResponses.id, id));
+  }
+
+  // Assessment Reports Management
+  async getAssessmentReport(assignmentId: number): Promise<(AssessmentReport & { assignment: AssessmentAssignment; createdBy: User }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(assessmentReports)
+      .leftJoin(assessmentAssignments, eq(assessmentReports.assignmentId, assessmentAssignments.id))
+      .leftJoin(users, eq(assessmentReports.createdById, users.id))
+      .where(eq(assessmentReports.assignmentId, assignmentId));
+
+    if (!result) return undefined;
+
+    return {
+      ...result.assessment_reports,
+      assignment: result.assessment_assignments!,
+      createdBy: result.users!
+    };
+  }
+
+  async createAssessmentReport(reportData: InsertAssessmentReport): Promise<AssessmentReport> {
+    const [report] = await db
+      .insert(assessmentReports)
+      .values(reportData)
+      .returning();
+    return report;
+  }
+
+  async updateAssessmentReport(id: number, reportData: Partial<InsertAssessmentReport>): Promise<AssessmentReport> {
+    const [report] = await db
+      .update(assessmentReports)
+      .set(reportData)
+      .where(eq(assessmentReports.id, id))
+      .returning();
+    return report;
+  }
+
+  async deleteAssessmentReport(id: number): Promise<void> {
+    await db.delete(assessmentReports).where(eq(assessmentReports.id, id));
   }
 }
 

@@ -4,12 +4,13 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, BookOpen, Home } from "lucide-react";
+import { Users, Calendar, BookOpen, Home, ClipboardList } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import ClientsPage from "@/pages/clients";
 import ClientDetailPage from "@/pages/client-detail";
 import SchedulingPage from "@/pages/scheduling";
 import LibraryPage from "@/pages/library";
+import AssessmentsPage from "@/pages/assessments";
 
 function Navigation() {
   const [location] = useLocation();
@@ -19,6 +20,7 @@ function Navigation() {
     { path: "/clients", label: "Clients", icon: Users },
     { path: "/scheduling", label: "Scheduling", icon: Calendar },
     { path: "/library", label: "Library", icon: BookOpen },
+    { path: "/assessments", label: "Assessments", icon: ClipboardList },
   ];
 
   return (
@@ -65,6 +67,7 @@ function Router() {
           <Route path="/clients/:id" component={ClientDetailPage} />
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/library" component={LibraryPage} />
+          <Route path="/assessments" component={AssessmentsPage} />
           <Route component={NotFound} />
         </Switch>
       </main>

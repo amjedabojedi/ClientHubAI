@@ -1,0 +1,169 @@
+Assessment Template and Flow (In-App Feature)
+1. Objective
+This feature enables structured assessments within the app. Administrators build and manage templates, therapists assign and complete assessments with clients, and clients respond to sections designated for them. The system ensures secure role-based access, automated scoring, and AI-powered report generation for efficient documentation.
+
+2. User Roles and Access Levels
+Administrator
+Create, edit, and manage assessment templates.
+
+Assign section roles (client, therapist, shared).
+
+Enable scoring for specific sections.
+
+Map assessment sections to report structure.
+
+Manage the template library.
+
+Full access to all assessments.
+
+Therapist
+Use pre-built templates created by admins.
+
+Assign assessments to clients.
+
+Complete therapist-assigned sections.
+
+View client responses and scores.
+
+Finalize assessments.
+
+Generate AI-powered reports based on completed assessments.
+
+Client
+Access assigned assessments.
+
+Complete only sections marked for client or shared use.
+
+Cannot view or modify therapist-only sections.
+
+Cannot edit assessment structure or generate reports.
+
+3. Assessment Template Requirements
+Templates are created and managed only by administrators.
+
+Each template includes multiple sections, each with a role-based access level:
+
+Therapist-only
+
+Client-only
+
+Shared
+
+Supported question types:
+
+Short and long text
+
+Multiple choice
+
+Each response option must have a numeric value for scoring logic.
+
+Rating scales
+
+Each scale point must have a defined numeric value.
+
+Checkboxes
+
+May optionally include scoring values when used in scoring sections.
+
+Scoring Configuration:
+
+Admin can mark a section as a scoring section.
+
+Values from multiple-choice, rating, and checkbox items are summed or computed as defined.
+
+Scores are calculated automatically and visible to the therapist.
+
+Template Library:
+
+All templates are saved in a categorized, searchable library.
+
+Can include both standardized and custom assessment tools.
+
+4. Assessment Assignment and Completion Flow
+Step 1: Template Creation (Admin Only)
+Admin builds a structured template.
+
+Assigns role-based access per section.
+
+Configures scoring rules for selected sections.
+
+Maps each section to a corresponding section of the final report (e.g., "Symptoms," "Treatment Goals").
+
+Saves the template to the library.
+
+Step 2: Assignment (Therapist)
+Therapist selects a client.
+
+Chooses a template from the library.
+
+Assigns it to the client.
+
+A new assessment instance is created and assigned.
+
+The client is notified through the portal (if enabled).
+
+Step 3: Completion (Client and Therapist)
+Client completes assigned sections and submits.
+
+Therapist reviews client input and completes therapist sections.
+
+Therapist finalizes the assessment for reporting and documentation.
+
+5. Assessment Status Tracking
+The system must reflect real-time assessment status using the following indicators:
+
+Status	Description
+Pending	Assessment assigned but not started
+Client In Progress	Client actively completing assigned sections
+Waiting for Therapist	Client submitted responses; therapist input needed
+Therapist Completed	Therapist completed their sections
+Completed	All sections finalized; assessment is closed
+
+6. AI Report Generation Requirements
+The system must support automatic report generation using AI after assessment completion.
+
+Each template section must be mapped to a predefined report section title (e.g., "Referral Reason," "Presenting Symptoms," "Treatment Recommendations").
+
+Based on the completed responses and assigned mappings, the AI must:
+
+Generate structured narrative content for each report section.
+
+Include summary of scores (if scoring is enabled).
+
+Use clear, professional clinical language.
+
+Therapists must be able to:
+
+Review and edit the generated report.
+
+Export the report to PDF or save it within the app.
+
+Report output must match the organization’s formatting structure and style guide.
+
+7. In-App Functional Requirements
+Role-Based Access: Sections can only be viewed or edited by users with assigned roles.
+
+Save Draft: Users (client or therapist) can save drafts and resume later.
+
+Field Validation: Required fields must be completed before submission.
+
+Audit Trail: The system must track who completed or edited each section, with timestamps.
+
+Scoring:
+
+Calculated automatically from configured values.
+
+Displayed to therapist after completion.
+
+Report Mapping:
+
+Admin links each section to a report title.
+
+AI uses these mappings to organize content during report generation.
+
+Export and Integration:
+
+Completed assessments and reports must be exportable (PDF).
+
+Optional: Integration with client records or EMR system.
+

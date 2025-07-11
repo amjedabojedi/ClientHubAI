@@ -1057,6 +1057,194 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Assessment Template Routes
+  app.get("/api/assessments/templates", async (req, res) => {
+    try {
+      const templates = await storage.getAssessmentTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching assessment templates:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/assessments/templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      const template = await storage.getAssessmentTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Assessment template not found" });
+      }
+
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching assessment template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/assessments/templates", async (req, res) => {
+    try {
+      const templateData = req.body;
+      const template = await storage.createAssessmentTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating assessment template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/assessments/templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      const templateData = req.body;
+      const template = await storage.updateAssessmentTemplate(id, templateData);
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating assessment template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/assessments/templates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      await storage.deleteAssessmentTemplate(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting assessment template:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assessment Assignment Routes
+  app.get("/api/assessments/assignments", async (req, res) => {
+    try {
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      const assignments = await storage.getAssessmentAssignments(clientId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching assessment assignments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/assessments/assignments/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      const assignment = await storage.getAssessmentAssignment(id);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assessment assignment not found" });
+      }
+
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error fetching assessment assignment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/assessments/assignments", async (req, res) => {
+    try {
+      const assignmentData = req.body;
+      const assignment = await storage.createAssessmentAssignment(assignmentData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error creating assessment assignment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/assessments/assignments/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      const assignmentData = req.body;
+      const assignment = await storage.updateAssessmentAssignment(id, assignmentData);
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error updating assessment assignment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assessment Response Routes
+  app.get("/api/assessments/assignments/:assignmentId/responses", async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      const responses = await storage.getAssessmentResponses(assignmentId);
+      res.json(responses);
+    } catch (error) {
+      console.error("Error fetching assessment responses:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/assessments/responses", async (req, res) => {
+    try {
+      const responseData = req.body;
+      const response = await storage.createAssessmentResponse(responseData);
+      res.status(201).json(response);
+    } catch (error) {
+      console.error("Error creating assessment response:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assessment Report Routes
+  app.get("/api/assessments/assignments/:assignmentId/report", async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      const report = await storage.getAssessmentReport(assignmentId);
+      if (!report) {
+        return res.status(404).json({ message: "Assessment report not found" });
+      }
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching assessment report:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/assessments/reports", async (req, res) => {
+    try {
+      const reportData = req.body;
+      const report = await storage.createAssessmentReport(reportData);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating assessment report:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

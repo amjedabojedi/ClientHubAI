@@ -262,6 +262,15 @@ export const connectionTypeEnum = pgEnum('connection_type', [
   'relates_to', 'follows_from', 'supports', 'alternative_to', 'prerequisite_for', 'expands_on'
 ]);
 
+// Assessment Template Enums
+export const questionTypeEnum = pgEnum('question_type', ['short_text', 'long_text', 'multiple_choice', 'rating_scale', 'checkbox']);
+export const sectionAccessEnum = pgEnum('section_access', ['therapist_only', 'client_only', 'shared']);
+export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'client_in_progress', 'waiting_for_therapist', 'therapist_completed', 'completed']);
+export const reportSectionEnum = pgEnum('report_section', [
+  'referral_reason', 'presenting_symptoms', 'background_history', 'mental_status_exam', 
+  'risk_assessment', 'treatment_recommendations', 'goals_objectives', 'summary_impressions'
+]);
+
 export const libraryEntryConnections = pgTable("library_entry_connections", {
   id: serial("id").primaryKey(),
   fromEntryId: integer("from_entry_id").notNull().references(() => libraryEntries.id, { onDelete: "cascade" }),
@@ -273,6 +282,99 @@ export const libraryEntryConnections = pgTable("library_entry_connections", {
   createdById: integer("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Assessment Templates System
+export const assessmentTemplates = pgTable("assessment_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }),
+  isStandardized: boolean("is_standardized").default(false), // Whether it's a clinical standard assessment
+  isActive: boolean("is_active").default(true),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  version: varchar("version", { length: 20 }).default("1.0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const assessmentSections = pgTable("assessment_sections", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => assessmentTemplates.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  accessLevel: sectionAccessEnum("access_level").notNull().default('therapist_only'),
+  isScoring: boolean("is_scoring").default(false), // Whether this section contributes to scoring
+  reportMapping: reportSectionEnum("report_mapping"), // Maps to AI report sections
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const assessmentQuestions = pgTable("assessment_questions", {
+  id: serial("id").primaryKey(),
+  sectionId: integer("section_id").notNull().references(() => assessmentSections.id, { onDelete: "cascade" }),
+  questionText: text("question_text").notNull(),
+  questionType: questionTypeEnum("question_type").notNull(),
+  isRequired: boolean("is_required").default(false),
+  sortOrder: integer("sort_order").default(0),
+  // For rating scales
+  ratingMin: integer("rating_min"),
+  ratingMax: integer("rating_max"),
+  ratingLabels: text("rating_labels").array(), // ["Poor", "Good", "Excellent"]
+  // Configuration for scoring
+  contributesToScore: boolean("contributes_to_score").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const assessmentQuestionOptions = pgTable("assessment_question_options", {
+  id: serial("id").primaryKey(),
+  questionId: integer("question_id").notNull().references(() => assessmentQuestions.id, { onDelete: "cascade" }),
+  optionText: text("option_text").notNull(),
+  optionValue: decimal("option_value", { precision: 10, scale: 2 }), // Numeric value for scoring
+  sortOrder: integer("sort_order").default(0),
+});
+
+// Assessment Instances and Responses
+export const assessmentAssignments = pgTable("assessment_assignments", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => assessmentTemplates.id),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  assignedById: integer("assigned_by_id").notNull().references(() => users.id),
+  status: assessmentStatusEnum("status").notNull().default('pending'),
+  dueDate: date("due_date"),
+  completedAt: timestamp("completed_at"),
+  finalizedAt: timestamp("finalized_at"),
+  clientSubmittedAt: timestamp("client_submitted_at"),
+  therapistCompletedAt: timestamp("therapist_completed_at"),
+  totalScore: decimal("total_score", { precision: 10, scale: 2 }),
+  notes: text("notes"), // Therapist notes about the assessment
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const assessmentResponses = pgTable("assessment_responses", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull().references(() => assessmentAssignments.id, { onDelete: 'cascade' }),
+  questionId: integer("question_id").notNull().references(() => assessmentQuestions.id, { onDelete: 'cascade' }),
+  responderId: integer("responder_id").notNull().references(() => users.id), // Who answered (client or therapist)
+  responseText: text("response_text"), // For text responses
+  selectedOptions: integer("selected_options").array(), // For multiple choice/checkboxes
+  ratingValue: integer("rating_value"), // For rating scales
+  scoreValue: decimal("score_value", { precision: 10, scale: 2 }), // Calculated score for this response
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const assessmentReports = pgTable("assessment_reports", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull().references(() => assessmentAssignments.id, { onDelete: 'cascade' }),
+  generatedContent: text("generated_content"), // AI-generated report content
+  editedContent: text("edited_content"), // Therapist-edited version
+  reportData: text("report_data"), // JSON structure of organized data
+  generatedAt: timestamp("generated_at"),
+  editedAt: timestamp("edited_at"),
+  exportedAt: timestamp("exported_at"),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
 });
 
 // Relations
@@ -396,6 +498,83 @@ export const libraryEntryConnectionsRelations = relations(libraryEntryConnection
   }),
 }));
 
+// Assessment Template Relations
+export const assessmentTemplatesRelations = relations(assessmentTemplates, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [assessmentTemplates.createdById],
+    references: [users.id],
+  }),
+  sections: many(assessmentSections),
+  assignments: many(assessmentAssignments),
+}));
+
+export const assessmentSectionsRelations = relations(assessmentSections, ({ one, many }) => ({
+  template: one(assessmentTemplates, {
+    fields: [assessmentSections.templateId],
+    references: [assessmentTemplates.id],
+  }),
+  questions: many(assessmentQuestions),
+}));
+
+export const assessmentQuestionsRelations = relations(assessmentQuestions, ({ one, many }) => ({
+  section: one(assessmentSections, {
+    fields: [assessmentQuestions.sectionId],
+    references: [assessmentSections.id],
+  }),
+  options: many(assessmentQuestionOptions),
+  responses: many(assessmentResponses),
+}));
+
+export const assessmentQuestionOptionsRelations = relations(assessmentQuestionOptions, ({ one }) => ({
+  question: one(assessmentQuestions, {
+    fields: [assessmentQuestionOptions.questionId],
+    references: [assessmentQuestions.id],
+  }),
+}));
+
+export const assessmentAssignmentsRelations = relations(assessmentAssignments, ({ one, many }) => ({
+  template: one(assessmentTemplates, {
+    fields: [assessmentAssignments.templateId],
+    references: [assessmentTemplates.id],
+  }),
+  client: one(clients, {
+    fields: [assessmentAssignments.clientId],
+    references: [clients.id],
+  }),
+  assignedBy: one(users, {
+    fields: [assessmentAssignments.assignedById],
+    references: [users.id],
+  }),
+  responses: many(assessmentResponses),
+  reports: many(assessmentReports),
+}));
+
+export const assessmentResponsesRelations = relations(assessmentResponses, ({ one }) => ({
+  assignment: one(assessmentAssignments, {
+    fields: [assessmentResponses.assignmentId],
+    references: [assessmentAssignments.id],
+  }),
+  question: one(assessmentQuestions, {
+    fields: [assessmentResponses.questionId],
+    references: [assessmentQuestions.id],
+  }),
+  responder: one(users, {
+    fields: [assessmentResponses.responderId],
+    references: [users.id],
+  }),
+}));
+
+export const assessmentReportsRelations = relations(assessmentReports, ({ one }) => ({
+  assignment: one(assessmentAssignments, {
+    fields: [assessmentReports.assignmentId],
+    references: [assessmentAssignments.id],
+  }),
+  createdBy: one(users, {
+    fields: [assessmentReports.createdById],
+    references: [users.id],
+  }),
+}));
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -455,6 +634,43 @@ export const insertLibraryEntryConnectionSchema = createInsertSchema(libraryEntr
   updatedAt: true,
 });
 
+// Assessment Template Schemas
+export const insertAssessmentTemplateSchema = createInsertSchema(assessmentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAssessmentSectionSchema = createInsertSchema(assessmentSections).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAssessmentQuestionSchema = createInsertSchema(assessmentQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAssessmentQuestionOptionSchema = createInsertSchema(assessmentQuestionOptions).omit({
+  id: true,
+});
+
+export const insertAssessmentAssignmentSchema = createInsertSchema(assessmentAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAssessmentResponseSchema = createInsertSchema(assessmentResponses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAssessmentReportSchema = createInsertSchema(assessmentReports).omit({
+  id: true,
+});
+
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -485,3 +701,25 @@ export type InsertLibraryEntry = z.infer<typeof insertLibraryEntrySchema>;
 
 export type LibraryEntryConnection = typeof libraryEntryConnections.$inferSelect;
 export type InsertLibraryEntryConnection = z.infer<typeof insertLibraryEntryConnectionSchema>;
+
+// Assessment Template Types
+export type AssessmentTemplate = typeof assessmentTemplates.$inferSelect;
+export type InsertAssessmentTemplate = z.infer<typeof insertAssessmentTemplateSchema>;
+
+export type AssessmentSection = typeof assessmentSections.$inferSelect;
+export type InsertAssessmentSection = z.infer<typeof insertAssessmentSectionSchema>;
+
+export type AssessmentQuestion = typeof assessmentQuestions.$inferSelect;
+export type InsertAssessmentQuestion = z.infer<typeof insertAssessmentQuestionSchema>;
+
+export type AssessmentQuestionOption = typeof assessmentQuestionOptions.$inferSelect;
+export type InsertAssessmentQuestionOption = z.infer<typeof insertAssessmentQuestionOptionSchema>;
+
+export type AssessmentAssignment = typeof assessmentAssignments.$inferSelect;
+export type InsertAssessmentAssignment = z.infer<typeof insertAssessmentAssignmentSchema>;
+
+export type AssessmentResponse = typeof assessmentResponses.$inferSelect;
+export type InsertAssessmentResponse = z.infer<typeof insertAssessmentResponseSchema>;
+
+export type AssessmentReport = typeof assessmentReports.$inferSelect;
+export type InsertAssessmentReport = z.infer<typeof insertAssessmentReportSchema>;
