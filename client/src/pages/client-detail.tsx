@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Icons
 import { 
@@ -35,7 +36,10 @@ import {
   MapPin,
   Clock,
   Eye,
-  AlertCircle
+  AlertCircle,
+  CheckCircle,
+  X,
+  ChevronDown
 } from "lucide-react";
 
 // Utils and Types
@@ -156,6 +160,35 @@ export default function ClientDetailPage() {
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
+
+  // React Query
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Session Status Update Mutation
+  const updateSessionMutation = useMutation({
+    mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
+      return apiRequest(`/api/sessions/${sessionId}`, "PUT", { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/sessions`] });
+      toast({
+        title: "Success",
+        description: "Session status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update session status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSessionStatus = (sessionId: number, status: string) => {
+    updateSessionMutation.mutate({ sessionId, status });
+  };
 
   // Event Handlers
   const handleEditClient = () => setIsEditModalOpen(true);
@@ -285,10 +318,6 @@ export default function ClientDetailPage() {
       </div>
     );
   };
-
-  // Hooks
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Document delete mutation
   const deleteDocumentMutation = useMutation({
@@ -897,13 +926,53 @@ export default function ClientDetailPage() {
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge className={`px-3 py-1 text-sm font-medium ${
-                              session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              session.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
-                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`px-3 py-1 text-sm font-medium hover:opacity-80 ${
+                                    session.status === 'completed' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
+                                    session.status === 'scheduled' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
+                                    session.status === 'cancelled' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
+                                    'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                  }`}
+                                >
+                                  {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
+                                  <ChevronDown className="w-3 h-3 ml-1" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => updateSessionStatus(session.id, 'scheduled')}
+                                  className="cursor-pointer"
+                                >
+                                  <Clock className="w-4 h-4 mr-2 text-blue-600" />
+                                  Mark Scheduled
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateSessionStatus(session.id, 'completed')}
+                                  className="cursor-pointer"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                  Mark Completed
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateSessionStatus(session.id, 'cancelled')}
+                                  className="cursor-pointer"
+                                >
+                                  <X className="w-4 h-4 mr-2 text-red-600" />
+                                  Mark Cancelled
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateSessionStatus(session.id, 'no_show')}
+                                  className="cursor-pointer"
+                                >
+                                  <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                  Mark No-Show
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             <Button 
                               variant="outline" 
                               size="sm"
