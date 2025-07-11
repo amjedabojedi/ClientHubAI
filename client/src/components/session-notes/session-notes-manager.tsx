@@ -486,19 +486,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
 
 
-  // Auto-populate session when pre-selected
-  useEffect(() => {
-    if (preSelectedSessionId && preSelectedSessionId !== selectedSession) {
-      setSelectedSession(preSelectedSessionId);
-      // Automatically open the add note dialog when session is pre-selected
-      setIsAddNoteOpen(true);
-      // Clear the pre-selection after processing
-      if (onSessionChange) {
-        onSessionChange(null);
-      }
-    }
-  }, [preSelectedSessionId, selectedSession, onSessionChange]);
-
   // Form setup
   const form = useForm<SessionNoteFormData>({
     resolver: zodResolver(sessionNoteFormSchema),
@@ -514,6 +501,21 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       aiEnabled: false,
     },
   });
+
+  // Auto-populate session when pre-selected (moved after form setup)
+  useEffect(() => {
+    if (preSelectedSessionId && preSelectedSessionId !== selectedSession) {
+      setSelectedSession(preSelectedSessionId);
+      // Automatically open the add note dialog when session is pre-selected
+      setIsAddNoteOpen(true);
+      // Pre-populate the form with the selected session
+      form.setValue('sessionId', preSelectedSessionId);
+      // Clear the pre-selection after processing
+      if (onSessionChange) {
+        onSessionChange(null);
+      }
+    }
+  }, [preSelectedSessionId, selectedSession, onSessionChange, form]);
 
   // Reset form for new note
   const resetFormForNewNote = () => {
@@ -996,9 +998,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Session</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(parseInt(value))} value={field.value?.toString()}>
+                      <Select 
+                        onValueChange={(value) => field.onChange(parseInt(value))} 
+                        value={field.value?.toString()}
+                        disabled={!!preSelectedSessionId} // Disable when pre-selected
+                      >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className={preSelectedSessionId ? "opacity-75" : ""}>
                             <SelectValue placeholder="Select a session" />
                           </SelectTrigger>
                         </FormControl>
@@ -1010,6 +1016,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           ))}
                         </SelectContent>
                       </Select>
+                      {preSelectedSessionId && (
+                        <p className="text-xs text-muted-foreground">
+                          Session pre-selected from client profile - {sessions.find(s => s.id === preSelectedSessionId) ? 
+                            `${format(new Date(sessions.find(s => s.id === preSelectedSessionId)!.sessionDate), 'MMM dd, yyyy')} - ${sessions.find(s => s.id === preSelectedSessionId)!.sessionType}` : 
+                            'Session details'}
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
