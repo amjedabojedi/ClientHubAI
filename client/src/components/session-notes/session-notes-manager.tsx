@@ -998,7 +998,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
               {/* AI Template Controls */}
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium">AI Session Note Generation</h3>
+                <h3 className="text-lg font-medium">Please select the template</h3>
                 <div className="flex gap-2 flex-wrap">
                   {/* Template Selection */}
                   {savedTemplates.length > 0 && (
