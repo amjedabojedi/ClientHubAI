@@ -36,7 +36,10 @@ import {
   Eye,
   Upload,
   Home,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle,
+  X,
+  AlertCircle
 } from "lucide-react";
 
 // Utils and Hooks
@@ -173,9 +176,38 @@ export default function SchedulingPage() {
     },
   });
 
+  // Session Status Update Mutation
+  const updateSessionMutation = useMutation({
+    mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
+      return apiRequest(`/api/sessions/${sessionId}`, "PUT", { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      // Update the selected session state to reflect the change
+      if (selectedSession) {
+        setSelectedSession({ ...selectedSession, status: updateSessionMutation.variables?.status as any });
+      }
+      toast({
+        title: "Success",
+        description: "Session status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update session status",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Event Handlers
   const onSubmit = (data: SessionFormData) => {
     createSessionMutation.mutate(data);
+  };
+
+  const updateSessionStatus = (sessionId: number, status: string) => {
+    updateSessionMutation.mutate({ sessionId, status });
   };
 
   // Utility Functions
@@ -998,6 +1030,49 @@ export default function SchedulingPage() {
                   </div>
                 )}
 
+                {/* Status Change Section */}
+                <div className="pt-4 border-t">
+                  <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button 
+                      variant={selectedSession.status === 'completed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => updateSessionStatus(selectedSession.id, 'completed')}
+                      className={selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark Completed
+                    </Button>
+                    <Button 
+                      variant={selectedSession.status === 'scheduled' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => updateSessionStatus(selectedSession.id, 'scheduled')}
+                      className={selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                    >
+                      <CalendarDays className="w-4 h-4 mr-2" />
+                      Mark Scheduled
+                    </Button>
+                    <Button 
+                      variant={selectedSession.status === 'cancelled' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')}
+                      className={selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Mark Cancelled
+                    </Button>
+                    <Button 
+                      variant={selectedSession.status === 'no_show' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => updateSessionStatus(selectedSession.id, 'no_show')}
+                      className={selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+                    >
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      Mark No-Show
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex justify-between pt-4 border-t">
                   <div className="flex space-x-2">
                     <Button 
@@ -1023,10 +1098,6 @@ export default function SchedulingPage() {
                   <div className="flex space-x-2">
                     <Button variant="outline" onClick={() => setIsEditSessionModalOpen(false)}>
                       Close
-                    </Button>
-                    <Button variant="destructive">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Cancel Session
                     </Button>
                   </div>
                 </div>
