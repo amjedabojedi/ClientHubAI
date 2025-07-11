@@ -51,40 +51,20 @@ import SessionNotesManager from "@/components/session-notes/session-notes-manage
 
 // PDF Content Viewer Component
 function PDFContentViewer({ clientId, document }: { clientId: string; document: Document }) {
-  const [pdfContent, setPdfContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pdfUrl = `/api/clients/${clientId}/documents/${document.id}/file`;
 
   useEffect(() => {
-    const fetchPDFContent = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch(`/api/clients/${clientId}/documents/${document.id}/preview`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setPdfContent(data.content || "No content available");
-      } catch (err) {
-        console.error("Error fetching PDF content:", err);
-        setError("Failed to load document content");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPDFContent();
-  }, [clientId, document.id]);
+    // Just set loading to false since we're embedding the PDF directly
+    setLoading(false);
+  }, []);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-4"></div>
-        <p className="text-slate-600">Loading document content...</p>
+        <p className="text-slate-600">Loading PDF viewer...</p>
       </div>
     );
   }
@@ -97,10 +77,10 @@ function PDFContentViewer({ clientId, document }: { clientId: string; document: 
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
+          onClick={() => window.open(pdfUrl, '_blank')}
         >
           <Download className="w-4 h-4 mr-2" />
-          Download Original
+          Open PDF
         </Button>
       </div>
     );
@@ -119,20 +99,32 @@ function PDFContentViewer({ clientId, document }: { clientId: string; document: 
               </p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download
-          </Button>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.open(pdfUrl, '_blank')}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Open Full View
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download
+            </Button>
+          </div>
         </div>
         
-        <div className="bg-slate-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-          <pre className="whitespace-pre-wrap text-sm font-mono text-slate-800 leading-relaxed">
-            {pdfContent}
-          </pre>
+        <div className="bg-slate-50 rounded-lg p-2 h-96">
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full border-0 rounded"
+            title={`PDF Preview: ${document.fileName}`}
+          />
         </div>
       </div>
     </div>

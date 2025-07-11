@@ -310,95 +310,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isText = document.mimeType?.startsWith('text/');
       
       if (isPDF) {
-        // For PDFs, extract actual text content from the stored file
+        // For PDFs, serve the actual PDF file for viewing
         try {
           const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
           
           if (fs.existsSync(filePath)) {
-            try {
-              console.log(`Extracting text from PDF: ${filePath}`);
-              
-              // Read the PDF file as buffer
-              const dataBuffer = fs.readFileSync(filePath);
-              
-              // Read PDF as string and extract readable text
-              const pdfString = dataBuffer.toString('latin1');
-              
-              // Look for readable text patterns in the PDF
-              const readableTextPatterns = [
-                /\(([^)]{3,})\)/g,  // Text in parentheses
-                /BT\s+.*?\((.*?)\).*?ET/gs,  // Text objects
-                /\/Title\s*\(([^)]+)\)/g,  // Document title
-                /\/Subject\s*\(([^)]+)\)/g,  // Document subject
-                /\/Author\s*\(([^)]+)\)/g,  // Document author
-              ];
-              
-              let extractedParts = [];
-              
-              for (const pattern of readableTextPatterns) {
-                const matches = pdfString.match(pattern);
-                if (matches) {
-                  const texts = matches.map(match => {
-                    const cleaned = match.replace(/^\(|\)$|BT\s+|ET$|\/Title\s*\(|\/Subject\s*\(|\/Author\s*\(/g, '');
-                    return cleaned.replace(/[()]/g, '');
-                  });
-                  extractedParts.push(...texts);
-                }
-              }
-              
-              // Filter and clean extracted text
-              const readableText = extractedParts
-                .filter(text => text.length > 2)
-                .filter(text => /[A-Za-z0-9]/.test(text))
-                .map(text => text.replace(/[\x00-\x1F\x7F-\xFF]/g, ' ').trim())
-                .filter(text => text.length > 0)
-                .join(' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-              
-              const finalText = readableText.length > 10 
-                ? `=== PDF DOCUMENT PREVIEW ===\n\nFile: ${document.fileName}\nSize: ${Math.round(document.fileSize / 1024)} KB\nContent Length: ${readableText.length} characters\n\n=== EXTRACTED TEXT ===\n\n${readableText}\n\n=== END OF EXTRACTED TEXT ===\n\nNote: This is a basic text extraction. Some content may not be fully readable due to PDF formatting, compression, or encoding.`
-                : `=== PDF DOCUMENT PREVIEW ===\n\nFile: ${document.fileName}\nSize: ${Math.round(document.fileSize / 1024)} KB\n\n=== ANALYSIS ===\n\nThis PDF document appears to contain:\n- Formatted content that may include images, tables, or complex layouts\n- Compressed or encoded text streams\n- Content that requires specialized PDF processing\n\nThe file is successfully stored and can be downloaded for full viewing.\n\n=== TECHNICAL INFO ===\n\nPDF Version: ${pdfString.match(/%PDF-([0-9.]+)/)?.[1] || 'Unknown'}\nFile is valid and properly formatted.`;
-              
-              console.log(`Successfully extracted ${finalText.length} characters from PDF`);
-              
-              res.setHeader('Content-Type', 'application/json');
-              res.json({
-                type: 'pdf',
-                content: finalText,
-                fileName: document.fileName,
-                fileSize: document.fileSize,
-                pages: 1
-              });
-            } catch (pdfError) {
-              console.error('PDF file error:', pdfError);
-              
-              const pdfContent = `PDF FILE ERROR
-
-⚠️  Issue with file: ${document.fileName}
-📊 Expected size: ${Math.round(document.fileSize / 1024)} KB
-
-ERROR DETAILS:
-${pdfError.message}
-
-POSSIBLE SOLUTIONS:
-1. Re-upload the PDF file
-2. Check if the original file is corrupted
-3. Try a different PDF file
-4. Contact support if the issue persists
-
-The file upload system is working, but this specific file may have issues.`;
-              
-              res.setHeader('Content-Type', 'application/json');
-              res.json({
-                type: 'pdf',
-                content: pdfContent,
-                fileName: document.fileName,
-                fileSize: document.fileSize,
-                pages: 1,
-                isValidPDF: false
-              });
-            }
+            console.log(`Serving PDF file for preview: ${filePath}`);
+            
+            // Return PDF file URL for the browser to display
+            res.setHeader('Content-Type', 'application/json');
+            res.json({
+              type: 'pdf',
+              content: null,
+              fileName: document.fileName,
+              fileSize: document.fileSize,
+              pages: 1,
+              pdfUrl: `/api/clients/${clientId}/documents/${id}/file`,
+              viewerUrl: `/api/clients/${clientId}/documents/${id}/viewer`
+            });
           } else {
             // File doesn't exist - return explanation
             const pdfContent = `PDF file not found on server.
@@ -466,6 +395,35 @@ This happens because only the file metadata was stored, not the actual file cont
     } catch (error) {
       console.error("Error getting document preview:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Serve PDF file directly
+  app.get("/api/clients/:clientId/documents/:id/file", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      
+      // Get document info from database
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+        res.sendFile(path.resolve(filePath));
+      } else {
+        res.status(404).json({ message: "File not found on server" });
+      }
+    } catch (error) {
+      console.error('Error serving PDF file:', error);
+      res.status(500).json({ message: "Error serving PDF file" });
     }
   });
 
