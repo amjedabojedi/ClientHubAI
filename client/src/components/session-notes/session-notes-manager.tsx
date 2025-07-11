@@ -276,6 +276,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [showPreview, setShowPreview] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<{id: string, name: string, instructions: string}[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [templateName, setTemplateName] = useState<string>('');
 
   const generateAITemplateMutation = useMutation({
     mutationFn: async (data: { clientId: number; sessionId?: number; formData: any; customInstructions: string }) => {
@@ -330,37 +331,51 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   });
 
   // Save template for future guidance
-  const handleSaveTemplate = (templateName?: string) => {
+  const handleSaveTemplate = () => {
     if (!customInstructions.trim()) {
       toast({ title: "Please provide custom instructions", variant: "destructive" });
       return;
     }
     
-    const name = templateName || prompt("Enter a name for this template:");
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      toast({ title: "Template name is required", variant: "destructive" });
+    if (!templateName.trim()) {
+      toast({ title: "Please enter a template name", variant: "destructive" });
       return;
     }
     
-    const templateId = Date.now().toString();
-    const newTemplate = {
-      id: templateId,
-      name: name.trim(),
-      instructions: customInstructions
-    };
+    let updatedTemplates;
+    let templateId;
     
-    // Update saved templates
-    const updatedTemplates = [...savedTemplates, newTemplate];
+    if (selectedTemplateId && savedTemplates.find(t => t.id === selectedTemplateId)) {
+      // Editing existing template
+      templateId = selectedTemplateId;
+      updatedTemplates = savedTemplates.map(template => 
+        template.id === selectedTemplateId 
+          ? { ...template, name: templateName.trim(), instructions: customInstructions }
+          : template
+      );
+      toast({ title: `Template "${templateName.trim()}" updated successfully!` });
+    } else {
+      // Creating new template
+      templateId = Date.now().toString();
+      const newTemplate = {
+        id: templateId,
+        name: templateName.trim(),
+        instructions: customInstructions
+      };
+      updatedTemplates = [...savedTemplates, newTemplate];
+      toast({ title: `Template "${templateName.trim()}" saved! You can reuse it for future session notes.` });
+    }
+    
+    // Update state and localStorage
     setSavedTemplates(updatedTemplates);
     setSavedTemplate(customInstructions);
     setSelectedTemplateId(templateId);
-    
-    // Save to localStorage
     localStorage.setItem('aiSessionTemplates', JSON.stringify(updatedTemplates));
     localStorage.setItem('lastUsedTemplate', templateId);
     
     setIsAITemplateOpen(false);
-    toast({ title: `Template "${name}" saved! You can reuse it for future session notes.` });
+    setTemplateName('');
+    setCustomInstructions('');
   };
 
   // Load existing template
@@ -371,6 +386,22 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       setSelectedTemplateId(templateId);
       localStorage.setItem('lastUsedTemplate', templateId);
       toast({ title: `Template "${template.name}" loaded!` });
+    }
+  };
+
+  // Open template for editing
+  const handleEditTemplate = () => {
+    if (selectedTemplateId) {
+      const template = savedTemplates.find(t => t.id === selectedTemplateId);
+      if (template) {
+        setTemplateName(template.name);
+        setCustomInstructions(template.instructions);
+        setIsAITemplateOpen(true);
+      }
+    } else {
+      setTemplateName('');
+      setCustomInstructions('');
+      setIsAITemplateOpen(true);
     }
   };
 
@@ -1001,13 +1032,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           type="button"
                           variant="secondary"
                           size="sm"
-                          onClick={() => {
-                            if (selectedTemplateId) {
-                              const template = savedTemplates.find(t => t.id === selectedTemplateId);
-                              if (template) setCustomInstructions(template.instructions);
-                            }
-                            setIsAITemplateOpen(true);
-                          }}
+                          onClick={handleEditTemplate}
                           className="text-xs"
                         >
                           <Brain className="h-3 w-3 mr-1" />
@@ -1471,6 +1496,19 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           
           <div className="space-y-4">
             <div>
+              <label className="text-sm font-medium">Template Name</label>
+              <input
+                type="text"
+                placeholder="e.g., CBT Session Template, EMDR Progress Notes"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Give your template a descriptive name for easy identification
+              </p>
+            </div>
+            <div>
               <label className="text-sm font-medium">Custom Instructions</label>
               <Textarea
                 placeholder="Example: Create a session note template focused on cognitive behavioral therapy techniques, including detailed mood tracking, homework assignments, and specific CBT interventions used. Format it professionally for clinical documentation."
@@ -1491,13 +1529,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               onClick={() => {
                 setIsAITemplateOpen(false);
                 setCustomInstructions('');
+                setTemplateName('');
               }}
             >
               Cancel
             </Button>
             <Button 
               onClick={handleSaveTemplate}
-              disabled={!customInstructions.trim()}
+              disabled={!customInstructions.trim() || !templateName.trim()}
             >
               <Brain className="h-4 w-4 mr-2" />
               Save Template
