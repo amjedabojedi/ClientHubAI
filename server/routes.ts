@@ -249,16 +249,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients/:clientId/documents", async (req, res) => {
     try {
+      console.log("Document upload request:", req.body);
       const clientId = parseInt(req.params.clientId);
       const validatedData = insertDocumentSchema.parse({
         ...req.body,
         clientId,
         uploadedById: 3 // Default to first therapist for now
       });
+      console.log("Validated data:", validatedData);
       const document = await storage.createDocument(validatedData);
+      console.log("Created document:", document);
       res.status(201).json(document);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation error:", error.errors);
         return res.status(400).json({ message: "Invalid document data", errors: error.errors });
       }
       console.error("Error creating document:", error);
