@@ -133,20 +133,28 @@ export default function ClientDetailPage() {
 
     if (isPDF) {
       return (
-        <div className="text-center py-8">
-          <FileText className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-          <p className="text-slate-600 mb-4">PDF Preview</p>
-          <p className="text-sm text-slate-500">
-            File: {doc.fileName} ({Math.round(doc.fileSize / 1024)} KB)
-          </p>
-          <Button 
-            variant="outline" 
-            className="mt-4"
-            onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download to View
-          </Button>
+        <div className="flex flex-col items-center py-4">
+          <div className="mb-4">
+            <img 
+              src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
+              alt={`Preview of ${doc.fileName}`}
+              className="max-w-full max-h-80 object-contain rounded-lg border shadow-sm"
+            />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-slate-700 mb-2">{doc.fileName}</p>
+            <p className="text-xs text-slate-500 mb-4">
+              {Math.round(doc.fileSize / 1024)} KB • PDF Document
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Full PDF
+            </Button>
+          </div>
         </div>
       );
     }
