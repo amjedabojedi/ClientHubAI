@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CreateTemplateModal } from "@/components/assessments/create-template-modal";
+import { TemplateBuilder } from "@/components/assessments/template-builder";
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
 
 interface AssessmentTemplateWithDetails extends AssessmentTemplate {
@@ -39,6 +40,7 @@ export default function AssessmentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -107,6 +109,16 @@ export default function AssessmentsPage() {
         return <Clock className="h-4 w-4 text-gray-600" />;
     }
   };
+
+  // Show template builder if a template is selected
+  if (selectedTemplateId) {
+    return (
+      <TemplateBuilder 
+        templateId={selectedTemplateId} 
+        onBack={() => setSelectedTemplateId(null)} 
+      />
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -221,8 +233,14 @@ export default function AssessmentsPage() {
                         <span>{template.version}</span>
                       </div>
                       <div className="flex gap-2 pt-2">
-                        <Button variant="outline" size="sm" className="flex-1">
-                          Edit
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setSelectedTemplateId(template.id)}
+                          className="flex-1"
+                        >
+                          <Settings className="h-4 w-4 mr-2" />
+                          Build
                         </Button>
                         <Button size="sm" className="flex-1">
                           Assign

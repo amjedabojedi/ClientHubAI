@@ -1214,6 +1214,65 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Assessment sections routes
+  app.get("/api/assessments/templates/:templateId/sections", async (req, res) => {
+    try {
+      const templateId = parseInt(req.params.templateId);
+      const sections = await storage.getAssessmentSections(templateId);
+      res.json(sections);
+    } catch (error) {
+      console.error("Error fetching assessment sections:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/assessments/sections", async (req, res) => {
+    try {
+      const sectionData = req.body;
+      const section = await storage.createAssessmentSection(sectionData);
+      res.status(201).json(section);
+    } catch (error) {
+      console.error("Error creating assessment section:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/assessments/sections/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const sectionData = req.body;
+      const section = await storage.updateAssessmentSection(id, sectionData);
+      res.json(section);
+    } catch (error) {
+      console.error("Error updating assessment section:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assessment questions routes
+  app.post("/api/assessments/questions", async (req, res) => {
+    try {
+      const questionData = req.body;
+      const question = await storage.createAssessmentQuestion(questionData);
+      res.status(201).json(question);
+    } catch (error) {
+      console.error("Error creating assessment question:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/assessments/questions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const questionData = req.body;
+      const question = await storage.updateAssessmentQuestion(id, questionData);
+      res.json(question);
+    } catch (error) {
+      console.error("Error updating assessment question:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Assessment Report Routes
   app.get("/api/assessments/assignments/:assignmentId/report", async (req, res) => {
     try {

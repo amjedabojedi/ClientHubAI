@@ -1174,6 +1174,56 @@ export class DatabaseStorage implements IStorage {
   async deleteAssessmentReport(id: number): Promise<void> {
     await db.delete(assessmentReports).where(eq(assessmentReports.id, id));
   }
+
+  // Assessment Section Methods
+  async getAssessmentSections(templateId: number): Promise<AssessmentSection[]> {
+    const sections = await db.select().from(assessmentSections)
+      .where(eq(assessmentSections.templateId, templateId))
+      .orderBy(assessmentSections.order);
+
+    // Get questions for each section
+    const sectionsWithQuestions = await Promise.all(
+      sections.map(async (section) => {
+        const questions = await db.select().from(assessmentQuestions)
+          .where(eq(assessmentQuestions.sectionId, section.id))
+          .orderBy(assessmentQuestions.id);
+
+        return {
+          ...section,
+          questions
+        };
+      })
+    );
+
+    return sectionsWithQuestions as any[];
+  }
+
+  async createAssessmentSection(data: InsertAssessmentSection): Promise<AssessmentSection> {
+    const [section] = await db.insert(assessmentSections).values(data).returning();
+    return section;
+  }
+
+  async updateAssessmentSection(id: number, data: Partial<InsertAssessmentSection>): Promise<AssessmentSection> {
+    const [section] = await db.update(assessmentSections)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(assessmentSections.id, id))
+      .returning();
+    return section;
+  }
+
+  // Assessment Question Methods
+  async createAssessmentQuestion(data: InsertAssessmentQuestion): Promise<AssessmentQuestion> {
+    const [question] = await db.insert(assessmentQuestions).values(data).returning();
+    return question;
+  }
+
+  async updateAssessmentQuestion(id: number, data: Partial<InsertAssessmentQuestion>): Promise<AssessmentQuestion> {
+    const [question] = await db.update(assessmentQuestions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(assessmentQuestions.id, id))
+      .returning();
+    return question;
+  }
 }
 
 export const storage = new DatabaseStorage();
