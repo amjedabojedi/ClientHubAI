@@ -398,11 +398,16 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // Serve PDF file directly
+  // Serve PDF file directly for viewing
   app.get("/api/clients/:clientId/documents/:id/file", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
+      
+      // Validate parameters
+      if (isNaN(id) || isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid document or client ID" });
+      }
       
       // Get document info from database
       const documents = await storage.getDocumentsByClient(clientId);
@@ -410,6 +415,11 @@ This happens because only the file metadata was stored, not the actual file cont
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Only serve PDF files through this endpoint
+      if (document.mimeType !== 'application/pdf') {
+        return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
       const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
@@ -421,6 +431,7 @@ This happens because only the file metadata was stored, not the actual file cont
         res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
         res.sendFile(path.resolve(filePath));
       } else {
+        console.error(`PDF file not found: ${filePath}`);
         res.status(404).json({ message: "File not found on server" });
       }
     } catch (error) {
@@ -442,11 +453,15 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // In a real implementation, you would serve the actual file from storage
-      // For now, return a placeholder response
-      res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
-      res.send(`This is a placeholder for the document: ${document.fileName}`);
+      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+        res.sendFile(path.resolve(filePath));
+      } else {
+        res.status(404).json({ message: "File not found on server" });
+      }
     } catch (error) {
       console.error("Error downloading document:", error);
       res.status(500).json({ message: "Internal server error" });
