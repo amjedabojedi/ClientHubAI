@@ -133,11 +133,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sessions", async (req, res) => {
     try {
-      const validatedData = insertSessionSchema.parse(req.body);
+      // Convert sessionDate string to Date object if needed
+      const sessionData = {
+        ...req.body,
+        sessionDate: typeof req.body.sessionDate === 'string' 
+          ? new Date(req.body.sessionDate) 
+          : req.body.sessionDate
+      };
+      
+      const validatedData = insertSessionSchema.parse(sessionData);
       const session = await storage.createSession(validatedData);
       res.status(201).json(session);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Session validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
       console.error("Error creating session:", error);
@@ -152,20 +161,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sessions);
     } catch (error) {
       console.error("Error fetching sessions:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/sessions", async (req, res) => {
-    try {
-      const validatedData = insertSessionSchema.parse(req.body);
-      const session = await storage.createSession(validatedData);
-      res.status(201).json(session);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid session data", errors: error.errors });
-      }
-      console.error("Error creating session:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
