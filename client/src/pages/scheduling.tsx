@@ -100,16 +100,6 @@ export default function SchedulingPage() {
   const clientIdFromUrl = urlParams.get('clientId');
   const clientNameFromUrl = urlParams.get('clientName');
   
-  // Auto-open scheduling modal when navigating from client page
-  React.useEffect(() => {
-    if (clientIdFromUrl) {
-      setIsNewSessionModalOpen(true);
-      if (clientNameFromUrl) {
-        setSearchQuery(decodeURIComponent(clientNameFromUrl));
-      }
-    }
-  }, [clientIdFromUrl, clientNameFromUrl]);
-
   // Fetch sessions for the selected date range
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["/api/sessions", selectedDate.toISOString().split('T')[0], viewMode],
@@ -140,6 +130,17 @@ export default function SchedulingPage() {
       notes: "",
     },
   });
+
+  // Auto-open scheduling modal when navigating from client page
+  React.useEffect(() => {
+    if (clientIdFromUrl) {
+      setIsNewSessionModalOpen(true);
+      form.setValue('clientId', parseInt(clientIdFromUrl));
+      if (clientNameFromUrl) {
+        setSearchQuery(decodeURIComponent(clientNameFromUrl));
+      }
+    }
+  }, [clientIdFromUrl, clientNameFromUrl, form]);
 
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
@@ -371,7 +372,10 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Client</FormLabel>
-                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                              <Select 
+                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                value={field.value?.toString()}
+                              >
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select client" />

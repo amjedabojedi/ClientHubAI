@@ -490,6 +490,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   useEffect(() => {
     if (preSelectedSessionId && preSelectedSessionId !== selectedSession) {
       setSelectedSession(preSelectedSessionId);
+      // Automatically open the add note dialog when session is pre-selected
+      setIsAddNoteOpen(true);
       // Clear the pre-selection after processing
       if (onSessionChange) {
         onSessionChange(null);
