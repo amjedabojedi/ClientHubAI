@@ -337,7 +337,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
     
     const name = templateName || prompt("Enter a name for this template:");
-    if (!name?.trim()) {
+    if (!name || !name.trim()) {
       toast({ title: "Template name is required", variant: "destructive" });
       return;
     }
