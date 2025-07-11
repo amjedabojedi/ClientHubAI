@@ -227,8 +227,13 @@ export default function ClientDetailPage() {
   };
 
   const handlePreviewDocument = (doc: Document) => {
-    setPreviewDocument(doc);
-    setIsPreviewDialogOpen(true);
+    // For PDFs, open directly in new tab instead of modal
+    if (doc.mimeType === 'application/pdf') {
+      window.open(`/api/clients/${clientId}/documents/${doc.id}/file`, '_blank');
+    } else {
+      setPreviewDocument(doc);
+      setIsPreviewDialogOpen(true);
+    }
   };
 
   const renderDocumentPreview = (doc: Document) => {
