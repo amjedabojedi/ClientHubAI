@@ -209,13 +209,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       const formValues = form.getValues();
-      const currentClient = clientsData?.clients.find(c => c.id === clientId);
-      const currentSession = sessionsData?.find(s => s.id === formValues.sessionId);
+      const currentSession = sessions?.find(s => s.id === formValues.sessionId);
       
       printWindow.document.write(`
         <html>
           <head>
-            <title>Session Note - ${currentClient?.fullName}</title>
+            <title>Session Note - ${clientData?.fullName || 'Client'}</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
               .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
@@ -229,8 +228,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               <h1>Clinical Session Note</h1>
             </div>
             <div class="client-info">
-              <p><strong>Client:</strong> ${currentClient?.fullName || 'N/A'}</p>
-              <p><strong>Client ID:</strong> ${currentClient?.clientId || 'N/A'}</p>
+              <p><strong>Client:</strong> ${clientData?.fullName || 'N/A'}</p>
+              <p><strong>Client ID:</strong> ${clientData?.clientId || 'N/A'}</p>
               <p><strong>Session Date:</strong> ${currentSession ? new Date(currentSession.sessionDate).toLocaleDateString() : 'N/A'}</p>
               <p><strong>Session Type:</strong> ${currentSession?.sessionType || 'N/A'}</p>
               <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
@@ -271,10 +270,25 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       const formValues = form.getValues();
       if (formValues.sessionId) {
         const sessionNoteData = {
-          ...formValues,
-          sessionNotes: result.generatedContent,
-          aiGenerated: true,
-          aiInstructions: savedTemplate
+          sessionId: formValues.sessionId,
+          clientId: clientId,
+          therapistId: 1, // Default therapist ID - should be from session
+          date: new Date().toISOString(),
+          generatedContent: result.generatedContent,
+          finalContent: result.generatedContent,
+          aiEnabled: true,
+          customAiPrompt: savedTemplate,
+          isDraft: false,
+          isFinalized: true,
+          sessionFocus: formValues.sessionFocus || '',
+          symptoms: formValues.symptoms || '',
+          shortTermGoals: formValues.shortTermGoals || '',
+          intervention: formValues.intervention || '',
+          progress: formValues.progress || '',
+          remarks: formValues.remarks || '',
+          recommendations: formValues.recommendations || '',
+          moodBefore: formValues.moodBefore,
+          moodAfter: formValues.moodAfter
         };
         
         createSessionNoteMutation.mutate(sessionNoteData);
