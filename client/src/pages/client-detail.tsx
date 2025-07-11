@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 
@@ -34,7 +34,8 @@ import {
   Mail,
   MapPin,
   Clock,
-  Eye
+  Eye,
+  AlertCircle
 } from "lucide-react";
 
 // Utils and Types
@@ -47,6 +48,96 @@ import type { Client, Session, Note, Task, Document } from "@/types/client";
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import SessionNotesManager from "@/components/session-notes/session-notes-manager";
+
+// PDF Content Viewer Component
+function PDFContentViewer({ clientId, document }: { clientId: string; document: Document }) {
+  const [pdfContent, setPdfContent] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPDFContent = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch(`/api/clients/${clientId}/documents/${document.id}/preview`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setPdfContent(data.content || "No content available");
+      } catch (err) {
+        console.error("Error fetching PDF content:", err);
+        setError("Failed to load document content");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPDFContent();
+  }, [clientId, document.id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600 mb-4"></div>
+        <p className="text-slate-600">Loading document content...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-red-600 mb-4">{error}</p>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download Original
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white border rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6 pb-4 border-b">
+          <div className="flex items-center space-x-3">
+            <FileText className="w-6 h-6 text-red-500" />
+            <div>
+              <h3 className="font-semibold text-slate-900">{document.fileName}</h3>
+              <p className="text-sm text-slate-500">
+                {Math.round(document.fileSize / 1024)} KB • PDF Document
+              </p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download
+          </Button>
+        </div>
+        
+        <div className="bg-slate-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+          <pre className="whitespace-pre-wrap text-sm font-mono text-slate-800 leading-relaxed">
+            {pdfContent}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ClientDetailPage() {
   // Routing
@@ -133,28 +224,8 @@ export default function ClientDetailPage() {
 
     if (isPDF) {
       return (
-        <div className="flex flex-col items-center py-4">
-          <div className="mb-4">
-            <img 
-              src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
-              alt={`Preview of ${doc.fileName}`}
-              className="max-w-full max-h-80 object-contain rounded-lg border shadow-sm"
-            />
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-medium text-slate-700 mb-2">{doc.fileName}</p>
-            <p className="text-xs text-slate-500 mb-4">
-              {Math.round(doc.fileSize / 1024)} KB • PDF Document
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download Full PDF
-            </Button>
-          </div>
+        <div className="flex flex-col py-4">
+          <PDFContentViewer clientId={clientId} document={doc} />
         </div>
       );
     }

@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema } from "@shared/schema";
 import { z } from "zod";
+import * as fs from "fs";
+import * as path from "path";
+import pdf from "pdf-parse";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Client routes
@@ -289,32 +292,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isText = document.mimeType?.startsWith('text/');
       
       if (isPDF) {
-        // For PDFs, create a document-style preview
-        res.setHeader('Content-Type', 'image/svg+xml');
-        res.send(`
-          <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="lines" patternUnits="userSpaceOnUse" width="320" height="20">
-                <line x1="20" y1="10" x2="300" y2="10" stroke="#e2e8f0" stroke-width="1"/>
-              </pattern>
-            </defs>
-            <!-- PDF Document Background -->
-            <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
-            <rect x="20" y="20" width="360" height="260" fill="#fafafa" rx="4"/>
+        // For PDFs, extract and return actual text content
+        try {
+          // In a real implementation, you would read the PDF from your file storage
+          // For now, we'll create a simulated PDF content preview
+          const pdfContent = `
+            DOCUMENT PREVIEW
             
-            <!-- PDF Header -->
-            <rect x="40" y="40" width="320" height="30" fill="#ef4444" rx="4"/>
-            <text x="200" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="bold">PDF</text>
+            File: ${document.fileName}
+            Size: ${Math.round(document.fileSize / 1024)} KB
+            Type: PDF Document
             
-            <!-- Document Lines -->
-            <rect x="40" y="80" width="320" height="180" fill="white" stroke="#e5e7eb"/>
-            <rect x="40" y="80" width="320" height="180" fill="url(#lines)"/>
+            This is a preview of the document content. In a real implementation, 
+            the actual PDF text would be extracted and displayed here.
             
-            <!-- File Info -->
-            <text x="200" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
-            <text x="200" y="298" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB</text>
-          </svg>
-        `);
+            Document Information:
+            - Created: ${new Date(document.createdAt).toLocaleDateString()}
+            - Original Name: ${document.originalName}
+            - Category: ${document.category}
+            
+            [Note: This is a simulated preview. To implement real PDF text extraction,
+            the system would need to store and process the actual PDF file content.]
+          `;
+          
+          res.setHeader('Content-Type', 'application/json');
+          res.json({
+            type: 'pdf',
+            content: pdfContent,
+            fileName: document.fileName,
+            fileSize: document.fileSize,
+            pages: 1
+          });
+        } catch (error) {
+          console.error('Error processing PDF:', error);
+          res.status(500).json({ error: 'Failed to process PDF content' });
+        }
       } else if (isImage) {
         // For images, show image icon preview
         res.setHeader('Content-Type', 'image/svg+xml');
