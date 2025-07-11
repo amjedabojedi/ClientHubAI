@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 // Hooks and Data
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -134,6 +134,26 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
+
+  // Load saved templates from localStorage on component mount
+  useEffect(() => {
+    const stored = localStorage.getItem('aiSessionTemplates');
+    if (stored) {
+      try {
+        const templates = JSON.parse(stored);
+        setSavedTemplates(templates);
+        // Auto-select the last used template
+        const lastUsed = localStorage.getItem('lastUsedTemplate');
+        if (lastUsed && templates.find((t: any) => t.id === lastUsed)) {
+          setSelectedTemplateId(lastUsed);
+          const template = templates.find((t: any) => t.id === lastUsed);
+          if (template) setSavedTemplate(template.instructions);
+        }
+      } catch (e) {
+        console.error('Error loading templates:', e);
+      }
+    }
+  }, []);
 
 
   const { toast } = useToast();
@@ -254,6 +274,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [savedTemplate, setSavedTemplate] = useState<string>('');
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [showPreview, setShowPreview] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<{id: string, name: string, instructions: string}[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
   const generateAITemplateMutation = useMutation({
     mutationFn: async (data: { clientId: number; sessionId?: number; formData: any; customInstructions: string }) => {
@@ -308,15 +330,66 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   });
 
   // Save template for future guidance
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = (templateName?: string) => {
     if (!customInstructions.trim()) {
       toast({ title: "Please provide custom instructions", variant: "destructive" });
       return;
     }
     
+    const name = templateName || prompt("Enter a name for this template:");
+    if (!name?.trim()) {
+      toast({ title: "Template name is required", variant: "destructive" });
+      return;
+    }
+    
+    const templateId = Date.now().toString();
+    const newTemplate = {
+      id: templateId,
+      name: name.trim(),
+      instructions: customInstructions
+    };
+    
+    // Update saved templates
+    const updatedTemplates = [...savedTemplates, newTemplate];
+    setSavedTemplates(updatedTemplates);
     setSavedTemplate(customInstructions);
+    setSelectedTemplateId(templateId);
+    
+    // Save to localStorage
+    localStorage.setItem('aiSessionTemplates', JSON.stringify(updatedTemplates));
+    localStorage.setItem('lastUsedTemplate', templateId);
+    
     setIsAITemplateOpen(false);
-    toast({ title: "Template saved! Fill out fields and click 'Generate Content' to create session notes" });
+    toast({ title: `Template "${name}" saved! You can reuse it for future session notes.` });
+  };
+
+  // Load existing template
+  const handleLoadTemplate = (templateId: string) => {
+    const template = savedTemplates.find(t => t.id === templateId);
+    if (template) {
+      setSavedTemplate(template.instructions);
+      setSelectedTemplateId(templateId);
+      localStorage.setItem('lastUsedTemplate', templateId);
+      toast({ title: `Template "${template.name}" loaded!` });
+    }
+  };
+
+  // Delete template
+  const handleDeleteTemplate = (templateId: string) => {
+    const template = savedTemplates.find(t => t.id === templateId);
+    if (template && confirm(`Delete template "${template.name}"?`)) {
+      const updatedTemplates = savedTemplates.filter(t => t.id !== templateId);
+      setSavedTemplates(updatedTemplates);
+      localStorage.setItem('aiSessionTemplates', JSON.stringify(updatedTemplates));
+      
+      if (selectedTemplateId === templateId) {
+        setSelectedTemplateId('');
+        setSavedTemplate('');
+        localStorage.removeItem('lastUsedTemplate');
+      }
+      
+      toast({ title: `Template "${template.name}" deleted` });
+    }
   };
 
   // Generate content using saved template + filled fields
@@ -900,22 +973,59 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Session Notes</FormLabel>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        {/* Template Selection */}
+                        {savedTemplates.length > 0 && (
+                          <select
+                            className="text-xs border rounded px-2 py-1"
+                            value={selectedTemplateId}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleLoadTemplate(e.target.value);
+                              } else {
+                                setSelectedTemplateId('');
+                                setSavedTemplate('');
+                              }
+                            }}
+                          >
+                            <option value="">Select Template...</option>
+                            {savedTemplates.map(template => (
+                              <option key={template.id} value={template.id}>
+                                {template.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        
                         <Button
                           type="button"
-                          variant={savedTemplate ? "outline" : "secondary"}
+                          variant="secondary"
                           size="sm"
                           onClick={() => {
-                            if (savedTemplate) {
-                              setCustomInstructions(savedTemplate);
+                            if (selectedTemplateId) {
+                              const template = savedTemplates.find(t => t.id === selectedTemplateId);
+                              if (template) setCustomInstructions(template.instructions);
                             }
                             setIsAITemplateOpen(true);
                           }}
                           className="text-xs"
                         >
                           <Brain className="h-3 w-3 mr-1" />
-                          {savedTemplate ? 'Edit Template' : 'Create Template'}
+                          {selectedTemplateId ? 'Edit Template' : 'Create Template'}
                         </Button>
+                        
+                        {selectedTemplateId && savedTemplates.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTemplate(selectedTemplateId)}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                        
                         {savedTemplate && (
                           <Button
                             type="button"
