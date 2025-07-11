@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
-import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema } from "@shared/schema";
+import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema, insertAssessmentTemplateSchema, insertAssessmentAssignmentSchema, insertAssessmentResponseSchema, insertAssessmentReportSchema } from "@shared/schema";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
