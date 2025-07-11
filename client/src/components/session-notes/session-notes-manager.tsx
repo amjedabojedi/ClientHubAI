@@ -119,10 +119,11 @@ type SessionNoteFormData = z.infer<typeof sessionNoteFormSchema>;
 interface SessionNotesManagerProps {
   clientId: number;
   sessions: Session[];
-  preSelectedSessionId?: number;
+  preSelectedSessionId?: number | null;
+  onSessionChange?: (sessionId: number | null) => void;
 }
 
-export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId }: SessionNotesManagerProps) {
+export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId, onSessionChange }: SessionNotesManagerProps) {
   // Fetch client data for template generation
   const { data: clientData } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
@@ -485,6 +486,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
 
 
+  // Auto-populate session when pre-selected
+  useEffect(() => {
+    if (preSelectedSessionId && preSelectedSessionId !== selectedSession) {
+      setSelectedSession(preSelectedSessionId);
+      // Clear the pre-selection after processing
+      if (onSessionChange) {
+        onSessionChange(null);
+      }
+    }
+  }, [preSelectedSessionId, selectedSession, onSessionChange]);
+
   // Form setup
   const form = useForm<SessionNoteFormData>({
     resolver: zodResolver(sessionNoteFormSchema),
@@ -558,6 +570,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const handleAddNote = () => {
     resetFormForNewNote();
     setEditingNote(null);
+    
+    // Auto-populate session if one is selected
+    if (selectedSession) {
+      form.setValue('sessionId', selectedSession);
+    }
+    
     setIsAddNoteOpen(true);
   };
 

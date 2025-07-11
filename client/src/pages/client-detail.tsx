@@ -155,6 +155,7 @@ export default function ClientDetailPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
 
   // Event Handlers
   const handleEditClient = () => setIsEditModalOpen(true);
@@ -907,8 +908,8 @@ export default function ClientDetailPage() {
                               variant="outline" 
                               size="sm"
                               onClick={() => {
+                                setPreSelectedSessionId(session.id);
                                 setActiveTab('session-notes');
-                                // You could also pass session info to pre-populate the form
                               }}
                             >
                               <FileText className="w-4 h-4 mr-1" />
@@ -942,7 +943,12 @@ export default function ClientDetailPage() {
 
           {/* Session Notes Tab */}
           <TabsContent value="session-notes" className="space-y-6">
-            <SessionNotesManager clientId={clientId!} sessions={sessions} />
+            <SessionNotesManager 
+              clientId={clientId!} 
+              sessions={sessions} 
+              preSelectedSessionId={preSelectedSessionId}
+              onSessionChange={setPreSelectedSessionId}
+            />
           </TabsContent>
 
 
