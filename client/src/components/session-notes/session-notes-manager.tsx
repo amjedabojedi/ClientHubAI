@@ -134,6 +134,20 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
+  
+  // Risk Assessment State
+  const [riskFactors, setRiskFactors] = useState({
+    suicidalIdeation: 0,
+    selfHarm: 0,
+    homicidalIdeation: 0,
+    psychosis: 0,
+    substanceUse: 0,
+    impulsivity: 0,
+    aggression: 0,
+    traumaSymptoms: 0,
+    nonAdherence: 0,
+    supportSystem: 0,
+  });
 
   // Load saved templates from localStorage on component mount
   useEffect(() => {
@@ -220,6 +234,22 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Content copied to clipboard" });
+  };
+
+  // Calculate overall risk score
+  const calculateOverallRiskScore = () => {
+    const totalScore = Object.values(riskFactors).reduce((sum, score) => sum + score, 0);
+    const maxPossibleScore = 40; // 10 factors × 4 max score each
+    const percentage = (totalScore / maxPossibleScore) * 100;
+    
+    if (percentage <= 25) return { level: 'Low', color: 'text-green-600', score: totalScore };
+    if (percentage <= 50) return { level: 'Moderate', color: 'text-yellow-600', score: totalScore };
+    if (percentage <= 75) return { level: 'High', color: 'text-orange-600', score: totalScore };
+    return { level: 'Critical', color: 'text-red-600', score: totalScore };
+  };
+
+  const updateRiskFactor = (factor: keyof typeof riskFactors, value: number) => {
+    setRiskFactors(prev => ({ ...prev, [factor]: value }));
   };
 
   // Print function for generated content
@@ -1075,7 +1105,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               <Tabs defaultValue="clinical" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="clinical">Clinical Documentation</TabsTrigger>
-                  <TabsTrigger value="settings">Settings</TabsTrigger>
+                  <TabsTrigger value="risk-assessment">Risk Assessment</TabsTrigger>
                 </TabsList>
 
                 {/* Clinical Documentation Tab */}
@@ -1260,96 +1290,386 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </TabsContent>
 
 
-                {/* Risk & Privacy Settings Tab */}
-                <TabsContent value="settings" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="riskLevel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Risk Level</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="confidentialityLevel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confidentiality</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="standard">Standard</SelectItem>
-                              <SelectItem value="restricted">Restricted</SelectItem>
-                              <SelectItem value="highly_confidential">Highly Confidential</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                {/* Risk Assessment Tab */}
+                <TabsContent value="risk-assessment" className="space-y-6">
+                  {/* Overall Risk Score Display */}
+                  <div className="bg-gray-50 p-4 rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Overall Risk Assessment</h3>
+                      <div className="text-right">
+                        <div className={`text-2xl font-bold ${calculateOverallRiskScore().color}`}>
+                          {calculateOverallRiskScore().level}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Score: {calculateOverallRiskScore().score}/40
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex gap-6">
-                    <FormField
-                      control={form.control}
-                      name="isPrivate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <input
-                              type="checkbox"
-                              checked={field.value}
-                              onChange={field.onChange}
-                              className="h-4 w-4"
-                            />
-                          </FormControl>
-                          <FormLabel className="text-sm font-normal">
-                            Private Note
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
+                  {/* Risk Factor Assessment Grid */}
+                  <div className="space-y-4">
+                    {/* Suicidal Ideation */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">1. Suicidal Ideation</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.suicidalIdeation}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Thoughts of ending one's own life, whether passive or active
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('suicidalIdeation', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.suicidalIdeation === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Mild' : score === 2 ? 'Moderate' : score === 3 ? 'Severe' : 'Acute'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                    <FormField
-                      control={form.control}
-                      name="followUpNeeded"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                          <FormControl>
-                            <input
-                              type="checkbox"
-                              checked={field.value}
-                              onChange={field.onChange}
-                              className="h-4 w-4"
-                            />
-                          </FormControl>
-                          <FormLabel className="text-sm font-normal">
-                            Follow-up Needed
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
+                    {/* Self-Harm */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">2. Self-Harm</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.selfHarm}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Any behavior intended to cause harm to oneself without suicidal intent
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('selfHarm', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.selfHarm === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Urges' : score === 2 ? 'Past' : score === 3 ? 'Current' : 'Severe'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Homicidal Ideation */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">3. Homicidal Ideation</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.homicidalIdeation}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Thoughts about harming or killing others, with or without intent
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('homicidalIdeation', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.homicidalIdeation === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Passive' : score === 2 ? 'Thoughts' : score === 3 ? 'Intent' : 'Plan'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Psychosis */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">4. Psychosis</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.psychosis}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Presence of hallucinations, delusions, or disorganized thinking
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('psychosis', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.psychosis === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Past' : score === 2 ? 'Occasional' : score === 3 ? 'Frequent' : 'Acute'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Substance Use */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">5. Substance Use</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.substanceUse}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Use of alcohol or drugs that may impact mental health or judgment
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('substanceUse', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.substanceUse === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Social' : score === 2 ? 'Frequent' : score === 3 ? 'Dependent' : 'Severe'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Continue with remaining risk factors... */}
+                    {/* Impulsivity */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">6. Impulsivity</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.impulsivity}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Difficulty controlling urges or behavior, especially in high-stakes situations
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('impulsivity', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.impulsivity === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Occasional' : score === 2 ? 'Impacts' : score === 3 ? 'Risk-taking' : 'Dangerous'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Aggression/Violence */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">7. Aggression/Violence</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.aggression}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Verbal or physical aggression toward self, others, or property
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('aggression', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.aggression === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Verbal' : score === 2 ? 'Threats' : score === 3 ? 'Property' : 'Physical'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Trauma Symptoms */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">8. Trauma Symptoms</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.traumaSymptoms}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Flashbacks, hypervigilance, dissociation, or avoidance related to past trauma
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('traumaSymptoms', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.traumaSymptoms === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'None' : score === 1 ? 'Mild' : score === 2 ? 'Moderate' : score === 3 ? 'Frequent' : 'Severe'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Non-Adherence */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">9. Non-Adherence</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.nonAdherence}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Resistance or avoidance of treatment recommendations
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('nonAdherence', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.nonAdherence === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'Adherent' : score === 1 ? 'Reluctant' : score === 2 ? 'Missed' : score === 3 ? 'Non-compliant' : 'Refuses'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Support System */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">10. Support System</h4>
+                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
+                          {riskFactors.supportSystem}/4
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Availability of reliable emotional, social, or practical support
+                      </p>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((score) => (
+                          <button
+                            key={score}
+                            type="button"
+                            onClick={() => updateRiskFactor('supportSystem', score)}
+                            className={`px-3 py-1 text-xs rounded ${
+                              riskFactors.supportSystem === score
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {score === 0 ? 'Strong' : score === 1 ? 'Adequate' : score === 2 ? 'Limited' : score === 3 ? 'Very Limited' : 'None'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Settings */}
+                  <div className="border-t pt-4 space-y-4">
+                    <h3 className="font-medium">Additional Settings</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="confidentialityLevel"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Confidentiality</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="standard">Standard</SelectItem>
+                                <SelectItem value="restricted">Restricted</SelectItem>
+                                <SelectItem value="highly_confidential">Highly Confidential</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex gap-6 items-center">
+                        <FormField
+                          control={form.control}
+                          name="isPrivate"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <input
+                                  type="checkbox"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                  className="h-4 w-4"
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal">
+                                Private Note
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="followUpNeeded"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                              <FormControl>
+                                <input
+                                  type="checkbox"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                  className="h-4 w-4"
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal">
+                                Follow-up Needed
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
               </Tabs>
