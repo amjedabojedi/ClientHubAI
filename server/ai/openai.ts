@@ -261,8 +261,7 @@ interface SessionNoteAIRequest {
   progress?: string;
   remarks?: string;
   recommendations?: string;
-  moodBefore?: number;
-  moodAfter?: number;
+
   customPrompt?: string;
   clientName?: string;
   sessionType?: string;
@@ -309,8 +308,6 @@ EXISTING FORM DATA:
 - Short-term Goals: ${formData?.shortTermGoals || 'Not filled'}
 - Interventions: ${formData?.intervention || 'Not filled'}
 - Progress: ${formData?.progress || 'Not filled'}
-- Mood Before: ${formData?.moodBefore || 'Not rated'}/10
-- Mood After: ${formData?.moodAfter || 'Not rated'}/10
 - Additional Notes: ${formData?.remarks || 'None'}
 
 CUSTOM INSTRUCTIONS FROM THERAPIST:
@@ -391,8 +388,7 @@ Session Data:
 - Progress: ${data.progress || 'Not specified'}
 - Clinical Remarks: ${data.remarks || 'Not specified'}
 - Recommendations: ${data.recommendations || 'Not specified'}
-- Mood Before (1-10): ${data.moodBefore || 'Not rated'}
-- Mood After (1-10): ${data.moodAfter || 'Not rated'}
+
 
 Generate a professional clinical summary and provide smart suggestions for each category.`;
 
@@ -470,7 +466,7 @@ ${sessionNoteData.intervention ? `Interventions Applied: ${sessionNoteData.inter
 ${sessionNoteData.progress ? `Progress Assessment: ${sessionNoteData.progress}` : ''}
 ${sessionNoteData.remarks ? `Clinical Observations: ${sessionNoteData.remarks}` : ''}
 ${sessionNoteData.recommendations ? `Treatment Recommendations: ${sessionNoteData.recommendations}` : ''}
-${sessionNoteData.moodBefore && sessionNoteData.moodAfter ? `Mood Assessment: Before ${sessionNoteData.moodBefore}/10, After ${sessionNoteData.moodAfter}/10` : ''}`;
+`;
 
   try {
     const response = await openai.chat.completions.create({

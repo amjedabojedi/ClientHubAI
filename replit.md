@@ -199,6 +199,14 @@ Advanced appointment management with multi-view calendar system:
 - **User Experience**: Eliminated confusion where different tabs showed different available categories
 - **Complete Coverage**: All main therapeutic categories (Session Focus, Symptoms, Short-term Goals, Interventions, Progress) always visible in connection dialog
 
+### Risk Assessment Integration (January 2025)
+- **Comprehensive Risk Matrix**: Replaced simple Settings tab with professional 10-factor risk assessment system
+- **Clinical Risk Factors**: Implemented detailed 0-4 scoring for Suicidal Ideation, Self-Harm, Homicidal Ideation, Psychosis, Substance Use, Impulsivity, Aggression, Trauma Symptoms, Non-Adherence, and Support System
+- **Automated Risk Calculation**: Real-time overall risk scoring with color-coded levels (Low/Moderate/High/Critical)
+- **Professional Documentation**: Each risk factor includes clinical descriptions and appropriate rating labels
+- **AI Template Optimization**: Removed outdated mood rating references from AI generation, focusing on clinical documentation fields
+- **Streamlined Interface**: Removed redundant privacy settings, focusing purely on clinical risk assessment
+
 ### Library-Session Notes Integration (January 2025)
 - **Direct Field Integration**: Added Library picker buttons (📚) to all clinical documentation fields in session notes
 - **Category-Specific Content**: Each field shows only relevant library entries (Session Focus → Category 1, Symptoms → Category 2, etc.)
