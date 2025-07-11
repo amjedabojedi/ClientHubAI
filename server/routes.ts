@@ -1121,8 +1121,16 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid template ID" });
       }
 
+      // First delete all assignments that reference this template
+      try {
+        await storage.deleteAssessmentAssignmentsByTemplateId(id);
+      } catch (error) {
+        // Continue if no assignments exist
+      }
+      
+      // Then delete the template
       await storage.deleteAssessmentTemplate(id);
-      res.status(204).send();
+      res.json({ message: "Assessment template deleted successfully" });
     } catch (error) {
       console.error("Error deleting assessment template:", error);
       res.status(500).json({ message: "Internal server error" });

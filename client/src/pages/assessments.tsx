@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings } from "lucide-react";
+import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { CreateTemplateModal } from "@/components/assessments/create-template-modal";
+import { EditTemplateModal } from "@/components/assessments/edit-template-modal";
 import { TemplateBuilder } from "@/components/assessments/template-builder";
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
 
@@ -40,7 +42,9 @@ export default function AssessmentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<AssessmentTemplate | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -108,6 +112,36 @@ export default function AssessmentsPage() {
       default:
         return <Clock className="h-4 w-4 text-gray-600" />;
     }
+  };
+
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      return apiRequest(`/api/assessments/templates/${templateId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments/templates"] });
+      toast({
+        title: "Success",
+        description: "Assessment template deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete assessment template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditTemplate = (template: AssessmentTemplate) => {
+    setEditingTemplate(template);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteTemplate = async (templateId: number) => {
+    await deleteTemplateMutation.mutateAsync(templateId);
   };
 
   // Show template builder if a template is selected
@@ -209,9 +243,42 @@ export default function AssessmentsPage() {
                           {template.description}
                         </CardDescription>
                       </div>
-                      <Badge variant={template.isStandardized ? "default" : "secondary"}>
-                        {template.isStandardized ? "Standard" : "Custom"}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={template.isStandardized ? "default" : "secondary"}>
+                          {template.isStandardized ? "Standard" : "Custom"}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleEditTemplate(template)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the template "{template.name}" and all its data. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteTemplate(template.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -346,6 +413,11 @@ export default function AssessmentsPage() {
       <CreateTemplateModal 
         open={showCreateModal} 
         onOpenChange={setShowCreateModal} 
+      />
+      <EditTemplateModal 
+        open={showEditModal} 
+        onOpenChange={setShowEditModal} 
+        template={editingTemplate}
       />
     </div>
   );
