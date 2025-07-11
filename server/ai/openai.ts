@@ -325,15 +325,17 @@ Based on the above information and custom instructions, generate a comprehensive
 5. Make the content specific to this client and session
 6. Ensure compliance with clinical documentation standards
 7. Use the existing form data when available, but expand and enhance it
+8. DO NOT use any markdown formatting - no ** bold text **, no --- separators, no # headers
+9. Use plain text only with clear section breaks using line breaks
 
-Generate a complete session note template that can be used directly for clinical documentation. Format it as a structured clinical note.`;
+Generate a complete session note template that can be used directly for clinical documentation. Format it as plain text without any markdown formatting.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
-          content: "You are a professional clinical therapist AI assistant. Generate comprehensive, professional session note templates based on the provided information and custom instructions."
+          content: "You are a professional clinical therapist AI assistant. Generate comprehensive, professional session note templates in plain text format only. Do not use markdown formatting such as ** for bold, --- for separators, or # for headers. Use clear section breaks with line spacing only."
         },
         {
           role: "user",
@@ -344,7 +346,16 @@ Generate a complete session note template that can be used directly for clinical
       max_tokens: 2000
     });
 
-    const generatedContent = response.choices[0].message.content || "Failed to generate content";
+    let generatedContent = response.choices[0].message.content || "Failed to generate content";
+    
+    // Remove any markdown formatting that might have slipped through
+    generatedContent = generatedContent
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold formatting
+      .replace(/^\s*---+\s*$/gm, '')   // Remove horizontal rules
+      .replace(/^#+\s+/gm, '')         // Remove header markers
+      .replace(/\*\s+/g, '• ')         // Convert asterisk lists to bullet points
+      .replace(/^\s*\d+\.\s+/gm, '')   // Remove numbered list markers
+      .trim();
 
     return {
       generatedContent
