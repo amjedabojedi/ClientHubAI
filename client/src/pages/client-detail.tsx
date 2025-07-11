@@ -289,6 +289,40 @@ export default function ClientDetailPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Document delete mutation
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (documentId: number) => {
+      const response = await fetch(`/api/clients/${clientId}/documents/${documentId}`, {
+        method: "DELETE"
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to delete document");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "documents"] });
+      toast({
+        title: "Success",
+        description: "Document deleted successfully",
+      });
+    },
+    onError: (error) => {
+      console.error("Delete document error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete document. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleDeleteDocument = (doc: Document) => {
+    if (window.confirm(`Are you sure you want to delete "${doc.fileName}"? This action cannot be undone.`)) {
+      deleteDocumentMutation.mutate(doc.id);
+    }
+  };
+
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
     mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string; fileContent?: string }) => {
@@ -1010,7 +1044,13 @@ export default function ClientDetailPage() {
                             <Download className="w-4 h-4 mr-2" />
                             Download
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteDocument(doc)}
+                            disabled={deleteDocumentMutation.isPending}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
