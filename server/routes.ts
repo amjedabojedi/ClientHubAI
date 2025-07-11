@@ -511,7 +511,30 @@ This happens because only the file metadata was stored, not the actual file cont
   app.delete("/api/clients/:clientId/documents/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      
+      // Get document info before deleting from database
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Delete from database first
       await storage.deleteDocument(id);
+      
+      // Then delete the physical file if it exists
+      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (fileError) {
+          // Log file deletion error but don't fail the request since DB deletion succeeded
+          console.error(`Failed to delete file ${filePath}:`, fileError);
+        }
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting document:", error);
