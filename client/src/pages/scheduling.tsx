@@ -99,6 +99,8 @@ export default function SchedulingPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const clientIdFromUrl = urlParams.get('clientId');
   const clientNameFromUrl = urlParams.get('clientName');
+  const therapistIdFromUrl = urlParams.get('therapistId');
+  const therapistNameFromUrl = urlParams.get('therapistName');
   
   // Fetch sessions for the selected date range
   const { data: sessions = [], isLoading } = useQuery({
@@ -121,11 +123,11 @@ export default function SchedulingPage() {
     resolver: zodResolver(sessionFormSchema),
     defaultValues: {
       clientId: clientIdFromUrl ? parseInt(clientIdFromUrl) : undefined,
+      therapistId: therapistIdFromUrl ? parseInt(therapistIdFromUrl) : undefined,
       sessionType: "psychotherapy",
       duration: 60,
       sessionDate: "",
       sessionTime: "",
-      therapistId: undefined,
       room: "",
       notes: "",
     },
@@ -136,11 +138,14 @@ export default function SchedulingPage() {
     if (clientIdFromUrl) {
       setIsNewSessionModalOpen(true);
       form.setValue('clientId', parseInt(clientIdFromUrl));
+      if (therapistIdFromUrl) {
+        form.setValue('therapistId', parseInt(therapistIdFromUrl));
+      }
       if (clientNameFromUrl) {
         setSearchQuery(decodeURIComponent(clientNameFromUrl));
       }
     }
-  }, [clientIdFromUrl, clientNameFromUrl, form]);
+  }, [clientIdFromUrl, clientNameFromUrl, therapistIdFromUrl, form]);
 
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
@@ -375,6 +380,7 @@ export default function SchedulingPage() {
                               <Select 
                                 onValueChange={(value) => field.onChange(parseInt(value))}
                                 value={field.value?.toString()}
+                                disabled={!!clientIdFromUrl}
                               >
                                 <FormControl>
                                   <SelectTrigger>
@@ -400,7 +406,11 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Therapist</FormLabel>
-                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                              <Select 
+                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                value={field.value?.toString()}
+                                disabled={!!therapistIdFromUrl}
+                              >
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select therapist" />

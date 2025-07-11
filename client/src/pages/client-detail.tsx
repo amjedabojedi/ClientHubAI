@@ -854,7 +854,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center space-x-2">
                 <Button 
                   size="sm"
-                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
+                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Schedule Session
