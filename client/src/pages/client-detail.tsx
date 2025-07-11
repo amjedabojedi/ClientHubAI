@@ -200,10 +200,7 @@ export default function ClientDetailPage() {
               <FileText className="w-4 h-4" />
               <span>Session Notes</span>
             </TabsTrigger>
-            <TabsTrigger value="notes" className="flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
-              <span>Notes</span>
-            </TabsTrigger>
+
             <TabsTrigger value="assessments" className="flex items-center space-x-2">
               <ClipboardList className="w-4 h-4" />
               <span>Assessments</span>
@@ -639,73 +636,6 @@ export default function ClientDetailPage() {
             <SessionNotesManager clientId={clientId!} sessions={sessions} />
           </TabsContent>
 
-          {/* Notes Tab */}
-          <TabsContent value="notes" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Clinical Notes</h2>
-              <div className="flex items-center space-x-2">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                  <Input
-                    placeholder="Search notes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-64"
-                  />
-                </div>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Note
-                </Button>
-              </div>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Clinical Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {notes.length > 0 ? (
-                  <div className="space-y-4">
-                    {notes
-                      .filter((note: Note) => 
-                        !searchQuery || 
-                        note.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        note.title?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .map((note: Note) => (
-                      <div key={note.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900 mb-1">
-                              {note.title || 'Clinical Note'}
-                            </h4>
-                            <div className="flex items-center space-x-4 text-sm text-slate-500">
-                              <span>
-                                {note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'No date'}
-                              </span>
-                              {note.author && (
-                                <span>By: {note.author.fullName}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-md">
-                          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{note.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-slate-500 font-medium">No clinical notes yet</p>
-                    <p className="text-slate-400 text-sm">Add your first note to track client progress</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Assessments Tab */}
           <TabsContent value="assessments" className="space-y-6">
