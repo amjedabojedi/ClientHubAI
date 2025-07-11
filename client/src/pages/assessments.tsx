@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { CreateTemplateModal } from "@/components/assessments/create-template-modal";
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
 
 interface AssessmentTemplateWithDetails extends AssessmentTemplate {
@@ -37,6 +38,7 @@ export default function AssessmentsPage() {
   const [activeTab, setActiveTab] = useState("templates");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -116,7 +118,7 @@ export default function AssessmentsPage() {
             Manage assessment templates and track client assessment progress
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Template
         </Button>
@@ -242,7 +244,7 @@ export default function AssessmentsPage() {
                   ? "No templates match your current filters." 
                   : "Create your first assessment template to get started."}
               </p>
-              <Button>
+              <Button onClick={() => setShowCreateModal(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Template
               </Button>
@@ -322,6 +324,11 @@ export default function AssessmentsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <CreateTemplateModal 
+        open={showCreateModal} 
+        onOpenChange={setShowCreateModal} 
+      />
     </div>
   );
 }
