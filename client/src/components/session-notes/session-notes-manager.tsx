@@ -131,6 +131,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
+  const [isFromSessionClick, setIsFromSessionClick] = useState(false); // Track if came from session click
   
   // Risk Assessment State
   const [riskFactors, setRiskFactors] = useState({
@@ -506,6 +507,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   useEffect(() => {
     if (preSelectedSessionId && preSelectedSessionId !== selectedSession) {
       setSelectedSession(preSelectedSessionId);
+      setIsFromSessionClick(true); // Mark that we came from a session click
       // Automatically open the add note dialog when session is pre-selected
       setIsAddNoteOpen(true);
       // Pre-populate the form with the selected session
@@ -574,6 +576,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const handleAddNote = () => {
     resetFormForNewNote();
     setEditingNote(null);
+    setIsFromSessionClick(false); // Reset when manually adding note
     
     // Auto-populate session if one is selected
     if (selectedSession) {
@@ -1001,10 +1004,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       <Select 
                         onValueChange={(value) => field.onChange(parseInt(value))} 
                         value={field.value?.toString()}
-                        disabled={!!preSelectedSessionId} // Disable when pre-selected
+                        disabled={isFromSessionClick} // Disable when came from session click
                       >
                         <FormControl>
-                          <SelectTrigger className={preSelectedSessionId ? "opacity-75" : ""}>
+                          <SelectTrigger className={isFromSessionClick ? "opacity-75 cursor-not-allowed" : ""}>
                             <SelectValue placeholder="Select a session" />
                           </SelectTrigger>
                         </FormControl>
@@ -1016,10 +1019,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           ))}
                         </SelectContent>
                       </Select>
-                      {preSelectedSessionId && (
+                      {isFromSessionClick && field.value && (
                         <p className="text-xs text-muted-foreground">
-                          Session pre-selected from client profile - {sessions.find(s => s.id === preSelectedSessionId) ? 
-                            `${format(new Date(sessions.find(s => s.id === preSelectedSessionId)!.sessionDate), 'MMM dd, yyyy')} - ${sessions.find(s => s.id === preSelectedSessionId)!.sessionType}` : 
+                          Session pre-selected from client profile - {sessions.find(s => s.id === field.value) ? 
+                            `${format(new Date(sessions.find(s => s.id === field.value)!.sessionDate), 'MMM dd, yyyy')} - ${sessions.find(s => s.id === field.value)!.sessionType}` : 
                             'Session details'}
                         </p>
                       )}
