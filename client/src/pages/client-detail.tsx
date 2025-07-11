@@ -188,19 +188,33 @@ export default function ClientDetailPage() {
   const uploadDocumentMutation = useMutation({
     mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string }) => {
       console.log("Starting upload for:", data.fileName);
-      const response = await apiRequest({
-        url: `/api/clients/${clientId}/documents`,
-        method: "POST",
-        data: {
-          fileName: data.fileName,
-          originalName: data.fileName,
-          mimeType: data.fileType,
-          fileSize: data.fileSize,
-          category: "uploaded"
+      
+      try {
+        const response = await fetch(`/api/clients/${clientId}/documents`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: data.fileName,
+            originalName: data.fileName,
+            mimeType: data.fileType,
+            fileSize: data.fileSize,
+            category: "uploaded"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      });
-      console.log("Upload response:", response);
-      return response;
+        
+        const result = await response.json();
+        console.log("Upload response:", result);
+        return result;
+      } catch (error) {
+        console.error("Upload error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
