@@ -33,7 +33,8 @@ import {
   Phone,
   Mail,
   MapPin,
-  Clock
+  Clock,
+  Eye
 } from "lucide-react";
 
 // Utils and Types
