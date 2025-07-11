@@ -202,6 +202,50 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     toast({ title: "Content copied to clipboard" });
   };
 
+  // Print function for generated content
+  const handlePrint = () => {
+    if (!generatedContent) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      const formValues = form.getValues();
+      const currentClient = clientsData?.clients.find(c => c.id === clientId);
+      const currentSession = sessionsData?.find(s => s.id === formValues.sessionId);
+      
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Session Note - ${currentClient?.fullName}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+              .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+              .client-info { margin-bottom: 20px; }
+              .content { white-space: pre-wrap; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Clinical Session Note</h1>
+            </div>
+            <div class="client-info">
+              <p><strong>Client:</strong> ${currentClient?.fullName || 'N/A'}</p>
+              <p><strong>Client ID:</strong> ${currentClient?.clientId || 'N/A'}</p>
+              <p><strong>Session Date:</strong> ${currentSession ? new Date(currentSession.sessionDate).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Session Type:</strong> ${currentSession?.sessionType || 'N/A'}</p>
+              <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
+            </div>
+            <div class="content">
+              ${generatedContent.replace(/\n/g, '<br>')}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
 
 
   // AI Template generation with custom instructions
@@ -209,6 +253,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [customInstructions, setCustomInstructions] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [savedTemplate, setSavedTemplate] = useState<string>('');
+  const [generatedContent, setGeneratedContent] = useState<string>('');
+  const [showPreview, setShowPreview] = useState(false);
 
   const generateAITemplateMutation = useMutation({
     mutationFn: async (data: { clientId: number; sessionId?: number; formData: any; customInstructions: string }) => {
@@ -216,11 +262,25 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       return await response.json();
     },
     onSuccess: (result) => {
-      form.setValue('content', result.generatedContent);
-      setIsAITemplateOpen(false);
-      setCustomInstructions('');
+      setGeneratedContent(result.generatedContent);
+      form.setValue('sessionNotes', result.generatedContent);
       setIsGeneratingAI(false);
-      toast({ title: "AI template generated successfully" });
+      setShowPreview(true);
+      
+      // Auto-save the generated content as a session note
+      const formValues = form.getValues();
+      if (formValues.sessionId) {
+        const sessionNoteData = {
+          ...formValues,
+          sessionNotes: result.generatedContent,
+          aiGenerated: true,
+          aiInstructions: savedTemplate
+        };
+        
+        createSessionNoteMutation.mutate(sessionNoteData);
+      }
+      
+      toast({ title: "AI content generated and saved! Review in preview or print." });
     },
     onError: (error: any) => {
       console.error('AI template generation error:', error);
@@ -1317,6 +1377,59 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             >
               <Brain className="h-4 w-4 mr-2" />
               Save Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog for Generated Content */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>AI Generated Session Note - Preview</DialogTitle>
+            <DialogDescription>
+              Review the generated content. You can save it to session notes, print it, or copy to clipboard.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[60vh] p-4 border rounded-md">
+            <div className="whitespace-pre-wrap text-sm">
+              {generatedContent}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => copyToClipboard(generatedContent)}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePrint}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowPreview(false)}
+            >
+              Close Preview
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowPreview(false);
+                toast({ title: "Session note already saved! You can view it in the Session Notes tab." });
+              }}
+            >
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>
