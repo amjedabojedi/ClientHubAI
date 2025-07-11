@@ -187,7 +187,8 @@ export default function ClientDetailPage() {
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
     mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string }) => {
-      return await apiRequest({
+      console.log("Starting upload for:", data.fileName);
+      const response = await apiRequest({
         url: `/api/clients/${clientId}/documents`,
         method: "POST",
         data: {
@@ -198,6 +199,8 @@ export default function ClientDetailPage() {
           category: "uploaded"
         }
       });
+      console.log("Upload response:", response);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
@@ -208,9 +211,10 @@ export default function ClientDetailPage() {
       handleUploadCancel();
     },
     onError: (error) => {
+      console.error("Upload error:", error);
       toast({
         title: "Error",
-        description: "Failed to upload document",
+        description: `Failed to upload document: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
     }
