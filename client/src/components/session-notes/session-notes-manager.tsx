@@ -1073,9 +1073,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="clinical">Clinical Documentation</TabsTrigger>
-                  <TabsTrigger value="tracking">Assessment & Tracking</TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
 
@@ -1259,90 +1258,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     )}
                   />
                 </TabsContent>
-
-                {/* Assessment & Tracking Tab */}
-                <TabsContent value="tracking" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="assessments"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Clinical Assessments</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Clinical assessments and observations..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="homework"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Homework/Action Items</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Tasks and assignments for client..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="moodBefore"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mood Before Session (1-10)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              min="1" 
-                              max="10" 
-                              placeholder="Rate 1-10"
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="moodAfter"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mood After Session (1-10)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              min="1" 
-                              max="10" 
-                              placeholder="Rate 1-10"
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </TabsContent>
-
 
 
                 {/* Risk & Privacy Settings Tab */}
