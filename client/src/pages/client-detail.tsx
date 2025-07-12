@@ -162,6 +162,7 @@ export default function ClientDetailPage() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
+  const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
 
   // React Query
   const queryClient = useQueryClient();
@@ -269,7 +270,7 @@ export default function ClientDetailPage() {
     }
   };
 
-  const handleGenerateInvoice = async (action: 'download' | 'print' | 'email') => {
+  const handleGenerateInvoice = async (action: 'download' | 'print' | 'email' | 'preview', billingId?: number) => {
     try {
       if (billingRecords.length === 0) {
         toast({
@@ -280,14 +281,25 @@ export default function ClientDetailPage() {
         return;
       }
 
+      // For preview action, just set the selected billing record and open modal
+      if (action === 'preview') {
+        const record = billingRecords.find(r => r.id === billingId);
+        if (record) {
+          setSelectedBillingRecord(record);
+          setIsInvoicePreviewOpen(true);
+        }
+        return;
+      }
+
       const response = await fetch(`/api/clients/${clientId}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, billingId }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate invoice');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate invoice');
       }
 
       if (action === 'download') {
@@ -295,7 +307,7 @@ export default function ClientDetailPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
+        a.download = `invoice-${client.clientId}-${billingId || 'all'}-${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -306,17 +318,25 @@ export default function ClientDetailPage() {
           description: "Invoice has been downloaded successfully.",
         });
       } else if (action === 'print') {
-        window.print();
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          const htmlContent = await response.text();
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+        }
       } else if (action === 'email') {
+        const result = await response.json();
         toast({
           title: "Email sent",
-          description: "Invoice has been sent to client's email address.",
+          description: result.message || "Invoice has been sent to client's email address.",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to generate invoice. Please try again.",
+        description: error.message || "Failed to generate invoice. Please try again.",
         variant: "destructive",
       });
     }
@@ -1198,24 +1218,7 @@ export default function ClientDetailPage() {
           <TabsContent value="billing" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-900">Billing & Insurance</h2>
-              <div className="flex space-x-2">
-                <Button variant="outline" onClick={() => setIsInvoicePreviewOpen(true)}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Preview Invoice
-                </Button>
-                <Button onClick={() => handleGenerateInvoice('download')}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Invoice
-                </Button>
-                <Button variant="outline" onClick={() => handleGenerateInvoice('print')}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  Print Invoice
-                </Button>
-                <Button variant="outline" onClick={() => handleGenerateInvoice('email')}>
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email Invoice
-                </Button>
-              </div>
+              <p className="text-slate-600">Generate individual invoices for each service below</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1294,6 +1297,33 @@ export default function ClientDetailPage() {
                               </p>
                             </div>
                           )}
+                          
+                          <div className="mt-3 flex space-x-2 pt-2 border-t border-slate-200">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleGenerateInvoice('preview', billing.id)}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              Preview Invoice
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleGenerateInvoice('download', billing.id)}
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              Download
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleGenerateInvoice('email', billing.id)}
+                            >
+                              <Mail className="w-3 h-3 mr-1" />
+                              Email
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1472,94 +1502,99 @@ export default function ClientDetailPage() {
           <DialogHeader>
             <DialogTitle>Invoice Preview</DialogTitle>
             <DialogDescription>
-              Preview invoice for {client.fullName}
+              Preview invoice for {client.fullName} - {selectedBillingRecord ? `Service: ${selectedBillingRecord.serviceCode}` : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-auto">
             <div className="p-8 bg-white border rounded-lg">
-              {/* Invoice Header */}
-              <div className="flex justify-between items-start mb-8">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
-                  <p className="text-slate-600">Invoice #: INV-{client.clientId}-{new Date().getFullYear()}</p>
-                  <p className="text-slate-600">Date: {new Date().toLocaleDateString()}</p>
-                </div>
-                <div className="text-right">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Healthcare Services</h3>
-                  <p className="text-slate-600">Professional Mental Health Services</p>
-                  <p className="text-slate-600">Licensed Clinical Practice</p>
-                </div>
-              </div>
-
-              {/* Client Information */}
-              <div className="grid grid-cols-2 gap-8 mb-8">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Bill To:</h3>
-                  <p className="text-slate-600">{client.fullName}</p>
-                  <p className="text-slate-600">{client.address}</p>
-                  <p className="text-slate-600">{client.phone}</p>
-                  <p className="text-slate-600">{client.email}</p>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Insurance Info:</h3>
-                  <p className="text-slate-600">Provider: {client.insuranceProvider}</p>
-                  <p className="text-slate-600">Policy: {client.insurancePolicyNumber}</p>
-                  <p className="text-slate-600">Group: {client.insuranceGroupNumber}</p>
-                </div>
-              </div>
-
-              {/* Services Table */}
-              <div className="mb-8">
-                <table className="w-full border-collapse border border-slate-200">
-                  <thead>
-                    <tr className="bg-slate-50">
-                      <th className="border border-slate-200 px-4 py-2 text-left">Service</th>
-                      <th className="border border-slate-200 px-4 py-2 text-left">CPT Code</th>
-                      <th className="border border-slate-200 px-4 py-2 text-left">Date</th>
-                      <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {billingRecords.map((record, index) => (
-                      <tr key={index}>
-                        <td className="border border-slate-200 px-4 py-2">{record.serviceName}</td>
-                        <td className="border border-slate-200 px-4 py-2">{record.serviceCode}</td>
-                        <td className="border border-slate-200 px-4 py-2">{new Date(record.serviceDate).toLocaleDateString()}</td>
-                        <td className="border border-slate-200 px-4 py-2 text-right">${record.amount}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals */}
-              <div className="flex justify-end">
-                <div className="w-64">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-slate-600">Subtotal:</span>
-                    <span className="text-slate-900">${billingRecords.reduce((sum, record) => sum + Number(record.amount), 0).toFixed(2)}</span>
+              {selectedBillingRecord && (
+                <>
+                  {/* Invoice Header */}
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
+                      <p className="text-slate-600">Invoice #: INV-{client.clientId}-{selectedBillingRecord.id}</p>
+                      <p className="text-slate-600">Date: {new Date().toLocaleDateString()}</p>
+                      <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">Healthcare Services</h3>
+                      <p className="text-slate-600">Professional Mental Health Services</p>
+                      <p className="text-slate-600">Licensed Clinical Practice</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-slate-600">Insurance Coverage:</span>
-                    <span className="text-slate-900">-${billingRecords.reduce((sum, record) => sum + (Number(record.amount) * 0.8), 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-slate-600">Copay Amount:</span>
-                    <span className="text-slate-900">${billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-lg border-t pt-2">
-                    <span>Total Due:</span>
-                    <span>${billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0).toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Payment Terms */}
-              <div className="mt-8 p-4 bg-slate-50 rounded-lg">
-                <h3 className="font-semibold text-slate-900 mb-2">Payment Terms</h3>
-                <p className="text-sm text-slate-600">Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
-                <p className="text-sm text-slate-600 mt-2">Thank you for choosing our mental health services.</p>
-              </div>
+                  {/* Client Information */}
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">Bill To:</h3>
+                      <p className="text-slate-600">{client.fullName}</p>
+                      <p className="text-slate-600">{client.address}</p>
+                      <p className="text-slate-600">{client.phone}</p>
+                      <p className="text-slate-600">{client.email}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">Insurance Info:</h3>
+                      <p className="text-slate-600">Provider: {client.insuranceProvider}</p>
+                      <p className="text-slate-600">Policy: {client.insurancePolicyNumber}</p>
+                      <p className="text-slate-600">Group: {client.insuranceGroupNumber}</p>
+                    </div>
+                  </div>
+
+                  {/* Services Table */}
+                  <div className="mb-8">
+                    <table className="w-full border-collapse border border-slate-200">
+                      <thead>
+                        <tr className="bg-slate-50">
+                          <th className="border border-slate-200 px-4 py-2 text-left">Service</th>
+                          <th className="border border-slate-200 px-4 py-2 text-left">CPT Code</th>
+                          <th className="border border-slate-200 px-4 py-2 text-left">Date</th>
+                          <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.serviceName}</td>
+                          <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.serviceCode}</td>
+                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</td>
+                          <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.amount).toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Totals */}
+                  <div className="flex justify-end">
+                    <div className="w-64">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-slate-600">Service Amount:</span>
+                        <span className="text-slate-900">${Number(selectedBillingRecord.amount).toFixed(2)}</span>
+                      </div>
+                      {selectedBillingRecord.insuranceCovered && (
+                        <div className="flex justify-between mb-2">
+                          <span className="text-slate-600">Insurance Coverage:</span>
+                          <span className="text-slate-900">-${(Number(selectedBillingRecord.amount) * 0.8).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between mb-2">
+                        <span className="text-slate-600">Copay Amount:</span>
+                        <span className="text-slate-900">${Number(selectedBillingRecord.copayAmount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                        <span>Total Due:</span>
+                        <span>${Number(selectedBillingRecord.copayAmount || selectedBillingRecord.amount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Terms */}
+                  <div className="mt-8 p-4 bg-slate-50 rounded-lg">
+                    <h3 className="font-semibold text-slate-900 mb-2">Payment Terms</h3>
+                    <p className="text-sm text-slate-600">Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
+                    <p className="text-sm text-slate-600 mt-2">Thank you for choosing our mental health services.</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <DialogFooter>

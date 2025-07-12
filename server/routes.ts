@@ -1629,7 +1629,7 @@ This happens because only the file metadata was stored, not the actual file cont
   app.post("/api/clients/:clientId/invoice", async (req, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
-      const { action } = req.body;
+      const { action, billingId } = req.body;
       
       if (!['download', 'print', 'email'].includes(action)) {
         return res.status(400).json({ message: "Invalid action. Use 'download', 'print', or 'email'" });
@@ -1641,10 +1641,22 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Client not found" });
       }
       
-      // Get billing records
-      const billingRecords = await storage.getBillingRecordsByClient(clientId);
-      if (billingRecords.length === 0) {
-        return res.status(404).json({ message: "No billing records found for this client" });
+      // Get billing records - either specific one or all for client
+      let billingRecords;
+      if (billingId) {
+        // Get single billing record
+        const allRecords = await storage.getBillingRecordsByClient(clientId);
+        const singleRecord = allRecords.find(r => r.id === billingId);
+        if (!singleRecord) {
+          return res.status(404).json({ message: "Billing record not found" });
+        }
+        billingRecords = [singleRecord];
+      } else {
+        // Get all billing records for client
+        billingRecords = await storage.getBillingRecordsByClient(clientId);
+        if (billingRecords.length === 0) {
+          return res.status(404).json({ message: "No billing records found for this client" });
+        }
       }
       
       // Generate invoice HTML
@@ -1652,11 +1664,15 @@ This happens because only the file metadata was stored, not the actual file cont
       const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.amount) * 0.8), 0);
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
       
+      // Generate unique invoice number
+      const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
+      const serviceDate = billingRecords.length === 1 ? billingRecords[0].serviceDate : null;
+      
       const invoiceHtml = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Invoice - ${client.fullName}</title>
+          <title>Invoice - ${client.fullName}${billingId ? ` - ${billingRecords[0].serviceCode}` : ''}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 40px; }
             .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
@@ -1678,8 +1694,9 @@ This happens because only the file metadata was stored, not the actual file cont
           <div class="header">
             <div>
               <h1 class="invoice-title">INVOICE</h1>
-              <p>Invoice #: INV-${client.clientId}-${new Date().getFullYear()}</p>
+              <p>Invoice #: ${invoiceNumber}</p>
               <p>Date: ${new Date().toLocaleDateString()}</p>
+              ${serviceDate ? `<p>Service Date: ${new Date(serviceDate).toLocaleDateString()}</p>` : ''}
             </div>
             <div class="company-info">
               <h3>Healthcare Services</h3>
@@ -1727,20 +1744,21 @@ This happens because only the file metadata was stored, not the actual file cont
           
           <div class="totals">
             <div class="total-row">
-              <span>Subtotal:</span>
+              <span>${billingRecords.length === 1 ? 'Service Amount:' : 'Subtotal:'}</span>
               <span>$${subtotal.toFixed(2)}</span>
             </div>
+            ${billingRecords.some(r => r.insuranceCovered) ? `
             <div class="total-row">
               <span>Insurance Coverage:</span>
               <span>-$${insuranceCoverage.toFixed(2)}</span>
-            </div>
+            </div>` : ''}
             <div class="total-row">
               <span>Copay Amount:</span>
               <span>$${copayTotal.toFixed(2)}</span>
             </div>
             <div class="total-row total-due">
               <span>Total Due:</span>
-              <span>$${copayTotal.toFixed(2)}</span>
+              <span>$${copayTotal > 0 ? copayTotal.toFixed(2) : subtotal.toFixed(2)}</span>
             </div>
           </div>
           
