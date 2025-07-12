@@ -652,22 +652,16 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                           )}
                           
                           {question.type === "rating_scale" && (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {question.options && question.options.length > 0 ? (
-                                <>
-                                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                    <span>Rating Scale</span>
-                                    <span>{question.options.length} points</span>
-                                  </div>
-                                  <div className="flex space-x-2 overflow-x-auto">
-                                    {question.options.map((option, optionIndex) => (
-                                      <div key={optionIndex} className="flex flex-col items-center space-y-1 min-w-0">
-                                        <input type="radio" name={`preview-rating-${sectionIndex}-${questionIndex}`} disabled className="text-blue-600" />
-                                        <Label className="text-xs text-center break-words">{option}</Label>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </>
+                                <div className="flex space-x-4 overflow-x-auto py-2">
+                                  {question.options.map((option, optionIndex) => (
+                                    <div key={optionIndex} className="flex flex-col items-center space-y-2 min-w-0">
+                                      <input type="radio" name={`preview-rating-${sectionIndex}-${questionIndex}`} disabled className="text-blue-600" />
+                                      <Label className="text-xs text-center break-words">{option}</Label>
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
                                 <div className="text-center py-4 text-muted-foreground text-sm border-2 border-dashed border-gray-300 rounded">
                                   No rating scale options configured. Switch to edit mode to add options.
