@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 // Icons
-import { Plus, Trash2, Save, Copy } from "lucide-react";
+import { Plus, Trash2, Save, Copy, ArrowLeft, GripVertical } from "lucide-react";
 
 // Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
