@@ -1229,33 +1229,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createAssessmentSection(data: InsertAssessmentSection): Promise<AssessmentSection> {
 
-    const [section] = await db.insert(assessmentSections).values(data).returning();
-    return section;
-  }
-
-  async updateAssessmentSection(id: number, data: Partial<InsertAssessmentSection>): Promise<AssessmentSection> {
-    const [section] = await db.update(assessmentSections)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(assessmentSections.id, id))
-      .returning();
-    return section;
-  }
-
-  // Assessment Question Methods
-  async createAssessmentQuestion(data: InsertAssessmentQuestion): Promise<AssessmentQuestion> {
-    const [question] = await db.insert(assessmentQuestions).values(data).returning();
-    return question;
-  }
-
-  async updateAssessmentQuestion(id: number, data: Partial<InsertAssessmentQuestion>): Promise<AssessmentQuestion> {
-    const [question] = await db.update(assessmentQuestions)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(assessmentQuestions.id, id))
-      .returning();
-    return question;
-  }
 
   // Assessment Question Options Methods
   async getAssessmentQuestionOptions(questionId: number): Promise<AssessmentQuestionOption[]> {

@@ -343,18 +343,13 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             // Create new question
             const result = await apiRequest(`/api/assessments/questions`, "POST", questionData);
             questionId = result.id;
-            
-            // Ensure questionId is properly assigned
-            if (!questionId) {
-              throw new Error(`Failed to get question ID from server response: ${JSON.stringify(result)}`);
-            }
           }
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
             // Only proceed if we have a valid questionId
             if (!questionId) {
-              throw new Error(`Question ID is missing for question: "${question.text}" (type: ${question.type})`);
+              throw new Error("Question ID is missing - cannot create options");
             }
 
             // Delete ALL existing options first with single API call

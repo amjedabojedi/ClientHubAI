@@ -1285,6 +1285,12 @@ This happens because only the file metadata was stored, not the actual file cont
     try {
       const questionData = req.body;
       const question = await storage.createAssessmentQuestion(questionData);
+      
+      // Debug: ensure question has ID
+      if (!question || !question.id) {
+        throw new Error("Question creation failed - no ID returned");
+      }
+      
       res.status(201).json(question);
     } catch (error) {
       console.error("Error creating assessment question:", error);
