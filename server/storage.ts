@@ -1490,7 +1490,7 @@ export class DatabaseStorage implements IStorage {
     return updatedSession;
   }
 
-  async createSessionBilling(sessionId: number): Promise<SelectSessionBilling> {
+  async createSessionBilling(sessionId: number): Promise<SelectSessionBilling | null> {
     // Get session and service information
     const [sessionData] = await db.select({
       session: sessions,
@@ -1505,7 +1505,9 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (!sessionData.service) {
-      throw new Error('Service not found for this session');
+      // Skip billing for sessions without service information
+      console.log(`Skipping billing for session ${sessionId} - no service information`);
+      return null;
     }
     
     // Create billing record

@@ -247,12 +247,16 @@ export default function SchedulingPage() {
     mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
       return apiRequest(`/api/sessions/${sessionId}/status`, "PUT", { status });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Invalidate all session-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
+      
       // Update the selected session state to reflect the change
       if (selectedSession) {
-        setSelectedSession({ ...selectedSession, status: updateSessionMutation.variables?.status as any });
+        setSelectedSession({ ...selectedSession, status: variables.status as any });
       }
+      
       toast({
         title: "Success",
         description: "Session status updated successfully",
