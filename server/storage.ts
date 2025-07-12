@@ -1432,10 +1432,25 @@ export class DatabaseStorage implements IStorage {
 
   // Update assessment assignment status and completion details
   async updateAssessmentAssignment(assignmentId: number, updateData: any): Promise<AssessmentAssignment> {
+    // Convert date strings to Date objects
+    const processedData = { ...updateData };
+    if (processedData.completedAt && typeof processedData.completedAt === 'string') {
+      processedData.completedAt = new Date(processedData.completedAt);
+    }
+    if (processedData.therapistCompletedAt && typeof processedData.therapistCompletedAt === 'string') {
+      processedData.therapistCompletedAt = new Date(processedData.therapistCompletedAt);
+    }
+    if (processedData.clientSubmittedAt && typeof processedData.clientSubmittedAt === 'string') {
+      processedData.clientSubmittedAt = new Date(processedData.clientSubmittedAt);
+    }
+    if (processedData.finalizedAt && typeof processedData.finalizedAt === 'string') {
+      processedData.finalizedAt = new Date(processedData.finalizedAt);
+    }
+
     const [assignment] = await db
       .update(assessmentAssignments)
       .set({
-        ...updateData,
+        ...processedData,
         updatedAt: new Date()
       })
       .where(eq(assessmentAssignments.id, assignmentId))

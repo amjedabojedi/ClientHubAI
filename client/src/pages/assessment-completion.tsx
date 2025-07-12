@@ -137,10 +137,11 @@ export default function AssessmentCompletionPage() {
   // Complete assessment mutation
   const completeAssessmentMutation = useMutation({
     mutationFn: async () => {
+      const now = new Date().toISOString();
       return apiRequest(`/api/assessments/assignments/${assignmentId}`, "PATCH", {
         status: 'completed',
-        completedAt: new Date().toISOString(),
-        therapistCompletedAt: new Date().toISOString()
+        completedAt: now,
+        therapistCompletedAt: now
       });
     },
     onSuccess: () => {
