@@ -304,6 +304,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Client Assessment Assignment routes
+  app.get("/api/clients/:clientId/assessments", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const assessments = await storage.getClientAssessments(clientId);
+      res.json(assessments);
+    } catch (error) {
+      console.error("Error fetching client assessments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/clients/:clientId/assessments", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const { templateId, assignedBy, status = 'assigned' } = req.body;
+      
+      const assessmentData = {
+        clientId,
+        templateId,
+        assignedBy,
+        assignedDate: new Date(),
+        status,
+        responses: null,
+        completedDate: null
+      };
+      
+      const assessment = await storage.assignAssessmentToClient(assessmentData);
+      res.status(201).json(assessment);
+    } catch (error) {
+      console.error("Error assigning assessment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/clients/:clientId/documents", async (req, res) => {
     try {
 

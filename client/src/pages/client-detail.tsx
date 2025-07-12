@@ -560,6 +560,40 @@ export default function ClientDetailPage() {
     }
   };
 
+  // Assessment handler functions
+  const handleAssignAssessment = async (templateId: number) => {
+    try {
+      const response = await apiRequest(`/api/clients/${clientId}/assessments`, "POST", {
+        templateId,
+        assignedDate: new Date().toISOString(),
+        assignedBy: 1, // Current therapist ID - should be from auth context
+        status: 'assigned'
+      });
+
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      toast({
+        title: "Assessment assigned",
+        description: "Assessment template has been assigned to client successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign assessment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCompleteAssessment = (assessmentId: number) => {
+    // Navigate to assessment completion page
+    window.location.href = `/assessments/${assessmentId}/complete`;
+  };
+
+  const handleViewAssessmentReport = (assessmentId: number) => {
+    // Navigate to assessment report page
+    window.location.href = `/assessments/${assessmentId}/report`;
+  };
+
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -592,6 +626,23 @@ export default function ClientDetailPage() {
 
   const { data: billingRecords = [] } = useQuery({
     queryKey: [`/api/clients/${clientId}/billing`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
+  // Assessment queries
+  const { data: availableTemplates = [] } = useQuery({
+    queryKey: ['/api/assessments/templates'],
+    queryFn: getQueryFn({ on401: "throw" }),
+    select: (data: any[]) => data.map(template => ({
+      ...template,
+      sectionCount: template.sectionCount || 0,
+      questionCount: template.questionCount || 0
+    }))
+  });
+
+  const { data: assignedAssessments = [] } = useQuery({
+    queryKey: [`/api/clients/${clientId}/assessments`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
@@ -1194,37 +1245,164 @@ export default function ClientDetailPage() {
           {/* Assessments Tab */}
           <TabsContent value="assessments" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Assessments</h2>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                New Assessment
-              </Button>
+              <h2 className="text-xl font-semibold text-slate-900">Client Assessments</h2>
+              <Select onValueChange={(templateId) => handleAssignAssessment(parseInt(templateId))}>
+                <SelectTrigger className="w-60">
+                  <SelectValue placeholder="Assign Assessment Template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id.toString()}>
+                      <div className="flex items-center space-x-2">
+                        <ClipboardList className="w-4 h-4" />
+                        <span>{template.title}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Assessment Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
-                <CardHeader>
-                  <CardTitle>Assessment History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-slate-600">No assessments completed yet.</p>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-blue-600">{assignedAssessments.length}</div>
+                  <p className="text-sm text-slate-600">Total Assigned</p>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader>
-                  <CardTitle>Available Templates</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <p className="text-slate-600">• Initial Assessment</p>
-                    <p className="text-slate-600">• Progress Review</p>
-                    <p className="text-slate-600">• Treatment Plan</p>
-                    <p className="text-slate-600">• Discharge Assessment</p>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-green-600">
+                    {assignedAssessments.filter(a => a.status === 'completed').length}
                   </div>
+                  <p className="text-sm text-slate-600">Completed</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {assignedAssessments.filter(a => a.status === 'in_progress').length}
+                  </div>
+                  <p className="text-sm text-slate-600">In Progress</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-slate-600">
+                    {assignedAssessments.filter(a => a.status === 'assigned').length}
+                  </div>
+                  <p className="text-sm text-slate-600">Pending</p>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Assessment List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Assessment History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {assignedAssessments.length > 0 ? (
+                  <div className="space-y-4">
+                    {assignedAssessments.map((assessment) => (
+                      <div key={assessment.id} className="border rounded-lg p-4 hover:bg-slate-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-full ${
+                              assessment.status === 'completed' ? 'bg-green-100' :
+                              assessment.status === 'in_progress' ? 'bg-yellow-100' :
+                              'bg-blue-100'
+                            }`}>
+                              <ClipboardList className={`w-4 h-4 ${
+                                assessment.status === 'completed' ? 'text-green-600' :
+                                assessment.status === 'in_progress' ? 'text-yellow-600' :
+                                'text-blue-600'
+                              }`} />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-slate-900">{assessment.template.title}</h4>
+                              <p className="text-sm text-slate-600">
+                                Assigned: {new Date(assessment.assignedDate).toLocaleDateString()}
+                                {assessment.completedDate && (
+                                  <span> • Completed: {new Date(assessment.completedDate).toLocaleDateString()}</span>
+                                )}
+                              </p>
+                              {assessment.template.description && (
+                                <p className="text-sm text-slate-500 mt-1">{assessment.template.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge className={`${
+                              assessment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              assessment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace('_', ' ')}
+                            </Badge>
+                            {assessment.status === 'completed' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewAssessmentReport(assessment.id)}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Report
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCompleteAssessment(assessment.id)}
+                              >
+                                <CheckSquare className="w-4 h-4 mr-2" />
+                                Complete
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ClipboardList className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No assessments assigned yet</p>
+                    <p className="text-slate-400 text-sm">Use the dropdown above to assign an assessment template</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Available Templates Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Assessment Templates</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {availableTemplates.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {availableTemplates.map((template) => (
+                      <div key={template.id} className="border rounded-lg p-4">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <ClipboardList className="w-5 h-5 text-blue-600" />
+                          <h4 className="font-semibold text-slate-900">{template.title}</h4>
+                        </div>
+                        {template.description && (
+                          <p className="text-sm text-slate-600 mb-2">{template.description}</p>
+                        )}
+                        <div className="text-xs text-slate-500">
+                          {template.sectionCount} sections • {template.questionCount} questions
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-600">No assessment templates available. Create templates in the Assessments page first.</p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Documents Tab */}

@@ -205,6 +205,10 @@ export interface IStorage {
   updateAssessmentAssignment(id: number, assignment: Partial<InsertAssessmentAssignment>): Promise<AssessmentAssignment>;
   deleteAssessmentAssignment(id: number): Promise<void>;
 
+  // Client Assessment Helper Methods
+  getClientAssessments(clientId: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; assignedBy: User })[]>;
+  assignAssessmentToClient(assignmentData: any): Promise<AssessmentAssignment>;
+
   // Assessment Responses Management
   getAssessmentResponses(assignmentId: number): Promise<(AssessmentResponse & { question: AssessmentQuestion; responder: User })[]>;
   createAssessmentResponse(response: InsertAssessmentResponse): Promise<AssessmentResponse>;
@@ -1293,6 +1297,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAssessmentAssignmentsByTemplateId(templateId: number): Promise<void> {
     await db.delete(assessmentAssignments).where(eq(assessmentAssignments.templateId, templateId));
+  }
+
+  // Client Assessment Helper Methods
+  async getClientAssessments(clientId: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; assignedBy: User })[]> {
+    const results = await db
+      .select()
+      .from(assessmentAssignments)
+      .leftJoin(assessmentTemplates, eq(assessmentAssignments.templateId, assessmentTemplates.id))
+      .leftJoin(users, eq(assessmentAssignments.assignedById, users.id))
+      .where(eq(assessmentAssignments.clientId, clientId))
+      .orderBy(desc(assessmentAssignments.createdAt));
+
+    return results.map(result => ({
+      ...result.assessment_assignments,
+      template: result.assessment_templates!,
+      assignedBy: result.users!
+    }));
+  }
+
+  async assignAssessmentToClient(assignmentData: any): Promise<AssessmentAssignment> {
+    const [assignment] = await db
+      .insert(assessmentAssignments)
+      .values({
+        clientId: assignmentData.clientId,
+        templateId: assignmentData.templateId,
+        assignedById: assignmentData.assignedBy,
+        status: assignmentData.status || 'pending',
+        createdAt: assignmentData.assignedDate || new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return assignment;
   }
 
   // Assessment Responses Management
