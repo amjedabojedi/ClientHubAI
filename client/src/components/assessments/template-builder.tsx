@@ -318,9 +318,19 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
             console.log('Saving options for question:', questionId, 'Type:', question.type, 'Options:', question.options);
             // First, get existing options to determine which to update vs create
-            const existingOptions = questionId 
-              ? await apiRequest(`/api/assessments/questions/${questionId}/options`, "GET")
-              : [];
+            let existingOptions = [];
+            if (questionId) {
+              try {
+                existingOptions = await apiRequest(`/api/assessments/questions/${questionId}/options`, "GET");
+                // Ensure it's always an array
+                if (!Array.isArray(existingOptions)) {
+                  existingOptions = [];
+                }
+              } catch (error) {
+                console.warn('Failed to fetch existing options:', error);
+                existingOptions = [];
+              }
+            }
             console.log('Existing options:', existingOptions);
 
             // Delete existing options that are no longer present
@@ -349,13 +359,19 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               try {
                 if (existingOption?.id) {
                   // Update existing option
+                  console.log('Updating option:', existingOption.id, 'with data:', optionData);
                   await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "PATCH", optionData);
                 } else {
                   // Create new option
-                  await apiRequest(`/api/assessments/question-options`, "POST", optionData);
+                  console.log('Creating new option with data:', optionData);
+                  const result = await apiRequest(`/api/assessments/question-options`, "POST", optionData);
+                  console.log('Created option result:', result);
                 }
               } catch (optionError) {
                 console.error('Error saving option:', optionError, 'Data:', optionData);
+                if (optionError.response) {
+                  console.error('Error response:', optionError.response.data);
+                }
                 throw optionError;
               }
             }
