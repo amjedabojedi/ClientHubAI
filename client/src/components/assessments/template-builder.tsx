@@ -129,10 +129,18 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     // Update the field first
     question[field] = value;
     
-    // If changing question type to one that needs options, always initialize them
+    // If changing question type to one that needs options, initialize them appropriately
     if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
-      question.options = ['Option 1', 'Option 2'];
-      question.scoreValues = [1, 2];
+      if (value === 'rating_scale') {
+        question.options = ['1 - Poor', '2 - Fair', '3 - Good', '4 - Very Good', '5 - Excellent'];
+        question.scoreValues = [1, 2, 3, 4, 5];
+      } else if (value === 'multiple_choice') {
+        question.options = ['Option A', 'Option B', 'Option C'];
+        question.scoreValues = [1, 2, 3];
+      } else if (value === 'checkbox') {
+        question.options = ['Choice 1', 'Choice 2', 'Choice 3'];
+        question.scoreValues = [1, 2, 3];
+      }
     }
     
     // If changing away from option types, clear options
@@ -487,7 +495,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label>
-                              Options {section.isScoring && <span className="text-xs text-muted-foreground">(with scores)</span>}
+                              {question.type === "multiple_choice" && "Answer Choices (select one)"}
+                              {question.type === "checkbox" && "Checkbox Options (select multiple)"}
+                              {question.type === "rating_scale" && "Rating Scale Values"}
+                              {section.isScoring && <span className="text-xs text-muted-foreground"> (with scores)</span>}
                             </Label>
                             <Button variant="outline" size="sm" onClick={() => addOption(sectionIndex, questionIndex)}>
                               <Plus className="h-4 w-4 mr-1" />
