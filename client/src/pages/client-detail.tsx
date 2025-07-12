@@ -163,6 +163,8 @@ export default function ClientDetailPage() {
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentBillingRecord, setPaymentBillingRecord] = useState<any>(null);
 
   // React Query
   const queryClient = useQueryClient();
@@ -472,6 +474,53 @@ export default function ClientDetailPage() {
       });
     }
   });
+
+  // Payment update mutation
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({ billingId, status }: { billingId: number; status: string }) => {
+      const response = await fetch(`/api/billing/${billingId}/payment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update payment status');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/billing`] });
+      toast({
+        title: "Payment recorded",
+        description: "Payment status has been updated successfully.",
+      });
+      setIsPaymentDialogOpen(false);
+      setPaymentBillingRecord(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update payment status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleRecordPayment = (billing: any) => {
+    setPaymentBillingRecord(billing);
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSubmit = (status: string) => {
+    if (paymentBillingRecord) {
+      updatePaymentStatusMutation.mutate({
+        billingId: paymentBillingRecord.id,
+        status
+      });
+    }
+  };
 
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
@@ -1323,6 +1372,16 @@ export default function ClientDetailPage() {
                               <Mail className="w-3 h-3 mr-1" />
                               Email
                             </Button>
+                            {billing.paymentStatus !== 'paid' && (
+                              <Button 
+                                size="sm" 
+                                variant="default"
+                                onClick={() => handleRecordPayment(billing)}
+                              >
+                                <CreditCard className="w-3 h-3 mr-1" />
+                                Record Payment
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1612,6 +1671,81 @@ export default function ClientDetailPage() {
             <Button onClick={() => handleGenerateInvoice('email')}>
               <Mail className="w-4 h-4 mr-2" />
               Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Recording Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+            <DialogDescription>
+              Update payment status for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode} - $${paymentBillingRecord.totalAmount}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="text-center space-y-3">
+              <p className="text-sm text-slate-600">Current Status: 
+                <Badge className={`ml-2 ${
+                  paymentBillingRecord?.paymentStatus === 'paid' 
+                    ? 'bg-green-100 text-green-800' 
+                    : paymentBillingRecord?.paymentStatus === 'pending'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {paymentBillingRecord?.paymentStatus?.charAt(0).toUpperCase() + paymentBillingRecord?.paymentStatus?.slice(1)}
+                </Badge>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  onClick={() => handlePaymentSubmit('paid')}
+                  disabled={updatePaymentStatusMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Mark as Paid
+                </Button>
+                <Button 
+                  onClick={() => handlePaymentSubmit('billed')}
+                  disabled={updatePaymentStatusMutation.isPending}
+                  variant="outline"
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Mark as Billed
+                </Button>
+                <Button 
+                  onClick={() => handlePaymentSubmit('denied')}
+                  disabled={updatePaymentStatusMutation.isPending}
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Mark as Denied
+                </Button>
+                <Button 
+                  onClick={() => handlePaymentSubmit('refunded')}
+                  disabled={updatePaymentStatusMutation.isPending}
+                  variant="outline"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                >
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Mark as Refunded
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsPaymentDialogOpen(false);
+                setPaymentBillingRecord(null);
+              }}
+              disabled={updatePaymentStatusMutation.isPending}
+            >
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
