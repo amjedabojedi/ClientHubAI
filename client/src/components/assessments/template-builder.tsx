@@ -316,7 +316,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
-            console.log('Saving options for question:', questionId, 'Type:', question.type, 'Options:', question.options);
             // First, get existing options to determine which to update vs create
             let existingOptions = [];
             if (questionId) {
@@ -331,7 +330,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 existingOptions = [];
               }
             }
-            console.log('Existing options:', existingOptions);
 
             // Delete existing options that are no longer present
             for (const existingOption of existingOptions) {
@@ -352,26 +350,20 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               const optionData = {
                 questionId: questionId!,
                 optionText: optionText,
-                optionValue: optionValue,
+                optionValue: optionValue.toString(),
                 sortOrder: optionIndex
               };
 
               try {
                 if (existingOption?.id) {
                   // Update existing option
-                  console.log('Updating option:', existingOption.id, 'with data:', optionData);
                   await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "PATCH", optionData);
                 } else {
                   // Create new option
-                  console.log('Creating new option with data:', optionData);
-                  const result = await apiRequest(`/api/assessments/question-options`, "POST", optionData);
-                  console.log('Created option result:', result);
+                  await apiRequest(`/api/assessments/question-options`, "POST", optionData);
                 }
               } catch (optionError) {
-                console.error('Error saving option:', optionError, 'Data:', optionData);
-                if (optionError.response) {
-                  console.error('Error response:', optionError.response.data);
-                }
+                console.error('Error saving option:', optionError);
                 throw optionError;
               }
             }
@@ -385,7 +377,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         description: "All sections and questions have been saved successfully",
       });
     } catch (error: any) {
-      console.error('Save template error:', error);
       toast({
         title: "Save Failed",
         description: error.message || "Unable to save template. Please try again.",
