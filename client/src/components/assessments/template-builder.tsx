@@ -317,6 +317,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           if (question.id) {
             // Update existing question
             await apiRequest(`/api/assessments/questions/${question.id}`, "PATCH", questionData);
+            questionId = question.id;
           } else {
             // Create new question
             const result = await apiRequest(`/api/assessments/questions`, "POST", questionData);
@@ -325,13 +326,16 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
+            // Only proceed if we have a valid questionId
+            if (!questionId) {
+              throw new Error("Question ID is missing - cannot create options");
+            }
+
             // Delete ALL existing options first with single API call
-            if (questionId) {
-              try {
-                await apiRequest(`/api/assessments/questions/${questionId}/options`, "DELETE");
-              } catch (error) {
-                // Ignore error if no options exist
-              }
+            try {
+              await apiRequest(`/api/assessments/questions/${questionId}/options`, "DELETE");
+            } catch (error) {
+              // Ignore error if no options exist
             }
 
             // Create all new options
@@ -340,17 +344,13 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               const optionValue = question.scoreValues[optionIndex] || 0;
 
               const optionData = {
-                questionId: questionId!,
+                questionId: questionId,
                 optionText: optionText,
                 optionValue: optionValue.toString(),
                 sortOrder: optionIndex
               };
 
-              try {
-                await apiRequest(`/api/assessments/question-options`, "POST", optionData);
-              } catch (optionError) {
-                throw optionError;
-              }
+              await apiRequest(`/api/assessments/question-options`, "POST", optionData);
             }
           }
         }
