@@ -121,6 +121,7 @@ export interface IStorage {
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
+  getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]>;
   createSession(session: InsertSession): Promise<Session>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
@@ -458,6 +459,34 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sessions.sessionDate));
 
     return results.map(r => ({ ...r.session, therapist: r.therapist }));
+  }
+
+  async getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const results = await db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .where(
+        and(
+          sql`DATE(${sessions.sessionDate}) >= ${startDate.toISOString().split('T')[0]}`,
+          sql`DATE(${sessions.sessionDate}) <= ${endDate.toISOString().split('T')[0]}`
+        )
+      )
+      .orderBy(desc(sessions.sessionDate));
+
+    return results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client 
+    }));
   }
 
   async createSession(session: InsertSession): Promise<Session> {

@@ -207,6 +207,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Monthly sessions route for calendar
+  app.get("/api/sessions/:year/:month/month", async (req, res) => {
+    try {
+      const year = parseInt(req.params.year);
+      const month = parseInt(req.params.month);
+      
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+        return res.status(400).json({ message: "Invalid year or month" });
+      }
+      
+      const sessions = await storage.getSessionsByMonth(year, month);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching monthly sessions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Tasks routes
   app.get("/api/clients/:clientId/tasks", async (req, res) => {
     try {
