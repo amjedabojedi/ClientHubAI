@@ -1593,6 +1593,22 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.post("/api/sessions/:id/billing", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+      
+      const billing = await storage.createSessionBilling(sessionId);
+      res.json(billing);
+    } catch (error) {
+      console.error("Error creating session billing:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/billing/reports", async (req, res) => {
     try {
       const { startDate, endDate, therapistId, status } = req.query;
