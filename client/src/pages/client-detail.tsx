@@ -865,8 +865,10 @@ export default function ClientDetailPage() {
                   )}
                   <div className="bg-green-50 p-3 rounded-lg">
                     <div className="text-sm font-medium text-green-800 mb-1">Session Progress</div>
-                    <div className="text-2xl font-bold text-green-700">{client.sessionCount || 0}</div>
-                    <div className="text-sm text-green-600">Total Sessions Completed</div>
+                    <div className="text-2xl font-bold text-green-700">
+                      {sessions.filter((s: Session) => s.status === 'completed').length}
+                    </div>
+                    <div className="text-sm text-green-600">Completed Sessions</div>
                   </div>
                 </CardContent>
               </Card>

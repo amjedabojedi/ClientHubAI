@@ -351,11 +351,15 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getClient(id: number): Promise<(Client & { assignedTherapist?: User }) | undefined> {
+  async getClient(id: number): Promise<(Client & { assignedTherapist?: User; sessionCount?: number }) | undefined> {
     const [result] = await db
       .select({
         client: clients,
-        assignedTherapist: users
+        assignedTherapist: users,
+        sessionCount: sql<number>`(
+          SELECT COUNT(*) FROM ${sessions} 
+          WHERE ${sessions.clientId} = ${clients.id}
+        )`.as('sessionCount')
       })
       .from(clients)
       .leftJoin(users, eq(clients.assignedTherapistId, users.id))
@@ -365,7 +369,8 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...result.client,
-      assignedTherapist: result.assignedTherapist || undefined
+      assignedTherapist: result.assignedTherapist || undefined,
+      sessionCount: result.sessionCount
     };
   }
 
