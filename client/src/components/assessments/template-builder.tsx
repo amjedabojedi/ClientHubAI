@@ -138,17 +138,20 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     // Update the field first
     question[field] = value;
     
-    // If changing question type to one that needs options, initialize them appropriately
+    // If changing question type to one that needs options, initialize them appropriately ONLY if no options exist
     if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
-      if (value === 'rating_scale') {
-        question.options = ['1 - Poor', '2 - Fair', '3 - Good', '4 - Very Good', '5 - Excellent'];
-        question.scoreValues = [1, 2, 3, 4, 5];
-      } else if (value === 'multiple_choice') {
-        question.options = ['Option A', 'Option B', 'Option C'];
-        question.scoreValues = [1, 2, 3];
-      } else if (value === 'checkbox') {
-        question.options = ['Choice 1', 'Choice 2', 'Choice 3'];
-        question.scoreValues = [1, 2, 3];
+      // Only set default options if the question doesn't already have options
+      if (!question.options || question.options.length === 0) {
+        if (value === 'rating_scale') {
+          question.options = ['1 - Poor', '2 - Fair', '3 - Good', '4 - Very Good', '5 - Excellent'];
+          question.scoreValues = [1, 2, 3, 4, 5];
+        } else if (value === 'multiple_choice') {
+          question.options = ['Option A', 'Option B', 'Option C'];
+          question.scoreValues = [1, 2, 3];
+        } else if (value === 'checkbox') {
+          question.options = ['Choice 1', 'Choice 2', 'Choice 3'];
+          question.scoreValues = [1, 2, 3];
+        }
       }
     }
     
