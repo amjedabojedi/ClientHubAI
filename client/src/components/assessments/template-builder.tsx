@@ -176,15 +176,22 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const addOption = (sectionIndex: number, questionIndex: number) => {
     const updated = [...sections];
-    const question = updated[sectionIndex].questions[questionIndex];
+    const question = { ...updated[sectionIndex].questions[questionIndex] };
     
-    // Initialize arrays if they don't exist
+    // Ensure options and scoreValues arrays exist
     if (!question.options) question.options = [];
     if (!question.scoreValues) question.scoreValues = [];
     
-    const optionNumber = question.options.length + 1;
-    question.options.push(`Option ${optionNumber}`);
-    question.scoreValues.push(optionNumber);
+    question.options = [...question.options, `Option ${question.options.length + 1}`];
+    question.scoreValues = [...question.scoreValues, question.scoreValues.length + 1];
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updated[sectionIndex].questions.map((q, i) => 
+        i === questionIndex ? question : q
+      )
+    };
+    
     setSections(updated);
   };
 
@@ -475,9 +482,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                         <Label>Required</Label>
                       </div>
 
+                      {/* Debug info */}
+                      <div className="text-xs bg-yellow-100 p-2 rounded">
+                        Type: "{question.type}" | Has options: {question.options?.length || 0} | Should show: {String(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox")}
+                      </div>
+                      
                       {/* Options for multiple choice, rating, and checkbox */}
                       {(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox") && (
-                        <div className="space-y-2">
+                        <div className="space-y-2 border p-3 rounded bg-blue-50">
                           <div className="flex items-center justify-between">
                             <Label>
                               Options {section.isScoring && <span className="text-xs text-muted-foreground">(with scores)</span>}
