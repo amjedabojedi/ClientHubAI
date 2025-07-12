@@ -687,12 +687,11 @@ export default function SchedulingPage() {
           </div>
         </div>
       </div>
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {viewMode === "month" ? (
           /* Month View */
-          <div className="space-y-6">
+          (<div className="space-y-6">
             {/* Month Navigation */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -713,7 +712,6 @@ export default function SchedulingPage() {
                 {getMonthSessions().length} sessions this month
               </div>
             </div>
-
             {/* Calendar Grid */}
             <Card>
               <CardContent className="p-6">
@@ -789,10 +787,10 @@ export default function SchedulingPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </div>)
         ) : (
           /* Day/Week View */
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          (<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Calendar Sidebar */}
             <div className="lg:col-span-1">
               <Card>
@@ -916,7 +914,6 @@ export default function SchedulingPage() {
                 </CardContent>
               </Card>
             </div>
-
             {/* Main Schedule View */}
             <div className="lg:col-span-3">
               <Card>
@@ -1068,7 +1065,7 @@ export default function SchedulingPage() {
                 </CardContent>
               </Card>
             </div>
-          </div>
+          </div>)
         )}
         
         {/* Edit Session Modal */}
@@ -1144,7 +1141,7 @@ export default function SchedulingPage() {
                       variant={selectedSession.status === 'completed' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'completed')}
-                      className={selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 pl-[5px] pr-[5px]"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Mark Completed
