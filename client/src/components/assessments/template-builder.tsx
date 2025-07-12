@@ -128,14 +128,17 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const updateQuestion = (sectionIndex: number, questionIndex: number, field: keyof QuestionForm, value: any) => {
+    console.log('Updating question:', sectionIndex, questionIndex, field, value);
     const updated = [...sections];
-    const question = updated[sectionIndex].questions[questionIndex];
+    const question = { ...updated[sectionIndex].questions[questionIndex] };
     
     // If changing question type to one that needs options, initialize them
     if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
+      console.log('Changing to option type, current options:', question.options);
       if (!question.options || question.options.length === 0) {
         question.options = ['Option 1', 'Option 2'];
         question.scoreValues = [1, 2];
+        console.log('Initialized options:', question.options);
       }
     }
     
@@ -145,10 +148,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       question.scoreValues = [];
     }
     
-    updated[sectionIndex].questions[questionIndex] = {
-      ...question,
-      [field]: value
-    };
+    question[field] = value;
+    updated[sectionIndex].questions[questionIndex] = question;
+    console.log('Updated question:', question);
     setSections(updated);
   };
 
@@ -474,6 +476,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       </div>
 
                       {/* Options for multiple choice, rating, and checkbox */}
+                      <div className="text-xs text-gray-500">
+                        Debug: Question type is "{question.type}", should show options: {String(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox")}
+                      </div>
                       {(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox") && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
