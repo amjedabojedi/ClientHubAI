@@ -244,14 +244,8 @@ export default function AssessmentCompletionPage() {
         
         return (
           <div className="space-y-3">
-            {ratingLabels.length > 0 ? (
-              // Show labels if available
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>{ratingLabels[0] || ratingMin}</span>
-                <span>{ratingLabels[ratingLabels.length - 1] || ratingMax}</span>
-              </div>
-            ) : (
-              // Show numeric range
+            {/* Only show range indicators if no individual labels are available */}
+            {ratingLabels.length === 0 && (
               <div className="flex justify-between text-sm text-slate-600">
                 <span>{ratingMin}</span>
                 <span>{ratingMax}</span>
