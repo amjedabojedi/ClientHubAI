@@ -1136,39 +1136,39 @@ export default function SchedulingPage() {
                 {/* Status Change Section */}
                 <div className="pt-4 border-t">
                   <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex gap-1">
                     <Button 
                       variant={selectedSession.status === 'completed' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'completed')}
-                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}`}
                     >
                       <CheckCircle className="w-3 h-3 mr-1" />
-                      Completed
+                      Done
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'scheduled' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'scheduled')}
-                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
                     >
                       <CalendarDays className="w-3 h-3 mr-1" />
-                      Scheduled
+                      Sched
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'cancelled' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')}
-                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}`}
+                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}`}
                     >
                       <X className="w-3 h-3 mr-1" />
-                      Cancelled
+                      Cancel
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'no_show' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'no_show')}
-                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
+                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
                     >
                       <AlertCircle className="w-3 h-3 mr-1" />
                       No-Show
@@ -1189,18 +1189,30 @@ export default function SchedulingPage() {
                       variant="outline"
                       onClick={() => {
                         // Pre-fill the form with current session data for editing
-                        form.setValue('clientId', selectedSession.clientId);
-                        form.setValue('therapistId', selectedSession.therapistId);
-                        form.setValue('serviceId', selectedSession.serviceId);
-                        form.setValue('roomId', selectedSession.roomId);
-                        form.setValue('sessionType', selectedSession.sessionType as any);
-                        form.setValue('sessionDate', selectedSession.sessionDate.split('T')[0]);
-                        form.setValue('sessionTime', new Date(selectedSession.sessionDate).toTimeString().slice(0, 5));
-                        form.setValue('notes', selectedSession.notes || '');
-                        setEditingSessionId(selectedSession.id);
-                        setIsSchedulingFromExistingSession(true);
-                        setIsEditSessionModalOpen(false);
-                        setIsNewSessionModalOpen(true);
+                        try {
+                          form.setValue('clientId', selectedSession.clientId);
+                          form.setValue('therapistId', selectedSession.therapistId);
+                          form.setValue('serviceId', selectedSession.serviceId);
+                          form.setValue('roomId', selectedSession.roomId);
+                          form.setValue('sessionType', selectedSession.sessionType as any);
+                          
+                          // Better date/time parsing
+                          const sessionDate = new Date(selectedSession.sessionDate);
+                          form.setValue('sessionDate', sessionDate.toISOString().split('T')[0]);
+                          
+                          // Format time properly to HH:MM
+                          const hours = sessionDate.getHours().toString().padStart(2, '0');
+                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                          form.setValue('sessionTime', `${hours}:${minutes}`);
+                          
+                          form.setValue('notes', selectedSession.notes || '');
+                          setEditingSessionId(selectedSession.id);
+                          setIsSchedulingFromExistingSession(true);
+                          setIsEditSessionModalOpen(false);
+                          setIsNewSessionModalOpen(true);
+                        } catch (error) {
+                          console.error('Error setting form values:', error);
+                        }
                       }}
                     >
                       <Edit className="w-4 h-4 mr-2" />
