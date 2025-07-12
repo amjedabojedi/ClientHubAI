@@ -105,6 +105,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const addQuestion = (sectionIndex: number) => {
+    console.log('Adding question to section:', sectionIndex);
     const newQuestion: QuestionForm = {
       text: "",
       type: "short_text",
@@ -114,6 +115,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     };
     const updated = [...sections];
     updated[sectionIndex].questions.push(newQuestion);
+    console.log('Updated sections:', updated);
     setSections(updated);
   };
 
@@ -399,7 +401,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Questions</h4>
-                  <Button variant="outline" size="sm" onClick={() => addQuestion(sectionIndex)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log('Add Question button clicked for section:', sectionIndex);
+                      addQuestion(sectionIndex);
+                    }}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Question
                   </Button>
