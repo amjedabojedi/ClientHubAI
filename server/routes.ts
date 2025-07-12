@@ -1350,6 +1350,23 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.delete("/api/assessments/questions/:questionId", async (req, res) => {
+    try {
+      const questionId = parseInt(req.params.questionId);
+      if (isNaN(questionId)) {
+        return res.status(400).json({ message: "Invalid question ID" });
+      }
+      // First delete all options for this question
+      await storage.deleteAllAssessmentQuestionOptions(questionId);
+      // Then delete the question itself
+      await storage.deleteAssessmentQuestion(questionId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Assessment Report Routes
   app.get("/api/assessments/assignments/:assignmentId/report", async (req, res) => {
     try {

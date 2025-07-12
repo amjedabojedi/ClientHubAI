@@ -280,6 +280,27 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const saveTemplate = async () => {
     setIsSaving(true);
     try {
+      // First, handle deletions by comparing current state with original data
+      for (const existingSection of existingSections) {
+        const currentSection = sections.find(s => s.id === existingSection.id);
+        
+        if (currentSection) {
+          // Section still exists, check for deleted questions
+          for (const existingQuestion of existingSection.questions) {
+            const currentQuestion = currentSection.questions.find(q => q.id === existingQuestion.id);
+            
+            if (!currentQuestion && existingQuestion.id) {
+              // Question was deleted, remove it from database
+              try {
+                await apiRequest(`/api/assessments/questions/${existingQuestion.id}`, "DELETE");
+              } catch (error) {
+                console.error("Error deleting question:", error);
+              }
+            }
+          }
+        }
+      }
+
       // Save sections and questions
       for (const section of sections) {
         const sectionData: InsertAssessmentSection = {
