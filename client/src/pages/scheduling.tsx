@@ -120,7 +120,7 @@ export default function SchedulingPage() {
   
   // Fetch sessions for the selected date range
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: ["/api/sessions", selectedDate.toISOString().split('T')[0], viewMode],
+    queryKey: ["/api/sessions", currentMonth.getFullYear(), currentMonth.getMonth() + 1, "month"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
