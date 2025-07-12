@@ -105,9 +105,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const addQuestion = (sectionIndex: number) => {
-    console.log('Adding question to section:', sectionIndex);
-    console.log('Current sections before update:', sections);
-    
     const newQuestion: QuestionForm = {
       text: "",
       type: "short_text",
@@ -122,23 +119,21 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       questions: [...updated[sectionIndex].questions, newQuestion]
     };
     
-    console.log('Updated sections after adding question:', updated);
-    console.log('Section', sectionIndex, 'now has', updated[sectionIndex].questions.length, 'questions');
     setSections(updated);
   };
 
   const updateQuestion = (sectionIndex: number, questionIndex: number, field: keyof QuestionForm, value: any) => {
-    console.log('Updating question:', sectionIndex, questionIndex, field, value);
     const updated = [...sections];
     const question = { ...updated[sectionIndex].questions[questionIndex] };
     
+    // Update the field first
+    question[field] = value;
+    
     // If changing question type to one that needs options, initialize them
     if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
-      console.log('Changing to option type, current options:', question.options);
       if (!question.options || question.options.length === 0) {
         question.options = ['Option 1', 'Option 2'];
         question.scoreValues = [1, 2];
-        console.log('Initialized options:', question.options);
       }
     }
     
@@ -148,9 +143,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       question.scoreValues = [];
     }
     
-    question[field] = value;
-    updated[sectionIndex].questions[questionIndex] = question;
-    console.log('Updated question:', question);
+    // Create new questions array with updated question
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updated[sectionIndex].questions.map((q, i) => 
+        i === questionIndex ? question : q
+      )
+    };
+    
     setSections(updated);
   };
 
@@ -476,9 +476,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       </div>
 
                       {/* Options for multiple choice, rating, and checkbox */}
-                      <div className="text-xs text-gray-500">
-                        Debug: Question type is "{question.type}", should show options: {String(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox")}
-                      </div>
                       {(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox") && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -531,10 +528,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                     No questions added yet. Click "Add Question" to get started.
                   </div>
                 )}
-                
-                <div className="text-xs text-gray-500 mt-2">
-                  Debug: Section has {section.questions?.length || 0} questions
-                </div>
+
               </div>
             </CardContent>
           </Card>
