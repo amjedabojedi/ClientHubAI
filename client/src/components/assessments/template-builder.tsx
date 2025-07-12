@@ -279,6 +279,13 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const saveTemplate = async () => {
     setIsSaving(true);
+    
+    // Add progress feedback
+    toast({
+      title: "Saving Template",
+      description: "Processing sections and questions...",
+    });
+    
     try {
       // First, handle deletions by comparing current state with original data
       for (const existingSection of existingSections) {
@@ -361,19 +368,16 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               // Ignore error if no options exist
             }
 
-            // Create all new options
-            for (let optionIndex = 0; optionIndex < question.options.length; optionIndex++) {
-              const optionText = question.options[optionIndex];
-              const optionValue = question.scoreValues[optionIndex] || 0;
+            // Create all new options in bulk
+            const optionsData = question.options.map((optionText, optionIndex) => ({
+              questionId: questionId,
+              optionText: optionText,
+              optionValue: (question.scoreValues[optionIndex] || 0).toString(),
+              sortOrder: optionIndex
+            }));
 
-              const optionData = {
-                questionId: questionId,
-                optionText: optionText,
-                optionValue: optionValue.toString(),
-                sortOrder: optionIndex
-              };
-
-              await apiRequest(`/api/assessments/question-options`, "POST", optionData);
+            if (optionsData.length > 0) {
+              await apiRequest(`/api/assessments/question-options/bulk`, "POST", { options: optionsData });
             }
           }
         }
