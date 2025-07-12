@@ -583,6 +583,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessionBilling.id, billingId));
   }
 
+  async updatePaymentDetails(billingId: number, paymentData: {
+    status: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded';
+    amount?: number;
+    date?: string;
+    reference?: string;
+    method?: string;
+    notes?: string;
+  }): Promise<void> {
+    const updateData: any = {
+      paymentStatus: paymentData.status,
+      updatedAt: new Date()
+    };
+
+    if (paymentData.amount !== undefined) {
+      updateData.paymentAmount = paymentData.amount.toString();
+    }
+    if (paymentData.date) {
+      updateData.paymentDate = paymentData.date;
+    }
+    if (paymentData.reference) {
+      updateData.paymentReference = paymentData.reference;
+    }
+    if (paymentData.method) {
+      updateData.paymentMethod = paymentData.method;
+    }
+    if (paymentData.notes) {
+      updateData.paymentNotes = paymentData.notes;
+    }
+
+    await db
+      .update(sessionBilling)
+      .set(updateData)
+      .where(eq(sessionBilling.id, billingId));
+  }
+
   // Task methods
   async getTasksByClient(clientId: number): Promise<(Task & { assignedTo?: User })[]> {
     const results = await db

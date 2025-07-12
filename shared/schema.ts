@@ -206,6 +206,12 @@ export const sessionBilling = pgTable("session_billing", {
   copayAmount: decimal("copay_amount", { precision: 10, scale: 2 }),
   billingDate: date("billing_date"),
   paymentStatus: billingStatusEnum("payment_status").notNull().default('pending'),
+  // Payment details
+  paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
+  paymentDate: date("payment_date"),
+  paymentReference: varchar("payment_reference", { length: 100 }),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentNotes: text("payment_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

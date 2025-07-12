@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
 import { 
@@ -165,6 +166,14 @@ export default function ClientDetailPage() {
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentBillingRecord, setPaymentBillingRecord] = useState<any>(null);
+  const [paymentForm, setPaymentForm] = useState({
+    status: 'paid',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    reference: '',
+    method: 'cash',
+    notes: ''
+  });
 
   // React Query
   const queryClient = useQueryClient();
@@ -477,15 +486,15 @@ export default function ClientDetailPage() {
 
   // Payment update mutation
   const updatePaymentStatusMutation = useMutation({
-    mutationFn: async ({ billingId, status }: { billingId: number; status: string }) => {
+    mutationFn: async ({ billingId, paymentData }: { billingId: number; paymentData: any }) => {
       const response = await fetch(`/api/billing/${billingId}/payment`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(paymentData),
       });
       
       if (!response.ok) {
-        throw new Error('Failed to update payment status');
+        throw new Error('Failed to update payment details');
       }
       
       return response.json();
@@ -494,15 +503,23 @@ export default function ClientDetailPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/billing`] });
       toast({
         title: "Payment recorded",
-        description: "Payment status has been updated successfully.",
+        description: "Payment details have been updated successfully.",
       });
       setIsPaymentDialogOpen(false);
       setPaymentBillingRecord(null);
+      setPaymentForm({
+        status: 'paid',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        reference: '',
+        method: 'cash',
+        notes: ''
+      });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update payment status. Please try again.",
+        description: error.message || "Failed to update payment details. Please try again.",
         variant: "destructive",
       });
     }
@@ -510,14 +527,35 @@ export default function ClientDetailPage() {
 
   const handleRecordPayment = (billing: any) => {
     setPaymentBillingRecord(billing);
+    setPaymentForm({
+      status: 'paid',
+      amount: billing.totalAmount || billing.amount || '',
+      date: new Date().toISOString().split('T')[0],
+      reference: '',
+      method: 'cash',
+      notes: ''
+    });
     setIsPaymentDialogOpen(true);
   };
 
-  const handlePaymentSubmit = (status: string) => {
-    if (paymentBillingRecord) {
+  const handlePaymentSubmit = () => {
+    if (paymentBillingRecord && paymentForm.amount && paymentForm.date) {
       updatePaymentStatusMutation.mutate({
         billingId: paymentBillingRecord.id,
-        status
+        paymentData: {
+          status: paymentForm.status,
+          amount: parseFloat(paymentForm.amount),
+          date: paymentForm.date,
+          reference: paymentForm.reference || null,
+          method: paymentForm.method,
+          notes: paymentForm.notes || null
+        }
+      });
+    } else {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in the payment amount and date.",
+        variant: "destructive",
       });
     }
   };
@@ -1320,6 +1358,13 @@ export default function ClientDetailPage() {
                                 <p className="text-sm text-slate-600">
                                   {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
                                 </p>
+                                {billing.paymentAmount && billing.paymentDate && (
+                                  <p className="text-xs text-green-600 mt-1">
+                                    Payment: ${billing.paymentAmount} on {new Date(billing.paymentDate).toLocaleDateString()}
+                                    {billing.paymentMethod && ` via ${billing.paymentMethod.replace('_', ' ')}`}
+                                    {billing.paymentReference && ` (Ref: ${billing.paymentReference})`}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="text-right">
@@ -1678,17 +1723,19 @@ export default function ClientDetailPage() {
 
       {/* Payment Recording Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
             <DialogDescription>
-              Update payment status for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode} - $${paymentBillingRecord.totalAmount}` : ''}
+              Record payment details for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="text-center space-y-3">
-              <p className="text-sm text-slate-600">Current Status: 
-                <Badge className={`ml-2 ${
+            <div className="space-y-4">
+              {/* Current Status */}
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <span className="text-sm font-medium text-slate-700">Current Status:</span>
+                <Badge className={`${
                   paymentBillingRecord?.paymentStatus === 'paid' 
                     ? 'bg-green-100 text-green-800' 
                     : paymentBillingRecord?.paymentStatus === 'pending'
@@ -1697,42 +1744,94 @@ export default function ClientDetailPage() {
                 }`}>
                   {paymentBillingRecord?.paymentStatus?.charAt(0).toUpperCase() + paymentBillingRecord?.paymentStatus?.slice(1)}
                 </Badge>
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button 
-                  onClick={() => handlePaymentSubmit('paid')}
-                  disabled={updatePaymentStatusMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700"
+              </div>
+
+              {/* Payment Status */}
+              <div className="space-y-2">
+                <Label htmlFor="payment-status">Payment Status</Label>
+                <Select 
+                  value={paymentForm.status} 
+                  onValueChange={(value) => setPaymentForm({...paymentForm, status: value})}
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Mark as Paid
-                </Button>
-                <Button 
-                  onClick={() => handlePaymentSubmit('billed')}
-                  disabled={updatePaymentStatusMutation.isPending}
-                  variant="outline"
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="billed">Billed</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="denied">Denied</SelectItem>
+                    <SelectItem value="refunded">Refunded</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Payment Amount */}
+              <div className="space-y-2">
+                <Label htmlFor="payment-amount">Payment Amount *</Label>
+                <Input
+                  id="payment-amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                />
+              </div>
+
+              {/* Payment Date */}
+              <div className="space-y-2">
+                <Label htmlFor="payment-date">Payment Date *</Label>
+                <Input
+                  id="payment-date"
+                  type="date"
+                  value={paymentForm.date}
+                  onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+                />
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-2">
+                <Label htmlFor="payment-method">Payment Method</Label>
+                <Select 
+                  value={paymentForm.method} 
+                  onValueChange={(value) => setPaymentForm({...paymentForm, method: value})}
                 >
-                  <Clock className="w-4 h-4 mr-2" />
-                  Mark as Billed
-                </Button>
-                <Button 
-                  onClick={() => handlePaymentSubmit('denied')}
-                  disabled={updatePaymentStatusMutation.isPending}
-                  variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Mark as Denied
-                </Button>
-                <Button 
-                  onClick={() => handlePaymentSubmit('refunded')}
-                  disabled={updatePaymentStatusMutation.isPending}
-                  variant="outline"
-                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
-                >
-                  <AlertCircle className="w-4 h-4 mr-2" />
-                  Mark as Refunded
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                    <SelectItem value="debit_card">Debit Card</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="insurance">Insurance Payment</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Payment Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="payment-reference">Reference Number</Label>
+                <Input
+                  id="payment-reference"
+                  placeholder="Check number, transaction ID, etc."
+                  value={paymentForm.reference}
+                  onChange={(e) => setPaymentForm({...paymentForm, reference: e.target.value})}
+                />
+              </div>
+
+              {/* Payment Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="payment-notes">Notes</Label>
+                <Input
+                  id="payment-notes"
+                  placeholder="Additional payment notes..."
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
+                />
               </div>
             </div>
           </div>
@@ -1746,6 +1845,12 @@ export default function ClientDetailPage() {
               disabled={updatePaymentStatusMutation.isPending}
             >
               Cancel
+            </Button>
+            <Button 
+              onClick={handlePaymentSubmit}
+              disabled={updatePaymentStatusMutation.isPending || !paymentForm.amount || !paymentForm.date}
+            >
+              {updatePaymentStatusMutation.isPending ? "Recording..." : "Record Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

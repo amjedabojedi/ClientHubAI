@@ -1815,16 +1815,24 @@ This happens because only the file metadata was stored, not the actual file cont
   app.put("/api/billing/:billingId/payment", async (req, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
-      const { status } = req.body;
+      const { status, amount, date, reference, method, notes } = req.body;
       
       if (!['pending', 'billed', 'paid', 'denied', 'refunded'].includes(status)) {
         return res.status(400).json({ message: "Invalid payment status" });
       }
       
-      await storage.updateBillingStatus(billingId, status);
-      res.json({ message: "Payment status updated successfully" });
+      await storage.updatePaymentDetails(billingId, {
+        status,
+        amount,
+        date,
+        reference,
+        method,
+        notes
+      });
+      
+      res.json({ message: "Payment details updated successfully" });
     } catch (error) {
-      console.error("Error updating payment status:", error);
+      console.error("Error updating payment details:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
