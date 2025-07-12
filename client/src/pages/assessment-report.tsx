@@ -104,8 +104,9 @@ export default function AssessmentReportPage() {
         return 'No response provided';
       
       case 'rating_scale':
+        const maxRating = question.ratingMax != null ? question.ratingMax : 5;
         return response.ratingValue !== null ? 
-          `${response.ratingValue}/${question.ratingMax || 10}` : 
+          `${response.ratingValue}/${maxRating}` : 
           'No rating provided';
       
       case 'checkbox':

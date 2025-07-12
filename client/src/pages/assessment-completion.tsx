@@ -237,8 +237,9 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'rating_scale':
-        const ratingMin = question.ratingMin || 1;
-        const ratingMax = question.ratingMax || 10;
+        // Use the template's rating scale configuration, defaulting to 1-5 if not set
+        const ratingMin = question.ratingMin != null ? question.ratingMin : 1;
+        const ratingMax = question.ratingMax != null ? question.ratingMax : 5;
         return (
           <div className="space-y-3">
             <div className="flex justify-between text-sm text-slate-600">
