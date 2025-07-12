@@ -1110,7 +1110,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                 type="submit" 
                 disabled={updateClientMutation.isPending}
                 className="min-w-[120px]"
-                onClick={() => console.log('Update button clicked, form valid:', form.formState.isValid)}
+                onClick={() => {
+                  console.log('Update button clicked, form valid:', form.formState.isValid);
+                  console.log('Form errors:', form.formState.errors);
+                  console.log('Form values:', form.getValues());
+                }}
               >
                 {updateClientMutation.isPending ? "Updating..." : "Update Client"}
               </Button>
