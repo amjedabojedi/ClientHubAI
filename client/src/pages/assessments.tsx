@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings, Edit, Trash2 } from "lucide-react";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,11 +9,20 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
+// Icons
+import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings, Edit, Trash2 } from "lucide-react";
+
+// Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+// Components
 import { CreateTemplateModal } from "@/components/assessments/create-template-modal";
 import { EditTemplateModal } from "@/components/assessments/edit-template-modal";
 import { TemplateBuilder } from "@/components/assessments/template-builder";
+
+// Types
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
 
 interface AssessmentTemplateWithDetails extends AssessmentTemplate {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, GripVertical, Save, ArrowLeft, Copy } from "lucide-react";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +11,15 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+
+// Icons
+import { Plus, Trash2, Save, Copy } from "lucide-react";
+
+// Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+
+// Types
 import type { AssessmentTemplate, AssessmentSection, AssessmentQuestion, InsertAssessmentSection, InsertAssessmentQuestion } from "@shared/schema";
 
 interface TemplateBuilderProps {
@@ -162,7 +170,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const removeQuestion = (sectionIndex: number, questionIndex: number) => {
     const updated = [...sections];
-    updated[sectionIndex].questions.splice(questionIndex, 1);
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updated[sectionIndex].questions.filter((_, i) => i !== questionIndex)
+    };
     setSections(updated);
   };
 
@@ -176,7 +187,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       required: originalQuestion.required,
       scoreValues: [...originalQuestion.scoreValues]
     };
-    updated[sectionIndex].questions.splice(questionIndex + 1, 0, copiedQuestion);
+    
+    const newQuestions = [...updated[sectionIndex].questions];
+    newQuestions.splice(questionIndex + 1, 0, copiedQuestion);
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: newQuestions
+    };
     setSections(updated);
   };
 
@@ -203,21 +221,49 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const updateOption = (sectionIndex: number, questionIndex: number, optionIndex: number, value: string) => {
     const updated = [...sections];
-    updated[sectionIndex].questions[questionIndex].options[optionIndex] = value;
+    const question = { ...updated[sectionIndex].questions[questionIndex] };
+    question.options = [...question.options];
+    question.options[optionIndex] = value;
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updated[sectionIndex].questions.map((q, i) => 
+        i === questionIndex ? question : q
+      )
+    };
+    
     setSections(updated);
   };
 
   const updateScoreValue = (sectionIndex: number, questionIndex: number, optionIndex: number, value: number) => {
     const updated = [...sections];
-    updated[sectionIndex].questions[questionIndex].scoreValues[optionIndex] = value;
+    const question = { ...updated[sectionIndex].questions[questionIndex] };
+    question.scoreValues = [...question.scoreValues];
+    question.scoreValues[optionIndex] = value;
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updated[sectionIndex].questions.map((q, i) => 
+        i === questionIndex ? question : q
+      )
+    };
+    
     setSections(updated);
   };
 
   const removeOption = (sectionIndex: number, questionIndex: number, optionIndex: number) => {
     const updated = [...sections];
-    const question = updated[sectionIndex].questions[questionIndex];
-    question.options.splice(optionIndex, 1);
-    question.scoreValues.splice(optionIndex, 1);
+    const question = { ...updated[sectionIndex].questions[questionIndex] };
+    question.options = question.options.filter((_, i) => i !== optionIndex);
+    question.scoreValues = question.scoreValues.filter((_, i) => i !== optionIndex);
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updated[sectionIndex].questions.map((q, i) => 
+        i === questionIndex ? question : q
+      )
+    };
+    
     setSections(updated);
   };
 
@@ -257,25 +303,31 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             sortOrder: section.questions.indexOf(question)
           };
 
+          let questionId = question.id;
           if (question.id) {
             // Update existing question
             await apiRequest(`/api/assessments/questions/${question.id}`, "PATCH", questionData);
           } else {
             // Create new question
-            await apiRequest(`/api/assessments/questions`, "POST", questionData);
+            const result = await apiRequest(`/api/assessments/questions`, "POST", questionData);
+            questionId = result.id;
           }
+
+          // TODO: Save question options when the backend API endpoint is implemented
+          // Options are currently stored in the frontend state but not persisted
+          // The backend needs /api/assessments/question-options endpoints
         }
       }
 
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
       toast({
-        title: "Success",
-        description: "Template sections and questions saved successfully",
+        title: "Template Saved",
+        description: "All sections and questions have been saved successfully",
       });
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to save template",
+        title: "Save Failed",
+        description: error.message || "Unable to save template. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -283,12 +335,12 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     }
   };
 
-  const getAccessLevelColor = (level: string) => {
+  const getAccessLevelColor = (level: string): string => {
     switch (level) {
-      case "therapist_only": return "bg-blue-100 text-blue-800";
-      case "client_only": return "bg-green-100 text-green-800";
-      case "shared": return "bg-purple-100 text-purple-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "therapist_only": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "client_only": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "shared": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
     }
   };
 
@@ -321,11 +373,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       {/* Sections */}
       <div className="space-y-6">
         {sections.map((section, sectionIndex) => (
-          <Card key={sectionIndex} className="border-l-4 border-l-blue-500">
+          <Card key={section.id || `section-${sectionIndex}`} className="border-l-4 border-l-blue-500">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <GripVertical className="h-4 w-4 text-gray-400" />
+
                   <CardTitle className="text-lg">
                     {section.title || `Section ${sectionIndex + 1}`}
                   </CardTitle>
@@ -427,11 +479,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      console.log('Add Question button clicked for section:', sectionIndex);
-                      addQuestion(sectionIndex);
-                    }}
+                    onClick={() => addQuestion(sectionIndex)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Question
@@ -439,7 +487,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 </div>
 
                 {section.questions.map((question, questionIndex) => (
-                  <Card key={`question-${questionIndex}`} className="bg-gray-50">
+                  <Card key={question.id || `question-${sectionIndex}-${questionIndex}`} className="bg-gray-50 dark:bg-gray-800">
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">Question {questionIndex + 1}</span>

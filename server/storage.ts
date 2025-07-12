@@ -1209,7 +1209,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAssessmentSection(data: InsertAssessmentSection): Promise<AssessmentSection> {
-    console.log('Creating assessment section with data:', data);
+
     const [section] = await db.insert(assessmentSections).values(data).returning();
     return section;
   }

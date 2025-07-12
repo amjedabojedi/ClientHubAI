@@ -49,15 +49,15 @@ export function EditTemplateModal({ open, onOpenChange, template }: EditTemplate
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assessments/templates"] });
       toast({
-        title: "Success",
-        description: "Assessment template updated successfully",
+        title: "Template Updated",
+        description: "Assessment template has been updated successfully",
       });
       handleClose();
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update assessment template",
+        title: "Update Failed",
+        description: error.message || "Unable to update template. Please try again.",
         variant: "destructive",
       });
     },
@@ -72,7 +72,7 @@ export function EditTemplateModal({ open, onOpenChange, template }: EditTemplate
     try {
       await updateTemplateMutation.mutateAsync(formData);
     } catch (error) {
-      console.error("Error updating template:", error);
+      // Error handled by mutation onError
     } finally {
       setIsLoading(false);
     }

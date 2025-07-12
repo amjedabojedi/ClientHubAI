@@ -35,15 +35,15 @@ export function CreateTemplateModal({ open, onOpenChange }: CreateTemplateModalP
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/assessments/templates"] });
       toast({
-        title: "Success",
-        description: "Assessment template created successfully",
+        title: "Template Created",
+        description: "New assessment template has been created successfully",
       });
       handleClose();
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create assessment template",
+        title: "Creation Failed", 
+        description: error.message || "Unable to create template. Please try again.",
         variant: "destructive",
       });
     },
@@ -63,7 +63,7 @@ export function CreateTemplateModal({ open, onOpenChange }: CreateTemplateModalP
 
       await createTemplateMutation.mutateAsync(templateData);
     } catch (error) {
-      console.error("Error creating template:", error);
+      // Error handled by mutation onError
     } finally {
       setIsLoading(false);
     }
