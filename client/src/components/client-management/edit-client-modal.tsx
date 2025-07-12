@@ -211,9 +211,14 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   const onSubmit = (data: ClientFormData) => {
+    // Clean up the data before submission
     const processedData = {
       ...data,
       assignedTherapistId: data.assignedTherapistId || undefined,
+      dependents: data.dependents || undefined,
+      // Ensure strings are not empty
+      copayAmount: data.copayAmount || undefined,
+      deductible: data.deductible || undefined,
     };
     updateClientMutation.mutate(processedData);
   };
@@ -281,7 +286,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Gender</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select gender" />
@@ -349,7 +354,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Preferred Language</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue />
@@ -632,7 +637,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -656,7 +661,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -681,7 +686,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Stage</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -1068,6 +1073,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                           type="number" 
                           min="0" 
                           placeholder="0"
+                          value={field.value || ""}
                           onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                         />
                       </FormControl>
