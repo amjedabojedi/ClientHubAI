@@ -105,9 +105,19 @@ export default function AssessmentReportPage() {
       
       case 'rating_scale':
         const maxRating = question.ratingMax != null ? question.ratingMax : 5;
-        return response.ratingValue !== null ? 
-          `${response.ratingValue}/${maxRating}` : 
-          'No rating provided';
+        const ratingLabels = question.ratingLabels || [];
+        
+        if (response.ratingValue !== null) {
+          const ratingIndex = response.ratingValue - (question.ratingMin || 1);
+          const ratingLabel = ratingLabels[ratingIndex];
+          
+          if (ratingLabel) {
+            return `${ratingLabel} (${response.ratingValue}/${maxRating})`;
+          } else {
+            return `${response.ratingValue}/${maxRating}`;
+          }
+        }
+        return 'No rating provided';
       
       case 'checkbox':
         if (response.selectedOptions && response.selectedOptions.length > 0) {

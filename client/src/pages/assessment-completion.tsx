@@ -240,12 +240,23 @@ export default function AssessmentCompletionPage() {
         // Use the template's rating scale configuration, defaulting to 1-5 if not set
         const ratingMin = question.ratingMin != null ? question.ratingMin : 1;
         const ratingMax = question.ratingMax != null ? question.ratingMax : 5;
+        const ratingLabels = question.ratingLabels || [];
+        
         return (
           <div className="space-y-3">
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>{ratingMin}</span>
-              <span>{ratingMax}</span>
-            </div>
+            {ratingLabels.length > 0 ? (
+              // Show labels if available
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>{ratingLabels[0] || ratingMin}</span>
+                <span>{ratingLabels[ratingLabels.length - 1] || ratingMax}</span>
+              </div>
+            ) : (
+              // Show numeric range
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>{ratingMin}</span>
+                <span>{ratingMax}</span>
+              </div>
+            )}
             <RadioGroup
               value={response.ratingValue?.toString() || ''}
               onValueChange={(value) => {
@@ -254,10 +265,12 @@ export default function AssessmentCompletionPage() {
               }}
               className="flex justify-between"
             >
-              {Array.from({ length: ratingMax - ratingMin + 1 }, (_, i) => ratingMin + i).map((value) => (
+              {Array.from({ length: ratingMax - ratingMin + 1 }, (_, i) => ratingMin + i).map((value, index) => (
                 <div key={value} className="flex flex-col items-center space-y-2">
                   <RadioGroupItem value={value.toString()} id={`q${question.id}_${value}`} />
-                  <Label htmlFor={`q${question.id}_${value}`} className="text-xs">{value}</Label>
+                  <Label htmlFor={`q${question.id}_${value}`} className="text-xs text-center max-w-16">
+                    {ratingLabels[index] || value}
+                  </Label>
                 </div>
               ))}
             </RadioGroup>
