@@ -474,11 +474,102 @@ export class DatabaseStorage implements IStorage {
       .set({ ...sessionData, updatedAt: new Date() })
       .where(eq(sessions.id, id))
       .returning();
+    
+    // Billing trigger: Create billing record when session is completed
+    if (sessionData.status === 'completed') {
+      await this.createBillingRecord(session);
+    }
+    
     return session;
   }
 
   async deleteSession(id: number): Promise<void> {
     await db.delete(sessions).where(eq(sessions.id, id));
+  }
+
+  // Billing trigger method - Creates billing record when session is completed
+  private async createBillingRecord(session: Session): Promise<void> {
+    try {
+      // Get service details for billing
+      const [service] = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, session.serviceId));
+
+      if (!service) {
+        console.error(`Service not found for session ${session.id}`);
+        return;
+      }
+
+      // Get client insurance information
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, session.clientId));
+
+      if (!client) {
+        console.error(`Client not found for session ${session.id}`);
+        return;
+      }
+
+      // Check if billing record already exists
+      const existingBilling = await db
+        .select()
+        .from(sessionBilling)
+        .where(eq(sessionBilling.sessionId, session.id));
+
+      if (existingBilling.length > 0) {
+        console.log(`Billing record already exists for session ${session.id}`);
+        return;
+      }
+
+      // Create billing record
+      const billingData = {
+        sessionId: session.id,
+        serviceCode: service.serviceCode,
+        units: 1,
+        ratePerUnit: service.baseRate,
+        totalAmount: service.baseRate,
+        insuranceCovered: !!client.insuranceProvider,
+        copayAmount: client.copayAmount || null,
+        billingDate: new Date().toISOString().split('T')[0], // Current date
+        paymentStatus: 'pending' as const,
+      };
+
+      await db.insert(sessionBilling).values(billingData);
+      console.log(`Billing record created for session ${session.id} - Amount: $${service.baseRate}`);
+    } catch (error) {
+      console.error(`Error creating billing record for session ${session.id}:`, error);
+    }
+  }
+
+  // Billing methods
+  async getBillingRecordsBySession(sessionId: number): Promise<SelectSessionBilling[]> {
+    return await db
+      .select()
+      .from(sessionBilling)
+      .where(eq(sessionBilling.sessionId, sessionId));
+  }
+
+  async getBillingRecordsByClient(clientId: number): Promise<(SelectSessionBilling & { session: Session })[]> {
+    const results = await db
+      .select({
+        billing: sessionBilling,
+        session: sessions
+      })
+      .from(sessionBilling)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .where(eq(sessions.clientId, clientId))
+      .orderBy(desc(sessionBilling.billingDate));
+
+    return results.map(r => ({ ...r.billing, session: r.session }));
+  }
+
+  async updateBillingStatus(billingId: number, status: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded'): Promise<void> {
+    await db
+      .update(sessionBilling)
+      .set({ paymentStatus: status, updatedAt: new Date() })
+      .where(eq(sessionBilling.id, billingId));
   }
 
   // Task methods

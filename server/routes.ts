@@ -1585,5 +1585,45 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   const httpServer = createServer(app);
+  // Billing routes
+  app.get("/api/sessions/:sessionId/billing", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const billing = await storage.getBillingRecordsBySession(sessionId);
+      res.json(billing);
+    } catch (error) {
+      console.error("Error fetching billing records:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/clients/:clientId/billing", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const billing = await storage.getBillingRecordsByClient(clientId);
+      res.json(billing);
+    } catch (error) {
+      console.error("Error fetching client billing records:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/billing/:billingId/status", async (req, res) => {
+    try {
+      const billingId = parseInt(req.params.billingId);
+      const { status } = req.body;
+      
+      if (!['pending', 'billed', 'paid', 'denied', 'refunded'].includes(status)) {
+        return res.status(400).json({ message: "Invalid billing status" });
+      }
+      
+      await storage.updateBillingStatus(billingId, status);
+      res.json({ message: "Billing status updated successfully" });
+    } catch (error) {
+      console.error("Error updating billing status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
