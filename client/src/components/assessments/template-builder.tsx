@@ -339,21 +339,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               }
             }
 
-            // Delete existing options that are no longer present
+            // Delete ALL existing options first to ensure clean slate
             for (const existingOption of existingOptions) {
-              const stillExists = question.options.some((_, index) => 
-                existingOptions[index]?.id === existingOption.id
-              );
-              if (!stillExists) {
-                await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "DELETE");
-              }
+              await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "DELETE");
             }
 
-            // Create or update options
+            // Create all new options
             for (let optionIndex = 0; optionIndex < question.options.length; optionIndex++) {
               const optionText = question.options[optionIndex];
               const optionValue = question.scoreValues[optionIndex] || 0;
-              const existingOption = existingOptions[optionIndex];
 
               const optionData = {
                 questionId: questionId!,
@@ -363,13 +357,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               };
 
               try {
-                if (existingOption?.id) {
-                  // Update existing option
-                  await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "PATCH", optionData);
-                } else {
-                  // Create new option
-                  await apiRequest(`/api/assessments/question-options`, "POST", optionData);
-                }
+                // Always create new option since we deleted all existing ones
+                await apiRequest(`/api/assessments/question-options`, "POST", optionData);
               } catch (optionError) {
                 throw optionError;
               }
