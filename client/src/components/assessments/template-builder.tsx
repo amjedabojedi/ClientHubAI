@@ -320,7 +320,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           await apiRequest(`/api/assessments/sections/${section.id}`, "PATCH", sectionData);
         } else {
           // Create new section
-          const result = await apiRequest(`/api/assessments/sections`, "POST", sectionData);
+          const response = await apiRequest(`/api/assessments/sections`, "POST", sectionData);
+          const result = await response.json();
           sectionId = result.id;
         }
 
