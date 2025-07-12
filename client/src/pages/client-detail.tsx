@@ -508,7 +508,7 @@ export default function ClientDetailPage() {
               </Button>
               <Button 
                 variant="default"
-                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}`}
+                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Schedule Session

@@ -276,3 +276,10 @@ Advanced appointment management with multi-view calendar system:
 - **Content Consolidation**: Simplified layout to focus on essential functionality without information duplication
 - **Clean Interface**: Reduced visual clutter by removing unnecessary duplicate elements per user feedback
 - **Icon Cleanup**: Replaced remaining FontAwesome icons with Lucide React for consistency
+
+### Session Booking Flow Consistency Fix (January 2025)
+- **Unified Booking Parameters**: Fixed inconsistency where client list required manual therapist selection while client detail pre-selected client
+- **Cross-Location Consistency**: All schedule session buttons now pass both client and therapist information when available
+- **Pre-filled Forms**: Session booking from client detail pages now pre-selects both client and assigned therapist for seamless workflow
+- **Enhanced User Experience**: Eliminated confusion between different booking entry points by standardizing URL parameters
+- **Therapist Auto-Selection**: When navigating from client profiles, assigned therapist information is automatically included

@@ -298,7 +298,7 @@ export default function ClientDataGrid({
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => window.location.href = `/scheduling?clientId=${client.id}`}
+                          onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
                           className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50"
                           title="Schedule Session"
                         >
