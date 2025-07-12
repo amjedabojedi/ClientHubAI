@@ -147,6 +147,21 @@ export default function SchedulingPage() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  // Initialize form before queries that depend on it
+  const form = useForm<SessionFormData>({
+    resolver: zodResolver(sessionFormSchema),
+    defaultValues: {
+      clientId: clientIdFromUrl ? parseInt(clientIdFromUrl) : undefined,
+      therapistId: therapistIdFromUrl ? parseInt(therapistIdFromUrl) : undefined,
+      sessionType: "psychotherapy",
+      sessionDate: "",
+      sessionTime: "",
+      serviceId: undefined,
+      roomId: undefined,
+      notes: "",
+    },
+  });
+
   // Room availability based on selected date/time
   const [selectedDateTimeForRooms, setSelectedDateTimeForRooms] = useState<{date: string, time: string} | null>(null);
   const { data: availableRooms = [] } = useQuery({
@@ -165,20 +180,6 @@ export default function SchedulingPage() {
         .then(res => res.json());
     },
     enabled: !!selectedDateTimeForRooms && !!form.watch('serviceId'),
-  });
-
-  const form = useForm<SessionFormData>({
-    resolver: zodResolver(sessionFormSchema),
-    defaultValues: {
-      clientId: clientIdFromUrl ? parseInt(clientIdFromUrl) : undefined,
-      therapistId: therapistIdFromUrl ? parseInt(therapistIdFromUrl) : undefined,
-      sessionType: "psychotherapy",
-      sessionDate: "",
-      sessionTime: "",
-      serviceId: undefined,
-      roomId: undefined,
-      notes: "",
-    },
   });
 
   // Auto-open scheduling modal when navigating from client page
