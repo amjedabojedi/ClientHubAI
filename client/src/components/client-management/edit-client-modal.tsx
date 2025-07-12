@@ -116,6 +116,8 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   // Reset form when client changes
   useEffect(() => {
     if (client) {
+      console.log('Resetting form with client data:', client);
+      console.log('Client emailNotifications value:', client.emailNotifications);
       form.reset({
         // Personal Information
         fullName: client.fullName || "",
@@ -124,10 +126,10 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         maritalStatus: client.maritalStatus || "",
         preferredLanguage: client.preferredLanguage || "English",
         pronouns: client.pronouns || "",
-        emailNotifications: client.emailNotifications || true,
+        emailNotifications: client.emailNotifications !== undefined ? client.emailNotifications : true,
         
         // Portal Access
-        hasPortalAccess: client.hasPortalAccess || false,
+        hasPortalAccess: client.hasPortalAccess !== undefined ? client.hasPortalAccess : false,
         portalEmail: client.portalEmail || "",
         
         // Contact & Address
@@ -186,6 +188,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         referringPerson: client.referringPerson || "",
         referralNotes: client.referralNotes || "",
       });
+      console.log('Form reset completed with emailNotifications:', form.getValues('emailNotifications'));
     }
   }, [client, form]);
 
