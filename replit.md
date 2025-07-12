@@ -213,6 +213,13 @@ Advanced appointment management with multi-view calendar system:
 - **Workflow Enhancement**: Users can now click "Add Notes" from any session to jump directly to the Session Notes tab
 - **UI Consistency**: Standardized session note access across all session entries regardless of status
 
+### Assessment Template Builder Bug Fixes (January 2025)
+- **Question Type Option Management**: Fixed critical bug where changing question types created duplicate mixed options instead of replacing them
+- **Database Clean Delete Operations**: Implemented proper bulk delete functionality for question options to prevent accumulation
+- **Validation Error Resolution**: Fixed questionId validation errors that prevented option creation for new questions
+- **Systematic Error Handling**: Added proper error checking and validation to ensure questionId is available before creating options
+- **Clean State Management**: Question type changes now properly clear all existing options before creating type-appropriate new ones
+
 ### Library-Session Notes Integration (January 2025)
 - **Direct Field Integration**: Added Library picker buttons (📚) to all clinical documentation fields in session notes
 - **Category-Specific Content**: Each field shows only relevant library entries (Session Focus → Category 1, Symptoms → Category 2, etc.)
