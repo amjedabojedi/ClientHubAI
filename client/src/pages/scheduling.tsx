@@ -1136,42 +1136,42 @@ export default function SchedulingPage() {
                 {/* Status Change Section */}
                 <div className="pt-4 border-t">
                   <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button 
                       variant={selectedSession.status === 'completed' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'completed')}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 pl-[5px] pr-[5px]"
+                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}`}
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark Completed
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Completed
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'scheduled' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'scheduled')}
-                      className={selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
                     >
-                      <CalendarDays className="w-4 h-4 mr-2" />
-                      Mark Scheduled
+                      <CalendarDays className="w-3 h-3 mr-1" />
+                      Scheduled
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'cancelled' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')}
-                      className={selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}
+                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}`}
                     >
-                      <X className="w-4 h-4 mr-2" />
-                      Mark Cancelled
+                      <X className="w-3 h-3 mr-1" />
+                      Cancelled
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'no_show' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'no_show')}
-                      className={selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+                      className={`text-xs px-2 py-1 h-8 ${selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
                     >
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      Mark No-Show
+                      <AlertCircle className="w-3 h-3 mr-1" />
+                      No-Show
                     </Button>
                   </div>
                 </div>
