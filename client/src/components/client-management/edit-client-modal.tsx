@@ -116,8 +116,6 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   // Reset form when client changes
   useEffect(() => {
     if (client) {
-      console.log('Resetting form with client data:', client);
-      console.log('Client emailNotifications value:', client.emailNotifications);
       form.reset({
         // Personal Information
         fullName: client.fullName || "",
@@ -188,7 +186,6 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         referringPerson: client.referringPerson || "",
         referralNotes: client.referralNotes || "",
       });
-      console.log('Form reset completed with emailNotifications:', form.getValues('emailNotifications'));
     }
   }, [client, form]);
 
@@ -196,27 +193,15 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     mutationFn: (data: ClientFormData) => 
       apiRequest(`/api/clients/${client.id}`, "PUT", data),
     onSuccess: async (response) => {
-      console.log('Update successful, response:', response);
-      
-      // Parse the response to get updated client data
-      const updatedClient = await response.json();
-      console.log('Updated client data from server:', updatedClient);
-      
-      // Invalidate and refetch queries
+      // Invalidate and refetch queries to ensure fresh data
       await queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       await queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
       
-      // Wait a moment for cache to update before closing
-      setTimeout(async () => {
-        // Refetch the specific client data to ensure form gets latest data
-        await queryClient.refetchQueries({ queryKey: [`/api/clients/${client.id}`] });
-        
-        toast({
-          title: "Success",
-          description: "Client updated successfully",
-        });
-        handleClose();
-      }, 500);
+      toast({
+        title: "Success",
+        description: "Client updated successfully",
+      });
+      handleClose();
     },
     onError: (error: any) => {
       toast({
@@ -228,9 +213,6 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   const onSubmit = (data: ClientFormData) => {
-    console.log('Form submitted with:', data);
-    console.log('emailNotifications value:', data.emailNotifications);
-    
     // Clean up the data before submission
     const processedData = {
       ...data,
@@ -243,7 +225,6 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       clientId: undefined,
     };
     
-    console.log('Processed data being sent:', processedData);
     updateClientMutation.mutate(processedData);
   };
 
