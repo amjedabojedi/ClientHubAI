@@ -192,14 +192,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
       apiRequest(`/api/clients/${client.id}`, "PUT", data),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log('Update successful, response:', response);
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
       toast({
         title: "Success",
         description: "Client updated successfully",
       });
-      handleClose();
+      // Don't close immediately to see if form resets
+      setTimeout(() => {
+        handleClose();
+      }, 1000);
     },
     onError: (error: any) => {
       toast({
@@ -211,6 +215,9 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   const onSubmit = (data: ClientFormData) => {
+    console.log('Form submitted with:', data);
+    console.log('emailNotifications value:', data.emailNotifications);
+    
     // Clean up the data before submission
     const processedData = {
       ...data,
@@ -223,6 +230,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       clientId: undefined,
     };
     
+    console.log('Processed data being sent:', processedData);
     updateClientMutation.mutate(processedData);
   };
 
