@@ -192,18 +192,28 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
       apiRequest(`/api/clients/${client.id}`, "PUT", data),
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       console.log('Update successful, response:', response);
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
-      toast({
-        title: "Success",
-        description: "Client updated successfully",
-      });
-      // Don't close immediately to see if form resets
-      setTimeout(() => {
+      
+      // Parse the response to get updated client data
+      const updatedClient = await response.json();
+      console.log('Updated client data from server:', updatedClient);
+      
+      // Invalidate and refetch queries
+      await queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
+      
+      // Wait a moment for cache to update before closing
+      setTimeout(async () => {
+        // Refetch the specific client data to ensure form gets latest data
+        await queryClient.refetchQueries({ queryKey: [`/api/clients/${client.id}`] });
+        
+        toast({
+          title: "Success",
+          description: "Client updated successfully",
+        });
         handleClose();
-      }, 1000);
+      }, 500);
     },
     onError: (error: any) => {
       toast({
