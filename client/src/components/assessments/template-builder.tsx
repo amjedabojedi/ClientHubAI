@@ -106,6 +106,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const addQuestion = (sectionIndex: number) => {
     console.log('Adding question to section:', sectionIndex);
+    console.log('Current sections before update:', sections);
+    
     const newQuestion: QuestionForm = {
       text: "",
       type: "short_text",
@@ -113,9 +115,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       required: false,
       scoreValues: []
     };
+    
     const updated = [...sections];
-    updated[sectionIndex].questions.push(newQuestion);
-    console.log('Updated sections:', updated);
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: [...updated[sectionIndex].questions, newQuestion]
+    };
+    
+    console.log('Updated sections after adding question:', updated);
+    console.log('Section', sectionIndex, 'now has', updated[sectionIndex].questions.length, 'questions');
     setSections(updated);
   };
 
@@ -416,7 +424,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 </div>
 
                 {section.questions.map((question, questionIndex) => (
-                  <Card key={questionIndex} className="bg-gray-50">
+                  <Card key={`question-${questionIndex}`} className="bg-gray-50">
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">Question {questionIndex + 1}</span>
@@ -513,11 +521,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                   </Card>
                 ))}
 
-                {section.questions.length === 0 && (
+                {(!section.questions || section.questions.length === 0) && (
                   <div className="text-center py-8 text-muted-foreground">
                     No questions added yet. Click "Add Question" to get started.
                   </div>
                 )}
+                
+                <div className="text-xs text-gray-500 mt-2">
+                  Debug: Section has {section.questions?.length || 0} questions
+                </div>
               </div>
             </CardContent>
           </Card>
