@@ -551,18 +551,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessionBilling.sessionId, sessionId));
   }
 
-  async getBillingRecordsByClient(clientId: number): Promise<(SelectSessionBilling & { session: Session })[]> {
+  async getBillingRecordsByClient(clientId: number): Promise<(SelectSessionBilling & { session: Session; service?: any })[]> {
     const results = await db
       .select({
         billing: sessionBilling,
-        session: sessions
+        session: sessions,
+        service: services
       })
       .from(sessionBilling)
       .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(eq(sessions.clientId, clientId))
       .orderBy(desc(sessionBilling.billingDate));
 
-    return results.map(r => ({ ...r.billing, session: r.session }));
+    return results.map(r => ({ 
+      ...r.billing, 
+      session: r.session,
+      service: r.service,
+      // Override billing fields with actual service data if available
+      serviceName: r.service?.serviceName || r.billing.serviceCode,
+      serviceCode: r.service?.serviceCode || r.billing.serviceCode,
+      amount: r.billing.totalAmount || r.service?.baseRate || r.billing.totalAmount,
+      serviceDate: r.session.sessionDate
+    }));
   }
 
   async updateBillingStatus(billingId: number, status: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded'): Promise<void> {

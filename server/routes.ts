@@ -1660,8 +1660,8 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       // Generate invoice HTML
-      const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.amount), 0);
-      const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.amount) * 0.8), 0);
+      const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || record.amount), 0);
+      const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.totalAmount || record.amount) * 0.8), 0);
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
       
       // Generate unique invoice number
@@ -1733,10 +1733,10 @@ This happens because only the file metadata was stored, not the actual file cont
             <tbody>
               ${billingRecords.map(record => `
                 <tr>
-                  <td>${record.serviceName}</td>
-                  <td>${record.serviceCode}</td>
-                  <td>${new Date(record.serviceDate).toLocaleDateString()}</td>
-                  <td style="text-align: right;">$${Number(record.amount).toFixed(2)}</td>
+                  <td>${record.service?.serviceName || record.serviceName || 'Professional Service'}</td>
+                  <td>${record.service?.serviceCode || record.serviceCode}</td>
+                  <td>${new Date(record.serviceDate || record.session.sessionDate).toLocaleDateString()}</td>
+                  <td style="text-align: right;">$${Number(record.totalAmount || record.amount).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>

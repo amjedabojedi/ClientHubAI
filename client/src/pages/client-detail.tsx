@@ -1266,10 +1266,10 @@ export default function ClientDetailPage() {
                               </div>
                               <div>
                                 <p className="font-medium text-slate-900">
-                                  {billing.serviceCode} - ${billing.totalAmount}
+                                  {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount}
                                 </p>
                                 <p className="text-sm text-slate-600">
-                                  {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'}
+                                  {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
                                 </p>
                               </div>
                             </div>
@@ -1554,10 +1554,10 @@ export default function ClientDetailPage() {
                       </thead>
                       <tbody>
                         <tr>
-                          <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.serviceName}</td>
-                          <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.serviceCode}</td>
-                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</td>
-                          <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.amount).toFixed(2)}</td>
+                          <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceName || selectedBillingRecord.serviceName || 'Professional Service'}</td>
+                          <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceCode || selectedBillingRecord.serviceCode}</td>
+                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.serviceDate || selectedBillingRecord.session?.sessionDate).toLocaleDateString()}</td>
+                          <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -1568,12 +1568,12 @@ export default function ClientDetailPage() {
                     <div className="w-64">
                       <div className="flex justify-between mb-2">
                         <span className="text-slate-600">Service Amount:</span>
-                        <span className="text-slate-900">${Number(selectedBillingRecord.amount).toFixed(2)}</span>
+                        <span className="text-slate-900">${Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</span>
                       </div>
                       {selectedBillingRecord.insuranceCovered && (
                         <div className="flex justify-between mb-2">
                           <span className="text-slate-600">Insurance Coverage:</span>
-                          <span className="text-slate-900">-${(Number(selectedBillingRecord.amount) * 0.8).toFixed(2)}</span>
+                          <span className="text-slate-900">-${(Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount) * 0.8).toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between mb-2">
@@ -1582,7 +1582,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div className="flex justify-between font-semibold text-lg border-t pt-2">
                         <span>Total Due:</span>
-                        <span>${Number(selectedBillingRecord.copayAmount || selectedBillingRecord.amount).toFixed(2)}</span>
+                        <span>${Number(selectedBillingRecord.copayAmount || selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
