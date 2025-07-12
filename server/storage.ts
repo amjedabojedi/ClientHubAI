@@ -1496,6 +1496,15 @@ export class DatabaseStorage implements IStorage {
     await db.delete(assessmentResponses).where(eq(assessmentResponses.id, id));
   }
 
+  // Delete assessment assignment and its responses
+  async deleteAssessmentAssignment(assignmentId: number): Promise<void> {
+    // First delete all responses for this assignment
+    await db.delete(assessmentResponses).where(eq(assessmentResponses.assignmentId, assignmentId));
+    
+    // Then delete the assignment itself
+    await db.delete(assessmentAssignments).where(eq(assessmentAssignments.id, assignmentId));
+  }
+
   // Assessment Reports Management
   async getAssessmentReport(assignmentId: number): Promise<(AssessmentReport & { assignment: AssessmentAssignment; createdBy: User }) | undefined> {
     const [result] = await db

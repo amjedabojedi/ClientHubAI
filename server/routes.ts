@@ -1976,5 +1976,17 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Delete assessment assignment
+  app.delete('/api/assessments/assignments/:assignmentId', async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      await storage.deleteAssessmentAssignment(parseInt(assignmentId));
+      res.json({ message: 'Assessment assignment deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
   return httpServer;
 }

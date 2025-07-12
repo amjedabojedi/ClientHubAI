@@ -594,6 +594,33 @@ export default function ClientDetailPage() {
     window.location.href = `/assessments/${assessmentId}/report`;
   };
 
+  // Delete assessment mutation
+  const deleteAssessmentMutation = useMutation({
+    mutationFn: (assessmentId: number) => {
+      return apiRequest(`/api/assessments/assignments/${assessmentId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      toast({
+        title: "Assessment deleted",
+        description: "Assessment assignment has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete assessment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteAssessment = (assessmentId: number) => {
+    if (confirm("Are you sure you want to delete this assessment assignment? This action cannot be undone.")) {
+      deleteAssessmentMutation.mutate(assessmentId);
+    }
+  };
+
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -1361,6 +1388,15 @@ export default function ClientDetailPage() {
                                 Complete
                               </Button>
                             )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteAssessment(assessment.id)}
+                              disabled={deleteAssessmentMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
                           </div>
                         </div>
                       </div>
