@@ -27,7 +27,11 @@ import {
   insertAssessmentQuestionOptionSchema, 
   insertAssessmentAssignmentSchema, 
   insertAssessmentResponseSchema, 
-  insertAssessmentReportSchema 
+  insertAssessmentReportSchema,
+  insertServiceSchema,
+  insertRoomSchema,
+  insertRoomBookingSchema,
+  insertSessionBillingSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1443,6 +1447,139 @@ This happens because only the file metadata was stored, not the actual file cont
       res.status(201).json(report);
     } catch (error) {
       console.error("Error creating assessment report:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Service Management API
+  app.get("/api/services", async (req, res) => {
+    try {
+      const services = await storage.getServices();
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching services:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/services", async (req, res) => {
+    try {
+      const validatedData = insertServiceSchema.parse(req.body);
+      const service = await storage.createService(validatedData);
+      res.status(201).json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid service data", errors: error.errors });
+      }
+      console.error("Error creating service:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Room Management API
+  app.get("/api/rooms", async (req, res) => {
+    try {
+      const rooms = await storage.getRooms();
+      res.json(rooms);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/rooms", async (req, res) => {
+    try {
+      const validatedData = insertRoomSchema.parse(req.body);
+      const room = await storage.createRoom(validatedData);
+      res.status(201).json(room);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid room data", errors: error.errors });
+      }
+      console.error("Error creating room:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Room Availability Check
+  app.get("/api/rooms/availability", async (req, res) => {
+    try {
+      const { date, startTime, endTime, excludeSessionId } = req.query;
+      
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ message: "Date, start time, and end time are required" });
+      }
+      
+      const availability = await storage.checkRoomAvailability(
+        date as string,
+        startTime as string,
+        endTime as string,
+        excludeSessionId ? parseInt(excludeSessionId as string) : undefined
+      );
+      
+      res.json(availability);
+    } catch (error) {
+      console.error("Error checking room availability:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Enhanced Session Management with Billing
+  app.put("/api/sessions/:id/status", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+      
+      // Update session status
+      const updatedSession = await storage.updateSessionStatus(sessionId, status);
+      
+      // Trigger billing when session is completed
+      if (status === 'completed') {
+        await storage.createSessionBilling(sessionId);
+      }
+      
+      res.json(updatedSession);
+    } catch (error) {
+      console.error("Error updating session status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Session Billing API
+  app.get("/api/sessions/:id/billing", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+      
+      const billing = await storage.getSessionBilling(sessionId);
+      res.json(billing);
+    } catch (error) {
+      console.error("Error fetching session billing:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/billing/reports", async (req, res) => {
+    try {
+      const { startDate, endDate, therapistId, status } = req.query;
+      
+      const reports = await storage.getBillingReports({
+        startDate: startDate as string,
+        endDate: endDate as string,
+        therapistId: therapistId ? parseInt(therapistId as string) : undefined,
+        status: status as string
+      });
+      
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching billing reports:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

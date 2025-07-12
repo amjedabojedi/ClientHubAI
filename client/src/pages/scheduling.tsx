@@ -53,9 +53,9 @@ const sessionFormSchema = z.object({
   therapistId: z.number().min(1, "Therapist is required"),
   sessionDate: z.string().min(1, "Date is required"),
   sessionTime: z.string().min(1, "Time is required"),
+  serviceId: z.number().min(1, "Service is required"),
+  roomId: z.number().min(1, "Room is required"),
   sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
-  duration: z.number().min(15, "Duration must be at least 15 minutes").max(180, "Duration cannot exceed 3 hours"),
-  room: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -68,9 +68,10 @@ interface Session {
   sessionDate: string;
   sessionType: string;
   status: string;
-  duration: number;
+  serviceId: number;
+  roomId: number;
   notes?: string;
-  room?: string;
+  calculatedRate?: number;
   therapist: {
     id: number;
     fullName: string;
@@ -78,6 +79,18 @@ interface Session {
   client?: {
     id: number;
     fullName: string;
+  };
+  service?: {
+    id: number;
+    serviceName: string;
+    serviceCode: string;
+    duration: number;
+    baseRate: number;
+  };
+  room?: {
+    id: number;
+    roomNumber: string;
+    roomName: string;
   };
 }
 
@@ -122,16 +135,48 @@ export default function SchedulingPage() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  // Fetch services for booking
+  const { data: services = [] } = useQuery({
+    queryKey: ["/api/services"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Fetch rooms for booking
+  const { data: rooms = [] } = useQuery({
+    queryKey: ["/api/rooms"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Room availability based on selected date/time
+  const [selectedDateTimeForRooms, setSelectedDateTimeForRooms] = useState<{date: string, time: string} | null>(null);
+  const { data: availableRooms = [] } = useQuery({
+    queryKey: ["/api/rooms/availability", selectedDateTimeForRooms],
+    queryFn: () => {
+      if (!selectedDateTimeForRooms) return [];
+      const { date, time } = selectedDateTimeForRooms;
+      const selectedService = services.find(s => s.id === form.watch('serviceId'));
+      if (!selectedService) return [];
+      
+      const startTime = time;
+      const endTime = new Date(new Date(`${date}T${startTime}`).getTime() + selectedService.duration * 60000)
+        .toTimeString().slice(0, 5);
+      
+      return fetch(`/api/rooms/availability?date=${date}&startTime=${startTime}&endTime=${endTime}`)
+        .then(res => res.json());
+    },
+    enabled: !!selectedDateTimeForRooms && !!form.watch('serviceId'),
+  });
+
   const form = useForm<SessionFormData>({
     resolver: zodResolver(sessionFormSchema),
     defaultValues: {
       clientId: clientIdFromUrl ? parseInt(clientIdFromUrl) : undefined,
       therapistId: therapistIdFromUrl ? parseInt(therapistIdFromUrl) : undefined,
       sessionType: "psychotherapy",
-      duration: 60,
       sessionDate: "",
       sessionTime: "",
-      room: "",
+      serviceId: undefined,
+      roomId: undefined,
       notes: "",
     },
   });
@@ -149,6 +194,16 @@ export default function SchedulingPage() {
       }
     }
   }, [clientIdFromUrl, clientNameFromUrl, therapistIdFromUrl, form]);
+
+  // Watch for date/time changes to update room availability
+  const watchedDate = form.watch('sessionDate');
+  const watchedTime = form.watch('sessionTime');
+  
+  React.useEffect(() => {
+    if (watchedDate && watchedTime) {
+      setSelectedDateTimeForRooms({ date: watchedDate, time: watchedTime });
+    }
+  }, [watchedDate, watchedTime]);
 
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
@@ -176,10 +231,10 @@ export default function SchedulingPage() {
     },
   });
 
-  // Session Status Update Mutation
+  // Session Status Update Mutation with Billing Integration
   const updateSessionMutation = useMutation({
     mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
-      return apiRequest(`/api/sessions/${sessionId}`, "PUT", { status });
+      return apiRequest(`/api/sessions/${sessionId}/status`, "PUT", { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
@@ -533,20 +588,24 @@ export default function SchedulingPage() {
 
                         <FormField
                           control={form.control}
-                          name="duration"
+                          name="serviceId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Duration (minutes)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  type="number"
-                                  min={15}
-                                  max={180}
-                                  step={15}
-                                  onChange={(e) => field.onChange(parseInt(e.target.value))}
-                                />
-                              </FormControl>
+                              <FormLabel>Service</FormLabel>
+                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select service" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {services?.map((service) => (
+                                    <SelectItem key={service.id} value={service.id.toString()}>
+                                      {service.serviceName} - ${service.baseRate} ({service.duration}min)
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -555,13 +614,24 @@ export default function SchedulingPage() {
 
                       <FormField
                         control={form.control}
-                        name="room"
+                        name="roomId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Room (optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Room number or name" />
-                            </FormControl>
+                            <FormLabel>Room</FormLabel>
+                            <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select room" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {availableRooms?.map((room) => (
+                                  <SelectItem key={room.id} value={room.id.toString()}>
+                                    Room {room.roomNumber} - {room.roomName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}

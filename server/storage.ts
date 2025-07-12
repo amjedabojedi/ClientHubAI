@@ -20,7 +20,11 @@ import {
   assessmentQuestionOptions,
   assessmentAssignments,
   assessmentResponses,
-  assessmentReports
+  assessmentReports,
+  services,
+  rooms,
+  roomBookings,
+  sessionBilling
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -58,7 +62,15 @@ import type {
   AssessmentResponse,
   InsertAssessmentResponse,
   AssessmentReport,
-  InsertAssessmentReport
+  InsertAssessmentReport,
+  SelectService,
+  InsertService,
+  SelectRoom,
+  InsertRoom,
+  SelectRoomBooking,
+  InsertRoomBooking,
+  SelectSessionBilling,
+  InsertSessionBilling
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -1238,6 +1250,165 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assessmentQuestionOptions.questionId, questionId))
       .orderBy(asc(assessmentQuestionOptions.sortOrder));
     return options;
+  }
+
+  // Service Management Methods
+  async getServices(): Promise<SelectService[]> {
+    const serviceList = await db.select().from(services)
+      .where(eq(services.isActive, true))
+      .orderBy(asc(services.serviceName));
+    return serviceList;
+  }
+
+  async createService(serviceData: InsertService): Promise<SelectService> {
+    const [service] = await db.insert(services).values(serviceData).returning();
+    return service;
+  }
+
+  async getServiceById(id: number): Promise<SelectService | null> {
+    const [service] = await db.select().from(services).where(eq(services.id, id));
+    return service || null;
+  }
+
+  // Room Management Methods
+  async getRooms(): Promise<SelectRoom[]> {
+    const roomList = await db.select().from(rooms)
+      .where(eq(rooms.isActive, true))
+      .orderBy(asc(rooms.roomNumber));
+    return roomList;
+  }
+
+  async createRoom(roomData: InsertRoom): Promise<SelectRoom> {
+    const [room] = await db.insert(rooms).values(roomData).returning();
+    return room;
+  }
+
+  async getRoomById(id: number): Promise<SelectRoom | null> {
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
+    return room || null;
+  }
+
+  // Room Availability Methods
+  async checkRoomAvailability(date: string, startTime: string, endTime: string, excludeSessionId?: number): Promise<SelectRoom[]> {
+    const startDateTime = new Date(`${date}T${startTime}`);
+    const endDateTime = new Date(`${date}T${endTime}`);
+    
+    // Find rooms that are NOT booked during the requested time
+    const availableRooms = await db.select().from(rooms)
+      .where(
+        and(
+          eq(rooms.isActive, true),
+          sql`${rooms.id} NOT IN (
+            SELECT DISTINCT ${roomBookings.roomId}
+            FROM ${roomBookings}
+            WHERE (
+              ${roomBookings.startTime} < ${endDateTime.toISOString()}
+              AND ${roomBookings.endTime} > ${startDateTime.toISOString()}
+              ${excludeSessionId ? sql`AND ${roomBookings.sessionId} != ${excludeSessionId}` : sql``}
+            )
+          )`
+        )
+      )
+      .orderBy(asc(rooms.roomNumber));
+    
+    return availableRooms;
+  }
+
+  // Enhanced Session Management with Billing
+  async updateSessionStatus(sessionId: number, status: string): Promise<Session> {
+    const [updatedSession] = await db.update(sessions)
+      .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(sessions.id, sessionId))
+      .returning();
+    
+    return updatedSession;
+  }
+
+  async createSessionBilling(sessionId: number): Promise<SelectSessionBilling> {
+    // Get session and service information
+    const [sessionData] = await db.select({
+      session: sessions,
+      service: services
+    })
+    .from(sessions)
+    .innerJoin(services, eq(sessions.serviceId, services.id))
+    .where(eq(sessions.id, sessionId));
+    
+    if (!sessionData) {
+      throw new Error('Session not found');
+    }
+    
+    // Create billing record
+    const billingData: InsertSessionBilling = {
+      sessionId: sessionId,
+      serviceCode: sessionData.service.serviceCode,
+      units: 1,
+      ratePerUnit: sessionData.service.baseRate,
+      totalAmount: sessionData.service.baseRate,
+      insuranceCovered: false,
+      paymentStatus: 'pending',
+      billingDate: new Date().toISOString().split('T')[0]
+    };
+    
+    const [billing] = await db.insert(sessionBilling).values(billingData).returning();
+    
+    // Update session with calculated rate
+    await db.update(sessions)
+      .set({ calculatedRate: sessionData.service.baseRate })
+      .where(eq(sessions.id, sessionId));
+    
+    return billing;
+  }
+
+  async getSessionBilling(sessionId: number): Promise<SelectSessionBilling | null> {
+    const [billing] = await db.select().from(sessionBilling)
+      .where(eq(sessionBilling.sessionId, sessionId));
+    return billing || null;
+  }
+
+  async getBillingReports(params: {
+    startDate?: string;
+    endDate?: string;
+    therapistId?: number;
+    status?: string;
+  }): Promise<any[]> {
+    let query = db.select({
+      billing: sessionBilling,
+      session: sessions,
+      client: clients,
+      therapist: users,
+      service: services
+    })
+    .from(sessionBilling)
+    .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+    .innerJoin(clients, eq(sessions.clientId, clients.id))
+    .innerJoin(users, eq(sessions.therapistId, users.id))
+    .innerJoin(services, eq(sessions.serviceId, services.id));
+    
+    const conditions = [];
+    
+    if (params.startDate) {
+      conditions.push(sql`${sessionBilling.billingDate} >= ${params.startDate}`);
+    }
+    
+    if (params.endDate) {
+      conditions.push(sql`${sessionBilling.billingDate} <= ${params.endDate}`);
+    }
+    
+    if (params.therapistId) {
+      conditions.push(eq(sessions.therapistId, params.therapistId));
+    }
+    
+    if (params.status) {
+      conditions.push(eq(sessionBilling.paymentStatus, params.status as any));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    const results = await query.orderBy(desc(sessionBilling.billingDate));
+    return results;
   }
 }
 
