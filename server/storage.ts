@@ -180,6 +180,7 @@ export interface IStorage {
 
   // Assessment Question Options Management
   createAssessmentQuestionOption(option: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption>;
+  createAssessmentQuestionOptionsBulk(options: InsertAssessmentQuestionOption[]): Promise<AssessmentQuestionOption[]>;
   updateAssessmentQuestionOption(id: number, option: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption>;
   deleteAssessmentQuestionOption(id: number): Promise<void>;
   deleteAllAssessmentQuestionOptions(questionId: number): Promise<void>;

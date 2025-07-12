@@ -1339,6 +1339,29 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Bulk create question options for performance
+  app.post("/api/assessments/question-options/bulk", async (req, res) => {
+    try {
+      const { options } = req.body;
+      if (!Array.isArray(options)) {
+        return res.status(400).json({ message: "Options must be an array" });
+      }
+      
+      const validatedOptions = options.map(option => 
+        insertAssessmentQuestionOptionSchema.parse(option)
+      );
+      
+      const createdOptions = await storage.createAssessmentQuestionOptionsBulk(validatedOptions);
+      res.status(201).json(createdOptions);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid option data", errors: error.errors });
+      }
+      console.error("Error creating question options in bulk:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.patch("/api/assessments/question-options/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
