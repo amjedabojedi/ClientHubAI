@@ -4,50 +4,52 @@ import { useRoute, useLocation } from "wouter";
 
 // UI Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 // Icons
 import { 
+  AlertCircle,
   ArrowLeft, 
-  User, 
   Calendar, 
-  FileText, 
-  ClipboardList, 
-  FolderOpen, 
-  CreditCard, 
+  CheckCircle,
   CheckSquare, 
-  Plus, 
-  Search, 
+  ChevronDown,
+  Clock,
+  ClipboardList, 
+  CreditCard, 
   Download, 
-  Upload, 
   Edit, 
-  Trash2,
+  Eye,
+  FileText, 
+  FolderOpen, 
   Home,
-  Phone,
   Mail,
   MapPin,
-  Clock,
-  Eye,
-  AlertCircle,
-  CheckCircle,
-  X,
-  ChevronDown,
-  Printer
+  Phone,
+  Plus, 
+  Printer,
+  Search, 
+  Trash2,
+  Upload, 
+  User, 
+  X
 } from "lucide-react";
 
-// Utils and Types
-import { getQueryFn, apiRequest } from "@/lib/queryClient";
+// Utils and Hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { getQueryFn, apiRequest } from "@/lib/queryClient";
+
+// Types
 import type { Client, Session, Note, Task, Document } from "@/types/client";
 
 // Components
@@ -175,10 +177,12 @@ export default function ClientDetailPage() {
     notes: ''
   });
 
-  // React Query
+  // ==================== React Query Setup ====================
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // ==================== API Mutations ====================
+  
   // Session Status Update Mutation
   const updateSessionMutation = useMutation({
     mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
@@ -204,7 +208,8 @@ export default function ClientDetailPage() {
     updateSessionMutation.mutate({ sessionId, status });
   };
 
-  // Event Handlers
+  // ==================== Basic Event Handlers ====================
+  
   const handleEditClient = () => setIsEditModalOpen(true);
   const handleDeleteClient = () => setIsDeleteDialogOpen(true);
   const handleDeleteSuccess = () => setLocation("/clients");
@@ -560,28 +565,39 @@ export default function ClientDetailPage() {
     }
   };
 
-  // Assessment handler functions
-  const handleAssignAssessment = async (templateId: number) => {
-    try {
-      const response = await apiRequest(`/api/clients/${clientId}/assessments`, "POST", {
+  // ==================== Assessment Management ====================
+  
+  // Assessment assign mutation
+  const assignAssessmentMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      return await apiRequest(`/api/clients/${clientId}/assessments`, "POST", {
         templateId,
         assignedDate: new Date().toISOString(),
         assignedBy: 1, // Current therapist ID - should be from auth context
         status: 'pending'
       });
-
+    },
+    onSuccess: () => {
+      // Invalidate and refetch assessment data immediately
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      queryClient.refetchQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      
       toast({
         title: "Assessment assigned",
         description: "Assessment template has been assigned to client successfully.",
       });
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to assign assessment. Please try again.",
         variant: "destructive",
       });
-    }
+    },
+  });
+
+  const handleAssignAssessment = (templateId: number) => {
+    assignAssessmentMutation.mutate(templateId);
   };
 
   const handleCompleteAssessment = (assessmentId: number) => {
@@ -596,11 +612,14 @@ export default function ClientDetailPage() {
 
   // Delete assessment mutation
   const deleteAssessmentMutation = useMutation({
-    mutationFn: (assessmentId: number) => {
-      return apiRequest(`/api/assessments/assignments/${assessmentId}`, "DELETE");
+    mutationFn: async (assessmentId: number) => {
+      return await apiRequest(`/api/assessments/assignments/${assessmentId}`, "DELETE");
     },
     onSuccess: () => {
+      // Invalidate and refetch assessment data immediately
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      queryClient.refetchQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      
       toast({
         title: "Assessment deleted",
         description: "Assessment assignment has been deleted successfully.",
@@ -616,10 +635,12 @@ export default function ClientDetailPage() {
   });
 
   const handleDeleteAssessment = (assessmentId: number) => {
-    if (confirm("Are you sure you want to delete this assessment assignment? This action cannot be undone.")) {
+    if (window.confirm("Are you sure you want to delete this assessment assignment? This action cannot be undone.")) {
       deleteAssessmentMutation.mutate(assessmentId);
     }
   };
+
+  // ==================== Component Event Handlers ====================
 
   const { data: client, isLoading } = useQuery({
     queryKey: [`/api/clients/${clientId}`],
@@ -1393,9 +1414,10 @@ export default function ClientDetailPage() {
                               size="sm"
                               onClick={() => handleDeleteAssessment(assessment.id)}
                               disabled={deleteAssessmentMutation.isPending}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
+                              {deleteAssessmentMutation.isPending ? "Deleting..." : "Delete"}
                             </Button>
                           </div>
                         </div>
