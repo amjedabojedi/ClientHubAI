@@ -109,6 +109,7 @@ export default function SchedulingPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showMySessionsOnly, setShowMySessionsOnly] = useState(false);
   const [isSchedulingFromExistingSession, setIsSchedulingFromExistingSession] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -210,24 +211,32 @@ export default function SchedulingPage() {
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
       const sessionDateTime = new Date(`${data.sessionDate}T${data.sessionTime}`);
-      return apiRequest("/api/sessions", "POST", {
+      const sessionData = {
         ...data,
         sessionDate: sessionDateTime.toISOString(),
-      });
+      };
+      
+      if (editingSessionId) {
+        return apiRequest(`/api/sessions/${editingSessionId}`, "PUT", sessionData);
+      } else {
+        return apiRequest("/api/sessions", "POST", sessionData);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
       toast({
         title: "Success",
-        description: "Session scheduled successfully",
+        description: editingSessionId ? "Session updated successfully" : "Session scheduled successfully",
       });
       setIsNewSessionModalOpen(false);
+      setEditingSessionId(null);
       form.reset();
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to schedule session",
+        description: error.message || (editingSessionId ? "Failed to update session" : "Failed to schedule session"),
         variant: "destructive",
       });
     },
@@ -441,6 +450,7 @@ export default function SchedulingPage() {
                 if (!open) {
                   // Reset state when modal is closed
                   setIsSchedulingFromExistingSession(false);
+                  setEditingSessionId(null);
                   form.reset();
                 }
                 if (open && clientIdFromUrl) {
@@ -460,7 +470,7 @@ export default function SchedulingPage() {
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Schedule New Session</DialogTitle>
+                    <DialogTitle>{editingSessionId ? "Edit Session" : "Schedule New Session"}</DialogTitle>
                   </DialogHeader>
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -663,7 +673,10 @@ export default function SchedulingPage() {
                           Cancel
                         </Button>
                         <Button type="submit" disabled={createSessionMutation.isPending}>
-                          {createSessionMutation.isPending ? "Scheduling..." : "Schedule Session"}
+                          {createSessionMutation.isPending ? 
+                            (editingSessionId ? "Updating..." : "Scheduling...") : 
+                            (editingSessionId ? "Update Session" : "Schedule Session")
+                          }
                         </Button>
                       </div>
                     </form>
@@ -1093,14 +1106,23 @@ export default function SchedulingPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Duration</label>
-                    <p className="text-sm text-slate-600">{selectedSession.duration} minutes</p>
-                  </div>
+                  {selectedSession.service && (
+                    <div>
+                      <label className="text-sm font-medium text-slate-700">Service</label>
+                      <p className="text-sm text-slate-600">
+                        {selectedSession.service.serviceName} ({selectedSession.service.serviceCode})
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {selectedSession.service.duration} min - ${selectedSession.service.baseRate}
+                      </p>
+                    </div>
+                  )}
                   {selectedSession.room && (
                     <div>
                       <label className="text-sm font-medium text-slate-700">Room</label>
-                      <p className="text-sm text-slate-600">{selectedSession.room}</p>
+                      <p className="text-sm text-slate-600">
+                        {selectedSession.room.roomName} ({selectedSession.room.roomNumber})
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1164,7 +1186,28 @@ export default function SchedulingPage() {
                       onClick={() => window.location.href = `/clients/${selectedSession.clientId}`}
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      View Full Client Profile
+                      View Client Profile
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        // Pre-fill the form with current session data for editing
+                        form.setValue('clientId', selectedSession.clientId);
+                        form.setValue('therapistId', selectedSession.therapistId);
+                        form.setValue('serviceId', selectedSession.serviceId);
+                        form.setValue('roomId', selectedSession.roomId);
+                        form.setValue('sessionType', selectedSession.sessionType as any);
+                        form.setValue('sessionDate', selectedSession.sessionDate.split('T')[0]);
+                        form.setValue('sessionTime', new Date(selectedSession.sessionDate).toTimeString().slice(0, 5));
+                        form.setValue('notes', selectedSession.notes || '');
+                        setEditingSessionId(selectedSession.id);
+                        setIsSchedulingFromExistingSession(true);
+                        setIsEditSessionModalOpen(false);
+                        setIsNewSessionModalOpen(true);
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit This Session
                     </Button>
                     <Button 
                       variant="outline"
