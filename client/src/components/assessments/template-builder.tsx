@@ -317,8 +317,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
             // First, get existing options to determine which to update vs create
-            const existingOptions = question.id 
-              ? await apiRequest(`/api/assessments/questions/${question.id}/options`, "GET")
+            const existingOptions = questionId 
+              ? await apiRequest(`/api/assessments/questions/${questionId}/options`, "GET")
               : [];
 
             // Delete existing options that are no longer present
@@ -340,16 +340,21 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               const optionData = {
                 questionId: questionId!,
                 optionText: optionText,
-                optionValue: optionValue.toString(),
+                optionValue: optionValue,
                 sortOrder: optionIndex
               };
 
-              if (existingOption?.id) {
-                // Update existing option
-                await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "PATCH", optionData);
-              } else {
-                // Create new option
-                await apiRequest(`/api/assessments/question-options`, "POST", optionData);
+              try {
+                if (existingOption?.id) {
+                  // Update existing option
+                  await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "PATCH", optionData);
+                } else {
+                  // Create new option
+                  await apiRequest(`/api/assessments/question-options`, "POST", optionData);
+                }
+              } catch (optionError) {
+                console.error('Error saving option:', optionError, 'Data:', optionData);
+                throw optionError;
               }
             }
           }
