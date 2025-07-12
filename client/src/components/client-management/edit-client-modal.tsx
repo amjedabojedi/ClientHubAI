@@ -16,10 +16,10 @@ import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { insertClientSchema } from "@shared/schema";
 import { Client } from "@/types/client";
 
-// Use the same schema as Add Client modal for consistency
+// Use insert schema but make clientId optional for edits since it already exists
 const clientFormSchema = insertClientSchema.extend({
   assignedTherapistId: z.number().optional(),
-});
+}).partial({ clientId: true }); // Make clientId optional for edits
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
 
@@ -211,10 +211,6 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   const onSubmit = (data: ClientFormData) => {
-    console.log('Form onSubmit called with:', data);
-    console.log('Form errors:', form.formState.errors);
-    console.log('Form isValid:', form.formState.isValid);
-    
     // Clean up the data before submission
     const processedData = {
       ...data,
@@ -223,9 +219,10 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       // Handle numeric fields properly - keep zero values but remove empty strings
       copayAmount: data.copayAmount === "" ? undefined : data.copayAmount,
       deductible: data.deductible === "" ? undefined : data.deductible,
+      // Don't include clientId in updates since it's auto-generated
+      clientId: undefined,
     };
     
-    console.log('Processed data:', processedData);
     updateClientMutation.mutate(processedData);
   };
 
@@ -1110,11 +1107,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                 type="submit" 
                 disabled={updateClientMutation.isPending}
                 className="min-w-[120px]"
-                onClick={() => {
-                  console.log('Update button clicked, form valid:', form.formState.isValid);
-                  console.log('Form errors:', form.formState.errors);
-                  console.log('Form values:', form.getValues());
-                }}
+
               >
                 {updateClientMutation.isPending ? "Updating..." : "Update Client"}
               </Button>
