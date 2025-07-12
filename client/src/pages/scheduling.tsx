@@ -108,6 +108,7 @@ export default function SchedulingPage() {
   const [selectedTherapist, setSelectedTherapist] = useState<string>("all");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showMySessionsOnly, setShowMySessionsOnly] = useState(false);
+  const [isSchedulingFromExistingSession, setIsSchedulingFromExistingSession] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -437,6 +438,11 @@ export default function SchedulingPage() {
               </Button>
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
+                if (!open) {
+                  // Reset state when modal is closed
+                  setIsSchedulingFromExistingSession(false);
+                  form.reset();
+                }
                 if (open && clientIdFromUrl) {
                   // Auto-open modal if coming from client page
                   form.setValue('clientId', parseInt(clientIdFromUrl));
@@ -468,7 +474,7 @@ export default function SchedulingPage() {
                               <Select 
                                 onValueChange={(value) => field.onChange(parseInt(value))}
                                 value={field.value?.toString()}
-                                disabled={!!clientIdFromUrl}
+                                disabled={!!clientIdFromUrl || isSchedulingFromExistingSession}
                               >
                                 <FormControl>
                                   <SelectTrigger>
@@ -497,7 +503,7 @@ export default function SchedulingPage() {
                               <Select 
                                 onValueChange={(value) => field.onChange(parseInt(value))}
                                 value={field.value?.toString()}
-                                disabled={!!therapistIdFromUrl}
+                                disabled={!!therapistIdFromUrl || isSchedulingFromExistingSession}
                               >
                                 <FormControl>
                                   <SelectTrigger>
@@ -1158,6 +1164,7 @@ export default function SchedulingPage() {
                       onClick={() => {
                         form.setValue('clientId', selectedSession.clientId);
                         form.setValue('therapistId', selectedSession.therapistId);
+                        setIsSchedulingFromExistingSession(true);
                         setIsEditSessionModalOpen(false);
                         setIsNewSessionModalOpen(true);
                       }}
