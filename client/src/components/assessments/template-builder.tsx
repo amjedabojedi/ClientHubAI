@@ -401,7 +401,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                     checked={section.isScoring}
                     onCheckedChange={(checked) => updateSection(sectionIndex, "isScoring", checked)}
                   />
-                  <Label>Enable Scoring</Label>
+                  <Label>Enable Scoring <span className="text-xs text-muted-foreground">(shows score values for all options)</span></Label>
                 </div>
               </div>
 
@@ -498,7 +498,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                               {question.type === "multiple_choice" && "Answer Choices (select one)"}
                               {question.type === "checkbox" && "Checkbox Options (select multiple)"}
                               {question.type === "rating_scale" && "Rating Scale Values"}
-                              {section.isScoring && <span className="text-xs text-muted-foreground"> (with scores)</span>}
+                              <span className="text-xs text-muted-foreground block">Each option can have a score value for assessment calculations</span>
                             </Label>
                             <Button variant="outline" size="sm" onClick={() => addOption(sectionIndex, questionIndex)}>
                               <Plus className="h-4 w-4 mr-1" />
@@ -514,18 +514,18 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                                 placeholder={`Option ${optionIndex + 1}`}
                                 className="flex-1"
                               />
-                              {section.isScoring && (
-                                <div className="flex items-center space-x-1">
-                                  <Label className="text-xs">Score:</Label>
-                                  <Input
-                                    type="number"
-                                    value={question.scoreValues[optionIndex] || 0}
-                                    onChange={(e) => updateScoreValue(sectionIndex, questionIndex, optionIndex, parseInt(e.target.value) || 0)}
-                                    placeholder="0"
-                                    className="w-16"
-                                  />
-                                </div>
-                              )}
+                              <div className="flex items-center space-x-1">
+                                <Label className="text-xs">Score:</Label>
+                                <Input
+                                  type="number"
+                                  value={question.scoreValues[optionIndex] || 0}
+                                  onChange={(e) => updateScoreValue(sectionIndex, questionIndex, optionIndex, parseInt(e.target.value) || 0)}
+                                  placeholder="0"
+                                  className="w-16"
+                                  min="0"
+                                  step="1"
+                                />
+                              </div>
                               <Button variant="ghost" size="sm" onClick={() => removeOption(sectionIndex, questionIndex, optionIndex)}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
