@@ -22,6 +22,8 @@ export const clientStageEnum = pgEnum('client_stage', ['intake', 'assessment', '
 export const clientTypeEnum = pgEnum('client_type', ['individual', 'couple', 'family', 'group']);
 export const sessionTypeEnum = pgEnum('session_type', ['assessment', 'psychotherapy', 'consultation']);
 export const sessionStatusEnum = pgEnum('session_status', ['scheduled', 'completed', 'cancelled', 'no_show']);
+export const serviceTypeEnum = pgEnum('service_type', ['individual_therapy', 'group_therapy', 'family_therapy', 'assessment', 'consultation']);
+export const billingStatusEnum = pgEnum('billing_status', ['pending', 'billed', 'paid', 'denied', 'refunded']);
 export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', 'completed', 'overdue']);
 export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high', 'urgent']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'non_binary', 'prefer_not_to_say']);
@@ -134,19 +136,78 @@ export const clients = pgTable("clients", {
   createdAtIdx: index("clients_created_at_idx").on(table.createdAt),
 }));
 
-// Sessions table
+// Services table - Healthcare service codes and billing rates
+export const services = pgTable("services", {
+  id: serial("id").primaryKey(),
+  serviceCode: varchar("service_code", { length: 20 }).notNull().unique(), // CPT codes like "90834", "90837"
+  serviceName: text("service_name").notNull(), // "Individual Psychotherapy 45 min"
+  serviceType: serviceTypeEnum("service_type").notNull(),
+  standardDuration: integer("standard_duration").notNull(), // 45, 60, 90 minutes
+  baseRate: decimal("base_rate", { precision: 10, scale: 2 }).notNull(),
+  billingCategory: varchar("billing_category", { length: 50 }),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Rooms table - Physical therapy rooms and spaces
+export const rooms = pgTable("rooms", {
+  id: serial("id").primaryKey(),
+  roomNumber: varchar("room_number", { length: 20 }).notNull().unique(),
+  roomName: text("room_name").notNull(),
+  capacity: integer("capacity").notNull().default(1),
+  equipment: text("equipment").array(), // ['video', 'whiteboard', 'telephone']
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Room bookings table - Prevent double booking conflicts
+export const roomBookings = pgTable("room_bookings", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").notNull().references(() => rooms.id),
+  sessionId: integer("session_id").notNull().references(() => sessions.id),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  bookedBy: integer("booked_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  // Prevent double booking - same room at same time
+  uniqueRoomTimeSlot: index("unique_room_time_slot").on(table.roomId, table.startTime, table.endTime),
+}));
+
+// Enhanced Sessions table with service and room references
 export const sessions = pgTable("sessions", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
   therapistId: integer("therapist_id").notNull().references(() => users.id),
+  serviceId: integer("service_id").notNull().references(() => services.id), // Links to service catalog
+  roomId: integer("room_id").references(() => rooms.id), // Links to room management
   sessionDate: timestamp("session_date").notNull(),
   sessionType: sessionTypeEnum("session_type").notNull(),
   status: sessionStatusEnum("status").notNull().default('scheduled'),
-  duration: integer("duration"), // in minutes
   notes: text("notes"),
-  serviceProvided: text("service_provided"),
-  room: varchar("room", { length: 50 }),
-  price: decimal("price", { precision: 10, scale: 2 }),
+  calculatedRate: decimal("calculated_rate", { precision: 10, scale: 2 }), // Auto-calculated from service
+  insuranceApplicable: boolean("insurance_applicable").notNull().default(false),
+  billingNotes: text("billing_notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Session billing table - Comprehensive billing records
+export const sessionBilling = pgTable("session_billing", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id, { onDelete: 'cascade' }),
+  serviceCode: varchar("service_code", { length: 20 }).notNull(),
+  units: integer("units").notNull().default(1),
+  ratePerUnit: decimal("rate_per_unit", { precision: 10, scale: 2 }).notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  insuranceCovered: boolean("insurance_covered").notNull().default(false),
+  copayAmount: decimal("copay_amount", { precision: 10, scale: 2 }),
+  billingDate: date("billing_date"),
+  paymentStatus: billingStatusEnum("payment_status").notNull().default('pending'),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -388,6 +449,10 @@ export const usersRelations = relations(users, ({ many }) => ({
   notes: many(notes),
   documents: many(documents),
   sessionNotes: many(sessionNotes),
+  libraryEntries: many(libraryEntries),
+  assessmentTemplates: many(assessmentTemplates),
+  assessmentResponses: many(assessmentResponses),
+  roomBookings: many(roomBookings),
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
@@ -402,6 +467,22 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   sessionNotes: many(sessionNotes),
 }));
 
+export const servicesRelations = relations(services, ({ many }) => ({
+  sessions: many(sessions),
+  sessionBilling: many(sessionBilling),
+}));
+
+export const roomsRelations = relations(rooms, ({ many }) => ({
+  sessions: many(sessions),
+  roomBookings: many(roomBookings),
+}));
+
+export const roomBookingsRelations = relations(roomBookings, ({ one }) => ({
+  room: one(rooms, { fields: [roomBookings.roomId], references: [rooms.id] }),
+  session: one(sessions, { fields: [roomBookings.sessionId], references: [sessions.id] }),
+  bookedBy: one(users, { fields: [roomBookings.bookedBy], references: [users.id] }),
+}));
+
 export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   client: one(clients, {
     fields: [sessions.clientId],
@@ -411,7 +492,15 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     fields: [sessions.therapistId],
     references: [users.id],
   }),
+  service: one(services, { fields: [sessions.serviceId], references: [services.id] }),
+  room: one(rooms, { fields: [sessions.roomId], references: [rooms.id] }),
   sessionNotes: many(sessionNotes),
+  roomBooking: one(roomBookings),
+  billing: one(sessionBilling),
+}));
+
+export const sessionBillingRelations = relations(sessionBilling, ({ one }) => ({
+  session: one(sessions, { fields: [sessionBilling.sessionId], references: [sessions.id] }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
@@ -590,7 +679,30 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   updatedAt: true,
 });
 
+export const insertServiceSchema = createInsertSchema(services).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRoomSchema = createInsertSchema(rooms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertSessionSchema = createInsertSchema(sessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSessionBillingSchema = createInsertSchema(sessionBilling).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
