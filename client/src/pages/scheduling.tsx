@@ -730,7 +730,7 @@ export default function SchedulingPage() {
                       <div
                         key={i}
                         className={`
-                          min-h-[120px] p-2 border border-slate-100 cursor-pointer hover:bg-slate-50
+                          min-h-[140px] p-2 border border-slate-100 cursor-pointer hover:bg-slate-50
                           ${!isCurrentMonth ? 'bg-slate-50 text-slate-400' : ''}
                           ${isToday ? 'bg-blue-50 border-blue-200' : ''}
                           ${isSelected ? 'ring-2 ring-blue-500' : ''}
@@ -741,7 +741,7 @@ export default function SchedulingPage() {
                           {currentDate.getDate()}
                         </div>
                         <div className="space-y-1">
-                          {sessionsForDay.slice(0, 3).map((session: Session) => (
+                          {sessionsForDay.slice(0, 5).map((session: Session) => (
                             <div
                               key={session.id}
                               className={`
@@ -757,9 +757,16 @@ export default function SchedulingPage() {
                               {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {session.client?.fullName}
                             </div>
                           ))}
-                          {sessionsForDay.length > 3 && (
-                            <div className="text-xs text-slate-500 text-center">
-                              +{sessionsForDay.length - 3} more
+                          {sessionsForDay.length > 5 && (
+                            <div 
+                              className="text-xs text-slate-500 text-center cursor-pointer hover:text-slate-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedDate(currentDate);
+                                setViewMode("day");
+                              }}
+                            >
+                              +{sessionsForDay.length - 5} more (click to view all)
                             </div>
                           )}
                         </div>
