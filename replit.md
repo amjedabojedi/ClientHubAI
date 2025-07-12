@@ -221,6 +221,8 @@ Advanced appointment management with multi-view calendar system:
 - **Systematic Error Handling**: Added proper error checking and validation to ensure questionId is available before creating options
 - **Clean State Management**: Question type changes now properly clear all existing options before creating type-appropriate new ones
 - **Complete CRUD Operations**: All Create, Read, Update, Delete operations now work correctly with proper state synchronization
+- **API Response Parsing Fix**: Fixed critical issue where apiRequest Response objects weren't properly parsed with .json() before accessing data properties
+- **Duplicate Function Cleanup**: Removed duplicate createAssessmentQuestion and createAssessmentSection functions causing database operation conflicts
 
 ### Library-Session Notes Integration (January 2025)
 - **Direct Field Integration**: Added Library picker buttons (📚) to all clinical documentation fields in session notes

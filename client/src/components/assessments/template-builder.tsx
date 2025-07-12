@@ -342,7 +342,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             questionId = question.id;
           } else {
             // Create new question
-            const result = await apiRequest(`/api/assessments/questions`, "POST", questionData);
+            const response = await apiRequest(`/api/assessments/questions`, "POST", questionData);
+            const result = await response.json();
             questionId = result.id;
           }
 
