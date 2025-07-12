@@ -428,6 +428,12 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
+  const { data: billingRecords = [] } = useQuery({
+    queryKey: [`/api/clients/${clientId}/billing`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1172,10 +1178,57 @@ export default function ClientDetailPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Payment History</CardTitle>
+                  <CardTitle>Invoice History</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-600">No payment history available.</p>
+                  {billingRecords.length === 0 ? (
+                    <p className="text-slate-600">No billing records available.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {billingRecords.map((billing) => (
+                        <div key={billing.id} className="border rounded-lg p-4 hover:bg-slate-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="bg-blue-100 p-2 rounded-full">
+                                <CreditCard className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900">
+                                  {billing.serviceCode} - ${billing.totalAmount}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <Badge 
+                                className={`${
+                                  billing.paymentStatus === 'paid' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : billing.paymentStatus === 'pending'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                } px-3 py-1 text-sm font-medium`}
+                              >
+                                {billing.paymentStatus?.charAt(0).toUpperCase() + billing.paymentStatus?.slice(1)}
+                              </Badge>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {billing.billingDate}
+                              </p>
+                            </div>
+                          </div>
+                          {billing.insuranceCovered && (
+                            <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                              <p className="text-blue-800">
+                                Insurance: Covered {billing.copayAmount ? `• Copay: $${billing.copayAmount}` : ''}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
