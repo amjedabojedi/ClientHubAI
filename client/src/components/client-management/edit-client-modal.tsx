@@ -216,9 +216,9 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       ...data,
       assignedTherapistId: data.assignedTherapistId || undefined,
       dependents: data.dependents || undefined,
-      // Ensure strings are not empty
-      copayAmount: data.copayAmount || undefined,
-      deductible: data.deductible || undefined,
+      // Handle numeric fields properly - keep zero values but remove empty strings
+      copayAmount: data.copayAmount === "" ? undefined : data.copayAmount,
+      deductible: data.deductible === "" ? undefined : data.deductible,
     };
     updateClientMutation.mutate(processedData);
   };
@@ -843,7 +843,13 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Copay Amount</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="25.00" />
+                            <Input 
+                              {...field} 
+                              type="number" 
+                              step="0.01" 
+                              min="0" 
+                              placeholder="25.00"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -857,7 +863,13 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Deductible</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="500.00" />
+                            <Input 
+                              {...field} 
+                              type="number" 
+                              step="0.01" 
+                              min="0" 
+                              placeholder="500.00"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
