@@ -1497,11 +1497,15 @@ export class DatabaseStorage implements IStorage {
       service: services
     })
     .from(sessions)
-    .innerJoin(services, eq(sessions.serviceId, services.id))
+    .leftJoin(services, eq(sessions.serviceId, services.id))
     .where(eq(sessions.id, sessionId));
     
-    if (!sessionData) {
+    if (!sessionData || !sessionData.session) {
       throw new Error('Session not found');
+    }
+    
+    if (!sessionData.service) {
+      throw new Error('Service not found for this session');
     }
     
     // Create billing record

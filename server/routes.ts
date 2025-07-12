@@ -1557,7 +1557,16 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Trigger billing when session is completed
       if (status === 'completed') {
-        await storage.createSessionBilling(sessionId);
+        try {
+          // Check if billing already exists
+          const existingBilling = await storage.getSessionBilling(sessionId);
+          if (!existingBilling) {
+            await storage.createSessionBilling(sessionId);
+          }
+        } catch (billingError) {
+          console.error("Error creating billing record:", billingError);
+          // Continue with session update even if billing fails
+        }
       }
       
       res.json(updatedSession);
