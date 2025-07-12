@@ -618,10 +618,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                           )}
                           
                           {question.type === "multiple_choice" && (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {question.options && question.options.length > 0 ? (
                                 question.options.map((option, optionIndex) => (
-                                  <div key={optionIndex} className="flex items-center space-x-2">
+                                  <div key={optionIndex} className="flex items-center space-x-3 py-1">
                                     <input type="radio" name={`preview-${sectionIndex}-${questionIndex}`} disabled className="text-blue-600" />
                                     <Label className="text-sm">{option}</Label>
                                   </div>
@@ -635,10 +635,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                           )}
                           
                           {question.type === "checkbox" && (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {question.options && question.options.length > 0 ? (
                                 question.options.map((option, optionIndex) => (
-                                  <div key={optionIndex} className="flex items-center space-x-2">
+                                  <div key={optionIndex} className="flex items-center space-x-3 py-1">
                                     <input type="checkbox" disabled className="text-blue-600" />
                                     <Label className="text-sm">{option}</Label>
                                   </div>
