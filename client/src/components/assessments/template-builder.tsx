@@ -129,12 +129,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     // Update the field first
     question[field] = value;
     
-    // If changing question type to one that needs options, initialize them
+    // If changing question type to one that needs options, always initialize them
     if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
-      if (!question.options || question.options.length === 0) {
-        question.options = ['Option 1', 'Option 2'];
-        question.scoreValues = [1, 2];
-      }
+      question.options = ['Option 1', 'Option 2'];
+      question.scoreValues = [1, 2];
     }
     
     // If changing away from option types, clear options
@@ -482,14 +480,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                         <Label>Required</Label>
                       </div>
 
-                      {/* Debug info */}
-                      <div className="text-xs bg-yellow-100 p-2 rounded">
-                        Type: "{question.type}" | Has options: {question.options?.length || 0} | Should show: {String(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox")}
-                      </div>
+
                       
                       {/* Options for multiple choice, rating, and checkbox */}
                       {(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox") && (
-                        <div className="space-y-2 border p-3 rounded bg-blue-50">
+                        <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label>
                               Options {section.isScoring && <span className="text-xs text-muted-foreground">(with scores)</span>}
