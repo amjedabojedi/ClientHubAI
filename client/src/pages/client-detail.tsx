@@ -1308,133 +1308,118 @@ export default function ClientDetailPage() {
               <p className="text-slate-600">Generate individual invoices for each service below</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Insurance Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {client.insuranceProvider && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Provider</p>
-                      <p className="text-slate-600">{client.insuranceProvider}</p>
-                    </div>
-                  )}
-                  {client.policyNumber && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Policy Number</p>
-                      <p className="text-slate-600">{client.policyNumber}</p>
-                    </div>
-                  )}
-                  {client.copayAmount && (
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">Copay</p>
-                      <p className="text-slate-600">${client.copayAmount}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invoice History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {billingRecords.length === 0 ? (
-                    <p className="text-slate-600">No billing records available.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {billingRecords.map((billing) => (
-                        <div key={billing.id} className="border rounded-lg p-4 hover:bg-slate-50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="bg-blue-100 p-2 rounded-full">
-                                <CreditCard className="w-4 h-4 text-blue-600" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount}
-                                </p>
-                                <p className="text-sm text-slate-600">
-                                  {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
-                                </p>
-                                {billing.paymentAmount && billing.paymentDate && (
-                                  <p className="text-xs text-green-600 mt-1">
-                                    Payment: ${billing.paymentAmount} on {new Date(billing.paymentDate).toLocaleDateString()}
-                                    {billing.paymentMethod && ` via ${billing.paymentMethod.replace('_', ' ')}`}
-                                    {billing.paymentReference && ` (Ref: ${billing.paymentReference})`}
-                                  </p>
-                                )}
-                              </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Invoice History</CardTitle>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4 text-sm text-slate-600">
+                    {client.insuranceProvider && (
+                      <span>Insurance: {client.insuranceProvider}</span>
+                    )}
+                    {client.policyNumber && (
+                      <span>Policy: {client.policyNumber}</span>
+                    )}
+                    {client.copayAmount && (
+                      <span>Copay: ${client.copayAmount}</span>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {billingRecords.length === 0 ? (
+                  <p className="text-slate-600">No billing records available.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {billingRecords.map((billing) => (
+                      <div key={billing.id} className="border rounded-lg p-4 hover:bg-slate-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-blue-100 p-2 rounded-full">
+                              <CreditCard className="w-4 h-4 text-blue-600" />
                             </div>
-                            <div className="text-right">
-                              <Badge 
-                                className={`${
-                                  billing.paymentStatus === 'paid' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : billing.paymentStatus === 'pending'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
-                                } px-3 py-1 text-sm font-medium`}
-                              >
-                                {billing.paymentStatus?.charAt(0).toUpperCase() + billing.paymentStatus?.slice(1)}
-                              </Badge>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {billing.billingDate}
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount}
                               </p>
+                              <p className="text-sm text-slate-600">
+                                {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
+                              </p>
+                              {billing.paymentAmount && billing.paymentDate && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  Payment: ${billing.paymentAmount} on {new Date(billing.paymentDate).toLocaleDateString()}
+                                  {billing.paymentMethod && ` via ${billing.paymentMethod.replace('_', ' ')}`}
+                                  {billing.paymentReference && ` (Ref: ${billing.paymentReference})`}
+                                </p>
+                              )}
                             </div>
                           </div>
-                          {billing.insuranceCovered && (
-                            <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
-                              <p className="text-blue-800">
-                                Insurance: Covered {billing.copayAmount ? `• Copay: $${billing.copayAmount}` : ''}
-                              </p>
-                            </div>
-                          )}
-                          
-                          <div className="mt-3 flex space-x-2 pt-2 border-t border-slate-200">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleGenerateInvoice('preview', billing.id)}
+                          <div className="text-right">
+                            <Badge 
+                              className={`${
+                                billing.paymentStatus === 'paid' 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : billing.paymentStatus === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              } px-3 py-1 text-sm font-medium`}
                             >
-                              <Eye className="w-3 h-3 mr-1" />
-                              Preview Invoice
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleGenerateInvoice('download', billing.id)}
-                            >
-                              <Download className="w-3 h-3 mr-1" />
-                              Download
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleGenerateInvoice('email', billing.id)}
-                            >
-                              <Mail className="w-3 h-3 mr-1" />
-                              Email
-                            </Button>
-                            {billing.paymentStatus !== 'paid' && (
-                              <Button 
-                                size="sm" 
-                                variant="default"
-                                onClick={() => handleRecordPayment(billing)}
-                              >
-                                <CreditCard className="w-3 h-3 mr-1" />
-                                Record Payment
-                              </Button>
-                            )}
+                              {billing.paymentStatus?.charAt(0).toUpperCase() + billing.paymentStatus?.slice(1)}
+                            </Badge>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {billing.billingDate}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                        {billing.insuranceCovered && (
+                          <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                            <p className="text-blue-800">
+                              Insurance: Covered {billing.copayAmount ? `• Copay: $${billing.copayAmount}` : ''}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="mt-3 flex space-x-2 pt-2 border-t border-slate-200">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleGenerateInvoice('preview', billing.id)}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Preview Invoice
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleGenerateInvoice('download', billing.id)}
+                          >
+                            <Download className="w-3 h-3 mr-1" />
+                            Download
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleGenerateInvoice('email', billing.id)}
+                          >
+                            <Mail className="w-3 h-3 mr-1" />
+                            Email
+                          </Button>
+                          {billing.paymentStatus !== 'paid' && (
+                            <Button 
+                              size="sm" 
+                              variant="default"
+                              onClick={() => handleRecordPayment(billing)}
+                            >
+                              <CreditCard className="w-3 h-3 mr-1" />
+                              Record Payment
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Checklist Tab */}
