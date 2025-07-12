@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 // Icons
-import { Plus, Trash2, Save, Copy, ArrowLeft, GripVertical } from "lucide-react";
+import { Plus, Trash2, Save, Copy, ArrowLeft, GripVertical, Eye } from "lucide-react";
 
 // Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,7 @@ interface SectionForm {
 export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const [sections, setSections] = useState<SectionForm[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -359,10 +360,19 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           </div>
         </div>
         <div className="flex space-x-2">
-          <Button onClick={addSection}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Section
+          <Button 
+            variant={isPreviewMode ? "default" : "outline"} 
+            onClick={() => setIsPreviewMode(!isPreviewMode)}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            {isPreviewMode ? "Exit Preview" : "Preview"}
           </Button>
+          {!isPreviewMode && (
+            <Button onClick={addSection}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Section
+            </Button>
+          )}
           <Button onClick={saveTemplate} disabled={isSaving}>
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? "Saving..." : "Save Template"}
@@ -370,32 +380,52 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         </div>
       </div>
 
+      {/* Preview Mode Info */}
+      {isPreviewMode && (
+        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Assessment Preview</h3>
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            This is how your assessment will appear to users. You can see the layout and test the functionality.
+          </p>
+        </div>
+      )}
+
       {/* Sections */}
       <div className="space-y-6">
         {sections.map((section, sectionIndex) => (
-          <Card key={section.id || `section-${sectionIndex}`} className="border-l-4 border-l-blue-500">
+          <Card key={section.id || `section-${sectionIndex}`} className={`border-l-4 ${isPreviewMode ? 'border-l-green-500' : 'border-l-blue-500'}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-
                   <CardTitle className="text-lg">
                     {section.title || `Section ${sectionIndex + 1}`}
                   </CardTitle>
-                  <Badge className={getAccessLevelColor(section.accessLevel)}>
-                    {section.accessLevel}
-                  </Badge>
-                  {section.isScoring && (
-                    <Badge variant="outline">Scoring Enabled</Badge>
+                  {!isPreviewMode && (
+                    <>
+                      <Badge className={getAccessLevelColor(section.accessLevel)}>
+                        {section.accessLevel}
+                      </Badge>
+                      {section.isScoring && (
+                        <Badge variant="outline">Scoring Enabled</Badge>
+                      )}
+                    </>
                   )}
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => removeSection(sectionIndex)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {!isPreviewMode && (
+                  <Button variant="ghost" size="sm" onClick={() => removeSection(sectionIndex)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
+              {section.description && (
+                <p className="text-sm text-muted-foreground mt-2">{section.description}</p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Section Settings */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Section Settings - Hide in preview mode */}
+              {!isPreviewMode && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Section Title</Label>
                   <Input
@@ -470,36 +500,106 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 </p>
               </div>
 
-              <Separator />
+                </div>
+              )}
+
+              {!isPreviewMode && <Separator />}
 
               {/* Questions */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Questions</h4>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => addQuestion(sectionIndex)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Question
-                  </Button>
-                </div>
+                {!isPreviewMode && (
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Questions</h4>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => addQuestion(sectionIndex)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Question
+                    </Button>
+                  </div>
+                )}
 
                 {section.questions.map((question, questionIndex) => (
                   <Card key={question.id || `question-${sectionIndex}-${questionIndex}`} className="bg-gray-50 dark:bg-gray-800">
                     <CardContent className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">Question {questionIndex + 1}</span>
-                        <div className="flex space-x-1">
-                          <Button variant="ghost" size="sm" onClick={() => copyQuestion(sectionIndex, questionIndex)}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => removeQuestion(sectionIndex, questionIndex)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                      {!isPreviewMode && (
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">Question {questionIndex + 1}</span>
+                          <div className="flex space-x-1">
+                            <Button variant="ghost" size="sm" onClick={() => copyQuestion(sectionIndex, questionIndex)}>
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => removeQuestion(sectionIndex, questionIndex)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Preview Mode: Show question as it appears to users */}
+                      {isPreviewMode ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start space-x-2">
+                            <span className="text-sm font-medium text-muted-foreground mt-1">{questionIndex + 1}.</span>
+                            <div className="flex-1">
+                              <Label className="text-base font-medium">{question.text || "Question text not set"}</Label>
+                              {question.required && <span className="text-red-500 ml-1">*</span>}
+                            </div>
+                          </div>
+                          
+                          {/* Question Input Based on Type */}
+                          {question.type === "short_text" && (
+                            <Input placeholder="Enter your answer..." disabled className="bg-white dark:bg-gray-700" />
+                          )}
+                          
+                          {question.type === "long_text" && (
+                            <Textarea placeholder="Enter your detailed answer..." rows={3} disabled className="bg-white dark:bg-gray-700" />
+                          )}
+                          
+                          {question.type === "multiple_choice" && question.options && question.options.length > 0 && (
+                            <div className="space-y-2">
+                              {question.options.map((option, optionIndex) => (
+                                <div key={optionIndex} className="flex items-center space-x-2">
+                                  <input type="radio" name={`preview-${sectionIndex}-${questionIndex}`} disabled className="text-blue-600" />
+                                  <Label className="text-sm">{option}</Label>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {question.type === "checkbox" && question.options && question.options.length > 0 && (
+                            <div className="space-y-2">
+                              {question.options.map((option, optionIndex) => (
+                                <div key={optionIndex} className="flex items-center space-x-2">
+                                  <input type="checkbox" disabled className="text-blue-600" />
+                                  <Label className="text-sm">{option}</Label>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {question.type === "rating_scale" && question.options && question.options.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                <span>Rating Scale</span>
+                                <span>{question.options.length} points</span>
+                              </div>
+                              <div className="flex space-x-2">
+                                {question.options.map((option, optionIndex) => (
+                                  <div key={optionIndex} className="flex flex-col items-center space-y-1">
+                                    <input type="radio" name={`preview-rating-${sectionIndex}-${questionIndex}`} disabled className="text-blue-600" />
+                                    <Label className="text-xs text-center">{option}</Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        // Edit Mode: Show editing interface
+                        <div className="space-y-3">
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
@@ -583,6 +683,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                               No options added yet. Click "Add Option" to create choices.
                             </div>
                           )}
+                        </div>
                         </div>
                       )}
                     </CardContent>
