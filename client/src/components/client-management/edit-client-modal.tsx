@@ -211,6 +211,10 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   const onSubmit = (data: ClientFormData) => {
+    console.log('Form onSubmit called with:', data);
+    console.log('Form errors:', form.formState.errors);
+    console.log('Form isValid:', form.formState.isValid);
+    
     // Clean up the data before submission
     const processedData = {
       ...data,
@@ -220,6 +224,8 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       copayAmount: data.copayAmount === "" ? undefined : data.copayAmount,
       deductible: data.deductible === "" ? undefined : data.deductible,
     };
+    
+    console.log('Processed data:', processedData);
     updateClientMutation.mutate(processedData);
   };
 
@@ -1104,6 +1110,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                 type="submit" 
                 disabled={updateClientMutation.isPending}
                 className="min-w-[120px]"
+                onClick={() => console.log('Update button clicked, form valid:', form.formState.isValid)}
               >
                 {updateClientMutation.isPending ? "Updating..." : "Update Client"}
               </Button>
