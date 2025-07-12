@@ -625,7 +625,7 @@ export default function SchedulingPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {availableRooms?.map((room) => (
+                                {rooms?.map((room) => (
                                   <SelectItem key={room.id} value={room.id.toString()}>
                                     Room {room.roomNumber} - {room.roomName}
                                   </SelectItem>
