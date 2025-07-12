@@ -684,6 +684,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                             </div>
                           )}
                         </div>
+                      )}
                         </div>
                       )}
                     </CardContent>
