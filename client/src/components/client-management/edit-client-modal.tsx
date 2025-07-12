@@ -191,7 +191,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
-      apiRequest("PUT", `/api/clients/${client.id}`, data),
+      apiRequest(`/api/clients/${client.id}`, "PUT", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
