@@ -1,4 +1,8 @@
-// Database Schema and Types
+// Database Connection and Operators
+import { db } from "./db";
+import { eq, and, or, ilike, desc, asc, count, sql, alias } from "drizzle-orm";
+
+// Database Schema - Tables
 import { 
   clients, 
   users, 
@@ -16,46 +20,46 @@ import {
   assessmentQuestionOptions,
   assessmentAssignments,
   assessmentResponses,
-  assessmentReports,
-  type Client, 
-  type InsertClient,
-  type User, 
-  type InsertUser,
-  type Session,
-  type InsertSession,
-  type Task,
-  type InsertTask,
-  type Note,
-  type InsertNote,
-  type Document,
-  type InsertDocument,
-  type SessionNote,
-  type InsertSessionNote,
-  type LibraryCategory,
-  type InsertLibraryCategory,
-  type LibraryEntry,
-  type InsertLibraryEntry,
-  type LibraryEntryConnection,
-  type InsertLibraryEntryConnection,
-  type AssessmentTemplate,
-  type InsertAssessmentTemplate,
-  type AssessmentSection,
-  type InsertAssessmentSection,
-  type AssessmentQuestion,
-  type InsertAssessmentQuestion,
-  type AssessmentQuestionOption,
-  type InsertAssessmentQuestionOption,
-  type AssessmentAssignment,
-  type InsertAssessmentAssignment,
-  type AssessmentResponse,
-  type InsertAssessmentResponse,
-  type AssessmentReport,
-  type InsertAssessmentReport
+  assessmentReports
 } from "@shared/schema";
 
-// Database Connection and Operators
-import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql, alias } from "drizzle-orm";
+// Database Schema - Types
+import type { 
+  Client, 
+  InsertClient,
+  User, 
+  InsertUser,
+  Session,
+  InsertSession,
+  Task,
+  InsertTask,
+  Note,
+  InsertNote,
+  Document,
+  InsertDocument,
+  SessionNote,
+  InsertSessionNote,
+  LibraryCategory,
+  InsertLibraryCategory,
+  LibraryEntry,
+  InsertLibraryEntry,
+  LibraryEntryConnection,
+  InsertLibraryEntryConnection,
+  AssessmentTemplate,
+  InsertAssessmentTemplate,
+  AssessmentSection,
+  InsertAssessmentSection,
+  AssessmentQuestion,
+  InsertAssessmentQuestion,
+  AssessmentQuestionOption,
+  InsertAssessmentQuestionOption,
+  AssessmentAssignment,
+  InsertAssessmentAssignment,
+  AssessmentResponse,
+  InsertAssessmentResponse,
+  AssessmentReport,
+  InsertAssessmentReport
+} from "@shared/schema";
 
 export interface ClientsQueryParams {
   page?: number;
@@ -76,15 +80,17 @@ export interface ClientsQueryResult {
   totalPages: number;
 }
 
-// Storage Interface - defines all data operations
+// ===== STORAGE INTERFACE DEFINITION =====
+// Defines all data operations for the application
 export interface IStorage {
-  // User Management
+  
+  // ===== USER MANAGEMENT =====
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getAllTherapists(): Promise<User[]>;
 
-  // Client Management
+  // ===== CLIENT MANAGEMENT =====
   getClients(params: ClientsQueryParams): Promise<ClientsQueryResult>;
   getClient(id: number): Promise<(Client & { assignedTherapist?: User }) | undefined>;
   getClientByClientId(clientId: string): Promise<Client | undefined>;
@@ -100,14 +106,14 @@ export interface IStorage {
     psychotherapy: number;
   }>;
 
-  // Session Management
+  // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
   createSession(session: InsertSession): Promise<Session>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
 
-  // Task Management
+  // ===== TASK MANAGEMENT =====
   getTasksByClient(clientId: number): Promise<(Task & { assignedTo?: User })[]>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;

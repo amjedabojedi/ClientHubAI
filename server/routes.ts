@@ -1,11 +1,34 @@
+// Core Express and Node.js
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
-import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema, insertAssessmentTemplateSchema, insertAssessmentSectionSchema, insertAssessmentQuestionSchema, insertAssessmentQuestionOptionSchema, insertAssessmentAssignmentSchema, insertAssessmentResponseSchema, insertAssessmentReportSchema } from "@shared/schema";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+
+// Validation
+import { z } from "zod";
+
+// Internal Services
+import { storage } from "./storage";
+import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
+
+// Database Schemas
+import { 
+  insertClientSchema, 
+  insertSessionSchema, 
+  insertTaskSchema, 
+  insertNoteSchema, 
+  insertDocumentSchema, 
+  insertSessionNoteSchema, 
+  insertLibraryCategorySchema, 
+  insertLibraryEntrySchema, 
+  insertAssessmentTemplateSchema, 
+  insertAssessmentSectionSchema, 
+  insertAssessmentQuestionSchema, 
+  insertAssessmentQuestionOptionSchema, 
+  insertAssessmentAssignmentSchema, 
+  insertAssessmentResponseSchema, 
+  insertAssessmentReportSchema 
+} from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Client routes
@@ -1298,14 +1321,11 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/assessments/question-options", async (req, res) => {
     try {
-      console.log("Received option data:", JSON.stringify(req.body, null, 2));
       const validatedData = insertAssessmentQuestionOptionSchema.parse(req.body);
-      console.log("Validated option data:", JSON.stringify(validatedData, null, 2));
       const option = await storage.createAssessmentQuestionOption(validatedData);
       res.status(201).json(option);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.log("Validation errors:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
       console.error("Error creating question option:", error);

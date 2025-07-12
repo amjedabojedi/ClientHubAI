@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -294,7 +294,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               try {
                 await apiRequest(`/api/assessments/questions/${existingQuestion.id}`, "DELETE");
               } catch (error) {
-                console.error("Error deleting question:", error);
+                // Silently handle deletion errors
               }
             }
           }
