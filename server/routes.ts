@@ -1336,6 +1336,17 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.delete("/api/assessments/questions/:questionId/options", async (req, res) => {
+    try {
+      const questionId = parseInt(req.params.questionId);
+      await storage.deleteAllAssessmentQuestionOptions(questionId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting all question options:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Assessment Report Routes
   app.get("/api/assessments/assignments/:assignmentId/report", async (req, res) => {
     try {

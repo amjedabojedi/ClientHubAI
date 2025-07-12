@@ -176,6 +176,7 @@ export interface IStorage {
   createAssessmentQuestionOption(option: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption>;
   updateAssessmentQuestionOption(id: number, option: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption>;
   deleteAssessmentQuestionOption(id: number): Promise<void>;
+  deleteAllAssessmentQuestionOptions(questionId: number): Promise<void>;
 
   // Assessment Assignments Management
   getAssessmentAssignments(clientId?: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User })[]>;
@@ -1026,6 +1027,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAssessmentQuestionOption(id: number): Promise<void> {
     await db.delete(assessmentQuestionOptions).where(eq(assessmentQuestionOptions.id, id));
+  }
+
+  async deleteAllAssessmentQuestionOptions(questionId: number): Promise<void> {
+    await db.delete(assessmentQuestionOptions).where(eq(assessmentQuestionOptions.questionId, questionId));
   }
 
   // Assessment Assignments Management

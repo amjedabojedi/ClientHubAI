@@ -325,23 +325,13 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
-            // First, get existing options to determine which to update vs create
-            let existingOptions = [];
+            // Delete ALL existing options first with single API call
             if (questionId) {
               try {
-                existingOptions = await apiRequest(`/api/assessments/questions/${questionId}/options`, "GET");
-                // Ensure it's always an array
-                if (!Array.isArray(existingOptions)) {
-                  existingOptions = [];
-                }
+                await apiRequest(`/api/assessments/questions/${questionId}/options`, "DELETE");
               } catch (error) {
-                existingOptions = [];
+                // Ignore error if no options exist
               }
-            }
-
-            // Delete ALL existing options first to ensure clean slate
-            for (const existingOption of existingOptions) {
-              await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "DELETE");
             }
 
             // Create all new options
@@ -357,7 +347,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               };
 
               try {
-                // Always create new option since we deleted all existing ones
                 await apiRequest(`/api/assessments/question-options`, "POST", optionData);
               } catch (optionError) {
                 throw optionError;
