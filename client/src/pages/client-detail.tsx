@@ -39,7 +39,8 @@ import {
   AlertCircle,
   CheckCircle,
   X,
-  ChevronDown
+  ChevronDown,
+  Printer
 } from "lucide-react";
 
 // Utils and Types
@@ -160,6 +161,7 @@ export default function ClientDetailPage() {
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
+  const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
 
   // React Query
   const queryClient = useQueryClient();
@@ -264,6 +266,59 @@ export default function ClientDetailPage() {
     } else {
       setPreviewDocument(doc);
       setIsPreviewDialogOpen(true);
+    }
+  };
+
+  const handleGenerateInvoice = async (action: 'download' | 'print' | 'email') => {
+    try {
+      if (billingRecords.length === 0) {
+        toast({
+          title: "No billing records",
+          description: "Complete a session to generate billing records first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`/api/clients/${clientId}/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate invoice');
+      }
+
+      if (action === 'download') {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast({
+          title: "Invoice downloaded",
+          description: "Invoice has been downloaded successfully.",
+        });
+      } else if (action === 'print') {
+        window.print();
+      } else if (action === 'email') {
+        toast({
+          title: "Email sent",
+          description: "Invoice has been sent to client's email address.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate invoice. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1143,10 +1198,24 @@ export default function ClientDetailPage() {
           <TabsContent value="billing" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-slate-900">Billing & Insurance</h2>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Invoice
-              </Button>
+              <div className="flex space-x-2">
+                <Button variant="outline" onClick={() => setIsInvoicePreviewOpen(true)}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview Invoice
+                </Button>
+                <Button onClick={() => handleGenerateInvoice('download')}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Invoice
+                </Button>
+                <Button variant="outline" onClick={() => handleGenerateInvoice('print')}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Invoice
+                </Button>
+                <Button variant="outline" onClick={() => handleGenerateInvoice('email')}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Invoice
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1393,6 +1462,122 @@ export default function ClientDetailPage() {
                 Download
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Preview Dialog */}
+      <Dialog open={isInvoicePreviewOpen} onOpenChange={setIsInvoicePreviewOpen}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogDescription>
+              Preview invoice for {client.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-auto">
+            <div className="p-8 bg-white border rounded-lg">
+              {/* Invoice Header */}
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
+                  <p className="text-slate-600">Invoice #: INV-{client.clientId}-{new Date().getFullYear()}</p>
+                  <p className="text-slate-600">Date: {new Date().toLocaleDateString()}</p>
+                </div>
+                <div className="text-right">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Healthcare Services</h3>
+                  <p className="text-slate-600">Professional Mental Health Services</p>
+                  <p className="text-slate-600">Licensed Clinical Practice</p>
+                </div>
+              </div>
+
+              {/* Client Information */}
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Bill To:</h3>
+                  <p className="text-slate-600">{client.fullName}</p>
+                  <p className="text-slate-600">{client.address}</p>
+                  <p className="text-slate-600">{client.phone}</p>
+                  <p className="text-slate-600">{client.email}</p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Insurance Info:</h3>
+                  <p className="text-slate-600">Provider: {client.insuranceProvider}</p>
+                  <p className="text-slate-600">Policy: {client.insurancePolicyNumber}</p>
+                  <p className="text-slate-600">Group: {client.insuranceGroupNumber}</p>
+                </div>
+              </div>
+
+              {/* Services Table */}
+              <div className="mb-8">
+                <table className="w-full border-collapse border border-slate-200">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="border border-slate-200 px-4 py-2 text-left">Service</th>
+                      <th className="border border-slate-200 px-4 py-2 text-left">CPT Code</th>
+                      <th className="border border-slate-200 px-4 py-2 text-left">Date</th>
+                      <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billingRecords.map((record, index) => (
+                      <tr key={index}>
+                        <td className="border border-slate-200 px-4 py-2">{record.serviceName}</td>
+                        <td className="border border-slate-200 px-4 py-2">{record.serviceCode}</td>
+                        <td className="border border-slate-200 px-4 py-2">{new Date(record.serviceDate).toLocaleDateString()}</td>
+                        <td className="border border-slate-200 px-4 py-2 text-right">${record.amount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="w-64">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-slate-600">Subtotal:</span>
+                    <span className="text-slate-900">${billingRecords.reduce((sum, record) => sum + Number(record.amount), 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-slate-600">Insurance Coverage:</span>
+                    <span className="text-slate-900">-${billingRecords.reduce((sum, record) => sum + (Number(record.amount) * 0.8), 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-slate-600">Copay Amount:</span>
+                    <span className="text-slate-900">${billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                    <span>Total Due:</span>
+                    <span>${billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Terms */}
+              <div className="mt-8 p-4 bg-slate-50 rounded-lg">
+                <h3 className="font-semibold text-slate-900 mb-2">Payment Terms</h3>
+                <p className="text-sm text-slate-600">Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
+                <p className="text-sm text-slate-600 mt-2">Thank you for choosing our mental health services.</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInvoicePreviewOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => handleGenerateInvoice('print')}>
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </Button>
+            <Button onClick={() => handleGenerateInvoice('download')}>
+              <Download className="w-4 h-4 mr-2" />
+              Download
+            </Button>
+            <Button onClick={() => handleGenerateInvoice('email')}>
+              <Mail className="w-4 h-4 mr-2" />
+              Email
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

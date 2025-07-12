@@ -1625,5 +1625,173 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Invoice Generation Routes
+  app.post("/api/clients/:clientId/invoice", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const { action } = req.body;
+      
+      if (!['download', 'print', 'email'].includes(action)) {
+        return res.status(400).json({ message: "Invalid action. Use 'download', 'print', or 'email'" });
+      }
+      
+      // Get client data
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Get billing records
+      const billingRecords = await storage.getBillingRecordsByClient(clientId);
+      if (billingRecords.length === 0) {
+        return res.status(404).json({ message: "No billing records found for this client" });
+      }
+      
+      // Generate invoice HTML
+      const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.amount), 0);
+      const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.amount) * 0.8), 0);
+      const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
+      
+      const invoiceHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invoice - ${client.fullName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
+            .invoice-title { font-size: 24px; font-weight: bold; color: #1e293b; }
+            .company-info { text-align: right; color: #64748b; }
+            .client-info { display: flex; gap: 60px; margin-bottom: 40px; }
+            .section-title { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+            th { background-color: #f8fafc; }
+            .totals { width: 300px; margin-left: auto; }
+            .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+            .total-due { font-weight: bold; font-size: 18px; border-top: 2px solid #1e293b; padding-top: 8px; }
+            .payment-terms { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="invoice-title">INVOICE</h1>
+              <p>Invoice #: INV-${client.clientId}-${new Date().getFullYear()}</p>
+              <p>Date: ${new Date().toLocaleDateString()}</p>
+            </div>
+            <div class="company-info">
+              <h3>Healthcare Services</h3>
+              <p>Professional Mental Health Services</p>
+              <p>Licensed Clinical Practice</p>
+            </div>
+          </div>
+          
+          <div class="client-info">
+            <div>
+              <h3 class="section-title">Bill To:</h3>
+              <p>${client.fullName}</p>
+              <p>${client.address || ''}</p>
+              <p>${client.phone || ''}</p>
+              <p>${client.email || ''}</p>
+            </div>
+            <div>
+              <h3 class="section-title">Insurance Info:</h3>
+              <p>Provider: ${client.insuranceProvider || 'N/A'}</p>
+              <p>Policy: ${client.insurancePolicyNumber || 'N/A'}</p>
+              <p>Group: ${client.insuranceGroupNumber || 'N/A'}</p>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>CPT Code</th>
+                <th>Date</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${billingRecords.map(record => `
+                <tr>
+                  <td>${record.serviceName}</td>
+                  <td>${record.serviceCode}</td>
+                  <td>${new Date(record.serviceDate).toLocaleDateString()}</td>
+                  <td style="text-align: right;">$${Number(record.amount).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="totals">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>$${subtotal.toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>Insurance Coverage:</span>
+              <span>-$${insuranceCoverage.toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>Copay Amount:</span>
+              <span>$${copayTotal.toFixed(2)}</span>
+            </div>
+            <div class="total-row total-due">
+              <span>Total Due:</span>
+              <span>$${copayTotal.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="payment-terms">
+            <h3>Payment Terms</h3>
+            <p>Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
+            <p>Thank you for choosing our mental health services.</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      if (action === 'download') {
+        // For PDF generation, you'd normally use puppeteer or similar
+        // For now, return HTML that can be saved as PDF
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
+        res.send(invoiceHtml);
+      } else if (action === 'print') {
+        // Return HTML for printing
+        res.setHeader('Content-Type', 'text/html');
+        res.send(invoiceHtml);
+      } else if (action === 'email') {
+        // Email invoice using SendGrid if available
+        if (process.env.SENDGRID_API_KEY && client.email) {
+          try {
+            const sgMail = require('@sendgrid/mail');
+            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+            
+            const msg = {
+              to: client.email,
+              from: 'noreply@healthcare-services.com',
+              subject: `Invoice - ${client.fullName}`,
+              html: invoiceHtml,
+            };
+            
+            await sgMail.send(msg);
+            res.json({ message: "Invoice sent successfully to " + client.email });
+          } catch (error) {
+            console.error('Email sending failed:', error);
+            res.status(500).json({ message: "Failed to send invoice email" });
+          }
+        } else {
+          res.status(503).json({ message: "Email service not configured or client email not available" });
+        }
+      }
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
