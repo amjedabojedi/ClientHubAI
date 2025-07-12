@@ -1195,9 +1195,20 @@ export class DatabaseStorage implements IStorage {
         const questions = await db.select().from(assessmentQuestions)
           .where(eq(assessmentQuestions.sectionId, section.id));
 
+        // Get options for each question
+        const questionsWithOptions = [];
+        for (const question of questions) {
+          const options = await this.getAssessmentQuestionOptions(question.id);
+          questionsWithOptions.push({
+            ...question,
+            options: options.map(opt => opt.optionText),
+            scoreValues: options.map(opt => Number(opt.optionValue) || 0)
+          });
+        }
+
         sectionsWithQuestions.push({
           ...section,
-          questions: questions || []
+          questions: questionsWithOptions || []
         });
       }
 
@@ -1234,6 +1245,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assessmentQuestions.id, id))
       .returning();
     return question;
+  }
+
+  // Assessment Question Options Methods
+  async getAssessmentQuestionOptions(questionId: number): Promise<AssessmentQuestionOption[]> {
+    const options = await db.select().from(assessmentQuestionOptions)
+      .where(eq(assessmentQuestionOptions.questionId, questionId))
+      .orderBy(asc(assessmentQuestionOptions.sortOrder));
+    return options;
   }
 }
 

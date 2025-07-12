@@ -314,9 +314,45 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             questionId = result.id;
           }
 
-          // TODO: Save question options when the backend API endpoint is implemented
-          // Options are currently stored in the frontend state but not persisted
-          // The backend needs /api/assessments/question-options endpoints
+          // Save question options if the question type supports them
+          if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
+            // First, get existing options to determine which to update vs create
+            const existingOptions = question.id 
+              ? await apiRequest(`/api/assessments/questions/${question.id}/options`, "GET")
+              : [];
+
+            // Delete existing options that are no longer present
+            for (const existingOption of existingOptions) {
+              const stillExists = question.options.some((_, index) => 
+                existingOptions[index]?.id === existingOption.id
+              );
+              if (!stillExists) {
+                await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "DELETE");
+              }
+            }
+
+            // Create or update options
+            for (let optionIndex = 0; optionIndex < question.options.length; optionIndex++) {
+              const optionText = question.options[optionIndex];
+              const optionValue = question.scoreValues[optionIndex] || 0;
+              const existingOption = existingOptions[optionIndex];
+
+              const optionData = {
+                questionId: questionId!,
+                optionText: optionText,
+                optionValue: optionValue.toString(),
+                sortOrder: optionIndex
+              };
+
+              if (existingOption?.id) {
+                // Update existing option
+                await apiRequest(`/api/assessments/question-options/${existingOption.id}`, "PATCH", optionData);
+              } else {
+                // Create new option
+                await apiRequest(`/api/assessments/question-options`, "POST", optionData);
+              }
+            }
+          }
         }
       }
 

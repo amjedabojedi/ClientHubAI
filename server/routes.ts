@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
-import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema, insertAssessmentTemplateSchema, insertAssessmentAssignmentSchema, insertAssessmentResponseSchema, insertAssessmentReportSchema } from "@shared/schema";
+import { insertClientSchema, insertSessionSchema, insertTaskSchema, insertNoteSchema, insertDocumentSchema, insertSessionNoteSchema, insertLibraryCategorySchema, insertLibraryEntrySchema, insertAssessmentTemplateSchema, insertAssessmentSectionSchema, insertAssessmentQuestionSchema, insertAssessmentQuestionOptionSchema, insertAssessmentAssignmentSchema, insertAssessmentResponseSchema, insertAssessmentReportSchema } from "@shared/schema";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
@@ -1277,6 +1277,61 @@ This happens because only the file metadata was stored, not the actual file cont
       res.json(question);
     } catch (error) {
       console.error("Error updating assessment question:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assessment Question Options Routes
+  app.get("/api/assessments/questions/:questionId/options", async (req, res) => {
+    try {
+      const questionId = parseInt(req.params.questionId);
+      if (isNaN(questionId)) {
+        return res.status(400).json({ message: "Invalid question ID" });
+      }
+      const options = await storage.getAssessmentQuestionOptions(questionId);
+      res.json(options);
+    } catch (error) {
+      console.error("Error fetching question options:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/assessments/question-options", async (req, res) => {
+    try {
+      const validatedData = insertAssessmentQuestionOptionSchema.parse(req.body);
+      const option = await storage.createAssessmentQuestionOption(validatedData);
+      res.status(201).json(option);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid option data", errors: error.errors });
+      }
+      console.error("Error creating question option:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/assessments/question-options/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertAssessmentQuestionOptionSchema.partial().parse(req.body);
+      const option = await storage.updateAssessmentQuestionOption(id, validatedData);
+      res.json(option);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid option data", errors: error.errors });
+      }
+      console.error("Error updating question option:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/assessments/question-options/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAssessmentQuestionOption(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting question option:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
