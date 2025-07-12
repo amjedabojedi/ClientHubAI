@@ -13,7 +13,15 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
 // Icons
-import { Plus, Trash2, Save, Copy, ArrowLeft, GripVertical, Eye } from "lucide-react";
+import { 
+  Plus, 
+  Trash2, 
+  Save, 
+  Copy, 
+  ArrowLeft, 
+  GripVertical, 
+  Eye 
+} from "lucide-react";
 
 // Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
@@ -329,7 +337,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                   existingOptions = [];
                 }
               } catch (error) {
-                console.warn('Failed to fetch existing options:', error);
                 existingOptions = [];
               }
             }
@@ -366,7 +373,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                   await apiRequest(`/api/assessments/question-options`, "POST", optionData);
                 }
               } catch (optionError) {
-                console.error('Error saving option:', optionError);
                 throw optionError;
               }
             }

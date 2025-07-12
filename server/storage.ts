@@ -1214,8 +1214,7 @@ export class DatabaseStorage implements IStorage {
 
       return sectionsWithQuestions;
     } catch (error) {
-      console.error("Error in getAssessmentSections:", error);
-      return [];
+      throw error;
     }
   }
 
