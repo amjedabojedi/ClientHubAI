@@ -326,6 +326,7 @@ export const assessmentQuestions = pgTable("assessment_questions", {
   // Configuration for scoring
   contributesToScore: boolean("contributes_to_score").default(false),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const assessmentQuestionOptions = pgTable("assessment_question_options", {

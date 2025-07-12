@@ -22,7 +22,7 @@ interface TemplateBuilderProps {
 interface QuestionForm {
   id?: number;
   text: string;
-  type: "text" | "textarea" | "multiple_choice" | "rating" | "checkbox";
+  type: "short_text" | "long_text" | "multiple_choice" | "rating_scale" | "checkbox";
   options: string[];
   required: boolean;
   scoreValues: number[];
@@ -64,10 +64,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       order: section.order,
       questions: section.questions?.map((q: any) => ({
         id: q.id,
-        text: q.text,
-        type: q.type,
+        text: q.questionText,
+        type: q.questionType,
         options: q.options || [],
-        required: q.required,
+        required: q.isRequired,
         scoreValues: q.scoreValues || []
       })) || []
     }))
@@ -107,7 +107,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const addQuestion = (sectionIndex: number) => {
     const newQuestion: QuestionForm = {
       text: "",
-      type: "text",
+      type: "short_text",
       options: [],
       required: false,
       scoreValues: []
@@ -122,7 +122,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     const question = updated[sectionIndex].questions[questionIndex];
     
     // If changing question type to one that needs options, initialize them
-    if (field === 'type' && (value === 'multiple_choice' || value === 'rating' || value === 'checkbox')) {
+    if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
       if (!question.options || question.options.length === 0) {
         question.options = ['Option 1', 'Option 2'];
         question.scoreValues = [1, 2];
@@ -130,7 +130,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     }
     
     // If changing away from option types, clear options
-    if (field === 'type' && value !== 'multiple_choice' && value !== 'rating' && value !== 'checkbox') {
+    if (field === 'type' && value !== 'multiple_choice' && value !== 'rating_scale' && value !== 'checkbox') {
       question.options = [];
       question.scoreValues = [];
     }
@@ -226,11 +226,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         for (const question of section.questions) {
           const questionData: InsertAssessmentQuestion = {
             sectionId: sectionId!,
-            text: question.text,
-            type: question.type,
-            options: question.options.length > 0 ? question.options : null,
-            required: question.required,
-            scoreValues: question.scoreValues.length > 0 ? question.scoreValues : null
+            questionText: question.text,
+            questionType: question.type as any,
+            isRequired: question.required,
+            sortOrder: section.questions.indexOf(question)
           };
 
           if (question.id) {
@@ -438,10 +437,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="text">Short Text</SelectItem>
-                              <SelectItem value="textarea">Long Text</SelectItem>
+                              <SelectItem value="short_text">Short Text</SelectItem>
+                              <SelectItem value="long_text">Long Text</SelectItem>
                               <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                              <SelectItem value="rating">Rating Scale</SelectItem>
+                              <SelectItem value="rating_scale">Rating Scale</SelectItem>
                               <SelectItem value="checkbox">Checkbox</SelectItem>
                             </SelectContent>
                           </Select>
@@ -457,7 +456,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       </div>
 
                       {/* Options for multiple choice, rating, and checkbox */}
-                      {(question.type === "multiple_choice" || question.type === "rating" || question.type === "checkbox") && (
+                      {(question.type === "multiple_choice" || question.type === "rating_scale" || question.type === "checkbox") && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label>
