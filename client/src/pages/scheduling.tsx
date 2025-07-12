@@ -1136,51 +1136,52 @@ export default function SchedulingPage() {
                 {/* Status Change Section */}
                 <div className="pt-4 border-t">
                   <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
-                  <div className="flex gap-1">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button 
                       variant={selectedSession.status === 'completed' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'completed')}
-                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}`}
                     >
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Done
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Completed
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'scheduled' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'scheduled')}
-                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
                     >
-                      <CalendarDays className="w-3 h-3 mr-1" />
-                      Sched
+                      <CalendarDays className="w-4 h-4 mr-2" />
+                      Scheduled
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'cancelled' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')}
-                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}`}
+                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}`}
                     >
-                      <X className="w-3 h-3 mr-1" />
-                      Cancel
+                      <X className="w-4 h-4 mr-2" />
+                      Cancelled
                     </Button>
                     <Button 
                       variant={selectedSession.status === 'no_show' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => updateSessionStatus(selectedSession.id, 'no_show')}
-                      className={`text-xs px-1 py-1 h-8 w-[20%] flex-shrink-0 ${selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
+                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
                     >
-                      <AlertCircle className="w-3 h-3 mr-1" />
+                      <AlertCircle className="w-4 h-4 mr-2" />
                       No-Show
                     </Button>
                   </div>
                 </div>
 
-                <div className="flex justify-between pt-4 border-t">
-                  <div className="flex space-x-2">
+                <div className="pt-4 border-t">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button 
                       variant="outline"
                       onClick={() => window.location.href = `/clients/${selectedSession.clientId}`}
+                      className="text-sm px-3 py-2 h-9"
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Client Profile
@@ -1214,6 +1215,7 @@ export default function SchedulingPage() {
                           console.error('Error setting form values:', error);
                         }
                       }}
+                      className="text-sm px-3 py-2 h-9"
                     >
                       <Edit className="w-4 h-4 mr-2" />
                       Edit This Session
@@ -1227,13 +1229,16 @@ export default function SchedulingPage() {
                         setIsEditSessionModalOpen(false);
                         setIsNewSessionModalOpen(true);
                       }}
+                      className="text-sm px-3 py-2 h-9"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Schedule Another Session
                     </Button>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" onClick={() => setIsEditSessionModalOpen(false)}>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsEditSessionModalOpen(false)}
+                      className="text-sm px-3 py-2 h-9"
+                    >
                       Close
                     </Button>
                   </div>
