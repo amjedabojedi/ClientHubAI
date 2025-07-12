@@ -162,7 +162,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           if (template) setSavedTemplate(template.instructions);
         }
       } catch (e) {
-        console.error('Error loading templates:', e);
+        // Template loading failed - ignore silently
       }
     }
   }, []);
@@ -348,7 +348,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       toast({ title: "AI content generated and saved! Review in preview or print." });
     },
     onError: (error: any) => {
-      console.error('AI template generation error:', error);
+
       setIsGeneratingAI(false);
       toast({ 
         title: "Failed to generate AI template", 
@@ -678,7 +678,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         queryClient.invalidateQueries({ queryKey: ['/api/library/entries'] });
       },
       onError: (error) => {
-        console.error('Failed to increment usage count:', error);
+
       }
     });
 

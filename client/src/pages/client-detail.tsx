@@ -74,7 +74,7 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
         const data = await response.json();
         setTextContent(data.content || "No content available");
       } catch (err) {
-        console.error("Error fetching text content:", err);
+
         setError("Failed to load text file content");
       } finally {
         setLoading(false);
@@ -238,7 +238,7 @@ export default function ClientDetailPage() {
           fileContent // Include actual file content
         });
       } catch (error) {
-        console.error("Failed to read file:", error);
+
         toast({
           title: "Error",
           description: "Failed to read file. Please try again.",

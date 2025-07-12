@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, BookOpen, Home, ClipboardList } from "lucide-react";
+import { Users, Calendar, BookOpen, ClipboardList } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import ClientsPage from "@/pages/clients";
 import ClientDetailPage from "@/pages/client-detail";

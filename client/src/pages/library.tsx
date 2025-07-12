@@ -223,7 +223,7 @@ export default function LibraryPage() {
             return { entryId: id, connected };
           }
         } catch (error) {
-          console.error(`Failed to fetch connections for entry ${id}:`, error);
+          // Connection fetch failed - ignore silently  
         }
         return { entryId: id, connected: [] };
       });
