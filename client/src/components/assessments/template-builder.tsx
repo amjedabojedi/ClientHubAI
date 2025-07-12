@@ -316,10 +316,12 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
+            console.log('Saving options for question:', questionId, 'Type:', question.type, 'Options:', question.options);
             // First, get existing options to determine which to update vs create
             const existingOptions = questionId 
               ? await apiRequest(`/api/assessments/questions/${questionId}/options`, "GET")
               : [];
+            console.log('Existing options:', existingOptions);
 
             // Delete existing options that are no longer present
             for (const existingOption of existingOptions) {
@@ -367,6 +369,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         description: "All sections and questions have been saved successfully",
       });
     } catch (error: any) {
+      console.error('Save template error:', error);
       toast({
         title: "Save Failed",
         description: error.message || "Unable to save template. Please try again.",
