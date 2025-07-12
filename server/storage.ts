@@ -548,7 +548,6 @@ export class DatabaseStorage implements IStorage {
         .where(eq(sessionBilling.sessionId, session.id));
 
       if (existingBilling.length > 0) {
-        console.log(`Billing record already exists for session ${session.id}`);
         return;
       }
 
@@ -566,7 +565,6 @@ export class DatabaseStorage implements IStorage {
       };
 
       await db.insert(sessionBilling).values(billingData);
-      console.log(`Billing record created for session ${session.id} - Amount: $${service.baseRate}`);
     } catch (error) {
       console.error(`Error creating billing record for session ${session.id}:`, error);
     }
@@ -1506,7 +1504,6 @@ export class DatabaseStorage implements IStorage {
     
     if (!sessionData.service) {
       // Skip billing for sessions without service information
-      console.log(`Skipping billing for session ${sessionId} - no service information`);
       return null;
     }
     

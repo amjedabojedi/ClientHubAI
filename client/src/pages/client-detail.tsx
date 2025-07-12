@@ -182,7 +182,7 @@ export default function ClientDetailPage() {
   // Session Status Update Mutation
   const updateSessionMutation = useMutation({
     mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
-      return apiRequest(`/api/sessions/${sessionId}`, "PUT", { status });
+      return apiRequest(`/api/sessions/${sessionId}/status`, "PUT", { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/sessions`] });
