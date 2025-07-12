@@ -6,7 +6,7 @@ export default function ClientHeader() {
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <i className="fas fa-user-friends text-white text-lg"></i>
+                <Users className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">HealthCare CMS</h1>
@@ -14,23 +14,7 @@ export default function ClientHeader() {
               </div>
             </div>
             
-            <nav className="hidden lg:flex space-x-8">
-              <a href="/clients" className="text-primary font-medium border-b-2 border-primary pb-4">
-                <i className="fas fa-users mr-2"></i>Clients
-              </a>
-              <a href="/scheduling" className="text-slate-600 hover:text-slate-900 pb-4">
-                <i className="fas fa-calendar-alt mr-2"></i>Scheduling
-              </a>
-              <a href="/library" className="text-slate-600 hover:text-slate-900 pb-4">
-                <i className="fas fa-book mr-2"></i>Library
-              </a>
-              <a href="#" className="text-slate-600 hover:text-slate-900 pb-4">
-                <i className="fas fa-chart-line mr-2"></i>Reports
-              </a>
-              <a href="#" className="text-slate-600 hover:text-slate-900 pb-4">
-                <i className="fas fa-cog mr-2"></i>Settings
-              </a>
-            </nav>
+
           </div>
 
           <div className="flex items-center space-x-4">
