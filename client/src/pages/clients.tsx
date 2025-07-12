@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Download, Upload, Plus } from "lucide-react";
 import ClientHeader from "@/components/client-management/client-header";
-import ClientSidebar from "@/components/client-management/client-sidebar";
+
 import ClientTabs from "@/components/client-management/client-tabs";
 import SearchFilters from "@/components/client-management/search-filters";
 import ClientDataGrid from "@/components/client-management/client-data-grid";
@@ -63,9 +63,7 @@ export default function ClientsPage() {
     <div className="min-h-screen bg-slate-50">
       <ClientHeader />
       
-      <div className="flex">
-        <ClientSidebar />
-        
+      <div className="flex">        
         <main className="flex-1 p-6">
           <div className="max-w-full">
             <div className="flex items-center justify-between mb-6">

@@ -16,7 +16,6 @@ function Navigation() {
   const [location] = useLocation();
   
   const navItems = [
-    { path: "/", label: "Dashboard", icon: Home },
     { path: "/clients", label: "Clients", icon: Users },
     { path: "/scheduling", label: "Scheduling", icon: Calendar },
     { path: "/library", label: "Library", icon: BookOpen },
@@ -34,7 +33,7 @@ function Navigation() {
             <div className="flex space-x-4">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location === item.path || (item.path === "/" && location === "/");
+                const isActive = location === item.path;
                 
                 return (
                   <Link key={item.path} href={item.path}>
