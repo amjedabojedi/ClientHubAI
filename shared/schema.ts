@@ -139,13 +139,12 @@ export const clients = pgTable("clients", {
 // Services table - Healthcare service codes and billing rates
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
-  serviceCode: varchar("service_code", { length: 20 }).notNull().unique(), // CPT codes like "90834", "90837"
-  serviceName: text("service_name").notNull(), // "Individual Psychotherapy 45 min"
-  serviceType: serviceTypeEnum("service_type").notNull(),
-  standardDuration: integer("standard_duration").notNull(), // 45, 60, 90 minutes
-  baseRate: decimal("base_rate", { precision: 10, scale: 2 }).notNull(),
-  billingCategory: varchar("billing_category", { length: 50 }),
+  serviceCode: varchar("service_code", { length: 50 }).notNull().unique(), // CPT codes like "90834", "90837"
+  serviceName: varchar("service_name", { length: 255 }).notNull(), // "Individual Psychotherapy 45 min"
   description: text("description"),
+  duration: integer("duration").notNull(), // 45, 60, 90 minutes
+  baseRate: decimal("base_rate", { precision: 10, scale: 2 }).notNull(),
+  category: varchar("category", { length: 100 }),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -154,12 +153,11 @@ export const services = pgTable("services", {
 // Rooms table - Physical therapy rooms and spaces
 export const rooms = pgTable("rooms", {
   id: serial("id").primaryKey(),
-  roomNumber: varchar("room_number", { length: 20 }).notNull().unique(),
-  roomName: text("room_name").notNull(),
-  capacity: integer("capacity").notNull().default(1),
-  equipment: text("equipment").array(), // ['video', 'whiteboard', 'telephone']
+  roomNumber: varchar("room_number", { length: 50 }).notNull().unique(),
+  roomName: varchar("room_name", { length: 255 }).notNull(),
+  capacity: integer("capacity"),
+  equipment: text("equipment"), // Equipment description as text
   isActive: boolean("is_active").notNull().default(true),
-  notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -838,3 +836,16 @@ export type InsertAssessmentResponse = z.infer<typeof insertAssessmentResponseSc
 
 export type AssessmentReport = typeof assessmentReports.$inferSelect;
 export type InsertAssessmentReport = z.infer<typeof insertAssessmentReportSchema>;
+
+// Service and Room Types
+export type SelectService = typeof services.$inferSelect;
+export type InsertService = z.infer<typeof insertServiceSchema>;
+
+export type SelectRoom = typeof rooms.$inferSelect;
+export type InsertRoom = z.infer<typeof insertRoomSchema>;
+
+export type SelectRoomBooking = typeof roomBookings.$inferSelect;
+export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
+
+export type SelectSessionBilling = typeof sessionBilling.$inferSelect;
+export type InsertSessionBilling = z.infer<typeof insertSessionBillingSchema>;
