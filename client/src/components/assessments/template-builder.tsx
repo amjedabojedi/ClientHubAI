@@ -342,7 +342,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               const optionData = {
                 questionId: questionId!,
                 optionText: optionText,
-                optionValue: optionValue,
+                optionValue: optionValue.toString(),
                 sortOrder: optionIndex
               };
 

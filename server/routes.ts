@@ -1298,11 +1298,14 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/assessments/question-options", async (req, res) => {
     try {
+      console.log("Received option data:", JSON.stringify(req.body, null, 2));
       const validatedData = insertAssessmentQuestionOptionSchema.parse(req.body);
+      console.log("Validated option data:", JSON.stringify(validatedData, null, 2));
       const option = await storage.createAssessmentQuestionOption(validatedData);
       res.status(201).json(option);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.log("Validation errors:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
       console.error("Error creating question option:", error);
