@@ -11,6 +11,8 @@ import ClientDetailPage from "@/pages/client-detail";
 import SchedulingPage from "@/pages/scheduling";
 import LibraryPage from "@/pages/library";
 import AssessmentsPage from "@/pages/assessments";
+import AssessmentCompletionPage from "@/pages/assessment-completion";
+import AssessmentReportPage from "@/pages/assessment-report";
 
 function Navigation() {
   const [location] = useLocation();
@@ -67,6 +69,8 @@ function Router() {
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/library" component={LibraryPage} />
           <Route path="/assessments" component={AssessmentsPage} />
+          <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
+          <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
           <Route component={NotFound} />
         </Switch>
       </main>

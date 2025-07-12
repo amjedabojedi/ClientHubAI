@@ -1324,9 +1324,121 @@ export class DatabaseStorage implements IStorage {
         templateId: assignmentData.templateId,
         assignedById: assignmentData.assignedBy,
         status: assignmentData.status || 'pending',
+        dueDate: null,
+        completedAt: null,
+        finalizedAt: null,
+        clientSubmittedAt: null,
+        therapistCompletedAt: null,
+        totalScore: null,
+        notes: null,
         createdAt: assignmentData.assignedDate || new Date(),
         updatedAt: new Date()
       })
+      .returning();
+    return assignment;
+  }
+
+  // Get single assignment with full relationships for completion workflow
+  async getAssessmentAssignmentById(assignmentId: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(assessmentAssignments)
+      .leftJoin(assessmentTemplates, eq(assessmentAssignments.templateId, assessmentTemplates.id))
+      .leftJoin(clients, eq(assessmentAssignments.clientId, clients.id))
+      .leftJoin(users, eq(assessmentAssignments.assignedById, users.id))
+      .where(eq(assessmentAssignments.id, assignmentId));
+
+    if (!result || !result.assessment_assignments) return undefined;
+
+    return {
+      ...result.assessment_assignments,
+      template: result.assessment_templates!,
+      client: result.clients!,
+      assignedBy: result.users!
+    };
+  }
+
+  // Get template sections with questions for assessment completion
+  async getAssessmentTemplateSections(templateId: number): Promise<(AssessmentSection & { questions: AssessmentQuestion[] })[]> {
+    const sections = await db
+      .select()
+      .from(assessmentSections)
+      .where(eq(assessmentSections.templateId, templateId))
+      .orderBy(asc(assessmentSections.sortOrder));
+
+    const sectionsWithQuestions = await Promise.all(
+      sections.map(async (section) => {
+        const questions = await db
+          .select()
+          .from(assessmentQuestions)
+          .where(eq(assessmentQuestions.sectionId, section.id))
+          .orderBy(asc(assessmentQuestions.sortOrder));
+
+        return {
+          ...section,
+          questions
+        };
+      })
+    );
+
+    return sectionsWithQuestions;
+  }
+
+  // Save or update assessment response
+  async saveAssessmentResponse(responseData: any): Promise<AssessmentResponse> {
+    // Check if response already exists
+    const [existingResponse] = await db
+      .select()
+      .from(assessmentResponses)
+      .where(
+        and(
+          eq(assessmentResponses.assignmentId, responseData.assignmentId),
+          eq(assessmentResponses.questionId, responseData.questionId),
+          eq(assessmentResponses.responderId, responseData.responderId)
+        )
+      );
+
+    if (existingResponse) {
+      // Update existing response
+      const [updatedResponse] = await db
+        .update(assessmentResponses)
+        .set({
+          responseText: responseData.responseText,
+          selectedOptions: responseData.selectedOptions,
+          ratingValue: responseData.ratingValue,
+          updatedAt: new Date()
+        })
+        .where(eq(assessmentResponses.id, existingResponse.id))
+        .returning();
+      return updatedResponse;
+    } else {
+      // Create new response
+      const [newResponse] = await db
+        .insert(assessmentResponses)
+        .values({
+          assignmentId: responseData.assignmentId,
+          questionId: responseData.questionId,
+          responderId: responseData.responderId,
+          responseText: responseData.responseText,
+          selectedOptions: responseData.selectedOptions,
+          ratingValue: responseData.ratingValue,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return newResponse;
+    }
+  }
+
+  // Update assessment assignment status and completion details
+  async updateAssessmentAssignment(assignmentId: number, updateData: any): Promise<AssessmentAssignment> {
+    const [assignment] = await db
+      .update(assessmentAssignments)
+      .set({
+        ...updateData,
+        updatedAt: new Date()
+      })
+      .where(eq(assessmentAssignments.id, assignmentId))
       .returning();
     return assignment;
   }

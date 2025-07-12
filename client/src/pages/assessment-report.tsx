@@ -1,0 +1,304 @@
+import { useQuery } from "@tanstack/react-query";
+import { useRoute, useLocation } from "wouter";
+
+// UI Components
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+// Icons
+import { 
+  ArrowLeft, 
+  Download, 
+  FileText,
+  User,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+  ClipboardList
+} from "lucide-react";
+
+// Utils
+import { getQueryFn } from "@/lib/queryClient";
+
+export default function AssessmentReportPage() {
+  const [match, params] = useRoute("/assessments/:assignmentId/report");
+  const [, setLocation] = useLocation();
+  const assignmentId = params?.assignmentId ? parseInt(params.assignmentId) : null;
+
+  // Fetch assessment assignment details
+  const { data: assignment, isLoading: assignmentLoading } = useQuery({
+    queryKey: [`/api/assessments/assignments/${assignmentId}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!assignmentId,
+  });
+
+  // Fetch assessment responses
+  const { data: responses = [], isLoading: responsesLoading } = useQuery({
+    queryKey: [`/api/assessments/assignments/${assignmentId}/responses`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!assignmentId,
+  });
+
+  // Fetch template sections for structure
+  const { data: sections = [] } = useQuery({
+    queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!assignment?.templateId,
+  });
+
+  if (assignmentLoading || responsesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading assessment report...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!assignment) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Not Found</h2>
+          <p className="text-slate-600 mb-4">The requested assessment could not be found.</p>
+          <Button onClick={() => setLocation("/assessments")}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Assessments
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Group responses by section
+  const responsesBySection = responses.reduce((acc: any, response: any) => {
+    const question = sections
+      .flatMap(s => s.questions || [])
+      .find(q => q.id === response.questionId);
+    
+    if (question) {
+      const sectionId = question.sectionId;
+      if (!acc[sectionId]) acc[sectionId] = [];
+      acc[sectionId].push({ ...response, question });
+    }
+    return acc;
+  }, {});
+
+  const getResponseDisplay = (response: any) => {
+    const { question } = response;
+    
+    switch (question.questionType) {
+      case 'short_text':
+      case 'long_text':
+        return response.responseText || 'No response provided';
+      
+      case 'multiple_choice':
+        if (response.selectedOptions && response.selectedOptions.length > 0) {
+          return question.options?.[response.selectedOptions[0]] || 'Invalid selection';
+        }
+        return 'No response provided';
+      
+      case 'rating_scale':
+        return response.ratingValue !== null ? 
+          `${response.ratingValue}/${question.ratingMax || 10}` : 
+          'No rating provided';
+      
+      case 'checkbox':
+        if (response.selectedOptions && response.selectedOptions.length > 0) {
+          return response.selectedOptions
+            .map((index: number) => question.options?.[index])
+            .filter(Boolean)
+            .join(', ');
+        }
+        return 'No options selected';
+      
+      default:
+        return 'Unknown response type';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between py-6">
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setLocation(`/clients/${assignment.clientId}?tab=assessments`)}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Client
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">Assessment Report</h1>
+                <p className="text-slate-600">{assignment.template.name} - {assignment.client.fullName}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Badge className="bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Completed
+              </Badge>
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Assessment Summary */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <span>Assessment Summary</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex items-center space-x-3">
+                <User className="w-5 h-5 text-blue-600" />
+                <div>
+                  <div className="text-sm text-slate-600">Client</div>
+                  <div className="font-semibold">{assignment.client.fullName}</div>
+                  <div className="text-sm text-slate-500">{assignment.client.clientId}</div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <ClipboardList className="w-5 h-5 text-green-600" />
+                <div>
+                  <div className="text-sm text-slate-600">Assessment</div>
+                  <div className="font-semibold">{assignment.template.name}</div>
+                  <div className="text-sm text-slate-500">{assignment.template.category}</div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Calendar className="w-5 h-5 text-purple-600" />
+                <div>
+                  <div className="text-sm text-slate-600">Completed</div>
+                  <div className="font-semibold">
+                    {assignment.completedAt ? 
+                      new Date(assignment.completedAt).toLocaleDateString() : 
+                      'Not completed'
+                    }
+                  </div>
+                  <div className="text-sm text-slate-500">
+                    by {assignment.assignedBy.fullName}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div>
+                  <div className="text-sm text-slate-600">Responses</div>
+                  <div className="font-semibold">{responses.length} questions</div>
+                  <div className="text-sm text-slate-500">
+                    {sections.reduce((acc, s) => acc + (s.questions?.length || 0), 0)} total
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Assessment Description */}
+        {assignment.template.description && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Assessment Description</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-700">{assignment.template.description}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Assessment Responses by Section */}
+        <div className="space-y-6">
+          {sections.map((section, sectionIndex) => {
+            const sectionResponses = responsesBySection[section.id] || [];
+            
+            return (
+              <Card key={section.id}>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                      {sectionIndex + 1}
+                    </span>
+                    <span>{section.title}</span>
+                  </CardTitle>
+                  {section.description && (
+                    <p className="text-slate-600 mt-2">{section.description}</p>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {section.questions?.map((question, questionIndex) => {
+                    const response = sectionResponses.find(r => r.questionId === question.id);
+                    
+                    return (
+                      <div key={question.id} className="space-y-2">
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-xs font-semibold">
+                            {questionIndex + 1}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900 mb-2">
+                              {question.questionText}
+                              {question.isRequired && <span className="text-red-500 ml-1">*</span>}
+                            </div>
+                            <div className="bg-slate-50 rounded-lg p-3">
+                              {response ? (
+                                <p className="text-slate-700">{getResponseDisplay(response)}</p>
+                              ) : (
+                                <p className="text-slate-500 italic">No response provided</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {questionIndex < (section.questions?.length || 0) - 1 && (
+                          <Separator className="my-4" />
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {(!section.questions || section.questions.length === 0) && (
+                    <p className="text-slate-500 text-center py-8">
+                      No questions in this section
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Summary */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Assessment Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {assignment.notes ? (
+              <p className="text-slate-700">{assignment.notes}</p>
+            ) : (
+              <p className="text-slate-500 italic">No additional notes provided for this assessment.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

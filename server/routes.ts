@@ -1915,5 +1915,66 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Assessment completion workflow endpoints
+  
+  // Get assignment details with full relationships
+  app.get('/api/assessments/assignments/:assignmentId', async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
+      res.json(assignment);
+    } catch (error) {
+      console.error('Error fetching assignment:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // Get template sections with questions
+  app.get('/api/assessments/templates/:templateId/sections', async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const sections = await storage.getAssessmentTemplateSections(parseInt(templateId));
+      res.json(sections);
+    } catch (error) {
+      console.error('Error fetching template sections:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // Get assignment responses
+  app.get('/api/assessments/assignments/:assignmentId/responses', async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const responses = await storage.getAssessmentResponses(parseInt(assignmentId));
+      res.json(responses);
+    } catch (error) {
+      console.error('Error fetching responses:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // Save assessment response
+  app.post('/api/assessments/responses', async (req, res) => {
+    try {
+      const response = await storage.saveAssessmentResponse(req.body);
+      res.json(response);
+    } catch (error) {
+      console.error('Error saving response:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  // Update assignment status
+  app.patch('/api/assessments/assignments/:assignmentId', async (req, res) => {
+    try {
+      const { assignmentId } = req.params;
+      const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), req.body);
+      res.json(assignment);
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
   return httpServer;
 }

@@ -567,7 +567,7 @@ export default function ClientDetailPage() {
         templateId,
         assignedDate: new Date().toISOString(),
         assignedBy: 1, // Current therapist ID - should be from auth context
-        status: 'assigned'
+        status: 'pending'
       });
 
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
@@ -636,7 +636,8 @@ export default function ClientDetailPage() {
     queryFn: getQueryFn({ on401: "throw" }),
     select: (data: any[]) => data.map(template => ({
       ...template,
-      sectionCount: template.sectionCount || 0,
+      title: template.name || template.title, // Map name to title for consistency
+      sectionCount: template.sectionsCount || template.sectionCount || 0,
       questionCount: template.questionCount || 0
     }))
   });
@@ -1290,7 +1291,7 @@ export default function ClientDetailPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-slate-600">
-                    {assignedAssessments.filter(a => a.status === 'assigned').length}
+                    {assignedAssessments.filter(a => a.status === 'pending').length}
                   </div>
                   <p className="text-sm text-slate-600">Pending</p>
                 </CardContent>
