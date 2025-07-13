@@ -142,25 +142,8 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData) => {
-      try {
-        const response = await apiRequest("/api/tasks", "POST", data);
-        const result = await response.json();
-        return result;
-      } catch (error: any) {
-        // Try to get the error response body
-        if (error.message && error.message.includes('400')) {
-          const errorResponse = await fetch("/api/tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(data)
-          });
-          const errorData = await errorResponse.json();
-          console.error("Validation errors:", errorData);
-          throw new Error(JSON.stringify(errorData));
-        }
-        throw error;
-      }
+      const response = await apiRequest("/api/tasks", "POST", data);
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: "Task created successfully!" });
@@ -169,19 +152,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
       onSuccess();
     },
     onError: (error: any) => {
-      console.error("Task creation error:", error);
-      let errorMessage = "Error creating task";
-      
-      try {
-        const errorData = JSON.parse(error.message);
-        if (errorData.errors && errorData.errors.length > 0) {
-          errorMessage = errorData.errors[0].message || errorMessage;
-        }
-      } catch (e) {
-        // Use default message
-      }
-      
-      toast({ title: errorMessage, variant: "destructive" });
+      toast({ title: "Error creating task", variant: "destructive" });
     },
   });
 
@@ -199,18 +170,14 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   });
 
   const onSubmit = (data: TaskFormData) => {
-    console.log("Form data being submitted:", data);
-    
     const taskData = {
       ...data,
       // Handle empty strings properly
       description: data.description && data.description.trim() ? data.description.trim() : undefined,
-      dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       // Ensure completedAt is undefined for non-completed tasks
-      completedAt: data.status === 'completed' ? new Date().toISOString() : undefined,
+      completedAt: data.status === 'completed' ? new Date() : undefined,
     };
-
-    console.log("Processed task data:", taskData);
 
     if (task) {
       updateTaskMutation.mutate(taskData);
