@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -121,7 +121,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   });
 
   // Fetch clients for selection
-  const { data: clientsData } = useQuery({
+  const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],
     queryFn: () => apiRequest("/api/clients", "GET"),
   });
@@ -219,15 +219,25 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select client..." />
+                      <SelectValue placeholder={clientsLoading ? "Loading clients..." : "Select client..."} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {clientsData?.clients?.map((client: Client) => (
-                      <SelectItem key={client.id} value={client.id.toString()}>
-                        {client.fullName} ({client.clientId})
+                    {clientsLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading clients...
                       </SelectItem>
-                    ))}
+                    ) : Array.isArray(clientsData?.clients) && clientsData.clients.length > 0 ? (
+                      clientsData.clients.map((client: Client) => (
+                        <SelectItem key={client.id} value={client.id.toString()}>
+                          {client.fullName} ({client.clientId})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-clients" disabled>
+                        No clients available
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -529,6 +539,9 @@ export default function TasksPage() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Create New Task</DialogTitle>
+                <DialogDescription>
+                  Create a new task and assign it to a client and therapist.
+                </DialogDescription>
               </DialogHeader>
               <TaskForm onSuccess={() => setShowCreateModal(false)} />
             </DialogContent>
