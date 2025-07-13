@@ -237,6 +237,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Task Management Routes
+  app.get("/api/tasks", async (req, res) => {
+    try {
+      const {
+        page = "1",
+        pageSize = "25",
+        search,
+        status,
+        priority,
+        assignedToId,
+        clientId,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+        includeCompleted = "false"
+      } = req.query;
+
+      const params = {
+        page: parseInt(page as string),
+        pageSize: parseInt(pageSize as string),
+        search: search as string,
+        status: status as string,
+        priority: priority as string,
+        assignedToId: assignedToId ? parseInt(assignedToId as string) : undefined,
+        clientId: clientId ? parseInt(clientId as string) : undefined,
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as "asc" | "desc",
+        includeCompleted: includeCompleted === "true"
+      };
+
+      const result = await storage.getAllTasks(params);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/tasks/stats", async (req, res) => {
+    try {
+      const stats = await storage.getTaskStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching task stats:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/tasks/recent", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const tasks = await storage.getRecentTasks(limit);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching recent tasks:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/tasks/upcoming", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const tasks = await storage.getUpcomingTasks(limit);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching upcoming tasks:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/tasks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const task = await storage.getTask(id);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error fetching task:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/tasks", async (req, res) => {
     try {
       const validatedData = insertTaskSchema.parse(req.body);
@@ -262,6 +347,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
       console.error("Error updating task:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/tasks/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteTask(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting task:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

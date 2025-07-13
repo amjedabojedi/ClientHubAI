@@ -127,11 +127,40 @@ export interface IStorage {
   deleteSession(id: number): Promise<void>;
 
   // ===== TASK MANAGEMENT =====
+  getAllTasks(params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: string;
+    priority?: string;
+    assignedToId?: number;
+    clientId?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    includeCompleted?: boolean;
+  }): Promise<{
+    tasks: (Task & { assignedTo?: User; client: Client })[];
+    total: number;
+    totalPages: number;
+  }>;
   getTasksByClient(clientId: number): Promise<(Task & { assignedTo?: User })[]>;
+  getTasksByAssignee(assigneeId: number): Promise<(Task & { client: Client })[]>;
+  getTask(id: number): Promise<(Task & { assignedTo?: User; client: Client }) | undefined>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
   deleteTask(id: number): Promise<void>;
+  getTaskStats(): Promise<{
+    totalTasks: number;
+    pendingTasks: number;
+    inProgressTasks: number;
+    completedTasks: number;
+    overdueTasks: number;
+    highPriorityTasks: number;
+    urgentTasks: number;
+  }>;
   getPendingTasksCount(): Promise<number>;
+  getRecentTasks(limit?: number): Promise<(Task & { assignedTo?: User; client: Client })[]>;
+  getUpcomingTasks(limit?: number): Promise<(Task & { assignedTo?: User; client: Client })[]>;
 
   // Note Management
   getNotesByClient(clientId: number): Promise<(Note & { author: User })[]>;
@@ -654,7 +683,103 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessionBilling.id, billingId));
   }
 
-  // Task methods
+  // Enhanced Task Management Methods
+  async getAllTasks(params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: string;
+    priority?: string;
+    assignedToId?: number;
+    clientId?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    includeCompleted?: boolean;
+  }): Promise<{
+    tasks: (Task & { assignedTo?: User; client: Client })[];
+    total: number;
+    totalPages: number;
+  }> {
+    const page = params?.page || 1;
+    const pageSize = params?.pageSize || 25;
+    const offset = (page - 1) * pageSize;
+
+    // Build where conditions
+    const conditions = [];
+    
+    if (params?.search) {
+      conditions.push(
+        or(
+          ilike(tasks.title, `%${params.search}%`),
+          ilike(tasks.description, `%${params.search}%`),
+          ilike(clients.fullName, `%${params.search}%`)
+        )
+      );
+    }
+    
+    if (params?.status) {
+      conditions.push(eq(tasks.status, params.status));
+    }
+    
+    if (params?.priority) {
+      conditions.push(eq(tasks.priority, params.priority));
+    }
+    
+    if (params?.assignedToId) {
+      conditions.push(eq(tasks.assignedToId, params.assignedToId));
+    }
+    
+    if (params?.clientId) {
+      conditions.push(eq(tasks.clientId, params.clientId));
+    }
+    
+    if (!params?.includeCompleted) {
+      conditions.push(or(
+        eq(tasks.status, 'pending'),
+        eq(tasks.status, 'in_progress'),
+        eq(tasks.status, 'overdue')
+      ));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count
+    const [{ count: totalCount }] = await db
+      .select({ count: count() })
+      .from(tasks)
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .where(whereClause);
+
+    // Get tasks with pagination
+    const results = await db
+      .select({
+        task: tasks,
+        assignedTo: users,
+        client: clients
+      })
+      .from(tasks)
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .leftJoin(users, eq(tasks.assignedToId, users.id))
+      .where(whereClause)
+      .orderBy(
+        params?.sortOrder === 'asc' 
+          ? asc(params?.sortBy === 'dueDate' ? tasks.dueDate : params?.sortBy === 'priority' ? tasks.priority : tasks.createdAt)
+          : desc(params?.sortBy === 'dueDate' ? tasks.dueDate : params?.sortBy === 'priority' ? tasks.priority : tasks.createdAt)
+      )
+      .limit(pageSize)
+      .offset(offset);
+
+    return {
+      tasks: results.map(r => ({ 
+        ...r.task, 
+        assignedTo: r.assignedTo || undefined,
+        client: r.client
+      })),
+      total: totalCount,
+      totalPages: Math.ceil(totalCount / pageSize)
+    };
+  }
+
   async getTasksByClient(clientId: number): Promise<(Task & { assignedTo?: User })[]> {
     const results = await db
       .select({
@@ -669,6 +794,42 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({ ...r.task, assignedTo: r.assignedTo || undefined }));
   }
 
+  async getTasksByAssignee(assigneeId: number): Promise<(Task & { client: Client })[]> {
+    const results = await db
+      .select({
+        task: tasks,
+        client: clients
+      })
+      .from(tasks)
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .where(eq(tasks.assignedToId, assigneeId))
+      .orderBy(desc(tasks.createdAt));
+
+    return results.map(r => ({ ...r.task, client: r.client }));
+  }
+
+  async getTask(id: number): Promise<(Task & { assignedTo?: User; client: Client }) | undefined> {
+    const results = await db
+      .select({
+        task: tasks,
+        assignedTo: users,
+        client: clients
+      })
+      .from(tasks)
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .leftJoin(users, eq(tasks.assignedToId, users.id))
+      .where(eq(tasks.id, id));
+
+    if (results.length === 0) return undefined;
+    
+    const r = results[0];
+    return { 
+      ...r.task, 
+      assignedTo: r.assignedTo || undefined,
+      client: r.client
+    };
+  }
+
   async createTask(task: InsertTask): Promise<Task> {
     const [newTask] = await db
       .insert(tasks)
@@ -678,6 +839,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(id: number, taskData: Partial<InsertTask>): Promise<Task> {
+    // Auto-set completion timestamp when status changes to completed
+    if (taskData.status === 'completed' && !taskData.completedAt) {
+      taskData.completedAt = new Date();
+    }
+    
     const [task] = await db
       .update(tasks)
       .set({ ...taskData, updatedAt: new Date() })
@@ -690,6 +856,30 @@ export class DatabaseStorage implements IStorage {
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
+  async getTaskStats(): Promise<{
+    totalTasks: number;
+    pendingTasks: number;
+    inProgressTasks: number;
+    completedTasks: number;
+    overdueTasks: number;
+    highPriorityTasks: number;
+    urgentTasks: number;
+  }> {
+    const [stats] = await db
+      .select({
+        totalTasks: count(),
+        pendingTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'pending')`,
+        inProgressTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'in_progress')`,
+        completedTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'completed')`,
+        overdueTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'overdue')`,
+        highPriorityTasks: sql<number>`COUNT(*) FILTER (WHERE priority = 'high')`,
+        urgentTasks: sql<number>`COUNT(*) FILTER (WHERE priority = 'urgent')`
+      })
+      .from(tasks);
+
+    return stats;
+  }
+
   async getPendingTasksCount(): Promise<number> {
     const [{ count: pendingCount }] = await db
       .select({ count: count() })
@@ -697,6 +887,55 @@ export class DatabaseStorage implements IStorage {
       .where(or(eq(tasks.status, 'pending'), eq(tasks.status, 'overdue')));
     
     return pendingCount;
+  }
+
+  async getRecentTasks(limit: number = 10): Promise<(Task & { assignedTo?: User; client: Client })[]> {
+    const results = await db
+      .select({
+        task: tasks,
+        assignedTo: users,
+        client: clients
+      })
+      .from(tasks)
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .leftJoin(users, eq(tasks.assignedToId, users.id))
+      .orderBy(desc(tasks.createdAt))
+      .limit(limit);
+
+    return results.map(r => ({ 
+      ...r.task, 
+      assignedTo: r.assignedTo || undefined,
+      client: r.client
+    }));
+  }
+
+  async getUpcomingTasks(limit: number = 10): Promise<(Task & { assignedTo?: User; client: Client })[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const results = await db
+      .select({
+        task: tasks,
+        assignedTo: users,
+        client: clients
+      })
+      .from(tasks)
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .leftJoin(users, eq(tasks.assignedToId, users.id))
+      .where(
+        and(
+          or(eq(tasks.status, 'pending'), eq(tasks.status, 'in_progress')),
+          sql`${tasks.dueDate} >= ${today.toISOString()}`
+        )
+      )
+      .orderBy(asc(tasks.dueDate))
+      .limit(limit);
+
+    return results.map(r => ({ 
+      ...r.task, 
+      assignedTo: r.assignedTo || undefined,
+      client: r.client
+    }));
   }
 
   // Note methods

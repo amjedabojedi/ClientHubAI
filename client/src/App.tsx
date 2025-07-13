@@ -4,12 +4,14 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, BookOpen, ClipboardList } from "lucide-react";
+import { Users, Calendar, BookOpen, ClipboardList, CheckSquare } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import ClientsPage from "@/pages/clients";
 import ClientDetailPage from "@/pages/client-detail";
 import SchedulingPage from "@/pages/scheduling";
 import LibraryPage from "@/pages/library";
+import TasksPage from "@/pages/tasks";
+import TaskHistoryPage from "@/pages/tasks-history";
 import AssessmentsPage from "@/pages/assessments";
 import AssessmentCompletionPage from "@/pages/assessment-completion";
 import AssessmentReportPage from "@/pages/assessment-report";
@@ -20,6 +22,7 @@ function Navigation() {
   const navItems = [
     { path: "/clients", label: "Clients", icon: Users },
     { path: "/scheduling", label: "Scheduling", icon: Calendar },
+    { path: "/tasks", label: "Tasks", icon: CheckSquare },
     { path: "/library", label: "Library", icon: BookOpen },
     { path: "/assessments", label: "Assessments", icon: ClipboardList },
   ];
@@ -67,6 +70,8 @@ function Router() {
           <Route path="/clients" component={ClientsPage} />
           <Route path="/clients/:id" component={ClientDetailPage} />
           <Route path="/scheduling" component={SchedulingPage} />
+          <Route path="/tasks" component={TasksPage} />
+          <Route path="/tasks/history" component={TaskHistoryPage} />
           <Route path="/library" component={LibraryPage} />
           <Route path="/assessments" component={AssessmentsPage} />
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />

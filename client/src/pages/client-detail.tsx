@@ -56,6 +56,7 @@ import type { Client, Session, Note, Task, Document } from "@/types/client";
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import SessionNotesManager from "@/components/session-notes/session-notes-manager";
+import QuickTaskForm from "@/components/task-management/quick-task-form";
 
 // Text File Viewer Component
 function TextFileViewer({ clientId, document }: { clientId: string; document: Document }) {
@@ -774,6 +775,17 @@ export default function ClientDetailPage() {
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
+              <QuickTaskForm
+                clientId={client.id}
+                clientName={client.fullName}
+                defaultAssigneeId={client.assignedTherapist?.id}
+                trigger={
+                  <Button variant="outline">
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    Add Task
+                  </Button>
+                }
+              />
               <Button 
                 variant="default"
                 onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
@@ -821,7 +833,7 @@ export default function ClientDetailPage() {
             </TabsTrigger>
             <TabsTrigger value="checklist" className="flex items-center space-x-2">
               <CheckSquare className="w-4 h-4" />
-              <span>Checklist</span>
+              <span>Tasks</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1661,14 +1673,24 @@ export default function ClientDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Checklist Tab */}
+          {/* Tasks Tab */}
           <TabsContent value="checklist" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Client Checklist</h2>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Task
-              </Button>
+              <h2 className="text-xl font-semibold text-slate-900">Client Tasks</h2>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline"
+                  onClick={() => setLocation("/tasks")}
+                >
+                  <CheckSquare className="w-4 h-4 mr-2" />
+                  View All Tasks
+                </Button>
+                <QuickTaskForm
+                  clientId={client.id}
+                  clientName={client.fullName}
+                  defaultAssigneeId={client.assignedTherapist?.id}
+                />
+              </div>
             </div>
 
             <Card>
@@ -1676,29 +1698,74 @@ export default function ClientDetailPage() {
                 {tasks.length > 0 ? (
                   <div className="space-y-4">
                     {tasks.map((task: Task) => (
-                      <div key={task.id} className="flex items-center space-x-3 border rounded-lg p-4">
+                      <div key={task.id} className="flex items-start justify-between border rounded-lg p-4 hover:bg-slate-50 transition-colors">
                         <div className="flex-1">
-                          <p className="font-medium text-slate-900">{task.title}</p>
-                          <p className="text-slate-600">{task.description}</p>
-                          {task.dueDate && (
-                            <p className="text-sm text-slate-500">
-                              Due: {new Date(task.dueDate).toLocaleDateString()}
-                            </p>
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-medium text-slate-900">{task.title}</h4>
+                            <div className="flex gap-2">
+                              <Badge className={
+                                task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                                task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }>
+                                {task.priority}
+                              </Badge>
+                              <Badge className={
+                                task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                task.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }>
+                                {task.status?.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {task.description && (
+                            <p className="text-slate-600 text-sm mb-2">{task.description}</p>
                           )}
+                          
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
+                            {task.dueDate && (
+                              <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                            )}
+                            {task.assignedTo && (
+                              <span>Assigned to: {task.assignedTo.fullName}</span>
+                            )}
+                          </div>
                         </div>
-                        <Badge className={
-                          task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                          task.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }>
-                          {task.status?.replace('_', ' ')}
-                        </Badge>
+                        
+                        <div className="flex gap-2 ml-4">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setLocation("/tasks")}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-slate-600 text-center py-8">No tasks assigned.</p>
+                  <div className="text-center py-12">
+                    <CheckSquare className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">No tasks yet</h3>
+                    <p className="text-slate-600 mb-4">Create the first task for this client to get started.</p>
+                    <QuickTaskForm
+                      clientId={client.id}
+                      clientName={client.fullName}
+                      defaultAssigneeId={client.assignedTherapist?.id}
+                      trigger={
+                        <Button>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create First Task
+                        </Button>
+                      }
+                    />
+                  </div>
                 )}
               </CardContent>
             </Card>
