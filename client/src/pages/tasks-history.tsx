@@ -144,9 +144,9 @@ export default function TaskHistoryPage() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
-  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [page, setPage] = useState(1);
 
   // Fetch tasks with history (including completed)
@@ -162,14 +162,22 @@ export default function TaskHistoryPage() {
         includeCompleted: true // Always include completed tasks in history
       }
     ],
-    queryFn: () => apiRequest("/api/tasks", "GET", {}, {
-      page: page.toString(),
-      search,
-      status: statusFilter,
-      priority: priorityFilter,
-      assignedToId: assigneeFilter,
-      includeCompleted: "true"
-    }),
+    queryFn: ({ queryKey }) => {
+      const [url, params] = queryKey;
+      const searchParams = new URLSearchParams();
+      
+      if (params.page) searchParams.set('page', params.page.toString());
+      if (params.search) searchParams.set('search', params.search);
+      if (params.status && params.status !== 'all') searchParams.set('status', params.status);
+      if (params.priority && params.priority !== 'all') searchParams.set('priority', params.priority);
+      if (params.assignedToId && params.assignedToId !== 'all') {
+        searchParams.set('assignedToId', params.assignedToId === 'unassigned' ? '' : params.assignedToId);
+      }
+      searchParams.set('includeCompleted', 'true');
+      
+      const fullUrl = searchParams.toString() ? `${url}?${searchParams.toString()}` : url;
+      return apiRequest(fullUrl, "GET");
+    },
   });
 
   const { data: therapists = [] } = useQuery({
@@ -179,9 +187,9 @@ export default function TaskHistoryPage() {
 
   const clearFilters = () => {
     setSearch("");
-    setStatusFilter("");
-    setPriorityFilter("");
-    setAssigneeFilter("");
+    setStatusFilter("all");
+    setPriorityFilter("all");
+    setAssigneeFilter("all");
     setPage(1);
   };
 
@@ -245,7 +253,7 @@ export default function TaskHistoryPage() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -258,7 +266,7 @@ export default function TaskHistoryPage() {
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Priority</SelectItem>
+                  <SelectItem value="all">All Priority</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
@@ -271,8 +279,8 @@ export default function TaskHistoryPage() {
                   <SelectValue placeholder="Assignee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Assignees</SelectItem>
-                  {therapists.map((therapist: UserType) => (
+                  <SelectItem value="all">All Assignees</SelectItem>
+                  {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
                     <SelectItem key={therapist.id} value={therapist.id.toString()}>
                       {therapist.fullName}
                     </SelectItem>

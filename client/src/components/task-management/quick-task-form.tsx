@@ -205,8 +205,8 @@ export default function QuickTaskForm({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
-                      {therapists.map((therapist: UserType) => (
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
                         <SelectItem key={therapist.id} value={therapist.id.toString()}>
                           {therapist.fullName}
                         </SelectItem>

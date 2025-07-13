@@ -251,8 +251,8 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
-                    {therapists.map((therapist: UserType) => (
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
                       <SelectItem key={therapist.id} value={therapist.id.toString()}>
                         {therapist.fullName}
                       </SelectItem>
@@ -417,9 +417,9 @@ function TaskCard({ task, onEdit, onDelete }: {
 export default function TasksPage() {
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
-  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
@@ -441,14 +441,22 @@ export default function TasksPage() {
         includeCompleted: activeTab === "all"
       }
     ],
-    queryFn: () => apiRequest("/api/tasks", "GET", {}, {
-      page: page.toString(),
-      search,
-      status: statusFilter,
-      priority: priorityFilter,
-      assignedToId: assigneeFilter,
-      includeCompleted: activeTab === "all" ? "true" : "false"
-    }),
+    queryFn: ({ queryKey }) => {
+      const [url, params] = queryKey;
+      const searchParams = new URLSearchParams();
+      
+      if (params.page) searchParams.set('page', params.page.toString());
+      if (params.search) searchParams.set('search', params.search);
+      if (params.status && params.status !== 'all') searchParams.set('status', params.status);
+      if (params.priority && params.priority !== 'all') searchParams.set('priority', params.priority);
+      if (params.assignedToId && params.assignedToId !== 'all') {
+        searchParams.set('assignedToId', params.assignedToId === 'unassigned' ? '' : params.assignedToId);
+      }
+      if (params.includeCompleted) searchParams.set('includeCompleted', params.includeCompleted.toString());
+      
+      const fullUrl = searchParams.toString() ? `${url}?${searchParams.toString()}` : url;
+      return apiRequest(fullUrl, "GET");
+    },
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
@@ -487,9 +495,9 @@ export default function TasksPage() {
 
   const clearFilters = () => {
     setSearch("");
-    setStatusFilter("");
-    setPriorityFilter("");
-    setAssigneeFilter("");
+    setStatusFilter("all");
+    setPriorityFilter("all");
+    setAssigneeFilter("all");
     setPage(1);
   };
 
@@ -598,7 +606,7 @@ export default function TasksPage() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -611,7 +619,7 @@ export default function TasksPage() {
                   <SelectValue placeholder="Priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Priority</SelectItem>
+                  <SelectItem value="all">All Priority</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
@@ -624,8 +632,8 @@ export default function TasksPage() {
                   <SelectValue placeholder="Assignee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Assignees</SelectItem>
-                  {therapists.map((therapist: UserType) => (
+                  <SelectItem value="all">All Assignees</SelectItem>
+                  {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
                     <SelectItem key={therapist.id} value={therapist.id.toString()}>
                       {therapist.fullName}
                     </SelectItem>

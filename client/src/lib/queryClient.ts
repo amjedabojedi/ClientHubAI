@@ -17,13 +17,19 @@ export async function apiRequest(
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
   
   try {
-    const res = await fetch(url, {
+    const options: RequestInit = {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
-      body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
       signal: controller.signal,
-    });
+    };
+
+    // Only add headers and body for non-GET/HEAD requests
+    if (method !== 'GET' && method !== 'HEAD' && data) {
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(data);
+    }
+
+    const res = await fetch(url, options);
 
     clearTimeout(timeoutId);
     await throwIfResNotOk(res);
