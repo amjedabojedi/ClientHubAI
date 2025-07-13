@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -123,8 +123,13 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // Fetch clients for selection
   const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],
-    queryFn: () => apiRequest("/api/clients", "GET"),
+    queryFn: async () => {
+      const response = await apiRequest("/api/clients", "GET");
+      return response.json();
+    },
   });
+
+
 
   // Fetch therapists for assignment
   const { data: therapists = [] } = useQuery({
