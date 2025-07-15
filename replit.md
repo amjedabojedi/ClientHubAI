@@ -364,3 +364,10 @@ Advanced appointment management with multi-view calendar system:
 - **Timing Issue Resolution**: Enhanced mutation handling with immediate cache invalidation and refetching to prevent race conditions
 - **Error State Management**: Improved error handling with proper loading states and user feedback during operations
 - **Code Cleanliness**: Removed all debugging console.log statements and unused imports for production readiness
+
+### Task Management Bug Fixes and Data Cleanup (January 2025)
+- **Query Function Fix**: Fixed task visibility issue by correcting React Query usage to use default query function instead of manual URL building
+- **Task Creation Resolution**: Resolved problem where newly created tasks weren't appearing in the task list due to improper API request handling
+- **Sample Data Cleanup**: Removed 11 old sample/demo tasks from database, leaving only user-created tasks for cleaner development experience
+- **Port Conflict Resolution**: Fixed application startup issues by properly handling port conflicts and workflow restarts
+- **API Consistency**: Standardized query patterns across task management components for consistent data fetching behavior
