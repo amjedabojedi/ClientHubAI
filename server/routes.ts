@@ -16,6 +16,7 @@ import {
   insertClientSchema, 
   insertSessionSchema, 
   insertTaskSchema, 
+  insertTaskCommentSchema,
   insertNoteSchema, 
   insertDocumentSchema, 
   insertSessionNoteSchema, 
@@ -358,6 +359,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting task:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===== TASK COMMENTS API ROUTES =====
+  // Get all comments for a specific task
+  app.get("/api/tasks/:taskId/comments", async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const comments = await storage.getTaskComments(taskId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching task comments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create a new task comment
+  app.post("/api/tasks/:taskId/comments", async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const commentData = { ...req.body, taskId };
+      const validatedData = insertTaskCommentSchema.parse(commentData);
+      const comment = await storage.createTaskComment(validatedData);
+      res.status(201).json(comment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid comment data", errors: error.errors });
+      }
+      console.error("Error creating task comment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update a task comment
+  app.put("/api/tasks/:taskId/comments/:commentId", async (req, res) => {
+    try {
+      const commentId = parseInt(req.params.commentId);
+      const validatedData = insertTaskCommentSchema.partial().parse(req.body);
+      const comment = await storage.updateTaskComment(commentId, validatedData);
+      res.json(comment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid comment data", errors: error.errors });
+      }
+      console.error("Error updating task comment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete a task comment
+  app.delete("/api/tasks/:taskId/comments/:commentId", async (req, res) => {
+    try {
+      const commentId = parseInt(req.params.commentId);
+      await storage.deleteTaskComment(commentId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting task comment:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

@@ -231,6 +231,17 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Task Comments table - For tracking progress and communication on tasks
+export const taskComments = pgTable("task_comments", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  authorId: integer("author_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  isInternal: boolean("is_internal").notNull().default(false), // Internal staff notes vs client-visible
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Notes table
 export const notes = pgTable("notes", {
   id: serial("id").primaryKey(),
@@ -450,6 +461,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
   sessions: many(sessions),
   tasks: many(tasks),
+  taskComments: many(taskComments),
   notes: many(notes),
   documents: many(documents),
   sessionNotes: many(sessionNotes),
@@ -507,13 +519,25 @@ export const sessionBillingRelations = relations(sessionBilling, ({ one }) => ({
   session: one(sessions, { fields: [sessionBilling.sessionId], references: [sessions.id] }),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
   client: one(clients, {
     fields: [tasks.clientId],
     references: [clients.id],
   }),
   assignedTo: one(users, {
     fields: [tasks.assignedToId],
+    references: [users.id],
+  }),
+  comments: many(taskComments),
+}));
+
+export const taskCommentsRelations = relations(taskComments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskComments.taskId],
+    references: [tasks.id],
+  }),
+  author: one(users, {
+    fields: [taskComments.authorId],
     references: [users.id],
   }),
 }));
@@ -718,6 +742,12 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   updatedAt: true,
 });
 
+export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertNoteSchema = createInsertSchema(notes).omit({
   id: true,
   createdAt: true,
@@ -802,6 +832,9 @@ export type InsertSession = z.infer<typeof insertSessionSchema>;
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+export type TaskComment = typeof taskComments.$inferSelect;
+export type InsertTaskComment = z.infer<typeof insertTaskCommentSchema>;
 
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;

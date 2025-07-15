@@ -8,6 +8,7 @@ import {
   users, 
   sessions, 
   tasks, 
+  taskComments,
   notes, 
   documents,
   sessionNotes,
@@ -37,6 +38,8 @@ import type {
   InsertSession,
   Task,
   InsertTask,
+  TaskComment,
+  InsertTaskComment,
   Note,
   InsertNote,
   Document,
@@ -161,6 +164,16 @@ export interface IStorage {
   getPendingTasksCount(): Promise<number>;
   getRecentTasks(limit?: number): Promise<(Task & { assignedTo?: User; client: Client })[]>;
   getUpcomingTasks(limit?: number): Promise<(Task & { assignedTo?: User; client: Client })[]>;
+
+  // ===== Task Comments Management =====
+  // Create a new task comment for progress tracking
+  createTaskComment(commentData: InsertTaskComment): Promise<TaskComment>;
+  // Get all comments for a specific task with author info
+  getTaskComments(taskId: number): Promise<(TaskComment & { author: User })[]>;
+  // Update task comment by ID
+  updateTaskComment(id: number, commentData: Partial<InsertTaskComment>): Promise<TaskComment>;
+  // Delete task comment by ID
+  deleteTaskComment(id: number): Promise<void>;
 
   // Note Management
   getNotesByClient(clientId: number): Promise<(Note & { author: User })[]>;
@@ -936,6 +949,48 @@ export class DatabaseStorage implements IStorage {
       assignedTo: r.assignedTo || undefined,
       client: r.client
     }));
+  }
+
+  // ===== TASK COMMENTS METHODS =====
+  // Create a new task comment for progress tracking and communication
+  async createTaskComment(commentData: InsertTaskComment): Promise<TaskComment> {
+    const [newComment] = await db
+      .insert(taskComments)
+      .values(commentData)
+      .returning();
+    return newComment;
+  }
+
+  // Get all comments for a specific task with author information
+  async getTaskComments(taskId: number): Promise<(TaskComment & { author: User })[]> {
+    const results = await db
+      .select({
+        comment: taskComments,
+        author: users
+      })
+      .from(taskComments)
+      .innerJoin(users, eq(taskComments.authorId, users.id))
+      .where(eq(taskComments.taskId, taskId))
+      .orderBy(asc(taskComments.createdAt));
+
+    return results.map(r => ({ ...r.comment, author: r.author }));
+  }
+
+  // Update task comment by ID
+  async updateTaskComment(id: number, commentData: Partial<InsertTaskComment>): Promise<TaskComment> {
+    const [updatedComment] = await db
+      .update(taskComments)
+      .set({ ...commentData, updatedAt: new Date() })
+      .where(eq(taskComments.id, id))
+      .returning();
+    return updatedComment;
+  }
+
+  // Delete task comment by ID
+  async deleteTaskComment(id: number): Promise<void> {
+    await db
+      .delete(taskComments)
+      .where(eq(taskComments.id, id));
   }
 
   // Note methods
