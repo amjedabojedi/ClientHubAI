@@ -66,7 +66,7 @@ export default function ClientsPage() {
 
       
       <div className="flex">        
-        <main className="flex-1 p-6">
+        <main className="flex-1 px-6 py-12">
           <div className="max-w-full">
             <div className="flex items-center justify-between mb-6">
               <div>

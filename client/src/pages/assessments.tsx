@@ -165,7 +165,7 @@ export default function AssessmentsPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-12 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
