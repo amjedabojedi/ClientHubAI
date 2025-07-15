@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Icons
 import { 
@@ -27,6 +28,10 @@ import {
 // Utils & Types
 import { cn } from "@/lib/utils";
 import type { Client, Task, User as UserType } from "@shared/schema";
+
+// Components
+import AddClientModal from "@/components/client-management/add-client-modal";
+import EditClientModal from "@/components/client-management/edit-client-modal";
 
 interface DashboardStats {
   totalClients: number;
@@ -97,6 +102,10 @@ const getStatusColor = (status: string) => {
 
 export default function DashboardPage() {
   const [, setLocation] = useLocation();
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
 
   // Data Fetching
   const { data: clientStats } = useQuery<DashboardStats>({
@@ -137,13 +146,13 @@ export default function DashboardPage() {
       {/* Key Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Active Clients */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/clients")}>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowAddClientModal(true)}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600">Active Clients</p>
                 <p className="text-2xl font-bold text-blue-600">{clientStats?.activeClients || 0}</p>
-                <p className="text-xs text-slate-500 mt-1">Total: {clientStats?.totalClients || 0}</p>
+                <p className="text-xs text-slate-500 mt-1">Click to add new client</p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Users className="h-6 w-6 text-blue-600" />
@@ -153,13 +162,13 @@ export default function DashboardPage() {
         </Card>
 
         {/* Today's Sessions */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/scheduling")}>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowScheduleModal(true)}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600">Today's Sessions</p>
                 <p className="text-2xl font-bold text-green-600">{todaySessions.length}</p>
-                <p className="text-xs text-slate-500 mt-1">Scheduled for today</p>
+                <p className="text-xs text-slate-500 mt-1">Click to schedule session</p>
               </div>
               <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <Calendar className="h-6 w-6 text-green-600" />
@@ -169,15 +178,13 @@ export default function DashboardPage() {
         </Card>
 
         {/* Pending Tasks */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/tasks")}>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowCreateTaskModal(true)}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-600">Pending Tasks</p>
                 <p className="text-2xl font-bold text-orange-600">{taskStats?.pendingTasks || 0}</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {taskStats?.urgentTasks ? `${taskStats.urgentTasks} urgent` : 'No urgent tasks'}
-                </p>
+                <p className="text-xs text-slate-500 mt-1">Click to create new task</p>
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
                 <ClipboardList className="h-6 w-6 text-orange-600" />
@@ -218,7 +225,7 @@ export default function DashboardPage() {
             <Button 
               className="h-12 justify-start" 
               variant="outline"
-              onClick={() => setLocation("/scheduling")}
+              onClick={() => setShowScheduleModal(true)}
             >
               <Calendar className="w-4 h-4 mr-2" />
               Schedule Session
@@ -226,7 +233,7 @@ export default function DashboardPage() {
             <Button 
               className="h-12 justify-start" 
               variant="outline"
-              onClick={() => setLocation("/clients")}
+              onClick={() => setShowAddClientModal(true)}
             >
               <Users className="w-4 h-4 mr-2" />
               Add New Client
@@ -234,7 +241,7 @@ export default function DashboardPage() {
             <Button 
               className="h-12 justify-start" 
               variant="outline"
-              onClick={() => setLocation("/tasks")}
+              onClick={() => setShowCreateTaskModal(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Task
@@ -290,7 +297,7 @@ export default function DashboardPage() {
                   <div 
                     key={task.id} 
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
-                    onClick={() => setLocation("/tasks")}
+                    onClick={() => setEditingTask(task)}
                   >
                     <div className="flex-1">
                       <h4 className="font-medium text-sm">{task.title}</h4>
@@ -337,7 +344,7 @@ export default function DashboardPage() {
                   variant="outline" 
                   size="sm" 
                   className="mt-2"
-                  onClick={() => setLocation("/scheduling")}
+                  onClick={() => setShowScheduleModal(true)}
                 >
                   Schedule Session
                 </Button>
@@ -385,7 +392,7 @@ export default function DashboardPage() {
                 <div 
                   key={task.id} 
                   className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer"
-                  onClick={() => setLocation("/tasks")}
+                  onClick={() => setEditingTask(task)}
                 >
                   <h4 className="font-medium text-sm mb-1">{task.title}</h4>
                   <p className="text-xs text-slate-600 mb-2">{task.client.fullName}</p>
@@ -403,6 +410,99 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Modal Dialogs */}
+      
+      {/* Add Client Modal */}
+      <AddClientModal 
+        isOpen={showAddClientModal} 
+        onClose={() => setShowAddClientModal(false)} 
+      />
+
+      {/* Create Task Modal */}
+      <Dialog open={showCreateTaskModal} onOpenChange={setShowCreateTaskModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+            <DialogDescription>
+              Quick access to task creation
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-600 mb-4">
+              Click below to open the full task management page to create a new task.
+            </p>
+            <Button 
+              onClick={() => {
+                setShowCreateTaskModal(false);
+                setLocation("/tasks");
+              }}
+              className="w-full"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Open Task Management
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+              <DialogDescription>
+                View and edit task details
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="mb-4">
+                <h4 className="font-medium text-sm mb-2">{editingTask.title}</h4>
+                <p className="text-xs text-slate-600 mb-2">Client: {editingTask.client.fullName}</p>
+                <p className="text-xs text-slate-500">{editingTask.description}</p>
+              </div>
+              <Button 
+                onClick={() => {
+                  setEditingTask(null);
+                  setLocation("/tasks");
+                }}
+                className="w-full"
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                Open Task Management
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Schedule Session Modal */}
+      <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Session</DialogTitle>
+            <DialogDescription>
+              Quick access to scheduling calendar
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-600 mb-4">
+              Click below to open the full scheduling calendar to book a new session.
+            </p>
+            <Button 
+              onClick={() => {
+                setShowScheduleModal(false);
+                setLocation("/scheduling");
+              }}
+              className="w-full"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              Open Scheduling Calendar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
