@@ -129,20 +129,12 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // This loads client list when component mounts and caches the result
   const { data: clientsData, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],                                     // Cache key for React Query
-    queryFn: async () => {                                          // Function that fetches the data
-      const response = await apiRequest("/api/clients", "GET");     // Call backend API
-      return response.json();                                       // Parse JSON response
-    },
   });
 
   // Fetch all therapists/staff to populate the "Assigned To" dropdown
   // This shows who can be responsible for completing the task
   const { data: therapists = [] } = useQuery({
     queryKey: ["/api/therapists"],                                  // Cache key for therapist list
-    queryFn: async () => {
-      const response = await apiRequest("/api/therapists", "GET");  // Get all active therapists
-      return response.json();
-    },
   });
 
   // ===== TASK CREATION WORKFLOW =====
@@ -489,39 +481,21 @@ export default function TasksPage() {
       "/api/tasks", 
       { 
         page, 
-        search, 
-        status: statusFilter, 
-        priority: priorityFilter, 
-        assignedToId: assigneeFilter, 
+        search: search || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
+        assignedToId: assigneeFilter !== 'all' ? (assigneeFilter === 'unassigned' ? '' : assigneeFilter) : undefined,
         includeCompleted: activeTab === "all"
       }
     ],
-    queryFn: ({ queryKey }) => {
-      const [url, params] = queryKey;
-      const searchParams = new URLSearchParams();
-      
-      if (params.page) searchParams.set('page', params.page.toString());
-      if (params.search) searchParams.set('search', params.search);
-      if (params.status && params.status !== 'all') searchParams.set('status', params.status);
-      if (params.priority && params.priority !== 'all') searchParams.set('priority', params.priority);
-      if (params.assignedToId && params.assignedToId !== 'all') {
-        searchParams.set('assignedToId', params.assignedToId === 'unassigned' ? '' : params.assignedToId);
-      }
-      if (params.includeCompleted) searchParams.set('includeCompleted', params.includeCompleted.toString());
-      
-      const fullUrl = searchParams.toString() ? `${url}?${searchParams.toString()}` : url;
-      return apiRequest(fullUrl, "GET");
-    },
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
     queryKey: ["/api/tasks/stats"],
-    queryFn: () => apiRequest("/api/tasks/stats", "GET"),
   });
 
   const { data: therapists = [] } = useQuery({
     queryKey: ["/api/therapists"],
-    queryFn: () => apiRequest("/api/therapists", "GET"),
   });
 
   // ===== API MUTATIONS =====
