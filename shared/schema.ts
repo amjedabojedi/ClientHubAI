@@ -740,6 +740,9 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  dueDate: z.string().optional().transform((val) => val ? new Date(val) : undefined),
+  completedAt: z.string().optional().transform((val) => val ? new Date(val) : undefined),
 });
 
 export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({

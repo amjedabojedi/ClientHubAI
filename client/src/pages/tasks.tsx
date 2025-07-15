@@ -42,6 +42,9 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Task, Client, User as UserType } from "@shared/schema";
 
+// Components
+import { TaskComments } from "@/components/task-management/task-comments";
+
 interface TaskWithDetails extends Task {
   assignedTo?: UserType;
   client: Client;
@@ -393,10 +396,11 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
 }
 
 // ===== TASK CARD COMPONENT =====
-function TaskCard({ task, onEdit, onDelete }: { 
+function TaskCard({ task, onEdit, onDelete, onViewComments }: { 
   task: TaskWithDetails; 
   onEdit: (task: TaskWithDetails) => void; 
-  onDelete: (taskId: number) => void; 
+  onDelete: (taskId: number) => void;
+  onViewComments: (task: TaskWithDetails) => void;
 }) {
   const [, setLocation] = useLocation();
 
@@ -410,10 +414,13 @@ function TaskCard({ task, onEdit, onDelete }: {
           </div>
           
           <div className="flex gap-2 ml-4">
-            <Button variant="ghost" size="sm" onClick={() => onEdit(task)}>
+            <Button variant="ghost" size="sm" onClick={() => onViewComments(task)} title="View Comments">
+              <ClipboardList className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => onEdit(task)} title="Edit Task">
               <Edit className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete(task.id)}>
+            <Button variant="ghost" size="sm" onClick={() => onDelete(task.id)} title="Delete Task">
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
@@ -470,6 +477,7 @@ export default function TasksPage() {
   const [page, setPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
+  const [selectedTaskForComments, setSelectedTaskForComments] = useState<TaskWithDetails | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -538,6 +546,10 @@ export default function TasksPage() {
     if (confirm("Are you sure you want to delete this task?")) {
       deleteTaskMutation.mutate(taskId);
     }
+  };
+
+  const handleViewComments = (task: TaskWithDetails) => {
+    setSelectedTaskForComments(task);
   };
 
   const clearFilters = () => {
@@ -737,6 +749,7 @@ export default function TasksPage() {
                     task={task}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onViewComments={handleViewComments}
                   />
                 ))}
               </div>
@@ -780,6 +793,24 @@ export default function TasksPage() {
             <TaskForm 
               task={editingTask} 
               onSuccess={() => setEditingTask(null)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Task Comments Modal */}
+      <Dialog open={!!selectedTaskForComments} onOpenChange={() => setSelectedTaskForComments(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Comments & Progress</DialogTitle>
+            <DialogDescription>
+              Track progress and communicate with team members about this task.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTaskForComments && (
+            <TaskComments 
+              taskId={selectedTaskForComments.id}
+              taskTitle={selectedTaskForComments.title}
             />
           )}
         </DialogContent>
