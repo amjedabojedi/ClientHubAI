@@ -63,15 +63,16 @@ interface TaskStats {
   urgentTasks: number;
 }
 
-// ===== FORM SCHEMAS =====
+// ===== FORM VALIDATION SCHEMA =====
+// This schema defines what data is required and allowed for creating/editing tasks
 const taskFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  clientId: z.number().min(1, "Client is required"),
-  assignedToId: z.number().optional().nullable(),
-  priority: z.enum(["low", "medium", "high", "urgent"]),
-  status: z.enum(["pending", "in_progress", "completed", "overdue"]),
-  dueDate: z.string().optional(),
+  title: z.string().min(1, "Title is required"),                    // Task name - required field
+  description: z.string().optional(),                               // Optional detailed description
+  clientId: z.number().min(1, "Client is required"),               // Links task to a specific client - required
+  assignedToId: z.number().optional().nullable(),                  // Which therapist/staff member handles this task (can be null for unassigned)
+  priority: z.enum(["low", "medium", "high", "urgent"]),          // Task importance level
+  status: z.enum(["pending", "in_progress", "completed", "overdue"]), // Current task state
+  dueDate: z.string().optional(),                                  // When task should be completed (HTML date input format)
 });
 
 type TaskFormData = z.infer<typeof taskFormSchema>;
@@ -120,38 +121,45 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
     },
   });
 
-  // Fetch clients for selection
+  // ===== DATA FETCHING =====
+  // Fetch all clients to populate the "Assign to Client" dropdown
+  // This loads client list when component mounts and caches the result
   const { data: clientsData, isLoading: clientsLoading } = useQuery({
-    queryKey: ["/api/clients"],
-    queryFn: async () => {
-      const response = await apiRequest("/api/clients", "GET");
-      return response.json();
+    queryKey: ["/api/clients"],                                     // Cache key for React Query
+    queryFn: async () => {                                          // Function that fetches the data
+      const response = await apiRequest("/api/clients", "GET");     // Call backend API
+      return response.json();                                       // Parse JSON response
     },
   });
 
-
-
-  // Fetch therapists for assignment
+  // Fetch all therapists/staff to populate the "Assigned To" dropdown
+  // This shows who can be responsible for completing the task
   const { data: therapists = [] } = useQuery({
-    queryKey: ["/api/therapists"],
+    queryKey: ["/api/therapists"],                                  // Cache key for therapist list
     queryFn: async () => {
-      const response = await apiRequest("/api/therapists", "GET");
+      const response = await apiRequest("/api/therapists", "GET");  // Get all active therapists
       return response.json();
     },
   });
 
+  // ===== TASK CREATION WORKFLOW =====
+  // This mutation handles creating new tasks when form is submitted
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData) => {
+      // Step 1: Send task data to backend API endpoint
       const response = await apiRequest("/api/tasks", "POST", data);
+      // Step 2: Parse the response (returns the created task with ID)
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Task created successfully!" });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
-      onSuccess();
+      // Step 3: When task creation succeeds:
+      toast({ title: "Task created successfully!" });              // Show success message to user
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }); // Refresh task list to show new task
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] }); // Update task statistics counters
+      onSuccess();                                                  // Close the form dialog
     },
     onError: (error: any) => {
+      // Step 4: If task creation fails, show error message
       toast({ title: "Error creating task", variant: "destructive" });
     },
   });
@@ -169,20 +177,26 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
     },
   });
 
+  // ===== FORM SUBMISSION HANDLER =====
+  // This function runs when user clicks "Create Task" or "Update Task" button
   const onSubmit = (data: TaskFormData) => {
+    // Step 1: Transform form data into database-compatible format
     const taskData = {
-      ...data,
-      // Handle empty strings properly
-      description: data.description && data.description.trim() ? data.description.trim() : undefined,
-      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-      // Ensure completedAt is undefined for non-completed tasks
-      completedAt: data.status === 'completed' ? new Date() : undefined,
+      ...data,                                                      // Copy all form fields
+      // Step 2: Clean up text fields (remove empty strings, use undefined instead)
+      description: data.description && data.description.trim() ? 
+        data.description.trim() : undefined,                       // Only save description if it has actual content
+      // Step 3: Convert date string to Date object (required by database schema)
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined, // Convert "2025-07-13" to Date object
+      // Step 4: Set completion timestamp for completed tasks
+      completedAt: data.status === 'completed' ? new Date() : undefined, // Auto-timestamp when marked complete
     };
 
+    // Step 5: Choose create or update based on whether we're editing existing task
     if (task) {
-      updateTaskMutation.mutate(taskData);
+      updateTaskMutation.mutate(taskData);                         // Update existing task
     } else {
-      createTaskMutation.mutate(taskData);
+      createTaskMutation.mutate(taskData);                         // Create new task
     }
   };
 
@@ -221,7 +235,10 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
           )}
         />
 
+        {/* ===== CLIENT AND ASSIGNMENT SELECTION ===== */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* CLIENT SELECTION DROPDOWN */}
+          {/* This dropdown shows all clients and lets user choose which client this task is for */}
           <FormField
             control={form.control}
             name="clientId"
@@ -229,8 +246,8 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
               <FormItem>
                 <FormLabel>Client</FormLabel>
                 <Select 
-                  onValueChange={(value) => field.onChange(parseInt(value))} 
-                  value={field.value?.toString() || ""}
+                  onValueChange={(value) => field.onChange(parseInt(value))}  // Convert string ID to number for database
+                  value={field.value?.toString() || ""}                      // Convert number ID to string for Select component
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -239,16 +256,19 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                   </FormControl>
                   <SelectContent>
                     {clientsLoading ? (
+                      // Show loading state while fetching clients
                       <SelectItem value="loading" disabled>
                         Loading clients...
                       </SelectItem>
                     ) : Array.isArray(clientsData?.clients) && clientsData.clients.length > 0 ? (
+                      // Map through all clients and create dropdown options
                       clientsData.clients.map((client: Client) => (
                         <SelectItem key={client.id} value={client.id.toString()}>
-                          {client.fullName} ({client.clientId})
+                          {client.fullName} ({client.clientId})              {/* Show name and ID for easy identification */}
                         </SelectItem>
                       ))
                     ) : (
+                      // Show message if no clients are available
                       <SelectItem value="no-clients" disabled>
                         No clients available
                       </SelectItem>
@@ -260,6 +280,8 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
             )}
           />
 
+          {/* STAFF ASSIGNMENT DROPDOWN */}
+          {/* This dropdown shows all therapists/staff and lets user assign task to someone */}
           <FormField
             control={form.control}
             name="assignedToId"
@@ -267,8 +289,8 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
               <FormItem>
                 <FormLabel>Assigned To</FormLabel>
                 <Select 
-                  onValueChange={(value) => field.onChange(value === "unassigned" ? null : parseInt(value))} 
-                  value={field.value ? field.value.toString() : "unassigned"}
+                  onValueChange={(value) => field.onChange(value === "unassigned" ? null : parseInt(value))} // Handle "unassigned" as null
+                  value={field.value ? field.value.toString() : "unassigned"}  // Show "unassigned" if no value
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -276,10 +298,10 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>    {/* Option for tasks not assigned to anyone */}
                     {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
                       <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                        {therapist.fullName}
+                        {therapist.fullName}                                   {/* Show therapist/staff member names */}
                       </SelectItem>
                     ))}
                   </SelectContent>
