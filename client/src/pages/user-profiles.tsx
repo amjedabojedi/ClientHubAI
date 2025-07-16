@@ -337,16 +337,31 @@ export default function UserProfilesPage() {
               Add User
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
+              <DialogTitle>Create New User with Professional Profile</DialogTitle>
               <DialogDescription>
-                Add a new therapist, supervisor, or administrator to the system.
+                Add a new therapist, supervisor, or administrator with complete professional credentials.
               </DialogDescription>
             </DialogHeader>
             
             <Form {...createUserForm}>
-              <form onSubmit={createUserForm.handleSubmit(handleCreateUser)} className="space-y-4">
+              <form onSubmit={createUserForm.handleSubmit(handleCreateUser)} className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">📋 Professional Profile Information</h3>
+                  <p className="text-sm text-blue-800 mb-3">
+                    After creating the basic user account, you can add detailed professional credentials by clicking the "Create Profile" button on the user card.
+                  </p>
+                  <div className="text-xs text-blue-700 space-y-1">
+                    <p><strong>License Information:</strong> License number, type, state, expiry date, years of experience</p>
+                    <p><strong>Specializations:</strong> Clinical specializations, treatment approaches, age groups, languages, education</p>
+                    <p><strong>Professional Background:</strong> Clinical experience, previous positions, research, publications, memberships</p>
+                    <p><strong>Credentials:</strong> Awards, recognitions, continuing education, professional references</p>
+                    <p><strong>Emergency Contact:</strong> Contact name, phone number, relationship</p>
+                  </div>
+                </div>
+                
+                <div className="text-sm font-medium text-gray-900 mb-4">Basic User Account Information</div>
                 <FormField
                   control={createUserForm.control}
                   name="fullName"
@@ -498,6 +513,18 @@ export default function UserProfilesPage() {
                       )}
                     </div>
                   )}
+                </div>
+              )}
+              
+              {!user.profile && (
+                <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 p-3 rounded mb-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="w-3 h-3" />
+                    <span className="font-medium">Professional Profile Required</span>
+                  </div>
+                  <p className="text-xs text-amber-700">
+                    Click "Create Profile" below to add detailed licensing information, specializations, clinical background, and emergency contact details.
+                  </p>
                 </div>
               )}
               
