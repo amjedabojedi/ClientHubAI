@@ -794,7 +794,8 @@ This happens because only the file metadata was stored, not the actual file cont
   // Therapists route
   app.get("/api/therapists", async (req, res) => {
     try {
-      const therapists = await storage.getAllTherapists();
+      const users = await storage.getUsers();
+      const therapists = users.filter(u => u.role === 'therapist');
       res.json(therapists);
     } catch (error) {
       console.error("Error fetching therapists:", error);
@@ -805,7 +806,7 @@ This happens because only the file metadata was stored, not the actual file cont
   // User Management Routes
   app.get("/api/users", async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
+      const users = await storage.getUsers();
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
