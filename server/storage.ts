@@ -2199,7 +2199,7 @@ class MemStorage implements IStorage {
     {
       id: 1,
       username: "dr.smith",
-      password: "hashed_password_1",
+      password: "password123",
       email: "dr.smith@clinic.com",
       role: "therapist",
       createdAt: new Date(),
@@ -2208,7 +2208,7 @@ class MemStorage implements IStorage {
     {
       id: 2,
       username: "supervisor.jones", 
-      password: "hashed_password_2",
+      password: "password123",
       email: "jones@clinic.com",
       role: "supervisor",
       createdAt: new Date(),
@@ -2217,9 +2217,18 @@ class MemStorage implements IStorage {
     {
       id: 3,
       username: "dr.williams",
-      password: "hashed_password_3", 
+      password: "password123", 
       email: "williams@clinic.com",
       role: "therapist",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 4,
+      username: "admin",
+      password: "password123",
+      email: "admin@clinic.com",
+      role: "administrator",
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -2256,7 +2265,7 @@ class MemStorage implements IStorage {
   private notes: Note[] = [];
   private documents: Document[] = [];
   private sessionNotes: SessionNote[] = [];
-  private nextId = 4;
+  private nextId = 5;
 
   // User management methods
   async getUsers(): Promise<User[]> {
