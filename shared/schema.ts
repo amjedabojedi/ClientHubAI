@@ -102,6 +102,18 @@ export const userProfiles = pgTable("user_profiles", {
   emergencyContactPhone: varchar("emergency_contact_phone", { length: 20 }),
   emergencyContactRelationship: varchar("emergency_contact_relationship", { length: 50 }),
   
+  // Professional Background & History
+  previousPositions: text("previous_positions").array(), // Work history
+  clinicalExperience: text("clinical_experience"), // Detailed clinical background
+  researchBackground: text("research_background"), // Research experience
+  publications: text("publications").array(), // Academic publications
+  professionalMemberships: text("professional_memberships").array(), // Professional organizations
+  continuingEducation: text("continuing_education").array(), // Recent training
+  supervisoryExperience: text("supervisory_experience"), // Supervision background
+  awardRecognitions: text("award_recognitions").array(), // Awards and recognitions
+  professionalReferences: text("professional_references").array(), // References
+  careerObjectives: text("career_objectives"), // Professional goals
+  
   // System Fields
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

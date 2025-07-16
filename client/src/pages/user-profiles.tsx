@@ -83,6 +83,17 @@ const createProfileSchema = z.object({
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
   emergencyContactRelationship: z.string().optional(),
+  // Professional Background & History
+  previousPositions: z.array(z.string()).optional(),
+  clinicalExperience: z.string().optional(),
+  researchBackground: z.string().optional(),
+  publications: z.array(z.string()).optional(),
+  professionalMemberships: z.array(z.string()).optional(),
+  continuingEducation: z.array(z.string()).optional(),
+  supervisoryExperience: z.string().optional(),
+  awardRecognitions: z.array(z.string()).optional(),
+  professionalReferences: z.array(z.string()).optional(),
+  careerObjectives: z.string().optional(),
 });
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
@@ -141,6 +152,12 @@ export default function UserProfilesPage() {
       education: [],
       workingDays: [],
       sessionDuration: 50,
+      previousPositions: [],
+      publications: [],
+      professionalMemberships: [],
+      continuingEducation: [],
+      awardRecognitions: [],
+      professionalReferences: [],
     },
   });
 
@@ -228,6 +245,16 @@ export default function UserProfilesPage() {
         emergencyContactName: user.profile.emergencyContactName || "",
         emergencyContactPhone: user.profile.emergencyContactPhone || "",
         emergencyContactRelationship: user.profile.emergencyContactRelationship || "",
+        previousPositions: user.profile.previousPositions || [],
+        clinicalExperience: user.profile.clinicalExperience || "",
+        researchBackground: user.profile.researchBackground || "",
+        publications: user.profile.publications || [],
+        professionalMemberships: user.profile.professionalMemberships || [],
+        continuingEducation: user.profile.continuingEducation || [],
+        supervisoryExperience: user.profile.supervisoryExperience || "",
+        awardRecognitions: user.profile.awardRecognitions || [],
+        professionalReferences: user.profile.professionalReferences || [],
+        careerObjectives: user.profile.careerObjectives || "",
       });
     }
     
@@ -498,9 +525,11 @@ export default function UserProfilesPage() {
           <Form {...createProfileForm}>
             <form onSubmit={createProfileForm.handleSubmit(handleCreateProfile)} className="space-y-6">
               <Tabs defaultValue="license" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-6">
                   <TabsTrigger value="license">License</TabsTrigger>
                   <TabsTrigger value="specializations">Specializations</TabsTrigger>
+                  <TabsTrigger value="background">Background</TabsTrigger>
+                  <TabsTrigger value="credentials">Credentials</TabsTrigger>
                   <TabsTrigger value="schedule">Schedule</TabsTrigger>
                   <TabsTrigger value="contact">Contact</TabsTrigger>
                 </TabsList>
@@ -643,6 +672,240 @@ export default function UserProfilesPage() {
                             value={field.value?.join(', ') || ''}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="background" className="space-y-4">
+                  <div className="text-sm text-gray-600 mb-4">
+                    Professional background and clinical experience details
+                  </div>
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="clinicalExperience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Clinical Experience Summary</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe your clinical experience, areas of expertise, and patient populations worked with..."
+                            rows={4}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Provide a comprehensive overview of your clinical background
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="previousPositions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Previous Positions</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Senior Therapist at ABC Clinic (2020-2023), Junior Therapist at XYZ Hospital (2018-2020)"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join(', ') || ''}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          List previous positions with dates (comma-separated)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="supervisoryExperience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supervisory Experience</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe your experience supervising other therapists, interns, or clinical staff..."
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Include years of supervisory experience and number of supervisees
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="careerObjectives"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Career Objectives</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe your professional goals and career aspirations..."
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Outline your short-term and long-term career goals
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="credentials" className="space-y-4">
+                  <div className="text-sm text-gray-600 mb-4">
+                    Professional credentials, research, and achievements
+                  </div>
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="researchBackground"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Research Background</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe your research experience, studies conducted, or research interests..."
+                            rows={3}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Include any research projects, studies, or academic work
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="publications"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Publications</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Smith, J. (2023). Trauma-Informed Care in Clinical Practice. Journal of Psychology, 45(2), 123-145."
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split('\n').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join('\n') || ''}
+                            rows={4}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          List publications, articles, or books (one per line)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="professionalMemberships"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Professional Memberships</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="American Psychological Association, National Association of Social Workers, International Association for Marriage and Family Therapy"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join(', ') || ''}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Professional organizations and associations (comma-separated)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="continuingEducation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Continuing Education</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="EMDR Training Level 1 & 2 (2023), Trauma-Focused CBT Certification (2022), Mindfulness-Based Therapy Workshop (2023)"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join(', ') || ''}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Recent training, workshops, and continuing education (comma-separated)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="awardRecognitions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Awards & Recognitions</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Excellence in Clinical Practice Award (2023), Outstanding Therapist Recognition (2022)"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join(', ') || ''}
+                            rows={2}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Professional awards, recognitions, and honors (comma-separated)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="professionalReferences"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Professional References</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Dr. Jane Smith, Clinical Director, ABC Therapy Center, jane.smith@abc.com, (555) 123-4567"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split('\n').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join('\n') || ''}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Professional references with contact information (one per line)
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
