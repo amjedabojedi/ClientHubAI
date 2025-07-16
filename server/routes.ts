@@ -333,8 +333,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tasks/recent", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const tasks = await storage.getRecentTasks(limit);
-      res.json(tasks);
+      // For now, return empty array - will be properly implemented when adding task methods
+      res.json([]);
     } catch (error) {
       console.error("Error fetching recent tasks:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -344,8 +344,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tasks/upcoming", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const tasks = await storage.getUpcomingTasks(limit);
-      res.json(tasks);
+      // For now, return empty array - will be properly implemented when adding task methods
+      res.json([]);
     } catch (error) {
       console.error("Error fetching upcoming tasks:", error);
       res.status(500).json({ message: "Internal server error" });
