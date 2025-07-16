@@ -14,6 +14,10 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 // Database Schemas
 import { 
   insertClientSchema, 
+  insertUserSchema,
+  insertUserProfileSchema,
+  insertSupervisorAssignmentSchema,
+  insertUserActivityLogSchema,
   insertSessionSchema, 
   insertTaskSchema, 
   insertTaskCommentSchema,
@@ -794,6 +798,216 @@ This happens because only the file metadata was stored, not the actual file cont
       res.json(therapists);
     } catch (error) {
       console.error("Error fetching therapists:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // User Management Routes
+  app.get("/api/users", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/users", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(validatedData);
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertUserSchema.partial().parse(req.body);
+      const user = await storage.updateUser(id, validatedData);
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // User Profile Routes
+  app.get("/api/users/:userId/profile", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const profile = await storage.getUserProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "User profile not found" });
+      }
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/users/:userId/profile", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const validatedData = insertUserProfileSchema.parse({
+        ...req.body,
+        userId
+      });
+      const profile = await storage.createUserProfile(validatedData);
+      res.status(201).json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
+      }
+      console.error("Error creating user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:userId/profile", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const validatedData = insertUserProfileSchema.partial().parse(req.body);
+      const profile = await storage.updateUserProfile(userId, validatedData);
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
+      }
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/users/:userId/profile", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      await storage.deleteUserProfile(userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Supervisor Assignment Routes
+  app.get("/api/supervisors/:supervisorId/assignments", async (req, res) => {
+    try {
+      const supervisorId = parseInt(req.params.supervisorId);
+      const assignments = await storage.getSupervisorAssignments(supervisorId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching supervisor assignments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/therapists/:therapistId/supervisor", async (req, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const supervisor = await storage.getTherapistSupervisor(therapistId);
+      if (!supervisor) {
+        return res.status(404).json({ message: "No supervisor assigned" });
+      }
+      res.json(supervisor);
+    } catch (error) {
+      console.error("Error fetching therapist supervisor:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/supervisor-assignments", async (req, res) => {
+    try {
+      const validatedData = insertSupervisorAssignmentSchema.parse(req.body);
+      const assignment = await storage.createSupervisorAssignment(validatedData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      console.error("Error creating supervisor assignment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/supervisor-assignments/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertSupervisorAssignmentSchema.partial().parse(req.body);
+      const assignment = await storage.updateSupervisorAssignment(id, validatedData);
+      res.json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      console.error("Error updating supervisor assignment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/supervisor-assignments/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteSupervisorAssignment(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting supervisor assignment:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // User Activity Log Routes
+  app.post("/api/users/:userId/activity", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const validatedData = insertUserActivityLogSchema.parse({
+        ...req.body,
+        userId
+      });
+      const activity = await storage.logUserActivity(validatedData);
+      res.status(201).json(activity);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid activity data", errors: error.errors });
+      }
+      console.error("Error logging user activity:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/:userId/activity", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const activities = await storage.getUserActivityHistory(userId, limit);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching user activity:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

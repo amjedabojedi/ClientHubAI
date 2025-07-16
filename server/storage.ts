@@ -5,7 +5,10 @@ import { eq, and, or, ilike, desc, asc, count, sql, alias } from "drizzle-orm";
 // Database Schema - Tables
 import { 
   clients, 
-  users, 
+  users,
+  userProfiles,
+  supervisorAssignments,
+  userActivityLog,
   sessions, 
   tasks, 
   taskComments,
@@ -73,7 +76,13 @@ import type {
   SelectRoomBooking,
   InsertRoomBooking,
   SelectSessionBilling,
-  InsertSessionBilling
+  InsertSessionBilling,
+  UserProfile,
+  InsertUserProfile,
+  SupervisorAssignment,
+  InsertSupervisorAssignment,
+  UserActivityLog,
+  InsertUserActivityLog
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -103,7 +112,26 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
   getAllTherapists(): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
+  
+  // ===== USER PROFILES =====
+  getUserProfile(userId: number): Promise<UserProfile | undefined>;
+  createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  updateUserProfile(userId: number, profile: Partial<InsertUserProfile>): Promise<UserProfile>;
+  deleteUserProfile(userId: number): Promise<void>;
+  
+  // ===== SUPERVISOR ASSIGNMENTS =====
+  getSupervisorAssignments(supervisorId: number): Promise<SupervisorAssignment[]>;
+  getTherapistSupervisor(therapistId: number): Promise<SupervisorAssignment | undefined>;
+  createSupervisorAssignment(assignment: InsertSupervisorAssignment): Promise<SupervisorAssignment>;
+  updateSupervisorAssignment(id: number, assignment: Partial<InsertSupervisorAssignment>): Promise<SupervisorAssignment>;
+  deleteSupervisorAssignment(id: number): Promise<void>;
+  
+  // ===== USER ACTIVITY LOGGING =====
+  logUserActivity(activity: InsertUserActivityLog): Promise<UserActivityLog>;
+  getUserActivityHistory(userId: number, limit?: number): Promise<UserActivityLog[]>;
 
   // ===== CLIENT MANAGEMENT =====
   getClients(params: ClientsQueryParams): Promise<ClientsQueryResult>;
@@ -284,12 +312,125 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...userData, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
   async getAllTherapists(): Promise<User[]> {
     return await db
       .select()
       .from(users)
       .where(and(eq(users.role, 'therapist'), eq(users.isActive, true)))
       .orderBy(asc(users.fullName));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(eq(users.isActive, true))
+      .orderBy(asc(users.fullName));
+  }
+
+  // User Profile Methods
+  async getUserProfile(userId: number): Promise<UserProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+    return profile || undefined;
+  }
+
+  async createUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    const [createdProfile] = await db
+      .insert(userProfiles)
+      .values(profile)
+      .returning();
+    return createdProfile;
+  }
+
+  async updateUserProfile(userId: number, profileData: Partial<InsertUserProfile>): Promise<UserProfile> {
+    const [profile] = await db
+      .update(userProfiles)
+      .set({ ...profileData, updatedAt: new Date() })
+      .where(eq(userProfiles.userId, userId))
+      .returning();
+    return profile;
+  }
+
+  async deleteUserProfile(userId: number): Promise<void> {
+    await db
+      .delete(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+  }
+
+  // Supervisor Assignment Methods
+  async getSupervisorAssignments(supervisorId: number): Promise<SupervisorAssignment[]> {
+    return await db
+      .select()
+      .from(supervisorAssignments)
+      .where(and(
+        eq(supervisorAssignments.supervisorId, supervisorId),
+        eq(supervisorAssignments.isActive, true)
+      ))
+      .orderBy(asc(supervisorAssignments.assignedDate));
+  }
+
+  async getTherapistSupervisor(therapistId: number): Promise<SupervisorAssignment | undefined> {
+    const [assignment] = await db
+      .select()
+      .from(supervisorAssignments)
+      .where(and(
+        eq(supervisorAssignments.therapistId, therapistId),
+        eq(supervisorAssignments.isActive, true)
+      ));
+    return assignment || undefined;
+  }
+
+  async createSupervisorAssignment(assignment: InsertSupervisorAssignment): Promise<SupervisorAssignment> {
+    const [createdAssignment] = await db
+      .insert(supervisorAssignments)
+      .values(assignment)
+      .returning();
+    return createdAssignment;
+  }
+
+  async updateSupervisorAssignment(id: number, assignmentData: Partial<InsertSupervisorAssignment>): Promise<SupervisorAssignment> {
+    const [assignment] = await db
+      .update(supervisorAssignments)
+      .set({ ...assignmentData, updatedAt: new Date() })
+      .where(eq(supervisorAssignments.id, id))
+      .returning();
+    return assignment;
+  }
+
+  async deleteSupervisorAssignment(id: number): Promise<void> {
+    await db
+      .delete(supervisorAssignments)
+      .where(eq(supervisorAssignments.id, id));
+  }
+
+  // User Activity Logging Methods
+  async logUserActivity(activity: InsertUserActivityLog): Promise<UserActivityLog> {
+    const [log] = await db
+      .insert(userActivityLog)
+      .values(activity)
+      .returning();
+    return log;
+  }
+
+  async getUserActivityHistory(userId: number, limit: number = 50): Promise<UserActivityLog[]> {
+    return await db
+      .select()
+      .from(userActivityLog)
+      .where(eq(userActivityLog.userId, userId))
+      .orderBy(desc(userActivityLog.timestamp))
+      .limit(limit);
   }
 
   // Client methods with optimized queries for 5000+ records

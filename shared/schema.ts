@@ -27,18 +27,128 @@ export const billingStatusEnum = pgEnum('billing_status', ['pending', 'billed', 
 export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', 'completed', 'overdue']);
 export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high', 'urgent']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'non_binary', 'prefer_not_to_say']);
+export const userRoleEnum = pgEnum('user_role', ['therapist', 'supervisor', 'admin', 'client']);
+export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'pending', 'suspended']);
+export const licenseStatusEnum = pgEnum('license_status', ['active', 'expired', 'pending', 'suspended']);
+export const availabilityStatusEnum = pgEnum('availability_status', ['available', 'busy', 'away', 'offline']);
 
-// Users/Therapists table
+// Enhanced Users table with comprehensive authentication and role management
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
   email: text("email").notNull().unique(),
-  role: text("role").notNull().default('therapist'),
-  isActive: boolean("is_active").notNull().default(true),
+  role: userRoleEnum("role").notNull().default('therapist'),
+  status: userStatusEnum("status").notNull().default('active'),
+  
+  // Authentication & Security
+  lastLogin: timestamp("last_login"),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpiry: timestamp("password_reset_expiry"),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationToken: text("email_verification_token"),
+  
+  // Profile Information
+  phone: varchar("phone", { length: 20 }),
+  title: varchar("title", { length: 100 }), // Dr., Ms., Mr., etc.
+  department: varchar("department", { length: 100 }),
+  bio: text("bio"),
+  profilePicture: text("profile_picture"),
+  
+  // System Administration
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+  isActive: boolean("is_active").notNull().default(true),
+}, (table) => ({
+  emailIdx: index("users_email_idx").on(table.email),
+  roleIdx: index("users_role_idx").on(table.role),
+  statusIdx: index("users_status_idx").on(table.status),
+}));
+
+// Therapist/Supervisor Professional Profiles
+export const userProfiles = pgTable("user_profiles", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Professional Information
+  licenseNumber: varchar("license_number", { length: 50 }),
+  licenseType: varchar("license_type", { length: 100 }), // LMFT, LCSW, etc.
+  licenseState: varchar("license_state", { length: 50 }),
+  licenseExpiry: date("license_expiry"),
+  licenseStatus: licenseStatusEnum("license_status").default('active'),
+  
+  // Clinical Specializations
+  specializations: text("specializations").array(), // Array of specialty areas
+  treatmentApproaches: text("treatment_approaches").array(), // CBT, DBT, etc.
+  ageGroups: text("age_groups").array(), // Children, Adults, Seniors
+  languages: text("languages").array(), // Languages spoken
+  
+  // Professional Development
+  certifications: text("certifications").array(), // Additional certifications
+  education: text("education").array(), // Degrees and institutions
+  yearsOfExperience: integer("years_of_experience"),
+  
+  // Availability & Scheduling
+  workingDays: text("working_days").array(), // Monday, Tuesday, etc.
+  workingHours: text("working_hours"), // JSON string of time ranges
+  maxClientsPerDay: integer("max_clients_per_day"),
+  sessionDuration: integer("session_duration").default(50), // Minutes
+  availabilityStatus: availabilityStatusEnum("availability_status").default('available'),
+  
+  // Emergency Contact
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: varchar("emergency_contact_phone", { length: 20 }),
+  emergencyContactRelationship: varchar("emergency_contact_relationship", { length: 50 }),
+  
+  // System Fields
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("user_profiles_user_id_idx").on(table.userId),
+  licenseNumberIdx: index("user_profiles_license_number_idx").on(table.licenseNumber),
+  specializationsIdx: index("user_profiles_specializations_idx").on(table.specializations),
+}));
+
+// Supervisor-Therapist Relationships
+export const supervisorAssignments = pgTable("supervisor_assignments", {
+  id: serial("id").primaryKey(),
+  supervisorId: integer("supervisor_id").notNull().references(() => users.id),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+  assignedDate: timestamp("assigned_date").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  
+  // Supervision Requirements
+  requiredMeetingFrequency: varchar("required_meeting_frequency", { length: 50 }), // Weekly, Bi-weekly
+  nextMeetingDate: timestamp("next_meeting_date"),
+  lastMeetingDate: timestamp("last_meeting_date"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  supervisorIdIdx: index("supervisor_assignments_supervisor_id_idx").on(table.supervisorId),
+  therapistIdIdx: index("supervisor_assignments_therapist_id_idx").on(table.therapistId),
+  activeIdx: index("supervisor_assignments_active_idx").on(table.isActive),
+}));
+
+// User Activity Audit Log
+export const userActivityLog = pgTable("user_activity_log", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // login, logout, create_client, etc.
+  resourceType: text("resource_type"), // client, session, task, etc.
+  resourceId: integer("resource_id"), // ID of the affected resource
+  details: text("details"), // JSON string with additional context
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("user_activity_log_user_id_idx").on(table.userId),
+  actionIdx: index("user_activity_log_action_idx").on(table.action),
+  timestampIdx: index("user_activity_log_timestamp_idx").on(table.timestamp),
+}));
 
 // Clients table with comprehensive fields and proper indexing for 5000+ records
 export const clients = pgTable("clients", {
@@ -457,7 +567,23 @@ export const assessmentReports = pgTable("assessment_reports", {
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  profile: one(userProfiles, {
+    fields: [users.id],
+    references: [userProfiles.userId],
+  }),
+  createdBy: one(users, {
+    fields: [users.createdBy],
+    references: [users.id],
+  }),
+  createdUsers: many(users),
+  supervisorAssignments: many(supervisorAssignments, {
+    relationName: "supervisorAssignments",
+  }),
+  therapistAssignments: many(supervisorAssignments, {
+    relationName: "therapistAssignments",
+  }),
+  activityLogs: many(userActivityLog),
   clients: many(clients),
   sessions: many(sessions),
   tasks: many(tasks),
@@ -469,6 +595,33 @@ export const usersRelations = relations(users, ({ many }) => ({
   assessmentTemplates: many(assessmentTemplates),
   assessmentResponses: many(assessmentResponses),
   roomBookings: many(roomBookings),
+}));
+
+export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [userProfiles.userId],
+    references: [users.id],
+  }),
+}));
+
+export const supervisorAssignmentsRelations = relations(supervisorAssignments, ({ one }) => ({
+  supervisor: one(users, {
+    fields: [supervisorAssignments.supervisorId],
+    references: [users.id],
+    relationName: "supervisorAssignments",
+  }),
+  therapist: one(users, {
+    fields: [supervisorAssignments.therapistId],
+    references: [users.id],
+    relationName: "therapistAssignments",
+  }),
+}));
+
+export const userActivityLogRelations = relations(userActivityLog, ({ one }) => ({
+  user: one(users, {
+    fields: [userActivityLog.userId],
+    references: [users.id],
+  }),
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
@@ -699,6 +852,23 @@ export const assessmentReportsRelations = relations(assessmentReports, ({ one })
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSupervisorAssignmentSchema = createInsertSchema(supervisorAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).omit({
+  id: true,
 });
 
 export const insertClientSchema = createInsertSchema(clients).omit({
@@ -826,6 +996,15 @@ export const insertAssessmentReportSchema = createInsertSchema(assessmentReports
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+
+export type SupervisorAssignment = typeof supervisorAssignments.$inferSelect;
+export type InsertSupervisorAssignment = z.infer<typeof insertSupervisorAssignmentSchema>;
+
+export type UserActivityLog = typeof userActivityLog.$inferSelect;
+export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;

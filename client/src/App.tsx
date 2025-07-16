@@ -4,7 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -16,6 +16,7 @@ import TaskHistoryPage from "@/pages/tasks-history";
 import AssessmentsPage from "@/pages/assessments";
 import AssessmentCompletionPage from "@/pages/assessment-completion";
 import AssessmentReportPage from "@/pages/assessment-report";
+import UserProfilesPage from "@/pages/user-profiles";
 
 function Navigation() {
   const [location] = useLocation();
@@ -27,6 +28,7 @@ function Navigation() {
     { path: "/tasks", label: "Tasks", icon: CheckSquare },
     { path: "/library", label: "Library", icon: BookOpen },
     { path: "/assessments", label: "Assessments", icon: ClipboardList },
+    { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
   ];
 
   return (
@@ -78,6 +80,7 @@ function Router() {
           <Route path="/assessments" component={AssessmentsPage} />
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
           <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
+          <Route path="/user-profiles" component={UserProfilesPage} />
           <Route component={NotFound} />
         </Switch>
       </main>

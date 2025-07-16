@@ -17,6 +17,7 @@ import {
   Plus,
   Clock,
   CheckCircle,
+  CheckSquare,
   AlertTriangle,
   TrendingUp,
   User,
