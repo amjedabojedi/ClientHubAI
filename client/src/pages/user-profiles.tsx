@@ -241,6 +241,7 @@ export default function UserProfilesPage() {
   };
 
   const handleEditProfile = (user: UserWithProfile) => {
+    console.log("Edit profile clicked for user:", user.fullName);
     setSelectedUser(user);
     
     // Pre-populate form with existing profile data
@@ -276,7 +277,9 @@ export default function UserProfilesPage() {
       });
     }
     
+    console.log("Setting profile modal open to true");
     setIsProfileModalOpen(true);
+    console.log("Current isProfileModalOpen state:", isProfileModalOpen);
   };
 
   const getRoleIcon = (role: string) => {
