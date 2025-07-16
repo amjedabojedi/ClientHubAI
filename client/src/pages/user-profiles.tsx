@@ -350,7 +350,7 @@ export default function UserProfilesPage() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <h3 className="text-sm font-semibold text-blue-900 mb-2">📋 Professional Profile Information</h3>
                   <p className="text-sm text-blue-800 mb-3">
-                    After creating the basic user account, you can add detailed professional credentials by clicking the "Create Profile" button on the user card.
+                    <strong>Step 1:</strong> Create basic user account below → <strong>Step 2:</strong> Click "Create Profile" button on the user card → <strong>Step 3:</strong> Complete all 6 tabs of professional details → <strong>Step 4:</strong> Use "Edit Profile" button anytime to modify information.
                   </p>
                   <div className="text-xs text-blue-700 space-y-1">
                     <p><strong>License Information:</strong> License number, type, state, expiry date, years of experience</p>
@@ -523,7 +523,7 @@ export default function UserProfilesPage() {
                     <span className="font-medium">Professional Profile Required</span>
                   </div>
                   <p className="text-xs text-amber-700">
-                    Click "Create Profile" below to add detailed licensing information, specializations, clinical background, and emergency contact details.
+                    Click "Add Professional Details" below to access the comprehensive 6-tab form with licensing information, specializations, clinical background, and emergency contact details. After creation, use "Edit Professional Details" to modify any information.
                   </p>
                 </div>
               )}
@@ -536,7 +536,7 @@ export default function UserProfilesPage() {
                   className="flex-1"
                 >
                   <Edit3 className="w-4 h-4 mr-2" />
-                  {user.profile ? "Edit Profile" : "Create Profile"}
+                  {user.profile ? "Edit Professional Details" : "Add Professional Details"}
                 </Button>
                 
                 <Button
