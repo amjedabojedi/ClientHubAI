@@ -66,26 +66,31 @@ const createUserSchema = z.object({
 });
 
 const createProfileSchema = z.object({
-  licenseNumber: z.string().optional(),
-  licenseType: z.string().optional(),
-  licenseState: z.string().optional(),
-  licenseExpiry: z.string().optional(),
-  specializations: z.array(z.string()).optional(),
-  treatmentApproaches: z.array(z.string()).optional(),
-  ageGroups: z.array(z.string()).optional(),
-  languages: z.array(z.string()).optional(),
+  // Required License Information
+  licenseNumber: z.string().min(1, "License number is required"),
+  licenseType: z.string().min(1, "License type is required"),
+  licenseState: z.string().min(1, "License state is required"),
+  licenseExpiry: z.string().min(1, "License expiry date is required"),
+  // Required Professional Info
+  specializations: z.array(z.string()).min(1, "At least one specialization is required"),
+  treatmentApproaches: z.array(z.string()).min(1, "At least one treatment approach is required"),
+  ageGroups: z.array(z.string()).min(1, "At least one age group is required"),
+  languages: z.array(z.string()).min(1, "At least one language is required"),
+  education: z.array(z.string()).min(1, "Education information is required"),
+  yearsOfExperience: z.number().min(0, "Years of experience is required"),
+  // Required Contact Info
+  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
+  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
+  emergencyContactRelationship: z.string().min(1, "Emergency contact relationship is required"),
+  // Required Professional Background
+  clinicalExperience: z.string().min(10, "Clinical experience summary is required (minimum 10 characters)"),
+  
+  // Optional fields
   certifications: z.array(z.string()).optional(),
-  education: z.array(z.string()).optional(),
-  yearsOfExperience: z.number().optional(),
   workingDays: z.array(z.string()).optional(),
   maxClientsPerDay: z.number().optional(),
   sessionDuration: z.number().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  emergencyContactRelationship: z.string().optional(),
-  // Professional Background & History
   previousPositions: z.array(z.string()).optional(),
-  clinicalExperience: z.string().optional(),
   researchBackground: z.string().optional(),
   publications: z.array(z.string()).optional(),
   professionalMemberships: z.array(z.string()).optional(),
@@ -114,13 +119,13 @@ export default function UserProfilesPage() {
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<UserWithProfile[]>({
     queryKey: ["/api/users"],
     queryFn: async () => {
-      const users = await apiRequest("/api/users");
+      const users = await apiRequest("/api/users", "GET");
       
       // Fetch profiles for each user
       const usersWithProfiles = await Promise.all(
         users.map(async (user: UserType) => {
           try {
-            const profile = await apiRequest(`/api/users/${user.id}/profile`);
+            const profile = await apiRequest(`/api/users/${user.id}/profile`, "GET");
             return { ...user, profile };
           } catch (error) {
             return { ...user, profile: null };
@@ -144,20 +149,33 @@ export default function UserProfilesPage() {
   const createProfileForm = useForm<CreateProfileFormData>({
     resolver: zodResolver(createProfileSchema),
     defaultValues: {
+      licenseNumber: "",
+      licenseType: "",
+      licenseState: "",
+      licenseExpiry: "",
       specializations: [],
       treatmentApproaches: [],
       ageGroups: [],
       languages: [],
       certifications: [],
       education: [],
+      yearsOfExperience: 0,
       workingDays: [],
+      maxClientsPerDay: 8,
       sessionDuration: 50,
+      emergencyContactName: "",
+      emergencyContactPhone: "",
+      emergencyContactRelationship: "",
       previousPositions: [],
+      clinicalExperience: "",
+      researchBackground: "",
       publications: [],
       professionalMemberships: [],
       continuingEducation: [],
+      supervisoryExperience: "",
       awardRecognitions: [],
       professionalReferences: [],
+      careerObjectives: "",
     },
   });
 
@@ -541,7 +559,7 @@ export default function UserProfilesPage() {
                       name="licenseNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>License Number</FormLabel>
+                          <FormLabel>License Number *</FormLabel>
                           <FormControl>
                             <Input placeholder="12345" {...field} />
                           </FormControl>
@@ -555,7 +573,7 @@ export default function UserProfilesPage() {
                       name="licenseType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>License Type</FormLabel>
+                          <FormLabel>License Type *</FormLabel>
                           <FormControl>
                             <Input placeholder="LMFT, LCSW, etc." {...field} />
                           </FormControl>
@@ -571,7 +589,7 @@ export default function UserProfilesPage() {
                       name="licenseState"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>License State</FormLabel>
+                          <FormLabel>License State *</FormLabel>
                           <FormControl>
                             <Input placeholder="California" {...field} />
                           </FormControl>
@@ -585,7 +603,7 @@ export default function UserProfilesPage() {
                       name="licenseExpiry"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>License Expiry</FormLabel>
+                          <FormLabel>License Expiry *</FormLabel>
                           <FormControl>
                             <Input type="date" {...field} />
                           </FormControl>
@@ -600,7 +618,7 @@ export default function UserProfilesPage() {
                     name="yearsOfExperience"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Years of Experience</FormLabel>
+                        <FormLabel>Years of Experience *</FormLabel>
                         <FormControl>
                           <Input 
                             type="number" 
@@ -625,7 +643,7 @@ export default function UserProfilesPage() {
                     name="specializations"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Specializations</FormLabel>
+                        <FormLabel>Specializations *</FormLabel>
                         <FormControl>
                           <Textarea 
                             placeholder="Anxiety, Depression, Trauma, ADHD"
@@ -644,7 +662,7 @@ export default function UserProfilesPage() {
                     name="treatmentApproaches"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Treatment Approaches</FormLabel>
+                        <FormLabel>Treatment Approaches *</FormLabel>
                         <FormControl>
                           <Textarea 
                             placeholder="CBT, DBT, Solution-Focused, Psychodynamic"
@@ -663,7 +681,7 @@ export default function UserProfilesPage() {
                     name="ageGroups"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Age Groups</FormLabel>
+                        <FormLabel>Age Groups *</FormLabel>
                         <FormControl>
                           <Textarea 
                             placeholder="Children, Adolescents, Adults, Seniors"
@@ -672,6 +690,48 @@ export default function UserProfilesPage() {
                             value={field.value?.join(', ') || ''}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="languages"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Languages *</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="English, Spanish, French, Mandarin"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join(', ') || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={createProfileForm.control}
+                    name="education"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Education *</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Masters in Clinical Psychology, Stanford University (2018); Bachelor of Arts in Psychology, UCLA (2016)"
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
+                            value={field.value?.join(', ') || ''}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          List degrees, institutions, and graduation years (comma-separated)
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -688,7 +748,7 @@ export default function UserProfilesPage() {
                     name="clinicalExperience"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Clinical Experience Summary</FormLabel>
+                        <FormLabel>Clinical Experience Summary *</FormLabel>
                         <FormControl>
                           <Textarea 
                             placeholder="Describe your clinical experience, areas of expertise, and patient populations worked with..."
@@ -983,7 +1043,7 @@ export default function UserProfilesPage() {
                     name="emergencyContactName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Emergency Contact Name</FormLabel>
+                        <FormLabel>Emergency Contact Name *</FormLabel>
                         <FormControl>
                           <Input placeholder="John Doe" {...field} />
                         </FormControl>
@@ -998,7 +1058,7 @@ export default function UserProfilesPage() {
                       name="emergencyContactPhone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Emergency Contact Phone</FormLabel>
+                          <FormLabel>Emergency Contact Phone *</FormLabel>
                           <FormControl>
                             <Input placeholder="(555) 123-4567" {...field} />
                           </FormControl>
@@ -1012,7 +1072,7 @@ export default function UserProfilesPage() {
                       name="emergencyContactRelationship"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Relationship</FormLabel>
+                          <FormLabel>Relationship *</FormLabel>
                           <FormControl>
                             <Input placeholder="Spouse, Parent, etc." {...field} />
                           </FormControl>
