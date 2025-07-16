@@ -40,6 +40,39 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+
+      // For this demo, we'll use simple authentication
+      // In production, you would hash passwords and use secure authentication
+      const users = await storage.getUsers();
+      const user = users.find(u => u.username === username);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // For demo purposes, accept any password that is "password123"
+      // In production, you would verify the hashed password
+      if (password !== "password123") {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Client routes
   app.get("/api/clients", async (req, res) => {
     try {
