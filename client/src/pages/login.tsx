@@ -93,6 +93,7 @@ export default function LoginPage() {
           
           <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
             <p>Demo accounts:</p>
+            <p><strong>Username:</strong> admin <strong>Password:</strong> password123</p>
             <p><strong>Username:</strong> dr.smith <strong>Password:</strong> password123</p>
             <p><strong>Username:</strong> supervisor.jones <strong>Password:</strong> password123</p>
           </div>
