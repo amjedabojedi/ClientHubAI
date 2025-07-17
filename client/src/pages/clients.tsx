@@ -70,7 +70,7 @@ export default function ClientsPage() {
           <div className="max-w-full">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Client Management</h1>
+                <h1 className="text-2xl font-bold text-slate-900">Clients</h1>
                 <p className="text-slate-600 mt-1">Manage and organize your client profiles efficiently</p>
               </div>
               <div className="flex items-center space-x-3">

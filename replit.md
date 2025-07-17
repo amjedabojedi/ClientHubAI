@@ -1,13 +1,14 @@
-# Client Management System
+# TherapyFlow
 
 ## Overview
 
-This is a comprehensive Client Management System (CMS) designed for healthcare professionals, specifically therapists. The application provides a full-stack solution for managing client information, scheduling, documentation, and administrative tasks. It's built as a modern web application with a React frontend and Express.js backend, using PostgreSQL for data persistence.
+TherapyFlow is a comprehensive therapy practice management application designed for healthcare professionals, specifically therapists. The application provides a full-stack solution for managing client information, scheduling, documentation, and administrative tasks. It's built as a modern web application with a React frontend and Express.js backend, using PostgreSQL for data persistence.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
 Code organization: Keep code clean and well-organized when making changes.
+Application name: TherapyFlow (to be used consistently throughout the application).
 
 ## System Architecture
 

@@ -47,7 +47,7 @@ function Navigation() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Client Management System
+              TherapyFlow
             </h1>
             <div className="flex space-x-4">
               {navItems.map((item) => {
