@@ -902,6 +902,90 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // User Self-Service Routes (for logged-in users to manage their own profiles)
+  app.get("/api/users/me", async (req, res) => {
+    try {
+      // For now, simulate getting current user by ID 1 (dr.smith)
+      // In a real app, this would come from session/token
+      const currentUserId = 1;
+      const user = await storage.getUser(currentUserId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/me", async (req, res) => {
+    try {
+      // For now, simulate updating current user by ID 1 (dr.smith)
+      // In a real app, this would come from session/token
+      const currentUserId = 1;
+      const validatedData = insertUserSchema.partial().parse(req.body);
+      const user = await storage.updateUser(currentUserId, validatedData);
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error updating current user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/me/profile", async (req, res) => {
+    try {
+      // For now, simulate getting current user by ID 1 (dr.smith)
+      // In a real app, this would come from session/token
+      const currentUserId = 1;
+      const profile = await storage.getUserProfile(currentUserId);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching current user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/users/me/profile", async (req, res) => {
+    try {
+      // For now, simulate creating profile for current user by ID 1 (dr.smith)
+      // In a real app, this would come from session/token
+      const currentUserId = 1;
+      const validatedData = insertUserProfileSchema.parse({
+        ...req.body,
+        userId: currentUserId
+      });
+      const profile = await storage.createUserProfile(validatedData);
+      res.status(201).json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
+      }
+      console.error("Error creating current user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/me/profile", async (req, res) => {
+    try {
+      // For now, simulate updating profile for current user by ID 1 (dr.smith)
+      // In a real app, this would come from session/token
+      const currentUserId = 1;
+      const validatedData = insertUserProfileSchema.partial().parse(req.body);
+      const profile = await storage.updateUserProfile(currentUserId, validatedData);
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
+      }
+      console.error("Error updating current user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // User Profile Routes
   app.get("/api/users/:userId/profile", async (req, res) => {
     try {

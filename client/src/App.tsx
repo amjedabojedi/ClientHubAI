@@ -4,7 +4,13 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -17,6 +23,7 @@ import AssessmentsPage from "@/pages/assessments";
 import AssessmentCompletionPage from "@/pages/assessment-completion";
 import AssessmentReportPage from "@/pages/assessment-report";
 import UserProfilesPage from "@/pages/user-profiles-simplified";
+import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 
@@ -67,15 +74,30 @@ function Navigation() {
               <span className="text-sm text-gray-600 dark:text-gray-300">
                 Welcome, {user.firstName} {user.lastName}
               </span>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={logout}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Account
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/my-profile" className="flex items-center gap-2 w-full">
+                      <User className="w-4 h-4" />
+                      My Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={logout}
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
@@ -118,6 +140,7 @@ function Router() {
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
           <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
           <Route path="/user-profiles" component={UserProfilesPage} />
+          <Route path="/my-profile" component={MyProfilePage} />
           <Route component={NotFound} />
         </Switch>
       </main>
