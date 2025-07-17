@@ -27,7 +27,44 @@ export const billingStatusEnum = pgEnum('billing_status', ['pending', 'billed', 
 export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', 'completed', 'overdue']);
 export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high', 'urgent']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'non_binary', 'prefer_not_to_say']);
-export const userRoleEnum = pgEnum('user_role', ['therapist', 'supervisor', 'admin', 'client']);
+// Dynamic roles and permissions system
+export const roles = pgTable("roles", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 50 }).notNull().unique(),
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  description: text("description"),
+  isSystem: boolean("is_system").notNull().default(false), // Cannot be deleted
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  nameIdx: index("roles_name_idx").on(table.name),
+}));
+
+export const permissions = pgTable("permissions", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  displayName: varchar("display_name", { length: 150 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 50 }).notNull(), // client_management, scheduling, etc.
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  nameIdx: index("permissions_name_idx").on(table.name),
+  categoryIdx: index("permissions_category_idx").on(table.category),
+}));
+
+export const rolePermissions = pgTable("role_permissions", {
+  id: serial("id").primaryKey(),
+  roleId: integer("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  permissionId: integer("permission_id").notNull().references(() => permissions.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  rolePermissionIdx: index("role_permissions_role_permission_idx").on(table.roleId, table.permissionId),
+}));
+
+// Keep enum for backwards compatibility but make it more flexible
+export const userRoleEnum = pgEnum('user_role', ['therapist', 'supervisor', 'admin', 'client', 'custom']);
 export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'pending', 'suspended']);
 export const licenseStatusEnum = pgEnum('license_status', ['active', 'expired', 'pending', 'suspended']);
 export const availabilityStatusEnum = pgEnum('availability_status', ['available', 'busy', 'away', 'offline']);
@@ -40,6 +77,7 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   email: text("email").notNull().unique(),
   role: userRoleEnum("role").notNull().default('therapist'),
+  customRoleId: integer("custom_role_id").references(() => roles.id), // For custom roles
   status: userStatusEnum("status").notNull().default('active'),
   
   // Authentication & Security
@@ -860,7 +898,44 @@ export const assessmentReportsRelations = relations(assessmentReports, ({ one })
   }),
 }));
 
+// Relations for roles and permissions
+export const rolesRelations = relations(roles, ({ many }) => ({
+  rolePermissions: many(rolePermissions),
+  users: many(users),
+}));
+
+export const permissionsRelations = relations(permissions, ({ many }) => ({
+  rolePermissions: many(rolePermissions),
+}));
+
+export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
+  role: one(roles, {
+    fields: [rolePermissions.roleId],
+    references: [roles.id],
+  }),
+  permission: one(permissions, {
+    fields: [rolePermissions.permissionId],
+    references: [permissions.id],
+  }),
+}));
+
 // Zod schemas
+export const insertRoleSchema = createInsertSchema(roles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPermissionSchema = createInsertSchema(permissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -1006,6 +1081,15 @@ export const insertAssessmentReportSchema = createInsertSchema(assessmentReports
 });
 
 // Export types
+export type Role = typeof roles.$inferSelect;
+export type InsertRole = z.infer<typeof insertRoleSchema>;
+
+export type Permission = typeof permissions.$inferSelect;
+export type InsertPermission = z.infer<typeof insertPermissionSchema>;
+
+export type RolePermission = typeof rolePermissions.$inferSelect;
+export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 

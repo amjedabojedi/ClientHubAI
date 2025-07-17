@@ -36,7 +36,10 @@ import {
   insertServiceSchema,
   insertRoomSchema,
   insertRoomBookingSchema,
-  insertSessionBillingSchema
+  insertSessionBillingSchema,
+  insertRoleSchema,
+  insertPermissionSchema,
+  insertRolePermissionSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -2160,7 +2163,6 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  const httpServer = createServer(app);
   // Billing routes
   app.get("/api/sessions/:sessionId/billing", async (req, res) => {
     try {
@@ -2486,5 +2488,177 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // ===== ROLE MANAGEMENT ROUTES =====
+  
+  // Get all roles
+  app.get("/api/roles", async (req, res) => {
+    try {
+      const roles = await storage.getRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get specific role
+  app.get("/api/roles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const role = await storage.getRole(id);
+      if (!role) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+      res.json(role);
+    } catch (error) {
+      console.error("Error fetching role:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create role
+  app.post("/api/roles", async (req, res) => {
+    try {
+      const validatedData = insertRoleSchema.parse(req.body);
+      const { permissions = [], ...roleData } = validatedData as any;
+      
+      // Create the role
+      const role = await storage.createRole(roleData);
+      
+      // Assign permissions if provided
+      if (permissions.length > 0) {
+        await storage.updateRolePermissions(role.id, permissions);
+      }
+      
+      // Return role with permissions
+      const roleWithPermissions = await storage.getRole(role.id);
+      res.status(201).json(roleWithPermissions);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid role data", errors: error.errors });
+      }
+      console.error("Error creating role:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update role
+  app.put("/api/roles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertRoleSchema.partial().parse(req.body);
+      const { permissions = [], ...roleData } = validatedData as any;
+      
+      // Update the role
+      const role = await storage.updateRole(id, roleData);
+      
+      // Update permissions if provided
+      if (Array.isArray(permissions)) {
+        await storage.updateRolePermissions(id, permissions);
+      }
+      
+      // Return updated role with permissions
+      const roleWithPermissions = await storage.getRole(id);
+      res.json(roleWithPermissions);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid role data", errors: error.errors });
+      }
+      console.error("Error updating role:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete role
+  app.delete("/api/roles/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if role is system role
+      const role = await storage.getRole(id);
+      if (role?.isSystem) {
+        return res.status(400).json({ message: "Cannot delete system role" });
+      }
+      
+      await storage.deleteRole(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting role:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===== PERMISSION MANAGEMENT ROUTES =====
+  
+  // Get all permissions
+  app.get("/api/permissions", async (req, res) => {
+    try {
+      const permissions = await storage.getPermissions();
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get specific permission
+  app.get("/api/permissions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const permission = await storage.getPermission(id);
+      if (!permission) {
+        return res.status(404).json({ message: "Permission not found" });
+      }
+      res.json(permission);
+    } catch (error) {
+      console.error("Error fetching permission:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create permission
+  app.post("/api/permissions", async (req, res) => {
+    try {
+      const validatedData = insertPermissionSchema.parse(req.body);
+      const permission = await storage.createPermission(validatedData);
+      res.status(201).json(permission);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid permission data", errors: error.errors });
+      }
+      console.error("Error creating permission:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update permission
+  app.put("/api/permissions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertPermissionSchema.partial().parse(req.body);
+      const permission = await storage.updatePermission(id, validatedData);
+      res.json(permission);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid permission data", errors: error.errors });
+      }
+      console.error("Error updating permission:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete permission
+  app.delete("/api/permissions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deletePermission(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting permission:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  const httpServer = createServer(app);
   return httpServer;
 }

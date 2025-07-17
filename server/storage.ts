@@ -28,7 +28,10 @@ import {
   services,
   rooms,
   roomBookings,
-  sessionBilling
+  sessionBilling,
+  roles,
+  permissions,
+  rolePermissions
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -73,6 +76,12 @@ import type {
   InsertService,
   SelectRoom,
   InsertRoom,
+  Role,
+  InsertRole,
+  Permission,
+  InsertPermission,
+  RolePermission,
+  InsertRolePermission,
   SelectRoomBooking,
   InsertRoomBooking,
   SelectSessionBilling,
@@ -132,6 +141,24 @@ export interface IStorage {
   // ===== USER ACTIVITY LOGGING =====
   logUserActivity(activity: InsertUserActivityLog): Promise<UserActivityLog>;
   getUserActivityHistory(userId: number, limit?: number): Promise<UserActivityLog[]>;
+
+  // ===== ROLE AND PERMISSION MANAGEMENT =====
+  getRoles(): Promise<Role[]>;
+  getRole(id: number): Promise<Role | undefined>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: number, role: Partial<InsertRole>): Promise<Role>;
+  deleteRole(id: number): Promise<void>;
+  
+  getPermissions(): Promise<Permission[]>;
+  getPermission(id: number): Promise<Permission | undefined>;
+  createPermission(permission: InsertPermission): Promise<Permission>;
+  updatePermission(id: number, permission: Partial<InsertPermission>): Promise<Permission>;
+  deletePermission(id: number): Promise<void>;
+  
+  getRolePermissions(roleId: number): Promise<Permission[]>;
+  assignPermissionToRole(roleId: number, permissionId: number): Promise<RolePermission>;
+  removePermissionFromRole(roleId: number, permissionId: number): Promise<void>;
+  updateRolePermissions(roleId: number, permissionIds: number[]): Promise<void>;
 
   // ===== CLIENT MANAGEMENT =====
   getClients(params: ClientsQueryParams): Promise<ClientsQueryResult>;
@@ -2090,6 +2117,138 @@ export class DatabaseStorage implements IStorage {
     return availableRooms;
   }
 
+  // ===== ROLE AND PERMISSION MANAGEMENT IMPLEMENTATION =====
+  
+  // Role Methods
+  async getRoles(): Promise<Role[]> {
+    const rolesList = await db.select().from(roles)
+      .where(eq(roles.isActive, true))
+      .orderBy(asc(roles.name));
+    
+    // Get permissions for each role
+    const rolesWithPermissions = [];
+    for (const role of rolesList) {
+      const permissions = await this.getRolePermissions(role.id);
+      rolesWithPermissions.push({
+        ...role,
+        permissions
+      });
+    }
+    
+    return rolesWithPermissions;
+  }
+
+  async getRole(id: number): Promise<Role | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.id, id));
+    if (!role) return undefined;
+    
+    const permissions = await this.getRolePermissions(id);
+    return {
+      ...role,
+      permissions
+    };
+  }
+
+  async createRole(roleData: InsertRole): Promise<Role> {
+    const [role] = await db.insert(roles).values(roleData).returning();
+    return role;
+  }
+
+  async updateRole(id: number, roleData: Partial<InsertRole>): Promise<Role> {
+    const [role] = await db.update(roles)
+      .set({ ...roleData, updatedAt: new Date() })
+      .where(eq(roles.id, id))
+      .returning();
+    return role;
+  }
+
+  async deleteRole(id: number): Promise<void> {
+    // First delete all role permissions
+    await db.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
+    // Then delete the role
+    await db.delete(roles).where(eq(roles.id, id));
+  }
+
+  // Permission Methods
+  async getPermissions(): Promise<Permission[]> {
+    const permissionsList = await db.select().from(permissions)
+      .where(eq(permissions.isActive, true))
+      .orderBy(asc(permissions.category), asc(permissions.name));
+    return permissionsList;
+  }
+
+  async getPermission(id: number): Promise<Permission | undefined> {
+    const [permission] = await db.select().from(permissions).where(eq(permissions.id, id));
+    return permission;
+  }
+
+  async createPermission(permissionData: InsertPermission): Promise<Permission> {
+    const [permission] = await db.insert(permissions).values(permissionData).returning();
+    return permission;
+  }
+
+  async updatePermission(id: number, permissionData: Partial<InsertPermission>): Promise<Permission> {
+    const [permission] = await db.update(permissions)
+      .set(permissionData)
+      .where(eq(permissions.id, id))
+      .returning();
+    return permission;
+  }
+
+  async deletePermission(id: number): Promise<void> {
+    // First delete all role permissions
+    await db.delete(rolePermissions).where(eq(rolePermissions.permissionId, id));
+    // Then delete the permission
+    await db.delete(permissions).where(eq(permissions.id, id));
+  }
+
+  // Role Permission Methods
+  async getRolePermissions(roleId: number): Promise<Permission[]> {
+    const results = await db.select({
+      id: permissions.id,
+      name: permissions.name,
+      displayName: permissions.displayName,
+      description: permissions.description,
+      category: permissions.category,
+      isActive: permissions.isActive,
+      createdAt: permissions.createdAt,
+    })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(rolePermissions.roleId, roleId));
+    
+    return results;
+  }
+
+  async assignPermissionToRole(roleId: number, permissionId: number): Promise<RolePermission> {
+    const [rolePermission] = await db.insert(rolePermissions)
+      .values({ roleId, permissionId })
+      .returning();
+    return rolePermission;
+  }
+
+  async removePermissionFromRole(roleId: number, permissionId: number): Promise<void> {
+    await db.delete(rolePermissions)
+      .where(and(
+        eq(rolePermissions.roleId, roleId),
+        eq(rolePermissions.permissionId, permissionId)
+      ));
+  }
+
+  async updateRolePermissions(roleId: number, permissionIds: number[]): Promise<void> {
+    // Remove all existing permissions for this role
+    await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
+    
+    // Add new permissions
+    if (permissionIds.length > 0) {
+      const rolePermissionData = permissionIds.map(permissionId => ({
+        roleId,
+        permissionId
+      }));
+      await db.insert(rolePermissions).values(rolePermissionData);
+    }
+  }
+
   // Enhanced Session Management with Billing
   async updateSessionStatus(sessionId: number, status: string): Promise<Session> {
     const [updatedSession] = await db.update(sessions)
@@ -2527,4 +2686,4 @@ class MemStorage implements IStorage {
   async getBillingReports(params: any): Promise<any[]> { return []; }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
