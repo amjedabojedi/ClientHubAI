@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -37,8 +37,15 @@ function Navigation() {
     { path: "/clients", label: "Clients", icon: Users },
     { path: "/scheduling", label: "Scheduling", icon: Calendar },
     { path: "/tasks", label: "Tasks", icon: CheckSquare },
-    { path: "/assessments", label: "Assessments", icon: ClipboardList },
-    { path: "/library", label: "Library", icon: BookOpen },
+    { 
+      path: "/templates", 
+      label: "Templates", 
+      icon: FileText,
+      submenu: [
+        { path: "/library", label: "Library", icon: BookOpen },
+        { path: "/assessments", label: "Assessments", icon: ClipboardList },
+      ]
+    },
     { 
       path: "/user-management", 
       label: "User Management", 

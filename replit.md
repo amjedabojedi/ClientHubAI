@@ -298,13 +298,16 @@ Advanced appointment management with multi-view calendar system:
 - **Real-Time Updates**: Status changes immediately refresh session list and show success notifications
 - **Professional UX**: Dropdown design matches application's clinical professional interface standards
 
-### UI Simplification (January 2025)
+### UI Simplification and Menu Organization (January 2025)
 - **Navigation Streamlining**: Removed duplicate Dashboard tab since it showed identical content to Clients tab
+- **Templates Menu Organization**: Grouped Library and Assessments under "Templates" dropdown for better logical organization
 - **Sidebar Removal**: Eliminated redundant Quick Stats and AI Insights sidebar that duplicated information already shown in main tabs
 - **Duplicate Menu Fix**: Removed duplicate navigation menu from ClientHeader component that was conflicting with main App navigation
 - **Content Consolidation**: Simplified layout to focus on essential functionality without information duplication
 - **Clean Interface**: Reduced visual clutter by removing unnecessary duplicate elements per user feedback
 - **Icon Cleanup**: Replaced remaining FontAwesome icons with Lucide React for consistency
+- **Profile Display Fix**: Fixed "Welcome," text issue to properly display user names or fallback to username
+- **Menu Branding**: Added TherapyFlow logo and improved navigation styling for professional appearance
 
 ### Session Booking Flow Consistency Fix (January 2025)
 - **Unified Booking Parameters**: Fixed inconsistency where client list required manual therapist selection while client detail pre-selected client
