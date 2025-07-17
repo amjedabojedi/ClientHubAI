@@ -16,7 +16,7 @@ import TaskHistoryPage from "@/pages/tasks-history";
 import AssessmentsPage from "@/pages/assessments";
 import AssessmentCompletionPage from "@/pages/assessment-completion";
 import AssessmentReportPage from "@/pages/assessment-report";
-import UserProfilesPage from "@/pages/user-profiles";
+import UserProfilesPage from "@/pages/user-profiles-simplified";
 import LoginPage from "@/pages/login";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 
