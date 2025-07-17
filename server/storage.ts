@@ -113,8 +113,8 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
-  getAllTherapists(): Promise<User[]>;
-  getAllUsers(): Promise<User[]>;
+  getTherapists(): Promise<User[]>;
+  getUsers(): Promise<User[]>;
   
   // ===== USER PROFILES =====
   getUserProfile(userId: number): Promise<UserProfile | undefined>;
@@ -321,7 +321,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getAllTherapists(): Promise<User[]> {
+  async getTherapists(): Promise<User[]> {
     return await db
       .select()
       .from(users)
@@ -329,7 +329,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(users.fullName));
   }
 
-  async getAllUsers(): Promise<User[]> {
+  async getUsers(): Promise<User[]> {
     return await db
       .select()
       .from(users)

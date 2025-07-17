@@ -195,15 +195,13 @@ export default function UserProfilesSimplified() {
 
   // Event handlers
   const handleCreateUser = (data: CreateUserFormData) => {
-    console.log("Creating user with data:", data);
+
     createUserMutation.mutate(data);
   };
 
   const handleEditProfile = (user: UserWithProfile) => {
-    console.log("Edit profile clicked for user:", user.fullName);
     setSelectedUser(user);
     setIsProfileModalOpen(true);
-    console.log("Profile modal should be open now");
   };
 
   const handleProfileSubmit = (data: ProfileFormData) => {

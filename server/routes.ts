@@ -45,7 +45,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       
-      console.log("Login attempt:", { username, password });
+
       
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password are required" });
@@ -54,26 +54,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For this demo, we'll use simple authentication
       // In production, you would hash passwords and use secure authentication
       const users = await storage.getUsers();
-      console.log("Available users:", users.map(u => ({ id: u.id, username: u.username, role: u.role })));
       
       const user = users.find(u => u.username === username);
       
       if (!user) {
-        console.log("User not found:", username);
+
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      console.log("Found user:", { id: user.id, username: user.username, role: user.role, storedPassword: user.password });
+
 
       // Check if the provided password matches the stored password
       if (password !== user.password) {
-        console.log("Password mismatch:", { provided: password, stored: user.password });
+
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
-      console.log("Login successful for user:", userWithoutPassword);
+
       res.json(userWithoutPassword);
     } catch (error) {
       console.error("Login error:", error);

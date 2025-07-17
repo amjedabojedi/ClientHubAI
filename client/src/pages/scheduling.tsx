@@ -1216,7 +1216,7 @@ export default function SchedulingPage() {
                           setIsEditSessionModalOpen(false);
                           setIsNewSessionModalOpen(true);
                         } catch (error) {
-                          console.error('Error setting form values:', error);
+
                         }
                       }}
                       className="text-sm px-3 py-2 h-9"

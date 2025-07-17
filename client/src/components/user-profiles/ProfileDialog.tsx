@@ -102,11 +102,14 @@ export function ProfileDialog({ isOpen, onClose, selectedUser, onSubmit, isLoadi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="profile-dialog-description">
         <DialogHeader>
           <DialogTitle>
             {selectedUser?.profile ? "Edit" : "Create"} Professional Profile for {selectedUser?.fullName}
           </DialogTitle>
+          <div id="profile-dialog-description" className="sr-only">
+            Edit professional profile information including license details, specializations, background, credentials, schedule, and contact information.
+          </div>
         </DialogHeader>
 
         <Form {...form}>

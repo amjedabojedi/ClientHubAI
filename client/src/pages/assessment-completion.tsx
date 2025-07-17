@@ -184,7 +184,7 @@ export default function AssessmentCompletionPage() {
         ratingValue: response.ratingValue || null
       });
     } catch (error) {
-      console.error('Failed to save response:', error);
+
     }
   };
 
