@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -39,8 +39,15 @@ function Navigation() {
     { path: "/tasks", label: "Tasks", icon: CheckSquare },
     { path: "/library", label: "Library", icon: BookOpen },
     { path: "/assessments", label: "Assessments", icon: ClipboardList },
-    { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
-    { path: "/role-management", label: "Role Management", icon: UserCheck },
+    { 
+      path: "/user-management", 
+      label: "User Management", 
+      icon: Settings,
+      submenu: [
+        { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
+        { path: "/role-management", label: "Role Management", icon: Shield },
+      ]
+    },
   ];
 
   return (
@@ -54,7 +61,37 @@ function Navigation() {
             <div className="flex space-x-4">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location === item.path;
+                const isActive = location === item.path || (item.submenu && item.submenu.some(sub => location === sub.path));
+                
+                if (item.submenu) {
+                  return (
+                    <DropdownMenu key={item.path}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant={isActive ? "default" : "ghost"}
+                          className="flex items-center gap-2"
+                        >
+                          <Icon className="w-4 h-4" />
+                          {item.label}
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {item.submenu.map((subItem) => {
+                          const SubIcon = subItem.icon;
+                          return (
+                            <DropdownMenuItem key={subItem.path} asChild>
+                              <Link href={subItem.path} className="flex items-center gap-2 w-full">
+                                <SubIcon className="w-4 h-4" />
+                                {subItem.label}
+                              </Link>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  );
+                }
                 
                 return (
                   <Link key={item.path} href={item.path}>
