@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Shield, Settings, Edit, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { User, Shield, Settings, Edit, Trash2, UserCheck, UserX } from "lucide-react";
 
 interface UserWithProfile {
   id: number;
@@ -18,9 +19,10 @@ interface UserCardProps {
   user: UserWithProfile;
   onEditProfile: (user: UserWithProfile) => void;
   onDeleteUser: (user: UserWithProfile) => void;
+  onToggleStatus: (user: UserWithProfile, newStatus: string) => void;
 }
 
-export function UserCard({ user, onEditProfile, onDeleteUser }: UserCardProps) {
+export function UserCard({ user, onEditProfile, onDeleteUser, onToggleStatus }: UserCardProps) {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "supervisor":
@@ -51,8 +53,49 @@ export function UserCard({ user, onEditProfile, onDeleteUser }: UserCardProps) {
         return "bg-gray-100 text-gray-800";
       case "suspended":
         return "bg-red-100 text-red-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getRolePermissions = (role: string) => {
+    switch (role) {
+      case "admin":
+        return [
+          "Full system access",
+          "User management",
+          "System settings",
+          "All client data",
+          "Billing management",
+          "Report generation"
+        ];
+      case "supervisor":
+        return [
+          "Supervise therapists",
+          "View assigned caseloads",
+          "Clinical oversight",
+          "Progress review",
+          "Training management"
+        ];
+      case "therapist":
+        return [
+          "Manage own clients", 
+          "Session scheduling",
+          "Clinical documentation",
+          "Assessment tools",
+          "Progress tracking"
+        ];
+      case "client":
+        return [
+          "View own profile",
+          "Complete assessments",
+          "View appointments",
+          "Access resources"
+        ];
+      default:
+        return [];
     }
   };
 
@@ -75,7 +118,7 @@ export function UserCard({ user, onEditProfile, onDeleteUser }: UserCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2 text-sm">
+        <div className="space-y-3 text-sm">
           <div>
             <span className="font-medium text-gray-600">Username:</span>
             <span className="ml-2">{user.username}</span>
@@ -92,6 +135,38 @@ export function UserCard({ user, onEditProfile, onDeleteUser }: UserCardProps) {
                 : "Never"
               }
             </span>
+          </div>
+          
+          {/* Role Permissions */}
+          <div className="pt-2 border-t">
+            <span className="font-medium text-gray-600 block mb-2">Role Permissions:</span>
+            <ul className="space-y-1 text-xs text-gray-500">
+              {getRolePermissions(user.role).map((permission, index) => (
+                <li key={index} className="flex items-center gap-1">
+                  <div className="w-1 h-1 bg-gray-400 rounded-full" />
+                  {permission}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* User Status Control */}
+          <div className="pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-gray-600">Status Control:</span>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={user.status === 'active'}
+                  onCheckedChange={(checked) => {
+                    const newStatus = checked ? 'active' : 'inactive';
+                    onToggleStatus(user, newStatus);
+                  }}
+                />
+                <span className="text-xs text-gray-500">
+                  {user.status === 'active' ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

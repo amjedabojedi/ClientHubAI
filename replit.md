@@ -404,3 +404,20 @@ Advanced appointment management with multi-view calendar system:
 - **Page Content Spacing**: Increased consistent py-12 spacing between navigation and page content across all pages
 - **Professional Layout**: Enhanced visual hierarchy with proper breathing room throughout the application
 - **Cross-Page Consistency**: Applied uniform spacing standards to Dashboard, Clients, Tasks, Scheduling, Assessments, and Library pages
+
+### TherapyFlow Branding Implementation (January 2025)
+- **Application Rebranding**: Updated application name from "Client Management System" to "TherapyFlow" throughout the entire system
+- **Navigation Header**: Changed main navigation brand display to "TherapyFlow"
+- **Login Page**: Updated login page title and branding to "TherapyFlow"
+- **HTML Metadata**: Added proper page title and meta description for SEO optimization
+- **Documentation Update**: Updated replit.md and project documentation to reflect TherapyFlow branding
+- **User Preferences**: Added application name preference to maintain consistent branding standards
+
+### Role-Based Permission System Enhancement (January 2025)
+- **Comprehensive Role Permissions**: Added detailed role permission display system showing specific capabilities for each user role
+- **User Status Management**: Implemented toggle switches for activating/deactivating user accounts with real-time status updates
+- **Permission Overview Table**: Created visual permission matrix showing Administrator, Supervisor, Therapist, and Client role capabilities
+- **Enhanced User Cards**: Added role permission lists and status control switches directly to user profile cards
+- **API Status Updates**: Backend support for user status changes (active/inactive/pending/suspended) with proper validation
+- **Visual Feedback**: Color-coded role badges and status indicators for immediate visual identification
+- **Real-Time Updates**: Instant UI updates when user status is toggled with success/error notifications

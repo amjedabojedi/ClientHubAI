@@ -224,6 +224,24 @@ export default function UserProfilesSimplified() {
     }
   };
 
+  // User status toggle handler
+  const handleToggleUserStatus = async (user: UserWithProfile, newStatus: string) => {
+    try {
+      await apiRequest(`/api/users/${user.id}`, "PUT", { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Success",
+        description: `User ${user.fullName} status updated to ${newStatus}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error", 
+        description: error.message || "Failed to update user status",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -238,7 +256,7 @@ export default function UserProfilesSimplified() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">User Profiles</h1>
           <p className="text-muted-foreground">
-            Manage user accounts and professional profiles
+            Manage user accounts, professional profiles, and role permissions
           </p>
         </div>
 
@@ -347,6 +365,68 @@ export default function UserProfilesSimplified() {
         </Dialog>
       </div>
 
+      {/* Role Permissions Table */}
+      <div className="mb-8 bg-white border rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">TherapyFlow Role Permissions Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Settings className="w-4 h-4 text-red-600" />
+              <h3 className="font-medium text-red-800">Administrator</h3>
+            </div>
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>• Full system access</li>
+              <li>• User management</li>
+              <li>• System settings</li>
+              <li>• All client data</li>
+              <li>• Billing management</li>
+              <li>• Report generation</li>
+            </ul>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-blue-600" />
+              <h3 className="font-medium text-blue-800">Supervisor</h3>
+            </div>
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>• Supervise therapists</li>
+              <li>• View assigned caseloads</li>
+              <li>• Clinical oversight</li>
+              <li>• Progress review</li>
+              <li>• Training management</li>
+            </ul>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-green-600" />
+              <h3 className="font-medium text-green-800">Therapist</h3>
+            </div>
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>• Manage own clients</li>
+              <li>• Session scheduling</li>
+              <li>• Clinical documentation</li>
+              <li>• Assessment tools</li>
+              <li>• Progress tracking</li>
+            </ul>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-purple-600" />
+              <h3 className="font-medium text-purple-800">Client</h3>
+            </div>
+            <ul className="space-y-1 text-sm text-gray-600">
+              <li>• View own profile</li>
+              <li>• Complete assessments</li>
+              <li>• View appointments</li>
+              <li>• Access resources</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {/* Search */}
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -366,6 +446,7 @@ export default function UserProfilesSimplified() {
             user={user}
             onEditProfile={handleEditProfile}
             onDeleteUser={handleDeleteUser}
+            onToggleStatus={handleToggleUserStatus}
           />
         ))}
       </div>
