@@ -37,8 +37,8 @@ function Navigation() {
     { path: "/clients", label: "Clients", icon: Users },
     { path: "/scheduling", label: "Scheduling", icon: Calendar },
     { path: "/tasks", label: "Tasks", icon: CheckSquare },
-    { path: "/library", label: "Library", icon: BookOpen },
     { path: "/assessments", label: "Assessments", icon: ClipboardList },
+    { path: "/library", label: "Library", icon: BookOpen },
     { 
       path: "/user-management", 
       label: "User Management", 
@@ -51,14 +51,19 @@ function Navigation() {
   ];
 
   return (
-    <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 pt-8">
+    <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              TherapyFlow
-            </h1>
-            <div className="flex space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">TF</span>
+              </div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                TherapyFlow
+              </h1>
+            </div>
+            <div className="flex space-x-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location === item.path || (item.submenu && item.submenu.some(sub => location === sub.path));
@@ -69,7 +74,7 @@ function Navigation() {
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant={isActive ? "default" : "ghost"}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 h-9 px-3 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           <Icon className="w-4 h-4" />
                           {item.label}
@@ -97,7 +102,7 @@ function Navigation() {
                   <Link key={item.path} href={item.path}>
                     <Button
                       variant={isActive ? "default" : "ghost"}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 h-9 px-3 hover:bg-gray-100 dark:hover:bg-gray-800"
                     >
                       <Icon className="w-4 h-4" />
                       {item.label}
@@ -111,7 +116,7 @@ function Navigation() {
           {user && (
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600 dark:text-gray-300">
-                Welcome, {user.firstName} {user.lastName}
+                Welcome, {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username}
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -166,7 +171,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
-      <main>
+      <main className="py-8">
         <Switch>
           <Route path="/" component={DashboardPage} />
           <Route path="/clients" component={ClientsPage} />
