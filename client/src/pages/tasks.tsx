@@ -138,7 +138,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   });
 
   // Fetch task title options from system settings
-  const { data: taskTitleOptions = [] } = useQuery({
+  const { data: taskTitleOptions } = useQuery({
     queryKey: ["/api/system-options/categories", 31],               // Task Titles category ID
   });
 
@@ -217,11 +217,17 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {taskTitleOptions?.options?.map((option: any) => (
-                      <SelectItem key={option.id} value={option.optionLabel}>
-                        {option.optionLabel}
+                    {taskTitleOptions?.options?.length > 0 ? (
+                      taskTitleOptions.options.map((option: any) => (
+                        <SelectItem key={option.id} value={option.optionLabel}>
+                          {option.optionLabel}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-options" disabled>
+                        No task titles available
                       </SelectItem>
-                    )) || []}
+                    )}
                   </SelectContent>
                 </Select>
                 <Input 
