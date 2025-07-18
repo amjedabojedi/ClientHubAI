@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -26,6 +28,7 @@ import {
   User, 
   Calendar,
   ChevronDown,
+  Check,
   ArrowUpDown,
   Edit,
   Trash2,
@@ -210,26 +213,51 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
             <FormItem>
               <FormLabel>Task Title</FormLabel>
               <div className="space-y-2">
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a task title..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {taskTitleOptions?.options?.length > 0 ? (
-                      taskTitleOptions.options.map((option: any) => (
-                        <SelectItem key={option.id} value={option.optionLabel}>
-                          {option.optionLabel}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-options" disabled>
-                        No task titles available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value || "Select a task title..."}
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search task titles..." />
+                      <CommandList>
+                        <CommandEmpty>No task titles found.</CommandEmpty>
+                        <CommandGroup>
+                          {taskTitleOptions?.options?.map((option: any) => (
+                            <CommandItem
+                              key={option.id}
+                              onSelect={() => {
+                                field.onChange(option.optionLabel);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === option.optionLabel
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {option.optionLabel}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <Input 
                   placeholder="Or enter custom task title..." 
                   value={field.value}
