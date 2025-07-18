@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import * as fs from "fs";
 import * as path from "path";
+import multer from "multer";
 
 // Validation
 import { z } from "zod";
@@ -43,6 +44,19 @@ import {
   insertOptionCategorySchema,
   insertSystemOptionSchema
 } from "@shared/schema";
+
+// Helper function to generate unique client ID
+async function generateClientId(): Promise<string> {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  
+  // Get count of clients created this month to generate sequential ID
+  const count = await storage.getClientCountByMonth(year, parseInt(month));
+  const sequentialId = String(count + 1).padStart(4, '0');
+  
+  return `CL-${year}-${sequentialId}`;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -195,6 +209,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting client:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Bulk upload endpoint
+  app.post("/api/clients/bulk-upload", async (req, res) => {
+    try {
+      const { clients } = req.body;
+      
+      if (!Array.isArray(clients)) {
+        return res.status(400).json({ message: "Invalid input: clients must be an array" });
+      }
+
+      const results = {
+        total: clients.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as any[]
+      };
+
+      for (let i = 0; i < clients.length; i++) {
+        const clientData = clients[i];
+        
+        try {
+          // Generate unique client ID if not provided
+          if (!clientData.clientId) {
+            clientData.clientId = await generateClientId();
+          }
+          
+          // Validate and create client
+          const validatedData = insertClientSchema.parse(clientData);
+          await storage.createClient(validatedData);
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            data: clientData,
+            message: error instanceof z.ZodError ? 
+              error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
+              error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error in bulk upload:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

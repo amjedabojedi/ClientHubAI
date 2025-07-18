@@ -9,6 +9,7 @@ import ClientTabs from "@/components/client-management/client-tabs";
 import SearchFilters from "@/components/client-management/search-filters";
 import ClientDataGrid from "@/components/client-management/client-data-grid";
 import AddClientModal from "@/components/client-management/add-client-modal";
+import BulkUploadModal from "@/components/client-management/bulk-upload-modal";
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import { Client } from "@/types/client";
@@ -78,10 +79,14 @@ export default function ClientsPage() {
                   <Download className="w-4 h-4" />
                   <span>Export</span>
                 </button>
-                <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
-                  <Upload className="w-4 h-4" />
-                  <span>Import</span>
-                </button>
+                <BulkUploadModal 
+                  trigger={
+                    <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
+                      <Upload className="w-4 h-4" />
+                      <span>Import</span>
+                    </button>
+                  }
+                />
                 <button 
                   onClick={handleOpenAddClientModal}
                   className="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"

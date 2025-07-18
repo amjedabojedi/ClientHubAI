@@ -173,6 +173,7 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: number, client: Partial<InsertClient>): Promise<Client>;
   deleteClient(id: number): Promise<void>;
+  getClientCountByMonth(year: number, month: number): Promise<number>;
   getClientStats(): Promise<{
     totalClients: number;
     activeClients: number;
@@ -643,6 +644,21 @@ export class DatabaseStorage implements IStorage {
 
   async deleteClient(id: number): Promise<void> {
     await db.delete(clients).where(eq(clients.id, id));
+  }
+
+  async getClientCountByMonth(year: number, month: number): Promise<number> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    
+    const [result] = await db
+      .select({ count: count() })
+      .from(clients)
+      .where(and(
+        gte(clients.createdAt, startDate),
+        lte(clients.createdAt, endDate)
+      ));
+    
+    return result.count;
   }
 
   async getClientStats(): Promise<{
