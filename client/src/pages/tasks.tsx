@@ -137,6 +137,11 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
     queryKey: ["/api/therapists"],                                  // Cache key for therapist list
   });
 
+  // Fetch task title options from system settings
+  const { data: taskTitleOptions = [] } = useQuery({
+    queryKey: ["/api/system-options/categories", 31],               // Task Titles category ID
+  });
+
   // ===== TASK CREATION WORKFLOW =====
   // This mutation handles creating new tasks when form is submitted
   const createTaskMutation = useMutation({
@@ -204,9 +209,27 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
           render={({ field }) => (
             <FormItem>
               <FormLabel>Task Title</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter task title..." {...field} />
-              </FormControl>
+              <div className="space-y-2">
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a task title..." />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {taskTitleOptions?.options?.map((option: any) => (
+                      <SelectItem key={option.id} value={option.optionLabel}>
+                        {option.optionLabel}
+                      </SelectItem>
+                    )) || []}
+                  </SelectContent>
+                </Select>
+                <Input 
+                  placeholder="Or enter custom task title..." 
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
+              </div>
               <FormMessage />
             </FormItem>
           )}

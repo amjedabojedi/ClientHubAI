@@ -65,6 +65,11 @@ export default function QuickTaskForm({
     queryFn: () => apiRequest("/api/therapists", "GET"),
   });
 
+  // Fetch task title options from system settings
+  const { data: taskTitleOptions = [] } = useQuery({
+    queryKey: ["/api/system-options/categories", 31],
+  });
+
   const createTaskMutation = useMutation({
     mutationFn: (data: QuickTaskFormData) => {
       const taskData = {
@@ -123,9 +128,27 @@ export default function QuickTaskForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Task Title</FormLabel>
-                  <FormControl>
-                    <Input placeholder="What needs to be done?" {...field} />
-                  </FormControl>
+                  <div className="space-y-2">
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a task title..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {taskTitleOptions?.options?.map((option: any) => (
+                          <SelectItem key={option.id} value={option.optionLabel}>
+                            {option.optionLabel}
+                          </SelectItem>
+                        )) || []}
+                      </SelectContent>
+                    </Select>
+                    <Input 
+                      placeholder="Or enter custom title..." 
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    />
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
