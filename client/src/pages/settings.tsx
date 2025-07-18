@@ -312,10 +312,10 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>
-                  {selectedCategory ? `${selectedCategory.categoryName} Options` : "Select Category"}
+                  {selectedCategory ? `${selectedCategory.categoryName || 'Unknown'} Options` : "Select Category"}
                 </CardTitle>
                 <CardDescription>
-                  {selectedCategory ? selectedCategory.description || "Manage options for this category" : "Choose a category to view and manage its options"}
+                  {selectedCategory ? (selectedCategory.description || "Manage options for this category") : "Choose a category to view and manage its options"}
                 </CardDescription>
               </div>
               {selectedCategory && (
