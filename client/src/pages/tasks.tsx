@@ -297,36 +297,54 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Client</FormLabel>
-                <Select 
-                  onValueChange={(value) => field.onChange(parseInt(value))}  // Convert string ID to number for database
-                  value={field.value?.toString() || ""}                      // Convert number ID to string for Select component
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={clientsLoading ? "Loading clients..." : "Select client..."} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {clientsLoading ? (
-                      // Show loading state while fetching clients
-                      <SelectItem value="loading" disabled>
-                        Loading clients...
-                      </SelectItem>
-                    ) : Array.isArray(clientsData?.clients) && clientsData.clients.length > 0 ? (
-                      // Map through all clients and create dropdown options
-                      clientsData.clients.map((client: Client) => (
-                        <SelectItem key={client.id} value={client.id.toString()}>
-                          {client.fullName} ({client.clientId})              {/* Show name and ID for easy identification */}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      // Show message if no clients are available
-                      <SelectItem value="no-clients" disabled>
-                        No clients available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? 
+                          clientsData?.clients?.find((client: Client) => client.id === field.value)?.fullName || "Select client..." 
+                          : "Select client..."
+                        }
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search clients..." />
+                      <CommandList>
+                        <CommandEmpty>No clients found.</CommandEmpty>
+                        <CommandGroup>
+                          {clientsData?.clients?.map((client: Client) => (
+                            <CommandItem
+                              key={client.id}
+                              onSelect={() => {
+                                field.onChange(client.id);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === client.id
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {client.fullName} ({client.clientId})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
@@ -340,24 +358,67 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Assigned To</FormLabel>
-                <Select 
-                  onValueChange={(value) => field.onChange(value === "unassigned" ? null : parseInt(value))} // Handle "unassigned" as null
-                  value={field.value ? field.value.toString() : "unassigned"}  // Show "unassigned" if no value
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select assignee..." />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Unassigned</SelectItem>    {/* Option for tasks not assigned to anyone */}
-                    {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
-                      <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                        {therapist.fullName}                                   {/* Show therapist/staff member names */}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? 
+                          therapists?.find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
+                          : "Unassigned"
+                        }
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search staff..." />
+                      <CommandList>
+                        <CommandEmpty>No staff found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            onSelect={() => {
+                              field.onChange(null);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                !field.value ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            Unassigned
+                          </CommandItem>
+                          {therapists?.map((therapist: UserType) => (
+                            <CommandItem
+                              key={therapist.id}
+                              onSelect={() => {
+                                field.onChange(therapist.id);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === therapist.id
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {therapist.fullName}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
