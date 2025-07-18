@@ -258,13 +258,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             clientId: clientData.clientId || await generateClientId(),
           };
           
-          // Skip empty rows
+          // Skip empty rows and validate required fields
           if (!cleanData.fullName || cleanData.fullName.trim() === '') {
             results.failed++;
             results.errors.push({
               row: i + 1,
               data: clientData,
               message: 'Missing required field: fullName'
+            });
+            continue;
+          }
+          
+          if (!cleanData.referenceNumber || cleanData.referenceNumber.trim() === '') {
+            results.failed++;
+            results.errors.push({
+              row: i + 1,
+              data: clientData,
+              message: 'Missing required field: referenceNumber'
             });
             continue;
           }
