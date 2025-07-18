@@ -39,7 +39,9 @@ import {
   insertSessionBillingSchema,
   insertRoleSchema,
   insertPermissionSchema,
-  insertRolePermissionSchema
+  insertRolePermissionSchema,
+  insertOptionCategorySchema,
+  insertSystemOptionSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -2655,6 +2657,169 @@ This happens because only the file metadata was stored, not the actual file cont
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting permission:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ===== SYSTEM OPTIONS API ROUTES =====
+  // (Following same pattern as Services/Rooms)
+
+  // Option Categories Management
+  app.get("/api/system-options/categories", async (req, res) => {
+    try {
+      const categories = await storage.getOptionCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching option categories:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/system-options/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+      const category = await storage.getOptionCategory(id);
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching option category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/system-options/categories", async (req, res) => {
+    try {
+      const validatedData = insertOptionCategorySchema.parse(req.body);
+      const category = await storage.createOptionCategory(validatedData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      console.error("Error creating option category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/system-options/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+      const validatedData = insertOptionCategorySchema.partial().parse(req.body);
+      const category = await storage.updateOptionCategory(id, validatedData);
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      console.error("Error updating option category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/system-options/categories/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+      await storage.deleteOptionCategory(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting option category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // System Options Management
+  app.get("/api/system-options", async (req, res) => {
+    try {
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      const options = await storage.getSystemOptions(categoryId);
+      res.json(options);
+    } catch (error) {
+      console.error("Error fetching system options:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/system-options/by-category/:categoryKey", async (req, res) => {
+    try {
+      const categoryKey = req.params.categoryKey;
+      const options = await storage.getSystemOptionsByCategory(categoryKey);
+      res.json(options);
+    } catch (error) {
+      console.error("Error fetching system options by category:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/system-options/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid option ID" });
+      }
+      const option = await storage.getSystemOption(id);
+      if (!option) {
+        return res.status(404).json({ message: "Option not found" });
+      }
+      res.json(option);
+    } catch (error) {
+      console.error("Error fetching system option:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/system-options", async (req, res) => {
+    try {
+      const validatedData = insertSystemOptionSchema.parse(req.body);
+      const option = await storage.createSystemOption(validatedData);
+      res.status(201).json(option);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid option data", errors: error.errors });
+      }
+      console.error("Error creating system option:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/system-options/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid option ID" });
+      }
+      const validatedData = insertSystemOptionSchema.partial().parse(req.body);
+      const option = await storage.updateSystemOption(id, validatedData);
+      res.json(option);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid option data", errors: error.errors });
+      }
+      console.error("Error updating system option:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/system-options/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid option ID" });
+      }
+      await storage.deleteSystemOption(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting system option:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

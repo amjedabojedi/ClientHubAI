@@ -322,6 +322,34 @@ export const rooms = pgTable("rooms", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// System Settings - Option Categories (following same pattern as Services/Rooms)
+export const optionCategories = pgTable("option_categories", {
+  id: serial("id").primaryKey(),
+  categoryKey: varchar("category_key", { length: 100 }).notNull().unique(), // "education_levels", "employment_status", etc.
+  categoryName: varchar("category_name", { length: 255 }).notNull(), // "Education Levels", "Employment Status", etc.
+  description: text("description"),
+  isSystem: boolean("is_system").notNull().default(true), // System categories cannot be deleted
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// System Settings - Option Values (following same pattern as Services/Rooms)
+export const systemOptions = pgTable("system_options", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull().references(() => optionCategories.id, { onDelete: 'cascade' }),
+  optionKey: varchar("option_key", { length: 100 }).notNull(), // "elementary", "high_school", etc.
+  optionLabel: varchar("option_label", { length: 255 }).notNull(), // "Elementary School", "High School", etc.
+  sortOrder: integer("sort_order").default(0),
+  isDefault: boolean("is_default").notNull().default(false), // Default selection for new records
+  isSystem: boolean("is_system").notNull().default(false), // System options cannot be deleted
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  uniqueCategoryOption: index("unique_category_option").on(table.categoryId, table.optionKey),
+}));
+
 // Room bookings table - Prevent double booking conflicts
 export const roomBookings = pgTable("room_bookings", {
   id: serial("id").primaryKey(),
@@ -898,6 +926,18 @@ export const assessmentReportsRelations = relations(assessmentReports, ({ one })
   }),
 }));
 
+// System Options Relations (following same pattern as Services/Rooms)
+export const optionCategoriesRelations = relations(optionCategories, ({ many }) => ({
+  options: many(systemOptions),
+}));
+
+export const systemOptionsRelations = relations(systemOptions, ({ one }) => ({
+  category: one(optionCategories, {
+    fields: [systemOptions.categoryId],
+    references: [optionCategories.id],
+  }),
+}));
+
 // Relations for roles and permissions
 export const rolesRelations = relations(roles, ({ many }) => ({
   rolePermissions: many(rolePermissions),
@@ -971,6 +1011,18 @@ export const insertServiceSchema = createInsertSchema(services).omit({
 });
 
 export const insertRoomSchema = createInsertSchema(rooms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOptionCategorySchema = createInsertSchema(optionCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSystemOptionSchema = createInsertSchema(systemOptions).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -1160,6 +1212,13 @@ export type InsertService = z.infer<typeof insertServiceSchema>;
 
 export type SelectRoom = typeof rooms.$inferSelect;
 export type InsertRoom = z.infer<typeof insertRoomSchema>;
+
+// System Options Types (following same pattern as Services/Rooms)
+export type SelectOptionCategory = typeof optionCategories.$inferSelect;
+export type InsertOptionCategory = z.infer<typeof insertOptionCategorySchema>;
+
+export type SelectSystemOption = typeof systemOptions.$inferSelect;
+export type InsertSystemOption = z.infer<typeof insertSystemOptionSchema>;
 
 export type SelectRoomBooking = typeof roomBookings.$inferSelect;
 export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;

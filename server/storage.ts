@@ -31,7 +31,9 @@ import {
   sessionBilling,
   roles,
   permissions,
-  rolePermissions
+  rolePermissions,
+  optionCategories,
+  systemOptions
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -91,7 +93,11 @@ import type {
   SupervisorAssignment,
   InsertSupervisorAssignment,
   UserActivityLog,
-  InsertUserActivityLog
+  InsertUserActivityLog,
+  SelectOptionCategory,
+  InsertOptionCategory,
+  SelectSystemOption,
+  InsertSystemOption
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -317,6 +323,21 @@ export interface IStorage {
   createAssessmentReport(report: InsertAssessmentReport): Promise<AssessmentReport>;
   updateAssessmentReport(id: number, report: Partial<InsertAssessmentReport>): Promise<AssessmentReport>;
   deleteAssessmentReport(id: number): Promise<void>;
+
+  // ===== SYSTEM OPTIONS MANAGEMENT =====
+  // (Following same pattern as Services/Rooms)
+  getOptionCategories(): Promise<SelectOptionCategory[]>;
+  getOptionCategory(id: number): Promise<(SelectOptionCategory & { options: SelectSystemOption[] }) | undefined>;
+  createOptionCategory(category: InsertOptionCategory): Promise<SelectOptionCategory>;
+  updateOptionCategory(id: number, category: Partial<InsertOptionCategory>): Promise<SelectOptionCategory>;
+  deleteOptionCategory(id: number): Promise<void>;
+
+  getSystemOptions(categoryId?: number): Promise<(SelectSystemOption & { category: SelectOptionCategory })[]>;
+  getSystemOptionsByCategory(categoryKey: string): Promise<SelectSystemOption[]>;
+  getSystemOption(id: number): Promise<(SelectSystemOption & { category: SelectOptionCategory }) | undefined>;
+  createSystemOption(option: InsertSystemOption): Promise<SelectSystemOption>;
+  updateSystemOption(id: number, option: Partial<InsertSystemOption>): Promise<SelectSystemOption>;
+  deleteSystemOption(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2349,6 +2370,106 @@ export class DatabaseStorage implements IStorage {
     
     const results = await query.orderBy(desc(sessionBilling.billingDate));
     return results;
+  }
+
+  // ===== SYSTEM OPTIONS MANAGEMENT =====
+  // (Following same pattern as Services/Rooms)
+
+  // Option Categories Management
+  async getOptionCategories(): Promise<SelectOptionCategory[]> {
+    return await db.select().from(optionCategories).where(eq(optionCategories.isActive, true)).orderBy(optionCategories.categoryName);
+  }
+
+  async getOptionCategory(id: number): Promise<(SelectOptionCategory & { options: SelectSystemOption[] }) | undefined> {
+    const [category] = await db.select().from(optionCategories).where(eq(optionCategories.id, id));
+    if (!category) return undefined;
+
+    const options = await db.select().from(systemOptions)
+      .where(and(eq(systemOptions.categoryId, id), eq(systemOptions.isActive, true)))
+      .orderBy(systemOptions.sortOrder, systemOptions.optionLabel);
+
+    return { ...category, options };
+  }
+
+  async createOptionCategory(categoryData: InsertOptionCategory): Promise<SelectOptionCategory> {
+    const [category] = await db.insert(optionCategories).values(categoryData).returning();
+    return category;
+  }
+
+  async updateOptionCategory(id: number, categoryData: Partial<InsertOptionCategory>): Promise<SelectOptionCategory> {
+    const [category] = await db.update(optionCategories)
+      .set({ ...categoryData, updatedAt: new Date() })
+      .where(eq(optionCategories.id, id))
+      .returning();
+    return category;
+  }
+
+  async deleteOptionCategory(id: number): Promise<void> {
+    await db.delete(optionCategories).where(eq(optionCategories.id, id));
+  }
+
+  // System Options Management
+  async getSystemOptions(categoryId?: number): Promise<(SelectSystemOption & { category: SelectOptionCategory })[]> {
+    let query = db.select({
+      option: systemOptions,
+      category: optionCategories
+    })
+    .from(systemOptions)
+    .innerJoin(optionCategories, eq(systemOptions.categoryId, optionCategories.id))
+    .where(eq(systemOptions.isActive, true));
+
+    if (categoryId) {
+      query = query.where(eq(systemOptions.categoryId, categoryId));
+    }
+
+    const results = await query.orderBy(optionCategories.categoryName, systemOptions.sortOrder, systemOptions.optionLabel);
+    return results.map(row => ({ ...row.option, category: row.category }));
+  }
+
+  async getSystemOptionsByCategory(categoryKey: string): Promise<SelectSystemOption[]> {
+    const results = await db.select({
+      option: systemOptions
+    })
+    .from(systemOptions)
+    .innerJoin(optionCategories, eq(systemOptions.categoryId, optionCategories.id))
+    .where(and(
+      eq(optionCategories.categoryKey, categoryKey),
+      eq(systemOptions.isActive, true),
+      eq(optionCategories.isActive, true)
+    ))
+    .orderBy(systemOptions.sortOrder, systemOptions.optionLabel);
+
+    return results.map(row => row.option);
+  }
+
+  async getSystemOption(id: number): Promise<(SelectSystemOption & { category: SelectOptionCategory }) | undefined> {
+    const [result] = await db.select({
+      option: systemOptions,
+      category: optionCategories
+    })
+    .from(systemOptions)
+    .innerJoin(optionCategories, eq(systemOptions.categoryId, optionCategories.id))
+    .where(eq(systemOptions.id, id));
+
+    if (!result) return undefined;
+    return { ...result.option, category: result.category };
+  }
+
+  async createSystemOption(optionData: InsertSystemOption): Promise<SelectSystemOption> {
+    const [option] = await db.insert(systemOptions).values(optionData).returning();
+    return option;
+  }
+
+  async updateSystemOption(id: number, optionData: Partial<InsertSystemOption>): Promise<SelectSystemOption> {
+    const [option] = await db.update(systemOptions)
+      .set({ ...optionData, updatedAt: new Date() })
+      .where(eq(systemOptions.id, id))
+      .returning();
+    return option;
+  }
+
+  async deleteSystemOption(id: number): Promise<void> {
+    await db.delete(systemOptions).where(eq(systemOptions.id, id));
   }
 }
 
