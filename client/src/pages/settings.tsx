@@ -70,9 +70,10 @@ export default function SettingsPage() {
   });
 
   // Fetch category with options when selected
-  const { data: selectedCategory, isLoading: categoryLoading } = useQuery({
+  const { data: selectedCategory, isLoading: categoryLoading, error: categoryError } = useQuery({
     queryKey: ["/api/system-options/categories", selectedCategoryId],
     enabled: !!selectedCategoryId,
+    queryFn: () => selectedCategoryId ? fetch(`/api/system-options/categories/${selectedCategoryId}`).then(res => res.json()) : null,
   });
 
   // Mutations
@@ -337,14 +338,23 @@ export default function SettingsPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-gray-600 dark:text-gray-300">Loading options...</p>
               </div>
+            ) : categoryError ? (
+              <div className="text-center py-8">
+                <p className="text-red-500">Error loading options: {categoryError.message}</p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {selectedCategory.options?.length === 0 ? (
+                {!selectedCategory.options || selectedCategory.options.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">No options configured for this category</p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {!selectedCategory.options ? "No options data found" : "No options configured for this category"}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Category ID: {selectedCategoryId} | Data: {JSON.stringify(selectedCategory).substring(0, 100)}...
+                    </p>
                   </div>
                 ) : (
-                  selectedCategory.options?.map((option: SystemOption) => (
+                  selectedCategory.options.map((option: SystemOption) => (
                     <div
                       key={option.id}
                       className="flex items-center justify-between p-3 border rounded-lg"
