@@ -346,12 +346,7 @@ export default function SettingsPage() {
               <div className="space-y-3">
                 {!selectedCategory.options || selectedCategory.options.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">
-                      {!selectedCategory.options ? "No options data found" : "No options configured for this category"}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      Category ID: {selectedCategoryId} | Data: {JSON.stringify(selectedCategory).substring(0, 100)}...
-                    </p>
+                    <p className="text-gray-500 dark:text-gray-400">No options configured for this category</p>
                   </div>
                 ) : (
                   selectedCategory.options.map((option: SystemOption) => (
