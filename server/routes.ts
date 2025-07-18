@@ -233,17 +233,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const clientData = clients[i];
         
         try {
-          // Generate unique client ID if not provided
-          if (!clientData.clientId) {
-            clientData.clientId = await generateClientId();
+          // Clean and prepare client data
+          const cleanData = {
+            ...clientData,
+            // Ensure required fields
+            fullName: clientData.fullName || '',
+            // Handle enum fields with defaults
+            status: clientData.status || 'pending',
+            stage: clientData.stage || 'intake',
+            clientType: clientData.clientType || 'individual',
+            // Handle boolean fields
+            emailNotifications: clientData.emailNotifications !== undefined ? clientData.emailNotifications : true,
+            hasPortalAccess: clientData.hasPortalAccess !== undefined ? clientData.hasPortalAccess : false,
+            // Handle date fields
+            dateOfBirth: clientData.dateOfBirth ? new Date(clientData.dateOfBirth) : undefined,
+            startDate: clientData.startDate ? new Date(clientData.startDate) : undefined,
+            referralDate: clientData.referralDate ? new Date(clientData.referralDate) : undefined,
+            // Handle numeric fields
+            copayAmount: clientData.copayAmount ? parseFloat(clientData.copayAmount) : undefined,
+            deductible: clientData.deductible ? parseFloat(clientData.deductible) : undefined,
+            dependents: clientData.dependents ? parseInt(clientData.dependents) : undefined,
+            assignedTherapistId: clientData.assignedTherapistId ? parseInt(clientData.assignedTherapistId) : undefined,
+            // Generate unique client ID if not provided
+            clientId: clientData.clientId || await generateClientId(),
+          };
+          
+          // Skip empty rows
+          if (!cleanData.fullName || cleanData.fullName.trim() === '') {
+            results.failed++;
+            results.errors.push({
+              row: i + 1,
+              data: clientData,
+              message: 'Missing required field: fullName'
+            });
+            continue;
           }
           
           // Validate and create client
-          const validatedData = insertClientSchema.parse(clientData);
+          const validatedData = insertClientSchema.parse(cleanData);
           await storage.createClient(validatedData);
           results.successful++;
         } catch (error) {
           results.failed++;
+          console.error(`Error processing client row ${i + 1}:`, error);
           results.errors.push({
             row: i + 1,
             data: clientData,

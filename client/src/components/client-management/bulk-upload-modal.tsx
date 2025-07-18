@@ -35,18 +35,22 @@ interface FieldMapping {
 
 const REQUIRED_FIELDS = [
   { key: 'fullName', label: 'Full Name', required: true },
-  { key: 'email', label: 'Email', required: true },
-  { key: 'phone', label: 'Phone', required: true },
+  { key: 'email', label: 'Email', required: false },
+  { key: 'phone', label: 'Phone', required: false },
   { key: 'dateOfBirth', label: 'Date of Birth', required: false },
   { key: 'gender', label: 'Gender', required: false },
-  { key: 'address', label: 'Address', required: false },
+  { key: 'maritalStatus', label: 'Marital Status', required: false },
+  { key: 'streetAddress1', label: 'Street Address', required: false },
   { key: 'city', label: 'City', required: false },
-  { key: 'state', label: 'State', required: false },
-  { key: 'zipCode', label: 'ZIP Code', required: false },
-  { key: 'emergencyContact', label: 'Emergency Contact', required: false },
-  { key: 'emergencyPhone', label: 'Emergency Phone', required: false },
-  { key: 'insurance', label: 'Insurance Provider', required: false },
+  { key: 'province', label: 'State/Province', required: false },
+  { key: 'postalCode', label: 'ZIP/Postal Code', required: false },
+  { key: 'emergencyContactName', label: 'Emergency Contact Name', required: false },
+  { key: 'emergencyContactPhone', label: 'Emergency Contact Phone', required: false },
+  { key: 'insuranceProvider', label: 'Insurance Provider', required: false },
   { key: 'policyNumber', label: 'Policy Number', required: false },
+  { key: 'clientType', label: 'Client Type', required: false },
+  { key: 'status', label: 'Status', required: false },
+  { key: 'stage', label: 'Stage', required: false },
 ];
 
 export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
@@ -185,7 +189,30 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
   // Download template
   const downloadTemplate = () => {
     const headers = REQUIRED_FIELDS.map(field => field.label);
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+    const sampleData = [
+      'John Doe',
+      'john.doe@email.com',
+      '555-123-4567',
+      '1990-01-15',
+      'male',
+      'married',
+      '123 Main St',
+      'Seattle',
+      'WA',
+      '98101',
+      'Jane Doe',
+      '555-987-6543',
+      'Blue Cross Blue Shield',
+      'BC123456789',
+      'individual',
+      'active',
+      'intake'
+    ];
+    
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      headers.join(",") + "\n" + 
+      sampleData.slice(0, headers.length).join(",") + "\n";
+    
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
