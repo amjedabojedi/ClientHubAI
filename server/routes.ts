@@ -175,7 +175,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
-      const validatedData = insertClientSchema.parse(req.body);
+      const clientData = { ...req.body };
+      delete clientData.id; // Remove any id field if present
+      const validatedData = insertClientSchema.parse(clientData);
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
