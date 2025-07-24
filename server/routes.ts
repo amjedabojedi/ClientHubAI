@@ -94,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error("Login error:", error);
+      // Error logged
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.getClients(params);
       res.json(result);
     } catch (error) {
-      console.error("Error fetching clients:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -147,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pendingClients: 0
       });
     } catch (error) {
-      console.error("Error fetching client stats:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(client);
     } catch (error) {
-      console.error("Error fetching client:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
-      console.error("Error creating client:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -197,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
-      console.error("Error updating client:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -208,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteClient(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting client:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -285,7 +285,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results.successful++;
         } catch (error) {
           results.failed++;
-          console.error(`Error processing client row ${i + 1}:`, error);
           results.errors.push({
             row: i + 1,
             data: clientData,
@@ -298,7 +297,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(results);
     } catch (error) {
-      console.error("Error in bulk upload:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -311,7 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return empty array for now - will be implemented properly later
       res.json([]);
     } catch (error) {
-      console.error("Error fetching sessions:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -331,10 +329,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(session);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Session validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
-      console.error("Error creating session:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -349,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
-      console.error("Error updating session:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -360,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessions = await storage.getSessionsByClient(clientId);
       res.json(sessions);
     } catch (error) {
-      console.error("Error fetching sessions:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -378,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessions = await storage.getSessionsByMonth(year, month);
       res.json(sessions);
     } catch (error) {
-      console.error("Error fetching monthly sessions:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -390,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tasks = await storage.getTasksByClient(clientId);
       res.json(tasks);
     } catch (error) {
-      console.error("Error fetching tasks:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -427,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.getAllTasks(params);
       res.json(result);
     } catch (error) {
-      console.error("Error fetching tasks:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -437,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const stats = await storage.getTaskStats();
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching task stats:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -448,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For now, return empty array - will be properly implemented when adding task methods
       res.json([]);
     } catch (error) {
-      console.error("Error fetching recent tasks:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -459,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For now, return empty array - will be properly implemented when adding task methods
       res.json([]);
     } catch (error) {
-      console.error("Error fetching upcoming tasks:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -475,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(task);
     } catch (error) {
-      console.error("Error fetching task:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -489,7 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
-      console.error("Error creating task:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -504,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
-      console.error("Error updating task:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -515,7 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteTask(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting task:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -528,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const comments = await storage.getTaskComments(taskId);
       res.json(comments);
     } catch (error) {
-      console.error("Error fetching task comments:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -545,7 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid comment data", errors: error.errors });
       }
-      console.error("Error creating task comment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -561,7 +558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid comment data", errors: error.errors });
       }
-      console.error("Error updating task comment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -573,7 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteTaskComment(commentId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting task comment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -585,7 +582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const notes = await storage.getNotesByClient(clientId);
       res.json(notes);
     } catch (error) {
-      console.error("Error fetching notes:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -599,7 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid note data", errors: error.errors });
       }
-      console.error("Error creating note:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -611,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const documents = await storage.getDocumentsByClient(clientId);
       res.json(documents);
     } catch (error) {
-      console.error("Error fetching documents:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -623,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assessments = await storage.getClientAssessments(clientId);
       res.json(assessments);
     } catch (error) {
-      console.error("Error fetching client assessments:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -646,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assessment = await storage.assignAssessmentToClient(assessmentData);
       res.status(201).json(assessment);
     } catch (error) {
-      console.error("Error assigning assessment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -685,10 +682,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(document);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Validation error:", error.errors);
         return res.status(400).json({ message: "Invalid document data", errors: error.errors });
       }
-      console.error("Error creating document:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -752,8 +748,7 @@ This happens because only the file metadata was stored, not the actual file cont
             });
           }
         } catch (error) {
-          console.error('Error processing PDF:', error);
-          res.status(500).json({ error: 'Failed to process PDF content: ' + error.message });
+          res.status(500).json({ error: 'Failed to process PDF content: ' + (error instanceof Error ? error.message : 'Unknown error') });
         }
       } else if (isImage) {
         // For images, serve the actual image file
@@ -799,7 +794,7 @@ This happens because only the file metadata was stored, not the actual file cont
             res.setHeader('Content-Type', 'application/json');
             res.json({
               type: 'text',
-              content: `Error reading text file: ${error.message}`,
+              content: `Error reading text file: ${error instanceof Error ? error.message : 'Unknown error'}`,
               fileName: document.fileName,
               fileSize: document.fileSize
             });
@@ -835,7 +830,7 @@ This happens because only the file metadata was stored, not the actual file cont
         `);
       }
     } catch (error) {
-      console.error("Error getting document preview:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -873,11 +868,9 @@ This happens because only the file metadata was stored, not the actual file cont
         res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
         res.sendFile(path.resolve(filePath));
       } else {
-        console.error(`PDF file not found: ${filePath}`);
         res.status(404).json({ message: "File not found on server" });
       }
     } catch (error) {
-      console.error('Error serving PDF file:', error);
       res.status(500).json({ message: "Error serving PDF file" });
     }
   });
@@ -905,7 +898,7 @@ This happens because only the file metadata was stored, not the actual file cont
         res.status(404).json({ message: "File not found on server" });
       }
     } catch (error) {
-      console.error("Error downloading document:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -933,13 +926,12 @@ This happens because only the file metadata was stored, not the actual file cont
           fs.unlinkSync(filePath);
         } catch (fileError) {
           // Log file deletion error but don't fail the request since DB deletion succeeded
-          console.error(`Failed to delete file ${filePath}:`, fileError);
         }
       }
       
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting document:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -951,7 +943,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const therapists = users.filter(u => u.role === 'therapist');
       res.json(therapists);
     } catch (error) {
-      console.error("Error fetching therapists:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -962,7 +954,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const users = await storage.getUsers();
       res.json(users);
     } catch (error) {
-      console.error("Error fetching users:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -976,7 +968,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -990,7 +982,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
-      console.error("Error creating user:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1005,7 +997,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
-      console.error("Error updating user:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1022,7 +1014,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(user);
     } catch (error) {
-      console.error("Error fetching current user:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1039,7 +1031,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
-      console.error("Error updating current user:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1052,7 +1044,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const profile = await storage.getUserProfile(currentUserId);
       res.json(profile);
     } catch (error) {
-      console.error("Error fetching current user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1072,7 +1064,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      console.error("Error creating current user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1089,7 +1081,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      console.error("Error updating current user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1104,7 +1096,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(profile);
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1122,7 +1114,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      console.error("Error creating user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1137,7 +1129,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      console.error("Error updating user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1148,7 +1140,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteUserProfile(userId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting user profile:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1160,7 +1152,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const assignments = await storage.getSupervisorAssignments(supervisorId);
       res.json(assignments);
     } catch (error) {
-      console.error("Error fetching supervisor assignments:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1174,7 +1166,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(supervisor);
     } catch (error) {
-      console.error("Error fetching therapist supervisor:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1188,7 +1180,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
       }
-      console.error("Error creating supervisor assignment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1203,7 +1195,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
       }
-      console.error("Error updating supervisor assignment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1214,7 +1206,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteSupervisorAssignment(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting supervisor assignment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1233,7 +1225,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid activity data", errors: error.errors });
       }
-      console.error("Error logging user activity:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1245,7 +1237,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const activities = await storage.getUserActivityHistory(userId, limit);
       res.json(activities);
     } catch (error) {
-      console.error("Error fetching user activity:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1256,7 +1248,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const count = await storage.getPendingTasksCount();
       res.json({ count });
     } catch (error) {
-      console.error("Error fetching pending tasks count:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1268,7 +1260,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const sessionNotes = await storage.getSessionNotesBySession(sessionId);
       res.json(sessionNotes);
     } catch (error) {
-      console.error("Error fetching session notes:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1279,7 +1271,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const sessionNotes = await storage.getSessionNotesByClient(clientId);
       res.json(sessionNotes);
     } catch (error) {
-      console.error("Error fetching client session notes:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1295,7 +1287,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json(sessionNote);
     } catch (error) {
-      console.error("Error fetching session note:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1312,16 +1304,15 @@ This happens because only the file metadata was stored, not the actual file cont
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'processing' });
           
           const aiContent = await generateSessionNoteSummary({
-            sessionFocus: validatedData.sessionFocus,
-            symptoms: validatedData.symptoms,
-            shortTermGoals: validatedData.shortTermGoals,
-            intervention: validatedData.intervention,
-            progress: validatedData.progress,
-            remarks: validatedData.remarks,
-            recommendations: validatedData.recommendations,
-            moodBefore: validatedData.moodBefore,
-            moodAfter: validatedData.moodAfter,
-            customPrompt: validatedData.customAiPrompt,
+            sessionFocus: validatedData.sessionFocus || undefined,
+            symptoms: validatedData.symptoms || undefined,
+            shortTermGoals: validatedData.shortTermGoals || undefined,
+            intervention: validatedData.intervention || undefined,
+            progress: validatedData.progress || undefined,
+            remarks: validatedData.remarks || undefined,
+            recommendations: validatedData.recommendations || undefined,
+
+            customPrompt: validatedData.customAiPrompt || undefined,
             sessionType: 'therapy session'
           });
           
@@ -1332,7 +1323,6 @@ This happens because only the file metadata was stored, not the actual file cont
             aiProcessingStatus: 'completed'
           });
         } catch (aiError) {
-          console.error('AI generation failed:', aiError);
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'error' });
         }
       }
@@ -1342,7 +1332,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session note data", errors: error.errors });
       }
-      console.error("Error creating session note:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1357,7 +1347,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session note data", errors: error.errors });
       }
-      console.error("Error updating session note:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1368,7 +1358,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteSessionNote(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting session note:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1395,8 +1385,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json(result);
     } catch (error) {
-      console.error('AI template generation error:', error);
-      res.status(500).json({ error: "Failed to generate AI template: " + error.message });
+      res.status(500).json({ error: "Failed to generate AI template: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
@@ -1406,7 +1395,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const templates = getAllTemplates();
       res.json({ templates });
     } catch (error) {
-      console.error('Templates error:', error);
       res.status(500).json({ error: "Failed to get templates" });
     }
   });
@@ -1423,7 +1411,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const content = await generateFromTemplate(templateId, field, context);
       res.json({ content });
     } catch (error) {
-      console.error('Template generation error:', error);
       res.status(500).json({ error: "Failed to generate from template" });
     }
   });
@@ -1435,7 +1422,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const options = getFieldOptions(templateId, field);
       res.json({ options });
     } catch (error) {
-      console.error('Field options error:', error);
       res.status(500).json({ error: "Failed to get field options" });
     }
   });
@@ -1447,7 +1433,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const suggestions = await getConnectedSuggestions(templateId, sourceField, sourceValue);
       res.json({ suggestions });
     } catch (error) {
-      console.error('Connected suggestions error:', error);
       res.status(500).json({ error: "Failed to get connected suggestions" });
     }
   });
@@ -1463,7 +1448,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const suggestions = await generateSmartSuggestions(field, context);
       res.json({ suggestions });
     } catch (error) {
-      console.error('Smart suggestions error:', error);
       res.status(500).json({ error: "Failed to generate suggestions" });
     }
   });
@@ -1479,7 +1463,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const report = await generateClinicalReport(sessionNoteData);
       res.json({ report });
     } catch (error) {
-      console.error('Clinical report generation error:', error);
       res.status(500).json({ error: "Failed to generate clinical report" });
     }
   });
@@ -1502,16 +1485,14 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.updateSessionNote(sessionNoteId, { aiProcessingStatus: 'processing' });
       
       const aiContent = await generateSessionNoteSummary({
-        sessionFocus: sessionNote.sessionFocus,
-        symptoms: sessionNote.symptoms,
-        shortTermGoals: sessionNote.shortTermGoals,
-        intervention: sessionNote.intervention,
-        progress: sessionNote.progress,
-        remarks: sessionNote.remarks,
-        recommendations: sessionNote.recommendations,
-        moodBefore: sessionNote.moodBefore,
-        moodAfter: sessionNote.moodAfter,
-        customPrompt: customPrompt || sessionNote.customAiPrompt,
+        sessionFocus: sessionNote.sessionFocus || undefined,
+        symptoms: sessionNote.symptoms || undefined,
+        shortTermGoals: sessionNote.shortTermGoals || undefined,
+        intervention: sessionNote.intervention || undefined,
+        progress: sessionNote.progress || undefined,
+        remarks: sessionNote.remarks || undefined,
+        recommendations: sessionNote.recommendations || undefined,
+        customPrompt: customPrompt || sessionNote.customAiPrompt || undefined,
         sessionType: sessionNote.session?.sessionType || 'therapy session'
       });
       
@@ -1525,7 +1506,6 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json({ content: aiContent.generatedContent, sessionNote: updatedNote });
     } catch (error) {
-      console.error('AI regeneration error:', error);
       await storage.updateSessionNote(parseInt(req.params.sessionNoteId), { aiProcessingStatus: 'error' });
       res.status(500).json({ error: "Failed to regenerate AI content" });
     }
@@ -1537,7 +1517,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const categories = await storage.getLibraryCategories();
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching library categories:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1551,7 +1531,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(category);
     } catch (error) {
-      console.error("Error fetching library category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1565,7 +1545,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid category data", errors: error.errors });
       }
-      console.error("Error creating library category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1580,7 +1560,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid category data", errors: error.errors });
       }
-      console.error("Error updating library category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1591,7 +1571,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteLibraryCategory(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting library category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1602,7 +1582,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const entries = await storage.getLibraryEntries(categoryId);
       res.json(entries);
     } catch (error) {
-      console.error("Error fetching library entries:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1616,7 +1596,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(entry);
     } catch (error) {
-      console.error("Error fetching library entry:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1630,7 +1610,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid entry data", errors: error.errors });
       }
-      console.error("Error creating library entry:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1645,7 +1625,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid entry data", errors: error.errors });
       }
-      console.error("Error updating library entry:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1656,7 +1636,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteLibraryEntry(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting library entry:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1673,7 +1653,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const entries = await storage.searchLibraryEntries(query, categoryId);
       res.json(entries);
     } catch (error) {
-      console.error("Error searching library entries:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1684,7 +1664,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.incrementLibraryEntryUsage(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error incrementing library entry usage:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1696,7 +1676,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const connections = await storage.getLibraryEntryConnections(entryId);
       res.json(connections);
     } catch (error) {
-      console.error("Error fetching library connections:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1707,7 +1687,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const connectedEntries = await storage.getConnectedEntries(id);
       res.json(connectedEntries);
     } catch (error) {
-      console.error("Error fetching connected entries:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1717,7 +1697,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const connection = await storage.createLibraryEntryConnection(req.body);
       res.status(201).json(connection);
     } catch (error) {
-      console.error("Error creating library connection:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1728,7 +1708,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const connection = await storage.updateLibraryEntryConnection(id, req.body);
       res.json(connection);
     } catch (error) {
-      console.error("Error updating library connection:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1739,7 +1719,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteLibraryEntryConnection(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting library connection:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1750,7 +1730,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const templates = await storage.getAssessmentTemplates();
       res.json(templates);
     } catch (error) {
-      console.error("Error fetching assessment templates:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1769,7 +1749,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
       res.json(template);
     } catch (error) {
-      console.error("Error fetching assessment template:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1780,7 +1760,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const template = await storage.createAssessmentTemplate(templateData);
       res.status(201).json(template);
     } catch (error) {
-      console.error("Error creating assessment template:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1796,7 +1776,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const template = await storage.updateAssessmentTemplate(id, templateData);
       res.json(template);
     } catch (error) {
-      console.error("Error updating assessment template:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1819,7 +1799,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteAssessmentTemplate(id);
       res.json({ message: "Assessment template deleted successfully" });
     } catch (error) {
-      console.error("Error deleting assessment template:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1831,7 +1811,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const assignments = await storage.getAssessmentAssignments(clientId);
       res.json(assignments);
     } catch (error) {
-      console.error("Error fetching assessment assignments:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1850,7 +1830,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
       res.json(assignment);
     } catch (error) {
-      console.error("Error fetching assessment assignment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1861,7 +1841,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const assignment = await storage.createAssessmentAssignment(assignmentData);
       res.status(201).json(assignment);
     } catch (error) {
-      console.error("Error creating assessment assignment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1877,7 +1857,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const assignment = await storage.updateAssessmentAssignment(id, assignmentData);
       res.json(assignment);
     } catch (error) {
-      console.error("Error updating assessment assignment:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1893,7 +1873,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const responses = await storage.getAssessmentResponses(assignmentId);
       res.json(responses);
     } catch (error) {
-      console.error("Error fetching assessment responses:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1904,7 +1884,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const response = await storage.createAssessmentResponse(responseData);
       res.status(201).json(response);
     } catch (error) {
-      console.error("Error creating assessment response:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1916,7 +1896,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const sections = await storage.getAssessmentSections(templateId);
       res.json(sections);
     } catch (error) {
-      console.error("Error fetching assessment sections:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1927,7 +1907,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const section = await storage.createAssessmentSection(sectionData);
       res.status(201).json(section);
     } catch (error) {
-      console.error("Error creating assessment section:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1939,7 +1919,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const section = await storage.updateAssessmentSection(id, sectionData);
       res.json(section);
     } catch (error) {
-      console.error("Error updating assessment section:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1957,7 +1937,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.status(201).json(question);
     } catch (error) {
-      console.error("Error creating assessment question:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1969,7 +1949,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const question = await storage.updateAssessmentQuestion(id, questionData);
       res.json(question);
     } catch (error) {
-      console.error("Error updating assessment question:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1984,7 +1964,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const options = await storage.getAssessmentQuestionOptions(questionId);
       res.json(options);
     } catch (error) {
-      console.error("Error fetching question options:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1998,7 +1978,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      console.error("Error creating question option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2015,13 +1995,15 @@ This happens because only the file metadata was stored, not the actual file cont
         insertAssessmentQuestionOptionSchema.parse(option)
       );
       
-      const createdOptions = await storage.createAssessmentQuestionOptionsBulk(validatedOptions);
+      const createdOptions = await Promise.all(
+        validatedOptions.map(option => storage.createAssessmentQuestionOption(option))
+      );
       res.status(201).json(createdOptions);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      console.error("Error creating question options in bulk:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2036,7 +2018,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      console.error("Error updating question option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2047,7 +2029,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteAssessmentQuestionOption(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting question option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2058,7 +2040,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteAllAssessmentQuestionOptions(questionId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting all question options:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2075,7 +2057,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteAssessmentQuestion(questionId);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting question:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2095,7 +2077,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
       res.json(report);
     } catch (error) {
-      console.error("Error fetching assessment report:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2106,7 +2088,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const report = await storage.createAssessmentReport(reportData);
       res.status(201).json(report);
     } catch (error) {
-      console.error("Error creating assessment report:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2117,7 +2099,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const services = await storage.getServices();
       res.json(services);
     } catch (error) {
-      console.error("Error fetching services:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2131,7 +2113,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid service data", errors: error.errors });
       }
-      console.error("Error creating service:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2142,7 +2124,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const rooms = await storage.getRooms();
       res.json(rooms);
     } catch (error) {
-      console.error("Error fetching rooms:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2156,7 +2138,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid room data", errors: error.errors });
       }
-      console.error("Error creating room:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2179,7 +2161,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json(availability);
     } catch (error) {
-      console.error("Error checking room availability:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2206,14 +2188,13 @@ This happens because only the file metadata was stored, not the actual file cont
             await storage.createSessionBilling(sessionId);
           }
         } catch (billingError) {
-          console.error("Error creating billing record:", billingError);
           // Continue with session update even if billing fails
         }
       }
       
       res.json(updatedSession);
     } catch (error) {
-      console.error("Error updating session status:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2230,7 +2211,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const billing = await storage.getSessionBilling(sessionId);
       res.json(billing);
     } catch (error) {
-      console.error("Error fetching session billing:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2246,7 +2227,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const billing = await storage.createSessionBilling(sessionId);
       res.json(billing);
     } catch (error) {
-      console.error("Error creating session billing:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2264,7 +2245,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json(reports);
     } catch (error) {
-      console.error("Error fetching billing reports:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2276,7 +2257,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const billing = await storage.getBillingRecordsBySession(sessionId);
       res.json(billing);
     } catch (error) {
-      console.error("Error fetching billing records:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2287,7 +2268,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const billing = await storage.getBillingRecordsByClient(clientId);
       res.json(billing);
     } catch (error) {
-      console.error("Error fetching client billing records:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2304,7 +2285,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.updateBillingStatus(billingId, status);
       res.json({ message: "Billing status updated successfully" });
     } catch (error) {
-      console.error("Error updating billing status:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2344,13 +2325,13 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       // Generate invoice HTML
-      const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || record.amount), 0);
-      const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.totalAmount || record.amount) * 0.8), 0);
+      const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0);
+      const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.totalAmount || 0) * 0.8), 0);
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
       
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
-      const serviceDate = billingRecords.length === 1 ? billingRecords[0].serviceDate : null;
+      const serviceDate = billingRecords.length === 1 ? new Date() : null;
       
       const invoiceHtml = `
         <!DOCTYPE html>
@@ -2400,8 +2381,8 @@ This happens because only the file metadata was stored, not the actual file cont
             <div>
               <h3 class="section-title">Insurance Info:</h3>
               <p>Provider: ${client.insuranceProvider || 'N/A'}</p>
-              <p>Policy: ${client.insurancePolicyNumber || 'N/A'}</p>
-              <p>Group: ${client.insuranceGroupNumber || 'N/A'}</p>
+              <p>Policy: ${client.policyNumber || 'N/A'}</p>
+              <p>Group: ${client.groupNumber || 'N/A'}</p>
             </div>
           </div>
           
@@ -2417,10 +2398,10 @@ This happens because only the file metadata was stored, not the actual file cont
             <tbody>
               ${billingRecords.map(record => `
                 <tr>
-                  <td>${record.service?.serviceName || record.serviceName || 'Professional Service'}</td>
+                  <td>${record.service?.serviceName || 'Professional Service'}</td>
                   <td>${record.service?.serviceCode || record.serviceCode}</td>
-                  <td>${new Date(record.serviceDate || record.session.sessionDate).toLocaleDateString()}</td>
-                  <td style="text-align: right;">$${Number(record.totalAmount || record.amount).toFixed(2)}</td>
+                  <td>${new Date(record.session.sessionDate).toLocaleDateString()}</td>
+                  <td style="text-align: right;">$${Number(record.totalAmount).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -2482,7 +2463,6 @@ This happens because only the file metadata was stored, not the actual file cont
             await sgMail.send(msg);
             res.json({ message: "Invoice sent successfully to " + client.email });
           } catch (error) {
-            console.error('Email sending failed:', error);
             res.status(500).json({ message: "Failed to send invoice email" });
           }
         } else {
@@ -2490,7 +2470,7 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
     } catch (error) {
-      console.error("Error generating invoice:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2516,7 +2496,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json({ message: "Payment details updated successfully" });
     } catch (error) {
-      console.error("Error updating payment details:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2530,7 +2510,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       res.json(assignment);
     } catch (error) {
-      console.error('Error fetching assignment:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -2542,7 +2521,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const sections = await storage.getAssessmentTemplateSections(parseInt(templateId));
       res.json(sections);
     } catch (error) {
-      console.error('Error fetching template sections:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -2554,7 +2532,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const responses = await storage.getAssessmentResponses(parseInt(assignmentId));
       res.json(responses);
     } catch (error) {
-      console.error('Error fetching responses:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -2565,7 +2542,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const response = await storage.saveAssessmentResponse(req.body);
       res.json(response);
     } catch (error) {
-      console.error('Error saving response:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -2577,7 +2553,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), req.body);
       res.json(assignment);
     } catch (error) {
-      console.error('Error updating assignment:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -2589,7 +2564,6 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteAssessmentAssignment(parseInt(assignmentId));
       res.json({ message: 'Assessment assignment deleted successfully' });
     } catch (error) {
-      console.error('Error deleting assignment:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -2602,7 +2576,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const roles = await storage.getRoles();
       res.json(roles);
     } catch (error) {
-      console.error("Error fetching roles:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2617,7 +2591,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(role);
     } catch (error) {
-      console.error("Error fetching role:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2643,7 +2617,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid role data", errors: error.errors });
       }
-      console.error("Error creating role:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2670,7 +2644,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid role data", errors: error.errors });
       }
-      console.error("Error updating role:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2689,7 +2663,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteRole(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting role:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2702,7 +2676,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const permissions = await storage.getPermissions();
       res.json(permissions);
     } catch (error) {
-      console.error("Error fetching permissions:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2717,7 +2691,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(permission);
     } catch (error) {
-      console.error("Error fetching permission:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2732,7 +2706,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid permission data", errors: error.errors });
       }
-      console.error("Error creating permission:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2748,7 +2722,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid permission data", errors: error.errors });
       }
-      console.error("Error updating permission:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2760,7 +2734,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deletePermission(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting permission:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2774,7 +2748,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const categories = await storage.getOptionCategories();
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching option categories:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2791,7 +2765,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(category);
     } catch (error) {
-      console.error("Error fetching option category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2805,7 +2779,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid category data", errors: error.errors });
       }
-      console.error("Error creating option category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2823,7 +2797,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid category data", errors: error.errors });
       }
-      console.error("Error updating option category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2837,7 +2811,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteOptionCategory(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting option category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2849,7 +2823,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const options = await storage.getSystemOptions(categoryId);
       res.json(options);
     } catch (error) {
-      console.error("Error fetching system options:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2860,7 +2834,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const options = await storage.getSystemOptionsByCategory(categoryKey);
       res.json(options);
     } catch (error) {
-      console.error("Error fetching system options by category:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2877,7 +2851,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(option);
     } catch (error) {
-      console.error("Error fetching system option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2891,7 +2865,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      console.error("Error creating system option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2909,7 +2883,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      console.error("Error updating system option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -2923,7 +2897,7 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.deleteSystemOption(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting system option:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });

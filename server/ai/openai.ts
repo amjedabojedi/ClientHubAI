@@ -358,7 +358,6 @@ Generate a complete session note template that can be used directly for clinical
       generatedContent
     };
   } catch (error) {
-    console.error("Error generating AI template:", error);
     throw new Error("Failed to generate AI template: " + (error as Error).message);
   }
 }
@@ -408,7 +407,6 @@ Generate a professional clinical summary and provide smart suggestions for each 
     const result = JSON.parse(response.choices[0].message.content || '{}');
     return result as AIGeneratedContent;
   } catch (error) {
-    console.error('AI generation error:', error);
     throw new Error(`AI content generation failed: ${error.message}`);
   }
 }
@@ -436,7 +434,6 @@ Return only a JSON array of strings, each suggestion should be 1-2 sentences max
     const result = JSON.parse(response.choices[0].message.content || '{"suggestions": []}');
     return result.suggestions || [];
   } catch (error) {
-    console.error('Smart suggestions error:', error);
     return [];
   }
 }
@@ -482,7 +479,6 @@ ${sessionNoteData.recommendations ? `Treatment Recommendations: ${sessionNoteDat
 
     return response.choices[0].message.content || '';
   } catch (error) {
-    console.error('Clinical report generation error:', error);
     throw new Error(`Clinical report generation failed: ${error.message}`);
   }
 }

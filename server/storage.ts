@@ -782,7 +782,6 @@ export class DatabaseStorage implements IStorage {
         .where(eq(services.id, session.serviceId));
 
       if (!service) {
-        console.error(`Service not found for session ${session.id}`);
         return;
       }
 
@@ -793,7 +792,6 @@ export class DatabaseStorage implements IStorage {
         .where(eq(clients.id, session.clientId));
 
       if (!client) {
-        console.error(`Client not found for session ${session.id}`);
         return;
       }
 
@@ -822,7 +820,6 @@ export class DatabaseStorage implements IStorage {
 
       await db.insert(sessionBilling).values(billingData);
     } catch (error) {
-      console.error(`Error creating billing record for session ${session.id}:`, error);
     }
   }
 
