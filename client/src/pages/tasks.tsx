@@ -175,7 +175,9 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
     },
     onError: (error: any) => {
       // Step 4: If task creation fails, show error message
-      toast({ title: "Error creating task", variant: "destructive" });
+      console.error("Task creation error:", error);
+      const errorMessage = error?.message || error?.response?.data?.message || "Failed to create task";
+      toast({ title: errorMessage, variant: "destructive" });
     },
   });
 
@@ -308,7 +310,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
             name="clientId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Client</FormLabel>
+                <FormLabel>Client *</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
