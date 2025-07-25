@@ -25,7 +25,7 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
   const queryClient = useQueryClient();
 
   const deleteClientMutation = useMutation({
-    mutationFn: () => apiRequest("DELETE", `/api/clients/${client?.id}`),
+    mutationFn: () => apiRequest(`/api/clients/${client?.id}`, "DELETE"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients/stats"] });
@@ -61,12 +61,12 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
           <AlertDialogDescription>
             Are you sure you want to delete <strong>{client?.fullName}</strong>? 
             This action cannot be undone and will permanently remove:
-            <ul className="mt-2 ml-4 list-disc">
-              <li>Client profile and personal information</li>
-              <li>All session records and notes</li>
-              <li>Documents and attachments</li>
-              <li>Tasks and assessments</li>
-            </ul>
+            <div className="mt-2 ml-4">
+              <p>• Client profile and personal information</p>
+              <p>• All session records and notes</p>
+              <p>• Documents and attachments</p>
+              <p>• Tasks and assessments</p>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
