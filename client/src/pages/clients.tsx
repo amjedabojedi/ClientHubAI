@@ -131,11 +131,13 @@ export default function ClientsPage() {
         />
       )}
 
-      <DeleteClientDialog 
-        client={selectedClient}
-        isOpen={isDeleteDialogOpen}
-        onClose={handleCloseDeleteDialog}
-      />
+      {selectedClient && (
+        <DeleteClientDialog 
+          client={selectedClient}
+          isOpen={isDeleteDialogOpen}
+          onClose={handleCloseDeleteDialog}
+        />
+      )}
     </div>
   );
 }

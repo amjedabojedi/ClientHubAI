@@ -26,8 +26,10 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
 
   const deleteClientMutation = useMutation({
     mutationFn: () => {
+      console.log("Delete client attempt:", { client, clientId: client?.id });
       if (!client?.id) {
-        throw new Error("Client ID is required");
+        console.error("Delete failed: No client ID found", client);
+        throw new Error("Client selection error. Please try again.");
       }
       return apiRequest(`/api/clients/${client.id}`, "DELETE");
     },
@@ -53,8 +55,14 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
   });
 
   const handleDelete = () => {
-    if (client) {
+    if (client?.id) {
       deleteClientMutation.mutate();
+    } else {
+      toast({
+        title: "Error",
+        description: "Client information not available. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
