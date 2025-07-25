@@ -491,9 +491,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Task validation error:", error.errors);
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
-      // Error logged
+      console.error("Task creation error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

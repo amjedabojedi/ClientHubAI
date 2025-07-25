@@ -58,7 +58,7 @@ export default function QuickTaskForm({
     defaultValues: {
       title: "",
       description: "",
-      assignedToId: defaultAssigneeId || 0,
+      assignedToId: defaultAssigneeId || undefined,
       priority: "medium",
       dueDate: "",
     },
@@ -81,6 +81,7 @@ export default function QuickTaskForm({
         ...data,
         clientId,
         status: 'pending' as const,
+        assignedToId: data.assignedToId || undefined,
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
       };
       return apiRequest("/api/tasks", "POST", taskData);

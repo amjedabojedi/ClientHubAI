@@ -119,8 +119,8 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
     defaultValues: {
       title: task?.title || "",
       description: task?.description || "",
-      clientId: task?.clientId || 0,
-      assignedToId: task?.assignedToId || 0,
+      clientId: task?.clientId || undefined,
+      assignedToId: task?.assignedToId || undefined,
       priority: task?.priority || "medium",
       status: task?.status || "pending",
       dueDate: task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : "",
@@ -149,9 +149,16 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // This mutation handles creating new tasks when form is submitted
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData) => {
-      // Step 1: Send task data to backend API endpoint
-      const response = await apiRequest("/api/tasks", "POST", data);
-      // Step 2: Parse the response (returns the created task with ID)
+      // Step 1: Clean up the data to handle null/undefined values properly
+      const cleanData = {
+        ...data,
+        clientId: data.clientId || undefined,
+        assignedToId: data.assignedToId || undefined,
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+      };
+      // Step 2: Send task data to backend API endpoint
+      const response = await apiRequest("/api/tasks", "POST", cleanData);
+      // Step 3: Parse the response (returns the created task with ID)
       return response.json();
     },
     onSuccess: () => {
@@ -385,7 +392,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                         <CommandGroup>
                           <CommandItem
                             onSelect={() => {
-                              field.onChange(null);
+                              field.onChange(undefined);
                             }}
                           >
                             <Check
