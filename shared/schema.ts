@@ -70,7 +70,7 @@ export const licenseStatusEnum = pgEnum('license_status', ['active', 'expired', 
 export const availabilityStatusEnum = pgEnum('availability_status', ['available', 'busy', 'away', 'offline']);
 
 // Enhanced Users table with comprehensive authentication and role management
-export const users = pgTable("users", {
+export const users: any = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -497,11 +497,11 @@ export const sessionNotes = pgTable("session_notes", {
 });
 
 // Hierarchical Library Tables for Clinical Content
-export const libraryCategories = pgTable("library_categories", {
+export const libraryCategories: any = pgTable("library_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  parentId: integer("parent_id").references(() => libraryCategories.id, { onDelete: "cascade" }),
+  parentId: integer("parent_id").references((): any => libraryCategories.id, { onDelete: "cascade" }),
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),

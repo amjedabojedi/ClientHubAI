@@ -130,7 +130,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // ===== DATA FETCHING =====
   // Fetch all clients to populate the "Assign to Client" dropdown
   // This loads client list when component mounts and caches the result
-  const { data: clientsData, isLoading: clientsLoading } = useQuery({
+  const { data: clientsData = {}, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],                                     // Cache key for React Query
   });
 
@@ -141,7 +141,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   });
 
   // Fetch task title options from system settings
-  const { data: taskTitleOptions } = useQuery({
+  const { data: taskTitleOptions = {} } = useQuery({
     queryKey: ["/api/system-options/categories", 31],               // Task Titles category ID
   });
 
@@ -154,7 +154,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
         ...data,
         clientId: data.clientId || undefined,
         assignedToId: data.assignedToId || undefined,
-        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        dueDate: data.dueDate ? data.dueDate : undefined,
       };
       // Step 2: Send task data to backend API endpoint
       const response = await apiRequest("/api/tasks", "POST", cleanData);
@@ -196,10 +196,10 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
       // Step 2: Clean up text fields (remove empty strings, use undefined instead)
       description: data.description && data.description.trim() ? 
         data.description.trim() : undefined,                       // Only save description if it has actual content
-      // Step 3: Convert date string to Date object (required by database schema)
-      dueDate: data.dueDate ? new Date(data.dueDate) : undefined, // Convert "2025-07-13" to Date object
-      // Step 4: Set completion timestamp for completed tasks
-      completedAt: data.status === 'completed' ? new Date() : undefined, // Auto-timestamp when marked complete
+      // Step 3: Convert date string to ISO string (required by API)
+      dueDate: data.dueDate ? data.dueDate : undefined, // Keep as string for API
+      // Step 4: Set completion timestamp for completed tasks  
+      completedAt: data.status === 'completed' ? new Date().toISOString() : undefined, // Auto-timestamp when marked complete
     };
 
     // Step 5: Choose create or update based on whether we're editing existing task
@@ -316,7 +316,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                         )}
                       >
                         {field.value ? 
-                          clientsData?.clients?.find((client: Client) => client.id === field.value)?.fullName || "Select client..." 
+                          clientsData.clients?.find((client: Client) => client.id === field.value)?.fullName || "Select client..." 
                           : "Select client..."
                         }
                         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -329,7 +329,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                       <CommandList>
                         <CommandEmpty>No clients found.</CommandEmpty>
                         <CommandGroup>
-                          {clientsData?.clients?.map((client: Client) => (
+                          {clientsData.clients?.map((client: Client) => (
                             <CommandItem
                               key={client.id}
                               onSelect={() => {
@@ -377,7 +377,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                         )}
                       >
                         {field.value ? 
-                          therapists?.find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
+                          therapists.find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
                           : "Unassigned"
                         }
                         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -403,7 +403,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                             />
                             Unassigned
                           </CommandItem>
-                          {therapists?.map((therapist: UserType) => (
+                          {therapists.map((therapist: UserType) => (
                             <CommandItem
                               key={therapist.id}
                               onSelect={() => {
@@ -567,7 +567,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
             {task.dueDate && (
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                <span>{formatDate(task.dueDate)}</span>
+                <span>{formatDate(new Date(task.dueDate))}</span>
               </div>
             )}
           </div>

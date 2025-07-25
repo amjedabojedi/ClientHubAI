@@ -67,11 +67,10 @@ export default function QuickTaskForm({
   // Fetch therapists for assignment
   const { data: therapists = [] } = useQuery({
     queryKey: ["/api/therapists"],
-    queryFn: () => apiRequest("/api/therapists", "GET"),
   });
 
   // Fetch task title options from system settings
-  const { data: taskTitleOptions } = useQuery({
+  const { data: taskTitleOptions = {} } = useQuery({
     queryKey: ["/api/system-options/categories", 31],
   });
 

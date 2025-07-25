@@ -1,6 +1,6 @@
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray } from "drizzle-orm";
 
 // Database Schema - Tables
 import { 
@@ -298,6 +298,7 @@ export interface IStorage {
   // Assessment Question Options Management
   createAssessmentQuestionOption(option: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption>;
   createAssessmentQuestionOptionsBulk(options: InsertAssessmentQuestionOption[]): Promise<AssessmentQuestionOption[]>;
+  getAssessmentQuestionOptions(questionId: number): Promise<AssessmentQuestionOption[]>;
   updateAssessmentQuestionOption(id: number, option: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption>;
   deleteAssessmentQuestionOption(id: number): Promise<void>;
   deleteAllAssessmentQuestionOptions(questionId: number): Promise<void>;
@@ -1702,6 +1703,24 @@ export class DatabaseStorage implements IStorage {
       .values(optionData)
       .returning();
     return option;
+  }
+
+  async createAssessmentQuestionOptionsBulk(options: InsertAssessmentQuestionOption[]): Promise<AssessmentQuestionOption[]> {
+    if (options.length === 0) return [];
+    
+    const createdOptions = await db
+      .insert(assessmentQuestionOptions)
+      .values(options)
+      .returning();
+    return createdOptions;
+  }
+
+  async getAssessmentQuestionOptions(questionId: number): Promise<AssessmentQuestionOption[]> {
+    return await db
+      .select()
+      .from(assessmentQuestionOptions)
+      .where(eq(assessmentQuestionOptions.questionId, questionId))
+      .orderBy(asc(assessmentQuestionOptions.sortOrder));
   }
 
   async updateAssessmentQuestionOption(id: number, optionData: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption> {
