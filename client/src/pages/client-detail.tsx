@@ -40,7 +40,7 @@ import {
   Search, 
   Trash2,
   Upload, 
-  User, 
+  User as UserIcon, 
   X
 } from "lucide-react";
 
@@ -51,8 +51,7 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 
 // Types
-import type { Client, Task, Document } from "@shared/schema";
-import type { User } from "@shared/schema";
+import type { Client, Task, Document, User, Session } from "@shared/schema";
 
 // Components
 import EditClientModal from "@/components/client-management/edit-client-modal";
@@ -326,7 +325,7 @@ export default function ClientDetailPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `invoice-${client.clientId}-${billingId || 'all'}-${new Date().toISOString().split('T')[0]}.html`;
+        a.download = `invoice-${client?.clientId}-${billingId || 'all'}-${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -396,7 +395,7 @@ export default function ClientDetailPage() {
     }
 
     if (isText) {
-      return <TextFileViewer clientId={clientId} document={doc} />;
+      return <TextFileViewer clientId={clientId || ''} document={doc} />;
     }
 
     return (
@@ -766,7 +765,7 @@ export default function ClientDetailPage() {
               <QuickTaskForm
                 clientId={client.id}
                 clientName={client.fullName}
-                defaultAssigneeId={client.assignedTherapist?.id}
+                defaultAssigneeId={client.assignedTherapistId || undefined}
                 trigger={
                   <Button variant="outline">
                     <CheckSquare className="w-4 h-4 mr-2" />
@@ -776,7 +775,7 @@ export default function ClientDetailPage() {
               />
               <Button 
                 variant="default"
-                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
+                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`}
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Schedule Session
@@ -795,7 +794,7 @@ export default function ClientDetailPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
-              <User className="w-4 h-4" />
+              <UserIcon className="w-4 h-4" />
               <span>Overview</span>
             </TabsTrigger>
             <TabsTrigger value="sessions" className="flex items-center space-x-2">
@@ -832,7 +831,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="bg-blue-100 p-3 rounded-full">
-                    <User className="w-8 h-8 text-blue-600" />
+                    <UserIcon className="w-8 h-8 text-blue-600" />
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-slate-900">{client.fullName}</h2>
@@ -981,23 +980,23 @@ export default function ClientDetailPage() {
               <Card className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="bg-slate-50 rounded-t-lg">
                   <CardTitle className="flex items-center space-x-2">
-                    <User className="w-5 h-5 text-purple-600" />
+                    <UserIcon className="w-5 h-5 text-purple-600" />
                     <span>Assigned Therapist</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {client.assignedTherapist ? (
+                  {client.assignedTherapistId ? (
                     <div className="text-center">
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                        <User className="w-8 h-8 text-purple-600" />
+                        <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist.fullName}</h4>
-                      <p className="text-slate-600 text-sm">{client.assignedTherapist.email}</p>
+                      <h4 className="font-semibold text-slate-900 mb-1">Therapist #{client.assignedTherapistId}</h4>
+                      <p className="text-slate-600 text-sm">Assigned</p>
                     </div>
                   ) : (
                     <div className="text-center py-4">
                       <div className="bg-gray-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                        <User className="w-8 h-8 text-gray-400" />
+                        <UserIcon className="w-8 h-8 text-gray-400" />
                       </div>
                       <p className="text-slate-500">No therapist assigned</p>
                     </div>
@@ -1153,7 +1152,7 @@ export default function ClientDetailPage() {
               <div className="flex items-center space-x-2">
                 <Button 
                   size="sm"
-                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
+                  onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Schedule Session
@@ -1676,7 +1675,7 @@ export default function ClientDetailPage() {
                 <QuickTaskForm
                   clientId={client.id}
                   clientName={client.fullName}
-                  defaultAssigneeId={client.assignedTherapist?.id}
+                  defaultAssigneeId={client.assignedTherapistId || undefined}
                 />
               </div>
             </div>
@@ -1719,8 +1718,8 @@ export default function ClientDetailPage() {
                             {task.dueDate && (
                               <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
                             )}
-                            {task.assignedTo && (
-                              <span>Assigned to: {task.assignedTo.fullName}</span>
+                            {task.assignedToId && (
+                              <span>Assigned to: User #{task.assignedToId}</span>
                             )}
                           </div>
                         </div>
@@ -1745,7 +1744,7 @@ export default function ClientDetailPage() {
                     <QuickTaskForm
                       clientId={client.id}
                       clientName={client.fullName}
-                      defaultAssigneeId={client.assignedTherapist?.id}
+                      defaultAssigneeId={client.assignedTherapistId || undefined}
                       trigger={
                         <Button>
                           <Plus className="w-4 h-4 mr-2" />
