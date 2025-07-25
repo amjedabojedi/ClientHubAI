@@ -48,9 +48,11 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
+import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 
 // Types
-import type { Client, Session, Note, Task, Document } from "@/types/client";
+import type { Client, Task, Document } from "@shared/schema";
+import type { User } from "@shared/schema";
 
 // Components
 import EditClientModal from "@/components/client-management/edit-client-modal";
@@ -643,37 +645,37 @@ export default function ClientDetailPage() {
 
   // ==================== Component Event Handlers ====================
 
-  const { data: client, isLoading } = useQuery({
+  const { data: client, isLoading } = useQuery<Client>({
     queryKey: [`/api/clients/${clientId}`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
 
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/sessions`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
 
-  const { data: notes = [] } = useQuery({
+  const { data: notes = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/notes`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
 
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: [`/api/clients/${clientId}/tasks`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
 
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [] } = useQuery<Document[]>({
     queryKey: [`/api/clients/${clientId}/documents`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
 
-  const { data: billingRecords = [] } = useQuery({
+  const { data: billingRecords = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/billing`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
@@ -723,23 +725,9 @@ export default function ClientDetailPage() {
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStageColor = (stage: string) => {
-    switch (stage) {
-      case 'intake': return 'bg-blue-100 text-blue-800';
-      case 'assessment': return 'bg-purple-100 text-purple-800';
-      case 'psychotherapy': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  // Use shared utility functions
+  const getStatusColor = getClientStatusColor;
+  const getStageColor = getClientStageColor;
 
   return (
     <div className="min-h-screen bg-slate-50">
