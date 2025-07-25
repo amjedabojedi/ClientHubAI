@@ -481,7 +481,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", async (req, res) => {
     try {
-      const validatedData = insertTaskSchema.parse(req.body);
+      const taskData = { ...req.body };
+      // Convert null clientId to undefined
+      if (taskData.clientId === null) {
+        taskData.clientId = undefined;
+      }
+      const validatedData = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(validatedData);
       res.status(201).json(task);
     } catch (error) {
