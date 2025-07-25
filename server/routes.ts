@@ -207,10 +207,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/clients/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
       await storage.deleteClient(id);
       res.status(204).send();
     } catch (error) {
-      // Error logged
+      console.error("Delete client error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

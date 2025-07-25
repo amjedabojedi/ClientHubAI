@@ -25,7 +25,12 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
   const queryClient = useQueryClient();
 
   const deleteClientMutation = useMutation({
-    mutationFn: () => apiRequest(`/api/clients/${client?.id}`, "DELETE"),
+    mutationFn: () => {
+      if (!client?.id) {
+        throw new Error("Client ID is required");
+      }
+      return apiRequest(`/api/clients/${client.id}`, "DELETE");
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients/stats"] });
@@ -58,14 +63,16 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Client</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to delete <strong>{client?.fullName}</strong>? 
-            This action cannot be undone and will permanently remove:
-            <div className="mt-2 ml-4">
-              <p>• Client profile and personal information</p>
-              <p>• All session records and notes</p>
-              <p>• Documents and attachments</p>
-              <p>• Tasks and assessments</p>
+          <AlertDialogDescription asChild>
+            <div>
+              Are you sure you want to delete <strong>{client?.fullName}</strong>? 
+              This action cannot be undone and will permanently remove:
+              <div className="mt-2 ml-4 space-y-1">
+                <div>• Client profile and personal information</div>
+                <div>• All session records and notes</div>
+                <div>• Documents and attachments</div>
+                <div>• Tasks and assessments</div>
+              </div>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
