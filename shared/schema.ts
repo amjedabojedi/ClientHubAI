@@ -407,7 +407,7 @@ export const sessionBilling = pgTable("session_billing", {
 // Tasks table
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
-  clientId: integer("client_id").references(() => clients.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
   assignedToId: integer("assigned_to_id").references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),

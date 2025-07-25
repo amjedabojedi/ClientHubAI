@@ -487,19 +487,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tasks", async (req, res) => {
     try {
       const taskData = { ...req.body };
-      // Convert null clientId to undefined
-      if (taskData.clientId === null) {
-        taskData.clientId = undefined;
+      
+      // Validate that clientId is provided and is a valid number
+      if (!taskData.clientId || taskData.clientId === null || taskData.clientId === undefined || isNaN(parseInt(taskData.clientId))) {
+        return res.status(400).json({ 
+          message: "Client ID is required", 
+          errors: [{ path: ["clientId"], message: "Client must be selected" }] 
+        });
       }
+      
+      // Ensure clientId is converted to integer
+      taskData.clientId = parseInt(taskData.clientId);
+      
       const validatedData = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(validatedData);
       res.status(201).json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Task validation error:", error.errors);
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
-      console.error("Task creation error:", error);
+      if (error.code === '23502') {
+        return res.status(400).json({ 
+          message: "Client ID is required", 
+          errors: [{ path: ["clientId"], message: "Client must be selected" }] 
+        });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
