@@ -149,16 +149,21 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // This mutation handles creating new tasks when form is submitted
   const createTaskMutation = useMutation({
     mutationFn: async (data: TaskFormData) => {
-      // Step 1: Clean up the data to handle null/undefined values properly
+      // Step 1: Validate that clientId is provided
+      if (!data.clientId) {
+        throw new Error("Client is required");
+      }
+      
+      // Step 2: Clean up the data to handle null/undefined values properly
       const cleanData = {
         ...data,
-        clientId: data.clientId || undefined,
+        clientId: data.clientId,
         assignedToId: data.assignedToId || undefined,
         dueDate: data.dueDate ? data.dueDate : undefined,
       };
-      // Step 2: Send task data to backend API endpoint
+      // Step 3: Send task data to backend API endpoint
       const response = await apiRequest("/api/tasks", "POST", cleanData);
-      // Step 3: Parse the response (returns the created task with ID)
+      // Step 4: Parse the response (returns the created task with ID)
       return response.json();
     },
     onSuccess: () => {

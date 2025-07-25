@@ -78,11 +78,17 @@ export default function QuickTaskForm({
     mutationFn: (data: QuickTaskFormData) => {
       const taskData = {
         ...data,
-        clientId,
+        clientId, // This should always be provided from props
         status: 'pending' as const,
         assignedToId: data.assignedToId || undefined,
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
       };
+      
+      // Ensure clientId is properly set (should never be undefined/null)
+      if (!taskData.clientId) {
+        throw new Error("Client ID is required for task creation");
+      }
+      
       return apiRequest("/api/tasks", "POST", taskData);
     },
     onSuccess: () => {
@@ -96,8 +102,10 @@ export default function QuickTaskForm({
       setOpen(false);
       onSuccess?.();
     },
-    onError: () => {
-      toast({ title: "Error creating task", variant: "destructive" });
+    onError: (error: any) => {
+      console.error("Task creation error:", error);
+      const errorMessage = error?.message || "Failed to create task";
+      toast({ title: errorMessage, variant: "destructive" });
     },
   });
 
