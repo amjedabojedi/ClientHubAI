@@ -753,9 +753,6 @@ export default function ClientDetailPage() {
                 <span>Back to Clients</span>
               </Button>
               <Separator orientation="vertical" className="h-6" />
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">{client.fullName}</h1>
-              </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button onClick={handleEditClient} variant="outline">
