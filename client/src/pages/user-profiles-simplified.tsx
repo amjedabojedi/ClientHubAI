@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { UserCard } from "@/components/user-profiles/UserCard";
 import { ProfileDialog } from "@/components/user-profiles/ProfileDialog";
 import { useToast } from "@/hooks/use-toast";
+import SupervisorAssignments from "@/components/supervision/supervisor-assignments";
 
 // User creation form schema
 const createUserFormSchema = z.object({
@@ -252,13 +254,20 @@ export default function UserProfilesSimplified() {
 
   return (
     <div className="container mx-auto py-12 px-4">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Profiles</h1>
-          <p className="text-muted-foreground">
-            Manage user accounts, professional profiles, and role permissions
-          </p>
-        </div>
+      <Tabs defaultValue="profiles" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="profiles">User Profiles</TabsTrigger>
+          <TabsTrigger value="supervisors">Supervisor Assignments</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="profiles" className="space-y-6">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">User Profiles</h1>
+              <p className="text-muted-foreground">
+                Manage user accounts, professional profiles, and role permissions
+              </p>
+            </div>
 
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
@@ -488,6 +497,12 @@ export default function UserProfilesSimplified() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+        
+        <TabsContent value="supervisors" className="space-y-6">
+          <SupervisorAssignments />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

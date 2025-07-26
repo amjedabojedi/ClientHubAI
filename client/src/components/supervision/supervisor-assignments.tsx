@@ -20,7 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 // Types
-import type { SupervisorAssignment, User } from "@shared/schema";
+import type { SupervisorAssignment } from "@shared/schema";
 
 // Utils
 import { apiRequest } from "@/lib/queryClient";
