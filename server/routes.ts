@@ -1031,14 +1031,17 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/users", async (req, res) => {
     try {
+      console.log("Received user data:", req.body);
       const validatedData = insertUserSchema.parse(req.body);
+      console.log("Validated user data:", validatedData);
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", error.errors);
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
-      // Error logged
+      console.error("User creation error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
