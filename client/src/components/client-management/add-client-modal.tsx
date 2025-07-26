@@ -110,7 +110,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
   });
 
   const createClientMutation = useMutation({
-    mutationFn: (data: ClientFormData) => apiRequest("POST", "/api/clients", data),
+    mutationFn: (data: ClientFormData) => apiRequest("/api/clients", "POST", data),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -122,6 +122,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
       onClose();
     },
     onError: (error: any) => {
+      console.error("Client creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create client",
