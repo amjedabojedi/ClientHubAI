@@ -180,6 +180,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientData = { ...req.body };
       delete clientData.id; // Remove any id field if present
       
+      // Clean up empty strings to undefined to prevent PostgreSQL date errors
+      Object.keys(clientData).forEach(key => {
+        if (clientData[key] === "" || clientData[key] === null) {
+          clientData[key] = undefined;
+        }
+      });
+      
       console.log("Client data after cleanup:", clientData);
       
       const validatedData = insertClientSchema.parse(clientData);
