@@ -132,10 +132,44 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
   });
 
   const onSubmit = (data: ClientFormData) => {
+    console.log("Form data before processing:", data);
+    
+    // Clean the data to handle null values properly
     const processedData = {
       ...data,
       assignedTherapistId: data.assignedTherapistId || undefined,
+      // Convert null strings to undefined to prevent server issues
+      dateOfBirth: data.dateOfBirth || undefined,
+      gender: data.gender || undefined,
+      maritalStatus: data.maritalStatus || undefined,
+      pronouns: data.pronouns || undefined,
+      portalEmail: data.portalEmail || undefined,
+      emergencyPhone: data.emergencyPhone || undefined,
+      streetAddress1: data.streetAddress1 || undefined,
+      streetAddress2: data.streetAddress2 || undefined,
+      city: data.city || undefined,
+      province: data.province || undefined,
+      postalCode: data.postalCode || undefined,
+      country: data.country || undefined,
+      notes: data.notes || undefined,
+      phone: data.phone || undefined,
+      email: data.email || undefined,
+      insuranceProvider: data.insuranceProvider || undefined,
+      policyNumber: data.policyNumber || undefined,
+      groupNumber: data.groupNumber || undefined,
+      copayAmount: data.copayAmount || undefined,
+      deductible: data.deductible || undefined,
+      insurancePhone: data.insurancePhone || undefined,
+      // Legacy fields
+      address: data.address || undefined,
+      state: data.state || undefined,
+      zipCode: data.zipCode || undefined,
+      emergencyContactName: data.emergencyContactName || undefined,
+      emergencyContactPhone: data.emergencyContactPhone || undefined,
+      emergencyContactRelationship: data.emergencyContactRelationship || undefined,
     };
+    
+    console.log("Processed data being sent:", processedData);
     createClientMutation.mutate(processedData);
   };
 

@@ -175,16 +175,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
+      console.log("Received client data:", req.body);
+      
       const clientData = { ...req.body };
       delete clientData.id; // Remove any id field if present
+      
+      console.log("Client data after cleanup:", clientData);
+      
       const validatedData = insertClientSchema.parse(clientData);
+      console.log("Validated data:", validatedData);
+      
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
+      console.error("Client creation server error:", error);
       if (error instanceof z.ZodError) {
+        console.error("Zod validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
