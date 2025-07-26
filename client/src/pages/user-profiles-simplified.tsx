@@ -122,6 +122,7 @@ export default function UserProfilesSimplified() {
       });
     },
     onError: (error: any) => {
+      console.error("User creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create user",
@@ -197,7 +198,7 @@ export default function UserProfilesSimplified() {
 
   // Event handlers
   const handleCreateUser = (data: CreateUserFormData) => {
-
+    console.log("Creating user with data:", data);
     createUserMutation.mutate(data);
   };
 
