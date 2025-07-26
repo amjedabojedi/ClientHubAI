@@ -46,6 +46,9 @@ import { z } from "zod";
 // Types
 import type { User as UserType, UserProfile, SupervisorAssignment, InsertUser, InsertUserProfile, InsertSupervisorAssignment } from "@shared/schema";
 
+// Import Supervisor Assignments Component
+import SupervisorAssignments from "@/components/supervision/supervisor-assignments";
+
 // Utils
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -325,11 +328,18 @@ export default function UserProfilesPage() {
 
   return (
     <div className="space-y-6 py-12">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">User Profiles</h1>
-          <p className="text-gray-600 mt-2">Manage therapist and supervisor profiles</p>
-        </div>
+      <Tabs defaultValue="profiles" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="profiles">User Profiles</TabsTrigger>
+          <TabsTrigger value="supervisors">Supervisor Assignments</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="profiles" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">User Profiles</h1>
+              <p className="text-gray-600 mt-2">Manage therapist and supervisor profiles</p>
+            </div>
         
         <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
           <DialogTrigger asChild>
@@ -1155,6 +1165,12 @@ export default function UserProfilesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+        
+        <TabsContent value="supervisors" className="space-y-6">
+          <SupervisorAssignments />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

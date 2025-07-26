@@ -529,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
-      if (error.code === '23502') {
+      if ((error as any).code === '23502') {
         return res.status(400).json({ 
           message: "Client ID is required", 
           errors: [{ path: ["clientId"], message: "Client must be selected" }] 
@@ -1213,6 +1213,15 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.get("/api/supervisor-assignments", async (req, res) => {
+    try {
+      const assignments = await storage.getAllSupervisorAssignments();
+      res.json(assignments);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/therapists/:therapistId/supervisor", async (req, res) => {
     try {
       const therapistId = parseInt(req.params.therapistId);
@@ -1222,7 +1231,6 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       res.json(supervisor);
     } catch (error) {
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });

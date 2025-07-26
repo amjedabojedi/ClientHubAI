@@ -459,6 +459,38 @@ export class DatabaseStorage implements IStorage {
     return assignment;
   }
 
+  async getAllSupervisorAssignments(): Promise<any[]> {
+    const result = await db
+      .select({
+        id: supervisorAssignments.id,
+        supervisorId: supervisorAssignments.supervisorId,
+        therapistId: supervisorAssignments.therapistId,
+        assignedDate: supervisorAssignments.assignedDate,
+        isActive: supervisorAssignments.isActive,
+        notes: supervisorAssignments.notes,
+        requiredMeetingFrequency: supervisorAssignments.requiredMeetingFrequency,
+        nextMeetingDate: supervisorAssignments.nextMeetingDate,
+        lastMeetingDate: supervisorAssignments.lastMeetingDate,
+        createdAt: supervisorAssignments.createdAt,
+        updatedAt: supervisorAssignments.updatedAt,
+        supervisorName: sql<string>`supervisor.full_name`,
+        therapistName: sql<string>`therapist.full_name`,
+      })
+      .from(supervisorAssignments)
+      .leftJoin(
+        sql`${users} as supervisor`,
+        sql`${supervisorAssignments.supervisorId} = supervisor.id`
+      )
+      .leftJoin(
+        sql`${users} as therapist`,
+        sql`${supervisorAssignments.therapistId} = therapist.id`
+      )
+      .where(eq(supervisorAssignments.isActive, true))
+      .orderBy(asc(supervisorAssignments.assignedDate));
+    
+    return result;
+  }
+
   async deleteSupervisorAssignment(id: number): Promise<void> {
     await db
       .delete(supervisorAssignments)

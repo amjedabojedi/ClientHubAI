@@ -1,0 +1,1 @@
+export { default as SupervisorAssignments } from './supervisor-assignments';
