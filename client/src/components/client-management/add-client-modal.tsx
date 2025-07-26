@@ -122,7 +122,6 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
       onClose();
     },
     onError: (error: any) => {
-      console.error("Client creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create client",
@@ -132,8 +131,6 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
   });
 
   const onSubmit = (data: ClientFormData) => {
-    console.log("Form data before processing:", data);
-    
     // Clean the data to handle null values and empty strings properly
     const processedData = {
       ...data,
@@ -184,7 +181,6 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
       emergencyContactRelationship: data.emergencyContactRelationship && data.emergencyContactRelationship.trim() ? data.emergencyContactRelationship : undefined,
     };
     
-    console.log("Processed data being sent:", processedData);
     createClientMutation.mutate(processedData);
   };
 

@@ -175,8 +175,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
-      console.log("Received client data:", req.body);
-      
       const clientData = { ...req.body };
       delete clientData.id; // Remove any id field if present
       
@@ -187,17 +185,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      console.log("Client data after cleanup:", clientData);
-      
       const validatedData = insertClientSchema.parse(clientData);
-      console.log("Validated data:", validatedData);
       
       const client = await storage.createClient(validatedData);
       res.status(201).json(client);
     } catch (error) {
-      console.error("Client creation server error:", error);
       if (error instanceof z.ZodError) {
-        console.error("Zod validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
       res.status(500).json({ message: "Internal server error" });
@@ -207,14 +200,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/clients/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertClientSchema.partial().parse(req.body);
+      
+      const clientData = { ...req.body };
+      // Clean up empty strings to undefined to prevent PostgreSQL date errors
+      Object.keys(clientData).forEach(key => {
+        if (clientData[key] === "" || clientData[key] === null) {
+          clientData[key] = undefined;
+        }
+      });
+      
+      const validatedData = insertClientSchema.partial().parse(clientData);
       const client = await storage.updateClient(id, validatedData);
       res.json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -230,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteClient(id);
       res.status(204).send();
     } catch (error) {
-      console.error("Delete client error:", error);
+      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -514,6 +515,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure clientId is converted to integer
       taskData.clientId = parseInt(taskData.clientId);
       
+      // Clean up empty strings to undefined to prevent PostgreSQL date errors
+      Object.keys(taskData).forEach(key => {
+        if (taskData[key] === "" || taskData[key] === null) {
+          taskData[key] = undefined;
+        }
+      });
+      
       const validatedData = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(validatedData);
       res.status(201).json(task);
@@ -534,14 +542,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/tasks/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertTaskSchema.partial().parse(req.body);
+      
+      const taskData = { ...req.body };
+      // Clean up empty strings to undefined to prevent PostgreSQL date errors
+      Object.keys(taskData).forEach(key => {
+        if (taskData[key] === "" || taskData[key] === null) {
+          taskData[key] = undefined;
+        }
+      });
+      
+      const validatedData = insertTaskSchema.partial().parse(taskData);
       const task = await storage.updateTask(id, validatedData);
       res.json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid task data", errors: error.errors });
       }
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });

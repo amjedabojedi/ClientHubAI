@@ -26,9 +26,7 @@ export default function DeleteClientDialog({ client, isOpen, onClose, onDeleteSu
 
   const deleteClientMutation = useMutation({
     mutationFn: () => {
-      console.log("Delete client attempt:", { client, clientId: client?.id });
       if (!client?.id) {
-        console.error("Delete failed: No client ID found", client);
         throw new Error("Client selection error. Please try again.");
       }
       return apiRequest(`/api/clients/${client.id}`, "DELETE");
