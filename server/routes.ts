@@ -1017,11 +1017,37 @@ This happens because only the file metadata was stored, not the actual file cont
   // Therapists route
   app.get("/api/therapists", async (req, res) => {
     try {
+      const { currentUserId, currentUserRole } = req.query;
+      
+      if (currentUserRole === "supervisor" && currentUserId) {
+        const supervisorId = parseInt(currentUserId as string);
+        // Get only therapists supervised by this supervisor
+        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        
+        if (supervisorAssignments.length === 0) {
+          return res.json([]);
+        }
+        
+        const users = await storage.getUsers();
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        const supervisedTherapists = users.filter(u => 
+          u.role === 'therapist' && supervisedTherapistIds.includes(u.id)
+        );
+        
+        return res.json(supervisedTherapists);
+      } else if (currentUserRole === "therapist" && currentUserId) {
+        // Therapists can only see themselves
+        const users = await storage.getUsers();
+        const therapist = users.find(u => u.id === parseInt(currentUserId as string) && u.role === 'therapist');
+        return res.json(therapist ? [therapist] : []);
+      }
+      
+      // Admins can see all therapists
       const users = await storage.getUsers();
       const therapists = users.filter(u => u.role === 'therapist');
       res.json(therapists);
     } catch (error) {
-      // Error logged
+      console.error("Therapists access error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SearchFiltersProps {
   searchQuery: string;
@@ -26,11 +27,12 @@ export default function SearchFilters({
   filters, 
   onFiltersChange 
 }: SearchFiltersProps) {
+  const { user } = useAuth();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const { data: therapists } = useQuery({
-    queryKey: ["/api/therapists"],
+    queryKey: ["/api/therapists", { currentUserId: user?.id, currentUserRole: user?.role }],
   });
 
   const activeFilterCount = Object.values(filters).filter(value => 
