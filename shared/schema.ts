@@ -496,6 +496,57 @@ export const sessionNotes = pgTable("session_notes", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Client Process Checklist System
+export const checklistTemplates = pgTable("checklist_templates", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 50 }).notNull(), // 'intake', 'assessment', 'ongoing', 'discharge'
+  clientType: varchar("client_type", { length: 20 }), // 'individual', 'couple', 'family', 'group', null for all
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const checklistItems = pgTable("checklist_items", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => checklistTemplates.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description"),
+  isRequired: boolean("is_required").notNull().default(false),
+  daysFromStart: integer("days_from_start"), // Days after client creation when item becomes due
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const clientChecklists = pgTable("client_checklists", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  templateId: integer("template_id").notNull().references(() => checklistTemplates.id, { onDelete: "cascade" }),
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  completedBy: integer("completed_by").references(() => users.id),
+  notes: text("notes"),
+  dueDate: date("due_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  clientTemplateIdx: index("client_checklists_client_template_idx").on(table.clientId, table.templateId),
+}));
+
+export const clientChecklistItems = pgTable("client_checklist_items", {
+  id: serial("id").primaryKey(),
+  clientChecklistId: integer("client_checklist_id").notNull().references(() => clientChecklists.id, { onDelete: "cascade" }),
+  checklistItemId: integer("checklist_item_id").notNull().references(() => checklistItems.id, { onDelete: "cascade" }),
+  isCompleted: boolean("is_completed").notNull().default(false),
+  completedAt: timestamp("completed_at"),
+  completedBy: integer("completed_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  clientChecklistItemIdx: index("client_checklist_items_checklist_item_idx").on(table.clientChecklistId, table.checklistItemId),
+}));
+
 // Hierarchical Library Tables for Clinical Content
 export const libraryCategories: any = pgTable("library_categories", {
   id: serial("id").primaryKey(),
@@ -1029,6 +1080,28 @@ export const insertSystemOptionSchema = createInsertSchema(systemOptions).omit({
   updatedAt: true,
 });
 
+// Checklist Schemas
+export const insertChecklistTemplateSchema = createInsertSchema(checklistTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChecklistItemSchema = createInsertSchema(checklistItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertClientChecklistSchema = createInsertSchema(clientChecklists).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertClientChecklistItemSchema = createInsertSchema(clientChecklistItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertRoomBookingSchema = createInsertSchema(roomBookings).omit({
   id: true,
   createdAt: true,
@@ -1227,3 +1300,16 @@ export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
 
 export type SelectSessionBilling = typeof sessionBilling.$inferSelect;
 export type InsertSessionBilling = z.infer<typeof insertSessionBillingSchema>;
+
+// Checklist Types
+export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
+export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
+
+export type ChecklistItem = typeof checklistItems.$inferSelect;
+export type InsertChecklistItem = z.infer<typeof insertChecklistItemSchema>;
+
+export type ClientChecklist = typeof clientChecklists.$inferSelect;
+export type InsertClientChecklist = z.infer<typeof insertClientChecklistSchema>;
+
+export type ClientChecklistItem = typeof clientChecklistItems.$inferSelect;
+export type InsertClientChecklistItem = z.infer<typeof insertClientChecklistItemSchema>;

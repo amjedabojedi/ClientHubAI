@@ -3072,6 +3072,28 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Client Checklist Routes
+  app.get('/api/clients/:clientId/checklists', async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const checklists = await storage.getClientChecklists(clientId);
+      res.json(checklists);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.put('/api/client-checklist-items/:itemId', async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      const itemData = req.body;
+      const updatedItem = await storage.updateClientChecklistItem(itemId, itemData);
+      res.json(updatedItem);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

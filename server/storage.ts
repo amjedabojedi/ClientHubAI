@@ -33,7 +33,11 @@ import {
   permissions,
   rolePermissions,
   optionCategories,
-  systemOptions
+  systemOptions,
+  checklistTemplates,
+  checklistItems,
+  clientChecklists,
+  clientChecklistItems
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -97,7 +101,15 @@ import type {
   SelectOptionCategory,
   InsertOptionCategory,
   SelectSystemOption,
-  InsertSystemOption
+  InsertSystemOption,
+  ChecklistTemplate,
+  ChecklistItem,
+  ClientChecklist,
+  ClientChecklistItem,
+  InsertChecklistTemplate,
+  InsertChecklistItem,
+  InsertClientChecklist,
+  InsertClientChecklistItem
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -2539,6 +2551,143 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSystemOption(id: number): Promise<void> {
     await db.delete(systemOptions).where(eq(systemOptions.id, id));
+  }
+
+  // ===== CLIENT PROCESS CHECKLIST METHODS =====
+  
+  // Checklist Template Management
+  async getChecklistTemplates(): Promise<ChecklistTemplate[]> {
+    return await db.select().from(checklistTemplates)
+      .where(eq(checklistTemplates.isActive, true))
+      .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
+  }
+
+  async getChecklistTemplate(id: number): Promise<ChecklistTemplate | undefined> {
+    const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id));
+    return template;
+  }
+
+  async createChecklistTemplate(templateData: InsertChecklistTemplate): Promise<ChecklistTemplate> {
+    const [template] = await db.insert(checklistTemplates).values(templateData).returning();
+    return template;
+  }
+
+  async updateChecklistTemplate(id: number, templateData: Partial<InsertChecklistTemplate>): Promise<ChecklistTemplate> {
+    const [template] = await db.update(checklistTemplates)
+      .set({ ...templateData, updatedAt: new Date() })
+      .where(eq(checklistTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteChecklistTemplate(id: number): Promise<void> {
+    await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
+  }
+
+  // Checklist Items Management
+  async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
+    return await db.select().from(checklistItems)
+      .where(eq(checklistItems.templateId, templateId))
+      .orderBy(checklistItems.sortOrder);
+  }
+
+  async createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem> {
+    const [item] = await db.insert(checklistItems).values(itemData).returning();
+    return item;
+  }
+
+  async updateChecklistItem(id: number, itemData: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
+    const [item] = await db.update(checklistItems)
+      .set(itemData)
+      .where(eq(checklistItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteChecklistItem(id: number): Promise<void> {
+    await db.delete(checklistItems).where(eq(checklistItems.id, id));
+  }
+
+  // Client Checklist Management
+  async getClientChecklists(clientId: number): Promise<(ClientChecklist & { template: ChecklistTemplate; items: (ClientChecklistItem & { checklistItem: ChecklistItem; completedByUser?: User })[] })[]> {
+    const checklists = await db.select().from(clientChecklists)
+      .where(eq(clientChecklists.clientId, clientId))
+      .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
+
+    const result = [];
+    for (const checklist of checklists) {
+      const template = await this.getChecklistTemplate(checklist.templateId);
+      if (!template) continue;
+
+      const items = await db.select({
+        item: clientChecklistItems,
+        checklistItem: checklistItems,
+        completedByUser: users
+      })
+      .from(clientChecklistItems)
+      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
+      .leftJoin(users, eq(clientChecklistItems.completedBy, users.id))
+      .where(eq(clientChecklistItems.clientChecklistId, checklist.id))
+      .orderBy(checklistItems.sortOrder);
+
+      result.push({
+        ...checklist,
+        template,
+        items: items.map(row => ({
+          ...row.item,
+          checklistItem: row.checklistItem,
+          completedByUser: row.completedByUser || undefined
+        }))
+      });
+    }
+
+    return result;
+  }
+
+  async createClientChecklist(checklistData: InsertClientChecklist): Promise<ClientChecklist> {
+    const [checklist] = await db.insert(clientChecklists).values(checklistData).returning();
+    return checklist;
+  }
+
+  async updateClientChecklistItem(id: number, itemData: Partial<InsertClientChecklistItem>): Promise<ClientChecklistItem> {
+    const [item] = await db.update(clientChecklistItems)
+      .set({ ...itemData, completedAt: itemData.isCompleted ? new Date() : null })
+      .where(eq(clientChecklistItems.id, id))
+      .returning();
+    return item;
+  }
+
+  // Auto-assign checklists when client is created
+  async assignChecklistsToClient(clientId: number, clientType: string): Promise<void> {
+    const templates = await db.select().from(checklistTemplates)
+      .where(and(
+        eq(checklistTemplates.isActive, true),
+        or(
+          eq(checklistTemplates.clientType, clientType),
+          sql`${checklistTemplates.clientType} IS NULL`
+        )
+      ));
+
+    for (const template of templates) {
+      // Create client checklist
+      const [clientChecklist] = await db.insert(clientChecklists).values({
+        clientId,
+        templateId: template.id,
+        dueDate: template.category === 'intake' ? sql`CURRENT_DATE + INTERVAL '30 days'` : 
+                 template.category === 'assessment' ? sql`CURRENT_DATE + INTERVAL '14 days'` : null
+      }).returning();
+
+      // Create client checklist items
+      const items = await this.getChecklistItems(template.id);
+      const clientItems = items.map(item => ({
+        clientChecklistId: clientChecklist.id,
+        checklistItemId: item.id
+      }));
+
+      if (clientItems.length > 0) {
+        await db.insert(clientChecklistItems).values(clientItems);
+      }
+    }
   }
 }
 
