@@ -790,7 +790,7 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <UserIcon className="w-4 h-4" />
               <span>Overview</span>
@@ -816,9 +816,13 @@ export default function ClientDetailPage() {
               <CreditCard className="w-4 h-4" />
               <span>Billing</span>
             </TabsTrigger>
-            <TabsTrigger value="checklist" className="flex items-center space-x-2">
+            <TabsTrigger value="tasks" className="flex items-center space-x-2">
               <CheckSquare className="w-4 h-4" />
               <span>Tasks</span>
+            </TabsTrigger>
+            <TabsTrigger value="checklist" className="flex items-center space-x-2">
+              <ClipboardList className="w-4 h-4" />
+              <span>Checklists</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1658,10 +1662,10 @@ export default function ClientDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Process Checklist Tab */}
-          <TabsContent value="checklist" className="space-y-6">
+          {/* Client Tasks Tab */}
+          <TabsContent value="tasks" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Process Checklists</h2>
+              <h2 className="text-xl font-semibold text-slate-900">Client Tasks</h2>
               <div className="flex gap-3">
                 <Button 
                   variant="outline"
@@ -1675,6 +1679,93 @@ export default function ClientDetailPage() {
                   clientName={client.fullName}
                   defaultAssigneeId={client.assignedTherapistId || undefined}
                 />
+              </div>
+            </div>
+
+            <Card>
+              <CardContent className="p-6">
+                {tasks.length > 0 ? (
+                  <div className="space-y-4">
+                    {tasks.map((task: Task) => (
+                      <div key={task.id} className="flex items-start justify-between border rounded-lg p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-medium text-slate-900">{task.title}</h4>
+                            <div className="flex gap-2">
+                              <Badge className={
+                                task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                                task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }>
+                                {task.priority}
+                              </Badge>
+                              <Badge className={
+                                task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                task.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }>
+                                {task.status?.replace('_', ' ')}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {task.description && (
+                            <p className="text-slate-600 text-sm mb-2">{task.description}</p>
+                          )}
+                          
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
+                            {task.dueDate && (
+                              <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                            )}
+                            {task.assignedToId && (
+                              <span>Assigned to: User #{task.assignedToId}</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2 ml-4">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setLocation("/tasks")}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <CheckSquare className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">No tasks yet</h3>
+                    <p className="text-slate-600 mb-4">Create the first task for this client to get started.</p>
+                    <QuickTaskForm
+                      clientId={client.id}
+                      clientName={client.fullName}
+                      defaultAssigneeId={client.assignedTherapistId || undefined}
+                      trigger={
+                        <Button>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create First Task
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Process Checklist Tab */}
+          <TabsContent value="checklist" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Healthcare Process Checklists</h2>
+                <p className="text-slate-600">Regulatory compliance and workflow tracking for standardized care processes</p>
               </div>
             </div>
 
