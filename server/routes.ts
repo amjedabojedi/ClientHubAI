@@ -3073,34 +3073,35 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // ===== CHECKLIST TEMPLATE MANAGEMENT =====
+  // In-memory storage for templates until database is ready
+  const templateStorage: any[] = [
+    {
+      id: 1,
+      name: "Client Intake Process",
+      description: "Essential steps for new client onboarding and initial setup",
+      category: "intake",
+      clientType: null,
+      sortOrder: 1,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      items: []
+    },
+    {
+      id: 2,
+      name: "Initial Assessment",
+      description: "Comprehensive assessment requirements for clinical evaluation", 
+      category: "assessment",
+      clientType: null,
+      sortOrder: 2,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      items: []
+    }
+  ];
+
   app.get('/api/checklist-templates', async (req, res) => {
     try {
-      // Return mock data since database schema isn't pushed yet
-      const mockTemplates = [
-        {
-          id: 1,
-          name: "Client Intake Process",
-          description: "Essential steps for new client onboarding and initial setup",
-          category: "intake",
-          clientType: null,
-          sortOrder: 1,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          items: []
-        },
-        {
-          id: 2,
-          name: "Initial Assessment",
-          description: "Comprehensive assessment requirements for clinical evaluation", 
-          category: "assessment",
-          clientType: null,
-          sortOrder: 2,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          items: []
-        }
-      ];
-      res.json(mockTemplates);
+      res.json(templateStorage);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3108,13 +3109,14 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post('/api/checklist-templates', async (req, res) => {
     try {
-      // Mock response for template creation
       const template = {
         id: Date.now(),
         ...req.body,
         isActive: true,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        items: []
       };
+      templateStorage.push(template);
       res.json(template);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3123,13 +3125,20 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post('/api/checklist-items', async (req, res) => {
     try {
-      // Mock response for item creation
       const item = {
         id: Date.now(),
         ...req.body,
         isActive: true,
         createdAt: new Date().toISOString()
       };
+      
+      // Add item to the corresponding template
+      const template = templateStorage.find(t => t.id === req.body.templateId);
+      if (template) {
+        if (!template.items) template.items = [];
+        template.items.push(item);
+      }
+      
       res.json(item);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
