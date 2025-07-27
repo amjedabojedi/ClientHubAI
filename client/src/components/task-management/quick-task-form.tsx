@@ -103,7 +103,7 @@ export default function QuickTaskForm({
       onSuccess?.();
     },
     onError: (error: any) => {
-      console.error("Task creation error:", error);
+
       const errorMessage = error?.message || "Failed to create task";
       toast({ title: errorMessage, variant: "destructive" });
     },
@@ -164,7 +164,7 @@ export default function QuickTaskForm({
                           <CommandList>
                             <CommandEmpty>No task titles found.</CommandEmpty>
                             <CommandGroup>
-                              {taskTitleOptions?.options?.map((option: any) => (
+                              {(taskTitleOptions as any)?.options?.map((option: any) => (
                                 <CommandItem
                                   key={option.id}
                                   onSelect={() => {
@@ -309,7 +309,7 @@ export default function QuickTaskForm({
                           )}
                         >
                           {field.value ? 
-                            therapists?.find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
+                            (therapists as UserType[])?.find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
                             : "Unassigned"
                           }
                           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -335,7 +335,7 @@ export default function QuickTaskForm({
                               />
                               Unassigned
                             </CommandItem>
-                            {therapists?.map((therapist: UserType) => (
+                            {(therapists as UserType[])?.map((therapist: UserType) => (
                               <CommandItem
                                 key={therapist.id}
                                 onSelect={() => {

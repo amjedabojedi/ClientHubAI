@@ -131,7 +131,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // ===== DATA FETCHING =====
   // Fetch all clients to populate the "Assign to Client" dropdown
   // This loads client list when component mounts and caches the result
-  const { data: clientsData = {}, isLoading: clientsLoading } = useQuery({
+  const { data: clientsData = { clients: [] }, isLoading: clientsLoading } = useQuery({
     queryKey: ["/api/clients"],                                     // Cache key for React Query
   });
 
@@ -176,7 +176,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
     },
     onError: (error: any) => {
       // Step 4: If task creation fails, show error message
-      console.error("Task creation error:", error);
+
       const errorMessage = error?.message || error?.response?.data?.message || "Failed to create task";
       toast({ title: errorMessage, variant: "destructive" });
     },
@@ -250,7 +250,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                       <CommandList>
                         <CommandEmpty>No task titles found.</CommandEmpty>
                         <CommandGroup>
-                          {taskTitleOptions?.options?.map((option: any) => (
+                          {(taskTitleOptions as any)?.options?.map((option: any) => (
                             <CommandItem
                               key={option.id}
                               onSelect={() => {
@@ -324,7 +324,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                         )}
                       >
                         {field.value ? 
-                          clientsData.clients?.find((client: Client) => client.id === field.value)?.fullName || "Select client..." 
+                          (clientsData as any).clients?.find((client: Client) => client.id === field.value)?.fullName || "Select client..." 
                           : "Select client..."
                         }
                         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -337,7 +337,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                       <CommandList>
                         <CommandEmpty>No clients found.</CommandEmpty>
                         <CommandGroup>
-                          {clientsData.clients?.map((client: Client) => (
+                          {(clientsData as any).clients?.map((client: Client) => (
                             <CommandItem
                               key={client.id}
                               onSelect={() => {
@@ -385,7 +385,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                         )}
                       >
                         {field.value ? 
-                          therapists.find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
+                          (therapists as UserType[]).find((therapist: UserType) => therapist.id === field.value)?.fullName || "Select assignee..." 
                           : "Unassigned"
                         }
                         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -411,7 +411,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
                             />
                             Unassigned
                           </CommandItem>
-                          {therapists.map((therapist: UserType) => (
+                          {(therapists as UserType[]).map((therapist: UserType) => (
                             <CommandItem
                               key={therapist.id}
                               onSelect={() => {
@@ -575,7 +575,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
             {task.dueDate && (
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                <span>{formatDate(new Date(task.dueDate))}</span>
+                <span>{formatDate(task.dueDate)}</span>
               </div>
             )}
           </div>

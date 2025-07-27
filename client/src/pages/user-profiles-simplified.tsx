@@ -101,7 +101,7 @@ export default function UserProfilesSimplified() {
   });
 
   // Filter users based on search term
-  const filteredUsers = users.filter((user: UserWithProfile) =>
+  const filteredUsers = (users as UserWithProfile[]).filter((user: UserWithProfile) =>
     user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -122,7 +122,7 @@ export default function UserProfilesSimplified() {
       });
     },
     onError: (error: any) => {
-      console.error("User creation error:", error);
+
       toast({
         title: "Error Creating User",
         description: error.message || "Failed to create user",
@@ -198,7 +198,7 @@ export default function UserProfilesSimplified() {
 
   // Event handlers
   const handleCreateUser = (data: CreateUserFormData) => {
-    console.log("Creating user with data:", data);
+
     createUserMutation.mutate(data);
   };
 

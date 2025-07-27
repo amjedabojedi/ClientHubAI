@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Filter clients to only those assigned to supervised therapists
-        params.supervisedTherapistIds = supervisedTherapistIds;
+        (params as any).supervisedTherapistIds = supervisedTherapistIds;
       } else if (currentUserRole === "therapist" && currentUserId) {
         // Therapists can only see their own clients
         params.therapistId = parseInt(currentUserId as string);
@@ -153,7 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.getClients(params);
       res.json(result);
     } catch (error) {
-      console.error("Client access error:", error);
+
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -438,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(sessions);
     } catch (error) {
-      console.error("Sessions access error:", error);
+
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -515,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.getAllTasks(params);
       res.json(result);
     } catch (error) {
-      console.error("Tasks access error:", error);
+
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1093,7 +1093,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const therapists = users.filter(u => u.role === 'therapist');
       res.json(therapists);
     } catch (error) {
-      console.error("Therapists access error:", error);
+
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1125,14 +1125,12 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/users", async (req, res) => {
     try {
-      console.log("Received user data:", req.body);
       const validatedData = insertUserSchema.parse(req.body);
-      console.log("Validated user data:", validatedData);
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        console.error("Zod validation error:", error.errors);
+
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
       
@@ -1146,7 +1144,7 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
-      console.error("User creation error:", error);
+
       res.status(500).json({ message: "Failed to create user. Please try again." });
     }
   });
