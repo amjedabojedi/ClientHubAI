@@ -3072,6 +3072,70 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // ===== CHECKLIST TEMPLATE MANAGEMENT =====
+  app.get('/api/checklist-templates', async (req, res) => {
+    try {
+      // Return mock data since database schema isn't pushed yet
+      const mockTemplates = [
+        {
+          id: 1,
+          name: "Client Intake Process",
+          description: "Essential steps for new client onboarding and initial setup",
+          category: "intake",
+          clientType: null,
+          sortOrder: 1,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          items: []
+        },
+        {
+          id: 2,
+          name: "Initial Assessment",
+          description: "Comprehensive assessment requirements for clinical evaluation", 
+          category: "assessment",
+          clientType: null,
+          sortOrder: 2,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          items: []
+        }
+      ];
+      res.json(mockTemplates);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/checklist-templates', async (req, res) => {
+    try {
+      // Mock response for template creation
+      const template = {
+        id: Date.now(),
+        ...req.body,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
+      res.json(template);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/checklist-items', async (req, res) => {
+    try {
+      // Mock response for item creation
+      const item = {
+        id: Date.now(),
+        ...req.body,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Client Checklist Routes
   app.get('/api/clients/:clientId/checklists', async (req, res) => {
     try {

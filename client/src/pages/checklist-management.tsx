@@ -61,10 +61,13 @@ const ChecklistManagement = () => {
   const queryClient = useQueryClient();
 
   // Fetch templates
-  const { data: templates, isLoading: templatesLoading } = useQuery<ChecklistTemplate[]>({
+  const { data: templatesData, isLoading: templatesLoading } = useQuery({
     queryKey: ['/api/checklist-templates'],
     queryFn: () => apiRequest('/api/checklist-templates')
   });
+
+  // Ensure templates is always an array
+  const templates = Array.isArray(templatesData) ? templatesData : [];
 
   // Create template mutation
   const createTemplateMutation = useMutation({
@@ -213,7 +216,7 @@ const ChecklistManagement = () => {
                 ))}
               </div>
             ) : (
-              templates?.map((template) => (
+              templates.map((template) => (
                 <Card key={template.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -277,7 +280,7 @@ const ChecklistManagement = () => {
                         <SelectValue placeholder="Select template" />
                       </SelectTrigger>
                       <SelectContent>
-                        {templates?.map((template) => (
+                        {templates.map((template) => (
                           <SelectItem key={template.id} value={template.id.toString()}>
                             {template.name}
                           </SelectItem>
