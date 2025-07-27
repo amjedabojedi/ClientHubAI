@@ -124,7 +124,7 @@ export default function UserProfilesSimplified() {
     onError: (error: any) => {
       console.error("User creation error:", error);
       toast({
-        title: "Error",
+        title: "Error Creating User",
         description: error.message || "Failed to create user",
         variant: "destructive",
       });

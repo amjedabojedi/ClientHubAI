@@ -1036,13 +1036,24 @@ This happens because only the file metadata was stored, not the actual file cont
       console.log("Validated user data:", validatedData);
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         console.error("Zod validation error:", error.errors);
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
+      
+      // Handle database constraint violations
+      if (error.code === '23505') {
+        if (error.constraint === 'users_email_unique') {
+          return res.status(400).json({ message: "Email address already exists. Please use a different email." });
+        }
+        if (error.constraint === 'users_username_unique') {
+          return res.status(400).json({ message: "Username already exists. Please choose a different username." });
+        }
+      }
+      
       console.error("User creation error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ message: "Failed to create user. Please try again." });
     }
   });
 
