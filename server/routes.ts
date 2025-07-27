@@ -99,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Client routes
+  // Client routes with role-based access control
   app.get("/api/clients", async (req, res) => {
     try {
       const {
@@ -112,7 +112,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasPortalAccess,
         hasPendingTasks,
         sortBy = "createdAt",
-        sortOrder = "desc"
+        sortOrder = "desc",
+        currentUserId,
+        currentUserRole
       } = req.query;
 
       const params = {
@@ -128,10 +130,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortOrder: sortOrder as "asc" | "desc"
       };
 
+      // Role-based access control
+      if (currentUserRole === "supervisor" && currentUserId) {
+        const userId = parseInt(currentUserId as string);
+        // Get therapists supervised by this supervisor
+        const supervisorAssignments = await storage.getSupervisorAssignments(userId);
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        
+        if (supervisedTherapistIds.length === 0) {
+          // Supervisor has no assigned therapists, return empty result
+          return res.json({ clients: [], totalCount: 0, page: 1, pageSize: 25, totalPages: 0 });
+        }
+        
+        // Filter clients to only those assigned to supervised therapists
+        params.supervisedTherapistIds = supervisedTherapistIds;
+      } else if (currentUserRole === "therapist" && currentUserId) {
+        // Therapists can only see their own clients
+        params.therapistId = parseInt(currentUserId as string);
+      }
+      // Admins can see all clients (no filtering needed)
+
       const result = await storage.getClients(params);
       res.json(result);
     } catch (error) {
-      // Error logged
+      console.error("Client access error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

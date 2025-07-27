@@ -106,6 +106,7 @@ export interface ClientsQueryParams {
   search?: string;
   status?: string;
   therapistId?: number;
+  supervisedTherapistIds?: number[];
   clientType?: string;
   hasPortalAccess?: boolean;
   hasPendingTasks?: boolean;
@@ -552,6 +553,10 @@ export class DatabaseStorage implements IStorage {
     
     if (therapistId) {
       whereConditions.push(eq(clients.assignedTherapistId, therapistId));
+    }
+    
+    if (params.supervisedTherapistIds && params.supervisedTherapistIds.length > 0) {
+      whereConditions.push(inArray(clients.assignedTherapistId, params.supervisedTherapistIds));
     }
     
     if (clientType) {

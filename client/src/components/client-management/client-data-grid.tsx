@@ -10,6 +10,7 @@ import { Eye, Edit, Trash2, CalendarDays } from "lucide-react";
 import Pagination from "./pagination";
 import { Client } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ClientDataGridProps {
   activeTab: string;
@@ -34,6 +35,7 @@ export default function ClientDataGrid({
   onEditClient,
   onDeleteClient
 }: ClientDataGridProps) {
+  const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sortBy, setSortBy] = useState("createdAt");
@@ -65,7 +67,9 @@ export default function ClientDataGrid({
     hasPendingTasks: filters.hasPendingTasks,
     sortBy,
     sortOrder,
-  }), [page, pageSize, debouncedSearch, statusFromTab, filters, sortBy, sortOrder]);
+    currentUserId: user?.id,
+    currentUserRole: user?.role,
+  }), [page, pageSize, debouncedSearch, statusFromTab, filters, sortBy, sortOrder, user]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/clients", queryParams],
