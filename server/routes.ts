@@ -412,15 +412,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const year = parseInt(req.params.year);
       const month = parseInt(req.params.month);
+      const { currentUserId, currentUserRole } = req.query;
       
       if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
         return res.status(400).json({ message: "Invalid year or month" });
       }
       
-      const sessions = await storage.getSessionsByMonth(year, month);
+      let sessions = await storage.getSessionsByMonth(year, month);
+      
+      // Role-based filtering
+      if (currentUserRole === "therapist" && currentUserId) {
+        const therapistId = parseInt(currentUserId as string);
+        sessions = sessions.filter(session => session.therapistId === therapistId);
+      } else if (currentUserRole === "supervisor" && currentUserId) {
+        const supervisorId = parseInt(currentUserId as string);
+        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        
+        if (supervisorAssignments.length === 0) {
+          return res.json([]);
+        }
+        
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        sessions = sessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
+      }
+      
       res.json(sessions);
     } catch (error) {
-      // Error logged
+      console.error("Sessions access error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -450,8 +468,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientId,
         sortBy = "createdAt",
         sortOrder = "desc",
-        includeCompleted = "false"
+        includeCompleted = "false",
+        currentUserId,
+        currentUserRole
       } = req.query;
+
+      let filteredAssignedToId = assignedToId ? parseInt(assignedToId as string) : undefined;
+
+      // Role-based filtering
+      if (currentUserRole === "therapist" && currentUserId) {
+        // Therapists can only see tasks assigned to them
+        const therapistId = parseInt(currentUserId as string);
+        filteredAssignedToId = therapistId;
+      } else if (currentUserRole === "supervisor" && currentUserId) {
+        // Supervisors can only see tasks for their supervised therapists
+        const supervisorId = parseInt(currentUserId as string);
+        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        
+        if (supervisorAssignments.length === 0) {
+          return res.json({ tasks: [], total: 0, totalPages: 0 });
+        }
+        
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        
+        if (assignedToId) {
+          const requestedTherapistId = parseInt(assignedToId as string);
+          if (!supervisedTherapistIds.includes(requestedTherapistId)) {
+            return res.json({ tasks: [], total: 0, totalPages: 0 });
+          }
+        }
+      }
 
       const params = {
         page: parseInt(page as string),
@@ -459,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search: search as string,
         status: status as string,
         priority: priority as string,
-        assignedToId: assignedToId ? parseInt(assignedToId as string) : undefined,
+        assignedToId: filteredAssignedToId,
         clientId: clientId ? parseInt(clientId as string) : undefined,
         sortBy: sortBy as string,
         sortOrder: sortOrder as "asc" | "desc",
@@ -469,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.getAllTasks(params);
       res.json(result);
     } catch (error) {
-      // Error logged
+      console.error("Tasks access error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

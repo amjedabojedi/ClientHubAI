@@ -33,24 +33,40 @@ function Navigation() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   
-  const navItems = [
-    { path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/clients", label: "Clients", icon: Users },
-    { path: "/scheduling", label: "Scheduling", icon: Calendar },
-    { path: "/tasks", label: "Tasks", icon: CheckSquare },
-    { 
-      path: "/administration", 
-      label: "Administration", 
-      icon: Cog,
-      submenu: [
-        { path: "/library", label: "Library", icon: BookOpen },
-        { path: "/assessments", label: "Assessments", icon: ClipboardList },
-        { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
-        { path: "/role-management", label: "Role Management", icon: Shield },
-        { path: "/settings", label: "Settings", icon: Settings },
-      ]
-    },
-  ];
+  // Filter navigation items based on user role
+  const getNavItems = () => {
+    const baseItems: Array<{
+      path: string;
+      label: string;
+      icon: any;
+      submenu?: Array<{ path: string; label: string; icon: any }>;
+    }> = [
+      { path: "/", label: "Dashboard", icon: LayoutDashboard },
+      { path: "/clients", label: "Clients", icon: Users },
+      { path: "/scheduling", label: "Scheduling", icon: Calendar },
+      { path: "/tasks", label: "Tasks", icon: CheckSquare },
+    ];
+
+    // Only show Administration menu to supervisors and admins
+    if (user?.role === 'admin' || user?.role === 'supervisor') {
+      baseItems.push({
+        path: "/administration", 
+        label: "Administration", 
+        icon: Cog,
+        submenu: [
+          { path: "/library", label: "Library", icon: BookOpen },
+          { path: "/assessments", label: "Assessments", icon: ClipboardList },
+          { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
+          { path: "/role-management", label: "Role Management", icon: Shield },
+          { path: "/settings", label: "Settings", icon: Settings },
+        ]
+      });
+    }
+
+    return baseItems;
+  };
+
+  const navItems = getNavItems();
 
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">

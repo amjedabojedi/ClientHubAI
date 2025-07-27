@@ -46,6 +46,7 @@ import {
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 // Session form schema
 const sessionFormSchema = z.object({
@@ -95,6 +96,7 @@ interface Session {
 }
 
 export default function SchedulingPage() {
+  const { user } = useAuth();
   // Routing
   const [, setLocation] = useLocation();
   
@@ -122,7 +124,7 @@ export default function SchedulingPage() {
   
   // Fetch sessions for the selected date range
   const { data: sessions = [], isLoading } = useQuery({
-    queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`],
+    queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 

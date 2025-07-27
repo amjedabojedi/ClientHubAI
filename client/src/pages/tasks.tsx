@@ -44,6 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Task, Client, User as UserType } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 // Components
 import { TaskComments } from "@/components/task-management/task-comments";
@@ -593,6 +594,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
 
 // ===== MAIN TASKS PAGE COMPONENT =====
 export default function TasksPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -617,7 +619,9 @@ export default function TasksPage() {
         status: statusFilter !== 'all' ? statusFilter : undefined,
         priority: priorityFilter !== 'all' ? priorityFilter : undefined,
         assignedToId: assigneeFilter !== 'all' ? (assigneeFilter === 'unassigned' ? '' : assigneeFilter) : undefined,
-        includeCompleted: activeTab === "all"
+        includeCompleted: activeTab === "all",
+        currentUserId: user?.id,
+        currentUserRole: user?.role
       }
     ],
   });
