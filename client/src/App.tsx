@@ -25,6 +25,7 @@ import AssessmentReportPage from "@/pages/assessment-report";
 import UserProfilesPage from "@/pages/user-profiles-simplified";
 import RoleManagementPage from "@/pages/role-management";
 import SettingsPage from "@/pages/settings";
+import ChecklistManagementPage from "@/pages/checklist-management";
 import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
@@ -56,6 +57,7 @@ function Navigation() {
         submenu: [
           { path: "/library", label: "Library", icon: BookOpen },
           { path: "/assessments", label: "Assessments", icon: ClipboardList },
+          { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/settings", label: "Settings", icon: Settings },
@@ -201,6 +203,7 @@ function Router() {
           <Route path="/assessments" component={AssessmentsPage} />
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
           <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
+          <Route path="/checklist-management" component={ChecklistManagementPage} />
           <Route path="/user-profiles" component={UserProfilesPage} />
           <Route path="/role-management" component={RoleManagementPage} />
           <Route path="/settings" component={SettingsPage} />
