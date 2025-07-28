@@ -123,9 +123,24 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
         script.onload = async () => {
-          const parsed = await parseExcelFile(selectedFile);
-          setParsedData(parsed);
-          setStep(2);
+          try {
+            const parsed = await parseExcelFile(selectedFile);
+            setParsedData(parsed);
+            setStep(2);
+          } catch (error) {
+            toast({
+              title: "Error parsing file",
+              description: error instanceof Error ? error.message : "Failed to parse Excel file",
+              variant: "destructive"
+            });
+          }
+        };
+        script.onerror = () => {
+          toast({
+            title: "Error loading Excel library",
+            description: "Failed to load required Excel parsing library",
+            variant: "destructive"
+          });
         };
         document.head.appendChild(script);
       } else {
@@ -167,18 +182,19 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
   const uploadClientsMutation = useMutation({
     mutationFn: async (data: any[]) => {
       const response = await apiRequest("/api/clients/bulk-upload", "POST", { clients: data });
-      return response;
+      return response.json();
     },
-    onSuccess: (result) => {
+    onSuccess: (result: any) => {
       setResults(result);
       setStep(4);
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       toast({
         title: "Bulk upload completed",
-        description: `${result.successful} clients uploaded successfully`
+        description: `${result.successful || 0} clients uploaded successfully`
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Upload error:', error);
       toast({
         title: "Upload failed",
         description: error instanceof Error ? error.message : "Failed to upload clients",

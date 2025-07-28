@@ -345,8 +345,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json(results);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+    } catch (error: any) {
+      console.error('Bulk upload error:', error);
+      res.status(500).json({ 
+        message: "Bulk upload failed", 
+        details: error.message || "Internal server error" 
+      });
     }
   });
 
