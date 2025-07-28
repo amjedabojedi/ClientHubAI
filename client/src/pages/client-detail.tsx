@@ -62,9 +62,15 @@ import ProcessChecklistComponent from "@/components/checklist/process-checklist"
 
 // Client Checklists Display Component
 function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
-  const { data: checklists = [], isLoading } = useQuery({
+  const { toast } = useToast();
+  const { data: checklists = [], isLoading, refetch } = useQuery({
     queryKey: [`/api/clients/${clientId}/checklists`],
   });
+
+  // Add refresh button for testing
+  const handleRefresh = () => {
+    refetch();
+  };
 
   if (isLoading) {
     return (
@@ -86,21 +92,61 @@ function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
 
   return (
     <div className="space-y-4">
-      <h4 className="font-medium text-slate-900">Assigned Checklists ({checklists.length})</h4>
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium text-slate-900">Assigned Checklists ({checklists.length})</h4>
+        <Button variant="outline" size="sm" onClick={handleRefresh}>
+          Refresh
+        </Button>
+      </div>
       {checklists.map((checklist: any) => (
         <div key={checklist.id} className="border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <h5 className="font-medium">Checklist ID: {checklist.id}</h5>
+            <h5 className="font-medium">
+              {checklist.template ? checklist.template.name : `Template ${checklist.templateId}`}
+            </h5>
             <Badge variant={checklist.isCompleted ? "default" : "secondary"}>
               {checklist.isCompleted ? "Completed" : "In Progress"}
             </Badge>
           </div>
-          <div className="text-sm text-slate-600">
-            <p>Template ID: {checklist.templateId}</p>
+          <div className="text-sm text-slate-600 space-y-1">
+            {checklist.template && (
+              <p className="text-blue-600 font-medium">
+                Category: {checklist.template.category}
+              </p>
+            )}
+            {checklist.template && checklist.template.description && (
+              <p>{checklist.template.description}</p>
+            )}
             <p>Assigned: {new Date(checklist.createdAt).toLocaleDateString()}</p>
             {checklist.dueDate && (
               <p>Due: {new Date(checklist.dueDate).toLocaleDateString()}</p>
             )}
+          </div>
+          
+          <div className="mt-3 pt-3 border-t">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mr-2"
+              onClick={() => {
+                // TODO: Add functionality to view checklist items
+                toast({ title: "Checklist items view coming soon!" });
+              }}
+            >
+              <CheckSquare className="w-4 h-4 mr-2" />
+              View Items
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                // TODO: Add functionality to mark as complete
+                toast({ title: "Mark complete functionality coming soon!" });
+              }}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Mark Complete
+            </Button>
           </div>
         </div>
       ))}
@@ -2021,6 +2067,10 @@ export default function ClientDetailPage() {
                     }).then(() => {
                       setShowAssignDialog(false);
                       toast({ title: "Client Intake Process assigned successfully" });
+                      // Force refresh the checklists
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 1000);
                     });
                   }}
                 >
@@ -2038,6 +2088,8 @@ export default function ClientDetailPage() {
                     }).then(() => {
                       setShowAssignDialog(false);
                       toast({ title: "Initial Assessment assigned successfully" });
+                      // Force refresh the checklists
+                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/checklists`] });
                     });
                   }}
                 >
@@ -2055,6 +2107,8 @@ export default function ClientDetailPage() {
                     }).then(() => {
                       setShowAssignDialog(false);
                       toast({ title: "MVA Recovery Process assigned successfully" });
+                      // Force refresh the checklists
+                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/checklists`] });
                     });
                   }}
                 >
