@@ -112,12 +112,34 @@ const ChecklistManagement = () => {
     }
   });
 
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      const response = await apiRequest(`/api/checklist-templates/${templateId}`, 'DELETE');
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      refetchTemplates();
+      toast({ title: "Success", description: "Template deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete template", variant: "destructive" });
+    }
+  });
+
   const handleCreateTemplate = () => {
     createTemplateMutation.mutate(templateForm);
   };
 
   const handleCreateItem = () => {
     createItemMutation.mutate(itemForm);
+  };
+
+  const handleDeleteTemplate = (templateId: number) => {
+    if (confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
+      deleteTemplateMutation.mutate(templateId);
+    }
   };
 
   const getCategoryColor = (category: string) => {
@@ -252,7 +274,13 @@ const ChecklistManagement = () => {
                           <Button variant="ghost" size="sm">
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteTemplate(template.id)}
+                            disabled={deleteTemplateMutation.isPending}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>

@@ -3123,6 +3123,22 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.delete('/api/checklist-templates/:id', async (req, res) => {
+    try {
+      const templateId = parseInt(req.params.id);
+      const index = templateStorage.findIndex(t => t.id === templateId);
+      
+      if (index === -1) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      templateStorage.splice(index, 1);
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/checklist-items', async (req, res) => {
     try {
       const item = {
