@@ -252,9 +252,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await storage.deleteClient(id);
       res.status(204).send();
-    } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+    } catch (error: any) {
+      console.error('Delete client error:', error);
+      console.error('Error stack:', error.stack);
+      res.status(500).json({ 
+        message: "Failed to delete client. Client may have related records (sessions, tasks, documents, etc.)",
+        details: error.message 
+      });
     }
   });
 

@@ -693,6 +693,70 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteClient(id: number): Promise<void> {
+    // Cascade delete in proper dependency order
+    
+    // First get all sessions for this client
+    const clientSessions = await db.select({ id: sessions.id }).from(sessions).where(eq(sessions.clientId, id));
+    
+    // Delete session billing records first (they reference sessions)
+    for (const session of clientSessions) {
+      await db.delete(sessionBilling).where(eq(sessionBilling.sessionId, session.id));
+    }
+    
+    // Delete session notes (they reference sessions)
+    for (const session of clientSessions) {
+      await db.delete(sessionNotes).where(eq(sessionNotes.sessionId, session.id));
+    }
+    
+    // Now delete sessions
+    for (const session of clientSessions) {
+      await db.delete(sessions).where(eq(sessions.id, session.id));
+    }
+    
+    // Get all tasks for this client
+    const clientTasks = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.clientId, id));
+    
+    // Delete task comments first (they reference tasks)
+    for (const task of clientTasks) {
+      await db.delete(taskComments).where(eq(taskComments.taskId, task.id));
+    }
+    
+    // Delete tasks
+    for (const task of clientTasks) {
+      await db.delete(tasks).where(eq(tasks.id, task.id));
+    }
+    
+    // Get all assessment assignments for this client
+    const clientAssignments = await db.select({ id: assessmentAssignments.id }).from(assessmentAssignments).where(eq(assessmentAssignments.clientId, id));
+    
+    // Delete assessment responses first (they reference assignments)
+    for (const assignment of clientAssignments) {
+      await db.delete(assessmentResponses).where(eq(assessmentResponses.assignmentId, assignment.id));
+    }
+    
+    // Delete assessment assignments
+    for (const assignment of clientAssignments) {
+      await db.delete(assessmentAssignments).where(eq(assessmentAssignments.id, assignment.id));
+    }
+    
+    // Get all checklists for this client
+    const clientChecklistsList = await db.select({ id: clientChecklists.id }).from(clientChecklists).where(eq(clientChecklists.clientId, id));
+    
+    // Delete checklist items first (they reference checklists)
+    for (const checklist of clientChecklistsList) {
+      await db.delete(clientChecklistItems).where(eq(clientChecklistItems.clientChecklistId, checklist.id));
+    }
+    
+    // Delete client checklists
+    await db.delete(clientChecklists).where(eq(clientChecklists.clientId, id));
+    
+    // Delete documents
+    await db.delete(documents).where(eq(documents.clientId, id));
+    
+    // Delete notes
+    await db.delete(notes).where(eq(notes.clientId, id));
+    
+    // Finally delete the client
     await db.delete(clients).where(eq(clients.id, id));
   }
 
