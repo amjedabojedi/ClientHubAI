@@ -289,8 +289,29 @@ const ChecklistManagement = () => {
                   </CardHeader>
                   {template.items && template.items.length > 0 && (
                     <CardContent>
-                      <div className="text-sm text-slate-600">
+                      <div className="text-sm text-slate-600 mb-3">
                         {template.items.length} items • {template.items.filter(item => item.isRequired).length} required
+                      </div>
+                      <div className="space-y-2">
+                        {template.items.slice(0, 3).map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-slate-400" />
+                              <span className="text-sm font-medium">{item.title}</span>
+                              {item.isRequired && (
+                                <Badge variant="outline" className="text-xs">Required</Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Day {item.daysFromStart}
+                            </div>
+                          </div>
+                        ))}
+                        {template.items.length > 3 && (
+                          <div className="text-xs text-slate-500 text-center pt-2">
+                            +{template.items.length - 3} more items
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   )}
@@ -377,10 +398,63 @@ const ChecklistManagement = () => {
             </Dialog>
           </div>
 
-          <div className="text-center py-12">
-            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">Checklist Items</h3>
-            <p className="text-slate-600">Select a template from the Templates tab to view and manage its items</p>
+          <div className="space-y-6">
+            {templates.map((template) => (
+              template.items && template.items.length > 0 && (
+                <Card key={template.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {getCategoryIcon(template.category)}
+                        <div>
+                          <CardTitle className="text-lg">{template.name}</CardTitle>
+                          <p className="text-sm text-slate-600">{template.items.length} items</p>
+                        </div>
+                      </div>
+                      <Badge className={getCategoryColor(template.category)}>
+                        {template.category}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {template.items.map((item, index) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full text-xs font-medium">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <div className="font-medium">{item.title}</div>
+                              {item.description && (
+                                <div className="text-sm text-slate-600">{item.description}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-xs text-slate-500">Day {item.daysFromStart}</div>
+                            {item.isRequired && (
+                              <Badge variant="outline" className="text-xs">Required</Badge>
+                            )}
+                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            ))}
+            
+            {templates.every(t => !t.items || t.items.length === 0) && (
+              <div className="text-center py-12">
+                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-slate-900 mb-2">No Checklist Items</h3>
+                <p className="text-slate-600">Create templates first, then add items to build your checklists</p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
