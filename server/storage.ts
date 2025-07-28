@@ -78,6 +78,14 @@ import type {
   InsertAssessmentResponse,
   AssessmentReport,
   InsertAssessmentReport,
+  ChecklistTemplate,
+  InsertChecklistTemplate,
+  ChecklistItem,
+  InsertChecklistItem,
+  ClientChecklist,
+  InsertClientChecklist,
+  ClientChecklistItem,
+  InsertClientChecklistItem,
   SelectService,
   InsertService,
   SelectRoom,
@@ -2487,6 +2495,130 @@ export class DatabaseStorage implements IStorage {
 
   async deleteOptionCategory(id: number): Promise<void> {
     await db.delete(optionCategories).where(eq(optionCategories.id, id));
+  }
+
+  // ===== CHECKLIST TEMPLATE MANAGEMENT =====
+  // Database-backed storage for checklist templates and items
+
+  // Checklist Template Management
+  async getChecklistTemplates(): Promise<(ChecklistTemplate & { items: ChecklistItem[] })[]> {
+    const templates = await db.select().from(checklistTemplates)
+      .where(eq(checklistTemplates.isActive, true))
+      .orderBy(checklistTemplates.sortOrder, checklistTemplates.name);
+
+    // Get items for each template
+    const templatesWithItems = await Promise.all(templates.map(async (template) => {
+      const items = await db.select().from(checklistItems)
+        .where(eq(checklistItems.templateId, template.id))
+        .orderBy(checklistItems.sortOrder, checklistItems.title);
+      
+      return { ...template, items };
+    }));
+
+    return templatesWithItems;
+  }
+
+  async getChecklistTemplate(id: number): Promise<(ChecklistTemplate & { items: ChecklistItem[] }) | undefined> {
+    const [template] = await db.select().from(checklistTemplates)
+      .where(and(eq(checklistTemplates.id, id), eq(checklistTemplates.isActive, true)));
+    
+    if (!template) return undefined;
+
+    const items = await db.select().from(checklistItems)
+      .where(eq(checklistItems.templateId, id))
+      .orderBy(checklistItems.sortOrder, checklistItems.title);
+
+    return { ...template, items };
+  }
+
+  async createChecklistTemplate(templateData: InsertChecklistTemplate): Promise<ChecklistTemplate> {
+    const [template] = await db.insert(checklistTemplates).values(templateData).returning();
+    return template;
+  }
+
+  async updateChecklistTemplate(id: number, templateData: Partial<InsertChecklistTemplate>): Promise<ChecklistTemplate> {
+    const [template] = await db.update(checklistTemplates)
+      .set({ ...templateData, updatedAt: new Date() })
+      .where(eq(checklistTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteChecklistTemplate(id: number): Promise<void> {
+    await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
+  }
+
+  // Checklist Item Management
+  async getChecklistItems(templateId?: number): Promise<ChecklistItem[]> {
+    let query = db.select().from(checklistItems);
+    
+    if (templateId) {
+      query = query.where(eq(checklistItems.templateId, templateId));
+    }
+    
+    return await query.orderBy(checklistItems.templateId, checklistItems.sortOrder, checklistItems.title);
+  }
+
+  async createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem> {
+    const [item] = await db.insert(checklistItems).values(itemData).returning();
+    return item;
+  }
+
+  async updateChecklistItem(id: number, itemData: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
+    const [item] = await db.update(checklistItems)
+      .set(itemData)
+      .where(eq(checklistItems.id, id))
+      .returning();
+    return item;
+  }
+
+  async deleteChecklistItem(id: number): Promise<void> {
+    await db.delete(checklistItems).where(eq(checklistItems.id, id));
+  }
+
+  // Client Checklist Management
+  async getClientChecklists(clientId: number): Promise<(ClientChecklist & { template: ChecklistTemplate; items: (ClientChecklistItem & { checklistItem: ChecklistItem })[] })[]> {
+    const checklists = await db.select({
+      checklist: clientChecklists,
+      template: checklistTemplates
+    })
+    .from(clientChecklists)
+    .innerJoin(checklistTemplates, eq(clientChecklists.templateId, checklistTemplates.id))
+    .where(eq(clientChecklists.clientId, clientId))
+    .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
+
+    // Get items for each checklist
+    const checklistsWithItems = await Promise.all(checklists.map(async (row) => {
+      const items = await db.select({
+        clientChecklistItem: clientChecklistItems,
+        checklistItem: checklistItems
+      })
+      .from(clientChecklistItems)
+      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
+      .where(eq(clientChecklistItems.clientChecklistId, row.checklist.id))
+      .orderBy(checklistItems.sortOrder);
+
+      return {
+        ...row.checklist,
+        template: row.template,
+        items: items.map(item => ({ ...item.clientChecklistItem, checklistItem: item.checklistItem }))
+      };
+    }));
+
+    return checklistsWithItems;
+  }
+
+  async createClientChecklist(checklistData: InsertClientChecklist): Promise<ClientChecklist> {
+    const [checklist] = await db.insert(clientChecklists).values(checklistData).returning();
+    return checklist;
+  }
+
+  async updateClientChecklistItem(id: number, itemData: Partial<InsertClientChecklistItem>): Promise<ClientChecklistItem> {
+    const [item] = await db.update(clientChecklistItems)
+      .set(itemData)
+      .where(eq(clientChecklistItems.id, id))
+      .returning();
+    return item;
   }
 
   // System Options Management

@@ -3073,35 +3073,12 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // ===== CHECKLIST TEMPLATE MANAGEMENT =====
-  // In-memory storage for templates until database is ready
-  const templateStorage: any[] = [
-    {
-      id: 1,
-      name: "Client Intake Process",
-      description: "Essential steps for new client onboarding and initial setup",
-      category: "intake",
-      clientType: null,
-      sortOrder: 1,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      items: []
-    },
-    {
-      id: 2,
-      name: "Initial Assessment",
-      description: "Comprehensive assessment requirements for clinical evaluation", 
-      category: "assessment",
-      clientType: null,
-      sortOrder: 2,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      items: []
-    }
-  ];
+  // Database-backed storage for checklist templates and items
 
   app.get('/api/checklist-templates', async (req, res) => {
     try {
-      res.json(templateStorage);
+      const templates = await storage.getChecklistTemplates();
+      res.json(templates);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3109,14 +3086,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post('/api/checklist-templates', async (req, res) => {
     try {
-      const template = {
-        id: Date.now(),
-        ...req.body,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        items: []
-      };
-      templateStorage.push(template);
+      const template = await storage.createChecklistTemplate(req.body);
       res.json(template);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -3126,14 +3096,18 @@ This happens because only the file metadata was stored, not the actual file cont
   app.delete('/api/checklist-templates/:id', async (req, res) => {
     try {
       const templateId = parseInt(req.params.id);
-      const index = templateStorage.findIndex(t => t.id === templateId);
-      
-      if (index === -1) {
-        return res.status(404).json({ error: 'Template not found' });
-      }
-      
-      templateStorage.splice(index, 1);
+      await storage.deleteChecklistTemplate(templateId);
       res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/checklist-items', async (req, res) => {
+    try {
+      const templateId = req.query.templateId ? parseInt(req.query.templateId as string) : undefined;
+      const items = await storage.getChecklistItems(templateId);
+      res.json(items);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3141,21 +3115,18 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post('/api/checklist-items', async (req, res) => {
     try {
-      const item = {
-        id: Date.now(),
-        ...req.body,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Add item to the corresponding template
-      const template = templateStorage.find(t => t.id === req.body.templateId);
-      if (template) {
-        if (!template.items) template.items = [];
-        template.items.push(item);
-      }
-      
+      const item = await storage.createChecklistItem(req.body);
       res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/checklist-items/:id', async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      await storage.deleteChecklistItem(itemId);
+      res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -3172,11 +3143,10 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.put('/api/client-checklist-items/:itemId', async (req, res) => {
+  app.put('/api/client-checklist-items/:id', async (req, res) => {
     try {
-      const itemId = parseInt(req.params.itemId);
-      const itemData = req.body;
-      const updatedItem = await storage.updateClientChecklistItem(itemId, itemData);
+      const itemId = parseInt(req.params.id);
+      const updatedItem = await storage.updateClientChecklistItem(itemId, req.body);
       res.json(updatedItem);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
