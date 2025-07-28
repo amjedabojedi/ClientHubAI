@@ -124,32 +124,134 @@ function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
           </div>
           
           <div className="mt-3 pt-3 border-t">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mr-2"
-              onClick={() => {
-                // TODO: Add functionality to view checklist items
-                toast({ title: "Checklist items view coming soon!" });
-              }}
-            >
-              <CheckSquare className="w-4 h-4 mr-2" />
-              View Items
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                // TODO: Add functionality to mark as complete
-                toast({ title: "Mark complete functionality coming soon!" });
-              }}
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Mark Complete
-            </Button>
+            <ChecklistItemsDisplay 
+              clientChecklistId={checklist.id} 
+              templateId={checklist.templateId}
+            />
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Checklist Items Display Component
+function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientChecklistId: number; templateId: number }) {
+  const [showItems, setShowItems] = useState(false);
+  const [itemNotes, setItemNotes] = useState<{ [key: number]: string }>({});
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Get template items
+  const { data: templateItems = [] } = useQuery({
+    queryKey: [`/api/checklist-items`, { templateId }],
+    enabled: showItems,
+  });
+
+  // Get client checklist items
+  const { data: clientItems = [] } = useQuery({
+    queryKey: [`/api/client-checklist-items/${clientChecklistId}`],
+    enabled: showItems,
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({ itemId, isCompleted, notes }: { itemId: number; isCompleted: boolean; notes?: string }) =>
+      apiRequest(`/api/client-checklist-items/${itemId}`, "PUT", { isCompleted, notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/client-checklist-items/${clientChecklistId}`] });
+      toast({ title: "Item updated successfully" });
+    },
+  });
+
+  const handleItemToggle = (itemId: number, isCompleted: boolean, notes?: string) => {
+    updateItemMutation.mutate({ itemId, isCompleted, notes });
+  };
+
+  if (!showItems) {
+    return (
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={() => setShowItems(true)}
+      >
+        <CheckSquare className="w-4 h-4 mr-2" />
+        View Items ({templateItems.length || '...'})
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h6 className="font-medium text-sm">Checklist Items</h6>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => setShowItems(false)}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+      
+      {clientItems.map((clientItem: any) => {
+        const templateItem = clientItem.templateItem;
+        const isCompleted = clientItem.isCompleted || false;
+        const itemId = clientItem.id;
+        
+        return (
+          <div key={itemId} className="border rounded p-3 bg-slate-50">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                checked={isCompleted}
+                onCheckedChange={(checked) => {
+                  const notes = itemNotes[itemId] || clientItem.notes || "";
+                  handleItemToggle(itemId, checked as boolean, notes);
+                }}
+              />
+              <div className="flex-1 space-y-2">
+                <div>
+                  <h6 className="font-medium text-sm">{templateItem?.title || 'Unknown Item'}</h6>
+                  {templateItem?.description && (
+                    <p className="text-xs text-slate-600">{templateItem.description}</p>
+                  )}
+                  {templateItem?.isRequired && (
+                    <Badge variant="destructive" className="text-xs">Required</Badge>
+                  )}
+                </div>
+                
+                <div>
+                  <Label htmlFor={`notes-${itemId}`} className="text-xs">Notes/Comments:</Label>
+                  <Textarea
+                    id={`notes-${itemId}`}
+                    placeholder="Add notes or comments for this item..."
+                    value={itemNotes[itemId] || clientItem.notes || ""}
+                    onChange={(e) => setItemNotes(prev => ({ ...prev, [itemId]: e.target.value }))}
+                    className="text-xs h-16"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-1 text-xs"
+                    onClick={() => {
+                      const notes = itemNotes[itemId] || "";
+                      handleItemToggle(itemId, isCompleted, notes);
+                    }}
+                    disabled={updateItemMutation.isPending}
+                  >
+                    {updateItemMutation.isPending ? "Saving..." : "Save Notes"}
+                  </Button>
+                </div>
+
+                {clientItem.completedAt && (
+                  <p className="text-xs text-green-600">
+                    Completed: {new Date(clientItem.completedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -348,6 +450,8 @@ export default function ClientDetailPage() {
     notes: ''
   });
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
+  const [showItemsDialog, setShowItemsDialog] = useState(false);
 
   // ==================== React Query Setup ====================
   const queryClient = useQueryClient();

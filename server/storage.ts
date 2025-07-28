@@ -2594,10 +2594,30 @@ export class DatabaseStorage implements IStorage {
 
   async updateClientChecklistItem(id: number, itemData: Partial<InsertClientChecklistItem>): Promise<ClientChecklistItem> {
     const [item] = await db.update(clientChecklistItems)
-      .set(itemData)
+      .set({ ...itemData, completedAt: itemData.isCompleted ? new Date() : null })
       .where(eq(clientChecklistItems.id, id))
       .returning();
     return item;
+  }
+
+  async getClientChecklistItems(clientChecklistId: number): Promise<any[]> {
+    try {
+      const items = await db.select({
+        clientItem: clientChecklistItems,
+        templateItem: checklistItems
+      })
+      .from(clientChecklistItems)
+      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
+      .where(eq(clientChecklistItems.clientChecklistId, clientChecklistId))
+      .orderBy(checklistItems.sortOrder);
+
+      return items.map(row => ({
+        ...row.clientItem,
+        templateItem: row.templateItem
+      }));
+    } catch (error) {
+      return [];
+    }
   }
 
   // System Options Management
