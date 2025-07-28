@@ -61,9 +61,14 @@ const ChecklistManagement = () => {
   const queryClient = useQueryClient();
 
   // Fetch templates
-  const { data: templatesData, isLoading: templatesLoading } = useQuery({
+  const { data: templatesData, isLoading: templatesLoading, refetch: refetchTemplates } = useQuery({
     queryKey: ['/api/checklist-templates'],
-    queryFn: () => apiRequest('/api/checklist-templates')
+    queryFn: async () => {
+      const response = await apiRequest('/api/checklist-templates', 'GET');
+      return response.json();
+    },
+    staleTime: 30000, // 30 seconds
+    cacheTime: 300000 // 5 minutes
   });
 
   // Ensure templates is always an array
@@ -71,11 +76,14 @@ const ChecklistManagement = () => {
 
   // Create template mutation
   const createTemplateMutation = useMutation({
-    mutationFn: (template: any) => apiRequest('/api/checklist-templates', 'POST', template),
+    mutationFn: async (template: any) => {
+      const response = await apiRequest('/api/checklist-templates', 'POST', template);
+      return response.json();
+    },
     onSuccess: () => {
       // Force refetch templates
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
-      queryClient.refetchQueries({ queryKey: ['/api/checklist-templates'] });
+      refetchTemplates();
       setIsTemplateDialogOpen(false);
       setTemplateForm({ name: "", description: "", category: "", clientType: "", sortOrder: 1 });
       toast({ title: "Success", description: "Checklist template created successfully" });
@@ -87,11 +95,14 @@ const ChecklistManagement = () => {
 
   // Create item mutation
   const createItemMutation = useMutation({
-    mutationFn: (item: any) => apiRequest('/api/checklist-items', 'POST', item),
+    mutationFn: async (item: any) => {
+      const response = await apiRequest('/api/checklist-items', 'POST', item);
+      return response.json();
+    },
     onSuccess: () => {
       // Force refetch templates after item creation
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
-      queryClient.refetchQueries({ queryKey: ['/api/checklist-templates'] });
+      refetchTemplates();
       setIsItemDialogOpen(false);
       setItemForm({ templateId: 0, title: "", description: "", isRequired: true, daysFromStart: 1, sortOrder: 1 });
       toast({ title: "Success", description: "Checklist item created successfully" });
