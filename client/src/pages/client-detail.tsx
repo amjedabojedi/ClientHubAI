@@ -60,6 +60,128 @@ import SessionNotesManager from "@/components/session-notes/session-notes-manage
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
 
+// Client Checklists Display Component
+function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
+  const { data: checklists = [], isLoading } = useQuery({
+    queryKey: [`/api/clients/${clientId}/checklists`],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (checklists.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-slate-900 mb-2">No Checklists Assigned</h3>
+        <p className="text-slate-500 mb-6">Click "Assign Checklist Template" to select a process checklist for this client.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h4 className="font-medium text-slate-900">Assigned Checklists ({checklists.length})</h4>
+      {checklists.map((checklist: any) => (
+        <div key={checklist.id} className="border rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h5 className="font-medium">Checklist ID: {checklist.id}</h5>
+            <Badge variant={checklist.isCompleted ? "default" : "secondary"}>
+              {checklist.isCompleted ? "Completed" : "In Progress"}
+            </Badge>
+          </div>
+          <div className="text-sm text-slate-600">
+            <p>Template ID: {checklist.templateId}</p>
+            <p>Assigned: {new Date(checklist.createdAt).toLocaleDateString()}</p>
+            {checklist.dueDate && (
+              <p>Due: {new Date(checklist.dueDate).toLocaleDateString()}</p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Checklist Assignment Form Component  
+function ChecklistAssignmentForm({ clientId, onClose }: { clientId: number; onClose: () => void }) {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [dueDate, setDueDate] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["/api/checklist-templates"],
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (data: { templateId: number; dueDate?: string }) => 
+      apiRequest(`/api/clients/${clientId}/checklists`, "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/checklists`] });
+      toast({ title: "Checklist template assigned successfully" });
+      onClose();
+    },
+    onError: () => {
+      toast({ title: "Failed to assign checklist template", variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (selectedTemplateId) {
+      assignMutation.mutate({
+        templateId: selectedTemplateId,
+        dueDate: dueDate || undefined,
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="template">Select Checklist Template</Label>
+        <Select value={selectedTemplateId?.toString() || ""} onValueChange={(value) => setSelectedTemplateId(parseInt(value))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choose a checklist template" />
+          </SelectTrigger>
+          <SelectContent>
+            {templates.map((template: any) => (
+              <SelectItem key={template.id} value={template.id.toString()}>
+                {template.name} ({template.category})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div>
+        <Label htmlFor="dueDate">Due Date (Optional)</Label>
+        <Input
+          id="dueDate"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button 
+          onClick={handleSubmit} 
+          disabled={!selectedTemplateId || assignMutation.isPending}
+        >
+          {assignMutation.isPending ? "Assigning..." : "Assign Checklist"}
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
 // Text File Viewer Component
 function TextFileViewer({ clientId, document }: { clientId: string; document: Document }) {
   const [textContent, setTextContent] = useState<string>("");
@@ -179,6 +301,7 @@ export default function ClientDetailPage() {
     method: 'cash',
     notes: ''
   });
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
   // ==================== React Query Setup ====================
   const queryClient = useQueryClient();
@@ -1762,15 +1885,26 @@ export default function ClientDetailPage() {
 
           {/* Process Checklist Tab */}
           <TabsContent value="checklist" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">Healthcare Process Checklists</h2>
-                <p className="text-slate-600">Regulatory compliance and workflow tracking for standardized care processes</p>
-              </div>
-            </div>
-
-            {/* Process Checklists */}
-            <ProcessChecklistComponent clientId={client.id} />
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <ClipboardList className="w-5 h-5 text-blue-600" />
+                    <span>Client Process Checklists</span>
+                  </div>
+                  <Button 
+                    onClick={() => setShowAssignDialog(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Assign Checklist Template
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ClientChecklistsDisplay clientId={clientId} />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
@@ -1859,6 +1993,79 @@ export default function ClientDetailPage() {
               {uploadDocumentMutation.isPending ? "Uploading..." : "Upload"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Checklist Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Assign Checklist Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Select a checklist template to assign to {client?.fullName}. This will create a workflow with all required items.
+            </p>
+            <div>
+              <Label>Available Templates:</Label>
+              <div className="space-y-2 mt-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    // Assign template ID 1 (Client Intake Process)
+                    fetch(`/api/clients/${clientId}/checklists`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ templateId: 1 })
+                    }).then(() => {
+                      setShowAssignDialog(false);
+                      toast({ title: "Client Intake Process assigned successfully" });
+                    });
+                  }}
+                >
+                  Client Intake Process (intake)
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    // Assign template ID 2 (Initial Assessment)
+                    fetch(`/api/clients/${clientId}/checklists`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ templateId: 2 })
+                    }).then(() => {
+                      setShowAssignDialog(false);
+                      toast({ title: "Initial Assessment assigned successfully" });
+                    });
+                  }}
+                >
+                  Initial Assessment (assessment)
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    // Assign template ID 3 (MVA Recovery Process)
+                    fetch(`/api/clients/${clientId}/checklists`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ templateId: 3 })
+                    }).then(() => {
+                      setShowAssignDialog(false);
+                      toast({ title: "MVA Recovery Process assigned successfully" });
+                    });
+                  }}
+                >
+                  MVA Recovery Process (ongoing)
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

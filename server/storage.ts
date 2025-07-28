@@ -2578,11 +2578,13 @@ export class DatabaseStorage implements IStorage {
 
   // Client Checklist Management
   async getClientChecklists(clientId: number): Promise<any[]> {
-    const checklists = await db.select().from(clientChecklists)
-      .where(eq(clientChecklists.clientId, clientId))
-      .orderBy(clientChecklists.createdAt);
-
-    return checklists;
+    try {
+      const checklists = await db.select().from(clientChecklists)
+        .where(eq(clientChecklists.clientId, clientId));
+      return checklists;
+    } catch (error) {
+      return [];
+    }
   }
 
   async createClientChecklist(checklistData: InsertClientChecklist): Promise<ClientChecklist> {
