@@ -2577,35 +2577,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Client Checklist Management
-  async getClientChecklists(clientId: number): Promise<(ClientChecklist & { template: ChecklistTemplate; items: (ClientChecklistItem & { checklistItem: ChecklistItem })[] })[]> {
-    const checklists = await db.select({
-      checklist: clientChecklists,
-      template: checklistTemplates
-    })
-    .from(clientChecklists)
-    .innerJoin(checklistTemplates, eq(clientChecklists.templateId, checklistTemplates.id))
-    .where(eq(clientChecklists.clientId, clientId))
-    .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
+  async getClientChecklists(clientId: number): Promise<any[]> {
+    const checklists = await db.select().from(clientChecklists)
+      .where(eq(clientChecklists.clientId, clientId))
+      .orderBy(clientChecklists.createdAt);
 
-    // Get items for each checklist
-    const checklistsWithItems = await Promise.all(checklists.map(async (row) => {
-      const items = await db.select({
-        clientChecklistItem: clientChecklistItems,
-        checklistItem: checklistItems
-      })
-      .from(clientChecklistItems)
-      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
-      .where(eq(clientChecklistItems.clientChecklistId, row.checklist.id))
-      .orderBy(checklistItems.sortOrder);
-
-      return {
-        ...row.checklist,
-        template: row.template,
-        items: items.map(item => ({ ...item.clientChecklistItem, checklistItem: item.checklistItem }))
-      };
-    }));
-
-    return checklistsWithItems;
+    return checklists;
   }
 
   async createClientChecklist(checklistData: InsertClientChecklist): Promise<ClientChecklist> {
@@ -2741,39 +2718,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Client Checklist Management
-  async getClientChecklists(clientId: number): Promise<(ClientChecklist & { template: ChecklistTemplate; items: (ClientChecklistItem & { checklistItem: ChecklistItem; completedByUser?: User })[] })[]> {
-    const checklists = await db.select().from(clientChecklists)
-      .where(eq(clientChecklists.clientId, clientId))
-      .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
+  async getClientChecklists(clientId: number): Promise<any[]> {
+    const checklists = await db.select({
+      checklist: clientChecklists,
+      template: checklistTemplates
+    })
+    .from(clientChecklists)
+    .innerJoin(checklistTemplates, eq(clientChecklists.templateId, checklistTemplates.id))
+    .where(eq(clientChecklists.clientId, clientId))
+    .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
 
-    const result = [];
-    for (const checklist of checklists) {
-      const template = await this.getChecklistTemplate(checklist.templateId);
-      if (!template) continue;
+    return checklists.map(row => ({
+      ...row.checklist,
+      template: row.template
+    }));
+  }
 
-      const items = await db.select({
-        item: clientChecklistItems,
-        checklistItem: checklistItems,
-        completedByUser: users
-      })
-      .from(clientChecklistItems)
-      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
-      .leftJoin(users, eq(clientChecklistItems.completedBy, users.id))
-      .where(eq(clientChecklistItems.clientChecklistId, checklist.id))
+  async assignChecklistToClient(clientId: number, templateId: number, dueDate?: string): Promise<any> {
+    const [assignment] = await db.insert(clientChecklists).values({
+      clientId,
+      templateId,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      isCompleted: false
+    }).returning();
+
+    // Create checklist items for the client
+    const templateItems = await db.select().from(checklistItems)
+      .where(eq(checklistItems.templateId, templateId))
       .orderBy(checklistItems.sortOrder);
 
-      result.push({
-        ...checklist,
-        template,
-        items: items.map(row => ({
-          ...row.item,
-          checklistItem: row.checklistItem,
-          completedByUser: row.completedByUser || undefined
+    if (templateItems.length > 0) {
+      await db.insert(clientChecklistItems).values(
+        templateItems.map(item => ({
+          clientChecklistId: assignment.id,
+          checklistItemId: item.id,
+          isCompleted: false
         }))
-      });
+      );
     }
 
-    return result;
+    return assignment;
   }
 
   async createClientChecklist(checklistData: InsertClientChecklist): Promise<ClientChecklist> {
