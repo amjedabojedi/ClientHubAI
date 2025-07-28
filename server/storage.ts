@@ -109,15 +109,7 @@ import type {
   SelectOptionCategory,
   InsertOptionCategory,
   SelectSystemOption,
-  InsertSystemOption,
-  ChecklistTemplate,
-  ChecklistItem,
-  ClientChecklist,
-  ClientChecklistItem,
-  InsertChecklistTemplate,
-  InsertChecklistItem,
-  InsertClientChecklist,
-  InsertClientChecklistItem
+  InsertSystemOption
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -2684,7 +2676,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(systemOptions).where(eq(systemOptions.id, id));
   }
 
-  // ===== CLIENT PROCESS CHECKLIST METHODS =====
+  // Auto-assign checklists when client is created
   
   // Checklist Template Management
   async getChecklistTemplates(): Promise<ChecklistTemplate[]> {

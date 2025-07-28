@@ -54,6 +54,58 @@ import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 // Types
 import type { Client, Task, Document, User, Session } from "@shared/schema";
 
+// Define types for checklists and assessments to fix 'unknown' type errors
+interface ChecklistTemplate {
+  id: number;
+  name: string;
+  category: string;
+  description?: string;
+  items?: ChecklistItem[];
+}
+
+interface ChecklistItem {
+  id: number;
+  title: string;
+  description?: string;
+  isRequired: boolean;
+  sortOrder: number;
+}
+
+interface ClientChecklist {
+  id: number;
+  clientId: number;
+  templateId: number;
+  template: ChecklistTemplate;
+  isCompleted: boolean;
+  completedAt?: string;
+  dueDate?: string;
+  notes?: string;
+}
+
+interface ClientChecklistItem {
+  id: number;
+  clientChecklistId: number;
+  checklistItemId: number;
+  isCompleted: boolean;
+  completedAt?: string;
+  notes?: string;
+  templateItem: ChecklistItem;
+}
+
+interface AssessmentAssignment {
+  id: number;
+  clientId: number;
+  templateId: number;
+  assignedDate: string;
+  completedDate?: string;
+  status: string;
+  template: {
+    id: number;
+    name: string;
+    description?: string;
+  };
+}
+
 // Components
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
@@ -64,7 +116,7 @@ import ProcessChecklistComponent from "@/components/checklist/process-checklist"
 // Client Checklists Display Component
 function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
   const { toast } = useToast();
-  const { data: checklists = [], isLoading, refetch } = useQuery({
+  const { data: checklists = [], isLoading, refetch } = useQuery<ClientChecklist[]>({
     queryKey: [`/api/clients/${clientId}/checklists`],
   });
 
@@ -150,7 +202,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
   });
 
   // Get client checklist items
-  const { data: clientItems = [] } = useQuery({
+  const { data: clientItems = [] } = useQuery<ClientChecklistItem[]>({
     queryKey: [`/api/client-checklist-items/${clientChecklistId}`],
     enabled: showItems,
   });
@@ -176,7 +228,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
         onClick={() => setShowItems(true)}
       >
         <CheckSquare className="w-4 h-4 mr-2" />
-        View Items ({templateItems.length || '...'})
+        View Items ({templateItems?.length || '...'})
       </Button>
     );
   }
@@ -194,7 +246,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
         </Button>
       </div>
       
-      {clientItems.map((clientItem: any) => {
+      {clientItems.map((clientItem) => {
         const templateItem = clientItem.templateItem;
         const isCompleted = clientItem.isCompleted || false;
         const itemId = clientItem.id;
@@ -264,7 +316,7 @@ function ChecklistAssignmentForm({ clientId, onClose }: { clientId: number; onCl
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: templates = [] } = useQuery({
+  const { data: templates = [] } = useQuery<ChecklistTemplate[]>({
     queryKey: ["/api/checklist-templates"],
   });
 
@@ -299,7 +351,7 @@ function ChecklistAssignmentForm({ clientId, onClose }: { clientId: number; onCl
             <SelectValue placeholder="Choose a checklist template" />
           </SelectTrigger>
           <SelectContent>
-            {templates.map((template: any) => (
+            {templates.map((template) => (
               <SelectItem key={template.id} value={template.id.toString()}>
                 {template.name} ({template.category})
               </SelectItem>
@@ -600,7 +652,7 @@ export default function ClientDetailPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `invoice-${client?.clientId}-${billingId || 'all'}-${new Date().toISOString().split('T')[0]}.html`;
+        a.download = `invoice-${client?.clientId}-${billingId?.toString() || 'all'}-${new Date().toISOString().split('T')[0]}.html`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -967,7 +1019,7 @@ export default function ClientDetailPage() {
     }))
   });
 
-  const { data: assignedAssessments = [] } = useQuery({
+  const { data: assignedAssessments = [] } = useQuery<AssessmentAssignment[]>({
     queryKey: [`/api/clients/${clientId}/assessments`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
@@ -1466,7 +1518,7 @@ export default function ClientDetailPage() {
                               </h4>
                               <p className="text-sm text-slate-600">
                                 {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString() : 'Date TBD'}
-                                {session.duration && ` • ${session.duration} minutes`}
+                                {session.sessionTime && ` • ${session.sessionTime}`}
                               </p>
                             </div>
                           </div>
@@ -1531,9 +1583,9 @@ export default function ClientDetailPage() {
                             </Button>
                           </div>
                         </div>
-                        {session.therapist && (
+                        {session.therapistId && (
                           <p className="text-sm text-slate-600 mb-2">
-                            <span className="font-medium">Therapist:</span> {session.therapist.fullName}
+                            <span className="font-medium">Therapist ID:</span> {session.therapistId}
                           </p>
                         )}
                         {session.notes && (
@@ -1598,7 +1650,7 @@ export default function ClientDetailPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-green-600">
-                    {assignedAssessments.filter(a => a.status === 'completed').length}
+                    {assignedAssessments.filter((a) => a.status === 'completed').length}
                   </div>
                   <p className="text-sm text-slate-600">Completed</p>
                 </CardContent>
@@ -1606,7 +1658,7 @@ export default function ClientDetailPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-yellow-600">
-                    {assignedAssessments.filter(a => a.status === 'in_progress').length}
+                    {assignedAssessments.filter((a) => a.status === 'in_progress').length}
                   </div>
                   <p className="text-sm text-slate-600">In Progress</p>
                 </CardContent>
@@ -1614,7 +1666,7 @@ export default function ClientDetailPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-slate-600">
-                    {assignedAssessments.filter(a => a.status === 'pending').length}
+                    {assignedAssessments.filter((a) => a.status === 'pending').length}
                   </div>
                   <p className="text-sm text-slate-600">Pending</p>
                 </CardContent>
