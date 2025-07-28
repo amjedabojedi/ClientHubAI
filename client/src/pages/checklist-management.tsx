@@ -73,7 +73,9 @@ const ChecklistManagement = () => {
   const createTemplateMutation = useMutation({
     mutationFn: (template: any) => apiRequest('/api/checklist-templates', 'POST', template),
     onSuccess: () => {
+      // Force refetch templates
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      queryClient.refetchQueries({ queryKey: ['/api/checklist-templates'] });
       setIsTemplateDialogOpen(false);
       setTemplateForm({ name: "", description: "", category: "", clientType: "", sortOrder: 1 });
       toast({ title: "Success", description: "Checklist template created successfully" });
@@ -87,7 +89,9 @@ const ChecklistManagement = () => {
   const createItemMutation = useMutation({
     mutationFn: (item: any) => apiRequest('/api/checklist-items', 'POST', item),
     onSuccess: () => {
+      // Force refetch templates after item creation
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      queryClient.refetchQueries({ queryKey: ['/api/checklist-templates'] });
       setIsItemDialogOpen(false);
       setItemForm({ templateId: 0, title: "", description: "", isRequired: true, daysFromStart: 1, sortOrder: 1 });
       toast({ title: "Success", description: "Checklist item created successfully" });
