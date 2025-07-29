@@ -182,8 +182,17 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
   // Upload clients
   const uploadClientsMutation = useMutation({
     mutationFn: async (data: any[]) => {
-      const response = await apiRequest("/api/clients/bulk-upload", "POST", { clients: data });
-      return response.json();
+      try {
+        const response = await apiRequest("/api/clients/bulk-upload", "POST", { clients: data });
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        // Handle timeout and other errors properly
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error("Failed to upload clients");
+      }
     },
     onSuccess: (result: any) => {
       setResults(result);
@@ -195,10 +204,10 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
       });
     },
     onError: (error: any) => {
-      console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload clients";
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload clients",
+        description: errorMessage,
         variant: "destructive"
       });
     }

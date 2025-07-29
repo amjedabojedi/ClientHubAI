@@ -14,7 +14,7 @@ export async function apiRequest(
 ): Promise<Response> {
   // Add timeout for bulk operations to prevent hanging
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for bulk operations
   
   try {
     const options: RequestInit = {
@@ -37,7 +37,7 @@ export async function apiRequest(
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timed out after 30 seconds');
+      throw new Error('Request timed out after 60 seconds');
     }
     throw error;
   }
