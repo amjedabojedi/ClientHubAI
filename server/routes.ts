@@ -362,6 +362,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const therapist = await storage.getUserByUsername(cleanData['_therapistUsername']);
               if (therapist) {
                 cleanData.assignedTherapistId = therapist.id;
+              } else {
+                results.errors.push({
+                  row: i + 1,
+                  data: clientData,
+                  message: `Warning: Therapist '${cleanData['_therapistUsername']}' not found. Client created without therapist assignment.`
+                });
               }
               delete cleanData['_therapistUsername'];
             } catch (error) {
