@@ -378,20 +378,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               delete cleanData['_therapistUsername'];
             }
-          } else {
-            // Auto-assign a random therapist if no specific assignment was provided
-            try {
-              const allTherapists = await storage.getUsers();
-              const therapists = allTherapists.filter(user => user.role === 'therapist');
-              
-              if (therapists.length > 0) {
-                const randomTherapist = therapists[Math.floor(Math.random() * therapists.length)];
-                cleanData.assignedTherapistId = randomTherapist.id;
-              }
-            } catch (error) {
-              // Continue without assignment if error occurs
-            }
           }
+          // No auto-assignment if no therapist is specified - leave unassigned
           
           // Skip empty rows and validate required fields
           if (!cleanData.fullName || cleanData.fullName.trim() === '') {
