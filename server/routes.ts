@@ -312,13 +312,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else if (['phone', 'referenceNumber', 'emergencyContactPhone', 'postalCode', 'policyNumber'].includes(key)) {
                 cleanData[key] = String(value);
               }
-              // Handle date fields - convert Date objects or ISO strings to YYYY-MM-DD format
+              // Handle date fields - convert Date objects, ISO strings, or Excel serial dates to YYYY-MM-DD format
               else if (['dateOfBirth', 'startDate', 'referralDate', 'lastSessionDate', 'nextAppointmentDate'].includes(key)) {
                 if (value instanceof Date) {
                   cleanData[key] = value.toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
                 } else if (typeof value === 'string' && value.includes('T')) {
                   // Handle ISO date strings (like "2024-01-15T00:00:00.000Z")
                   cleanData[key] = new Date(value).toISOString().split('T')[0];
+                } else if (typeof value === 'number' && value > 1) {
+                  // Handle Excel serial date numbers (days since January 1, 1900)
+                  // Excel considers 1900 as a leap year (which it wasn't), so we need to adjust
+                  const excelEpoch = new Date(1900, 0, 1); // January 1, 1900
+                  const adjustedDays = value > 59 ? value - 1 : value; // Adjust for Excel's leap year bug
+                  const date = new Date(excelEpoch.getTime() + (adjustedDays - 1) * 24 * 60 * 60 * 1000);
+                  cleanData[key] = date.toISOString().split('T')[0];
+                } else if (typeof value === 'string') {
+                  // Try to parse as a regular date string
+                  const parsedDate = new Date(value);
+                  if (!isNaN(parsedDate.getTime())) {
+                    cleanData[key] = parsedDate.toISOString().split('T')[0];
+                  } else {
+                    cleanData[key] = String(value);
+                  }
                 } else {
                   cleanData[key] = String(value);
                 }
