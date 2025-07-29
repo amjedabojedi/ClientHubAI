@@ -139,6 +139,7 @@ export interface IStorage {
   // ===== USER MANAGEMENT =====
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByName(fullName: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
   getTherapists(): Promise<User[]>;
@@ -364,6 +365,29 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUserByName(fullName: string): Promise<User | undefined> {
+    // Try exact match first
+    let [user] = await db.select().from(users).where(eq(users.fullName, fullName));
+    
+    if (!user) {
+      // Try case-insensitive match
+      [user] = await db.select().from(users).where(ilike(users.fullName, fullName));
+    }
+    
+    if (!user) {
+      // Try partial match - search for the name within the full name field
+      [user] = await db.select().from(users).where(ilike(users.fullName, `%${fullName}%`));
+    }
+    
+    if (!user) {
+      // Try reverse - clean both names and search
+      const cleanSearchName = fullName.replace(/,?\s*(RP\s*\(Qualifying\)|MSW|RP)\s*/gi, '').trim();
+      [user] = await db.select().from(users).where(ilike(users.fullName, `%${cleanSearchName}%`));
+    }
+    
     return user || undefined;
   }
 

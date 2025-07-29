@@ -359,7 +359,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Handle therapist assignment if provided
           if (cleanData['_therapistUsername']) {
             try {
-              const therapist = await storage.getUserByUsername(cleanData['_therapistUsername']);
+              // Try to find therapist by username first, then by full name
+              let therapist = await storage.getUserByUsername(cleanData['_therapistUsername']);
+              
+              if (!therapist) {
+                // Try to find by full name (supports names from Excel)
+                therapist = await storage.getUserByName(cleanData['_therapistUsername']);
+              }
+              
               if (therapist) {
                 cleanData.assignedTherapistId = therapist.id;
               } else {
