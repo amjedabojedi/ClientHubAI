@@ -207,31 +207,35 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
   // Download template
   const downloadTemplate = () => {
     const headers = REQUIRED_FIELDS.map(field => field.label);
-    const sampleData = [
-      'John Doe',
-      'dr.williams',
-      'REF-2024-001',
-      'john.doe@email.com',
-      '555-123-4567',
-      '1990-01-15',
-      'male',
-      'married',
-      '123 Main St',
-      'Seattle',
-      'WA',
-      '98101',
-      'Jane Doe',
-      '555-987-6543',
-      'Blue Cross Blue Shield',
-      'BC123456789',
-      'individual',
-      'active',
-      'intake'
-    ];
+    
+    // Create sample data that matches the REQUIRED_FIELDS order exactly
+    const sampleDataMap: { [key: string]: string } = {
+      'Full Name': 'John Doe',
+      'Assigned Therapist': 'dr.williams',
+      'Reference Number': 'REF-2024-001',
+      'Email': 'john.doe@email.com',
+      'Phone': '555-123-4567',
+      'Date of Birth': '1990-01-15',
+      'Gender': 'male',
+      'Marital Status': 'married',
+      'Street Address': '123 Main St',
+      'City': 'Seattle',
+      'State/Province': 'WA',
+      'ZIP/Postal Code': '98101',
+      'Emergency Contact Name': 'Jane Doe',
+      'Emergency Contact Phone': '555-987-6543',
+      'Insurance Provider': 'Blue Cross Blue Shield',
+      'Policy Number': 'BC123456789',
+      'Client Type': 'individual',
+      'Status': 'active',
+      'Stage': 'intake'
+    };
+    
+    const sampleData = headers.map(header => sampleDataMap[header] || '');
     
     const csvContent = "data:text/csv;charset=utf-8," + 
       headers.join(",") + "\n" + 
-      sampleData.slice(0, headers.length).join(",") + "\n";
+      sampleData.join(",") + "\n";
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
