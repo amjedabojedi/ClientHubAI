@@ -495,6 +495,21 @@ Advanced appointment management with multi-view calendar system:
 - **Database Migration Applied**: Successfully executed ALTER TABLE commands to remove NOT NULL constraints from optional fields
 - **Production Ready**: Minimal client creation now possible with just fullName, supporting flexible data entry workflows where additional information can be added later
 
+### Bulk Upload Therapist Assignment Integration (January 2025)
+- **Therapist Field Addition**: Added "Assigned Therapist" field to bulk upload template as second column after Full Name
+- **Username-Based Assignment**: Enhanced server processing to automatically look up therapist IDs by username during bulk upload
+- **Template Fix**: Fixed template generation to properly include therapist column with sample data (e.g., "dr.williams")
+- **Error Handling**: Added comprehensive error handling for invalid therapist usernames with warning messages
+- **Flexible Assignment**: Therapist assignment is optional - clients can be created without therapist and assigned later
+- **Production Integration**: Complete end-to-end functionality from Excel template through database assignment
+
+### User Management System Cleanup and Setup (January 2025)
+- **Complete User Cleanup**: Removed all users except main admin, handling all foreign key constraints properly
+- **Data Integrity Maintenance**: Cleaned up 23 library entries, 2 supervisor assignments, and 1 assessment template
+- **Cascade Deletion**: Properly handled all related records (sessions, tasks, assessments, documents, notes)
+- **Fresh User Creation**: Created 15 new therapist accounts based on provided user data with consistent role assignments
+- **System Reset**: Database now contains only admin user plus 15 new therapists ready for client assignment and bulk upload testing
+
 ### Process Checklist Management System Implementation (January 2025)
 - **Complete Checklist Template System**: Implemented comprehensive checklist template and item management for healthcare process workflows
 - **Administration Menu Integration**: Added "Process Checklists" to Administration dropdown with proper role-based access control
