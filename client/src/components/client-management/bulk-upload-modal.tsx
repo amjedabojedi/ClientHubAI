@@ -35,7 +35,7 @@ interface FieldMapping {
 
 const REQUIRED_FIELDS = [
   { key: 'fullName', label: 'Full Name', required: true },
-  { key: 'referenceNumber', label: 'Reference Number', required: true },
+  { key: 'referenceNumber', label: 'Reference Number', required: false },
   { key: 'email', label: 'Email', required: false },
   { key: 'phone', label: 'Phone', required: false },
   { key: 'dateOfBirth', label: 'Date of Birth', required: false },
@@ -380,7 +380,7 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
               <Button variant="outline" onClick={() => setStep(1)}>
                 Back
               </Button>
-              <Button onClick={applyMapping} disabled={!fieldMapping.fullName || !fieldMapping.referenceNumber}>
+              <Button onClick={applyMapping} disabled={!fieldMapping.fullName}>
                 Continue to Review
               </Button>
             </div>

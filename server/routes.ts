@@ -282,30 +282,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const clientData = clients[i];
         
         try {
-          // Clean and prepare client data
-          const cleanData = {
-            ...clientData,
-            // Ensure required fields
+          // Clean and prepare client data - only keep non-empty values
+          const cleanData: any = {
+            // Required field
             fullName: clientData.fullName || '',
-            // Handle enum fields with defaults
-            status: clientData.status || 'pending',
-            stage: clientData.stage || 'intake',
-            clientType: clientData.clientType || 'individual',
-            // Handle boolean fields
-            emailNotifications: clientData.emailNotifications !== undefined ? clientData.emailNotifications : true,
-            hasPortalAccess: clientData.hasPortalAccess !== undefined ? clientData.hasPortalAccess : false,
-            // Handle date fields
-            dateOfBirth: clientData.dateOfBirth ? new Date(clientData.dateOfBirth) : undefined,
-            startDate: clientData.startDate ? new Date(clientData.startDate) : undefined,
-            referralDate: clientData.referralDate ? new Date(clientData.referralDate) : undefined,
-            // Handle numeric fields
-            copayAmount: clientData.copayAmount ? parseFloat(clientData.copayAmount) : undefined,
-            deductible: clientData.deductible ? parseFloat(clientData.deductible) : undefined,
-            dependents: clientData.dependents ? parseInt(clientData.dependents) : undefined,
-            assignedTherapistId: clientData.assignedTherapistId ? parseInt(clientData.assignedTherapistId) : undefined,
             // Generate unique client ID if not provided
             clientId: clientData.clientId || await generateClientId(),
           };
+
+          // Only add fields that have actual values (not null, undefined, or empty strings)
+          Object.keys(clientData).forEach(key => {
+            if (key !== 'fullName' && key !== 'clientId' && clientData[key] != null && clientData[key] !== '') {
+              const value = clientData[key];
+              
+              // Handle date fields
+              if (['dateOfBirth', 'startDate', 'referralDate', 'lastSessionDate', 'nextAppointmentDate'].includes(key)) {
+                cleanData[key] = new Date(value);
+              }
+              // Handle numeric fields
+              else if (['copayAmount', 'deductible'].includes(key)) {
+                cleanData[key] = parseFloat(value);
+              }
+              else if (['dependents', 'assignedTherapistId'].includes(key)) {
+                cleanData[key] = parseInt(value);
+              }
+              // Handle boolean fields
+              else if (['emailNotifications', 'hasPortalAccess'].includes(key)) {
+                cleanData[key] = Boolean(value);
+              }
+              // Handle all other fields as-is
+              else {
+                cleanData[key] = value;
+              }
+            }
+          });
           
           // Skip empty rows and validate required fields
           if (!cleanData.fullName || cleanData.fullName.trim() === '') {
@@ -314,16 +324,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               row: i + 1,
               data: clientData,
               message: 'Missing required field: fullName'
-            });
-            continue;
-          }
-          
-          if (!cleanData.referenceNumber || cleanData.referenceNumber.trim() === '') {
-            results.failed++;
-            results.errors.push({
-              row: i + 1,
-              data: clientData,
-              message: 'Missing required field: referenceNumber'
             });
             continue;
           }

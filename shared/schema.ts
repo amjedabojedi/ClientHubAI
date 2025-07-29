@@ -210,12 +210,12 @@ export const clients = pgTable("clients", {
   dateOfBirth: date("date_of_birth"), // Client's birth date
   gender: genderEnum("gender"), // Client's gender
   maritalStatus: varchar("marital_status", { length: 50 }), // Single, married, divorced, etc.
-  preferredLanguage: varchar("preferred_language", { length: 50 }).default('English'), // Client's communication preference
+  preferredLanguage: varchar("preferred_language", { length: 50 }), // Client's communication preference
   pronouns: varchar("pronouns", { length: 20 }),
-  emailNotifications: boolean("email_notifications").notNull().default(true), // Whether client wants email updates
+  emailNotifications: boolean("email_notifications"), // Whether client wants email updates
   
   // Client Portal Access
-  hasPortalAccess: boolean("has_portal_access").notNull().default(false), // Portal Enabled - Whether client can access online portal
+  hasPortalAccess: boolean("has_portal_access"), // Portal Enabled - Whether client can access online portal
   portalEmail: text("portal_email"),
   portalPassword: varchar("portal_password", { length: 255 }), // Portal Password - Login credentials for portal (hashed)
   lastLogin: timestamp("last_login"), // Last Login - When client last accessed portal
@@ -231,7 +231,7 @@ export const clients = pgTable("clients", {
   city: varchar("city", { length: 100 }), // City name
   province: varchar("province", { length: 50 }), // State/province
   postalCode: varchar("postal_code", { length: 20 }), // ZIP/postal code
-  country: varchar("country", { length: 100 }).default('United States'), // Country name
+  country: varchar("country", { length: 100 }), // Country name
   
   // Referral & Case Information (Tab 3)
   startDate: date("start_date"), // When therapy began
@@ -246,9 +246,9 @@ export const clients = pgTable("clients", {
   dependents: integer("dependents"), // Number of dependents
   
   // Client Status & Progress (Tab 5)
-  clientType: clientTypeEnum("client_type").notNull().default('individual'), // New, returning, or referred
-  status: clientStatusEnum("status").notNull().default('pending'), // Active, inactive, or closed
-  stage: clientStageEnum("stage").notNull().default('intake'), // Current stage in treatment process
+  clientType: clientTypeEnum("client_type"), // New, returning, or referred
+  status: clientStatusEnum("status"), // Active, inactive, or closed
+  stage: clientStageEnum("stage"), // Current stage in treatment process
   lastUpdateDate: timestamp("last_update_date").notNull().defaultNow(), // When profile was last modified
   assignedTherapistId: integer("assigned_therapist_id").references(() => users.id), // Primary therapist for this client
   
@@ -1054,6 +1054,13 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   clientId: true, // Auto-generated
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Make all fields optional except fullName which remains required
+  emailNotifications: z.boolean().optional(),
+  hasPortalAccess: z.boolean().optional(),
+  clientType: z.enum(['individual', 'couple', 'family', 'group']).optional(),
+  status: z.enum(['active', 'inactive', 'pending']).optional(),
+  stage: z.enum(['intake', 'assessment', 'psychotherapy']).optional(),
 });
 
 export const insertServiceSchema = createInsertSchema(services).omit({
