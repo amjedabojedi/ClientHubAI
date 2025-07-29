@@ -295,8 +295,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (key !== 'fullName' && key !== 'clientId' && clientData[key] != null && clientData[key] !== '') {
               const value = clientData[key];
               
+              // Handle therapist assignment by username
+              if (key === 'assignedTherapist') {
+                // Look up therapist by username and get their ID
+                // This will be handled after the loop
+                cleanData['_therapistUsername'] = value;
+              }
               // Handle date fields
-              if (['dateOfBirth', 'startDate', 'referralDate', 'lastSessionDate', 'nextAppointmentDate'].includes(key)) {
+              else if (['dateOfBirth', 'startDate', 'referralDate', 'lastSessionDate', 'nextAppointmentDate'].includes(key)) {
                 cleanData[key] = new Date(value);
               }
               // Handle numeric fields
@@ -316,6 +322,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           });
+
+          // Handle therapist assignment if provided
+          if (cleanData['_therapistUsername']) {
+            try {
+              const therapist = await storage.getUserByUsername(cleanData['_therapistUsername']);
+              if (therapist) {
+                cleanData.assignedTherapistId = therapist.id;
+              }
+              delete cleanData['_therapistUsername'];
+            } catch (error) {
+              // If therapist not found, add to errors but continue
+              results.errors.push({
+                row: i + 1,
+                data: clientData,
+                message: `Warning: Therapist '${cleanData['_therapistUsername']}' not found. Client created without therapist assignment.`
+              });
+              delete cleanData['_therapistUsername'];
+            }
+          }
           
           // Skip empty rows and validate required fields
           if (!cleanData.fullName || cleanData.fullName.trim() === '') {

@@ -35,6 +35,7 @@ interface FieldMapping {
 
 const REQUIRED_FIELDS = [
   { key: 'fullName', label: 'Full Name', required: true },
+  { key: 'assignedTherapist', label: 'Assigned Therapist', required: false },
   { key: 'referenceNumber', label: 'Reference Number', required: false },
   { key: 'email', label: 'Email', required: false },
   { key: 'phone', label: 'Phone', required: false },
@@ -208,6 +209,7 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
     const headers = REQUIRED_FIELDS.map(field => field.label);
     const sampleData = [
       'John Doe',
+      'dr.williams',
       'REF-2024-001',
       'john.doe@email.com',
       '555-123-4567',
@@ -299,7 +301,7 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Upload an Excel file with client data. Make sure your file includes columns for required fields like Full Name, Email, and Phone.
+                Upload an Excel file with client data. Only <strong>Full Name</strong> is required. Include an "Assigned Therapist" column with therapist usernames (like "dr.williams") to automatically assign clients to therapists.
               </AlertDescription>
             </Alert>
 
@@ -393,7 +395,7 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Review the mapped data before uploading. Check that the information looks correct.
+                Review the mapped data before uploading. Check that the information looks correct. Therapist usernames will be automatically converted to assignments.
               </AlertDescription>
             </Alert>
 
