@@ -293,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Only add fields that have actual values (not null, undefined, or empty strings)
           Object.keys(clientData).forEach(key => {
             if (key !== 'fullName' && key !== 'clientId' && clientData[key] != null && clientData[key] !== '') {
-              const value = clientData[key];
+              let value = clientData[key];
               
               // Handle therapist assignment by username
               if (key === 'assignedTherapist') {
@@ -301,13 +301,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // This will be handled after the loop
                 cleanData['_therapistUsername'] = value;
               }
-              // Handle date fields
-              else if (['dateOfBirth', 'startDate', 'referralDate', 'lastSessionDate', 'nextAppointmentDate'].includes(key)) {
-                cleanData[key] = new Date(value);
+              // Handle gender field - convert uppercase to lowercase
+              else if (key === 'gender') {
+                const genderValue = String(value).toLowerCase();
+                if (['male', 'female', 'non_binary', 'prefer_not_to_say'].includes(genderValue)) {
+                  cleanData[key] = genderValue;
+                }
               }
-              // Handle numeric fields
+              // Handle string fields that might come as numbers from Excel
+              else if (['phone', 'referenceNumber', 'emergencyContactPhone', 'postalCode', 'policyNumber'].includes(key)) {
+                cleanData[key] = String(value);
+              }
+              // Handle date fields - convert Date objects or ISO strings to YYYY-MM-DD format
+              else if (['dateOfBirth', 'startDate', 'referralDate', 'lastSessionDate', 'nextAppointmentDate'].includes(key)) {
+                if (value instanceof Date) {
+                  cleanData[key] = value.toISOString().split('T')[0]; // Convert to YYYY-MM-DD format
+                } else if (typeof value === 'string' && value.includes('T')) {
+                  // Handle ISO date strings (like "2024-01-15T00:00:00.000Z")
+                  cleanData[key] = new Date(value).toISOString().split('T')[0];
+                } else {
+                  cleanData[key] = String(value);
+                }
+              }
+              // Handle decimal fields - Drizzle decimal fields expect strings
               else if (['copayAmount', 'deductible'].includes(key)) {
-                cleanData[key] = parseFloat(value);
+                cleanData[key] = String(parseFloat(value));
               }
               else if (['dependents', 'assignedTherapistId'].includes(key)) {
                 cleanData[key] = parseInt(value);
@@ -316,9 +334,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               else if (['emailNotifications', 'hasPortalAccess'].includes(key)) {
                 cleanData[key] = Boolean(value);
               }
-              // Handle all other fields as-is
+              // Handle all other fields as strings
               else {
-                cleanData[key] = value;
+                cleanData[key] = String(value);
               }
             }
           });
