@@ -314,6 +314,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // Session bulk upload endpoint
+  app.post("/api/sessions/bulk-upload", async (req, res) => {
+    try {
+      const { sessions } = req.body;
+      
+      if (!Array.isArray(sessions)) {
+        return res.status(400).json({ message: "Invalid input: sessions must be an array" });
+      }
+
+      const results = {
+        total: sessions.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as any[]
+      };
+
+      for (let i = 0; i < sessions.length; i++) {
+        const sessionData = sessions[i];
+        
+        try {
+          // Clean and prepare session data
+          const cleanData: any = {};
+
+          // Handle required fields
+          if (!sessionData.clientId || sessionData.clientId.trim() === '') {
+            throw new Error('Client ID is required');
+          }
+          
+          // Look up client by clientId
+          const client = await storage.getClientByClientId(sessionData.clientId);
+          if (!client) {
+            throw new Error(`Client with ID '${sessionData.clientId}' not found`);
+          }
+          cleanData.clientId = client.id;
+
+          // Handle therapist lookup by username
+          if (!sessionData.therapistUsername || sessionData.therapistUsername.trim() === '') {
+            throw new Error('Therapist username is required');
+          }
+          
+          const therapist = await storage.getUserByUsername(sessionData.therapistUsername);
+          if (!therapist) {
+            throw new Error(`Therapist with username '${sessionData.therapistUsername}' not found`);
+          }
+          cleanData.therapistId = therapist.id;
+
+          // Handle date and time
+          if (!sessionData.sessionDate) {
+            throw new Error('Session date is required');
+          }
+          if (!sessionData.sessionTime) {
+            throw new Error('Session time is required');
+          }
+          
+          // Combine date and time into ISO format
+          const sessionDateTime = new Date(`${sessionData.sessionDate}T${sessionData.sessionTime}:00`);
+          if (isNaN(sessionDateTime.getTime())) {
+            throw new Error('Invalid session date or time format');
+          }
+          cleanData.sessionDate = sessionDateTime;
+
+          // Handle session type
+          if (!sessionData.sessionType) {
+            throw new Error('Session type is required');
+          }
+          const validSessionTypes = ['assessment', 'psychotherapy', 'consultation'];
+          if (!validSessionTypes.includes(sessionData.sessionType.toLowerCase())) {
+            throw new Error(`Invalid session type. Must be one of: ${validSessionTypes.join(', ')}`);
+          }
+          cleanData.sessionType = sessionData.sessionType.toLowerCase();
+
+          // Look up service by service code
+          if (!sessionData.serviceCode) {
+            throw new Error('Service code is required');
+          }
+          const service = await storage.getServiceByCode(sessionData.serviceCode);
+          if (!service) {
+            throw new Error(`Service with code '${sessionData.serviceCode}' not found`);
+          }
+          cleanData.serviceId = service.id;
+
+          // Look up room by room number
+          if (!sessionData.roomNumber) {
+            throw new Error('Room number is required');
+          }
+          const room = await storage.getRoomByNumber(sessionData.roomNumber);
+          if (!room) {
+            throw new Error(`Room with number '${sessionData.roomNumber}' not found`);
+          }
+          cleanData.roomId = room.id;
+
+          // Optional fields
+          if (sessionData.notes) {
+            cleanData.notes = sessionData.notes;
+          }
+
+          // Set default values
+          cleanData.status = 'scheduled';
+          cleanData.sessionMode = 'in_person'; // Default mode
+
+          // Validate and create session
+          const validatedData = insertSessionSchema.parse(cleanData);
+          await storage.createSession(validatedData);
+          results.successful++;
+          
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            data: sessionData,
+            message: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Session bulk upload failed", 
+        details: error.message || "Internal server error" 
+      });
+    }
+  });
+
   // Bulk upload endpoint
   app.post("/api/clients/bulk-upload", async (req, res) => {
     try {

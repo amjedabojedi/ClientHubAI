@@ -205,6 +205,10 @@ export interface IStorage {
   createSession(session: InsertSession): Promise<Session>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
+  
+  // ===== SERVICE AND ROOM LOOKUPS =====
+  getServiceByCode(serviceCode: string): Promise<any>;
+  getRoomByNumber(roomNumber: string): Promise<any>;
 
   // ===== TASK MANAGEMENT =====
   getAllTasks(params?: {
@@ -925,6 +929,23 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSession(id: number): Promise<void> {
     await db.delete(sessions).where(eq(sessions.id, id));
+  }
+
+  // Service and Room lookup methods
+  async getServiceByCode(serviceCode: string): Promise<any> {
+    const [service] = await db
+      .select()
+      .from(services)
+      .where(eq(services.serviceCode, serviceCode));
+    return service || null;
+  }
+
+  async getRoomByNumber(roomNumber: string): Promise<any> {
+    const [room] = await db
+      .select()
+      .from(rooms)
+      .where(eq(rooms.roomNumber, roomNumber));
+    return room || null;
   }
 
   // Billing trigger method - Creates billing record when session is completed

@@ -48,6 +48,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 
+// Components
+import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
+
 // Session form schema
 const sessionFormSchema = z.object({
   clientId: z.number().min(1, "Client is required"),
@@ -446,10 +449,14 @@ export default function SchedulingPage() {
                   Month
                 </Button>
               </div>
-              <Button variant="outline">
-                <Upload className="w-4 h-4 mr-2" />
-                Import
-              </Button>
+              <SessionBulkUploadModal
+                trigger={
+                  <Button variant="outline">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                }
+              />
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
