@@ -196,6 +196,7 @@ export interface IStorage {
     assessmentPhase: number;
     psychotherapy: number;
   }>;
+  getAllClientsForExport(): Promise<(Client & { assignedTherapist?: string })[]>;
 
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
@@ -819,6 +820,22 @@ export class DatabaseStorage implements IStorage {
       .from(clients);
 
     return stats;
+  }
+
+  async getAllClientsForExport(): Promise<(Client & { assignedTherapist?: string })[]> {
+    const results = await db
+      .select({
+        client: clients,
+        therapist: users
+      })
+      .from(clients)
+      .leftJoin(users, eq(clients.assignedTherapistId, users.id))
+      .orderBy(asc(clients.clientId));
+
+    return results.map(r => ({ 
+      ...r.client, 
+      assignedTherapist: r.therapist?.username || '' 
+    }));
   }
 
   // Session methods

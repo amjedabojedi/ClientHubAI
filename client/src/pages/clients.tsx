@@ -75,7 +75,10 @@ export default function ClientsPage() {
                 <p className="text-slate-600 mt-1">Manage and organize your client profiles efficiently</p>
               </div>
               <div className="flex items-center space-x-3">
-                <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
+                <button 
+                  onClick={() => window.open('/api/clients/export', '_blank')}
+                  className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors"
+                >
                   <Download className="w-4 h-4" />
                   <span>Export</span>
                 </button>

@@ -169,6 +169,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Client export endpoint - moved before the :id route to avoid conflicts  
+  app.get("/api/clients/export", async (req, res) => {
+    try {
+      const allClients = await storage.getAllClientsForExport();
+      
+      // Set CSV headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="clients_export.csv"');
+      
+      // Create CSV header
+      const csvHeader = [
+        'Client ID', 'Full Name', 'Email', 'Phone', 'Date of Birth', 'Gender',
+        'Address', 'Postal Code', 'Emergency Contact', 'Emergency Contact Phone',
+        'Status', 'Stage', 'Client Type', 'Start Date', 'Assigned Therapist',
+        'Insurance Provider', 'Policy Number', 'Copay Amount', 'Deductible',
+        'Referral Source', 'Referral Date', 'Reference Number', 'Has Portal Access',
+        'Email Notifications', 'Created At'
+      ].join(',') + '\n';
+      
+      // Create CSV rows
+      const csvRows = allClients.map(client => [
+        client.clientId || '',
+        `"${client.fullName || ''}"`,
+        client.email || '',
+        client.phone || '',
+        client.dateOfBirth || '',
+        client.gender || '',
+        `"${client.address || ''}"`,
+        client.postalCode || '',
+        `"${client.emergencyContactName || ''}"`,
+        client.emergencyContactPhone || '',
+        client.status || '',
+        client.stage || '',
+        client.clientType || '',
+        client.startDate || '',
+        client.assignedTherapist || '',
+        client.insuranceProvider || '',
+        client.policyNumber || '',
+        client.copayAmount || '',
+        client.deductible || '',
+        client.referralSource || '',
+        client.referralDate || '',
+        client.referenceNumber || '',
+        client.hasPortalAccess ? 'true' : 'false',
+        client.emailNotifications ? 'true' : 'false',
+        client.createdAt ? new Date(client.createdAt).toISOString().split('T')[0] : ''
+      ].join(','));
+      
+      const csvContent = csvHeader + csvRows.join('\n');
+      res.send(csvContent);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to export clients" });
+    }
+  });
+
   app.get("/api/clients/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -256,6 +311,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+
 
   // Bulk upload endpoint
   app.post("/api/clients/bulk-upload", async (req, res) => {
