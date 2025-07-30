@@ -161,13 +161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client stats - moved before the :id route to avoid conflicts
   app.get("/api/clients/stats", async (req, res) => {
     try {
-      // Return basic stats for now - will be implemented properly later
-      res.json({
-        totalClients: 0,
-        activeClients: 0,
-        inactiveClients: 0,
-        pendingClients: 0
-      });
+      const stats = await storage.getClientStats();
+      res.json(stats);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
