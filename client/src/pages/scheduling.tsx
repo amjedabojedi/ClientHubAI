@@ -398,7 +398,6 @@ export default function SchedulingPage() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">Scheduling & Calendar</h1>
-                <p className="text-slate-600 mt-1">Manage appointments and sessions across your practice</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
