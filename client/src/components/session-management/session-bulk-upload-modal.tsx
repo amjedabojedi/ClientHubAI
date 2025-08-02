@@ -59,7 +59,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
   const requiredFields = [
     { key: 'clientId', label: 'Client ID', required: true },
-    { key: 'therapistUsername', label: 'Therapist Username', required: true },
+    { key: 'therapistUsername', label: 'Therapist Username (Optional - uses assigned therapist if empty)', required: false },
     { key: 'sessionDate', label: 'Session Date (YYYY-MM-DD)', required: true },
     { key: 'sessionTime', label: 'Session Time (HH:MM)', required: true },
     { key: 'sessionType', label: 'Session Type', required: true },
@@ -180,9 +180,9 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
   const downloadTemplate = () => {
     const templateData = [
-      ['Client ID', 'Therapist Username', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Room Number', 'Notes'],
-      ['CL-2025-0001', 'dr.williams', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '101', 'Initial session'],
-      ['CL-2025-0002', 'dr.smith', '2025-08-01', '11:00', 'assessment', '90791-A', '102', 'Comprehensive assessment']
+      ['Client ID', 'Therapist Username (Optional)', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Room Number', 'Notes'],
+      ['CL-2025-0001', '', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '101', 'Uses assigned therapist'],
+      ['CL-2025-0002', 'dr.smith', '2025-08-01', '11:00', 'assessment', '90791', '102', 'Override with specific therapist']
     ];
     
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);

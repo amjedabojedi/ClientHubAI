@@ -349,16 +349,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.clientId = client.id;
 
-          // Handle therapist lookup by username
-          if (!sessionData.therapistUsername || sessionData.therapistUsername.trim() === '') {
-            throw new Error('Therapist username is required');
+          // Handle therapist - use provided username or client's assigned therapist
+          if (sessionData.therapistUsername && sessionData.therapistUsername.trim() !== '') {
+            // Use specified therapist
+            const therapist = await storage.getUserByUsername(sessionData.therapistUsername);
+            if (!therapist) {
+              throw new Error(`Therapist with username '${sessionData.therapistUsername}' not found`);
+            }
+            cleanData.therapistId = therapist.id;
+          } else {
+            // Use client's assigned therapist
+            if (!client.assignedTherapistId) {
+              throw new Error(`Client '${sessionData.clientId}' has no assigned therapist. Please assign a therapist or specify therapist username in upload.`);
+            }
+            cleanData.therapistId = client.assignedTherapistId;
           }
-          
-          const therapist = await storage.getUserByUsername(sessionData.therapistUsername);
-          if (!therapist) {
-            throw new Error(`Therapist with username '${sessionData.therapistUsername}' not found`);
-          }
-          cleanData.therapistId = therapist.id;
 
           // Handle date and time
           if (!sessionData.sessionDate) {
