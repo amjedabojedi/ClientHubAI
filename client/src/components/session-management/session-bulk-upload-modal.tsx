@@ -180,10 +180,9 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
   const downloadTemplate = () => {
     const templateData = [
-      ['Client ID', 'Therapist Username (Optional)', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Room Number', 'Notes'],
-      ['CL-2025-0001', '', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '101', 'Leave empty to use assigned therapist'],
-      ['CL-2025-0002', '', '2025-08-01', '11:00', 'assessment', '90791', '102', 'Leave empty to use assigned therapist'],
-      ['CL-2025-0003', 'dr.smith', '2025-08-01', '14:00', 'consultation', '90834', '103', 'Only specify if different from assigned']
+      ['Client ID', 'Therapist (Optional)', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Room Number', 'Notes'],
+      ['CL-2025-0001', '', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '101', ''],
+      ['CL-2025-0002', '', '2025-08-01', '11:00', 'assessment', '90791', '102', '']
     ];
     
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);
