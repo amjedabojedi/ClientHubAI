@@ -315,6 +315,18 @@ export default function SettingsPage() {
     },
   });
 
+  const deleteRoomMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest(`/api/rooms/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      toast({ title: "Room deleted successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Room deletion error:", error);
+      toast({ title: "Failed to delete room", variant: "destructive" });
+    },
+  });
+
   const handleCreateRoom = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -852,26 +864,45 @@ export default function SettingsPage() {
             <CardContent>
               {roomsLoading && <p>Loading rooms...</p>}
               {!roomsLoading && rooms.length === 0 && <p>No rooms found</p>}
-              <div className="space-y-4">
+              
+              {/* Room Table - consistent with other settings */}
+              <div className="border rounded-lg">
+                <div className="grid grid-cols-5 gap-4 p-3 bg-gray-50 dark:bg-gray-800 font-medium text-sm border-b">
+                  <div>Room Number</div>
+                  <div>Room Name</div>
+                  <div>Capacity</div>
+                  <div>Status</div>
+                  <div>Actions</div>
+                </div>
                 {rooms.map((room: any) => (
-                  <div key={room.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        Room {room.roomNumber} - {room.roomName}
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Capacity: {room.capacity} • {room.isActive ? 'Active' : 'Inactive'}
-                      </p>
+                  <div key={room.id} className="grid grid-cols-5 gap-4 p-3 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <div className="font-medium">{room.roomNumber}</div>
+                    <div>{room.roomName}</div>
+                    <div>{room.capacity}</div>
+                    <div>
+                      <Badge variant={room.isActive ? "default" : "secondary"}>
+                        {room.isActive ? "Active" : "Inactive"}
+                      </Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => setEditingRoom(room)}
-                        className="flex items-center gap-2"
                       >
-                        <Edit2 className="w-4 h-4" />
-                        Edit
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to delete Room ${room.roomNumber}?`)) {
+                            deleteRoomMutation.mutate(room.id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
