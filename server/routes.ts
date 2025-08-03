@@ -400,8 +400,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.serviceId = service.id;
           
-          // Use service base rate for pricing
-          cleanData.calculatedRate = service.baseRate;
+          // Handle session price - use provided price
+          if (!sessionData.sessionPrice) {
+            throw new Error('Session price is required');
+          }
+          const price = parseFloat(sessionData.sessionPrice);
+          if (isNaN(price) || price < 0) {
+            throw new Error('Session price must be a valid positive number');
+          }
+          cleanData.calculatedRate = price.toFixed(2);
 
           // Look up room by room number
           if (!sessionData.roomNumber) {
