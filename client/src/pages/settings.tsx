@@ -234,8 +234,9 @@ export default function SettingsPage() {
   const handleUpdateServiceCode = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const priceValue = formData.get("price") as string;
     const data = {
-      price: parseFloat(formData.get("price") as string),
+      price: parseFloat(priceValue).toFixed(2), // Convert to string with 2 decimal places
     };
 
     updateServiceCodeMutation.mutate({ id: editingServiceCode.id, data });
