@@ -405,11 +405,11 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
                 </Card>
               </div>
 
-              {uploadResults.errors.length > 0 && (
+              {uploadResults.errors && uploadResults.errors.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2">Errors ({uploadResults.errors.length})</h4>
+                  <h4 className="font-medium mb-2">Errors ({uploadResults.errors?.length || 0})</h4>
                   <div className="max-h-40 overflow-y-auto space-y-2">
-                    {uploadResults.errors.map((error, index) => (
+                    {uploadResults.errors?.map((error, index) => (
                       <Alert key={index} variant="destructive">
                         <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
