@@ -30,6 +30,7 @@ interface SessionUploadData {
   sessionTime: string;
   sessionType: string;
   serviceCode: string;
+  sessionPrice: string;
   roomNumber: string;
   notes?: string;
 }
@@ -63,6 +64,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
     { key: 'sessionTime', label: 'Session Time (HH:MM)', required: true },
     { key: 'sessionType', label: 'Session Type (assessment/psychotherapy/consultation)', required: true },
     { key: 'serviceCode', label: 'Service Code', required: true },
+    { key: 'sessionPrice', label: 'Session Price (USD)', required: true },
     { key: 'roomNumber', label: 'Room Number', required: true },
     { key: 'therapistUsername', label: 'Therapist Username (Optional)', required: false },
     { key: 'notes', label: 'Notes (Optional)', required: false }
@@ -180,10 +182,10 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
   const downloadTemplate = () => {
     const templateData = [
-      ['Client ID', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Room Number'],
-      ['CL-2025-0001', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '101'],
-      ['CL-2025-0002', '2025-08-01', '11:00', 'assessment', '90791', '102'],
-      ['CL-2025-0003', '2025-08-01', '14:00', 'consultation', '90834', '103']
+      ['Client ID', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Session Price', 'Room Number'],
+      ['CL-2025-0001', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '175.00', '101'],
+      ['CL-2025-0002', '2025-08-01', '11:00', 'assessment', '90791', '300.00', '102'],
+      ['CL-2025-0003', '2025-08-01', '14:00', 'consultation', '90834', '150.00', '103']
     ];
     
     const worksheet = XLSX.utils.aoa_to_sheet(templateData);

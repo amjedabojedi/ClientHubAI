@@ -400,8 +400,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.serviceId = service.id;
           
-          // Automatically calculate session rate from service
-          cleanData.calculatedRate = service.baseRate;
+          // Handle session price - use provided price instead of service default
+          if (sessionData.sessionPrice) {
+            const price = parseFloat(sessionData.sessionPrice);
+            if (isNaN(price) || price < 0) {
+              throw new Error('Session price must be a valid positive number');
+            }
+            cleanData.calculatedRate = price.toFixed(2);
+          } else {
+            // Fallback to service base rate if no price specified
+            cleanData.calculatedRate = service.baseRate;
+          }
 
           // Look up room by room number
           if (!sessionData.roomNumber) {
