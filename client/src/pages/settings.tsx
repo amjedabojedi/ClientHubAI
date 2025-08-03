@@ -164,12 +164,30 @@ export default function SettingsPage() {
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
       apiRequest(`/api/system-options/${id}`, "PUT", data),
     onSuccess: () => {
+      // Invalidate both service codes query and the general category query
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/32"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", 32] });
       setEditingServiceCode(null);
       toast({ title: "Service code price updated successfully" });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Service code update error:", error);
       toast({ title: "Failed to update service code price", variant: "destructive" });
+    },
+  });
+
+  const createServiceCodeMutation = useMutation({
+    mutationFn: async (data: any) => apiRequest("/api/system-options", "POST", data),
+    onSuccess: () => {
+      // Invalidate both service codes query and the general category query
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/32"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", 32] });
+      setEditingServiceCode(null);
+      toast({ title: "Service code created successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Service code creation error:", error);
+      toast({ title: "Failed to create service code", variant: "destructive" });
     },
   });
 
@@ -240,6 +258,23 @@ export default function SettingsPage() {
     };
 
     updateServiceCodeMutation.mutate({ id: editingServiceCode.id, data });
+  };
+
+  const handleCreateServiceCode = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const priceValue = formData.get("price") as string;
+    const data = {
+      categoryId: 32, // Service codes category
+      optionKey: formData.get("optionKey") as string,
+      optionLabel: formData.get("optionLabel") as string,
+      price: parseFloat(priceValue).toFixed(2),
+      sortOrder: 1,
+      isDefault: false,
+      isActive: true,
+    };
+
+    createServiceCodeMutation.mutate(data);
   };
 
   if (categoriesLoading || serviceCodesLoading) {
@@ -676,6 +711,10 @@ export default function SettingsPage() {
                 Manage pricing for therapy services
               </p>
             </div>
+            <Button onClick={() => setEditingServiceCode({ id: null, optionKey: '', optionLabel: '', price: '0.00' })} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Service Code
+            </Button>
           </div>
 
           <Card>
@@ -723,17 +762,46 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Service Code Price Edit Dialog */}
+      {/* Service Code Edit/Create Dialog */}
       <Dialog open={!!editingServiceCode} onOpenChange={() => setEditingServiceCode(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Service Code Price</DialogTitle>
+            <DialogTitle>
+              {editingServiceCode?.id ? "Edit Service Code Price" : "Add New Service Code"}
+            </DialogTitle>
             <DialogDescription>
-              Update pricing for {editingServiceCode?.optionKey} - {editingServiceCode?.optionLabel}
+              {editingServiceCode?.id 
+                ? `Update pricing for ${editingServiceCode?.optionKey} - ${editingServiceCode?.optionLabel}`
+                : "Create a new service code with pricing"
+              }
             </DialogDescription>
           </DialogHeader>
           {editingServiceCode && (
-            <form onSubmit={handleUpdateServiceCode} className="space-y-4">
+            <form onSubmit={editingServiceCode.id ? handleUpdateServiceCode : handleCreateServiceCode} className="space-y-4">
+              {!editingServiceCode.id && (
+                <>
+                  <div>
+                    <Label htmlFor="edit-optionKey">Service Code</Label>
+                    <Input
+                      id="edit-optionKey"
+                      name="optionKey"
+                      defaultValue={editingServiceCode.optionKey}
+                      placeholder="e.g., 90791"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-optionLabel">Service Name</Label>
+                    <Input
+                      id="edit-optionLabel"
+                      name="optionLabel"
+                      defaultValue={editingServiceCode.optionLabel}
+                      placeholder="e.g., Diagnostic Interview"
+                      required
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <Label htmlFor="edit-price">Price (USD)</Label>
                 <Input
@@ -750,8 +818,11 @@ export default function SettingsPage() {
                 <Button type="button" variant="outline" onClick={() => setEditingServiceCode(null)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateServiceCodeMutation.isPending}>
-                  {updateServiceCodeMutation.isPending ? "Updating..." : "Update Price"}
+                <Button type="submit" disabled={editingServiceCode.id ? updateServiceCodeMutation.isPending : createServiceCodeMutation.isPending}>
+                  {editingServiceCode.id 
+                    ? (updateServiceCodeMutation.isPending ? "Updating..." : "Update Price")
+                    : (createServiceCodeMutation.isPending ? "Creating..." : "Create Service Code")
+                  }
                 </Button>
               </div>
             </form>
