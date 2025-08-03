@@ -73,9 +73,14 @@ export default function SettingsPage() {
   });
 
   // Fetch service codes from System Options category 32
-  const { data: serviceCodes = [], isLoading: serviceCodesLoading } = useQuery({
+  const { data: serviceCodes = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes } = useQuery({
     queryKey: ["/api/system-options/categories/32"],
-    queryFn: () => fetch("/api/system-options/categories/32").then(res => res.json()).then(data => data.options || []),
+    queryFn: () => fetch("/api/system-options/categories/32").then(res => res.json()).then(data => {
+      console.log("Service codes fetched:", data.options || []);
+      return data.options || [];
+    }),
+    staleTime: 0, // Always refetch when needed
+    cacheTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
   });
 
   // Fetch category with options when selected
@@ -163,10 +168,10 @@ export default function SettingsPage() {
   const updateServiceCodeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
       apiRequest(`/api/system-options/${id}`, "PUT", data),
-    onSuccess: () => {
-      // Invalidate both service codes query and the general category query
-      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/32"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", 32] });
+    onSuccess: async () => {
+      // Force refetch the service codes data
+      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories/32"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories", 32] });
       setEditingServiceCode(null);
       toast({ title: "Service code price updated successfully" });
     },
@@ -178,10 +183,10 @@ export default function SettingsPage() {
 
   const createServiceCodeMutation = useMutation({
     mutationFn: async (data: any) => apiRequest("/api/system-options", "POST", data),
-    onSuccess: () => {
-      // Invalidate both service codes query and the general category query
-      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/32"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", 32] });
+    onSuccess: async () => {
+      // Force refetch the service codes data
+      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories/32"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories", 32] });
       setEditingServiceCode(null);
       toast({ title: "Service code created successfully" });
     },
@@ -728,6 +733,8 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {serviceCodesLoading && <p>Loading service codes...</p>}
+              {!serviceCodesLoading && serviceCodes.length === 0 && <p>No service codes found</p>}
               <div className="space-y-4">
                 {serviceCodes.map((serviceCode: any) => (
                   <div key={serviceCode.id} className="flex items-center justify-between p-4 border rounded-lg">
