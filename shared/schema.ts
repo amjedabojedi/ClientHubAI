@@ -1086,6 +1086,8 @@ export const insertSystemOptionSchema = createInsertSchema(systemOptions).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  price: z.string().optional().transform((val) => val ? parseFloat(val).toFixed(2) : "0.00"),
 });
 
 // Checklist Schemas
