@@ -369,14 +369,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!sessionData.sessionDate) {
             throw new Error('Session date is required');
           }
-          if (!sessionData.sessionTime) {
-            throw new Error('Session time is required');
-          }
           
-          // Combine date and time into ISO format
-          const sessionDateTime = new Date(`${sessionData.sessionDate}T${sessionData.sessionTime}:00`);
-          if (isNaN(sessionDateTime.getTime())) {
-            throw new Error('Invalid session date or time format');
+          // Combine date and time into ISO format - time is optional
+          let sessionDateTime;
+          if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
+            sessionDateTime = new Date(`${sessionData.sessionDate}T${sessionData.sessionTime}:00`);
+            if (isNaN(sessionDateTime.getTime())) {
+              throw new Error('Invalid session date or time format');
+            }
+          } else {
+            // If no time provided, default to start of day
+            sessionDateTime = new Date(`${sessionData.sessionDate}T00:00:00`);
+            if (isNaN(sessionDateTime.getTime())) {
+              throw new Error('Invalid session date format');
+            }
           }
           cleanData.sessionDate = sessionDateTime;
 

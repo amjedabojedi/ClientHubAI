@@ -27,7 +27,7 @@ interface SessionUploadData {
   clientId: string;
   therapistUsername: string;
   sessionDate: string;
-  sessionTime: string;
+  sessionTime?: string;
   sessionType: string;
   serviceCode: string;
   sessionPrice: string;
@@ -61,7 +61,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
   const requiredFields = [
     { key: 'clientId', label: 'Client ID', required: true },
     { key: 'sessionDate', label: 'Session Date (YYYY-MM-DD)', required: true },
-    { key: 'sessionTime', label: 'Session Time (HH:MM)', required: true },
+    { key: 'sessionTime', label: 'Session Time (HH:MM) - Optional', required: false },
     { key: 'sessionType', label: 'Session Type (assessment/psychotherapy/consultation)', required: true },
     { key: 'serviceCode', label: 'Service Code', required: true },
     { key: 'roomNumber', label: 'Room Number', required: true },
@@ -181,9 +181,9 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
   const downloadTemplate = () => {
     const templateData = [
-      ['Client ID', 'Session Date', 'Session Time', 'Session Type', 'Service Code', 'Room Number'],
+      ['Client ID', 'Session Date', 'Session Time (Optional)', 'Session Type', 'Service Code', 'Room Number'],
       ['CL-2025-0001', '2025-08-01', '10:00', 'psychotherapy', '90834-C', '101'],
-      ['CL-2025-0002', '2025-08-01', '11:00', 'assessment', '90791', '102'],
+      ['CL-2025-0002', '2025-08-01', '', 'assessment', '90791', '102'],
       ['CL-2025-0003', '2025-08-01', '14:00', 'consultation', '90834', '103']
     ];
     
