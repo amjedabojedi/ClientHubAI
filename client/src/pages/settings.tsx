@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, Save, X, Settings, DollarSign } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Settings, DollarSign, MapPin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -66,6 +66,7 @@ export default function SettingsPage() {
   const [isAddingOption, setIsAddingOption] = useState(false);
   const [activeTab, setActiveTab] = useState("system-options");
   const [editingServiceCode, setEditingServiceCode] = useState<any | null>(null);
+  const [editingRoom, setEditingRoom] = useState<any | null>(null);
 
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
@@ -80,8 +81,13 @@ export default function SettingsPage() {
       return data.options || [];
     }),
     staleTime: 0, // Always refetch when needed
-    cacheTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
+    gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
   });
+
+  // Fetch rooms
+  const { data: rooms = [], isLoading: roomsLoading } = useQuery({
+    queryKey: ["/api/rooms"],
+  }) as { data: any[], isLoading: boolean };
 
   // Fetch category with options when selected
   const { data: selectedCategory, isLoading: categoryLoading, error: categoryError } = useQuery({
@@ -282,6 +288,56 @@ export default function SettingsPage() {
     createServiceCodeMutation.mutate(data);
   };
 
+  const createRoomMutation = useMutation({
+    mutationFn: async (data: any) => apiRequest("/api/rooms", "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      setEditingRoom(null);
+      toast({ title: "Room created successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Room creation error:", error);
+      toast({ title: "Failed to create room", variant: "destructive" });
+    },
+  });
+
+  const updateRoomMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => 
+      apiRequest(`/api/rooms/${id}`, "PUT", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/rooms"] });
+      setEditingRoom(null);
+      toast({ title: "Room updated successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Room update error:", error);
+      toast({ title: "Failed to update room", variant: "destructive" });
+    },
+  });
+
+  const handleCreateRoom = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      roomNumber: formData.get("roomNumber") as string,
+      roomName: formData.get("roomName") as string,
+      capacity: parseInt(formData.get("capacity") as string) || 1,
+      isActive: true,
+    };
+    createRoomMutation.mutate(data);
+  };
+
+  const handleUpdateRoom = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      roomNumber: formData.get("roomNumber") as string,
+      roomName: formData.get("roomName") as string,
+      capacity: parseInt(formData.get("capacity") as string) || 1,
+    };
+    updateRoomMutation.mutate({ id: editingRoom.id, data });
+  };
+
   if (categoriesLoading || serviceCodesLoading) {
     return (
       <div className="container mx-auto px-4">
@@ -311,9 +367,10 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="system-options">System Options</TabsTrigger>
           <TabsTrigger value="service-prices">Service Prices</TabsTrigger>
+          <TabsTrigger value="rooms">Rooms</TabsTrigger>
         </TabsList>
 
         <TabsContent value="system-options" className="space-y-6">
@@ -767,6 +824,62 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="rooms" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Room Management</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Manage therapy rooms and session locations
+              </p>
+            </div>
+            <Button onClick={() => setEditingRoom({ id: null, roomNumber: '', roomName: '', capacity: 1 })} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Room
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Therapy Rooms
+              </CardTitle>
+              <CardDescription>
+                Configure rooms available for scheduling sessions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {roomsLoading && <p>Loading rooms...</p>}
+              {!roomsLoading && rooms.length === 0 && <p>No rooms found</p>}
+              <div className="space-y-4">
+                {rooms.map((room: any) => (
+                  <div key={room.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white">
+                        Room {room.roomNumber} - {room.roomName}
+                      </h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Capacity: {room.capacity} • {room.isActive ? 'Active' : 'Inactive'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingRoom(room)}
+                        className="flex items-center gap-2"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Service Code Edit/Create Dialog */}
@@ -829,6 +942,69 @@ export default function SettingsPage() {
                   {editingServiceCode.id 
                     ? (updateServiceCodeMutation.isPending ? "Updating..." : "Update Price")
                     : (createServiceCodeMutation.isPending ? "Creating..." : "Create Service Code")
+                  }
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Edit/Create Dialog */}
+      <Dialog open={!!editingRoom} onOpenChange={() => setEditingRoom(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingRoom?.id ? "Edit Room" : "Add New Room"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingRoom?.id 
+                ? `Update details for Room ${editingRoom?.roomNumber}`
+                : "Create a new therapy room"
+              }
+            </DialogDescription>
+          </DialogHeader>
+          {editingRoom && (
+            <form onSubmit={editingRoom.id ? handleUpdateRoom : handleCreateRoom} className="space-y-4">
+              <div>
+                <Label htmlFor="room-number">Room Number</Label>
+                <Input
+                  id="room-number"
+                  name="roomNumber"
+                  defaultValue={editingRoom.roomNumber}
+                  placeholder="e.g., 101"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="room-name">Room Name</Label>
+                <Input
+                  id="room-name"
+                  name="roomName"
+                  defaultValue={editingRoom.roomName}
+                  placeholder="e.g., Consultation Room A"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="room-capacity">Capacity</Label>
+                <Input
+                  id="room-capacity"
+                  name="capacity"
+                  type="number"
+                  min="1"
+                  defaultValue={editingRoom.capacity || 1}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingRoom(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editingRoom.id ? updateRoomMutation.isPending : createRoomMutation.isPending}>
+                  {editingRoom.id 
+                    ? (updateRoomMutation.isPending ? "Updating..." : "Update Room")
+                    : (createRoomMutation.isPending ? "Creating..." : "Create Room")
                   }
                 </Button>
               </div>
