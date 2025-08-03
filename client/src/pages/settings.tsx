@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, Save, X, Settings } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Settings, DollarSign } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -63,10 +64,17 @@ export default function SettingsPage() {
   const [editingOption, setEditingOption] = useState<SystemOption | null>(null);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
+  const [activeTab, setActiveTab] = useState("system-options");
+  const [editingService, setEditingService] = useState<any | null>(null);
 
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/system-options/categories"],
+  });
+
+  // Fetch services
+  const { data: services = [], isLoading: servicesLoading } = useQuery({
+    queryKey: ["/api/services"],
   });
 
   // Fetch category with options when selected
@@ -150,6 +158,20 @@ export default function SettingsPage() {
     },
   });
 
+  // Service management mutations
+  const updateServiceMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => 
+      apiRequest(`/api/services/${id}`, "PUT", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      setEditingService(null);
+      toast({ title: "Service updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update service", variant: "destructive" });
+    },
+  });
+
   // Form handlers
   const handleCreateCategory = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -208,7 +230,19 @@ export default function SettingsPage() {
     updateOptionMutation.mutate({ id: editingOption.id, data });
   };
 
-  if (categoriesLoading) {
+  const handleUpdateService = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingService) return;
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const data = {
+      baseRate: parseFloat(formData.get("baseRate") as string),
+      duration: parseInt(formData.get("duration") as string),
+    };
+    updateServiceMutation.mutate({ id: editingService.id, data });
+  };
+
+  if (categoriesLoading || servicesLoading) {
     return (
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center min-h-64">
@@ -234,11 +268,27 @@ export default function SettingsPage() {
             Manage dropdown options and system configuration
           </p>
         </div>
-        <Button onClick={() => setIsAddingCategory(true)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add Category
-        </Button>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="system-options">System Options</TabsTrigger>
+          <TabsTrigger value="service-prices">Service Prices</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="system-options" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">System Options</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Manage dropdown options and categories
+              </p>
+            </div>
+            <Button onClick={() => setIsAddingCategory(true)} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Add Category
+            </Button>
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Categories List */}
@@ -610,6 +660,109 @@ export default function SettingsPage() {
                 </Button>
                 <Button type="submit" disabled={updateOptionMutation.isPending}>
                   {updateOptionMutation.isPending ? "Updating..." : "Update Option"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+        </TabsContent>
+
+        <TabsContent value="service-prices" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Service Prices</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Manage pricing for therapy services
+              </p>
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                Service Pricing
+              </CardTitle>
+              <CardDescription>
+                Set prices for each service code used in session billing
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {services.map((service: any) => (
+                  <div key={service.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-white">
+                        {service.serviceCode} - {service.serviceName}
+                      </h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Duration: {service.duration} minutes
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold text-lg">${service.baseRate}</p>
+                        <p className="text-sm text-gray-500">Current Price</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingService(service)}
+                        className="flex items-center gap-2"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit Price
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Service Price Edit Dialog */}
+      <Dialog open={!!editingService} onOpenChange={() => setEditingService(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Service Price</DialogTitle>
+            <DialogDescription>
+              Update pricing for {editingService?.serviceCode} - {editingService?.serviceName}
+            </DialogDescription>
+          </DialogHeader>
+          {editingService && (
+            <form onSubmit={handleUpdateService} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-baseRate">Base Rate (USD)</Label>
+                <Input
+                  id="edit-baseRate"
+                  name="baseRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={editingService.baseRate}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-duration">Duration (minutes)</Label>
+                <Input
+                  id="edit-duration"
+                  name="duration"
+                  type="number"
+                  min="1"
+                  defaultValue={editingService.duration}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingService(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateServiceMutation.isPending}>
+                  {updateServiceMutation.isPending ? "Updating..." : "Update Service"}
                 </Button>
               </div>
             </form>

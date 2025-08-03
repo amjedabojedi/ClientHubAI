@@ -940,6 +940,22 @@ export class DatabaseStorage implements IStorage {
     return service || null;
   }
 
+  async getServices(): Promise<any[]> {
+    return await db.select().from(services).where(eq(services.isActive, true));
+  }
+
+  async updateService(id: number, updateData: any): Promise<any> {
+    const [service] = await db
+      .update(services)
+      .set({
+        ...updateData,
+        updatedAt: new Date()
+      })
+      .where(eq(services.id, id))
+      .returning();
+    return service;
+  }
+
   async getRoomByNumber(roomNumber: string): Promise<any> {
     const [room] = await db
       .select()

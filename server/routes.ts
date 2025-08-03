@@ -400,17 +400,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.serviceId = service.id;
           
-          // Handle session price - use provided price instead of service default
-          if (sessionData.sessionPrice) {
-            const price = parseFloat(sessionData.sessionPrice);
-            if (isNaN(price) || price < 0) {
-              throw new Error('Session price must be a valid positive number');
-            }
-            cleanData.calculatedRate = price.toFixed(2);
-          } else {
-            // Fallback to service base rate if no price specified
-            cleanData.calculatedRate = service.baseRate;
-          }
+          // Use service base rate for pricing
+          cleanData.calculatedRate = service.baseRate;
 
           // Look up room by room number
           if (!sessionData.roomNumber) {
@@ -2556,6 +2547,25 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid service data", errors: error.errors });
       }
       // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update service (including price)
+  app.put("/api/services/:id", async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      if (isNaN(serviceId)) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+
+      const updateData = req.body;
+      const service = await storage.updateService(serviceId, updateData);
+      res.json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid service data", errors: error.errors });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
