@@ -399,6 +399,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Service with code '${sessionData.serviceCode}' not found`);
           }
           cleanData.serviceId = service.id;
+          
+          // Automatically calculate session rate from service
+          cleanData.calculatedRate = service.baseRate;
 
           // Look up room by room number
           if (!sessionData.roomNumber) {
