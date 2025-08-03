@@ -390,18 +390,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.sessionType = sessionData.sessionType.toLowerCase();
 
-          // Look up service by service code
+          // Look up service code from System Options (category 32)
           if (!sessionData.serviceCode) {
             throw new Error('Service code is required');
           }
-          const service = await storage.getServiceByCode(sessionData.serviceCode);
-          if (!service) {
-            throw new Error(`Service with code '${sessionData.serviceCode}' not found`);
+          const serviceCodeOption = await storage.getServiceCodeByKey(sessionData.serviceCode);
+          if (!serviceCodeOption) {
+            throw new Error(`Service code '${sessionData.serviceCode}' not found in system options`);
           }
-          cleanData.serviceId = service.id;
           
-          // Use service base rate for pricing
-          cleanData.calculatedRate = service.baseRate;
+          // Use service code price for pricing
+          cleanData.calculatedRate = serviceCodeOption.price || '0.00';
 
           // Look up room by room number
           if (!sessionData.roomNumber) {

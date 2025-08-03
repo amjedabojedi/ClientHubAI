@@ -208,6 +208,7 @@ export interface IStorage {
   
   // ===== SERVICE AND ROOM LOOKUPS =====
   getServiceByCode(serviceCode: string): Promise<any>;
+  getServiceCodeByKey(serviceCode: string): Promise<any>;
   getRoomByNumber(roomNumber: string): Promise<any>;
 
   // ===== TASK MANAGEMENT =====
@@ -938,6 +939,23 @@ export class DatabaseStorage implements IStorage {
       .from(services)
       .where(eq(services.serviceCode, serviceCode));
     return service || null;
+  }
+
+  async getServiceCodeByKey(serviceCode: string): Promise<any> {
+    const result = await db
+      .select({
+        id: systemOptions.id,
+        optionKey: systemOptions.optionKey,
+        optionLabel: systemOptions.optionLabel,
+        price: systemOptions.price
+      })
+      .from(systemOptions)
+      .innerJoin(optionCategories, eq(systemOptions.categoryId, optionCategories.id))
+      .where(and(
+        eq(systemOptions.optionKey, serviceCode),
+        eq(optionCategories.categoryKey, 'service_codes')
+      ));
+    return result[0] || null;
   }
 
   async getServices(): Promise<any[]> {

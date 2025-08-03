@@ -65,16 +65,17 @@ export default function SettingsPage() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
   const [activeTab, setActiveTab] = useState("system-options");
-  const [editingService, setEditingService] = useState<any | null>(null);
+  const [editingServiceCode, setEditingServiceCode] = useState<any | null>(null);
 
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/system-options/categories"],
   });
 
-  // Fetch services
-  const { data: services = [], isLoading: servicesLoading } = useQuery({
-    queryKey: ["/api/services"],
+  // Fetch service codes from System Options category 32
+  const { data: serviceCodes = [], isLoading: serviceCodesLoading } = useQuery({
+    queryKey: ["/api/system-options/categories/32"],
+    queryFn: () => fetch("/api/system-options/categories/32").then(res => res.json()).then(data => data.options || []),
   });
 
   // Fetch category with options when selected
@@ -159,16 +160,16 @@ export default function SettingsPage() {
   });
 
   // Service management mutations
-  const updateServiceMutation = useMutation({
+  const updateServiceCodeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
-      apiRequest(`/api/services/${id}`, "PUT", data),
+      apiRequest(`/api/system-options/${id}`, "PUT", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
-      setEditingService(null);
-      toast({ title: "Service updated successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/32"] });
+      setEditingServiceCode(null);
+      toast({ title: "Service code price updated successfully" });
     },
     onError: () => {
-      toast({ title: "Failed to update service", variant: "destructive" });
+      toast({ title: "Failed to update service code price", variant: "destructive" });
     },
   });
 
@@ -230,19 +231,17 @@ export default function SettingsPage() {
     updateOptionMutation.mutate({ id: editingOption.id, data });
   };
 
-  const handleUpdateService = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUpdateServiceCode = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editingService) return;
-    
-    const formData = new FormData(e.target as HTMLFormElement);
+    const formData = new FormData(e.currentTarget);
     const data = {
-      baseRate: parseFloat(formData.get("baseRate") as string),
-      duration: parseInt(formData.get("duration") as string),
+      price: parseFloat(formData.get("price") as string),
     };
-    updateServiceMutation.mutate({ id: editingService.id, data });
+
+    updateServiceCodeMutation.mutate({ id: editingServiceCode.id, data });
   };
 
-  if (categoriesLoading || servicesLoading) {
+  if (categoriesLoading || serviceCodesLoading) {
     return (
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center min-h-64">
@@ -300,7 +299,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {categories.map((category: OptionCategory) => (
+            {(categories as OptionCategory[]).map((category: OptionCategory) => (
               <div
                 key={category.id}
                 className={`p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -682,7 +681,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5" />
-                Service Pricing
+                Service Code Pricing
               </CardTitle>
               <CardDescription>
                 Set prices for each service code used in session billing
@@ -690,25 +689,25 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {services.map((service: any) => (
-                  <div key={service.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {serviceCodes.map((serviceCode: any) => (
+                  <div key={serviceCode.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">
-                        {service.serviceCode} - {service.serviceName}
+                        {serviceCode.optionKey} - {serviceCode.optionLabel}
                       </h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Duration: {service.duration} minutes
+                        Service Code: {serviceCode.optionKey}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p className="font-semibold text-lg">${service.baseRate}</p>
+                        <p className="font-semibold text-lg">${serviceCode.price || '0.00'}</p>
                         <p className="text-sm text-gray-500">Current Price</p>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setEditingService(service)}
+                        onClick={() => setEditingServiceCode(serviceCode)}
                         className="flex items-center gap-2"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -723,46 +722,35 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Service Price Edit Dialog */}
-      <Dialog open={!!editingService} onOpenChange={() => setEditingService(null)}>
+      {/* Service Code Price Edit Dialog */}
+      <Dialog open={!!editingServiceCode} onOpenChange={() => setEditingServiceCode(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Service Price</DialogTitle>
+            <DialogTitle>Edit Service Code Price</DialogTitle>
             <DialogDescription>
-              Update pricing for {editingService?.serviceCode} - {editingService?.serviceName}
+              Update pricing for {editingServiceCode?.optionKey} - {editingServiceCode?.optionLabel}
             </DialogDescription>
           </DialogHeader>
-          {editingService && (
-            <form onSubmit={handleUpdateService} className="space-y-4">
+          {editingServiceCode && (
+            <form onSubmit={handleUpdateServiceCode} className="space-y-4">
               <div>
-                <Label htmlFor="edit-baseRate">Base Rate (USD)</Label>
+                <Label htmlFor="edit-price">Price (USD)</Label>
                 <Input
-                  id="edit-baseRate"
-                  name="baseRate"
+                  id="edit-price"
+                  name="price"
                   type="number"
                   step="0.01"
                   min="0"
-                  defaultValue={editingService.baseRate}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-duration">Duration (minutes)</Label>
-                <Input
-                  id="edit-duration"
-                  name="duration"
-                  type="number"
-                  min="1"
-                  defaultValue={editingService.duration}
+                  defaultValue={editingServiceCode.price || '0.00'}
                   required
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditingService(null)}>
+                <Button type="button" variant="outline" onClick={() => setEditingServiceCode(null)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateServiceMutation.isPending}>
-                  {updateServiceMutation.isPending ? "Updating..." : "Update Service"}
+                <Button type="submit" disabled={updateServiceCodeMutation.isPending}>
+                  {updateServiceCodeMutation.isPending ? "Updating..." : "Update Price"}
                 </Button>
               </div>
             </form>

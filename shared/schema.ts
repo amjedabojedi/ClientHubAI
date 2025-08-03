@@ -344,6 +344,7 @@ export const systemOptions = pgTable("system_options", {
   isDefault: boolean("is_default").notNull().default(false), // Default selection for new records
   isSystem: boolean("is_system").notNull().default(false), // System options cannot be deleted
   isActive: boolean("is_active").notNull().default(true),
+  price: decimal("price", { precision: 10, scale: 2 }).default("0.00"), // Price for service codes
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
