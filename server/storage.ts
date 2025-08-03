@@ -346,6 +346,14 @@ export interface IStorage {
   updateAssessmentReport(id: number, report: Partial<InsertAssessmentReport>): Promise<AssessmentReport>;
   deleteAssessmentReport(id: number): Promise<void>;
 
+  // ===== ROOM MANAGEMENT =====
+  getRooms(): Promise<SelectRoom[]>;
+  getRoomById(id: number): Promise<SelectRoom | null>;
+  createRoom(roomData: InsertRoom): Promise<SelectRoom>;
+  updateRoom(id: number, updateData: any): Promise<SelectRoom>;
+  deleteRoom(id: number): Promise<void>;
+  checkRoomAvailability(date: string, startTime: string, endTime: string, excludeSessionId?: number): Promise<SelectRoom[]>;
+
   // ===== SYSTEM OPTIONS MANAGEMENT =====
   // (Following same pattern as Services/Rooms)
   getOptionCategories(): Promise<SelectOptionCategory[]>;
@@ -2351,6 +2359,22 @@ export class DatabaseStorage implements IStorage {
   async getRoomById(id: number): Promise<SelectRoom | null> {
     const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
     return room || null;
+  }
+
+  async updateRoom(id: number, updateData: any): Promise<SelectRoom> {
+    const [room] = await db
+      .update(rooms)
+      .set({
+        ...updateData,
+        updatedAt: new Date()
+      })
+      .where(eq(rooms.id, id))
+      .returning();
+    return room;
+  }
+
+  async deleteRoom(id: number): Promise<void> {
+    await db.delete(rooms).where(eq(rooms.id, id));
   }
 
   // Room Availability Methods

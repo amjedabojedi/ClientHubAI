@@ -2594,6 +2594,40 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Update room
+  app.put("/api/rooms/:id", async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      if (isNaN(roomId)) {
+        return res.status(400).json({ message: "Invalid room ID" });
+      }
+
+      const updateData = req.body;
+      const room = await storage.updateRoom(roomId, updateData);
+      res.json(room);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid room data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete room
+  app.delete("/api/rooms/:id", async (req, res) => {
+    try {
+      const roomId = parseInt(req.params.id);
+      if (isNaN(roomId)) {
+        return res.status(400).json({ message: "Invalid room ID" });
+      }
+
+      await storage.deleteRoom(roomId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Room Availability Check
   app.get("/api/rooms/availability", async (req, res) => {
     try {
