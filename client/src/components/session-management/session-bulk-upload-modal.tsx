@@ -290,14 +290,17 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
                     <Select
                       value={fieldMapping[field.key] || ''}
                       onValueChange={(value) => 
-                        setFieldMapping(prev => ({ ...prev, [field.key]: value }))
+                        setFieldMapping(prev => ({ 
+                          ...prev, 
+                          [field.key]: value === "__placeholder__" ? "" : value 
+                        }))
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select column" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">-- Select Column --</SelectItem>
+                        <SelectItem value="__placeholder__">-- Select Column --</SelectItem>
                         {availableColumns.map((column) => (
                           <SelectItem key={column} value={column}>
                             {column}
