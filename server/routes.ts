@@ -427,9 +427,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cleanData.notes = sessionData.notes;
           }
 
+          // Handle session mode (optional)
+          if (sessionData.sessionMode && sessionData.sessionMode.trim() !== '') {
+            const cleanSessionMode = sessionData.sessionMode.trim().toLowerCase().replace('-', '_');
+            const validSessionModes = ['in_person', 'virtual', 'phone'];
+            if (validSessionModes.includes(cleanSessionMode)) {
+              cleanData.sessionMode = cleanSessionMode;
+            } else {
+              cleanData.sessionMode = 'in_person'; // Default if invalid
+            }
+          } else {
+            cleanData.sessionMode = 'in_person'; // Default mode
+          }
+
           // Set default values
           cleanData.status = 'scheduled';
-          cleanData.sessionMode = 'in_person'; // Default mode
 
           // Validate and create session
           const validatedData = insertSessionSchema.parse(cleanData);
