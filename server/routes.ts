@@ -337,15 +337,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Clean and prepare session data
           const cleanData: any = {};
 
-          // Handle required fields
+          // Handle required fields - clean and normalize client ID
           if (!sessionData.clientId || sessionData.clientId.trim() === '') {
             throw new Error('Client ID is required');
           }
           
+          // Clean client ID (remove extra spaces, normalize case)
+          const cleanClientId = sessionData.clientId.trim();
+          
           // Look up client by clientId
-          const client = await storage.getClientByClientId(sessionData.clientId);
+          const client = await storage.getClientByClientId(cleanClientId);
           if (!client) {
-            throw new Error(`Client with ID '${sessionData.clientId}' not found`);
+            throw new Error(`Client with ID '${cleanClientId}' not found`);
           }
           cleanData.clientId = client.id;
 
