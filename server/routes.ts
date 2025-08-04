@@ -373,20 +373,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Session date is required');
           }
           
-          // Combine date and time into ISO format - time is optional
+          // Convert Excel serial date to proper date format
           let sessionDateTime;
-          if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
-            sessionDateTime = new Date(`${sessionData.sessionDate}T${sessionData.sessionTime}:00`);
-            if (isNaN(sessionDateTime.getTime())) {
-              throw new Error('Invalid session date or time format');
+          const rawDate = sessionData.sessionDate;
+          
+          // Check if it's an Excel serial number (typically > 1000 for recent dates)
+          if (typeof rawDate === 'number' && rawDate > 1000) {
+            // Excel serial date conversion (days since January 1, 1900)
+            // Excel treats 1900 as a leap year (it wasn't), so we adjust
+            const excelEpoch = new Date(1899, 11, 30); // December 30, 1899 (Excel day 0)
+            const dateFromSerial = new Date(excelEpoch.getTime() + rawDate * 24 * 60 * 60 * 1000);
+            
+            if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
+              // Combine with time
+              const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
+              sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T${timeStr}:00`);
+            } else {
+              // Default to start of day
+              sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T00:00:00`);
+            }
+          } else if (typeof rawDate === 'string') {
+            // Handle string dates
+            if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
+              sessionDateTime = new Date(`${rawDate}T${sessionData.sessionTime}:00`);
+            } else {
+              sessionDateTime = new Date(`${rawDate}T00:00:00`);
             }
           } else {
-            // If no time provided, default to start of day
-            sessionDateTime = new Date(`${sessionData.sessionDate}T00:00:00`);
-            if (isNaN(sessionDateTime.getTime())) {
-              throw new Error('Invalid session date format');
-            }
+            console.error('Date type not handled:', { rawDate, type: typeof rawDate });
+            throw new Error('Invalid session date format');
           }
+          
+          if (isNaN(sessionDateTime.getTime())) {
+            console.error('Date conversion failed:', {
+              rawDate,
+              sessionTime: sessionData.sessionTime,
+              sessionDateTime: sessionDateTime.toString()
+            });
+            throw new Error('Invalid session date or time format');
+          }
+          
           cleanData.sessionDate = sessionDateTime;
 
           // Handle session type - normalize case
@@ -404,9 +430,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!sessionData.serviceCode) {
             throw new Error('Service code is required');
           }
-          const service = await storage.getServiceByCode(sessionData.serviceCode);
+          const cleanServiceCode = sessionData.serviceCode.trim(); // Remove leading/trailing spaces
+          const service = await storage.getServiceByCode(cleanServiceCode);
           if (!service) {
-            throw new Error(`Service code '${sessionData.serviceCode}' not found in services`);
+            throw new Error(`Service code '${cleanServiceCode}' not found in services`);
           }
           
           // Set service ID and price
