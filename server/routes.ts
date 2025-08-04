@@ -451,10 +451,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
         } catch (error) {
           results.failed++;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`Session upload error at row ${i + 1}:`, errorMessage, sessionData);
           results.errors.push({
             row: i + 1,
             data: sessionData,
-            message: error instanceof Error ? error.message : 'Unknown error'
+            message: errorMessage
           });
         }
       }
