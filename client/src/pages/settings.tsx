@@ -191,6 +191,18 @@ export default function SettingsPage() {
     },
   });
 
+  const deleteServiceCodeMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest(`/api/services/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({ title: "Service code deleted successfully" });
+    },
+    onError: (error: any) => {
+      console.error("Service code deletion error:", error);
+      toast({ title: "Failed to delete service code", variant: "destructive" });
+    },
+  });
+
   const createServiceCodeMutation = useMutation({
     mutationFn: async (data: any) => apiRequest("/api/services", "POST", {
       serviceCode: data.optionKey,
@@ -835,15 +847,30 @@ export default function SettingsPage() {
                         <p className="font-semibold text-lg">${serviceCode.price || '0.00'}</p>
                         <p className="text-sm text-gray-500">Current Price</p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingServiceCode(serviceCode)}
-                        className="flex items-center gap-2"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        Edit Price
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingServiceCode(serviceCode)}
+                          className="flex items-center gap-2"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete ${serviceCode.optionKey} - ${serviceCode.optionLabel}?`)) {
+                              deleteServiceCodeMutation.mutate(serviceCode.id);
+                            }
+                          }}
+                          className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:border-red-300"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
