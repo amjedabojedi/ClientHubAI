@@ -105,10 +105,10 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
         
         if (jsonData.length < 2) {
           toast({
@@ -124,11 +124,26 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
         
         setAvailableColumns(headers);
         
-        // Convert to objects
+        // Convert to objects and handle date conversion
         const sessions = rows.map((row: any) => {
           const sessionObj: any = {};
           headers.forEach((header, index) => {
-            sessionObj[header] = row[index] || '';
+            let value = row[index];
+            
+            // Handle date fields - convert Date objects to YYYY-MM-DD format
+            if (value instanceof Date && !isNaN(value.getTime())) {
+              value = value.toISOString().split('T')[0];
+            }
+            // Handle Excel serial dates that might still come through as numbers
+            else if (typeof value === 'number' && value > 1000 && 
+                     (header.toLowerCase().includes('date') || header.toLowerCase().includes('time'))) {
+              // Convert Excel serial date to proper date
+              const excelEpoch = new Date(1899, 11, 30); // December 30, 1899 (Excel day 0)
+              const dateFromSerial = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+              value = dateFromSerial.toISOString().split('T')[0];
+            }
+            
+            sessionObj[header] = value || '';
           });
           return sessionObj;
         });
