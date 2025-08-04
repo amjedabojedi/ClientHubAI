@@ -105,7 +105,7 @@ export default function SchedulingPage() {
   
   // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"day" | "week" | "month">("month");
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "list">("month");
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -447,6 +447,13 @@ export default function SchedulingPage() {
                   onClick={() => setViewMode("month")}
                 >
                   Month
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                >
+                  All Sessions
                 </Button>
               </div>
               <SessionBulkUploadModal
@@ -800,6 +807,126 @@ export default function SchedulingPage() {
               </CardContent>
             </Card>
           </div>)
+        ) : viewMode === "list" ? (
+          /* All Sessions List View */
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">All Sessions</h2>
+              <div className="text-sm text-slate-600">
+                {filteredSessions.length} total sessions
+              </div>
+            </div>
+            
+            <Card>
+              <CardContent className="p-6">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-slate-600">Loading sessions...</p>
+                    </div>
+                  </div>
+                ) : filteredSessions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-slate-900 mb-2">No sessions found</h3>
+                    <p className="text-slate-600 mb-4">No sessions match your current filters.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredSessions
+                      .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
+                      .map((session: Session) => (
+                        <div
+                          key={session.id}
+                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedSession(session);
+                            setIsEditSessionModalOpen(true);
+                          }}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center space-x-4 flex-1">
+                              <div className="text-center">
+                                <p className="font-semibold text-lg">
+                                  {new Date(session.sessionDate).toLocaleDateString()}
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                  {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                              
+                              <Avatar className="w-12 h-12">
+                                <AvatarFallback className="bg-blue-100 text-blue-600">
+                                  {getInitials(session.client?.fullName || 'UC')}
+                                </AvatarFallback>
+                              </Avatar>
+                              
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <h3 className="font-medium text-blue-600">
+                                    {session.client?.fullName || 'Unknown Client'}
+                                  </h3>
+                                  <Badge className={getStatusColor(session.status)} variant="secondary">
+                                    {session.status}
+                                  </Badge>
+                                </div>
+                                <div className="space-y-1 text-sm text-slate-600">
+                                  <div className="flex items-center space-x-2">
+                                    <User className="w-4 h-4" />
+                                    <span>Therapist: {session.therapist.fullName}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <FileText className="w-4 h-4" />
+                                    <span>{session.sessionType}</span>
+                                    <Badge className={getSessionTypeColor(session.sessionType)} variant="secondary">
+                                      {session.sessionType}
+                                    </Badge>
+                                  </div>
+                                  {session.room && (
+                                    <div className="flex items-center space-x-2">
+                                      <MapPin className="w-4 h-4" />
+                                      <span>Room: {session.room}</span>
+                                    </div>
+                                  )}
+                                  {session.service && (
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                                        {session.service.serviceCode} - ${session.service.baseRate}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col space-y-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.location.href = `/clients/${session.clientId}`;
+                                }}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Client
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {session.notes && (
+                            <div className="mt-4 p-3 bg-slate-50 rounded-md">
+                              <p className="text-sm text-slate-600">{session.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           /* Day/Week View */
           (<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
