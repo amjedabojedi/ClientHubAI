@@ -331,6 +331,52 @@ export default function SchedulingPage() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  // Bulk update function to mark all scheduled sessions as completed
+  const handleBulkUpdateToCompleted = async () => {
+    try {
+      const scheduledSessions = filteredSessions.filter(session => 
+        session.status.toLowerCase() === 'scheduled'
+      );
+
+      if (scheduledSessions.length === 0) {
+        toast({
+          title: "No scheduled sessions found",
+          description: "There are no sessions with 'scheduled' status to update.",
+          variant: "default"
+        });
+        return;
+      }
+
+      // Update each scheduled session to completed
+      const updatePromises = scheduledSessions.map(session => 
+        apiRequest(`/api/sessions/${session.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ status: "completed" })
+        })
+      );
+
+      await Promise.all(updatePromises);
+
+      // Refresh the sessions data
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
+
+      toast({
+        title: "Sessions updated successfully",
+        description: `${scheduledSessions.length} sessions marked as completed`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('Error updating sessions:', error);
+      toast({
+        title: "Error updating sessions",
+        description: "Failed to update sessions. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Session Filtering and Data Processing
   const filteredSessions = useMemo(() => {
     // Use the appropriate sessions data based on view mode
@@ -477,6 +523,16 @@ export default function SchedulingPage() {
                   </Button>
                 }
               />
+              {viewMode === "list" && (
+                <Button 
+                  onClick={handleBulkUpdateToCompleted}
+                  variant="outline"
+                  className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Mark All Scheduled as Completed
+                </Button>
+              )}
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
