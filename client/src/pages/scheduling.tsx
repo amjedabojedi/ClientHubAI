@@ -347,22 +347,59 @@ export default function SchedulingPage() {
         return;
       }
 
-      // Update each scheduled session to completed
-      const updatePromises = scheduledSessions.map(session => 
-        apiRequest(`/api/sessions/${session.id}`, "PUT", { status: "completed" })
-      );
+      toast({
+        title: "Updating sessions...",
+        description: `Processing ${scheduledSessions.length} sessions. Please wait...`,
+        variant: "default"
+      });
 
-      await Promise.all(updatePromises);
+      // Process sessions in batches to avoid overwhelming the server
+      const batchSize = 10;
+      let updatedCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < scheduledSessions.length; i += batchSize) {
+        const batch = scheduledSessions.slice(i, i + batchSize);
+        
+        const batchResults = await Promise.allSettled(
+          batch.map(session => 
+            apiRequest(`/api/sessions/${session.id}`, "PUT", { status: "completed" })
+          )
+        );
+
+        // Count successful and failed updates
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled') {
+            updatedCount++;
+          } else {
+            failedCount++;
+            console.error('Failed to update session:', result.reason);
+          }
+        });
+
+        // Small delay between batches to prevent overwhelming
+        if (i + batchSize < scheduledSessions.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
 
       // Refresh the sessions data
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
 
-      toast({
-        title: "Sessions updated successfully",
-        description: `${scheduledSessions.length} sessions marked as completed`,
-        variant: "default"
-      });
+      if (failedCount === 0) {
+        toast({
+          title: "Sessions updated successfully",
+          description: `${updatedCount} sessions marked as completed`,
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Partial update completed",
+          description: `${updatedCount} sessions updated, ${failedCount} failed. Check console for details.`,
+          variant: "default"
+        });
+      }
 
     } catch (error) {
       console.error('Error updating sessions:', error);
