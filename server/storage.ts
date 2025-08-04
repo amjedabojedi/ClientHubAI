@@ -950,6 +950,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getServiceCodeByKey(serviceCode: string): Promise<any> {
+    // Handle IFH mapping to specific service types
+    const ihfMapping: { [key: string]: string } = {
+      'IFH': 'IFH', // Keep original for backward compatibility
+      'IFH-ASSESS': 'IFH-ASSESS',
+      'IFH-1H': 'IFH-1H', 
+      'IFH-2H': 'IFH-2H'
+    };
+    
+    const mappedCode = ihfMapping[serviceCode] || serviceCode;
+    
     // First try the services table
     const [service] = await db
       .select({
@@ -959,7 +969,7 @@ export class DatabaseStorage implements IStorage {
         baseRate: services.baseRate
       })
       .from(services)
-      .where(eq(services.serviceCode, serviceCode));
+      .where(eq(services.serviceCode, mappedCode));
       
     if (service) {
       return {
