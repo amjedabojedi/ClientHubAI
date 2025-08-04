@@ -983,10 +983,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRoomByNumber(roomNumber: string): Promise<any> {
-    const [room] = await db
+    // First try to find by room number
+    let [room] = await db
       .select()
       .from(rooms)
       .where(eq(rooms.roomNumber, roomNumber));
+    
+    // If not found, try to find by room name
+    if (!room) {
+      [room] = await db
+        .select()
+        .from(rooms)
+        .where(eq(rooms.roomName, roomNumber));
+    }
+    
     return room || null;
   }
 
