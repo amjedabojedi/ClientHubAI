@@ -349,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.clientId = client.id;
 
-          // Handle therapist - use provided username or client's assigned therapist
+          // Handle therapist - use provided username or client's assigned therapist (both optional)
           if (sessionData.therapistUsername && sessionData.therapistUsername.trim() !== '') {
             // Use specified therapist
             const therapist = await storage.getUserByUsername(sessionData.therapistUsername);
@@ -357,12 +357,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               throw new Error(`Therapist with username '${sessionData.therapistUsername}' not found`);
             }
             cleanData.therapistId = therapist.id;
-          } else {
-            // Use client's assigned therapist
-            if (!client.assignedTherapistId) {
-              throw new Error(`Client '${sessionData.clientId}' has no assigned therapist. Please assign a therapist or specify therapist username in upload.`);
-            }
+          } else if (client.assignedTherapistId) {
+            // Use client's assigned therapist if available
             cleanData.therapistId = client.assignedTherapistId;
+          } else {
+            // No therapist specified or assigned - create session without therapist (can be assigned later)
+            cleanData.therapistId = null;
           }
 
           // Handle date and time
