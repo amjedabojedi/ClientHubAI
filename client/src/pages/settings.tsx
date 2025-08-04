@@ -199,7 +199,16 @@ export default function SettingsPage() {
     },
     onError: (error: any) => {
       console.error("Service code deletion error:", error);
-      toast({ title: "Failed to delete service code", variant: "destructive" });
+      
+      // Show specific error message if available
+      let errorMessage = "Failed to delete service code";
+      if (error?.message?.includes("sessions are using")) {
+        errorMessage = "Cannot delete: Service is used in existing sessions";
+      } else if (error?.message?.includes("billing records are using")) {
+        errorMessage = "Cannot delete: Service is used in billing records";
+      }
+      
+      toast({ title: errorMessage, variant: "destructive" });
     },
   });
 

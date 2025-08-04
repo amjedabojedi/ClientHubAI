@@ -1003,9 +1003,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteService(id: number): Promise<void> {
-    await db
-      .delete(services)
-      .where(eq(services.id, id));
+    try {
+      // Check if service is referenced in other tables
+      const [sessionsUsing] = await db
+        .select({ count: count() })
+        .from(sessions)
+        .where(eq(sessions.serviceId, id));
+      
+      if (sessionsUsing.count > 0) {
+        throw new Error(`Cannot delete service: ${sessionsUsing.count} sessions are using this service`);
+      }
+
+      // Check session billing references by service code
+      const [service] = await db
+        .select({ serviceCode: services.serviceCode })
+        .from(services)
+        .where(eq(services.id, id));
+
+      if (service) {
+        const [billingUsing] = await db
+          .select({ count: count() })
+          .from(sessionBilling)
+          .where(eq(sessionBilling.serviceCode, service.serviceCode));
+        
+        if (billingUsing.count > 0) {
+          throw new Error(`Cannot delete service: ${billingUsing.count} billing records are using this service code`);
+        }
+      }
+
+      // Safe to delete
+      await db
+        .delete(services)
+        .where(eq(services.id, id));
+    } catch (error) {
+      console.error("Delete service error:", error);
+      throw error;
+    }
   }
 
   async getRoomByNumber(roomNumber: string): Promise<any> {
