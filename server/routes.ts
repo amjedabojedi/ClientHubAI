@@ -394,10 +394,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           } else if (typeof rawDate === 'string') {
             // Handle string dates
-            if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
-              sessionDateTime = new Date(`${rawDate}T${sessionData.sessionTime}:00`);
+            const cleanDate = rawDate.trim();
+            
+            // Check if it's MM/DD/YY format and convert to proper format
+            if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cleanDate)) {
+              const [month, day, year] = cleanDate.split('/');
+              const fullYear = year.length === 2 ? (parseInt(year) < 50 ? `20${year}` : `19${year}`) : year;
+              const properDateStr = `${month}/${day}/${fullYear}`;
+              
+              if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
+                const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
+                sessionDateTime = new Date(`${properDateStr} ${timeStr}`);
+              } else {
+                sessionDateTime = new Date(`${month}/${day}/${fullYear}`);
+              }
             } else {
-              sessionDateTime = new Date(`${rawDate}T00:00:00`);
+              // Try parsing as-is for other formats
+              if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
+                sessionDateTime = new Date(`${cleanDate}T${sessionData.sessionTime}:00`);
+              } else {
+                sessionDateTime = new Date(`${cleanDate}T00:00:00`);
+              }
             }
           } else {
             console.error('Date type not handled:', { rawDate, type: typeof rawDate });
