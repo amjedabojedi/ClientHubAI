@@ -73,12 +73,17 @@ export default function SettingsPage() {
     queryKey: ["/api/system-options/categories"],
   });
 
-  // Fetch service codes from System Options category 32
+  // Fetch service codes from Services table
   const { data: serviceCodes = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes } = useQuery({
-    queryKey: ["/api/system-options/categories/32"],
-    queryFn: () => fetch("/api/system-options/categories/32").then(res => res.json()).then(data => {
-      console.log("Service codes fetched:", data.options || []);
-      return data.options || [];
+    queryKey: ["/api/services"],
+    queryFn: () => fetch("/api/services").then(res => res.json()).then(data => {
+      console.log("Service codes fetched:", data);
+      return data.map((service: any) => ({
+        id: service.id,
+        optionKey: service.serviceCode,
+        optionLabel: service.serviceName,
+        price: service.baseRate
+      }));
     }),
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
@@ -173,11 +178,10 @@ export default function SettingsPage() {
   // Service management mutations
   const updateServiceCodeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
-      apiRequest(`/api/system-options/${id}`, "PUT", data),
+      apiRequest(`/api/services/${id}`, "PUT", { baseRate: data.price }),
     onSuccess: async () => {
       // Force refetch the service codes data
-      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories/32"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories", 32] });
+      await queryClient.refetchQueries({ queryKey: ["/api/services"] });
       setEditingServiceCode(null);
       toast({ title: "Service code price updated successfully" });
     },
@@ -188,11 +192,17 @@ export default function SettingsPage() {
   });
 
   const createServiceCodeMutation = useMutation({
-    mutationFn: async (data: any) => apiRequest("/api/system-options", "POST", data),
+    mutationFn: async (data: any) => apiRequest("/api/services", "POST", {
+      serviceCode: data.optionKey,
+      serviceName: data.optionLabel,
+      baseRate: data.price,
+      duration: 60,
+      category: 'Therapy',
+      isActive: true
+    }),
     onSuccess: async () => {
       // Force refetch the service codes data
-      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories/32"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/system-options/categories", 32] });
+      await queryClient.refetchQueries({ queryKey: ["/api/services"] });
       setEditingServiceCode(null);
       toast({ title: "Service code created successfully" });
     },
