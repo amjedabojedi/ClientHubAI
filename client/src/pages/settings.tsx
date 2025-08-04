@@ -178,10 +178,7 @@ export default function SettingsPage() {
   // Service management mutations
   const updateServiceCodeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
-      apiRequest(`/api/services/${id}`, "PUT", { 
-        baseRate: data.price,
-        serviceName: data.optionLabel 
-      }),
+      apiRequest(`/api/services/${id}`, "PUT", data),
     onSuccess: async () => {
       // Force refetch the service codes data
       await queryClient.refetchQueries({ queryKey: ["/api/services"] });
@@ -279,10 +276,11 @@ export default function SettingsPage() {
     const priceValue = formData.get("price") as string;
     const serviceNameValue = formData.get("optionLabel") as string;
     const data = {
-      price: parseFloat(priceValue).toFixed(2), // Convert to string with 2 decimal places
-      optionLabel: serviceNameValue
+      baseRate: parseFloat(priceValue).toFixed(2), // Use baseRate to match API
+      serviceName: serviceNameValue // Use serviceName to match API
     };
 
+    console.log("Updating service code:", editingServiceCode.id, data);
     updateServiceCodeMutation.mutate({ id: editingServiceCode.id, data });
   };
 
