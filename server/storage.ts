@@ -2737,8 +2737,9 @@ export class DatabaseStorage implements IStorage {
     const [category] = await db.select().from(optionCategories).where(eq(optionCategories.id, id));
     if (!category) return undefined;
 
+    // For category management, show ALL options (active and inactive) so admins can manage them
     const options = await db.select().from(systemOptions)
-      .where(and(eq(systemOptions.categoryId, id), eq(systemOptions.isActive, true)))
+      .where(eq(systemOptions.categoryId, id))
       .orderBy(systemOptions.sortOrder, systemOptions.optionLabel);
 
     return { ...category, options };

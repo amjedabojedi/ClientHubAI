@@ -290,13 +290,21 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!editingOption) return;
     
-    const formData = new FormData(e.target as HTMLFormElement);
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    
+    // Get switch values directly from the form elements since FormData doesn't handle switches properly
+    const isDefaultSwitch = form.querySelector('input[name="isDefault"]') as HTMLInputElement;
+    const isActiveSwitch = form.querySelector('input[name="isActive"]') as HTMLInputElement;
+    
     const data = {
       optionLabel: formData.get("optionLabel") as string,
       sortOrder: parseInt(formData.get("sortOrder") as string) || 0,
-      isDefault: formData.get("isDefault") === "true",
-      isActive: formData.get("isActive") === "true",
+      isDefault: isDefaultSwitch?.checked || false,
+      isActive: isActiveSwitch?.checked || false,
     };
+    
+    console.log("Updating option with data:", data);
     updateOptionMutation.mutate({ id: editingOption.id, data });
   };
 
