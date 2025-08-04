@@ -349,10 +349,7 @@ export default function SchedulingPage() {
 
       // Update each scheduled session to completed
       const updatePromises = scheduledSessions.map(session => 
-        apiRequest(`/api/sessions/${session.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ status: "completed" })
-        })
+        apiRequest(`/api/sessions/${session.id}`, "PUT", { status: "completed" })
       );
 
       await Promise.all(updatePromises);
