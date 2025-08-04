@@ -960,7 +960,7 @@ export class DatabaseStorage implements IStorage {
     
     const mappedCode = ihfMapping[serviceCode] || serviceCode;
     
-    // First try the services table
+    // Only use services table - no more fallback to system_options
     const [service] = await db
       .select({
         id: services.id,
@@ -980,21 +980,7 @@ export class DatabaseStorage implements IStorage {
       };
     }
     
-    // Fallback to system_options if not found in services
-    const result = await db
-      .select({
-        id: systemOptions.id,
-        optionKey: systemOptions.optionKey,
-        optionLabel: systemOptions.optionLabel,
-        price: systemOptions.price
-      })
-      .from(systemOptions)
-      .innerJoin(optionCategories, eq(systemOptions.categoryId, optionCategories.id))
-      .where(and(
-        eq(systemOptions.optionKey, serviceCode),
-        eq(optionCategories.categoryKey, 'service_codes')
-      ));
-    return result[0] || null;
+    return null; // Service code not found
   }
 
   async getServices(): Promise<any[]> {
