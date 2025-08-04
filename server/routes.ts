@@ -396,15 +396,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Handle string dates
             const cleanDate = rawDate.trim();
             
+            // Check if it's already in YYYY-MM-DD format (preferred)
+            if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+              if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
+                const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
+                sessionDateTime = new Date(`${cleanDate}T${timeStr}:00`);
+              } else {
+                sessionDateTime = new Date(`${cleanDate}T00:00:00`);
+              }
+            }
             // Check if it's MM/DD/YY format and convert to proper format
-            if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cleanDate)) {
+            else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cleanDate)) {
               const [month, day, year] = cleanDate.split('/');
               const fullYear = year.length === 2 ? (parseInt(year) < 50 ? `20${year}` : `19${year}`) : year;
-              const properDateStr = `${month}/${day}/${fullYear}`;
               
               if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
                 const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
-                sessionDateTime = new Date(`${properDateStr} ${timeStr}`);
+                sessionDateTime = new Date(`${month}/${day}/${fullYear} ${timeStr}`);
               } else {
                 sessionDateTime = new Date(`${month}/${day}/${fullYear}`);
               }
