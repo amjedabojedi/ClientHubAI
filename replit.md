@@ -8,6 +8,11 @@ Preferred communication style: Simple, everyday language.
 Code organization: Keep code clean and well-organized when making changes.
 Application name: TherapyFlow (to be used consistently throughout the application).
 
+## Recent Changes (August 2025)
+- **Service Code System Consolidation**: Unified service code management by eliminating duplicate system_options category 32 and using only the services table for consistent service code handling across all components.
+- **Session Bulk Upload Fix**: Updated session bulk upload to use the new unified services table instead of the deprecated system_options lookup, enabling successful session imports.
+- **Service Code Management**: Added full CRUD operations for service codes in Settings page with proper constraint checking for deletion when services are referenced in sessions or billing records.
+
 ## System Architecture
 
 ### Frontend
