@@ -178,16 +178,19 @@ export default function SettingsPage() {
   // Service management mutations
   const updateServiceCodeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
-      apiRequest(`/api/services/${id}`, "PUT", { baseRate: data.price }),
+      apiRequest(`/api/services/${id}`, "PUT", { 
+        baseRate: data.price,
+        serviceName: data.optionLabel 
+      }),
     onSuccess: async () => {
       // Force refetch the service codes data
       await queryClient.refetchQueries({ queryKey: ["/api/services"] });
       setEditingServiceCode(null);
-      toast({ title: "Service code price updated successfully" });
+      toast({ title: "Service code updated successfully" });
     },
     onError: (error: any) => {
       console.error("Service code update error:", error);
-      toast({ title: "Failed to update service code price", variant: "destructive" });
+      toast({ title: "Failed to update service code", variant: "destructive" });
     },
   });
 
@@ -274,8 +277,10 @@ export default function SettingsPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const priceValue = formData.get("price") as string;
+    const serviceNameValue = formData.get("optionLabel") as string;
     const data = {
       price: parseFloat(priceValue).toFixed(2), // Convert to string with 2 decimal places
+      optionLabel: serviceNameValue
     };
 
     updateServiceCodeMutation.mutate({ id: editingServiceCode.id, data });
@@ -939,30 +944,30 @@ export default function SettingsPage() {
           </DialogHeader>
           {editingServiceCode && (
             <form onSubmit={editingServiceCode.id ? handleUpdateServiceCode : handleCreateServiceCode} className="space-y-4">
-              {!editingServiceCode.id && (
-                <>
-                  <div>
-                    <Label htmlFor="edit-optionKey">Service Code</Label>
-                    <Input
-                      id="edit-optionKey"
-                      name="optionKey"
-                      defaultValue={editingServiceCode.optionKey}
-                      placeholder="e.g., 90791"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-optionLabel">Service Name</Label>
-                    <Input
-                      id="edit-optionLabel"
-                      name="optionLabel"
-                      defaultValue={editingServiceCode.optionLabel}
-                      placeholder="e.g., Diagnostic Interview"
-                      required
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <Label htmlFor="edit-optionKey">Service Code</Label>
+                <Input
+                  id="edit-optionKey"
+                  name="optionKey"
+                  defaultValue={editingServiceCode.optionKey}
+                  placeholder="e.g., 90791"
+                  required
+                  disabled={!!editingServiceCode.id}
+                />
+                {editingServiceCode.id && (
+                  <p className="text-sm text-gray-500 mt-1">Service code cannot be changed after creation</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="edit-optionLabel">Service Name</Label>
+                <Input
+                  id="edit-optionLabel"
+                  name="optionLabel"
+                  defaultValue={editingServiceCode.optionLabel}
+                  placeholder="e.g., Diagnostic Interview"
+                  required
+                />
+              </div>
               <div>
                 <Label htmlFor="edit-price">Price (USD)</Label>
                 <Input
