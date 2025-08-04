@@ -950,6 +950,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getServiceCodeByKey(serviceCode: string): Promise<any> {
+    // First try the services table
+    const [service] = await db
+      .select({
+        id: services.id,
+        serviceCode: services.serviceCode,
+        serviceName: services.serviceName,
+        baseRate: services.baseRate
+      })
+      .from(services)
+      .where(eq(services.serviceCode, serviceCode));
+      
+    if (service) {
+      return {
+        id: service.id,
+        optionKey: service.serviceCode,
+        optionLabel: service.serviceName,
+        price: service.baseRate
+      };
+    }
+    
+    // Fallback to system_options if not found in services
     const result = await db
       .select({
         id: systemOptions.id,

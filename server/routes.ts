@@ -409,7 +409,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Service code '${sessionData.serviceCode}' not found in system options`);
           }
           
-          // Use service code price for pricing
+          // Set service ID and price
+          cleanData.serviceId = serviceCodeOption.id;
           cleanData.calculatedRate = serviceCodeOption.price || '0.00';
 
           // Look up room by room number
