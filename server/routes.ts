@@ -389,15 +389,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.sessionDate = sessionDateTime;
 
-          // Handle session type
+          // Handle session type - normalize case
           if (!sessionData.sessionType) {
             throw new Error('Session type is required');
           }
+          const cleanSessionType = sessionData.sessionType.trim().toLowerCase();
           const validSessionTypes = ['assessment', 'psychotherapy', 'consultation'];
-          if (!validSessionTypes.includes(sessionData.sessionType.toLowerCase())) {
-            throw new Error(`Invalid session type. Must be one of: ${validSessionTypes.join(', ')}`);
+          if (!validSessionTypes.includes(cleanSessionType)) {
+            throw new Error(`Invalid session type '${sessionData.sessionType}'. Must be one of: assessment, psychotherapy, consultation`);
           }
-          cleanData.sessionType = sessionData.sessionType.toLowerCase();
+          cleanData.sessionType = cleanSessionType;
 
           // Look up service code from System Options (category 32)
           if (!sessionData.serviceCode) {
