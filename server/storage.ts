@@ -207,6 +207,9 @@ export interface IStorage {
   deleteSession(id: number): Promise<void>;
   
   // ===== SERVICE AND ROOM LOOKUPS =====
+  getServices(): Promise<any[]>;
+  updateService(id: number, updateData: any): Promise<any>;
+  deleteService(id: number): Promise<void>;
   getServiceByCode(serviceCode: string): Promise<any>;
   getServiceCodeByKey(serviceCode: string): Promise<any>;
   getRoomByNumber(roomNumber: string): Promise<any>;
@@ -997,6 +1000,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(services.id, id))
       .returning();
     return service;
+  }
+
+  async deleteService(id: number): Promise<void> {
+    await db
+      .delete(services)
+      .where(eq(services.id, id));
   }
 
   async getRoomByNumber(roomNumber: string): Promise<any> {

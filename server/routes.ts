@@ -2592,6 +2592,21 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Delete service
+  app.delete("/api/services/:id", async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.id);
+      if (isNaN(serviceId)) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+
+      await storage.deleteService(serviceId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Room Management API
   app.get("/api/rooms", async (req, res) => {
     try {
