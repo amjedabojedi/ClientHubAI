@@ -142,6 +142,8 @@ export default function SettingsPage() {
   const createOptionMutation = useMutation({
     mutationFn: async (data: any) => apiRequest("/api/system-options", "POST", data),
     onSuccess: () => {
+      // Invalidate both the general categories query and the specific category query
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", selectedCategoryId] });
       setIsAddingOption(false);
       toast({ title: "Option created successfully" });
@@ -155,6 +157,8 @@ export default function SettingsPage() {
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
       apiRequest(`/api/system-options/${id}`, "PUT", data),
     onSuccess: () => {
+      // Invalidate both the general categories query and the specific category query
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", selectedCategoryId] });
       setEditingOption(null);
       toast({ title: "Option updated successfully" });
@@ -167,6 +171,8 @@ export default function SettingsPage() {
   const deleteOptionMutation = useMutation({
     mutationFn: async (id: number) => apiRequest(`/api/system-options/${id}`, "DELETE"),
     onSuccess: () => {
+      // Invalidate both the general categories query and the specific category query
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories", selectedCategoryId] });
       toast({ title: "Option deleted successfully" });
     },
