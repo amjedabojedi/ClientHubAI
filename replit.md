@@ -10,7 +10,8 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 
 ## Recent Changes (August 2025)
 - **Client Reference Number Display**: Updated All Sessions view to display actual client reference numbers (like "1613015", "63904052") instead of system client IDs, providing proper client identification for record tracking.
-- **Bulk Session Status Update**: Added "Mark All Scheduled as Completed" button in All Sessions view to bulk update all scheduled sessions to completed status, streamlining session management workflow.
+- **Bulk Session Status Update**: Added "Mark All Scheduled as Completed" button in All Sessions view to bulk update all scheduled sessions to completed status with improved batch processing and error handling to prevent server overload.
+- **Settings Page Cache Fix**: Fixed issue where system options would disappear after updates by implementing sequential cache invalidation to ensure the UI refreshes correctly.
 - **Service Code System Consolidation**: Unified service code management by eliminating duplicate system_options category 32 and using only the services table for consistent service code handling across all components.
 - **Session Bulk Upload Fix**: Updated session bulk upload to use the new unified services table instead of the deprecated system_options lookup, enabling successful session imports.
 - **Excel Date Format Support**: Added comprehensive Excel date handling for session uploads, supporting both Excel serial dates (43772 → 2019-11-03) and MM/DD/YY format (12/23/19 → 2019-12-23).
