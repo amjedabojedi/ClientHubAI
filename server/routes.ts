@@ -688,12 +688,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sessions routes
   app.get("/api/sessions", async (req, res) => {
     try {
-      // Get all sessions with date filtering if provided
-      const { date, viewMode } = req.query;
-      // Return empty array for now - will be implemented properly later
-      res.json([]);
+      const { currentUserId, currentUserRole } = req.query;
+      
+      let sessions = await storage.getAllSessions();
+      
+      // Role-based filtering
+      if (currentUserRole === "therapist" && currentUserId) {
+        const therapistId = parseInt(currentUserId as string);
+        sessions = sessions.filter(session => session.therapistId === therapistId);
+      } else if (currentUserRole === "supervisor" && currentUserId) {
+        const supervisorId = parseInt(currentUserId as string);
+        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        
+        if (supervisorAssignments.length === 0) {
+          return res.json([]);
+        }
+        
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        sessions = sessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
+      }
+      
+      res.json(sessions);
     } catch (error) {
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });

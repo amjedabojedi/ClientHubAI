@@ -84,6 +84,7 @@ interface Session {
     id: number;
     fullName: string;
     clientId: string;
+    client_id: string;
   };
   service?: {
     id: number;
@@ -130,6 +131,13 @@ export default function SchedulingPage() {
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Fetch all sessions for list view
+  const { data: allSessions = [] } = useQuery({
+    queryKey: ["/api/sessions", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: viewMode === "list"
   });
 
   // Fetch clients and therapists for dropdowns
@@ -323,7 +331,9 @@ export default function SchedulingPage() {
 
   // Session Filtering and Data Processing
   const filteredSessions = useMemo(() => {
-    let filtered = sessions;
+    // Use the appropriate sessions data based on view mode
+    const currentSessions = viewMode === "list" ? allSessions : sessions;
+    let filtered = currentSessions;
     
     if (searchQuery) {
       filtered = filtered.filter((session: Session) =>
@@ -339,7 +349,7 @@ export default function SchedulingPage() {
     }
     
     return filtered;
-  }, [sessions, searchQuery, selectedTherapist]);
+  }, [sessions, allSessions, searchQuery, selectedTherapist, viewMode]);
 
   const getTodaysSessions = (): Session[] => {
     const today = selectedDate.toISOString().split('T')[0];
@@ -869,7 +879,7 @@ export default function SchedulingPage() {
                                     {session.client?.fullName || 'Unknown Client'}
                                   </h3>
                                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
-                                    {session.client?.clientId || 'No ID'}
+                                    {session.client?.client_id || session.client?.clientId || 'No ID'}
                                   </span>
                                   <Badge className={getStatusColor(session.status)} variant="secondary">
                                     {session.status}

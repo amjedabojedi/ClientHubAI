@@ -916,6 +916,25 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]> {
+    const results = await db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .orderBy(desc(sessions.sessionDate));
+
+    return results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client 
+    }));
+  }
+
   async createSession(session: InsertSession): Promise<Session> {
     const [newSession] = await db
       .insert(sessions)
