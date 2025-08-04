@@ -11,7 +11,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 ## Recent Changes (August 2025)
 - **Service Code System Consolidation**: Unified service code management by eliminating duplicate system_options category 32 and using only the services table for consistent service code handling across all components.
 - **Session Bulk Upload Fix**: Updated session bulk upload to use the new unified services table instead of the deprecated system_options lookup, enabling successful session imports.
-- **Excel Date Format Support**: Added Excel serial date conversion for session uploads to handle Excel's numeric date format (e.g., 43772 → 2019-11-03).
+- **Excel Date Format Support**: Added comprehensive Excel date handling for session uploads, supporting both Excel serial dates (43772 → 2019-11-03) and MM/DD/YY format (12/23/19 → 2019-12-23).
 - **Service Code Trimming**: Enhanced service code lookup to handle leading/trailing spaces in uploaded data.
 - **Service Code Management**: Added full CRUD operations for service codes in Settings page with proper constraint checking for deletion when services are referenced in sessions or billing records.
 
