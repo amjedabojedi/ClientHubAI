@@ -275,7 +275,9 @@ export default function SettingsPage() {
     const formData = new FormData(e.currentTarget);
     const priceValue = formData.get("price") as string;
     const serviceNameValue = formData.get("optionLabel") as string;
+    const serviceCodeValue = formData.get("optionKey") as string;
     const data = {
+      serviceCode: serviceCodeValue,
       baseRate: parseFloat(priceValue).toFixed(2), // Use baseRate to match API
       serviceName: serviceNameValue // Use serviceName to match API
     };
@@ -950,11 +952,7 @@ export default function SettingsPage() {
                   defaultValue={editingServiceCode.optionKey}
                   placeholder="e.g., 90791"
                   required
-                  disabled={!!editingServiceCode.id}
                 />
-                {editingServiceCode.id && (
-                  <p className="text-sm text-gray-500 mt-1">Service code cannot be changed after creation</p>
-                )}
               </div>
               <div>
                 <Label htmlFor="edit-optionLabel">Service Name</Label>
