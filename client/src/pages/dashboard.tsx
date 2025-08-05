@@ -93,7 +93,7 @@ export default function DashboardPage() {
   });
 
   // Get all sessions and filter for today in the frontend
-  const { data: allSessions = [] } = useQuery<SessionWithDetails[]>({
+  const { data: allSessions = [], isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionWithDetails[]>({
     queryKey: ["/api/sessions"],
   });
 
@@ -101,6 +101,13 @@ export default function DashboardPage() {
   const recentSessions = allSessions
     .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
     .slice(0, 10);
+
+  // Debug logging
+  console.log('Dashboard - Sessions loading:', sessionsLoading);
+  console.log('Dashboard - Sessions error:', sessionsError);
+  console.log('Dashboard - All sessions count:', allSessions.length);
+  console.log('Dashboard - Recent sessions count:', recentSessions.length);
+  console.log('Dashboard - First few sessions:', recentSessions.slice(0, 3));
   
   // Also keep today's sessions for today's count metric
   const today = new Date().toISOString().split('T')[0];
@@ -309,10 +316,21 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {recentSessions.length === 0 ? (
+            {sessionsLoading ? (
+              <div className="text-center py-6 text-slate-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300 mx-auto mb-2"></div>
+                <p>Loading sessions...</p>
+              </div>
+            ) : sessionsError ? (
+              <div className="text-center py-6 text-red-500">
+                <Calendar className="w-8 h-8 mx-auto mb-2 text-red-300" />
+                <p>Error loading sessions</p>
+              </div>
+            ) : recentSessions.length === 0 ? (
               <div className="text-center py-6 text-slate-500">
                 <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                 <p>No sessions found</p>
+                <p className="text-xs text-slate-400 mt-1">Total sessions in DB: {allSessions.length}</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
