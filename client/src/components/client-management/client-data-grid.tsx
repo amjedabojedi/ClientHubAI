@@ -190,7 +190,7 @@ export default function ClientDataGrid({
                     <i className={`fas fa-sort${sortBy === "lastSession" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
                   </div>
                 </TableHead>
-                <TableHead>Progress</TableHead>
+                <TableHead>Session Recency</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -272,11 +272,57 @@ export default function ClientDataGrid({
                     </TableCell>
                     <TableCell>
                       <div className="w-20">
-                        <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                          <span>Progress</span>
-                          <span>75%</span>
-                        </div>
-                        <Progress value={75} className="h-2" />
+                        {(() => {
+                          const calculateSessionProgress = (lastSessionDate: string | null) => {
+                            if (!lastSessionDate) return { percentage: 0, label: "No sessions" };
+                            
+                            const lastSession = new Date(lastSessionDate);
+                            const today = new Date();
+                            const daysSinceLastSession = Math.floor((today.getTime() - lastSession.getTime()) / (1000 * 60 * 60 * 24));
+                            
+                            // Consider sessions within 30 days as 100% (very recent)
+                            // Sessions 30-90 days ago decrease linearly from 100% to 25%
+                            // Sessions older than 90 days are at 10% (need attention)
+                            let percentage;
+                            if (daysSinceLastSession <= 30) {
+                              percentage = 100;
+                            } else if (daysSinceLastSession <= 90) {
+                              percentage = Math.max(25, 100 - ((daysSinceLastSession - 30) / 60) * 75);
+                            } else {
+                              percentage = 10;
+                            }
+                            
+                            return {
+                              percentage: Math.round(percentage),
+                              label: daysSinceLastSession === 0 ? "Today" : 
+                                     daysSinceLastSession === 1 ? "1 day ago" :
+                                     daysSinceLastSession < 30 ? `${daysSinceLastSession} days ago` :
+                                     daysSinceLastSession < 90 ? `${Math.round(daysSinceLastSession / 7)} weeks ago` :
+                                     `${Math.round(daysSinceLastSession / 30)} months ago`
+                            };
+                          };
+                          
+                          const progress = calculateSessionProgress(client.lastSessionDate);
+                          const progressColor = progress.percentage >= 75 ? "bg-green-500" :
+                                              progress.percentage >= 50 ? "bg-yellow-500" :
+                                              progress.percentage >= 25 ? "bg-orange-500" : "bg-red-500";
+                          
+                          return (
+                            <>
+                              <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                                <span>Recency</span>
+                                <span>{progress.percentage}%</span>
+                              </div>
+                              <Progress 
+                                value={progress.percentage} 
+                                className={`h-2 [&>div]:${progressColor}`}
+                              />
+                              <div className="text-xs text-slate-500 mt-1 truncate" title={progress.label}>
+                                {progress.label}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell>
