@@ -1,6 +1,7 @@
 // Icon Utility Functions for Performance Optimization
 // This file centralizes icon configuration to avoid heavy icon library imports
 
+import React from "react";
 import { 
   Users, 
   CalendarCheck, 
@@ -78,15 +79,17 @@ export const COMMON_ICONS = {
 
 // Performance-optimized icon component wrapper
 export function OptimizedIcon({ 
-  icon: Icon, 
+  icon: IconComponent, 
   size = "sm", 
   className = "" 
 }: {
-  icon: typeof Users;
+  icon: React.ComponentType<{ className?: string }>;
   size?: keyof typeof ICON_SIZES;
   className?: string;
-}) {
-  return <Icon className={`${ICON_SIZES[size]} ${className}`} />;
+}): React.ReactElement {
+  return React.createElement(IconComponent, { 
+    className: `${ICON_SIZES[size]} ${className}` 
+  });
 }
 
 // Get icon class for consistent sizing

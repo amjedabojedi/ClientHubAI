@@ -64,28 +64,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       
-
-      
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      // For this demo, we'll use simple authentication
-      // In production, you would hash passwords and use secure authentication
+      // Simple authentication for demo purposes
+      // TODO: In production, implement proper password hashing with bcrypt
       const users = await storage.getUsers();
-      
       const user = users.find(u => u.username === username);
       
-      if (!user) {
-
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-
-
-      // Check if the provided password matches the stored password
-      if (password !== user.password) {
-
+      if (!user || password !== user.password) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
