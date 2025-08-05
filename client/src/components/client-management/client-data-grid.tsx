@@ -190,7 +190,7 @@ export default function ClientDataGrid({
                     <i className={`fas fa-sort${sortBy === "lastSession" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
                   </div>
                 </TableHead>
-                <TableHead>Session Gap</TableHead>
+                <TableHead>Since Last Session</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -313,7 +313,6 @@ export default function ClientDataGrid({
                           
                           return (
                             <div className="text-center">
-                              <div className="text-xs text-slate-600 mb-1">Gap</div>
                               <div className={`text-sm font-medium ${result.color}`}>
                                 {result.gap}
                               </div>
