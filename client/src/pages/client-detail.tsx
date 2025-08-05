@@ -1282,17 +1282,9 @@ export default function ClientDetailPage() {
                       </span>
                     </div>
                   )}
-                  {client.startDate && (
-                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                      <span className="text-sm font-medium text-slate-600">Admin Start Date</span>
-                      <span className="text-slate-900 font-medium">
-                        {new Date(client.startDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
                   {sessions.length > 0 && (
                     <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                      <span className="text-sm font-medium text-slate-600">First Session Date</span>
+                      <span className="text-sm font-medium text-slate-600">Start Date</span>
                       <span className="text-slate-900 font-medium">
                         {new Date(Math.min(...sessions.map((s: Session) => new Date(s.sessionDate).getTime()))).toLocaleDateString()}
                       </span>
