@@ -16,12 +16,8 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Enums
-export const clientStatusEnum = pgEnum('client_status', ['active', 'inactive', 'pending']);
-export const clientStageEnum = pgEnum('client_stage', ['intake', 'assessment', 'psychotherapy']);
-export const clientTypeEnum = pgEnum('client_type', ['individual', 'couple', 'family', 'group']);
-export const sessionTypeEnum = pgEnum('session_type', ['assessment', 'psychotherapy', 'consultation']);
-export const sessionStatusEnum = pgEnum('session_status', ['scheduled', 'completed', 'cancelled', 'no_show']);
+// Enums - Removed unused client/session enums (converted to varchar for flexibility)
+// Keeping only enums that are still actively used in the database
 export const serviceTypeEnum = pgEnum('service_type', ['individual_therapy', 'group_therapy', 'family_therapy', 'assessment', 'consultation']);
 export const billingStatusEnum = pgEnum('billing_status', ['pending', 'billed', 'paid', 'denied', 'refunded']);
 export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', 'completed', 'overdue']);
