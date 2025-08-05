@@ -297,11 +297,16 @@ export default function SettingsPage() {
     const isDefaultSwitch = form.querySelector('input[name="isDefault"]') as HTMLInputElement;
     const isActiveSwitch = form.querySelector('input[name="isActive"]') as HTMLInputElement;
     
+    const newOptionKey = formData.get("optionKey") as string;
+    const oldOptionKey = editingOption.optionKey;
+    
     const data = {
+      optionKey: newOptionKey,
       optionLabel: formData.get("optionLabel") as string,
       sortOrder: parseInt(formData.get("sortOrder") as string) || 0,
       isDefault: isDefaultSwitch?.checked || false,
       isActive: isActiveSwitch?.checked || false,
+      oldOptionKey: oldOptionKey // Include the old key for data migration
     };
     
     console.log("Updating option with data:", data);
@@ -782,6 +787,18 @@ export default function SettingsPage() {
           </DialogHeader>
           {editingOption && (
             <form onSubmit={handleUpdateOption} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-optionKey">Option Key</Label>
+                <Input
+                  id="edit-optionKey"
+                  name="optionKey"
+                  defaultValue={editingOption.optionKey}
+                  required
+                />
+                <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                  ⚠️ Changing this will update all existing data that uses this option
+                </p>
+              </div>
               <div>
                 <Label htmlFor="edit-optionLabel">Option Label</Label>
                 <Input

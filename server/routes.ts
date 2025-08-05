@@ -3469,14 +3469,18 @@ This happens because only the file metadata was stored, not the actual file cont
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid option ID" });
       }
-      const validatedData = insertSystemOptionSchema.partial().parse(req.body);
-      const option = await storage.updateSystemOption(id, validatedData);
+      
+      const { oldOptionKey, ...validatedData } = req.body;
+      const parsedData = insertSystemOptionSchema.partial().parse(validatedData);
+      
+      // Update the option and migrate data if key changed
+      const option = await storage.updateSystemOptionWithMigration(id, parsedData, oldOptionKey);
       res.json(option);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      // Error logged
+      console.error("Error updating system option:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

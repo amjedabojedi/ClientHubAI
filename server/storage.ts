@@ -2945,6 +2945,76 @@ export class DatabaseStorage implements IStorage {
     return option;
   }
 
+  async updateSystemOptionWithMigration(id: number, optionData: Partial<InsertSystemOption>, oldOptionKey?: string): Promise<SelectSystemOption> {
+    // Get the current option to determine its category
+    const [currentOption] = await db.select().from(systemOptions).where(eq(systemOptions.id, id));
+    if (!currentOption) {
+      throw new Error('Option not found');
+    }
+
+    // Check if option key is changing
+    const isKeyChanging = optionData.optionKey && optionData.optionKey !== oldOptionKey;
+    
+    if (isKeyChanging && oldOptionKey) {
+      console.log(`Migrating data from key '${oldOptionKey}' to '${optionData.optionKey}' for category ${currentOption.categoryId}`);
+      
+      // Determine which table/column to update based on category
+      const categoryKey = await this.getCategoryKey(currentOption.categoryId);
+      
+      if (categoryKey) {
+        await this.migrateOptionData(categoryKey, oldOptionKey, optionData.optionKey);
+      }
+    }
+
+    // Update the option
+    const [option] = await db.update(systemOptions)
+      .set({ ...optionData, updatedAt: new Date() })
+      .where(eq(systemOptions.id, id))
+      .returning();
+    
+    return option;
+  }
+
+  private async getCategoryKey(categoryId: number): Promise<string | null> {
+    const [category] = await db.select({ categoryKey: optionCategories.categoryKey })
+      .from(optionCategories)
+      .where(eq(optionCategories.id, categoryId));
+    return category?.categoryKey || null;
+  }
+
+  private async migrateOptionData(categoryKey: string, oldKey: string, newKey: string): Promise<void> {
+    try {
+      // Map category keys to their corresponding tables and columns
+      const migrationMap: Record<string, { table: string; column: string }> = {
+        'client_type': { table: 'clients', column: 'client_type' },
+        'client_status': { table: 'clients', column: 'status' },
+        'client_stage': { table: 'clients', column: 'stage' },
+        'session_type': { table: 'sessions', column: 'session_type' },
+        'session_status': { table: 'sessions', column: 'status' },
+        // Add more mappings as needed
+      };
+
+      const migration = migrationMap[categoryKey];
+      if (migration) {
+        console.log(`Updating ${migration.table}.${migration.column} from '${oldKey}' to '${newKey}'`);
+        
+        // Use raw SQL for the update since we need dynamic table/column names
+        await db.execute(sql.raw(`
+          UPDATE ${migration.table} 
+          SET ${migration.column} = '${newKey}' 
+          WHERE ${migration.column} = '${oldKey}'
+        `));
+        
+        console.log(`Migration completed for ${categoryKey}`);
+      } else {
+        console.log(`No migration mapping found for category: ${categoryKey}`);
+      }
+    } catch (error) {
+      console.error(`Error migrating data for category ${categoryKey}:`, error);
+      throw error;
+    }
+  }
+
   async deleteSystemOption(id: number): Promise<void> {
     await db.delete(systemOptions).where(eq(systemOptions.id, id));
   }
