@@ -97,7 +97,12 @@ export default function DashboardPage() {
     queryKey: ["/api/sessions"],
   });
 
-  // Filter sessions for today
+  // Get recent sessions (last 10) instead of just today's
+  const recentSessions = allSessions
+    .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
+    .slice(0, 10);
+  
+  // Also keep today's sessions for today's count metric
   const today = new Date().toISOString().split('T')[0];
   const todaySessions = allSessions.filter(session => 
     session.sessionDate.split('T')[0] === today
@@ -286,28 +291,28 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Today's Sessions */}
+        {/* Recent Sessions */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5" />
-                Today's Schedule
+                Recent Sessions
               </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setLocation("/scheduling")}
               >
-                View Calendar
+                View All Sessions
               </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {todaySessions.length === 0 ? (
+            {recentSessions.length === 0 ? (
               <div className="text-center py-6 text-slate-500">
                 <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p>No sessions scheduled today</p>
+                <p>No sessions found</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -319,7 +324,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {todaySessions.slice(0, 5).map((session) => (
+                {recentSessions.slice(0, 5).map((session) => (
                   <div 
                     key={session.id} 
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
@@ -330,7 +335,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2 mt-1">
                         <Clock className="w-3 h-3 text-slate-400" />
                         <span className="text-xs text-slate-600">
-                          {formatTime(session.sessionTime)}
+                          {formatDate(session.sessionDate)}
                         </span>
                       </div>
                     </div>
