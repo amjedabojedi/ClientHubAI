@@ -102,12 +102,10 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
     .slice(0, 10);
 
-  // Debug logging
-  console.log('Dashboard - Sessions loading:', sessionsLoading);
-  console.log('Dashboard - Sessions error:', sessionsError);
-  console.log('Dashboard - All sessions count:', allSessions.length);
-  console.log('Dashboard - Recent sessions count:', recentSessions.length);
-  console.log('Dashboard - First few sessions:', recentSessions.slice(0, 3));
+  // Debug logging (remove later)
+  if (recentSessions.length > 0) {
+    console.log('Dashboard - Recent sessions working:', recentSessions.length);
+  }
   
   // Also keep today's sessions for today's count metric
   const today = new Date().toISOString().split('T')[0];

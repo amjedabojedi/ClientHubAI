@@ -637,6 +637,10 @@ export class DatabaseStorage implements IStorage {
           SELECT COUNT(*) FROM ${sessions} 
           WHERE ${sessions.clientId} = ${clients.id}
         )`.as('sessionCount'),
+        lastSessionDate: sql<Date | null>`(
+          SELECT MAX(session_date) FROM sessions 
+          WHERE client_id = ${clients.id}
+        )`.as('lastSessionDate'),
         taskCount: sql<number>`(
           SELECT COUNT(*) FROM ${tasks} 
           WHERE ${tasks.clientId} = ${clients.id} 
@@ -653,7 +657,7 @@ export class DatabaseStorage implements IStorage {
     const sortColumn = sortBy === 'name' ? clients.fullName :
                       sortBy === 'status' ? clients.status :
                       sortBy === 'therapist' ? users.fullName :
-                      sortBy === 'lastSession' ? clients.lastSessionDate :
+                      sortBy === 'lastSession' ? sql`(SELECT MAX(session_date) FROM sessions WHERE client_id = ${clients.id})` :
                       clients.createdAt;
 
     if (sortOrder === 'asc') {
@@ -668,6 +672,7 @@ export class DatabaseStorage implements IStorage {
       ...r.client,
       assignedTherapist: r.assignedTherapist || undefined,
       sessionCount: r.sessionCount,
+      lastSessionDate: r.lastSessionDate,
       taskCount: r.taskCount
     }));
 
