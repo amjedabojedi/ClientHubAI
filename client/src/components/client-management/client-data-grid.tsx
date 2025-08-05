@@ -190,7 +190,7 @@ export default function ClientDataGrid({
                     <i className={`fas fa-sort${sortBy === "lastSession" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
                   </div>
                 </TableHead>
-                <TableHead>Session Recency</TableHead>
+                <TableHead>Session Gap</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -273,54 +273,51 @@ export default function ClientDataGrid({
                     <TableCell>
                       <div className="w-20">
                         {(() => {
-                          const calculateSessionProgress = (lastSessionDate: string | null) => {
-                            if (!lastSessionDate) return { percentage: 0, label: "No sessions" };
+                          const calculateSessionGap = (lastSessionDate: string | null) => {
+                            if (!lastSessionDate) return { gap: "No sessions", color: "text-slate-400" };
                             
                             const lastSession = new Date(lastSessionDate);
                             const today = new Date();
                             const daysSinceLastSession = Math.floor((today.getTime() - lastSession.getTime()) / (1000 * 60 * 60 * 24));
                             
-                            // Consider sessions within 30 days as 100% (very recent)
-                            // Sessions 30-90 days ago decrease linearly from 100% to 25%
-                            // Sessions older than 90 days are at 10% (need attention)
-                            let percentage;
-                            if (daysSinceLastSession <= 30) {
-                              percentage = 100;
-                            } else if (daysSinceLastSession <= 90) {
-                              percentage = Math.max(25, 100 - ((daysSinceLastSession - 30) / 60) * 75);
+                            let gap, color;
+                            if (daysSinceLastSession === 0) {
+                              gap = "Today";
+                              color = "text-green-600 font-medium";
+                            } else if (daysSinceLastSession === 1) {
+                              gap = "1 day";
+                              color = "text-green-600";
+                            } else if (daysSinceLastSession < 30) {
+                              gap = `${daysSinceLastSession} days`;
+                              color = "text-green-600";
+                            } else if (daysSinceLastSession < 90) {
+                              const months = Math.floor(daysSinceLastSession / 30);
+                              const remainingDays = daysSinceLastSession % 30;
+                              gap = months === 1 ? 
+                                (remainingDays > 0 ? `1m ${remainingDays}d` : "1 month") :
+                                (remainingDays > 0 ? `${months}m ${remainingDays}d` : `${months} months`);
+                              color = "text-yellow-600";
                             } else {
-                              percentage = 10;
+                              const months = Math.floor(daysSinceLastSession / 30);
+                              const remainingDays = daysSinceLastSession % 30;
+                              gap = months === 1 ? 
+                                (remainingDays > 0 ? `1m ${remainingDays}d` : "1 month") :
+                                (remainingDays > 0 ? `${months}m ${remainingDays}d` : `${months} months`);
+                              color = "text-red-600";
                             }
                             
-                            return {
-                              percentage: Math.round(percentage),
-                              label: daysSinceLastSession === 0 ? "Today" : 
-                                     daysSinceLastSession === 1 ? "1 day ago" :
-                                     daysSinceLastSession < 30 ? `${daysSinceLastSession} days ago` :
-                                     daysSinceLastSession < 90 ? `${Math.round(daysSinceLastSession / 7)} weeks ago` :
-                                     `${Math.round(daysSinceLastSession / 30)} months ago`
-                            };
+                            return { gap, color };
                           };
                           
-                          const progress = calculateSessionProgress(client.lastSessionDate);
-                          const progressColor = progress.percentage >= 75 ? "bg-green-500" :
-                                              progress.percentage >= 50 ? "bg-yellow-500" :
-                                              progress.percentage >= 25 ? "bg-orange-500" : "bg-red-500";
+                          const result = calculateSessionGap(client.lastSessionDate);
                           
                           return (
-                            <>
-                              <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                                <span>Recency</span>
-                                <span>{progress.percentage}%</span>
+                            <div className="text-center">
+                              <div className="text-xs text-slate-600 mb-1">Gap</div>
+                              <div className={`text-sm font-medium ${result.color}`}>
+                                {result.gap}
                               </div>
-                              <Progress 
-                                value={progress.percentage} 
-                                className={`h-2 [&>div]:${progressColor}`}
-                              />
-                              <div className="text-xs text-slate-500 mt-1 truncate" title={progress.label}>
-                                {progress.label}
-                              </div>
-                            </>
+                            </div>
                           );
                         })()}
                       </div>
