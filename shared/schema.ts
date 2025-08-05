@@ -246,9 +246,9 @@ export const clients = pgTable("clients", {
   dependents: integer("dependents"), // Number of dependents
   
   // Client Status & Progress (Tab 5)
-  clientType: clientTypeEnum("client_type"), // New, returning, or referred
-  status: clientStatusEnum("status"), // Active, inactive, or closed
-  stage: clientStageEnum("stage"), // Current stage in treatment process
+  clientType: varchar("client_type", { length: 100 }), // New, returning, or referred
+  status: varchar("status", { length: 50 }), // Active, inactive, or closed
+  stage: varchar("stage", { length: 50 }), // Current stage in treatment process
   lastUpdateDate: timestamp("last_update_date").notNull().defaultNow(), // When profile was last modified
   assignedTherapistId: integer("assigned_therapist_id").references(() => users.id), // Primary therapist for this client
   
@@ -373,8 +373,8 @@ export const sessions = pgTable("sessions", {
   serviceId: integer("service_id").notNull().references(() => services.id), // Links to service catalog
   roomId: integer("room_id").references(() => rooms.id), // Links to room management
   sessionDate: timestamp("session_date").notNull(),
-  sessionType: sessionTypeEnum("session_type").notNull(),
-  status: sessionStatusEnum("status").notNull().default('scheduled'),
+  sessionType: varchar("session_type", { length: 100 }).notNull(),
+  status: varchar("status", { length: 50 }).notNull().default('scheduled'),
   notes: text("notes"),
   calculatedRate: decimal("calculated_rate", { precision: 10, scale: 2 }), // Auto-calculated from service
   insuranceApplicable: boolean("insurance_applicable").notNull().default(false),
