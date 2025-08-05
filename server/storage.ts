@@ -835,7 +835,14 @@ export class DatabaseStorage implements IStorage {
       })
       .from(clients);
 
-    return stats;
+    return {
+      totalClients: stats.totalClients,
+      activeClients: stats.activeClients,
+      inactiveClients: stats.inactiveClients,
+      newIntakes: stats.newIntakes,
+      assessmentPhase: stats.assessmentPhase,
+      psychotherapy: stats.psychotherapy
+    };
   }
 
   async getAllClientsForExport(): Promise<(Client & { assignedTherapist?: string })[]> {
