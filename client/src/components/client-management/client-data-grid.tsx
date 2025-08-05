@@ -184,6 +184,12 @@ export default function ClientDataGrid({
                     <i className={`fas fa-sort${sortBy === "therapist" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
                   </div>
                 </TableHead>
+                <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("firstSession")}>
+                  <div className="flex items-center space-x-1">
+                    <span>Start Date</span>
+                    <i className={`fas fa-sort${sortBy === "firstSession" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
+                  </div>
+                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("lastSession")}>
                   <div className="flex items-center space-x-1">
                     <span>Last Session</span>
@@ -198,7 +204,7 @@ export default function ClientDataGrid({
               {isLoading ? (
                 Array.from({ length: pageSize }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center space-x-2">
                         <i className="fas fa-spinner fa-spin"></i>
                         <span>Loading clients...</span>
@@ -208,7 +214,7 @@ export default function ClientDataGrid({
                 ))
               ) : data?.clients?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     <div className="text-slate-500">
                       <i className="fas fa-users text-2xl mb-2"></i>
                       <p>No clients found matching your criteria.</p>
@@ -262,12 +268,23 @@ export default function ClientDataGrid({
                     <TableCell>
                       <div className="text-sm">
                         <p className="text-slate-900">
+                          {client.firstSessionDate 
+                            ? new Date(client.firstSessionDate).toLocaleDateString()
+                            : 'No sessions'
+                          }
+                        </p>
+                        <p className="text-slate-500">First session</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <p className="text-slate-900">
                           {client.lastSessionDate 
                             ? new Date(client.lastSessionDate).toLocaleDateString()
                             : 'No sessions'
                           }
                         </p>
-                        <p className="text-slate-500">Individual Therapy</p>
+                        <p className="text-slate-500">Most recent</p>
                       </div>
                     </TableCell>
                     <TableCell>
