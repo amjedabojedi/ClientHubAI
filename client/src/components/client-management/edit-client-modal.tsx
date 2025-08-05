@@ -39,6 +39,13 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
+  // Fetch client sessions to get first session date
+  const { data: sessions } = useQuery({
+    queryKey: [`/api/clients/${client.id}/sessions`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!client.id,
+  });
+
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -113,9 +120,14 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     },
   });
 
-  // Reset form when client changes
+  // Reset form when client or sessions change
   useEffect(() => {
     if (client) {
+      // Calculate first session date
+      const firstSessionDate = sessions && sessions.length > 0 
+        ? new Date(Math.min(...sessions.map((s: any) => new Date(s.sessionDate).getTime())))
+            .toISOString().split('T')[0]
+        : client.startDate || "";
       form.reset({
         // Personal Information
         fullName: client.fullName || "",
@@ -142,7 +154,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         country: client.country || "United States",
         
         // Referral & Case
-        startDate: client.startDate || "",
+        startDate: firstSessionDate,
         referrerName: client.referrerName || "",
         referralDate: client.referralDate || "",
         referenceNumber: client.referenceNumber || "",
@@ -187,7 +199,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         referralNotes: client.referralNotes || "",
       });
     }
-  }, [client, form]);
+  }, [client, sessions, form]);
 
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
@@ -929,7 +941,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   name="startDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Start Date</FormLabel>
+                      <FormLabel>Start Date (First Session)</FormLabel>
                       <FormControl>
                         <Input {...field} type="date" />
                       </FormControl>
