@@ -9,6 +9,8 @@ Code organization: Keep code clean and well-organized when making changes.
 Application name: TherapyFlow (to be used consistently throughout the application).
 
 ## Recent Changes (August 2025)
+- **Start Date Functionality**: Implemented comprehensive start date feature showing actual first session dates instead of administrative start dates across client grid, profile, and edit form. Provides meaningful therapy start tracking for clinical record-keeping.
+- **Client Type System Integration**: Fixed inconsistency between hard-coded client type options in edit form and dynamic system options in settings. Edit form now uses database-driven options ensuring consistency across the application.
 - **Client Reference Number Display**: Updated All Sessions view to display actual client reference numbers (like "1613015", "63904052") instead of system client IDs, providing proper client identification for record tracking.
 - **Bulk Session Status Update**: Added "Mark All Scheduled as Completed" button in All Sessions view to bulk update all scheduled sessions to completed status with improved batch processing and error handling to prevent server overload.
 - **Settings Page Cache Fix**: Fixed issue where system options would disappear after updates by implementing sequential cache invalidation to ensure the UI refreshes correctly.

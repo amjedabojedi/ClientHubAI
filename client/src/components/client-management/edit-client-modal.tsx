@@ -46,6 +46,20 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     enabled: !!client.id,
   });
 
+  // Fetch system options for dropdowns
+  const { data: systemOptions } = useQuery({
+    queryKey: ["/api/system-options/categories"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Get client type options from system options
+  const clientTypeCategory = systemOptions?.find((cat: any) => cat.categoryKey === "client_type");
+  const { data: clientTypeOptions } = useQuery({
+    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientTypeCategory?.id,
+  });
+
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -661,10 +675,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="individual">Individual</SelectItem>
-                            <SelectItem value="couple">Couple</SelectItem>
-                            <SelectItem value="family">Family</SelectItem>
-                            <SelectItem value="group">Group</SelectItem>
+                            {clientTypeOptions?.options?.map((option: any) => (
+                              <SelectItem key={option.id} value={option.optionKey}>
+                                {option.optionLabel}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
