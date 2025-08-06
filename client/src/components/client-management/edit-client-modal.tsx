@@ -19,6 +19,7 @@ import { Client } from "@/types/client";
 // Use insert schema but make clientId optional for edits since it already exists
 const clientFormSchema = insertClientSchema.extend({
   assignedTherapistId: z.number().optional(),
+  emailNotifications: z.boolean().optional(),
 }).partial({ clientId: true }); // Make clientId optional for edits
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
@@ -34,27 +35,27 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: therapists } = useQuery({
+  const { data: therapists = [] } = useQuery({
     queryKey: ["/api/therapists"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Fetch client sessions to get first session date
-  const { data: sessions } = useQuery({
+  const { data: sessions = [] } = useQuery({
     queryKey: [`/api/clients/${client.id}/sessions`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!client.id,
   });
 
   // Fetch system options for dropdowns
-  const { data: systemOptions } = useQuery({
+  const { data: systemOptions = [] } = useQuery({
     queryKey: ["/api/system-options/categories"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Get client type options from system options
-  const clientTypeCategory = systemOptions?.find((cat: any) => cat.categoryKey === "client_type");
-  const { data: clientTypeOptions } = useQuery({
+  const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
+  const { data: clientTypeOptions = { options: [] } } = useQuery({
     queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientTypeCategory?.id,
@@ -150,10 +151,10 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         maritalStatus: client.maritalStatus || "",
         preferredLanguage: client.preferredLanguage || "English",
         pronouns: client.pronouns || "",
-        emailNotifications: client.emailNotifications !== undefined ? client.emailNotifications : true,
+        emailNotifications: client.emailNotifications ?? true,
         
         // Portal Access
-        hasPortalAccess: client.hasPortalAccess !== undefined ? client.hasPortalAccess : false,
+        hasPortalAccess: client.hasPortalAccess ?? false,
         portalEmail: client.portalEmail || "",
         
         // Contact & Address
@@ -304,7 +305,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Date of Birth</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" />
+                          <Input {...field} type="date" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -317,7 +318,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Gender</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select gender" />
@@ -343,7 +344,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Marital Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select status" />
@@ -371,7 +372,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Pronouns</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., he/him, she/her, they/them" />
+                          <Input {...field} placeholder="e.g., he/him, she/her, they/them" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -458,7 +459,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Portal Email</FormLabel>
                           <FormControl>
-                            <Input {...field} type="email" placeholder="portal@example.com" />
+                            <Input {...field} type="email" placeholder="portal@example.com" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -480,7 +481,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Primary Phone</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="555-0123" />
+                          <Input {...field} placeholder="555-0123" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -494,7 +495,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Emergency Phone</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="555-0456" />
+                          <Input {...field} placeholder="555-0456" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -509,7 +510,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     <FormItem>
                       <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input {...field} type="email" placeholder="client@example.com" />
+                        <Input {...field} type="email" placeholder="client@example.com" value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -526,7 +527,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Street Address 1</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="123 Main Street" />
+                          <Input {...field} placeholder="123 Main Street" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -540,7 +541,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Street Address 2 (Optional)</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Apt, Unit, or Suite" />
+                          <Input {...field} placeholder="Apt, Unit, or Suite" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -555,7 +556,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>City</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="City name" />
+                            <Input {...field} placeholder="City name" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -569,7 +570,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>State/Province</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="CA, NY, etc." />
+                            <Input {...field} placeholder="CA, NY, etc." value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -585,7 +586,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Postal/Zip Code</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="12345 or A1B 2C3" />
+                            <Input {...field} placeholder="12345 or A1B 2C3" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -599,7 +600,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Country</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="United States" />
+                            <Input {...field} placeholder="United States" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -618,7 +619,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Emergency Contact Name</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Contact person name" />
+                          <Input {...field} placeholder="Contact person name" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -633,7 +634,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Emergency Contact Phone</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="555-0789" />
+                            <Input {...field} placeholder="555-0789" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -647,7 +648,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Relationship</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Spouse, Parent, etc." />
+                            <Input {...field} placeholder="Spouse, Parent, etc." value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -668,18 +669,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Type</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {clientTypeOptions?.options?.map((option: any) => (
+                            {clientTypeOptions?.options?.map?.((option: any) => (
                               <SelectItem key={option.id} value={option.optionKey}>
                                 {option.optionLabel}
                               </SelectItem>
-                            ))}
+                            )) || []}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -693,7 +694,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -718,7 +719,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Stage</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue />
@@ -749,7 +750,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {therapists?.map((therapist: any) => (
+                            {therapists?.map?.((therapist: any) => (
                               <SelectItem key={therapist.id} value={therapist.id.toString()}>
                                 {therapist.fullName}
                               </SelectItem>
@@ -772,7 +773,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Service Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Treatment service details" />
@@ -799,7 +800,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Service Frequency</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Frequency of treatment" />
@@ -830,7 +831,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Insurance Provider</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., Blue Cross, Aetna" />
+                          <Input {...field} placeholder="e.g., Blue Cross, Aetna" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -845,7 +846,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Policy Number</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Policy number" />
+                            <Input {...field} placeholder="Policy number" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -859,7 +860,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Group Number</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Group number" />
+                            <Input {...field} placeholder="Group number" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -881,6 +882,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                               step="0.01" 
                               min="0" 
                               placeholder="25.00"
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -901,6 +903,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                               step="0.01" 
                               min="0" 
                               placeholder="500.00"
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -915,7 +918,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Insurance Phone</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="1-800-123-4567" />
+                            <Input {...field} placeholder="1-800-123-4567" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -938,6 +941,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             {...field} 
                             placeholder="Important notes, observations, or special considerations for this client..."
                             className="min-h-[100px]"
+                            value={field.value || ""}
                           />
                         </FormControl>
                         <FormMessage />
@@ -958,7 +962,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     <FormItem>
                       <FormLabel>Start Date (First Session)</FormLabel>
                       <FormControl>
-                        <Input {...field} type="date" />
+                        <Input {...field} type="date" value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -975,7 +979,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       <FormItem>
                         <FormLabel>Referrer Name</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Who referred this client" />
+                          <Input {...field} placeholder="Who referred this client" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -990,7 +994,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Referral Date</FormLabel>
                           <FormControl>
-                            <Input {...field} type="date" />
+                            <Input {...field} type="date" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1004,7 +1008,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem>
                           <FormLabel>Reference Number</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="REF-12345" />
+                            <Input {...field} placeholder="REF-12345" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1018,7 +1022,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Source</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="How did the client find us?" />
@@ -1052,7 +1056,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Employment Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Current employment status" />
@@ -1081,7 +1085,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Education Level</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Highest education completed" />

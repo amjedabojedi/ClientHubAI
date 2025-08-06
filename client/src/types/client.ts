@@ -2,53 +2,76 @@ export interface Client {
   id: number;
   clientId: string;
   fullName: string;
-  dateOfBirth?: string;
-  phone?: string;
-  email?: string;
-  gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say';
-  preferredLanguage?: string;
-  pronouns?: string;
+  dateOfBirth?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say' | null;
+  preferredLanguage?: string | null;
+  pronouns?: string | null;
+  maritalStatus?: string | null;
+  emailNotifications?: boolean | null;
+  
+  // Portal Access
+  hasPortalAccess?: boolean | null;
+  portalEmail?: string | null;
   
   // Address
-  address?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
+  address?: string | null;
+  streetAddress1?: string | null;
+  streetAddress2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  province?: string | null;
+  zipCode?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
   
   // Emergency contact
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  emergencyContactRelationship?: string;
+  emergencyPhone?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelationship?: string | null;
   
   // Status and assignment
-  status: 'active' | 'inactive' | 'pending';
-  stage: 'intake' | 'assessment' | 'psychotherapy';
-  clientType: 'individual' | 'couple' | 'family' | 'group';
-  assignedTherapistId?: number;
-  
-  // Portal and access
-  hasPortalAccess: boolean;
-  portalEmail?: string;
+  status?: 'active' | 'inactive' | 'pending' | null;
+  stage?: 'intake' | 'assessment' | 'psychotherapy' | null;
+  clientType?: 'individual' | 'couple' | 'family' | 'group' | null;
+  assignedTherapistId?: number | null;
   
   // Referral information
-  referralSource?: string;
-  referralType?: string;
-  referringPerson?: string;
-  referralDate?: string;
-  referralNotes?: string;
+  referrerName?: string | null;
+  referralDate?: string | null;
+  referenceNumber?: string | null;
+  clientSource?: string | null;
+  referralSource?: string | null;
+  referralType?: string | null;
+  referringPerson?: string | null;
+  referralNotes?: string | null;
+  
+  // Employment & Socioeconomic
+  employmentStatus?: string | null;
+  educationLevel?: string | null;
+  dependents?: number | null;
   
   // Insurance information
-  insuranceProvider?: string;
-  policyNumber?: string;
-  groupNumber?: string;
-  insurancePhone?: string;
-  copayAmount?: string;
-  deductible?: string;
+  insuranceProvider?: string | null;
+  policyNumber?: string | null;
+  groupNumber?: string | null;
+  insurancePhone?: string | null;
+  copayAmount?: string | null;
+  deductible?: string | null;
+  
+  // Service information
+  serviceType?: string | null;
+  serviceFrequency?: string | null;
+  
+  // Additional information
+  notes?: string | null;
   
   // Timestamps
-  startDate?: string;
-  lastSessionDate?: string;
-  nextAppointmentDate?: string;
+  startDate?: string | null;
+  lastSessionDate?: string | null;
+  nextAppointmentDate?: string | null;
   createdAt: string;
   updatedAt: string;
   
