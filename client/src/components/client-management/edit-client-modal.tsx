@@ -214,7 +214,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         referralNotes: client.referralNotes || "",
       });
     }
-  }, [client, sessions, form]);
+  }, [client, sessions]);
 
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
