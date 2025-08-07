@@ -75,7 +75,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
       dependents: undefined,
       
       // Status & Progress
-      clientType: "individual",
+      clientType: "",
       status: "pending",
       stage: "intake",
       assignedTherapistId: undefined,

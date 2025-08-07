@@ -101,7 +101,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       dependents: undefined,
       
       // Status & Progress
-      clientType: "individual",
+      clientType: "",
       status: "pending",
       stage: "intake",
       assignedTherapistId: undefined,
@@ -181,7 +181,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         dependents: client.dependents || undefined,
         
         // Status & Progress
-        clientType: client.clientType || "individual",
+        clientType: client.clientType || "",
         status: client.status || "pending",
         stage: client.stage || "intake",
         assignedTherapistId: client.assignedTherapistId || undefined,
