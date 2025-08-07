@@ -68,6 +68,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
     { key: 'serviceCode', label: 'Service Code', required: true },
     { key: 'roomNumber', label: 'Room Number', required: true },
     { key: 'sessionMode', label: 'Session Mode (in_person/virtual/phone) - Optional', required: false },
+    { key: 'status', label: 'Session Status (scheduled/completed/cancelled/no_show/rescheduled) - Optional', required: false },
     { key: 'therapistUsername', label: 'Therapist Username (Optional)', required: false },
     { key: 'notes', label: 'Notes (Optional)', required: false }
   ];
