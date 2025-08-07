@@ -3236,7 +3236,6 @@ export class DatabaseStorage implements IStorage {
     const isKeyChanging = optionData.optionKey && optionData.optionKey !== oldOptionKey;
     
     if (isKeyChanging && oldOptionKey) {
-      console.log(`Migrating data from key '${oldOptionKey}' to '${optionData.optionKey}' for category ${currentOption.categoryId}`);
       
       // Determine which table/column to update based on category
       const categoryKey = await this.getCategoryKey(currentOption.categoryId);
@@ -3276,7 +3275,6 @@ export class DatabaseStorage implements IStorage {
 
       const migration = migrationMap[categoryKey];
       if (migration) {
-        console.log(`Updating ${migration.table}.${migration.column} from '${oldKey}' to '${newKey}'`);
         
         // Use raw SQL for the update since we need dynamic table/column names
         await db.execute(sql.raw(`
@@ -3285,9 +3283,7 @@ export class DatabaseStorage implements IStorage {
           WHERE ${migration.column} = '${oldKey}'
         `));
         
-        console.log(`Migration completed for ${categoryKey}`);
       } else {
-        console.log(`No migration mapping found for category: ${categoryKey}`);
       }
     } catch (error) {
       console.error(`Error migrating data for category ${categoryKey}:`, error);

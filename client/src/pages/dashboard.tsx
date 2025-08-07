@@ -102,10 +102,6 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
     .slice(0, 10);
 
-  // Debug logging (remove later)
-  if (recentSessions.length > 0) {
-    console.log('Dashboard - Recent sessions working:', recentSessions.length);
-  }
   
   // Also keep today's sessions for today's count metric
   const today = new Date().toISOString().split('T')[0];

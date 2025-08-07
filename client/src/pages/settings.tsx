@@ -77,7 +77,6 @@ export default function SettingsPage() {
   const { data: serviceCodes = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes } = useQuery({
     queryKey: ["/api/services"],
     queryFn: () => fetch("/api/services").then(res => res.json()).then(data => {
-      console.log("Service codes fetched:", data);
       return data.map((service: any) => ({
         id: service.id,
         optionKey: service.serviceCode,
@@ -309,7 +308,6 @@ export default function SettingsPage() {
       oldOptionKey: oldOptionKey // Include the old key for data migration
     };
     
-    console.log("Updating option with data:", data);
     updateOptionMutation.mutate({ id: editingOption.id, data });
   };
 
@@ -325,7 +323,6 @@ export default function SettingsPage() {
       serviceName: serviceNameValue // Use serviceName to match API
     };
 
-    console.log("Updating service code:", editingServiceCode.id, data);
     updateServiceCodeMutation.mutate({ id: editingServiceCode.id, data });
   };
 

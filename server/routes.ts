@@ -319,7 +319,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // OPTIMIZATION: Pre-fetch all lookup data to avoid repeated database calls
-      console.log(`Starting optimized bulk upload of ${sessions.length} sessions...`);
       
       // Get all clients and create clientId -> client mapping
       const allClients = await storage.getAllClientsForExport();
@@ -357,7 +356,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      console.log(`Cached ${clientLookup.size} clients, ${therapistLookup.size} therapists, ${serviceLookup.size} services, ${roomLookup.size} rooms`);
       
       // Process sessions in batches for better performance
       const BATCH_SIZE = 100;
@@ -549,7 +547,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // OPTIMIZATION: Bulk insert validated sessions in batches
-      console.log(`Processing ${validatedSessions.length} validated sessions in batches...`);
       
       for (let batchStart = 0; batchStart < validatedSessions.length; batchStart += BATCH_SIZE) {
         const batchEnd = Math.min(batchStart + BATCH_SIZE, validatedSessions.length);
@@ -560,10 +557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sessionDataBatch = batch.map(item => item.data);
           await storage.createSessionsBulk(sessionDataBatch);
           results.successful += batch.length;
-          console.log(`Processed batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: ${batch.length} sessions`);
         } catch (error) {
           // If batch fails, try individual inserts to identify specific failures
-          console.log(`Batch insert failed, falling back to individual inserts for batch ${Math.floor(batchStart / BATCH_SIZE) + 1}`);
           
           for (const item of batch) {
             try {
@@ -582,7 +577,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`Bulk upload completed: ${results.successful} successful, ${results.failed} failed`);
       res.json(results);
     } catch (error: any) {
       res.status(500).json({ 
