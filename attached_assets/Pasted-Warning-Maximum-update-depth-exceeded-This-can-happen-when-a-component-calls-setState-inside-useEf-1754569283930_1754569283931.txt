@@ -1,0 +1,29 @@
+Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn&#x27;t have a dependency array, or one of the dependencies changes on every render.
+    at EditClientModal (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/components/client-management/edit-client-modal.tsx:38:43)
+    at div
+    at ClientDetailPage (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/client-detail.tsx:757:27)
+    at Route (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c6ab18f6:323:16)
+    at Switch (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c6ab18f6:379:17)
+    at main
+    at div
+    at Router (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/App.tsx?v=DN7cKFAyFi_X3ZiqFdREF:315:42)
+    at Provider (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=c6ab18f6:38:15)
+    at TooltipProvider (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=c6ab18f6:64:5)
+    at QueryClientProvider (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=c6ab18f6:2805:3)
+    at App (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/App.tsx?v=DN7cKFAyFi_X3ZiqFdREF:453:21)
+at EditClientModal (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/components/client-management/edit-client-modal.tsx:38:43)
+at div
+at ClientDetailPage (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/client-detail.tsx:757:27)
+at Route (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c6ab18f6:323:16)
+at Switch (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=c6ab18f6:379:17)
+at main
+at div
+at Router (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/App.tsx?v=DN7cKFAyFi_X3ZiqFdREF:315:42)
+at Provider (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=c6ab18f6:38:15)
+at TooltipProvider (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=c6ab18f6:64:5)
+at QueryClientProvider (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=c6ab18f6:2805:3)
+at App (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/App.tsx?v=DN7cKFAyFi_X3ZiqFdREF:453:21)
+at t.value (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400

@@ -135,7 +135,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     },
   });
 
-  // Reset form when client or sessions change
+  // Reset form when client changes or sessions load
   useEffect(() => {
     if (client) {
       // Calculate first session date
@@ -214,7 +214,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         referralNotes: client.referralNotes || "",
       });
     }
-  }, [client, sessions]);
+  }, [client, sessions.length]);
 
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
