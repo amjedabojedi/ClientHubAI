@@ -1055,7 +1055,7 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   // Make all fields optional except fullName which remains required
   emailNotifications: z.boolean().optional(),
   hasPortalAccess: z.boolean().optional(),
-  clientType: z.string().optional(),
+  clientType: z.enum(['individual', 'couple', 'family', 'group']).or(z.string()).optional(),
   status: z.enum(['active', 'inactive', 'pending']).optional(),
   stage: z.enum(['intake', 'assessment', 'psychotherapy']).optional(),
 });
