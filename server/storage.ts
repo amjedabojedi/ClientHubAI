@@ -1017,14 +1017,17 @@ export class DatabaseStorage implements IStorage {
       return { exactDuplicates: [], potentialConflicts: [] };
     }
 
-    let query = db
+    // Convert sessionDate string to date format for comparison
+    const dateOnly = sessionDate.split('T')[0]; // Get YYYY-MM-DD format
+
+    const conflictingSessions = await db
       .select({
         id: sessions.id,
         clientId: sessions.clientId,
         therapistId: sessions.therapistId,
+        serviceId: sessions.serviceId,
         sessionDate: sessions.sessionDate,
-        sessionTime: sessions.sessionTime,
-        serviceCode: sessions.serviceCode,
+        sessionType: sessions.sessionType,
         status: sessions.status,
         notes: sessions.notes,
         createdAt: sessions.createdAt,
@@ -1042,23 +1045,21 @@ export class DatabaseStorage implements IStorage {
       })
       .from(sessions)
       .leftJoin(users, eq(sessions.therapistId, users.id))
-      .leftJoin(services, eq(sessions.serviceCode, services.serviceCode))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(
         and(
           eq(sessions.clientId, clientId),
-          eq(sessions.sessionDate, sessionDate),
-          gte(sessions.sessionDate, today.toISOString().split('T')[0]), // Future sessions only
+          sql`DATE(${sessions.sessionDate}) = ${dateOnly}`,
+          sql`DATE(${sessions.sessionDate}) >= CURRENT_DATE`, // Future sessions only
           ...(excludeSessionId ? [sql`${sessions.id} != ${excludeSessionId}`] : [])
         )
       );
-
-    const conflictingSessions = await query;
     
     const exactDuplicates: any[] = [];
     const potentialConflicts: any[] = [];
     
     for (const session of conflictingSessions) {
-      if (serviceCode && session.serviceCode === serviceCode) {
+      if (serviceCode && session.service?.serviceCode === serviceCode) {
         // Exact duplicate: same client, same date, same service code
         exactDuplicates.push(session);
       } else {
@@ -1085,9 +1086,9 @@ export class DatabaseStorage implements IStorage {
         id: sessions.id,
         clientId: sessions.clientId,
         therapistId: sessions.therapistId,
+        serviceId: sessions.serviceId,
         sessionDate: sessions.sessionDate,
-        sessionTime: sessions.sessionTime,
-        serviceCode: sessions.serviceCode,
+        sessionType: sessions.sessionType,
         status: sessions.status,
         notes: sessions.notes,
         createdAt: sessions.createdAt,
@@ -1111,14 +1112,14 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .leftJoin(users, eq(sessions.therapistId, users.id))
       .leftJoin(clients, eq(sessions.clientId, clients.id))
-      .leftJoin(services, eq(sessions.serviceCode, services.serviceCode))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(
         and(
-          eq(sessions.sessionDate, todayStr),
+          sql`DATE(${sessions.sessionDate}) = ${todayStr}`,
           sql`EXISTS (
             SELECT 1 FROM ${sessions} s2 
             WHERE s2.client_id = ${sessions.clientId} 
-            AND s2.session_date = ${sessions.sessionDate}
+            AND DATE(s2.session_date) = DATE(${sessions.sessionDate})
             AND s2.id != ${sessions.id}
           )`
         )
@@ -1130,9 +1131,9 @@ export class DatabaseStorage implements IStorage {
         id: sessions.id,
         clientId: sessions.clientId,
         therapistId: sessions.therapistId,
+        serviceId: sessions.serviceId,
         sessionDate: sessions.sessionDate,
-        sessionTime: sessions.sessionTime,
-        serviceCode: sessions.serviceCode,
+        sessionType: sessions.sessionType,
         status: sessions.status,
         notes: sessions.notes,
         createdAt: sessions.createdAt,
@@ -1156,15 +1157,15 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .leftJoin(users, eq(sessions.therapistId, users.id))
       .leftJoin(clients, eq(sessions.clientId, clients.id))
-      .leftJoin(services, eq(sessions.serviceCode, services.serviceCode))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(
         and(
-          gte(sessions.sessionDate, todayStr),
-          lte(sessions.sessionDate, oneWeekStr),
+          sql`DATE(${sessions.sessionDate}) >= ${todayStr}`,
+          sql`DATE(${sessions.sessionDate}) <= ${oneWeekStr}`,
           sql`EXISTS (
             SELECT 1 FROM ${sessions} s2 
             WHERE s2.client_id = ${sessions.clientId} 
-            AND s2.session_date = ${sessions.sessionDate}
+            AND DATE(s2.session_date) = DATE(${sessions.sessionDate})
             AND s2.id != ${sessions.id}
           )`
         )
