@@ -1318,7 +1318,7 @@ export default function ClientDetailPage() {
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">Therapist #{client.assignedTherapistId}</h4>
+                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist?.fullName || 'Unassigned'}</h4>
                       <p className="text-slate-600 text-sm">Assigned</p>
                     </div>
                   ) : (
@@ -1583,9 +1583,9 @@ export default function ClientDetailPage() {
                             </Button>
                           </div>
                         </div>
-                        {session.therapistId && (
+                        {session.therapist && (
                           <p className="text-sm text-slate-600 mb-2">
-                            <span className="font-medium">Therapist ID:</span> {session.therapistId}
+                            <span className="font-medium">Therapist:</span> {session.therapist.fullName}
                           </p>
                         )}
                         {session.notes && (
