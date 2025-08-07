@@ -269,6 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      console.log('Client data before validation:', JSON.stringify(clientData, null, 2));
       const validatedData = insertClientSchema.partial().parse(clientData);
       const client = await storage.updateClient(id, validatedData);
       res.json(client);
