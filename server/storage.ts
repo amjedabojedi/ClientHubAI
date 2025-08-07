@@ -207,6 +207,16 @@ export interface IStorage {
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
   
+  // ===== SESSION CONFLICT DETECTION =====
+  checkSessionConflicts(clientId: number, sessionDate: string, serviceCode?: string, excludeSessionId?: number): Promise<{
+    exactDuplicates: (Session & { therapist: User; service: any })[];
+    potentialConflicts: (Session & { therapist: User; service: any })[];
+  }>;
+  getFutureSessionConflicts(): Promise<{
+    today: (Session & { therapist: User; client: Client; service: any })[];
+    upcoming: (Session & { therapist: User; client: Client; service: any })[];
+  }>;
+  
   // ===== SERVICE AND ROOM LOOKUPS =====
   getServices(): Promise<any[]>;
   updateService(id: number, updateData: any): Promise<any>;
@@ -992,6 +1002,178 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSession(id: number): Promise<void> {
     await db.delete(sessions).where(eq(sessions.id, id));
+  }
+
+  // ===== SESSION CONFLICT DETECTION IMPLEMENTATION =====
+  async checkSessionConflicts(clientId: number, sessionDate: string, serviceCode?: string, excludeSessionId?: number): Promise<{
+    exactDuplicates: (Session & { therapist: User; service: any })[];
+    potentialConflicts: (Session & { therapist: User; service: any })[];
+  }> {
+    const today = new Date();
+    const checkDate = new Date(sessionDate);
+    
+    // Only check future sessions (ignore historical data)
+    if (checkDate < today) {
+      return { exactDuplicates: [], potentialConflicts: [] };
+    }
+
+    let query = db
+      .select({
+        id: sessions.id,
+        clientId: sessions.clientId,
+        therapistId: sessions.therapistId,
+        sessionDate: sessions.sessionDate,
+        sessionTime: sessions.sessionTime,
+        serviceCode: sessions.serviceCode,
+        status: sessions.status,
+        notes: sessions.notes,
+        createdAt: sessions.createdAt,
+        updatedAt: sessions.updatedAt,
+        therapist: {
+          id: users.id,
+          fullName: users.fullName,
+          username: users.username
+        },
+        service: {
+          id: services.id,
+          serviceCode: services.serviceCode,
+          serviceName: services.serviceName
+        }
+      })
+      .from(sessions)
+      .leftJoin(users, eq(sessions.therapistId, users.id))
+      .leftJoin(services, eq(sessions.serviceCode, services.serviceCode))
+      .where(
+        and(
+          eq(sessions.clientId, clientId),
+          eq(sessions.sessionDate, sessionDate),
+          gte(sessions.sessionDate, today.toISOString().split('T')[0]), // Future sessions only
+          ...(excludeSessionId ? [sql`${sessions.id} != ${excludeSessionId}`] : [])
+        )
+      );
+
+    const conflictingSessions = await query;
+    
+    const exactDuplicates: any[] = [];
+    const potentialConflicts: any[] = [];
+    
+    for (const session of conflictingSessions) {
+      if (serviceCode && session.serviceCode === serviceCode) {
+        // Exact duplicate: same client, same date, same service code
+        exactDuplicates.push(session);
+      } else {
+        // Potential conflict: same client, same date, different service code
+        potentialConflicts.push(session);
+      }
+    }
+    
+    return { exactDuplicates, potentialConflicts };
+  }
+
+  async getFutureSessionConflicts(): Promise<{
+    today: (Session & { therapist: User; client: Client; service: any })[];
+    upcoming: (Session & { therapist: User; client: Client; service: any })[];
+  }> {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const oneWeekStr = oneWeekFromNow.toISOString().split('T')[0];
+
+    // Find potential conflicts for today
+    const todayConflicts = await db
+      .select({
+        id: sessions.id,
+        clientId: sessions.clientId,
+        therapistId: sessions.therapistId,
+        sessionDate: sessions.sessionDate,
+        sessionTime: sessions.sessionTime,
+        serviceCode: sessions.serviceCode,
+        status: sessions.status,
+        notes: sessions.notes,
+        createdAt: sessions.createdAt,
+        updatedAt: sessions.updatedAt,
+        therapist: {
+          id: users.id,
+          fullName: users.fullName,
+          username: users.username
+        },
+        client: {
+          id: clients.id,
+          fullName: clients.fullName,
+          clientId: clients.clientId
+        },
+        service: {
+          id: services.id,
+          serviceCode: services.serviceCode,
+          serviceName: services.serviceName
+        }
+      })
+      .from(sessions)
+      .leftJoin(users, eq(sessions.therapistId, users.id))
+      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceCode, services.serviceCode))
+      .where(
+        and(
+          eq(sessions.sessionDate, todayStr),
+          sql`EXISTS (
+            SELECT 1 FROM ${sessions} s2 
+            WHERE s2.client_id = ${sessions.clientId} 
+            AND s2.session_date = ${sessions.sessionDate}
+            AND s2.id != ${sessions.id}
+          )`
+        )
+      );
+
+    // Find potential conflicts for upcoming week
+    const upcomingConflicts = await db
+      .select({
+        id: sessions.id,
+        clientId: sessions.clientId,
+        therapistId: sessions.therapistId,
+        sessionDate: sessions.sessionDate,
+        sessionTime: sessions.sessionTime,
+        serviceCode: sessions.serviceCode,
+        status: sessions.status,
+        notes: sessions.notes,
+        createdAt: sessions.createdAt,
+        updatedAt: sessions.updatedAt,
+        therapist: {
+          id: users.id,
+          fullName: users.fullName,
+          username: users.username
+        },
+        client: {
+          id: clients.id,
+          fullName: clients.fullName,
+          clientId: clients.clientId
+        },
+        service: {
+          id: services.id,
+          serviceCode: services.serviceCode,
+          serviceName: services.serviceName
+        }
+      })
+      .from(sessions)
+      .leftJoin(users, eq(sessions.therapistId, users.id))
+      .leftJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceCode, services.serviceCode))
+      .where(
+        and(
+          gte(sessions.sessionDate, todayStr),
+          lte(sessions.sessionDate, oneWeekStr),
+          sql`EXISTS (
+            SELECT 1 FROM ${sessions} s2 
+            WHERE s2.client_id = ${sessions.clientId} 
+            AND s2.session_date = ${sessions.sessionDate}
+            AND s2.id != ${sessions.id}
+          )`
+        )
+      );
+
+    return {
+      today: todayConflicts as any[],
+      upcoming: upcomingConflicts as any[]
+    };
   }
 
   // Service and Room lookup methods
