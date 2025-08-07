@@ -302,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  // Session bulk upload endpoint
+  // Session bulk upload endpoint - OPTIMIZED VERSION
   app.post("/api/sessions/bulk-upload", async (req, res) => {
     try {
       const { sessions } = req.body;
@@ -318,11 +318,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors: [] as any[]
       };
 
+      // OPTIMIZATION: Pre-fetch all lookup data to avoid repeated database calls
+      console.log(`Starting optimized bulk upload of ${sessions.length} sessions...`);
+      
+      // Get all clients and create clientId -> client mapping
+      const allClients = await storage.getAllClientsForExport();
+      const clientLookup = new Map<string, any>();
+      allClients.forEach((client: any) => {
+        if (client.clientId) {
+          clientLookup.set(client.clientId.trim(), client);
+        }
+      });
+      
+      // Get all users and create username -> user mapping for therapists
+      const allUsers = await storage.getUsers();
+      const therapistLookup = new Map<string, any>();
+      allUsers.forEach((user: any) => {
+        if (user.username) {
+          therapistLookup.set(user.username.trim(), user);
+        }
+      });
+      
+      // Get all services and create code -> service mapping
+      const allServices = await storage.getServices();
+      const serviceLookup = new Map<string, any>();
+      allServices.forEach((service: any) => {
+        if (service.code) {
+          serviceLookup.set(service.code.trim(), service);
+        }
+      });
+      
+      // Get all rooms and create number -> room mapping
+      const allRooms = await storage.getRooms();
+      const roomLookup = new Map<string, any>();
+      allRooms.forEach((room: any) => {
+        if (room.roomNumber) {
+          roomLookup.set(room.roomNumber.trim(), room);
+        }
+      });
+      
+      console.log(`Cached ${clientLookup.size} clients, ${therapistLookup.size} therapists, ${serviceLookup.size} services, ${roomLookup.size} rooms`);
+      
+      // Process sessions in batches for better performance
+      const BATCH_SIZE = 100;
+      const validatedSessions = [];
+      
       for (let i = 0; i < sessions.length; i++) {
         const sessionData = sessions[i];
         
         try {
-          // Clean and prepare session data
+          // Clean and prepare session data using cached lookups
           const cleanData: any = {};
 
           // Handle required fields - clean and normalize client ID
@@ -330,29 +375,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Client ID is required');
           }
           
-          // Clean client ID (remove extra spaces, normalize case)
+          // Clean client ID and lookup using cache
           const cleanClientId = sessionData.clientId.trim();
-          
-          // Look up client by clientId
-          const client = await storage.getClientByClientId(cleanClientId);
+          const client = clientLookup.get(cleanClientId);
           if (!client) {
             throw new Error(`Client with ID '${cleanClientId}' not found`);
           }
           cleanData.clientId = client.id;
 
-          // Handle therapist - use provided username or client's assigned therapist (both optional)
+          // Handle therapist using cached lookup
           if (sessionData.therapistUsername && sessionData.therapistUsername.trim() !== '') {
-            // Use specified therapist
-            const therapist = await storage.getUserByUsername(sessionData.therapistUsername);
+            const therapist = therapistLookup.get(sessionData.therapistUsername.trim());
             if (!therapist) {
               throw new Error(`Therapist with username '${sessionData.therapistUsername}' not found`);
             }
             cleanData.therapistId = therapist.id;
           } else if (client.assignedTherapistId) {
-            // Use client's assigned therapist if available
             cleanData.therapistId = client.assignedTherapistId;
           } else {
-            // No therapist specified or assigned - create session without therapist (can be assigned later)
             cleanData.therapistId = null;
           }
 
@@ -439,25 +479,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           cleanData.sessionType = cleanSessionType;
 
-          // Look up service code from Services table
+          // Look up service using cached lookup
           if (!sessionData.serviceCode) {
             throw new Error('Service code is required');
           }
-          const cleanServiceCode = sessionData.serviceCode.trim(); // Remove leading/trailing spaces
-          const service = await storage.getServiceByCode(cleanServiceCode);
+          const cleanServiceCode = sessionData.serviceCode.trim();
+          const service = serviceLookup.get(cleanServiceCode);
           if (!service) {
             throw new Error(`Service code '${cleanServiceCode}' not found in services`);
           }
-          
-          // Set service ID and price
           cleanData.serviceId = service.id;
           cleanData.calculatedRate = service.baseRate || '0.00';
 
-          // Look up room by room number
+          // Look up room using cached lookup
           if (!sessionData.roomNumber) {
             throw new Error('Room number is required');
           }
-          const room = await storage.getRoomByNumber(sessionData.roomNumber);
+          const room = roomLookup.get(sessionData.roomNumber.trim());
           if (!room) {
             throw new Error(`Room with number '${sessionData.roomNumber}' not found`);
           }
@@ -494,15 +532,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cleanData.status = 'scheduled'; // Default status
           }
 
-          // Validate and create session
+          // Validate session data
           const validatedData = insertSessionSchema.parse(cleanData);
-          await storage.createSession(validatedData);
-          results.successful++;
+          validatedSessions.push({ data: validatedData, rowIndex: i });
           
         } catch (error) {
           results.failed++;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error(`Session upload error at row ${i + 1}:`, errorMessage, sessionData);
+          console.error(`Session validation error at row ${i + 1}:`, errorMessage);
           results.errors.push({
             row: i + 1,
             data: sessionData,
@@ -510,7 +547,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-
+      
+      // OPTIMIZATION: Bulk insert validated sessions in batches
+      console.log(`Processing ${validatedSessions.length} validated sessions in batches...`);
+      
+      for (let batchStart = 0; batchStart < validatedSessions.length; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, validatedSessions.length);
+        const batch = validatedSessions.slice(batchStart, batchEnd);
+        
+        try {
+          // Extract just the session data for bulk insert
+          const sessionDataBatch = batch.map(item => item.data);
+          await storage.createSessionsBulk(sessionDataBatch);
+          results.successful += batch.length;
+          console.log(`Processed batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: ${batch.length} sessions`);
+        } catch (error) {
+          // If batch fails, try individual inserts to identify specific failures
+          console.log(`Batch insert failed, falling back to individual inserts for batch ${Math.floor(batchStart / BATCH_SIZE) + 1}`);
+          
+          for (const item of batch) {
+            try {
+              await storage.createSession(item.data);
+              results.successful++;
+            } catch (individualError) {
+              results.failed++;
+              const errorMessage = individualError instanceof Error ? individualError.message : 'Unknown error';
+              results.errors.push({
+                row: item.rowIndex + 1,
+                data: sessions[item.rowIndex],
+                message: errorMessage
+              });
+            }
+          }
+        }
+      }
+      
+      console.log(`Bulk upload completed: ${results.successful} successful, ${results.failed} failed`);
       res.json(results);
     } catch (error: any) {
       res.status(500).json({ 

@@ -203,6 +203,7 @@ export interface IStorage {
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
   getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]>;
   createSession(session: InsertSession): Promise<Session>;
+  createSessionsBulk(sessions: InsertSession[]): Promise<Session[]>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
   
@@ -959,6 +960,19 @@ export class DatabaseStorage implements IStorage {
       .values(session)
       .returning();
     return newSession;
+  }
+
+  async createSessionsBulk(sessionsData: InsertSession[]): Promise<Session[]> {
+    if (sessionsData.length === 0) {
+      return [];
+    }
+    
+    const newSessions = await db
+      .insert(sessions)
+      .values(sessionsData)
+      .returning();
+    
+    return newSessions;
   }
 
   async updateSession(id: number, sessionData: Partial<InsertSession>): Promise<Session> {
