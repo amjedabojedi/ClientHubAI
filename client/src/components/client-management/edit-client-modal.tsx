@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,7 +41,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   // Fetch client sessions to get first session date
-  const { data: sessions = [] } = useQuery({
+  const { data: sessions = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${client.id}/sessions`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!client.id,
@@ -135,14 +135,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     },
   });
 
+  // Track the last client ID and sessions count to avoid unnecessary resets
+  const lastResetRef = useRef<{ clientId: number | null; sessionsCount: number }>({ clientId: null, sessionsCount: 0 });
+
   // Reset form when client changes or sessions load
   useEffect(() => {
-    if (client) {
+    if (client && (lastResetRef.current.clientId !== client.id || lastResetRef.current.sessionsCount !== sessions.length)) {
       // Calculate first session date
-      const firstSessionDate = Array.isArray(sessions) && sessions.length > 0 
+      const firstSessionDate = sessions.length > 0 
         ? new Date(Math.min(...sessions.map((s: any) => new Date(s.sessionDate).getTime())))
             .toISOString().split('T')[0]
         : client.startDate || "";
+      
       form.reset({
         // Personal Information
         fullName: client.fullName || "",
@@ -213,8 +217,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         referringPerson: client.referringPerson || "",
         referralNotes: client.referralNotes || "",
       });
+      
+      // Update the ref to track the current reset
+      lastResetRef.current = { clientId: client.id, sessionsCount: sessions.length };
     }
-  }, [client, sessions.length]);
+  }, [client, sessions.length, form]);
 
   const updateClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => 
