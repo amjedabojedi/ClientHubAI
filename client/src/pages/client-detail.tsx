@@ -1494,7 +1494,7 @@ export default function ClientDetailPage() {
                     {sessionConflicts?.conflicts?.length || 0}
                   </div>
                   <p className="text-sm text-slate-600">Conflicts</p>
-                  {sessionConflicts?.conflicts?.length > 0 && (
+                  {(sessionConflicts?.conflicts?.length || 0) > 0 && (
                     <p className="text-xs text-orange-600 mt-1">Needs Review</p>
                   )}
                 </CardContent>
@@ -1533,7 +1533,7 @@ export default function ClientDetailPage() {
                       // Check if this session's date has conflicts
                       const sessionDate = session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : null;
                       const hasConflicts = sessionDate && sessionConflicts?.conflictDates?.includes(sessionDate);
-                      const conflictInfo = hasConflicts ? sessionConflicts.conflicts.find(c => c.date === sessionDate) : null;
+                      const conflictInfo = hasConflicts ? sessionConflicts?.conflicts?.find(c => c.date === sessionDate) : null;
                       
                       return (
                       <div key={session.id} className={`bg-white border rounded-lg p-4 hover:shadow-sm transition-shadow ${
