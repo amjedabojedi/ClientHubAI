@@ -20,7 +20,7 @@ import { Client } from "@/types/client";
 const clientFormSchema = insertClientSchema.extend({
   assignedTherapistId: z.number().optional(),
   emailNotifications: z.boolean().optional(),
-}).partial({ clientId: true }); // Make clientId optional for edits
+}).partial();
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
 
@@ -35,7 +35,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: therapists = [] } = useQuery({
+  const { data: therapists = [] } = useQuery<any[]>({
     queryKey: ["/api/therapists"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
@@ -48,14 +48,14 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   });
 
   // Fetch system options for dropdowns
-  const { data: systemOptions = [] } = useQuery({
+  const { data: systemOptions = [] } = useQuery<any[]>({
     queryKey: ["/api/system-options/categories"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Get client type options from system options
   const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
-  const { data: clientTypeOptions = { options: [] } } = useQuery({
+  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
     queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientTypeCategory?.id,
@@ -139,7 +139,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   useEffect(() => {
     if (client) {
       // Calculate first session date
-      const firstSessionDate = sessions && sessions.length > 0 
+      const firstSessionDate = Array.isArray(sessions) && sessions.length > 0 
         ? new Date(Math.min(...sessions.map((s: any) => new Date(s.sessionDate).getTime())))
             .toISOString().split('T')[0]
         : client.startDate || "";
@@ -386,7 +386,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Preferred Language</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || undefined}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue />
