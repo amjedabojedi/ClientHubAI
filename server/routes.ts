@@ -481,8 +481,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cleanData.sessionMode = 'in_person'; // Default mode
           }
 
-          // Set default values
-          cleanData.status = 'scheduled';
+          // Handle session status
+          if (sessionData.status && sessionData.status.trim() !== '') {
+            const cleanStatus = sessionData.status.trim().toLowerCase();
+            const validStatuses = ['scheduled', 'completed', 'cancelled', 'no_show', 'rescheduled'];
+            if (validStatuses.includes(cleanStatus)) {
+              cleanData.status = cleanStatus;
+            } else {
+              cleanData.status = 'scheduled'; // Default if invalid
+            }
+          } else {
+            cleanData.status = 'scheduled'; // Default status
+          }
 
           // Validate and create session
           const validatedData = insertSessionSchema.parse(cleanData);

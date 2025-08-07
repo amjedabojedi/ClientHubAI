@@ -33,6 +33,7 @@ interface SessionUploadData {
   sessionPrice: string;
   roomNumber: string;
   sessionMode?: string;
+  status?: string;
   notes?: string;
 }
 
