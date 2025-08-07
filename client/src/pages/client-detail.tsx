@@ -983,6 +983,20 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
+  // Session conflicts query
+  const { data: sessionConflicts } = useQuery<{
+    conflictDates: string[];
+    conflicts: Array<{
+      date: string;
+      sessions: any[];
+      type: 'same_service' | 'different_service';
+    }>;
+  }>({
+    queryKey: [`/api/clients/${clientId}/session-conflicts`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
   const { data: notes = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/notes`],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -1442,7 +1456,7 @@ export default function ClientDetailPage() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
               <Card>
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-blue-600">{sessions.length}</div>
@@ -1471,6 +1485,18 @@ export default function ClientDetailPage() {
                     {sessions.filter((s: Session) => s.status === 'cancelled' || s.status === 'no_show').length}
                   </div>
                   <p className="text-sm text-slate-600">Missed/Cancelled</p>
+                </CardContent>
+              </Card>
+              {/* Session Conflicts Card */}
+              <Card className={sessionConflicts?.conflicts?.length ? 'border-orange-200 bg-orange-50' : ''}>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {sessionConflicts?.conflicts?.length || 0}
+                  </div>
+                  <p className="text-sm text-slate-600">Conflicts</p>
+                  {sessionConflicts?.conflicts?.length > 0 && (
+                    <p className="text-xs text-orange-600 mt-1">Needs Review</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1503,8 +1529,16 @@ export default function ClientDetailPage() {
               <CardContent>
                 {sessions.length > 0 ? (
                   <div className="space-y-3">
-                    {sessions.map((session: Session) => (
-                      <div key={session.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                    {sessions.map((session: Session) => {
+                      // Check if this session's date has conflicts
+                      const sessionDate = session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : null;
+                      const hasConflicts = sessionDate && sessionConflicts?.conflictDates?.includes(sessionDate);
+                      const conflictInfo = hasConflicts ? sessionConflicts.conflicts.find(c => c.date === sessionDate) : null;
+                      
+                      return (
+                      <div key={session.id} className={`bg-white border rounded-lg p-4 hover:shadow-sm transition-shadow ${
+                        hasConflicts ? 'border-orange-300 bg-orange-50' : 'border-slate-200'
+                      }`}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-3">
                             <div className={`w-3 h-3 rounded-full ${
@@ -1513,12 +1547,25 @@ export default function ClientDetailPage() {
                               'bg-red-500'
                             }`}></div>
                             <div>
-                              <h4 className="font-semibold text-slate-900">
-                                {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
-                              </h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-slate-900">
+                                  {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
+                                </h4>
+                                {hasConflicts && (
+                                  <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                    {conflictInfo?.type === 'same_service' ? 'Duplicate' : 'Multiple Services'}
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-sm text-slate-600">
                                 {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString() : 'Date TBD'}
                                 {session.sessionTime && ` • ${session.sessionTime}`}
+                                {hasConflicts && conflictInfo && (
+                                  <span className="text-orange-600 ml-2">
+                                    • {conflictInfo.sessions.length} sessions on same day
+                                  </span>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -1594,7 +1641,8 @@ export default function ClientDetailPage() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">

@@ -832,6 +832,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get session conflicts for a client
+  app.get("/api/clients/:clientId/session-conflicts", async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const conflicts = await storage.getClientSessionConflicts(clientId);
+      res.json(conflicts);
+    } catch (error) {
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Monthly sessions route for calendar
   app.get("/api/sessions/:year/:month/month", async (req, res) => {
     try {

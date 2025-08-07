@@ -208,13 +208,13 @@ export interface IStorage {
   deleteSession(id: number): Promise<void>;
   
   // ===== SESSION CONFLICT DETECTION =====
-  checkSessionConflicts(clientId: number, sessionDate: string, serviceCode?: string, excludeSessionId?: number): Promise<{
-    exactDuplicates: (Session & { therapist: User; service: any })[];
-    potentialConflicts: (Session & { therapist: User; service: any })[];
-  }>;
-  getFutureSessionConflicts(): Promise<{
-    today: (Session & { therapist: User; client: Client; service: any })[];
-    upcoming: (Session & { therapist: User; client: Client; service: any })[];
+  getClientSessionConflicts(clientId: number): Promise<{
+    conflictDates: string[];
+    conflicts: Array<{
+      date: string;
+      sessions: (Session & { therapist: User; service: any })[];
+      type: 'same_service' | 'different_service';
+    }>;
   }>;
   
   // ===== SERVICE AND ROOM LOOKUPS =====
@@ -915,6 +915,71 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sessions.sessionDate));
 
     return results.map(r => ({ ...r.session, therapist: r.therapist }));
+  }
+
+  async getClientSessionConflicts(clientId: number): Promise<{
+    conflictDates: string[];
+    conflicts: Array<{
+      date: string;
+      sessions: (Session & { therapist: User; service: any })[];
+      type: 'same_service' | 'different_service';
+    }>;
+  }> {
+    // Get all sessions for this client
+    const results = await db
+      .select({
+        session: sessions,
+        therapist: users,
+        service: services
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(services, eq(sessions.serviceId, services.id))
+      .where(eq(sessions.clientId, clientId))
+      .orderBy(desc(sessions.sessionDate));
+
+    // Group sessions by date
+    const sessionsByDate = new Map<string, (Session & { therapist: User; service: any })[]>();
+    
+    results.forEach(r => {
+      const sessionData = { ...r.session, therapist: r.therapist, service: r.service };
+      const dateKey = sessionData.sessionDate.toISOString().split('T')[0];
+      
+      if (!sessionsByDate.has(dateKey)) {
+        sessionsByDate.set(dateKey, []);
+      }
+      sessionsByDate.get(dateKey)!.push(sessionData);
+    });
+
+    // Find conflicts (dates with multiple sessions)
+    const conflicts: Array<{
+      date: string;
+      sessions: (Session & { therapist: User; service: any })[];
+      type: 'same_service' | 'different_service';
+    }> = [];
+
+    const conflictDates: string[] = [];
+
+    sessionsByDate.forEach((sessionsOnDate, date) => {
+      if (sessionsOnDate.length > 1) {
+        conflictDates.push(date);
+        
+        // Check if same service codes or different
+        const serviceIds = new Set(sessionsOnDate.map(s => s.service.id));
+        const type = serviceIds.size === 1 ? 'same_service' : 'different_service';
+        
+        conflicts.push({
+          date,
+          sessions: sessionsOnDate,
+          type
+        });
+      }
+    });
+
+    return {
+      conflictDates: conflictDates.sort(),
+      conflicts: conflicts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    };
   }
 
   async getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]> {
