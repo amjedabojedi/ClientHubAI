@@ -499,7 +499,7 @@ export const checklistTemplates = pgTable("checklist_templates", {
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 50 }).notNull(), // 'intake', 'assessment', 'ongoing', 'discharge'
-  clientType: varchar("client_type", { length: 20 }), // 'individual', 'couple', 'family', 'group', null for all
+  clientType: varchar("client_type", { length: 20 }), // Dynamic client type from system options
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -1055,7 +1055,7 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   // Make all fields optional except fullName which remains required
   emailNotifications: z.boolean().optional(),
   hasPortalAccess: z.boolean().optional(),
-  clientType: z.enum(['individual', 'couple', 'family', 'group']).optional(),
+  clientType: z.string().optional(),
   status: z.enum(['active', 'inactive', 'pending']).optional(),
   stage: z.enum(['intake', 'assessment', 'psychotherapy']).optional(),
 });
