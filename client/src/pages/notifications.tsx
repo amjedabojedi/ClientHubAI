@@ -26,7 +26,8 @@ import {
   Settings,
   Plus,
   Search,
-  Filter
+  Filter,
+  Edit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -75,14 +76,36 @@ interface CreateTriggerFormProps {
   templates: NotificationTemplate[];
 }
 
-function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerFormProps) {
+function CreateTriggerForm({ onSubmit, isLoading, templates, trigger }: CreateTriggerFormProps) {
   const [formData, setFormData] = useState({
-    name: "",
-    event: "",
-    templateId: "",
-    isActive: true,
-    conditions: "{}"
+    name: trigger?.name || "",
+    event: trigger?.event || "",
+    templateId: trigger?.templateId?.toString() || "",
+    isActive: trigger?.isActive ?? true,
+    conditions: trigger?.conditions || "{}"
   });
+
+  // Update form data when trigger changes (for editing)
+  useEffect(() => {
+    if (trigger) {
+      setFormData({
+        name: trigger.name || "",
+        event: trigger.event || "",
+        templateId: trigger.templateId?.toString() || "",
+        isActive: trigger.isActive ?? true,
+        conditions: trigger.conditions || "{}"
+      });
+    } else {
+      // Reset form for new trigger
+      setFormData({
+        name: "",
+        event: "",
+        templateId: "",
+        isActive: true,
+        conditions: "{}"
+      });
+    }
+  }, [trigger]);
   
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [simpleConditions, setSimpleConditions] = useState({
@@ -374,7 +397,7 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
       <DialogFooter>
         <Button type="submit" disabled={isLoading}>
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          Create Trigger
+          {trigger ? "Update Trigger" : "Create Trigger"}
         </Button>
       </DialogFooter>
     </form>
@@ -386,6 +409,14 @@ interface CreateTemplateFormProps {
   onSubmit: (data: any) => void;
   isLoading: boolean;
   template?: NotificationTemplate;
+}
+
+// Create Trigger Form Component - support editing
+interface CreateTriggerFormProps {
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+  templates: NotificationTemplate[];
+  trigger?: NotificationTrigger;
 }
 
 function CreateTemplateForm({ onSubmit, isLoading, template }: CreateTemplateFormProps) {
@@ -499,6 +530,8 @@ export default function NotificationsPage() {
   const [isCreateTriggerOpen, setIsCreateTriggerOpen] = useState(false);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<NotificationTemplate | null>(null);
+  const [editingTrigger, setEditingTrigger] = useState<NotificationTrigger | null>(null);
+  const [deletingTrigger, setDeletingTrigger] = useState<NotificationTrigger | null>(null);
 
   // Fetch notifications
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
@@ -629,6 +662,42 @@ export default function NotificationsPage() {
         variant: "destructive" 
       });
     }
+  });
+
+  // Update trigger mutation
+  const updateTriggerMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => 
+      apiRequest(`/api/notifications/triggers/${id}`, "PUT", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/triggers"] });
+      setEditingTrigger(null);
+      toast({ title: "Trigger updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error updating trigger", 
+        description: error.message || "Failed to update trigger",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Delete trigger mutation
+  const deleteTriggerMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest(`/api/notifications/triggers/${id}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/triggers"] });
+      setDeletingTrigger(null);
+      toast({ title: "Trigger deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error deleting trigger", 
+        description: error.message || "Failed to delete trigger",
+        variant: "destructive" 
+      });
+    },
   });
 
   // Helper functions
@@ -933,6 +1002,15 @@ export default function NotificationsPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => setEditingTrigger(trigger)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => toggleTriggerMutation.mutate({ 
                             id: trigger.id, 
                             isActive: !trigger.isActive 
@@ -940,6 +1018,15 @@ export default function NotificationsPage() {
                           disabled={toggleTriggerMutation.isPending}
                         >
                           {trigger.isActive ? "Disable" : "Enable"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeletingTrigger(trigger)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
                         </Button>
                       </div>
                     </div>
@@ -1060,6 +1147,69 @@ export default function NotificationsPage() {
               />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Trigger Dialog */}
+      <Dialog open={!!editingTrigger} onOpenChange={(open) => !open && setEditingTrigger(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Notification Trigger</DialogTitle>
+            <DialogDescription>
+              Modify the notification trigger settings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto">
+            {editingTrigger && (
+              <CreateTriggerForm 
+                trigger={editingTrigger}
+                onSubmit={(data: any) => updateTriggerMutation.mutate({ id: editingTrigger.id, data })}
+                isLoading={updateTriggerMutation.isPending}
+                templates={templates}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Trigger Confirmation */}
+      <Dialog open={!!deletingTrigger} onOpenChange={(open) => !open && setDeletingTrigger(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Notification Trigger</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this trigger? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deletingTrigger && (
+            <div className="py-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                <strong>Trigger:</strong> {deletingTrigger.name}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                <strong>Event:</strong> {deletingTrigger.event}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeletingTrigger(null)}
+              disabled={deleteTriggerMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deleteTriggerMutation.mutate(deletingTrigger?.id!)}
+              disabled={deleteTriggerMutation.isPending}
+            >
+              {deleteTriggerMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Delete Trigger
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
