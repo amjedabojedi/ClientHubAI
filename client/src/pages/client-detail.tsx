@@ -54,6 +54,19 @@ import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 // Types
 import type { Client, Task, Document, User, Session } from "@shared/schema";
 
+// Utility function to parse UTC date strings without timezone shift
+const parseSessionDate = (dateString: string): Date => {
+  // If date is already in YYYY-MM-DD format, add time to avoid timezone issues
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return new Date(dateString + 'T12:00:00');
+  }
+  // If date includes time but is UTC, add noon time to avoid midnight timezone shifts
+  if (dateString.includes('T00:00:00')) {
+    return new Date(dateString.replace('T00:00:00', 'T12:00:00'));
+  }
+  return new Date(dateString);
+};
+
 // Define types for checklists and assessments to fix 'unknown' type errors
 interface ChecklistTemplate {
   id: number;
@@ -1531,7 +1544,7 @@ export default function ClientDetailPage() {
                   <div className="space-y-3">
                     {sessions.map((session: Session) => {
                       // Check if this session's date has conflicts
-                      const sessionDate = session.sessionDate ? new Date(session.sessionDate).toISOString().split('T')[0] : null;
+                      const sessionDate = session.sessionDate ? parseSessionDate(session.sessionDate).toISOString().split('T')[0] : null;
                       const hasConflicts = sessionDate && sessionConflicts?.conflictDates?.includes(sessionDate);
                       const conflictInfo = hasConflicts ? sessionConflicts?.conflicts?.find(c => c.date === sessionDate) : null;
                       
@@ -1559,7 +1572,7 @@ export default function ClientDetailPage() {
                                 )}
                               </div>
                               <p className="text-sm text-slate-600">
-                                {session.sessionDate ? new Date(session.sessionDate).toLocaleDateString() : 'Date TBD'}
+                                {session.sessionDate ? parseSessionDate(session.sessionDate).toLocaleDateString() : 'Date TBD'}
                                 {session.sessionTime && ` • ${session.sessionTime}`}
                                 {hasConflicts && conflictInfo && (
                                   <span className="text-orange-600 ml-2">
