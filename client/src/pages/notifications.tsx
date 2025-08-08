@@ -803,18 +803,20 @@ export default function NotificationsPage() {
                       Add Trigger
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Create Notification Trigger</DialogTitle>
                       <DialogDescription>
                         Add a new trigger to automatically create notifications based on system events.
                       </DialogDescription>
                     </DialogHeader>
-                    <CreateTriggerForm 
-                      onSubmit={(data) => createTriggerMutation.mutate(data)}
-                      isLoading={createTriggerMutation.isPending}
-                      templates={templates}
-                    />
+                    <div className="max-h-[70vh] overflow-y-auto">
+                      <CreateTriggerForm 
+                        onSubmit={(data) => createTriggerMutation.mutate(data)}
+                        isLoading={createTriggerMutation.isPending}
+                        templates={templates}
+                      />
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -891,17 +893,19 @@ export default function NotificationsPage() {
                       Add Template
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Create Notification Template</DialogTitle>
                       <DialogDescription>
                         Create a reusable template for notifications.
                       </DialogDescription>
                     </DialogHeader>
-                    <CreateTemplateForm 
-                      onSubmit={(data: any) => createTemplateMutation.mutate(data)}
-                      isLoading={createTemplateMutation.isPending}
-                    />
+                    <div className="max-h-[70vh] overflow-y-auto">
+                      <CreateTemplateForm 
+                        onSubmit={(data: any) => createTemplateMutation.mutate(data)}
+                        isLoading={createTemplateMutation.isPending}
+                      />
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
