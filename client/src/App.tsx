@@ -29,6 +29,7 @@ import ChecklistManagementPage from "@/pages/checklist-management";
 import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
+import NotificationBell from "@/components/notifications/notification-bell";
 
 function Navigation() {
   const [location] = useLocation();
@@ -138,6 +139,7 @@ function Navigation() {
               <span className="text-sm text-gray-600 dark:text-gray-300">
                 Welcome, {user.fullName || user.username}
               </span>
+              <NotificationBell />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="flex items-center gap-2">
