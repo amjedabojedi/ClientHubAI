@@ -50,9 +50,11 @@ interface Notification {
 interface NotificationTrigger {
   id: number;
   name: string;
-  event: string;
+  event?: string;
+  eventType?: string;
   isActive: boolean;
-  conditions: any;
+  conditions?: any;
+  conditionRules?: any;
   templateId: number;
   createdAt: string;
 }
@@ -79,21 +81,29 @@ interface CreateTriggerFormProps {
 function CreateTriggerForm({ onSubmit, isLoading, templates, trigger }: CreateTriggerFormProps) {
   const [formData, setFormData] = useState({
     name: trigger?.name || "",
-    event: trigger?.event || "",
+    event: trigger?.event || trigger?.eventType || "",
     templateId: trigger?.templateId?.toString() || "",
     isActive: trigger?.isActive ?? true,
-    conditions: trigger?.conditions || "{}"
+    conditions: (() => {
+      const conditionsValue = trigger?.conditions || trigger?.conditionRules || {};
+      return typeof conditionsValue === 'string' ? conditionsValue : JSON.stringify(conditionsValue, null, 2);
+    })()
   });
 
   // Update form data when trigger changes (for editing)
   useEffect(() => {
     if (trigger) {
+      console.log("Loading trigger data:", trigger);
+      const eventValue = trigger.event || trigger.eventType || "";
+      const conditionsValue = trigger.conditions || trigger.conditionRules || {};
+      const conditionsJson = typeof conditionsValue === 'string' ? conditionsValue : JSON.stringify(conditionsValue, null, 2);
+      
       setFormData({
         name: trigger.name || "",
-        event: trigger.event || "",
+        event: eventValue,
         templateId: trigger.templateId?.toString() || "",
         isActive: trigger.isActive ?? true,
-        conditions: trigger.conditions || "{}"
+        conditions: conditionsJson
       });
     } else {
       // Reset form for new trigger
@@ -169,11 +179,17 @@ function CreateTriggerForm({ onSubmit, isLoading, templates, trigger }: CreateTr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateConditions();
-    onSubmit({
+    // Map form fields to API fields
+    const submitData = {
       ...formData,
-      templateId: parseInt(formData.templateId),
-      conditions: JSON.parse(formData.conditions)
-    });
+      eventType: formData.event,
+      conditionRules: formData.conditions,
+      templateId: parseInt(formData.templateId)
+    };
+    // Remove the form-only fields before sending to API
+    delete submitData.event;
+    delete submitData.conditions;
+    onSubmit(submitData);
   };
 
   return (
@@ -992,7 +1008,7 @@ export default function NotificationsPage() {
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                          Event: {trigger.event}
+                          Event: {trigger.event || trigger.eventType}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
                           Created {formatDistanceToNow(new Date(trigger.createdAt), { addSuffix: true })}
