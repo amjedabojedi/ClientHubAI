@@ -392,7 +392,7 @@ function CreateTemplateForm({ onSubmit, isLoading, template }: CreateTemplateFor
   const [formData, setFormData] = useState({
     name: template?.name || "",
     subject: template?.subject || "",
-    message: template?.message || template?.body_template || template?.bodyTemplate || "",
+    message: template?.bodyTemplate || template?.body_template || template?.message || "",
     type: template?.type || "system",
     priority: template?.priority || "medium"
   });
@@ -400,19 +400,34 @@ function CreateTemplateForm({ onSubmit, isLoading, template }: CreateTemplateFor
   // Update form data when template changes (for editing)
   useEffect(() => {
     if (template) {
+      console.log("Loading template data:", template);
       setFormData({
         name: template.name || "",
         subject: template.subject || "",
-        message: template.message || template.body_template || template.bodyTemplate || "",
+        message: template.bodyTemplate || template.body_template || template.message || "",
         type: template.type || "system",
         priority: template.priority || "medium"
+      });
+    } else {
+      // Reset form for new template
+      setFormData({
+        name: "",
+        subject: "",
+        message: "",
+        type: "system",
+        priority: "medium"
       });
     }
   }, [template]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    // Map message to bodyTemplate for API
+    const submitData = {
+      ...formData,
+      bodyTemplate: formData.message
+    };
+    onSubmit(submitData);
   };
 
   return (
@@ -1013,7 +1028,7 @@ export default function NotificationsPage() {
                         {template.subject}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {template.message || template.body_template || template.bodyTemplate || 'No message content'}
+                        {template.bodyTemplate || template.body_template || template.message || 'No message content'}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">
                         Created {formatDistanceToNow(new Date(template.createdAt), { addSuffix: true })}
