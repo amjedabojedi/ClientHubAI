@@ -83,10 +83,10 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
   
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [simpleConditions, setSimpleConditions] = useState({
-    priority: "",
-    status: "",
+    priority: "any",
+    status: "any",
     therapistId: "",
-    clientType: ""
+    clientType: "any"
   });
 
   const eventOptions = [
@@ -103,10 +103,10 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
   const updateConditions = () => {
     if (!showAdvanced) {
       const conditions: any = {};
-      if (simpleConditions.priority) conditions.priority = simpleConditions.priority;
-      if (simpleConditions.status) conditions.status = simpleConditions.status;
-      if (simpleConditions.therapistId) conditions.therapistId = simpleConditions.therapistId;
-      if (simpleConditions.clientType) conditions.clientType = simpleConditions.clientType;
+      if (simpleConditions.priority && simpleConditions.priority !== "any") conditions.priority = simpleConditions.priority;
+      if (simpleConditions.status && simpleConditions.status !== "any") conditions.status = simpleConditions.status;
+      if (simpleConditions.therapistId && simpleConditions.therapistId.trim()) conditions.therapistId = simpleConditions.therapistId;
+      if (simpleConditions.clientType && simpleConditions.clientType !== "any") conditions.clientType = simpleConditions.clientType;
       
       setFormData(prev => ({ ...prev, conditions: JSON.stringify(conditions, null, 2) }));
     }
@@ -205,7 +205,7 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
                     <SelectValue placeholder="Any priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any priority</SelectItem>
+                    <SelectItem value="any">Any priority</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="high">High</SelectItem>
@@ -221,7 +221,7 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
                     <SelectValue placeholder="Any status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any status</SelectItem>
+                    <SelectItem value="any">Any status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
@@ -238,7 +238,7 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
                     <SelectValue placeholder="Any client type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Any client type</SelectItem>
+                    <SelectItem value="any">Any client type</SelectItem>
                     <SelectItem value="new">New clients</SelectItem>
                     <SelectItem value="existing">Existing clients</SelectItem>
                     <SelectItem value="vip">VIP clients</SelectItem>
