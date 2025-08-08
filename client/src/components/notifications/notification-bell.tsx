@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
-import NotificationDropdown from "./notification-dropdown";
+import NotificationDropdown from "./notification-dropdown.tsx";
 
 interface NotificationBellProps {
   className?: string;

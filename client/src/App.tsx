@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -28,8 +28,9 @@ import SettingsPage from "@/pages/settings";
 import ChecklistManagementPage from "@/pages/checklist-management";
 import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
+import NotificationsPage from "@/pages/notifications";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
-import NotificationBell from "@/components/notifications/notification-bell";
+
 
 function Navigation() {
   const [location] = useLocation();
@@ -61,6 +62,7 @@ function Navigation() {
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
+          { path: "/notifications", label: "Notifications", icon: Bell },
           { path: "/settings", label: "Settings", icon: Settings },
         ]
       });
@@ -139,7 +141,7 @@ function Navigation() {
               <span className="text-sm text-gray-600 dark:text-gray-300">
                 Welcome, {user.fullName || user.username}
               </span>
-              <NotificationBell />
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="flex items-center gap-2">
@@ -208,6 +210,7 @@ function Router() {
           <Route path="/checklist-management" component={ChecklistManagementPage} />
           <Route path="/user-profiles" component={UserProfilesPage} />
           <Route path="/role-management" component={RoleManagementPage} />
+          <Route path="/notifications" component={NotificationsPage} />
           <Route path="/settings" component={SettingsPage} />
           <Route path="/my-profile" component={MyProfilePage} />
           <Route component={NotFound} />
