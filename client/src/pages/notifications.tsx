@@ -169,16 +169,16 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
           <SelectTrigger>
             <SelectValue placeholder="Select event type" />
           </SelectTrigger>
-          <SelectContent className="max-h-[300px] overflow-y-auto">
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">Client Events</div>
+          <SelectContent className="max-h-[350px] overflow-y-auto">
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">Client Events</div>
               <SelectItem value="client_created">New Client Created</SelectItem>
               <SelectItem value="client_assigned">Client Assigned to Therapist</SelectItem>
               <SelectItem value="client_status_changed">Client Status Changed</SelectItem>
             </div>
             
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">Session Events</div>
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">Session Events</div>
               <SelectItem value="session_scheduled">Session Scheduled</SelectItem>
               <SelectItem value="session_rescheduled">Session Rescheduled</SelectItem>
               <SelectItem value="session_cancelled">Session Cancelled</SelectItem>
@@ -186,36 +186,36 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
               <SelectItem value="session_overdue">Session Overdue/Missed</SelectItem>
             </div>
             
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">Task Events</div>
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">Task Events</div>
               <SelectItem value="task_assigned">Task Assigned</SelectItem>
               <SelectItem value="task_completed">Task Completed</SelectItem>
               <SelectItem value="task_overdue">Task Overdue</SelectItem>
               <SelectItem value="task_status_changed">Task Status Changed</SelectItem>
             </div>
             
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">Document Events</div>
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">Document Events</div>
               <SelectItem value="document_uploaded">Document Uploaded</SelectItem>
               <SelectItem value="document_needs_review">Document Needs Supervisor Review</SelectItem>
               <SelectItem value="document_reviewed">Document Reviewed</SelectItem>
             </div>
             
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">Assessment Events</div>
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">Assessment Events</div>
               <SelectItem value="assessment_assigned">Assessment Assigned</SelectItem>
               <SelectItem value="assessment_completed">Assessment Completed</SelectItem>
               <SelectItem value="assessment_overdue">Assessment Overdue</SelectItem>
             </div>
             
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">Billing Events</div>
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">Billing Events</div>
               <SelectItem value="payment_overdue">Payment Overdue</SelectItem>
               <SelectItem value="billing_generated">Billing Record Generated</SelectItem>
             </div>
             
-            <div className="py-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50">System Events</div>
+            <div className="py-1 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-50 sticky top-0">System Events</div>
               <SelectItem value="user_login_failed">Failed Login Attempt</SelectItem>
               <SelectItem value="system_backup">System Backup Completed</SelectItem>
             </div>
