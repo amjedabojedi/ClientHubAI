@@ -146,17 +146,63 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
       </div>
 
       <div>
-        <Label htmlFor="conditions">Conditions (JSON)</Label>
+        <Label htmlFor="conditions">Trigger Conditions</Label>
         <Textarea
           id="conditions"
           value={formData.conditions}
           onChange={(e) => setFormData({ ...formData, conditions: e.target.value })}
-          placeholder='{"priority": "high"}'
+          placeholder='{"clientRole": "new", "sessionType": "intake"}'
           className="font-mono text-sm"
+          rows={4}
         />
-        <p className="text-xs text-gray-500 mt-1">
-          JSON object for trigger conditions (e.g., client role, session type)
-        </p>
+        <div className="text-xs text-gray-500 mt-2 space-y-2 p-3 bg-gray-50 rounded border">
+          <p className="font-semibold text-gray-700">How Trigger Conditions Work:</p>
+          <div className="space-y-2">
+            <div>
+              <p className="font-medium text-gray-600">Basic Format:</p>
+              <p className="ml-2 font-mono bg-white px-2 py-1 rounded">{"{"}"field": "value"{"}"}</p>
+            </div>
+            
+            <div>
+              <p className="font-medium text-gray-600">Client Events:</p>
+              <div className="ml-2 space-y-1">
+                <p><code>{"{"}"clientStatus": "active"{"}"}</code> - Only for active clients</p>
+                <p><code>{"{"}"therapistId": "17"{"}"}</code> - Only for specific therapist</p>
+                <p><code>{"{"}"clientType": "new"{"}"}</code> - Only for new clients</p>
+              </div>
+            </div>
+            
+            <div>
+              <p className="font-medium text-gray-600">Session Events:</p>
+              <div className="ml-2 space-y-1">
+                <p><code>{"{"}"sessionType": "intake"{"}"}</code> - Only intake sessions</p>
+                <p><code>{"{"}"status": "scheduled"{"}"}</code> - Only scheduled sessions</p>
+                <p><code>{"{"}"duration": "60"{"}"}</code> - Only 60-minute sessions</p>
+              </div>
+            </div>
+            
+            <div>
+              <p className="font-medium text-gray-600">Task Events:</p>
+              <div className="ml-2 space-y-1">
+                <p><code>{"{"}"priority": "high"{"}"}</code> - Only high priority tasks</p>
+                <p><code>{"{"}"assigneeRole": "supervisor"{"}"}</code> - Only for supervisors</p>
+                <p><code>{"{"}"category": "assessment"{"}"}</code> - Only assessment tasks</p>
+              </div>
+            </div>
+            
+            <div>
+              <p className="font-medium text-gray-600">Multiple Conditions (AND logic):</p>
+              <p className="ml-2 font-mono bg-white px-2 py-1 rounded">{"{"}"priority": "high", "clientStatus": "active"{"}"}</p>
+              <p className="ml-2 text-xs">Triggers only when BOTH conditions are true</p>
+            </div>
+            
+            <div>
+              <p className="font-medium text-gray-600">No Conditions:</p>
+              <p className="ml-2 font-mono bg-white px-2 py-1 rounded">{"{}"}</p>
+              <p className="ml-2 text-xs">Triggers for ALL events of this type</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <DialogFooter>
