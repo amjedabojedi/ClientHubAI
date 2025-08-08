@@ -37,7 +37,11 @@ import {
   checklistTemplates,
   checklistItems,
   clientChecklists,
-  clientChecklistItems
+  clientChecklistItems,
+  notifications,
+  notificationTriggers,
+  notificationPreferences,
+  notificationTemplates
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -109,7 +113,15 @@ import type {
   SelectOptionCategory,
   InsertOptionCategory,
   SelectSystemOption,
-  InsertSystemOption
+  InsertSystemOption,
+  Notification,
+  InsertNotification,
+  NotificationTrigger,
+  InsertNotificationTrigger,
+  NotificationPreference,
+  InsertNotificationPreference,
+  NotificationTemplate,
+  InsertNotificationTemplate
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -382,6 +394,39 @@ export interface IStorage {
   createSystemOption(option: InsertSystemOption): Promise<SelectSystemOption>;
   updateSystemOption(id: number, option: Partial<InsertSystemOption>): Promise<SelectSystemOption>;
   deleteSystemOption(id: number): Promise<void>;
+
+  // ===== NOTIFICATION SYSTEM MANAGEMENT =====
+  getUserNotifications(userId: number, limit?: number): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: number): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  createNotificationsBatch(notifications: InsertNotification[]): Promise<void>;
+  markNotificationAsRead(notificationId: number, userId: number): Promise<void>;
+  markAllNotificationsAsRead(userId: number): Promise<void>;
+  deleteNotification(notificationId: number, userId: number): Promise<void>;
+  
+  // Notification Triggers Management
+  getNotificationTriggers(eventType?: string): Promise<NotificationTrigger[]>;
+  getNotificationTrigger(id: number): Promise<NotificationTrigger | undefined>;
+  createNotificationTrigger(trigger: InsertNotificationTrigger): Promise<NotificationTrigger>;
+  updateNotificationTrigger(id: number, trigger: Partial<InsertNotificationTrigger>): Promise<NotificationTrigger>;
+  deleteNotificationTrigger(id: number): Promise<void>;
+  
+  // Notification Preferences Management
+  getUserNotificationPreferences(userId: number): Promise<NotificationPreference[]>;
+  getUserNotificationPreference(userId: number, triggerType: string): Promise<NotificationPreference | undefined>;
+  setUserNotificationPreference(userId: number, triggerType: string, preferences: Partial<InsertNotificationPreference>): Promise<NotificationPreference>;
+  
+  // Notification Templates Management
+  getNotificationTemplates(type?: string): Promise<NotificationTemplate[]>;
+  getNotificationTemplate(id: number): Promise<NotificationTemplate | undefined>;
+  createNotificationTemplate(template: InsertNotificationTemplate): Promise<NotificationTemplate>;
+  updateNotificationTemplate(id: number, template: Partial<InsertNotificationTemplate>): Promise<NotificationTemplate>;
+  deleteNotificationTemplate(id: number): Promise<void>;
+  
+  // Notification Processing
+  processNotificationEvent(eventType: string, entityData: any): Promise<void>;
+  cleanupExpiredNotifications(): Promise<void>;
+  getNotificationStats(): Promise<{ total: number; unread: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3437,6 +3482,245 @@ export class DatabaseStorage implements IStorage {
         await db.insert(clientChecklistItems).values(clientItems);
       }
     }
+  }
+
+  // ===== NOTIFICATION SYSTEM IMPLEMENTATION =====
+
+  async getUserNotifications(userId: number, limit: number = 50): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const result = await db
+      .select({ count: count() })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [created] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return created;
+  }
+
+  async createNotificationsBatch(notificationsData: InsertNotification[]): Promise<void> {
+    if (notificationsData.length > 0) {
+      await db.insert(notifications).values(notificationsData);
+    }
+  }
+
+  async markNotificationAsRead(notificationId: number, userId: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(and(
+        eq(notifications.id, notificationId),
+        eq(notifications.userId, userId)
+      ));
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ));
+  }
+
+  async deleteNotification(notificationId: number, userId: number): Promise<void> {
+    await db
+      .delete(notifications)
+      .where(and(
+        eq(notifications.id, notificationId),
+        eq(notifications.userId, userId)
+      ));
+  }
+
+  // Notification Triggers Management
+  async getNotificationTriggers(eventType?: string): Promise<NotificationTrigger[]> {
+    if (eventType) {
+      return await db
+        .select()
+        .from(notificationTriggers)
+        .where(and(
+          eq(notificationTriggers.eventType, eventType as any),
+          eq(notificationTriggers.isActive, true)
+        ));
+    }
+    return await db
+      .select()
+      .from(notificationTriggers)
+      .where(eq(notificationTriggers.isActive, true));
+  }
+
+  async getNotificationTrigger(id: number): Promise<NotificationTrigger | undefined> {
+    const [trigger] = await db
+      .select()
+      .from(notificationTriggers)
+      .where(eq(notificationTriggers.id, id));
+    return trigger;
+  }
+
+  async createNotificationTrigger(trigger: InsertNotificationTrigger): Promise<NotificationTrigger> {
+    const [created] = await db
+      .insert(notificationTriggers)
+      .values(trigger)
+      .returning();
+    return created;
+  }
+
+  async updateNotificationTrigger(id: number, trigger: Partial<InsertNotificationTrigger>): Promise<NotificationTrigger> {
+    const [updated] = await db
+      .update(notificationTriggers)
+      .set({ ...trigger, updatedAt: new Date() })
+      .where(eq(notificationTriggers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteNotificationTrigger(id: number): Promise<void> {
+    await db
+      .delete(notificationTriggers)
+      .where(eq(notificationTriggers.id, id));
+  }
+
+  // Notification Preferences Management
+  async getUserNotificationPreferences(userId: number): Promise<NotificationPreference[]> {
+    return await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId));
+  }
+
+  async getUserNotificationPreference(userId: number, triggerType: string): Promise<NotificationPreference | undefined> {
+    const [preference] = await db
+      .select()
+      .from(notificationPreferences)
+      .where(and(
+        eq(notificationPreferences.userId, userId),
+        eq(notificationPreferences.triggerType, triggerType as any)
+      ));
+    return preference;
+  }
+
+  async setUserNotificationPreference(userId: number, triggerType: string, preferences: Partial<InsertNotificationPreference>): Promise<NotificationPreference> {
+    const existing = await this.getUserNotificationPreference(userId, triggerType);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(notificationPreferences)
+        .set({ ...preferences, updatedAt: new Date() })
+        .where(and(
+          eq(notificationPreferences.userId, userId),
+          eq(notificationPreferences.triggerType, triggerType as any)
+        ))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(notificationPreferences)
+        .values({
+          userId,
+          triggerType: triggerType as any,
+          ...preferences
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  // Notification Templates Management
+  async getNotificationTemplates(type?: string): Promise<NotificationTemplate[]> {
+    if (type) {
+      return await db
+        .select()
+        .from(notificationTemplates)
+        .where(and(
+          eq(notificationTemplates.type, type as any),
+          eq(notificationTemplates.isActive, true)
+        ));
+    }
+    return await db
+      .select()
+      .from(notificationTemplates)
+      .where(eq(notificationTemplates.isActive, true));
+  }
+
+  async getNotificationTemplate(id: number): Promise<NotificationTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(notificationTemplates)
+      .where(eq(notificationTemplates.id, id));
+    return template;
+  }
+
+  async createNotificationTemplate(template: InsertNotificationTemplate): Promise<NotificationTemplate> {
+    const [created] = await db
+      .insert(notificationTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async updateNotificationTemplate(id: number, template: Partial<InsertNotificationTemplate>): Promise<NotificationTemplate> {
+    const [updated] = await db
+      .update(notificationTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(notificationTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteNotificationTemplate(id: number): Promise<void> {
+    await db
+      .delete(notificationTemplates)
+      .where(eq(notificationTemplates.id, id));
+  }
+
+  // Notification Processing
+  async processNotificationEvent(eventType: string, entityData: any): Promise<void> {
+    // This will be delegated to the notification service
+    // Import here to avoid circular dependency
+    const { notificationService } = await import('./notification-service');
+    return await notificationService.processEvent(eventType, entityData);
+  }
+
+  async cleanupExpiredNotifications(): Promise<void> {
+    await db
+      .delete(notifications)
+      .where(and(
+        sql`${notifications.expiresAt} IS NOT NULL`,
+        sql`${notifications.expiresAt} < NOW()`
+      ));
+  }
+
+  async getNotificationStats(): Promise<{ total: number; unread: number }> {
+    const totalResult = await db
+      .select({ count: count() })
+      .from(notifications);
+    
+    const unreadResult = await db
+      .select({ count: count() })
+      .from(notifications)
+      .where(eq(notifications.isRead, false));
+
+    return {
+      total: totalResult[0]?.count || 0,
+      unread: unreadResult[0]?.count || 0
+    };
   }
 }
 

@@ -23,6 +23,18 @@ export const billingStatusEnum = pgEnum('billing_status', ['pending', 'billed', 
 export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', 'completed', 'overdue']);
 export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high', 'urgent']);
 export const genderEnum = pgEnum('gender', ['male', 'female', 'non_binary', 'prefer_not_to_say']);
+
+// Notification System Enums
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'client_created', 'client_assigned', 'client_status_changed', 'client_profile_updated',
+  'session_scheduled', 'session_overdue', 'session_completed', 'session_cancelled',
+  'task_assigned', 'task_overdue', 'task_completed',
+  'document_uploaded', 'assessment_assigned', 'assessment_completed',
+  'system_alert', 'custom'
+]);
+export const notificationPriorityEnum = pgEnum('notification_priority', ['low', 'medium', 'high', 'urgent']);
+export const notificationDeliveryMethodEnum = pgEnum('notification_delivery_method', ['in_app', 'email', 'sms', 'push']);
+export const notificationTimingEnum = pgEnum('notification_timing', ['immediate', 'hourly_digest', 'daily_digest', 'weekly_digest']);
 // Dynamic roles and permissions system
 export const roles = pgTable("roles", {
   id: serial("id").primaryKey(),
@@ -692,6 +704,96 @@ export const assessmentReports = pgTable("assessment_reports", {
   createdById: integer("created_by_id").notNull().references(() => users.id),
 });
 
+// ===== NOTIFICATION SYSTEM TABLES =====
+
+// Main notifications table - stores individual notification instances
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: notificationTypeEnum("type").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  data: text("data"), // JSON string for additional data
+  priority: notificationPriorityEnum("priority").notNull().default('medium'),
+  isRead: boolean("is_read").notNull().default(false),
+  readAt: timestamp("read_at"),
+  actionUrl: varchar("action_url", { length: 500 }), // URL to navigate when clicked
+  actionLabel: varchar("action_label", { length: 100 }), // Button text for action
+  groupingKey: varchar("grouping_key", { length: 100 }), // For batching similar notifications
+  expiresAt: timestamp("expires_at"), // Auto-cleanup date
+  // Related entity info for flexible linking
+  relatedEntityType: varchar("related_entity_type", { length: 50 }), // 'client', 'session', 'task', etc.
+  relatedEntityId: integer("related_entity_id"), // ID of the related entity
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userTypeIdx: index("notifications_user_type_idx").on(table.userId, table.type),
+  unreadIdx: index("notifications_unread_idx").on(table.userId, table.isRead),
+  entityIdx: index("notifications_entity_idx").on(table.relatedEntityType, table.relatedEntityId),
+  createdAtIdx: index("notifications_created_at_idx").on(table.createdAt),
+}));
+
+// Flexible trigger configuration - defines when notifications are sent
+export const notificationTriggers = pgTable("notification_triggers", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  eventType: notificationTypeEnum("event_type").notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(), // 'client', 'session', 'task'
+  conditionRules: text("condition_rules"), // JSON string for flexible conditions
+  recipientRules: text("recipient_rules"), // JSON string for who gets notified
+  templateId: integer("template_id").references(() => notificationTemplates.id),
+  priority: notificationPriorityEnum("priority").notNull().default('medium'),
+  delayMinutes: integer("delay_minutes").default(0), // Delay before sending
+  batchWindowMinutes: integer("batch_window_minutes").default(5), // Grouping window
+  maxBatchSize: integer("max_batch_size").default(10),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  eventTypeIdx: index("notification_triggers_event_type_idx").on(table.eventType),
+  entityTypeIdx: index("notification_triggers_entity_type_idx").on(table.entityType),
+  activeIdx: index("notification_triggers_active_idx").on(table.isActive),
+}));
+
+// User notification preferences - how each user wants to receive notifications
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  triggerType: notificationTypeEnum("trigger_type").notNull(),
+  deliveryMethods: text("delivery_methods"), // JSON array: ['in_app', 'email']
+  timing: notificationTimingEnum("timing").notNull().default('immediate'),
+  enableInApp: boolean("enable_in_app").notNull().default(true),
+  enableEmail: boolean("enable_email").notNull().default(false),
+  enableSms: boolean("enable_sms").notNull().default(false),
+  quietHoursStart: varchar("quiet_hours_start", { length: 8 }), // '22:00:00'
+  quietHoursEnd: varchar("quiet_hours_end", { length: 8 }), // '08:00:00'
+  weekendsEnabled: boolean("weekends_enabled").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userTriggerIdx: index("notification_preferences_user_trigger_idx").on(table.userId, table.triggerType),
+}));
+
+// Notification templates - reusable message templates
+export const notificationTemplates = pgTable("notification_templates", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  type: notificationTypeEnum("type").notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  bodyTemplate: text("body_template").notNull(), // Template with {{variables}}
+  actionUrlTemplate: varchar("action_url_template", { length: 500 }),
+  actionLabel: varchar("action_label", { length: 100 }),
+  recipientRoles: text("recipient_roles"), // JSON array of roles that should receive this
+  variables: text("variables"), // JSON describing available template variables
+  isSystem: boolean("is_system").notNull().default(false), // System templates cannot be deleted
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  typeIdx: index("notification_templates_type_idx").on(table.type),
+  activeIdx: index("notification_templates_active_idx").on(table.isActive),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, {
@@ -1007,6 +1109,33 @@ export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => 
   }),
 }));
 
+// ===== NOTIFICATION RELATIONS =====
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationTriggersRelations = relations(notificationTriggers, ({ one }) => ({
+  template: one(notificationTemplates, {
+    fields: [notificationTriggers.templateId],
+    references: [notificationTemplates.id],
+  }),
+}));
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationPreferences.userId],
+    references: [users.id],
+  }),
+}));
+
+export const notificationTemplatesRelations = relations(notificationTemplates, ({ many }) => ({
+  triggers: many(notificationTriggers),
+}));
+
 // Zod schemas
 export const insertRoleSchema = createInsertSchema(roles).omit({
   id: true,
@@ -1213,6 +1342,30 @@ export const insertAssessmentReportSchema = createInsertSchema(assessmentReports
   id: true,
 });
 
+// Notification Schemas
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertNotificationTriggerSchema = createInsertSchema(notificationTriggers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertNotificationPreferenceSchema = createInsertSchema(notificationPreferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertNotificationTemplateSchema = createInsertSchema(notificationTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Export types
 export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
@@ -1319,3 +1472,16 @@ export type InsertClientChecklist = z.infer<typeof insertClientChecklistSchema>;
 
 export type ClientChecklistItem = typeof clientChecklistItems.$inferSelect;
 export type InsertClientChecklistItem = z.infer<typeof insertClientChecklistItemSchema>;
+
+// Notification Types
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type NotificationTrigger = typeof notificationTriggers.$inferSelect;
+export type InsertNotificationTrigger = z.infer<typeof insertNotificationTriggerSchema>;
+
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
+
+export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
+export type InsertNotificationTemplate = z.infer<typeof insertNotificationTemplateSchema>;

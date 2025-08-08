@@ -11,6 +11,7 @@ import { z } from "zod";
 // Internal Services
 import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
+import notificationRoutes from "./notification-routes";
 
 // Database Schemas
 import { 
@@ -3676,6 +3677,9 @@ This happens because only the file metadata was stored, not the actual file cont
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ===== NOTIFICATION SYSTEM ROUTES =====
+  app.use('/api/notifications', notificationRoutes);
 
   const httpServer = createServer(app);
   return httpServer;
