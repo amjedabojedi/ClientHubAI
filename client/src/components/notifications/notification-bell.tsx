@@ -27,11 +27,20 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   });
 
   // Get notifications when dropdown is opened
-  const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
+  const { data: notificationsData, isLoading: notificationsLoading } = useQuery({
     queryKey: ["/api/notifications"],
     enabled: isOpen, // Only fetch when dropdown is open
-    queryFn: () => fetch("/api/notifications?limit=20").then(res => res.json()),
+    queryFn: async () => {
+      const res = await fetch("/api/notifications?limit=20");
+      if (!res.ok) {
+        return []; // Return empty array for errors
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
   });
+  
+  const notifications = Array.isArray(notificationsData) ? notificationsData : [];
 
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
