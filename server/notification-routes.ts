@@ -179,11 +179,6 @@ router.put("/preferences/:triggerType", async (req, res) => {
  */
 router.get("/triggers", async (req, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const eventType = req.query.eventType as string;
     const triggers = await storage.getNotificationTriggers(eventType);
     res.json(triggers);
@@ -263,15 +258,10 @@ router.delete("/triggers/:id", async (req, res) => {
 // ===== TEMPLATE MANAGEMENT ENDPOINTS =====
 
 /**
- * GET /api/notifications/templates - Get notification templates (admin only)
+ * GET /api/notifications/templates - Get notification templates (public access for viewing)
  */
 router.get("/templates", async (req, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
     const type = req.query.type as string;
     const templates = await storage.getNotificationTemplates(type);
     res.json(templates);

@@ -476,15 +476,37 @@ export default function NotificationsPage() {
   });
 
   // Fetch triggers
-  const { data: triggers = [], isLoading: triggersLoading } = useQuery({
+  const { data: triggers = [], isLoading: triggersLoading, error: triggersError } = useQuery({
     queryKey: ["/api/notifications/triggers"],
-    queryFn: () => fetch("/api/notifications/triggers").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
+    queryFn: () => fetch("/api/notifications/triggers", {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return res.json();
+    }).then(data => Array.isArray(data) ? data : []),
+    retry: 1
   });
 
   // Fetch templates
-  const { data: templates = [], isLoading: templatesLoading } = useQuery({
+  const { data: templates = [], isLoading: templatesLoading, error: templatesError } = useQuery({
     queryKey: ["/api/notifications/templates"],
-    queryFn: () => fetch("/api/notifications/templates").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
+    queryFn: () => fetch("/api/notifications/templates", {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      return res.json();
+    }).then(data => Array.isArray(data) ? data : []),
+    retry: 1
   });
 
   // Mark notification as read
