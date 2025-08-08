@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -61,12 +65,198 @@ interface NotificationTemplate {
   createdAt: string;
 }
 
+// Create Trigger Form Component
+interface CreateTriggerFormProps {
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+  templates: NotificationTemplate[];
+}
+
+function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerFormProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    event: "",
+    templateId: "",
+    isActive: true,
+    conditions: "{}"
+  });
+
+  const eventOptions = [
+    { value: "client_created", label: "Client Created" },
+    { value: "client_updated", label: "Client Updated" },
+    { value: "session_created", label: "Session Created" },
+    { value: "session_updated", label: "Session Updated" },
+    { value: "task_assigned", label: "Task Assigned" },
+    { value: "task_completed", label: "Task Completed" },
+    { value: "overdue_session", label: "Overdue Session" }
+  ];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      ...formData,
+      templateId: parseInt(formData.templateId),
+      conditions: JSON.parse(formData.conditions)
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Trigger Name</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Enter trigger name"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="event">Event Type</Label>
+        <Select value={formData.event} onValueChange={(value) => setFormData({ ...formData, event: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select event type" />
+          </SelectTrigger>
+          <SelectContent>
+            {eventOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="templateId">Notification Template</Label>
+        <Select value={formData.templateId} onValueChange={(value) => setFormData({ ...formData, templateId: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select template" />
+          </SelectTrigger>
+          <SelectContent>
+            {templates.map((template) => (
+              <SelectItem key={template.id} value={template.id.toString()}>
+                {template.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="conditions">Conditions (JSON)</Label>
+        <Textarea
+          id="conditions"
+          value={formData.conditions}
+          onChange={(e) => setFormData({ ...formData, conditions: e.target.value })}
+          placeholder='{"priority": "high"}'
+          className="font-mono text-sm"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          JSON object for trigger conditions (e.g., client role, session type)
+        </p>
+      </div>
+
+      <DialogFooter>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Create Trigger
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+// Create Template Form Component
+interface CreateTemplateFormProps {
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+}
+
+function CreateTemplateForm({ onSubmit, isLoading }: CreateTemplateFormProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    subject: "",
+    message: "",
+    type: "system",
+    priority: "medium"
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="template-name">Template Name</Label>
+        <Input
+          id="template-name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="Enter template name"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="subject">Subject</Label>
+        <Input
+          id="subject"
+          value={formData.subject}
+          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+          placeholder="Notification subject"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="message">Message</Label>
+        <Textarea
+          id="message"
+          value={formData.message}
+          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+          placeholder="Notification message content"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="priority">Priority</Label>
+        <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="urgent">Urgent</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <DialogFooter>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Create Template
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 export default function NotificationsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [activeTab, setActiveTab] = useState("notifications");
+  const [isCreateTriggerOpen, setIsCreateTriggerOpen] = useState(false);
+  const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
 
   // Fetch notifications
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
@@ -123,6 +313,40 @@ export default function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/notification-triggers"] });
       toast({ title: "Trigger updated" });
     },
+  });
+
+  // Create trigger mutation
+  const createTriggerMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("/api/notification-triggers", "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notification-triggers"] });
+      setIsCreateTriggerOpen(false);
+      toast({ title: "Trigger created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error creating trigger", 
+        description: error.message || "Failed to create trigger",
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Create template mutation
+  const createTemplateMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("/api/notification-templates", "POST", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notification-templates"] });
+      setIsCreateTemplateOpen(false);
+      toast({ title: "Template created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error creating template", 
+        description: error.message || "Failed to create template",
+        variant: "destructive" 
+      });
+    }
   });
 
   // Helper functions
@@ -363,10 +587,27 @@ export default function NotificationsPage() {
                   <Settings className="h-5 w-5" />
                   Notification Triggers
                 </CardTitle>
-                <Button size="sm" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Trigger
-                </Button>
+                <Dialog open={isCreateTriggerOpen} onOpenChange={setIsCreateTriggerOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Trigger
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Create Notification Trigger</DialogTitle>
+                      <DialogDescription>
+                        Add a new trigger to automatically create notifications based on system events.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <CreateTriggerForm 
+                      onSubmit={(data) => createTriggerMutation.mutate(data)}
+                      isLoading={createTriggerMutation.isPending}
+                      templates={templates}
+                    />
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
@@ -434,10 +675,26 @@ export default function NotificationsPage() {
                   <ClipboardList className="h-5 w-5" />
                   Notification Templates
                 </CardTitle>
-                <Button size="sm" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Template
-                </Button>
+                <Dialog open={isCreateTemplateOpen} onOpenChange={setIsCreateTemplateOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Template
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Create Notification Template</DialogTitle>
+                      <DialogDescription>
+                        Create a reusable template for notifications.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <CreateTemplateForm 
+                      onSubmit={(data: any) => createTemplateMutation.mutate(data)}
+                      isLoading={createTemplateMutation.isPending}
+                    />
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
