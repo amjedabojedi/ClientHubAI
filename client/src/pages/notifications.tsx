@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 interface Notification {
   id: number;
@@ -384,16 +385,30 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
 interface CreateTemplateFormProps {
   onSubmit: (data: any) => void;
   isLoading: boolean;
+  template?: NotificationTemplate;
 }
 
-function CreateTemplateForm({ onSubmit, isLoading }: CreateTemplateFormProps) {
+function CreateTemplateForm({ onSubmit, isLoading, template }: CreateTemplateFormProps) {
   const [formData, setFormData] = useState({
-    name: "",
-    subject: "",
-    message: "",
-    type: "system",
-    priority: "medium"
+    name: template?.name || "",
+    subject: template?.subject || "",
+    message: template?.message || template?.body_template || template?.bodyTemplate || "",
+    type: template?.type || "system",
+    priority: template?.priority || "medium"
   });
+
+  // Update form data when template changes (for editing)
+  useEffect(() => {
+    if (template) {
+      setFormData({
+        name: template.name || "",
+        subject: template.subject || "",
+        message: template.message || template.body_template || template.bodyTemplate || "",
+        type: template.type || "system",
+        priority: template.priority || "medium"
+      });
+    }
+  }, [template]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -453,7 +468,7 @@ function CreateTemplateForm({ onSubmit, isLoading }: CreateTemplateFormProps) {
       <DialogFooter>
         <Button type="submit" disabled={isLoading}>
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          Create Template
+          {template ? "Update Template" : "Create Template"}
         </Button>
       </DialogFooter>
     </form>
@@ -468,6 +483,7 @@ export default function NotificationsPage() {
   const [activeTab, setActiveTab] = useState("notifications");
   const [isCreateTriggerOpen, setIsCreateTriggerOpen] = useState(false);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<NotificationTemplate | null>(null);
 
   // Fetch notifications
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
@@ -577,6 +593,24 @@ export default function NotificationsPage() {
       toast({ 
         title: "Error creating template", 
         description: error.message || "Failed to create template",
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Update template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => 
+      apiRequest(`/api/notifications/templates/${id}`, "PUT", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/templates"] });
+      setEditingTemplate(null);
+      toast({ title: "Template updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error updating template", 
+        description: error.message || "Failed to update template",
         variant: "destructive" 
       });
     }
@@ -966,6 +1000,13 @@ export default function NotificationsPage() {
                           <Badge variant="secondary">
                             {template.type}
                           </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTemplate(template)}
+                          >
+                            Edit
+                          </Button>
                         </div>
                       </div>
                       <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -985,6 +1026,27 @@ export default function NotificationsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Edit Template Dialog */}
+      <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Notification Template</DialogTitle>
+            <DialogDescription>
+              Modify the notification template details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-y-auto">
+            {editingTemplate && (
+              <CreateTemplateForm 
+                template={editingTemplate}
+                onSubmit={(data: any) => updateTemplateMutation.mutate({ id: editingTemplate.id, data })}
+                isLoading={updateTemplateMutation.isPending}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -295,7 +295,7 @@ router.post("/templates", async (req, res) => {
 });
 
 /**
- * PUT /api/notifications/templates/:id - Update notification template (admin only)
+ * PUT /api/notifications/templates/:id - Update notification template (admin only for now)
  */
 router.put("/templates/:id", async (req, res) => {
   try {
