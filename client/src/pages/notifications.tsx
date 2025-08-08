@@ -90,13 +90,41 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
   });
 
   const eventOptions = [
-    { value: "client_created", label: "Client Created" },
-    { value: "client_updated", label: "Client Updated" },
-    { value: "session_created", label: "Session Created" },
-    { value: "session_updated", label: "Session Updated" },
+    // Client Events
+    { value: "client_created", label: "New Client Created" },
+    { value: "client_assigned", label: "Client Assigned to Therapist" },
+    { value: "client_status_changed", label: "Client Status Changed" },
+    
+    // Session Events
+    { value: "session_scheduled", label: "Session Scheduled" },
+    { value: "session_rescheduled", label: "Session Rescheduled" },
+    { value: "session_cancelled", label: "Session Cancelled" },
+    { value: "session_completed", label: "Session Completed" },
+    { value: "session_overdue", label: "Session Overdue/Missed" },
+    
+    // Task Events
     { value: "task_assigned", label: "Task Assigned" },
     { value: "task_completed", label: "Task Completed" },
-    { value: "overdue_session", label: "Overdue Session" }
+    { value: "task_overdue", label: "Task Overdue" },
+    { value: "task_status_changed", label: "Task Status Changed" },
+    
+    // Document Events
+    { value: "document_uploaded", label: "Document Uploaded" },
+    { value: "document_needs_review", label: "Document Needs Supervisor Review" },
+    { value: "document_reviewed", label: "Document Reviewed" },
+    
+    // Assessment Events
+    { value: "assessment_assigned", label: "Assessment Assigned" },
+    { value: "assessment_completed", label: "Assessment Completed" },
+    { value: "assessment_overdue", label: "Assessment Overdue" },
+    
+    // Billing Events
+    { value: "payment_overdue", label: "Payment Overdue" },
+    { value: "billing_generated", label: "Billing Record Generated" },
+    
+    // System Events
+    { value: "user_login_failed", label: "Failed Login Attempt" },
+    { value: "system_backup", label: "System Backup Completed" }
   ];
 
   // Update conditions based on simple form
@@ -215,7 +243,7 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
               </div>
 
               <div>
-                <Label className="text-xs">Status</Label>
+                <Label className="text-xs">Status/Stage</Label>
                 <Select value={simpleConditions.status} onValueChange={(value) => setSimpleConditions(prev => ({ ...prev, status: value }))}>
                   <SelectTrigger className="h-8">
                     <SelectValue placeholder="Any status" />
@@ -227,6 +255,8 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
                     <SelectItem value="scheduled">Scheduled</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="pending_review">Pending Review</SelectItem>
+                    <SelectItem value="needs_approval">Needs Approval</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -242,6 +272,8 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
                     <SelectItem value="new">New clients</SelectItem>
                     <SelectItem value="existing">Existing clients</SelectItem>
                     <SelectItem value="vip">VIP clients</SelectItem>
+                    <SelectItem value="intake">Intake phase</SelectItem>
+                    <SelectItem value="ongoing">Ongoing therapy</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -254,6 +286,17 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
                   placeholder="Leave blank for all"
                   className="h-8"
                 />
+              </div>
+            </div>
+            
+            <div className="mt-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
+              <p className="text-sm font-medium text-blue-800 mb-2">Common Notification Scenarios:</p>
+              <div className="text-xs text-blue-700 space-y-1">
+                <p><strong>New client assignment:</strong> Event = "Client Assigned to Therapist"</p>
+                <p><strong>Document review needed:</strong> Event = "Document Needs Supervisor Review"</p>
+                <p><strong>Task overdue:</strong> Event = "Task Overdue", Priority = "High"</p>
+                <p><strong>Payment issues:</strong> Event = "Payment Overdue"</p>
+                <p><strong>Assessment completion:</strong> Event = "Assessment Completed"</p>
               </div>
             </div>
             
