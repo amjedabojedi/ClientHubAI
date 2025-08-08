@@ -93,7 +93,7 @@ function CreateTriggerForm({ onSubmit, isLoading, templates, trigger }: CreateTr
   // Update form data when trigger changes (for editing)
   useEffect(() => {
     if (trigger) {
-      console.log("Loading trigger data:", trigger);
+      // Trigger data loaded successfully
       const eventValue = trigger.event || trigger.eventType || "";
       const conditionsValue = trigger.conditions || trigger.conditionRules || {};
       const conditionsJson = typeof conditionsValue === 'string' ? conditionsValue : JSON.stringify(conditionsValue, null, 2);
@@ -447,7 +447,7 @@ function CreateTemplateForm({ onSubmit, isLoading, template }: CreateTemplateFor
   // Update form data when template changes (for editing)
   useEffect(() => {
     if (template) {
-      console.log("Loading template data:", template);
+      // Template data loaded successfully
       setFormData({
         name: template.name || "",
         subject: template.subject || "",

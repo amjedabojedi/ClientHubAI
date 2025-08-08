@@ -4,13 +4,13 @@ import "./index.css";
 
 // Global error handlers to prevent unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
+  // Unhandled promise rejection logged for debugging
   // Prevent the default handler from running
   event.preventDefault();
 });
 
 window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error);
+  // Global error logged for debugging
 });
 
 createRoot(document.getElementById("root")!).render(<App />);

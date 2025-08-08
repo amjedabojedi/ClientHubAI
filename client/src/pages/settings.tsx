@@ -194,7 +194,7 @@ export default function SettingsPage() {
       toast({ title: "Service code updated successfully" });
     },
     onError: (error: any) => {
-      console.error("Service code update error:", error);
+      // Service code update error handled by toast
       toast({ title: "Failed to update service code", variant: "destructive" });
     },
   });
@@ -206,7 +206,7 @@ export default function SettingsPage() {
       toast({ title: "Service code deleted successfully" });
     },
     onError: (error: any) => {
-      console.error("Service code deletion error:", error);
+      // Service code deletion error handled by toast
       
       // Show specific error message if available
       let errorMessage = "Failed to delete service code";
@@ -236,7 +236,7 @@ export default function SettingsPage() {
       toast({ title: "Service code created successfully" });
     },
     onError: (error: any) => {
-      console.error("Service code creation error:", error);
+      // Service code creation error handled by toast
       toast({ title: "Failed to create service code", variant: "destructive" });
     },
   });
@@ -351,7 +351,7 @@ export default function SettingsPage() {
       toast({ title: "Room created successfully" });
     },
     onError: (error: any) => {
-      console.error("Room creation error:", error);
+      // Room creation error handled by toast
       toast({ title: "Failed to create room", variant: "destructive" });
     },
   });
@@ -365,7 +365,7 @@ export default function SettingsPage() {
       toast({ title: "Room updated successfully" });
     },
     onError: (error: any) => {
-      console.error("Room update error:", error);
+      // Room update error handled by toast
       toast({ title: "Failed to update room", variant: "destructive" });
     },
   });
@@ -377,7 +377,7 @@ export default function SettingsPage() {
       toast({ title: "Room deleted successfully" });
     },
     onError: (error: any) => {
-      console.error("Room deletion error:", error);
+      // Room deletion error handled by toast
       toast({ title: "Failed to delete room", variant: "destructive" });
     },
   });

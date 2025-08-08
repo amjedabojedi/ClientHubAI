@@ -64,6 +64,32 @@ const parseSessionDate = (dateString: string): Date => {
   return new Date(dateString);
 };
 
+// Additional type definitions for better type safety
+interface Service {
+  id: number;
+  code: string;
+  name: string;
+  duration: number;
+  baseRate: number;
+}
+
+interface ClientData {
+  id: number;
+  fullName: string;
+  clientId: string;
+}
+
+interface TherapistData {
+  id: number;
+  fullName: string;
+}
+
+interface RoomData {
+  id: number;
+  roomNumber: string;
+  roomName: string;
+}
+
 // Session form schema
 const sessionFormSchema = z.object({
   clientId: z.number().min(1, "Client is required"),
@@ -143,37 +169,37 @@ export default function SchedulingPage() {
   const therapistNameFromUrl = urlParams.get('therapistName');
   
   // Fetch sessions for the selected date range
-  const { data: sessions = [], isLoading } = useQuery({
+  const { data: sessions = [], isLoading } = useQuery<Session[]>({
     queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Fetch all sessions for list view
-  const { data: allSessions = [] } = useQuery({
+  const { data: allSessions = [] } = useQuery<Session[]>({
     queryKey: ["/api/sessions", { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: viewMode === "list"
   });
 
   // Fetch clients and therapists for dropdowns
-  const { data: clients = [] } = useQuery({
+  const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
     queryKey: ["/api/clients"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
-  const { data: therapists = [] } = useQuery({
+  const { data: therapists = [] } = useQuery<TherapistData[]>({
     queryKey: ["/api/therapists"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Fetch services for booking
-  const { data: services = [] } = useQuery({
+  const { data: services = [] } = useQuery<Service[]>({
     queryKey: ["/api/services"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Fetch rooms for booking
-  const { data: rooms = [] } = useQuery({
+  const { data: rooms = [] } = useQuery<RoomData[]>({
     queryKey: ["/api/rooms"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
@@ -200,7 +226,7 @@ export default function SchedulingPage() {
     queryFn: () => {
       if (!selectedDateTimeForRooms) return [];
       const { date, time } = selectedDateTimeForRooms;
-      const selectedService = services.find(s => s.id === form.watch('serviceId'));
+      const selectedService = (services as Service[]).find((s: Service) => s.id === form.watch('serviceId'));
       if (!selectedService) return [];
       
       const startTime = time;
@@ -386,7 +412,7 @@ export default function SchedulingPage() {
             updatedCount++;
           } else {
             failedCount++;
-            console.error('Failed to update session:', result.reason);
+            // Failed to update session - error handled by toast
           }
         });
 
@@ -415,7 +441,7 @@ export default function SchedulingPage() {
       }
 
     } catch (error) {
-      console.error('Error updating sessions:', error);
+      // Error updating sessions - handled by toast
       toast({
         title: "Error updating sessions",
         description: "Failed to update sessions. Please try again.",
@@ -432,8 +458,8 @@ export default function SchedulingPage() {
     
     if (searchQuery) {
       filtered = filtered.filter((session: Session) =>
-        session.client?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        session.therapist.fullName.toLowerCase().includes(searchQuery.toLowerCase())
+        session.client?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        session.therapist?.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     
@@ -753,7 +779,7 @@ export default function SchedulingPage() {
                                 <SelectContent>
                                   {services?.map((service) => (
                                     <SelectItem key={service.id} value={service.id.toString()}>
-                                      {service.serviceName} - ${service.baseRate} ({service.duration}min)
+                                      {service.name} - ${service.baseRate} ({service.duration}min)
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -1108,8 +1134,8 @@ export default function SchedulingPage() {
                           </div>
                           <div className="flex items-center space-x-2 text-xs text-slate-600">
                             <MapPin className="w-3 h-3" />
-                            <span>{session.sessionType} • {session.duration}min</span>
-                            {session.room && <span>• Room {session.room}</span>}
+                            <span>{session.sessionType} • {session.service?.duration || session.duration || '60'}min</span>
+                            {session.room && <span>• Room {session.room.roomNumber}</span>}
                           </div>
                           <div className="flex space-x-1 mt-3">
                             <Button 
@@ -1229,7 +1255,7 @@ export default function SchedulingPage() {
                                   <p className="font-semibold text-lg">
                                     {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </p>
-                                  <p className="text-xs text-slate-600">{session.duration}min</p>
+                                  <p className="text-xs text-slate-600">{session.service?.duration || session.duration || '60'}min</p>
                                 </div>
                                 
                                 <Avatar className="w-12 h-12">
@@ -1262,7 +1288,7 @@ export default function SchedulingPage() {
                                     {session.room && (
                                       <div className="flex items-center space-x-2">
                                         <MapPin className="w-4 h-4" />
-                                        <span>Room: {session.room}</span>
+                                        <span>Room: {session.room ? `${session.room.roomNumber} - ${session.room.roomName}` : 'TBD'}</span>
                                       </div>
                                     )}
                                   </div>
