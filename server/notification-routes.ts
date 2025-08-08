@@ -115,4 +115,298 @@ router.post("/", async (req, res) => {
     }
 
     // Validate request body
-    const validatedData = insertNotificationSchema.parse(req.body);\n    const notification = await storage.createNotification(validatedData);\n    \n    res.status(201).json(notification);\n  } catch (error) {\n    if (error instanceof z.ZodError) {\n      return res.status(400).json({ error: \"Invalid notification data\", details: error.errors });\n    }\n    console.error(\"Failed to create notification:\", error);\n    res.status(500).json({ error: \"Failed to create notification\" });\n  }\n});\n\n// ===== USER PREFERENCES ENDPOINTS =====\n\n/**\n * GET /api/notifications/preferences - Get user's notification preferences\n */\nrouter.get(\"/preferences\", async (req, res) => {\n  try {\n    const userId = (req as any).user?.id;\n    if (!userId) {\n      return res.status(401).json({ error: \"Authentication required\" });\n    }\n\n    const preferences = await storage.getUserNotificationPreferences(userId);\n    res.json(preferences);\n  } catch (error) {\n    console.error(\"Failed to get user preferences:\", error);\n    res.status(500).json({ error: \"Failed to get user preferences\" });\n  }\n});\n\n/**\n * PUT /api/notifications/preferences/:triggerType - Set user notification preference\n */\nrouter.put(\"/preferences/:triggerType\", async (req, res) => {\n  try {\n    const userId = (req as any).user?.id;\n    if (!userId) {\n      return res.status(401).json({ error: \"Authentication required\" });\n    }\n\n    const triggerType = req.params.triggerType;\n    const validatedData = insertNotificationPreferenceSchema.partial().parse(req.body);\n    \n    const preference = await storage.setUserNotificationPreference(userId, triggerType, validatedData);\n    res.json(preference);\n  } catch (error) {\n    if (error instanceof z.ZodError) {\n      return res.status(400).json({ error: \"Invalid preference data\", details: error.errors });\n    }\n    console.error(\"Failed to set user preference:\", error);\n    res.status(500).json({ error: \"Failed to set user preference\" });\n  }\n});\n\n// ===== ADMIN/TRIGGER MANAGEMENT ENDPOINTS =====\n\n/**\n * GET /api/notifications/triggers - Get notification triggers (admin only)\n */\nrouter.get(\"/triggers\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const eventType = req.query.eventType as string;\n    const triggers = await storage.getNotificationTriggers(eventType);\n    res.json(triggers);\n  } catch (error) {\n    console.error(\"Failed to get triggers:\", error);\n    res.status(500).json({ error: \"Failed to get triggers\" });\n  }\n});\n\n/**\n * POST /api/notifications/triggers - Create notification trigger (admin only)\n */\nrouter.post(\"/triggers\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const validatedData = insertNotificationTriggerSchema.parse(req.body);\n    const trigger = await storage.createNotificationTrigger(validatedData);\n    \n    res.status(201).json(trigger);\n  } catch (error) {\n    if (error instanceof z.ZodError) {\n      return res.status(400).json({ error: \"Invalid trigger data\", details: error.errors });\n    }\n    console.error(\"Failed to create trigger:\", error);\n    res.status(500).json({ error: \"Failed to create trigger\" });\n  }\n});\n\n/**\n * PUT /api/notifications/triggers/:id - Update notification trigger (admin only)\n */\nrouter.put(\"/triggers/:id\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const triggerId = parseInt(req.params.id);\n    const validatedData = insertNotificationTriggerSchema.partial().parse(req.body);\n    \n    const trigger = await storage.updateNotificationTrigger(triggerId, validatedData);\n    res.json(trigger);\n  } catch (error) {\n    if (error instanceof z.ZodError) {\n      return res.status(400).json({ error: \"Invalid trigger data\", details: error.errors });\n    }\n    console.error(\"Failed to update trigger:\", error);\n    res.status(500).json({ error: \"Failed to update trigger\" });\n  }\n});\n\n/**\n * DELETE /api/notifications/triggers/:id - Delete notification trigger (admin only)\n */\nrouter.delete(\"/triggers/:id\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const triggerId = parseInt(req.params.id);\n    await storage.deleteNotificationTrigger(triggerId);\n    \n    res.json({ success: true });\n  } catch (error) {\n    console.error(\"Failed to delete trigger:\", error);\n    res.status(500).json({ error: \"Failed to delete trigger\" });\n  }\n});\n\n// ===== TEMPLATE MANAGEMENT ENDPOINTS =====\n\n/**\n * GET /api/notifications/templates - Get notification templates (admin only)\n */\nrouter.get(\"/templates\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const type = req.query.type as string;\n    const templates = await storage.getNotificationTemplates(type);\n    res.json(templates);\n  } catch (error) {\n    console.error(\"Failed to get templates:\", error);\n    res.status(500).json({ error: \"Failed to get templates\" });\n  }\n});\n\n/**\n * POST /api/notifications/templates - Create notification template (admin only)\n */\nrouter.post(\"/templates\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const validatedData = insertNotificationTemplateSchema.parse(req.body);\n    const template = await storage.createNotificationTemplate(validatedData);\n    \n    res.status(201).json(template);\n  } catch (error) {\n    if (error instanceof z.ZodError) {\n      return res.status(400).json({ error: \"Invalid template data\", details: error.errors });\n    }\n    console.error(\"Failed to create template:\", error);\n    res.status(500).json({ error: \"Failed to create template\" });\n  }\n});\n\n/**\n * PUT /api/notifications/templates/:id - Update notification template (admin only)\n */\nrouter.put(\"/templates/:id\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const templateId = parseInt(req.params.id);\n    const validatedData = insertNotificationTemplateSchema.partial().parse(req.body);\n    \n    const template = await storage.updateNotificationTemplate(templateId, validatedData);\n    res.json(template);\n  } catch (error) {\n    if (error instanceof z.ZodError) {\n      return res.status(400).json({ error: \"Invalid template data\", details: error.errors });\n    }\n    console.error(\"Failed to update template:\", error);\n    res.status(500).json({ error: \"Failed to update template\" });\n  }\n});\n\n/**\n * DELETE /api/notifications/templates/:id - Delete notification template (admin only)\n */\nrouter.delete(\"/templates/:id\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const templateId = parseInt(req.params.id);\n    await storage.deleteNotificationTemplate(templateId);\n    \n    res.json({ success: true });\n  } catch (error) {\n    console.error(\"Failed to delete template:\", error);\n    res.status(500).json({ error: \"Failed to delete template\" });\n  }\n});\n\n// ===== SYSTEM/TESTING ENDPOINTS =====\n\n/**\n * POST /api/notifications/test-event - Test event processing (admin only)\n */\nrouter.post(\"/test-event\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const { eventType, entityData } = req.body;\n    if (!eventType || !entityData) {\n      return res.status(400).json({ error: \"eventType and entityData are required\" });\n    }\n\n    await storage.processNotificationEvent(eventType, entityData);\n    res.json({ success: true, message: \"Event processed\" });\n  } catch (error) {\n    console.error(\"Failed to process test event:\", error);\n    res.status(500).json({ error: \"Failed to process test event\" });\n  }\n});\n\n/**\n * GET /api/notifications/stats - Get notification statistics (admin only)\n */\nrouter.get(\"/stats\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    const stats = await storage.getNotificationStats();\n    res.json(stats);\n  } catch (error) {\n    console.error(\"Failed to get notification stats:\", error);\n    res.status(500).json({ error: \"Failed to get notification stats\" });\n  }\n});\n\n/**\n * POST /api/notifications/cleanup - Cleanup expired notifications (admin only)\n */\nrouter.post(\"/cleanup\", async (req, res) => {\n  try {\n    const userRole = (req as any).user?.role;\n    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {\n      return res.status(403).json({ error: \"Admin access required\" });\n    }\n\n    await storage.cleanupExpiredNotifications();\n    res.json({ success: true, message: \"Expired notifications cleaned up\" });\n  } catch (error) {\n    console.error(\"Failed to cleanup notifications:\", error);\n    res.status(500).json({ error: \"Failed to cleanup notifications\" });\n  }\n});\n\nexport default router;
+    const validatedData = insertNotificationSchema.parse(req.body);
+    const notification = await storage.createNotification(validatedData);
+    
+    res.status(201).json(notification);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid notification data", details: error.errors });
+    }
+    console.error("Failed to create notification:", error);
+    res.status(500).json({ error: "Failed to create notification" });
+  }
+});
+
+// ===== USER PREFERENCES ENDPOINTS =====
+
+/**
+ * GET /api/notifications/preferences - Get user's notification preferences
+ */
+router.get("/preferences", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const preferences = await storage.getUserNotificationPreferences(userId);
+    res.json(preferences);
+  } catch (error) {
+    console.error("Failed to get user preferences:", error);
+    res.status(500).json({ error: "Failed to get user preferences" });
+  }
+});
+
+/**
+ * PUT /api/notifications/preferences/:triggerType - Set user notification preference
+ */
+router.put("/preferences/:triggerType", async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const triggerType = req.params.triggerType;
+    const validatedData = insertNotificationPreferenceSchema.partial().parse(req.body);
+    
+    const preference = await storage.setUserNotificationPreference(userId, triggerType, validatedData);
+    res.json(preference);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid preference data", details: error.errors });
+    }
+    console.error("Failed to set user preference:", error);
+    res.status(500).json({ error: "Failed to set user preference" });
+  }
+});
+
+// ===== ADMIN/TRIGGER MANAGEMENT ENDPOINTS =====
+
+/**
+ * GET /api/notifications/triggers - Get notification triggers (admin only)
+ */
+router.get("/triggers", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const eventType = req.query.eventType as string;
+    const triggers = await storage.getNotificationTriggers(eventType);
+    res.json(triggers);
+  } catch (error) {
+    console.error("Failed to get triggers:", error);
+    res.status(500).json({ error: "Failed to get triggers" });
+  }
+});
+
+/**
+ * POST /api/notifications/triggers - Create notification trigger (admin only)
+ */
+router.post("/triggers", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const validatedData = insertNotificationTriggerSchema.parse(req.body);
+    const trigger = await storage.createNotificationTrigger(validatedData);
+    
+    res.status(201).json(trigger);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid trigger data", details: error.errors });
+    }
+    console.error("Failed to create trigger:", error);
+    res.status(500).json({ error: "Failed to create trigger" });
+  }
+});
+
+/**
+ * PUT /api/notifications/triggers/:id - Update notification trigger (admin only)
+ */
+router.put("/triggers/:id", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const triggerId = parseInt(req.params.id);
+    const validatedData = insertNotificationTriggerSchema.partial().parse(req.body);
+    
+    const trigger = await storage.updateNotificationTrigger(triggerId, validatedData);
+    res.json(trigger);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid trigger data", details: error.errors });
+    }
+    console.error("Failed to update trigger:", error);
+    res.status(500).json({ error: "Failed to update trigger" });
+  }
+});
+
+/**
+ * DELETE /api/notifications/triggers/:id - Delete notification trigger (admin only)
+ */
+router.delete("/triggers/:id", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const triggerId = parseInt(req.params.id);
+    await storage.deleteNotificationTrigger(triggerId);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete trigger:", error);
+    res.status(500).json({ error: "Failed to delete trigger" });
+  }
+});
+
+// ===== TEMPLATE MANAGEMENT ENDPOINTS =====
+
+/**
+ * GET /api/notifications/templates - Get notification templates (admin only)
+ */
+router.get("/templates", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const type = req.query.type as string;
+    const templates = await storage.getNotificationTemplates(type);
+    res.json(templates);
+  } catch (error) {
+    console.error("Failed to get templates:", error);
+    res.status(500).json({ error: "Failed to get templates" });
+  }
+});
+
+/**
+ * POST /api/notifications/templates - Create notification template (admin only)
+ */
+router.post("/templates", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const validatedData = insertNotificationTemplateSchema.parse(req.body);
+    const template = await storage.createNotificationTemplate(validatedData);
+    
+    res.status(201).json(template);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid template data", details: error.errors });
+    }
+    console.error("Failed to create template:", error);
+    res.status(500).json({ error: "Failed to create template" });
+  }
+});
+
+/**
+ * PUT /api/notifications/templates/:id - Update notification template (admin only)
+ */
+router.put("/templates/:id", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const templateId = parseInt(req.params.id);
+    const validatedData = insertNotificationTemplateSchema.partial().parse(req.body);
+    
+    const template = await storage.updateNotificationTemplate(templateId, validatedData);
+    res.json(template);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid template data", details: error.errors });
+    }
+    console.error("Failed to update template:", error);
+    res.status(500).json({ error: "Failed to update template" });
+  }
+});
+
+/**
+ * DELETE /api/notifications/templates/:id - Delete notification template (admin only)
+ */
+router.delete("/templates/:id", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const templateId = parseInt(req.params.id);
+    await storage.deleteNotificationTemplate(templateId);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete template:", error);
+    res.status(500).json({ error: "Failed to delete template" });
+  }
+});
+
+// ===== SYSTEM/TESTING ENDPOINTS =====
+
+/**
+ * POST /api/notifications/test-event - Test event processing (admin only)
+ */
+router.post("/test-event", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const { eventType, entityData } = req.body;
+    if (!eventType || !entityData) {
+      return res.status(400).json({ error: "eventType and entityData are required" });
+    }
+
+    await storage.processNotificationEvent(eventType, entityData);
+    res.json({ success: true, message: "Event processed" });
+  } catch (error) {
+    console.error("Failed to process test event:", error);
+    res.status(500).json({ error: "Failed to process test event" });
+  }
+});
+
+/**
+ * GET /api/notifications/stats - Get notification statistics (admin only)
+ */
+router.get("/stats", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const stats = await storage.getNotificationStats();
+    res.json(stats);
+  } catch (error) {
+    console.error("Failed to get notification stats:", error);
+    res.status(500).json({ error: "Failed to get notification stats" });
+  }
+});
+
+/**
+ * POST /api/notifications/cleanup - Cleanup expired notifications (admin only)
+ */
+router.post("/cleanup", async (req, res) => {
+  try {
+    const userRole = (req as any).user?.role;
+    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    await storage.cleanupExpiredNotifications();
+    res.json({ success: true, message: "Expired notifications cleaned up" });
+  } catch (error) {
+    console.error("Failed to cleanup notifications:", error);
+    res.status(500).json({ error: "Failed to cleanup notifications" });
+  }
+});
+
+export default router;
