@@ -59,9 +59,11 @@ interface NotificationTemplate {
   id: number;
   name: string;
   subject: string;
-  message: string;
+  message?: string;
+  body_template?: string;
+  bodyTemplate?: string;
   type: string;
-  priority: string;
+  priority?: string;
   createdAt: string;
 }
 
@@ -475,14 +477,14 @@ export default function NotificationsPage() {
 
   // Fetch triggers
   const { data: triggers = [], isLoading: triggersLoading } = useQuery({
-    queryKey: ["/api/notification-triggers"],
-    queryFn: () => fetch("/api/notification-triggers").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
+    queryKey: ["/api/notifications/triggers"],
+    queryFn: () => fetch("/api/notifications/triggers").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
   });
 
   // Fetch templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
-    queryKey: ["/api/notification-templates"],
-    queryFn: () => fetch("/api/notification-templates").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
+    queryKey: ["/api/notifications/templates"],
+    queryFn: () => fetch("/api/notifications/templates").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
   });
 
   // Mark notification as read
@@ -517,18 +519,18 @@ export default function NotificationsPage() {
   // Toggle trigger active status
   const toggleTriggerMutation = useMutation({
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => 
-      apiRequest(`/api/notification-triggers/${id}`, "PUT", { isActive }),
+      apiRequest(`/api/notifications/triggers/${id}`, "PUT", { isActive }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notification-triggers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/triggers"] });
       toast({ title: "Trigger updated" });
     },
   });
 
   // Create trigger mutation
   const createTriggerMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/notification-triggers", "POST", data),
+    mutationFn: (data: any) => apiRequest("/api/notifications/triggers", "POST", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notification-triggers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/triggers"] });
       setIsCreateTriggerOpen(false);
       toast({ title: "Trigger created successfully" });
     },
@@ -543,9 +545,9 @@ export default function NotificationsPage() {
 
   // Create template mutation
   const createTemplateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("/api/notification-templates", "POST", data),
+    mutationFn: (data: any) => apiRequest("/api/notifications/templates", "POST", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notification-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/templates"] });
       setIsCreateTemplateOpen(false);
       toast({ title: "Template created successfully" });
     },
@@ -934,9 +936,11 @@ export default function NotificationsPage() {
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium">{template.name}</h4>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={getPriorityColor(template.priority)}>
-                            {template.priority}
-                          </Badge>
+                          {template.priority && (
+                            <Badge variant="outline" className={getPriorityColor(template.priority)}>
+                              {template.priority}
+                            </Badge>
+                          )}
                           <Badge variant="secondary">
                             {template.type}
                           </Badge>
@@ -946,7 +950,7 @@ export default function NotificationsPage() {
                         {template.subject}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {template.message}
+                        {template.message || template.body_template || template.bodyTemplate || 'No message content'}
                       </p>
                       <p className="text-xs text-gray-400 mt-2">
                         Created {formatDistanceToNow(new Date(template.createdAt), { addSuffix: true })}
