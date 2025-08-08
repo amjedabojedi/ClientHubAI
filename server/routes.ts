@@ -416,8 +416,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
               sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T${timeStr}:00`);
             } else {
-              // Default to start of day
-              sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T00:00:00`);
+              // Default to start of day in UTC
+              sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T00:00:00Z`);
             }
           } else if (typeof rawDate === 'string') {
             // Handle string dates
@@ -427,9 +427,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
               if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
                 const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
-                sessionDateTime = new Date(`${cleanDate}T${timeStr}:00`);
+                sessionDateTime = new Date(`${cleanDate}T${timeStr}:00Z`);
               } else {
-                sessionDateTime = new Date(`${cleanDate}T00:00:00`);
+                // Force UTC to prevent timezone shifts for date-only entries
+                sessionDateTime = new Date(`${cleanDate}T00:00:00Z`);
               }
             }
             // Check if it's MM/DD/YY format and convert to proper format
