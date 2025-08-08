@@ -33,6 +33,19 @@ import { z } from "zod";
 import { insertSessionNoteSchema } from "@shared/schema";
 import { format } from "date-fns";
 
+// Utility function to parse UTC date strings without timezone shift
+const parseSessionDate = (dateString: string): Date => {
+  // If date is already in YYYY-MM-DD format, add time to avoid timezone issues
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return new Date(dateString + 'T12:00:00');
+  }
+  // If date includes time but is UTC, add noon time to avoid midnight timezone shifts
+  if (dateString.includes('T00:00:00')) {
+    return new Date(dateString.replace('T00:00:00', 'T12:00:00'));
+  }
+  return new Date(dateString);
+};
+
 // Library Types
 interface LibraryEntry {
   id: number;
@@ -278,7 +291,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             <div class="client-info">
               <p><strong>Client:</strong> ${clientData?.fullName || 'N/A'}</p>
               <p><strong>Client ID:</strong> ${clientData?.clientId || 'N/A'}</p>
-              <p><strong>Session Date:</strong> ${currentSession ? new Date(currentSession.sessionDate).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Session Date:</strong> ${currentSession ? new Date(currentSession.sessionDate + 'T12:00:00').toLocaleDateString() : 'N/A'}</p>
               <p><strong>Session Type:</strong> ${currentSession?.sessionType || 'N/A'}</p>
               <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
             </div>
@@ -799,7 +812,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             <SelectItem value="all">All Sessions</SelectItem>
             {sessions.map((session) => (
               <SelectItem key={session.id} value={session.id.toString()}>
-                {format(new Date(session.sessionDate), 'MMM dd, yyyy')} - {session.sessionType}
+                {format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')} - {session.sessionType}
               </SelectItem>
             ))}
           </SelectContent>
@@ -863,7 +876,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 <CardDescription className="flex items-center gap-4 text-xs">
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {format(new Date(note.session.sessionDate), 'MMM dd, yyyy')}
+                    {format(parseSessionDate(note.session.sessionDate), 'MMM dd, yyyy')}
                   </span>
                   <span className="flex items-center gap-1">
                     <User className="h-3 w-3" />
@@ -1014,7 +1027,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <SelectContent>
                           {sessions.map((session) => (
                             <SelectItem key={session.id} value={session.id.toString()}>
-                              {format(new Date(session.sessionDate), 'MMM dd, yyyy')} - {session.sessionType}
+                              {format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')} - {session.sessionType}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1022,7 +1035,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       {isFromSessionClick && field.value && (
                         <p className="text-xs text-muted-foreground">
                           Session pre-selected from client profile - {sessions.find(s => s.id === field.value) ? 
-                            `${format(new Date(sessions.find(s => s.id === field.value)!.sessionDate), 'MMM dd, yyyy')} - ${sessions.find(s => s.id === field.value)!.sessionType}` : 
+                            `${format(parseSessionDate(sessions.find(s => s.id === field.value)!.sessionDate), 'MMM dd, yyyy')} - ${sessions.find(s => s.id === field.value)!.sessionType}` : 
                             'Session details'}
                         </p>
                       )}

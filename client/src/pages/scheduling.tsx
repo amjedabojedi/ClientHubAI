@@ -51,6 +51,19 @@ import { useAuth } from "@/hooks/useAuth";
 // Components
 import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
 
+// Utility function to parse UTC date strings without timezone shift
+const parseSessionDate = (dateString: string): Date => {
+  // If date is already in YYYY-MM-DD format, add time to avoid timezone issues
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return new Date(dateString + 'T12:00:00');
+  }
+  // If date includes time but is UTC, add noon time to avoid midnight timezone shifts
+  if (dateString.includes('T00:00:00')) {
+    return new Date(dateString.replace('T00:00:00', 'T12:00:00'));
+  }
+  return new Date(dateString);
+};
+
 // Session form schema
 const sessionFormSchema = z.object({
   clientId: z.number().min(1, "Client is required"),
@@ -445,7 +458,7 @@ export default function SchedulingPage() {
     const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
     
     return filteredSessions.filter((session: Session) => {
-      const sessionDate = new Date(session.sessionDate);
+      const sessionDate = parseSessionDate(session.sessionDate);
       return sessionDate >= monthStart && sessionDate <= monthEnd;
     });
   };
