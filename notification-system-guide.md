@@ -1,19 +1,33 @@
-# TherapyFlow Notification System Guide
+# TherapyFlow Notification System - Trigger Reference Guide
 
-## How the Notification System Works
+## Quick Understanding Table
 
-The notification system automatically monitors your therapy practice and sends alerts when important events happen. It uses **Triggers** (what to watch for) and **Templates** (what message to send).
+| Event Category | Trigger Name | Purpose | What Happens | Who Gets Alert |
+|----------------|--------------|---------|--------------|----------------|
+| **CLIENT** | New Client Created | Track new registrations | Client added to system | Admin, Supervisor |
+| **CLIENT** | Client Assigned to Therapist | Monitor workload | Client assigned to therapist | Therapist, Supervisor |
+| **CLIENT** | Client Status Changed | Track therapy progress | Status updated (intake→active→discharge) | Therapist, Supervisor |
+| **SESSION** | Session Scheduled | Confirm bookings | New session booked | Therapist, Client |
+| **SESSION** | Session Rescheduled | Track changes | Session time changed | Therapist, Client |
+| **SESSION** | Session Cancelled | Monitor cancellations | Session cancelled | Therapist, Supervisor |
+| **SESSION** | Session Completed | Process finished sessions | Session marked complete | Billing, Supervisor |
+| **SESSION** | Session Overdue/Missed | Catch missed appointments | Session time passed without completion | Therapist, Supervisor |
+| **TASK** | Task Assigned | Ensure awareness | Task given to someone | Assignee, Creator |
+| **TASK** | Task Completed | Track progress | Task finished | Creator, Supervisor |
+| **TASK** | Task Overdue | Prevent delays | Task past due date | Assignee, Supervisor |
+| **TASK** | Task Status Changed | Monitor workflow | Task status updated | Team Members |
+| **DOCUMENT** | Document Uploaded | Track submissions | File added to client record | Therapist, Supervisor |
+| **DOCUMENT** | Document Needs Review | Clinical oversight | Document requires approval | Supervisor |
+| **DOCUMENT** | Document Reviewed | Confirm completion | Supervisor completed review | Uploader, Team |
+| **ASSESSMENT** | Assessment Assigned | Ensure completion | Assessment given to client | Therapist, Supervisor |
+| **ASSESSMENT** | Assessment Completed | Clinical review | Assessment results submitted | Supervisor, Therapist |
+| **ASSESSMENT** | Assessment Overdue | Compliance tracking | Assessment past due | Therapist, Supervisor |
+| **BILLING** | Payment Overdue | Manage collections | Payment past due | Billing, Therapist |
+| **BILLING** | Billing Record Generated | Confirm accuracy | New bill created | Billing, Supervisor |
+| **SYSTEM** | Failed Login Attempt | Security monitoring | Multiple login failures | IT Admin |
+| **SYSTEM** | System Backup Completed | Data protection | Backup finished | IT Admin |
 
-### System Flow:
-1. **Event Happens** → Something occurs in your system (client assigned, task overdue, etc.)
-2. **Trigger Checks** → System checks if any triggers match this event
-3. **Conditions Evaluated** → If conditions are met, notification is created
-4. **Template Applied** → Message is generated using the template
-5. **Notification Sent** → Alert is delivered to the right person
-
----
-
-## Complete Trigger Reference Table
+## Detailed Purpose Explanations
 
 ### 🔷 CLIENT EVENTS
 
