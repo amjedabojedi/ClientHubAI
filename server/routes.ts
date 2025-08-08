@@ -343,8 +343,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allServices = await storage.getServices();
       const serviceLookup = new Map<string, any>();
       allServices.forEach((service: any) => {
-        if (service.code) {
-          serviceLookup.set(service.code.trim(), service);
+        if (service.serviceCode) {
+          serviceLookup.set(service.serviceCode.trim(), service);
         }
       });
       
