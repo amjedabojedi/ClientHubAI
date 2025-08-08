@@ -80,6 +80,14 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
     isActive: true,
     conditions: "{}"
   });
+  
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [simpleConditions, setSimpleConditions] = useState({
+    priority: "",
+    status: "",
+    therapistId: "",
+    clientType: ""
+  });
 
   const eventOptions = [
     { value: "client_created", label: "Client Created" },
@@ -91,8 +99,22 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
     { value: "overdue_session", label: "Overdue Session" }
   ];
 
+  // Update conditions based on simple form
+  const updateConditions = () => {
+    if (!showAdvanced) {
+      const conditions: any = {};
+      if (simpleConditions.priority) conditions.priority = simpleConditions.priority;
+      if (simpleConditions.status) conditions.status = simpleConditions.status;
+      if (simpleConditions.therapistId) conditions.therapistId = simpleConditions.therapistId;
+      if (simpleConditions.clientType) conditions.clientType = simpleConditions.clientType;
+      
+      setFormData(prev => ({ ...prev, conditions: JSON.stringify(conditions, null, 2) }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    updateConditions();
     onSubmit({
       ...formData,
       templateId: parseInt(formData.templateId),
@@ -146,63 +168,117 @@ function CreateTriggerForm({ onSubmit, isLoading, templates }: CreateTriggerForm
       </div>
 
       <div>
-        <Label htmlFor="conditions">Trigger Conditions</Label>
-        <Textarea
-          id="conditions"
-          value={formData.conditions}
-          onChange={(e) => setFormData({ ...formData, conditions: e.target.value })}
-          placeholder='{"clientRole": "new", "sessionType": "intake"}'
-          className="font-mono text-sm"
-          rows={4}
-        />
-        <div className="text-xs text-gray-500 mt-2 space-y-2 p-3 bg-gray-50 rounded border">
-          <p className="font-semibold text-gray-700">How Trigger Conditions Work:</p>
-          <div className="space-y-2">
-            <div>
-              <p className="font-medium text-gray-600">Basic Format:</p>
-              <p className="ml-2 font-mono bg-white px-2 py-1 rounded">{"{"}"field": "value"{"}"}</p>
-            </div>
+        <Label>When should this trigger activate?</Label>
+        <div className="mt-2">
+          <Button 
+            type="button"
+            variant={showAdvanced ? "outline" : "default"}
+            size="sm"
+            onClick={() => {
+              setShowAdvanced(false);
+              updateConditions();
+            }}
+          >
+            Simple Setup
+          </Button>
+          <Button 
+            type="button"
+            variant={showAdvanced ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowAdvanced(true)}
+            className="ml-2"
+          >
+            Advanced Setup
+          </Button>
+        </div>
+
+        {!showAdvanced ? (
+          // Simple condition builder
+          <div className="mt-4 space-y-3 p-4 border rounded-lg bg-gray-50">
+            <p className="text-sm font-medium text-gray-700">Set conditions (leave blank for all events):</p>
             
-            <div>
-              <p className="font-medium text-gray-600">Client Events:</p>
-              <div className="ml-2 space-y-1">
-                <p><code>{"{"}"clientStatus": "active"{"}"}</code> - Only for active clients</p>
-                <p><code>{"{"}"therapistId": "17"{"}"}</code> - Only for specific therapist</p>
-                <p><code>{"{"}"clientType": "new"{"}"}</code> - Only for new clients</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Priority Level</Label>
+                <Select value={simpleConditions.priority} onValueChange={(value) => setSimpleConditions(prev => ({ ...prev, priority: value }))}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Any priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any priority</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Status</Label>
+                <Select value={simpleConditions.status} onValueChange={(value) => setSimpleConditions(prev => ({ ...prev, status: value }))}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Any status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Client Type</Label>
+                <Select value={simpleConditions.clientType} onValueChange={(value) => setSimpleConditions(prev => ({ ...prev, clientType: value }))}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Any client type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any client type</SelectItem>
+                    <SelectItem value="new">New clients</SelectItem>
+                    <SelectItem value="existing">Existing clients</SelectItem>
+                    <SelectItem value="vip">VIP clients</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs">Specific Therapist ID</Label>
+                <Input 
+                  value={simpleConditions.therapistId}
+                  onChange={(e) => setSimpleConditions(prev => ({ ...prev, therapistId: e.target.value }))}
+                  placeholder="Leave blank for all"
+                  className="h-8"
+                />
               </div>
             </div>
             
-            <div>
-              <p className="font-medium text-gray-600">Session Events:</p>
-              <div className="ml-2 space-y-1">
-                <p><code>{"{"}"sessionType": "intake"{"}"}</code> - Only intake sessions</p>
-                <p><code>{"{"}"status": "scheduled"{"}"}</code> - Only scheduled sessions</p>
-                <p><code>{"{"}"duration": "60"{"}"}</code> - Only 60-minute sessions</p>
-              </div>
-            </div>
-            
-            <div>
-              <p className="font-medium text-gray-600">Task Events:</p>
-              <div className="ml-2 space-y-1">
-                <p><code>{"{"}"priority": "high"{"}"}</code> - Only high priority tasks</p>
-                <p><code>{"{"}"assigneeRole": "supervisor"{"}"}</code> - Only for supervisors</p>
-                <p><code>{"{"}"category": "assessment"{"}"}</code> - Only assessment tasks</p>
-              </div>
-            </div>
-            
-            <div>
-              <p className="font-medium text-gray-600">Multiple Conditions (AND logic):</p>
-              <p className="ml-2 font-mono bg-white px-2 py-1 rounded">{"{"}"priority": "high", "clientStatus": "active"{"}"}</p>
-              <p className="ml-2 text-xs">Triggers only when BOTH conditions are true</p>
-            </div>
-            
-            <div>
-              <p className="font-medium text-gray-600">No Conditions:</p>
-              <p className="ml-2 font-mono bg-white px-2 py-1 rounded">{"{}"}</p>
-              <p className="ml-2 text-xs">Triggers for ALL events of this type</p>
+            <div className="text-xs text-gray-600 mt-2">
+              <strong>How it works:</strong> The notification will only be sent when ALL selected conditions match. 
+              Leave fields blank to ignore that condition.
             </div>
           </div>
-        </div>
+        ) : (
+          // Advanced JSON editor
+          <div className="mt-4">
+            <Label htmlFor="conditions">Advanced Conditions (JSON)</Label>
+            <Textarea
+              id="conditions"
+              value={formData.conditions}
+              onChange={(e) => setFormData({ ...formData, conditions: e.target.value })}
+              placeholder='{"priority": "high", "clientType": "new"}'
+              className="font-mono text-sm mt-2"
+              rows={4}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Advanced users can write custom JSON conditions here
+            </p>
+          </div>
+        )}
       </div>
 
       <DialogFooter>
