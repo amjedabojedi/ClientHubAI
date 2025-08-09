@@ -6,7 +6,7 @@ interface ClientTabsProps {
 }
 
 export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) {
-  const { data: stats } = useQuery({
+  const { data: stats = {} } = useQuery({
     queryKey: ["/api/clients/stats"],
   });
 
@@ -17,6 +17,7 @@ export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) 
     { id: "intakes", label: "New Intakes", icon: "fas fa-user-plus", count: stats?.newIntakes },
     { id: "assessment", label: "Assessment Phase", icon: "fas fa-clipboard-list", count: stats?.assessmentPhase },
     { id: "psychotherapy", label: "Psychotherapy", icon: "fas fa-brain", count: stats?.psychotherapy },
+    { id: "no-sessions", label: "No Sessions", icon: "fas fa-calendar-times", count: stats?.noSessions },
   ];
 
   return (

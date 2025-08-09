@@ -100,6 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientType,
         hasPortalAccess,
         hasPendingTasks,
+        hasNoSessions,
         sortBy = "createdAt",
         sortOrder = "desc",
         currentUserId,
@@ -115,6 +116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientType: clientType as string,
         hasPortalAccess: hasPortalAccess === "true" ? true : hasPortalAccess === "false" ? false : undefined,
         hasPendingTasks: hasPendingTasks === "true" ? true : hasPendingTasks === "false" ? false : undefined,
+        hasNoSessions: hasNoSessions === "true" ? true : hasNoSessions === "false" ? false : undefined,
         sortBy: sortBy as string,
         sortOrder: sortOrder as "asc" | "desc"
       };

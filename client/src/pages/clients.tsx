@@ -28,6 +28,7 @@ export default function ClientsPage() {
     clientType: "",
     hasPortalAccess: undefined as boolean | undefined,
     hasPendingTasks: undefined as boolean | undefined,
+    hasNoSessions: undefined as boolean | undefined,
   });
 
   const handleViewClient = (client: Client) => {

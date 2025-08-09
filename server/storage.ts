@@ -134,6 +134,7 @@ export interface ClientsQueryParams {
   clientType?: string;
   hasPortalAccess?: boolean;
   hasPendingTasks?: boolean;
+  hasNoSessions?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -636,6 +637,7 @@ export class DatabaseStorage implements IStorage {
       clientType,
       hasPortalAccess,
       hasPendingTasks,
+      hasNoSessions,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = params;
@@ -674,6 +676,13 @@ export class DatabaseStorage implements IStorage {
     
     if (hasPortalAccess !== undefined) {
       whereConditions.push(eq(clients.hasPortalAccess, hasPortalAccess));
+    }
+
+    // Filter clients with no sessions
+    if (hasNoSessions === true) {
+      whereConditions.push(
+        sql`NOT EXISTS (SELECT 1 FROM ${sessions} WHERE ${sessions.clientId} = ${clients.id})`
+      );
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
@@ -890,6 +899,7 @@ export class DatabaseStorage implements IStorage {
     newIntakes: number;
     assessmentPhase: number;
     psychotherapy: number;
+    noSessions: number;
   }> {
     const [stats] = await db
       .select({
@@ -898,7 +908,8 @@ export class DatabaseStorage implements IStorage {
         inactiveClients: sql<number>`COUNT(*) FILTER (WHERE status = 'inactive')`,
         newIntakes: sql<number>`COUNT(*) FILTER (WHERE stage = 'intake')`,
         assessmentPhase: sql<number>`COUNT(*) FILTER (WHERE stage = 'assessment')`,
-        psychotherapy: sql<number>`COUNT(*) FILTER (WHERE stage = 'psychotherapy')`
+        psychotherapy: sql<number>`COUNT(*) FILTER (WHERE stage = 'psychotherapy')`,
+        noSessions: sql<number>`COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id))`
       })
       .from(clients);
 
@@ -908,7 +919,8 @@ export class DatabaseStorage implements IStorage {
       inactiveClients: stats.inactiveClients,
       newIntakes: stats.newIntakes,
       assessmentPhase: stats.assessmentPhase,
-      psychotherapy: stats.psychotherapy
+      psychotherapy: stats.psychotherapy,
+      noSessions: stats.noSessions
     };
   }
 

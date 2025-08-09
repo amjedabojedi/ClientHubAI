@@ -17,6 +17,7 @@ interface SearchFiltersProps {
     clientType: string;
     hasPortalAccess?: boolean;
     hasPendingTasks?: boolean;
+    hasNoSessions?: boolean;
   };
   onFiltersChange: (filters: any) => void;
 }
@@ -52,6 +53,7 @@ export default function SearchFilters({
       clientType: "",
       hasPortalAccess: undefined,
       hasPendingTasks: undefined,
+      hasNoSessions: undefined,
     });
   };
 
@@ -158,6 +160,15 @@ export default function SearchFilters({
                     }
                   />
                   <span className="text-sm text-slate-700">Has Pending Tasks</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <Checkbox 
+                    checked={filters.hasNoSessions === true}
+                    onCheckedChange={(checked) => 
+                      handleFilterChange('hasNoSessions', checked ? true : undefined)
+                    }
+                  />
+                  <span className="text-sm text-slate-700">No Sessions</span>
                 </label>
               </div>
               <div className="flex items-center space-x-2">

@@ -21,6 +21,7 @@ interface ClientDataGridProps {
     clientType: string;
     hasPortalAccess?: boolean;
     hasPendingTasks?: boolean;
+    hasNoSessions?: boolean;
   };
   onViewClient: (client: Client) => void;
   onEditClient: (client: Client) => void;
@@ -52,6 +53,7 @@ export default function ClientDataGrid({
       case "intakes": return { stage: "intake" };
       case "assessment": return { stage: "assessment" };
       case "psychotherapy": return { stage: "psychotherapy" };
+      case "no-sessions": return { hasNoSessions: true };
       default: return "";
     }
   }, [activeTab]);
@@ -65,6 +67,7 @@ export default function ClientDataGrid({
     clientType: filters.clientType,
     hasPortalAccess: filters.hasPortalAccess,
     hasPendingTasks: filters.hasPendingTasks,
+    hasNoSessions: typeof statusFromTab === "object" && statusFromTab.hasNoSessions ? true : filters.hasNoSessions,
     sortBy,
     sortOrder,
     currentUserId: user?.id,
