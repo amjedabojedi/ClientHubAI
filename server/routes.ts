@@ -1605,13 +1605,17 @@ This happens because only the file metadata was stored, not the actual file cont
       // For now, simulate getting current user by ID 6 (admin)
       // In a real app, this would come from session/token
       const currentUserId = 6;
+      console.log("Getting user with ID:", currentUserId);
       const user = await storage.getUser(currentUserId);
+      console.log("Retrieved user:", user);
       if (!user) {
+        console.log("User not found for ID:", currentUserId);
         return res.status(404).json({ message: "User not found" });
       }
       res.json(user);
     } catch (error) {
       console.error("Error getting current user:", error);
+      console.error("Stack trace:", error.stack);
       res.status(500).json({ message: "Internal server error" });
     }
   });

@@ -20,6 +20,8 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Service Code Trimming**: Enhanced service code lookup to handle leading/trailing spaces in uploaded data.
 - **Service Code Management**: Added full CRUD operations for service codes in Settings page with proper constraint checking for deletion when services are referenced in sessions or billing records.
 - **Code Quality Improvement**: Comprehensive code cleanup reducing TypeScript errors from 30 to 0, removed console.log statements, improved type safety with proper interfaces, and organized code structure for better maintainability.
+- **Clients with No Sessions Filter**: Added comprehensive filtering capability for clients without sessions, available in both dedicated client navigation tab and advanced search filters with proper backend query optimization and client statistics integration.
+- **User Profile Save Error Fix**: Resolved critical user profile save error by correcting user ID lookup from non-existent ID 1 to valid admin user ID 6, fixed TypeScript errors in profile form, and implemented proper useEffect dependency tracking to prevent infinite loops and maximum update depth errors.
 
 ## System Architecture
 
