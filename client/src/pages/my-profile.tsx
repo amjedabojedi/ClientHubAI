@@ -66,12 +66,12 @@ export default function MyProfilePage() {
   const [activeTab, setActiveTab] = useState("basic");
 
   // Fetch current user information
-  const { data: user, isLoading: userLoading } = useQuery({
+  const { data: user = {}, isLoading: userLoading } = useQuery({
     queryKey: ["/api/users/me"],
   });
 
   // Fetch current user profile
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile = {}, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/users/me/profile"],
   });
 
@@ -111,42 +111,43 @@ export default function MyProfilePage() {
     },
   });
 
-  // Update form when data loads
+  // Update form when data loads (only once when data actually changes)
   React.useEffect(() => {
-    if (user && profile) {
-      form.reset({
+    if (user && user.fullName && !userLoading && !profileLoading) {
+      const formData = {
         fullName: user.fullName || "",
         email: user.email || "",
-        licenseNumber: profile.licenseNumber || "",
-        licenseType: profile.licenseType || "",
-        licenseState: profile.licenseState || "",
-        licenseExpiry: profile.licenseExpiry || "",
-        yearsOfExperience: profile.yearsOfExperience || 0,
-        maxClientsPerDay: profile.maxClientsPerDay || 0,
-        sessionDuration: profile.sessionDuration || 50,
-        emergencyContactName: profile.emergencyContactName || "",
-        emergencyContactPhone: profile.emergencyContactPhone || "",
-        emergencyContactRelationship: profile.emergencyContactRelationship || "",
-        clinicalExperience: profile.clinicalExperience || "",
-        researchBackground: profile.researchBackground || "",
-        supervisoryExperience: profile.supervisoryExperience || "",
-        careerObjectives: profile.careerObjectives || "",
-        specializations: profile.specializations || [],
-        treatmentApproaches: profile.treatmentApproaches || [],
-        ageGroups: profile.ageGroups || [],
-        languages: profile.languages || [],
-        certifications: profile.certifications || [],
-        education: profile.education || [],
-        workingDays: profile.workingDays || [],
-        previousPositions: profile.previousPositions || [],
-        publications: profile.publications || [],
-        professionalMemberships: profile.professionalMemberships || [],
-        continuingEducation: profile.continuingEducation || [],
-        awardRecognitions: profile.awardRecognitions || [],
-        professionalReferences: profile.professionalReferences || [],
-      });
+        licenseNumber: profile?.licenseNumber || "",
+        licenseType: profile?.licenseType || "",
+        licenseState: profile?.licenseState || "",
+        licenseExpiry: profile?.licenseExpiry || "",
+        yearsOfExperience: profile?.yearsOfExperience || 0,
+        maxClientsPerDay: profile?.maxClientsPerDay || 0,
+        sessionDuration: profile?.sessionDuration || 50,
+        emergencyContactName: profile?.emergencyContactName || "",
+        emergencyContactPhone: profile?.emergencyContactPhone || "",
+        emergencyContactRelationship: profile?.emergencyContactRelationship || "",
+        clinicalExperience: profile?.clinicalExperience || "",
+        researchBackground: profile?.researchBackground || "",
+        supervisoryExperience: profile?.supervisoryExperience || "",
+        careerObjectives: profile?.careerObjectives || "",
+        specializations: profile?.specializations || [],
+        treatmentApproaches: profile?.treatmentApproaches || [],
+        ageGroups: profile?.ageGroups || [],
+        languages: profile?.languages || [],
+        certifications: profile?.certifications || [],
+        education: profile?.education || [],
+        workingDays: profile?.workingDays || [],
+        previousPositions: profile?.previousPositions || [],
+        publications: profile?.publications || [],
+        professionalMemberships: profile?.professionalMemberships || [],
+        continuingEducation: profile?.continuingEducation || [],
+        awardRecognitions: profile?.awardRecognitions || [],
+        professionalReferences: profile?.professionalReferences || [],
+      };
+      form.reset(formData);
     }
-  }, [user, profile, form]);
+  }, [user?.fullName, profile?.id]);
 
   // Update user mutation
   const updateUserMutation = useMutation({
@@ -180,6 +181,8 @@ export default function MyProfilePage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      console.log("Submitting profile data:", data);
+      
       // Update user basic info
       await updateUserMutation.mutateAsync({
         fullName: data.fullName,
@@ -188,6 +191,7 @@ export default function MyProfilePage() {
 
       // Prepare profile data (exclude user fields)
       const { fullName, email, ...profileData } = data;
+      console.log("Profile data to save:", profileData);
 
       // Update or create profile
       if (profile) {
@@ -201,6 +205,7 @@ export default function MyProfilePage() {
         description: "Your profile has been updated successfully",
       });
     } catch (error: any) {
+      console.error("Profile save error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update profile",

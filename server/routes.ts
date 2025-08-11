@@ -1602,25 +1602,25 @@ This happens because only the file metadata was stored, not the actual file cont
   // User Self-Service Routes (for logged-in users to manage their own profiles)
   app.get("/api/users/me", async (req, res) => {
     try {
-      // For now, simulate getting current user by ID 1 (dr.smith)
+      // For now, simulate getting current user by ID 6 (admin)
       // In a real app, this would come from session/token
-      const currentUserId = 1;
+      const currentUserId = 6;
       const user = await storage.getUser(currentUserId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
       res.json(user);
     } catch (error) {
-      // Error logged
+      console.error("Error getting current user:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
   app.put("/api/users/me", async (req, res) => {
     try {
-      // For now, simulate updating current user by ID 1 (dr.smith)
+      // For now, simulate updating current user by ID 6 (admin)
       // In a real app, this would come from session/token
-      const currentUserId = 1;
+      const currentUserId = 6;
       const validatedData = insertUserSchema.partial().parse(req.body);
       const user = await storage.updateUser(currentUserId, validatedData);
       res.json(user);
@@ -1635,9 +1635,9 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.get("/api/users/me/profile", async (req, res) => {
     try {
-      // For now, simulate getting current user by ID 1 (dr.smith)
+      // For now, simulate getting current user by ID 6 (admin)
       // In a real app, this would come from session/token
-      const currentUserId = 1;
+      const currentUserId = 6;
       const profile = await storage.getUserProfile(currentUserId);
       res.json(profile);
     } catch (error) {
@@ -1648,37 +1648,41 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/users/me/profile", async (req, res) => {
     try {
-      // For now, simulate creating profile for current user by ID 1 (dr.smith)
+      // For now, simulate creating profile for current user by ID 6 (admin)
       // In a real app, this would come from session/token
-      const currentUserId = 1;
+      const currentUserId = 6;
+      console.log("Profile create request body:", req.body);
       const validatedData = insertUserProfileSchema.parse({
         ...req.body,
         userId: currentUserId
       });
+      console.log("Validated profile data:", validatedData);
       const profile = await storage.createUserProfile(validatedData);
       res.status(201).json(profile);
     } catch (error) {
+      console.error("Profile create error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
   app.put("/api/users/me/profile", async (req, res) => {
     try {
-      // For now, simulate updating profile for current user by ID 1 (dr.smith)
+      // For now, simulate updating profile for current user by ID 6 (admin)
       // In a real app, this would come from session/token
-      const currentUserId = 1;
+      const currentUserId = 6;
+      console.log("Profile update request body:", req.body);
       const validatedData = insertUserProfileSchema.partial().parse(req.body);
+      console.log("Validated profile data:", validatedData);
       const profile = await storage.updateUserProfile(currentUserId, validatedData);
       res.json(profile);
     } catch (error) {
+      console.error("Profile update error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
