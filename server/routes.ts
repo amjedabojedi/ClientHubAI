@@ -815,10 +815,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (filters.serviceCode && filters.serviceCode !== 'all') {
-        // Filter by service code by matching serviceId to service table
-        sessions = sessions.filter(session => {
-          return session.service?.serviceCode === filters.serviceCode;
-        });
+        // Get all services to match serviceCode with serviceId
+        const services = await storage.getServices();
+        const matchingService = services.find(service => service.serviceCode === filters.serviceCode);
+        if (matchingService) {
+          sessions = sessions.filter(session => session.serviceId === matchingService.id);
+        }
       }
       
       if (filters.clientId) {
