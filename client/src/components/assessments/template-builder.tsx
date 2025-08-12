@@ -22,7 +22,9 @@ import {
   GripVertical, 
   Eye,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 
 // Hooks & Utils
@@ -216,6 +218,60 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     if (newCollapsed.has(sectionIndex)) {
       newCollapsed.delete(sectionIndex);
     } else {
+      newCollapsed.add(sectionIndex);
+    }
+    setCollapsedSections(newCollapsed);
+  };
+
+  const moveSectionUp = (sectionIndex: number) => {
+    if (sectionIndex === 0) return; // Can't move first section up
+    
+    const newSections = [...sections];
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[sectionIndex - 1];
+    newSections[sectionIndex - 1] = temp;
+    
+    // Update order values
+    newSections[sectionIndex].order = sectionIndex;
+    newSections[sectionIndex - 1].order = sectionIndex - 1;
+    
+    setSections(newSections);
+    
+    // Update collapsed state indices
+    const newCollapsed = new Set(collapsedSections);
+    if (newCollapsed.has(sectionIndex)) {
+      newCollapsed.delete(sectionIndex);
+      newCollapsed.add(sectionIndex - 1);
+    }
+    if (newCollapsed.has(sectionIndex - 1)) {
+      newCollapsed.delete(sectionIndex - 1);
+      newCollapsed.add(sectionIndex);
+    }
+    setCollapsedSections(newCollapsed);
+  };
+
+  const moveSectionDown = (sectionIndex: number) => {
+    if (sectionIndex === sections.length - 1) return; // Can't move last section down
+    
+    const newSections = [...sections];
+    const temp = newSections[sectionIndex];
+    newSections[sectionIndex] = newSections[sectionIndex + 1];
+    newSections[sectionIndex + 1] = temp;
+    
+    // Update order values
+    newSections[sectionIndex].order = sectionIndex;
+    newSections[sectionIndex + 1].order = sectionIndex + 1;
+    
+    setSections(newSections);
+    
+    // Update collapsed state indices
+    const newCollapsed = new Set(collapsedSections);
+    if (newCollapsed.has(sectionIndex)) {
+      newCollapsed.delete(sectionIndex);
+      newCollapsed.add(sectionIndex + 1);
+    }
+    if (newCollapsed.has(sectionIndex + 1)) {
+      newCollapsed.delete(sectionIndex + 1);
       newCollapsed.add(sectionIndex);
     }
     setCollapsedSections(newCollapsed);
@@ -505,9 +561,31 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                   )}
                 </div>
                 {!isPreviewMode && (
-                  <Button variant="ghost" size="sm" onClick={() => removeSection(sectionIndex)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center space-x-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => moveSectionUp(sectionIndex)}
+                      disabled={sectionIndex === 0}
+                      title="Move section up"
+                      className="p-1 h-6 w-6"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => moveSectionDown(sectionIndex)}
+                      disabled={sectionIndex === sections.length - 1}
+                      title="Move section down"
+                      className="p-1 h-6 w-6"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => removeSection(sectionIndex)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
               </div>
               {section.description && (
