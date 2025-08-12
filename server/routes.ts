@@ -761,6 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate,
         therapistId,
         status,
+        serviceCode,
         clientId
       } = req.query;
       
@@ -774,6 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: endDate ? new Date(endDate as string) : defaultEndDate,
         therapistId: therapistId ? parseInt(therapistId as string) : undefined,
         status: status as string,
+        serviceCode: serviceCode as string,
         clientId: clientId ? parseInt(clientId as string) : undefined,
         page: parseInt(page as string),
         limit: parseInt(limit as string)
@@ -804,12 +806,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Apply additional filters
-      if (filters.therapistId && filters.therapistId !== 'all') {
+      if (filters.therapistId && therapistId !== 'all') {
         sessions = sessions.filter(session => session.therapistId === filters.therapistId);
       }
       
       if (filters.status && filters.status !== 'all') {
         sessions = sessions.filter(session => session.status === filters.status);
+      }
+
+      if (filters.serviceCode && filters.serviceCode !== 'all') {
+        // Filter by service code by matching serviceId to service table
+        sessions = sessions.filter(session => {
+          return session.service?.serviceCode === filters.serviceCode;
+        });
       }
       
       if (filters.clientId) {

@@ -182,6 +182,7 @@ export default function SchedulingPage() {
     endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
     therapistId: 'all',
     status: 'all',
+    serviceCode: 'all',
     clientId: ''
   });
 
@@ -986,7 +987,7 @@ export default function SchedulingPage() {
             {/* Filters Section */}
             <Card>
               <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Start Date</label>
                     <Input
@@ -1043,6 +1044,25 @@ export default function SchedulingPage() {
                     </Select>
                   </div>
                   <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Service Code</label>
+                    <Select 
+                      value={sessionsFilters.serviceCode} 
+                      onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, serviceCode: value, page: 1 }))}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="All Services" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Services</SelectItem>
+                        {services.map((service: any) => (
+                          <SelectItem key={service.id} value={service.serviceCode}>
+                            {service.serviceCode} - {service.serviceName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Per Page</label>
                     <Select 
                       value={sessionsFilters.limit.toString()} 
@@ -1069,6 +1089,7 @@ export default function SchedulingPage() {
                         endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
                         therapistId: 'all',
                         status: 'all',
+                        serviceCode: 'all',
                         clientId: ''
                       })}
                       className="text-sm"
@@ -1150,7 +1171,7 @@ export default function SchedulingPage() {
                                   {session.room && (
                                     <div className="flex items-center space-x-2">
                                       <MapPin className="w-4 h-4" />
-                                      <span>Room: {session.room}</span>
+                                      <span>Room: {(session.room as any)?.roomNumber || session.room}</span>
                                     </div>
                                   )}
                                   {session.service && (
@@ -1291,7 +1312,7 @@ export default function SchedulingPage() {
                           </div>
                           <div className="flex items-center space-x-2 text-xs text-slate-600">
                             <MapPin className="w-3 h-3" />
-                            <span>{session.sessionType} • {session.service?.duration || session.duration || '60'}min</span>
+                            <span>{session.sessionType} • {(session.service as any)?.duration || 60}min</span>
                             {session.room && <span>• Room {session.room.roomNumber}</span>}
                           </div>
                           <div className="flex space-x-1 mt-3">
@@ -1412,7 +1433,7 @@ export default function SchedulingPage() {
                                   <p className="font-semibold text-lg">
                                     {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </p>
-                                  <p className="text-xs text-slate-600">{session.service?.duration || session.duration || '60'}min</p>
+                                  <p className="text-xs text-slate-600">{(session.service as any)?.duration || 60}min</p>
                                 </div>
                                 
                                 <Avatar className="w-12 h-12">
