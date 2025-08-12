@@ -75,24 +75,26 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const { data: existingSections = [] } = useQuery({
     queryKey: [`/api/assessments/templates/${templateId}/sections`],
-    select: (data: any[]) => data.map((section: any) => ({
-      id: section.id,
-      title: section.title,
-      description: section.description,
-      accessLevel: section.accessLevel,
-      isScoring: section.isScoring,
-      reportMapping: section.reportMapping,
-      aiReportPrompt: section.aiReportPrompt || "",
-      order: section.order,
-      questions: section.questions?.map((q: any) => ({
-        id: q.id,
-        text: q.questionText,
-        type: q.questionType,
-        options: q.options || [],
-        required: q.isRequired,
-        scoreValues: q.scoreValues || []
-      })) || []
-    }))
+    select: (data: any[]) => data
+      .map((section: any) => ({
+        id: section.id,
+        title: section.title,
+        description: section.description,
+        accessLevel: section.accessLevel,
+        isScoring: section.isScoring,
+        reportMapping: section.reportMapping,
+        aiReportPrompt: section.aiReportPrompt || "",
+        order: section.sortOrder || 0, // Use sortOrder from database
+        questions: section.questions?.map((q: any) => ({
+          id: q.id,
+          text: q.questionText,
+          type: q.questionType,
+          options: q.options || [],
+          required: q.isRequired,
+          scoreValues: q.scoreValues || []
+        })) || []
+      }))
+      .sort((a, b) => a.order - b.order) // Sort by order field
   });
 
   // Initialize sections when data loads
@@ -226,6 +228,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const moveSectionUp = (sectionIndex: number) => {
     if (sectionIndex === 0) return; // Can't move first section up
     
+    console.log('Moving section up:', sectionIndex, sections[sectionIndex]?.title);
+    console.log('Current sections:', sections.map(s => ({title: s.title, order: s.order})));
+    
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
     newSections[sectionIndex] = newSections[sectionIndex - 1];
@@ -252,6 +257,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const moveSectionDown = (sectionIndex: number) => {
     if (sectionIndex === sections.length - 1) return; // Can't move last section down
+    
+    console.log('Moving section down:', sectionIndex, sections[sectionIndex]?.title);
+    console.log('Current sections:', sections.map(s => ({title: s.title, order: s.order})));
     
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
