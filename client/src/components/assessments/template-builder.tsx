@@ -650,6 +650,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       <SelectItem value="referral_reason">Referral Reason</SelectItem>
                       <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
                       <SelectItem value="background_history">Background History</SelectItem>
+                      <SelectItem value="objective_findings">Objective Findings</SelectItem>
                       <SelectItem value="mental_status_exam">Mental Status Exam</SelectItem>
                       <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
                       <SelectItem value="treatment_recommendations">Treatment Recommendations</SelectItem>
