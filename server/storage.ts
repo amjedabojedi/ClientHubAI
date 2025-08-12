@@ -1392,7 +1392,7 @@ export class DatabaseStorage implements IStorage {
         .delete(services)
         .where(eq(services.id, id));
     } catch (error) {
-      console.error("Delete service error:", error);
+
       throw error;
     }
   }
@@ -3343,7 +3343,7 @@ export class DatabaseStorage implements IStorage {
       } else {
       }
     } catch (error) {
-      console.error(`Error migrating data for category ${categoryKey}:`, error);
+
       throw error;
     }
   }

@@ -47,7 +47,7 @@ export class NotificationService {
     try {
       await db.insert(notifications).values(notificationData);
     } catch (error) {
-      console.error('Failed to create notification:', error);
+
       throw error;
     }
   }
@@ -61,7 +61,7 @@ export class NotificationService {
         await db.insert(notifications).values(notificationsData);
       }
     } catch (error) {
-      console.error('Failed to create notifications batch:', error);
+
       throw error;
     }
   }
@@ -155,12 +155,12 @@ export class NotificationService {
             await this.createNotificationsFromTrigger(trigger, entityData, recipients);
           }
         } catch (error) {
-          console.error(`Failed to process trigger ${trigger.id}:`, error);
+
           // Continue with other triggers even if one fails
         }
       }
     } catch (error) {
-      console.error('Failed to process event:', error);
+
       throw error;
     }
   }
@@ -187,7 +187,7 @@ export class NotificationService {
 
       return true;
     } catch (error) {
-      console.error('Failed to evaluate trigger conditions:', error);
+
       return false;
     }
   }
@@ -276,7 +276,7 @@ export class NotificationService {
 
       return uniqueRecipients;
     } catch (error) {
-      console.error('Failed to calculate recipients:', error);
+
       return [];
     }
   }
@@ -324,7 +324,7 @@ export class NotificationService {
       // Batch create notifications
       await this.createNotificationsBatch(notificationsData);
     } catch (error) {
-      console.error('Failed to create notifications from trigger:', error);
+
       throw error;
     }
   }
@@ -338,7 +338,7 @@ export class NotificationService {
         return this.getFieldValue(entityData, key) || match;
       });
     } catch (error) {
-      console.error('Failed to render template:', error);
+
       return template;
     }
   }
@@ -389,7 +389,7 @@ export class NotificationService {
           });
       }
     } catch (error) {
-      console.error('Failed to set user preference:', error);
+
       throw error;
     }
   }
@@ -408,7 +408,7 @@ export class NotificationService {
           sql`${notifications.expiresAt} < NOW()`
         ));
     } catch (error) {
-      console.error('Failed to cleanup expired notifications:', error);
+
     }
   }
 
@@ -431,7 +431,7 @@ export class NotificationService {
         unread: unreadResult[0]?.count || 0
       };
     } catch (error) {
-      console.error('Failed to get notification stats:', error);
+
       return { total: 0, unread: 0 };
     }
   }

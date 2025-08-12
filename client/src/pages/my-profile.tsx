@@ -66,12 +66,12 @@ export default function MyProfilePage() {
   const [activeTab, setActiveTab] = useState("basic");
 
   // Fetch current user information
-  const { data: user = {}, isLoading: userLoading } = useQuery({
+  const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["/api/users/me"],
   });
 
   // Fetch current user profile
-  const { data: profile = {}, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/users/me/profile"],
   });
 
@@ -181,8 +181,6 @@ export default function MyProfilePage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
-      console.log("Submitting profile data:", data);
-      
       // Update user basic info
       await updateUserMutation.mutateAsync({
         fullName: data.fullName,
@@ -191,7 +189,6 @@ export default function MyProfilePage() {
 
       // Prepare profile data (exclude user fields)
       const { fullName, email, ...profileData } = data;
-      console.log("Profile data to save:", profileData);
 
       // Update or create profile
       if (profile) {
@@ -205,7 +202,6 @@ export default function MyProfilePage() {
         description: "Your profile has been updated successfully",
       });
     } catch (error: any) {
-      console.error("Profile save error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update profile",

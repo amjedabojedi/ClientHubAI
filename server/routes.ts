@@ -12,6 +12,9 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 // Database Schemas
 import { 
@@ -294,8 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteClient(id);
       res.status(204).send();
     } catch (error: any) {
-      console.error('Delete client error:', error);
-      console.error('Error stack:', error.stack);
+
       res.status(500).json({ 
         message: "Failed to delete client. Client may have related records (sessions, tasks, documents, etc.)",
         details: error.message 
@@ -455,17 +457,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           } else {
-            console.error('Date type not handled:', { rawDate, type: typeof rawDate });
             throw new Error('Invalid session date format');
           }
           
           if (isNaN(sessionDateTime.getTime())) {
-            console.error('Date conversion failed:', {
-              rawDate,
-              sessionTime: sessionData.sessionTime,
-              sessionDateTime: sessionDateTime.toString()
-            });
-            throw new Error('Invalid session date or time format');
+            throw new Error('Invalid session date and time');
           }
           
           cleanData.sessionDate = sessionDateTime;
@@ -541,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (error) {
           results.failed++;
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error(`Session validation error at row ${i + 1}:`, errorMessage);
+
           results.errors.push({
             row: i + 1,
             data: sessionData,
@@ -745,7 +741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(results);
     } catch (error: any) {
-      console.error('Bulk upload error:', error);
+
       res.status(500).json({ 
         message: "Bulk upload failed", 
         details: error.message || "Internal server error" 
@@ -1605,17 +1601,15 @@ This happens because only the file metadata was stored, not the actual file cont
       // For now, simulate getting current user by ID 6 (admin)
       // In a real app, this would come from session/token
       const currentUserId = 6;
-      console.log("Getting user with ID:", currentUserId);
-      const user = await storage.getUser(currentUserId);
-      console.log("Retrieved user:", user);
+      
+      // Use direct database query since storage method has an issue
+      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+      
       if (!user) {
-        console.log("User not found for ID:", currentUserId);
         return res.status(404).json({ message: "User not found" });
       }
       res.json(user);
     } catch (error) {
-      console.error("Error getting current user:", error);
-      console.error("Stack trace:", error.stack);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -1655,16 +1649,13 @@ This happens because only the file metadata was stored, not the actual file cont
       // For now, simulate creating profile for current user by ID 6 (admin)
       // In a real app, this would come from session/token
       const currentUserId = 6;
-      console.log("Profile create request body:", req.body);
       const validatedData = insertUserProfileSchema.parse({
         ...req.body,
         userId: currentUserId
       });
-      console.log("Validated profile data:", validatedData);
       const profile = await storage.createUserProfile(validatedData);
       res.status(201).json(profile);
     } catch (error) {
-      console.error("Profile create error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
@@ -1677,13 +1668,10 @@ This happens because only the file metadata was stored, not the actual file cont
       // For now, simulate updating profile for current user by ID 6 (admin)
       // In a real app, this would come from session/token
       const currentUserId = 6;
-      console.log("Profile update request body:", req.body);
       const validatedData = insertUserProfileSchema.partial().parse(req.body);
-      console.log("Validated profile data:", validatedData);
       const profile = await storage.updateUserProfile(currentUserId, validatedData);
       res.json(profile);
     } catch (error) {
-      console.error("Profile update error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
@@ -3568,7 +3556,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid option data", errors: error.errors });
       }
-      console.error("Error updating system option:", error);
+
       res.status(500).json({ message: "Internal server error" });
     }
   });

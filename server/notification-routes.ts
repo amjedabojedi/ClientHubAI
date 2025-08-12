@@ -23,7 +23,7 @@ router.get("/", async (req, res) => {
     
     res.json(notifications);
   } catch (error) {
-    console.error("Failed to get notifications:", error);
+
     res.status(500).json({ error: "Failed to get notifications" });
   }
 });
@@ -41,7 +41,7 @@ router.get("/unread-count", async (req, res) => {
     const count = await storage.getUnreadNotificationCount(userId);
     res.json({ count });
   } catch (error) {
-    console.error("Failed to get unread count:", error);
+
     res.status(500).json({ error: "Failed to get unread count" });
   }
 });
@@ -61,7 +61,7 @@ router.put("/:id/read", async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Failed to mark notification as read:", error);
+
     res.status(500).json({ error: "Failed to mark notification as read" });
   }
 });
@@ -79,7 +79,7 @@ router.put("/mark-all-read", async (req, res) => {
     await storage.markAllNotificationsAsRead(userId);
     res.json({ success: true });
   } catch (error) {
-    console.error("Failed to mark all notifications as read:", error);
+
     res.status(500).json({ error: "Failed to mark all notifications as read" });
   }
 });
@@ -99,7 +99,7 @@ router.delete("/:id", async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete notification:", error);
+
     res.status(500).json({ error: "Failed to delete notification" });
   }
 });
@@ -123,7 +123,7 @@ router.post("/", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid notification data", details: error.errors });
     }
-    console.error("Failed to create notification:", error);
+
     res.status(500).json({ error: "Failed to create notification" });
   }
 });
@@ -143,7 +143,7 @@ router.get("/preferences", async (req, res) => {
     const preferences = await storage.getUserNotificationPreferences(userId);
     res.json(preferences);
   } catch (error) {
-    console.error("Failed to get user preferences:", error);
+
     res.status(500).json({ error: "Failed to get user preferences" });
   }
 });
@@ -167,7 +167,7 @@ router.put("/preferences/:triggerType", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid preference data", details: error.errors });
     }
-    console.error("Failed to set user preference:", error);
+
     res.status(500).json({ error: "Failed to set user preference" });
   }
 });
@@ -183,7 +183,7 @@ router.get("/triggers", async (req, res) => {
     const triggers = await storage.getNotificationTriggers(eventType);
     res.json(triggers);
   } catch (error) {
-    console.error("Failed to get triggers:", error);
+
     res.status(500).json({ error: "Failed to get triggers" });
   }
 });
@@ -206,7 +206,7 @@ router.post("/triggers", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid trigger data", details: error.errors });
     }
-    console.error("Failed to create trigger:", error);
+
     res.status(500).json({ error: "Failed to create trigger" });
   }
 });
@@ -230,7 +230,7 @@ router.put("/triggers/:id", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid trigger data", details: error.errors });
     }
-    console.error("Failed to update trigger:", error);
+
     res.status(500).json({ error: "Failed to update trigger" });
   }
 });
@@ -250,7 +250,7 @@ router.delete("/triggers/:id", async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete trigger:", error);
+
     res.status(500).json({ error: "Failed to delete trigger" });
   }
 });
@@ -266,7 +266,7 @@ router.get("/templates", async (req, res) => {
     const templates = await storage.getNotificationTemplates(type);
     res.json(templates);
   } catch (error) {
-    console.error("Failed to get templates:", error);
+
     res.status(500).json({ error: "Failed to get templates" });
   }
 });
@@ -289,7 +289,7 @@ router.post("/templates", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid template data", details: error.errors });
     }
-    console.error("Failed to create template:", error);
+
     res.status(500).json({ error: "Failed to create template" });
   }
 });
@@ -313,7 +313,7 @@ router.put("/templates/:id", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid template data", details: error.errors });
     }
-    console.error("Failed to update template:", error);
+
     res.status(500).json({ error: "Failed to update template" });
   }
 });
@@ -333,7 +333,7 @@ router.delete("/templates/:id", async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete template:", error);
+
     res.status(500).json({ error: "Failed to delete template" });
   }
 });
@@ -358,7 +358,7 @@ router.post("/test-event", async (req, res) => {
     await storage.processNotificationEvent(eventType, entityData);
     res.json({ success: true, message: "Event processed" });
   } catch (error) {
-    console.error("Failed to process test event:", error);
+
     res.status(500).json({ error: "Failed to process test event" });
   }
 });
@@ -376,7 +376,7 @@ router.get("/stats", async (req, res) => {
     const stats = await storage.getNotificationStats();
     res.json(stats);
   } catch (error) {
-    console.error("Failed to get notification stats:", error);
+
     res.status(500).json({ error: "Failed to get notification stats" });
   }
 });
@@ -394,7 +394,7 @@ router.post("/cleanup", async (req, res) => {
     await storage.cleanupExpiredNotifications();
     res.json({ success: true, message: "Expired notifications cleaned up" });
   } catch (error) {
-    console.error("Failed to cleanup notifications:", error);
+
     res.status(500).json({ error: "Failed to cleanup notifications" });
   }
 });
