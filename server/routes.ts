@@ -749,30 +749,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sessions routes
+  // Sessions routes with pagination and filtering
   app.get("/api/sessions", async (req, res) => {
     try {
-      const { currentUserId, currentUserRole } = req.query;
+      const { 
+        currentUserId, 
+        currentUserRole, 
+        page = 1, 
+        limit = 50,
+        startDate,
+        endDate,
+        therapistId,
+        status,
+        clientId
+      } = req.query;
+      
+      // Default to current month if no date filters provided
+      const now = new Date();
+      const defaultStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const defaultEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const filters = {
+        startDate: startDate ? new Date(startDate as string) : defaultStartDate,
+        endDate: endDate ? new Date(endDate as string) : defaultEndDate,
+        therapistId: therapistId ? parseInt(therapistId as string) : undefined,
+        status: status as string,
+        clientId: clientId ? parseInt(clientId as string) : undefined,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      };
       
       let sessions = await storage.getAllSessions();
       
+      // Apply date filter (always applied for performance)
+      sessions = sessions.filter(session => {
+        const sessionDate = new Date(session.sessionDate);
+        return sessionDate >= filters.startDate && sessionDate <= filters.endDate;
+      });
+      
       // Role-based filtering
       if (currentUserRole === "therapist" && currentUserId) {
-        const therapistId = parseInt(currentUserId as string);
-        sessions = sessions.filter(session => session.therapistId === therapistId);
+        const therapistIdFilter = parseInt(currentUserId as string);
+        sessions = sessions.filter(session => session.therapistId === therapistIdFilter);
       } else if (currentUserRole === "supervisor" && currentUserId) {
         const supervisorId = parseInt(currentUserId as string);
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
         
         if (supervisorAssignments.length === 0) {
-          return res.json([]);
+          return res.json({ sessions: [], total: 0, totalPages: 0, currentPage: 1 });
         }
         
         const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
         sessions = sessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
       }
       
-      res.json(sessions);
+      // Apply additional filters
+      if (filters.therapistId && filters.therapistId !== 'all') {
+        sessions = sessions.filter(session => session.therapistId === filters.therapistId);
+      }
+      
+      if (filters.status && filters.status !== 'all') {
+        sessions = sessions.filter(session => session.status === filters.status);
+      }
+      
+      if (filters.clientId) {
+        sessions = sessions.filter(session => session.clientId === filters.clientId);
+      }
+      
+      // Sort by date (newest first)
+      sessions.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime());
+      
+      // Pagination
+      const total = sessions.length;
+      const totalPages = Math.ceil(total / filters.limit);
+      const startIndex = (filters.page - 1) * filters.limit;
+      const paginatedSessions = sessions.slice(startIndex, startIndex + filters.limit);
+      
+      res.json({
+        sessions: paginatedSessions,
+        total,
+        totalPages,
+        currentPage: filters.page,
+        limit: filters.limit,
+        appliedFilters: {
+          startDate: filters.startDate.toISOString().split('T')[0],
+          endDate: filters.endDate.toISOString().split('T')[0],
+          therapistId: filters.therapistId,
+          status: filters.status,
+          clientId: filters.clientId
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }

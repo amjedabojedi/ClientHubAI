@@ -174,12 +174,36 @@ export default function SchedulingPage() {
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
-  // Fetch all sessions for list view
-  const { data: allSessions = [] } = useQuery<Session[]>({
-    queryKey: ["/api/sessions", { currentUserId: user?.id, currentUserRole: user?.role }],
+  // State for sessions list filters
+  const [sessionsFilters, setSessionsFilters] = useState({
+    page: 1,
+    limit: 50,
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
+    therapistId: 'all',
+    status: 'all',
+    clientId: ''
+  });
+
+  // Fetch all sessions for list view with pagination
+  const { data: allSessionsData } = useQuery<{
+    sessions: Session[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+    appliedFilters: any;
+  }>({
+    queryKey: ["/api/sessions", { 
+      currentUserId: user?.id, 
+      currentUserRole: user?.role,
+      ...sessionsFilters
+    }],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: viewMode === "list"
   });
+
+  const allSessions = allSessionsData?.sessions || [];
 
   // Fetch clients and therapists for dropdowns
   const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
@@ -955,9 +979,106 @@ export default function SchedulingPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">All Sessions</h2>
               <div className="text-sm text-slate-600">
-                {filteredSessions.length} total sessions
+                {allSessionsData?.total || 0} total sessions (showing {allSessions.length})
               </div>
             </div>
+
+            {/* Filters Section */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Start Date</label>
+                    <Input
+                      type="date"
+                      value={sessionsFilters.startDate}
+                      onChange={(e) => setSessionsFilters(prev => ({ ...prev, startDate: e.target.value, page: 1 }))}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">End Date</label>
+                    <Input
+                      type="date"
+                      value={sessionsFilters.endDate}
+                      onChange={(e) => setSessionsFilters(prev => ({ ...prev, endDate: e.target.value, page: 1 }))}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
+                    <Select 
+                      value={sessionsFilters.therapistId} 
+                      onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, therapistId: value, page: 1 }))}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="All Therapists" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Therapists</SelectItem>
+                        {therapists.map((therapist) => (
+                          <SelectItem key={therapist.id} value={therapist.id.toString()}>
+                            {therapist.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
+                    <Select 
+                      value={sessionsFilters.status} 
+                      onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, status: value, page: 1 }))}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="no_show">No Show</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Per Page</label>
+                    <Select 
+                      value={sessionsFilters.limit.toString()} 
+                      onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, limit: parseInt(value), page: 1 }))}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSessionsFilters({
+                        page: 1,
+                        limit: 50,
+                        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                        endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
+                        therapistId: 'all',
+                        status: 'all',
+                        clientId: ''
+                      })}
+                      className="text-sm"
+                    >
+                      Reset Filters
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             
             <Card>
               <CardContent className="p-6">
@@ -968,7 +1089,7 @@ export default function SchedulingPage() {
                       <p className="text-slate-600">Loading sessions...</p>
                     </div>
                   </div>
-                ) : filteredSessions.length === 0 ? (
+                ) : allSessions.length === 0 ? (
                   <div className="text-center py-12">
                     <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-slate-900 mb-2">No sessions found</h3>
@@ -976,9 +1097,7 @@ export default function SchedulingPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredSessions
-                      .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
-                      .map((session: Session) => (
+                    {allSessions.map((session: Session) => (
                         <div
                           key={session.id}
                           className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer"
@@ -1071,6 +1190,44 @@ export default function SchedulingPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Pagination Controls */}
+            {allSessionsData && allSessionsData.totalPages > 1 && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-slate-600">
+                      Showing {((allSessionsData.currentPage - 1) * allSessionsData.limit) + 1} to{' '}
+                      {Math.min(allSessionsData.currentPage * allSessionsData.limit, allSessionsData.total)} of{' '}
+                      {allSessionsData.total} sessions
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSessionsFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+                        disabled={allSessionsData.currentPage <= 1}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Previous
+                      </Button>
+                      <span className="px-3 py-1 text-sm bg-slate-100 rounded">
+                        Page {allSessionsData.currentPage} of {allSessionsData.totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSessionsFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                        disabled={allSessionsData.currentPage >= allSessionsData.totalPages}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           /* Day/Week View */
