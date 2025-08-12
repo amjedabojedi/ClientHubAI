@@ -2434,11 +2434,13 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/assessments/templates", async (req, res) => {
     try {
-      const templateData = req.body;
-      const template = await storage.createAssessmentTemplate(templateData);
+      const validatedData = insertAssessmentTemplateSchema.parse(req.body);
+      const template = await storage.createAssessmentTemplate(validatedData);
       res.status(201).json(template);
     } catch (error) {
-      // Error logged
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });

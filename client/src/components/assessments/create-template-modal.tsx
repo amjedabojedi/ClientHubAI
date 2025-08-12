@@ -54,10 +54,10 @@ export function CreateTemplateModal({ open, onOpenChange }: CreateTemplateModalP
     setIsLoading(true);
 
     try {
-      // For now, we'll use a hardcoded therapist ID (3) since we don't have user authentication
+      // For now, we'll use the first available user ID (17) since we don't have user authentication
       const templateData: InsertAssessmentTemplate = {
         ...formData,
-        createdById: 3,
+        createdById: 17,
         isActive: true
       };
 
