@@ -2625,6 +2625,10 @@ This happens because only the file metadata was stored, not the actual file cont
   app.patch("/api/assessments/questions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid question ID" });
+      }
+      
       const questionData = req.body;
       const question = await storage.updateAssessmentQuestion(id, questionData);
       res.json(question);

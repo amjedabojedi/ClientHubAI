@@ -23,6 +23,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Clients with No Sessions Filter**: Added comprehensive filtering capability for clients without sessions, available in both dedicated client navigation tab and advanced search filters with proper backend query optimization and client statistics integration.
 - **User Profile Save Error Fix**: Resolved critical user profile save error by correcting user ID lookup from non-existent ID 1 to valid admin user ID 6, fixed TypeScript errors in profile form, and implemented proper useEffect dependency tracking to prevent infinite loops and maximum update depth errors.
 - **Sessions List Performance Optimization**: Implemented comprehensive filtering and pagination for sessions list to prevent system overload. Added default current month filter, pagination (25-50-100 per page), date range filters, therapist/status/service code filters, and smart server-side processing. Prevents loading all 3,818+ sessions at once, improving performance and user experience significantly.
+- **Assessment Template Date and Number Fields**: Enhanced assessment template system with comprehensive date and number question types. Added database enum values for 'date' and 'number' question types, updated frontend template builder with date picker and number input fields, and fixed 500 error during question updates. Assessment templates now support full range of data collection including dates (birth dates, incident dates) and numeric values (age, scores, measurements).
 
 ## System Architecture
 
