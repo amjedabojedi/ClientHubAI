@@ -20,7 +20,9 @@ import {
   Copy, 
   ArrowLeft, 
   GripVertical, 
-  Eye 
+  Eye,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 
 // Hooks & Utils
@@ -60,6 +62,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const [sections, setSections] = useState<SectionForm[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -206,6 +209,16 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       questions: newQuestions
     };
     setSections(updated);
+  };
+
+  const toggleSectionCollapse = (sectionIndex: number) => {
+    const newCollapsed = new Set(collapsedSections);
+    if (newCollapsed.has(sectionIndex)) {
+      newCollapsed.delete(sectionIndex);
+    } else {
+      newCollapsed.add(sectionIndex);
+    }
+    setCollapsedSections(newCollapsed);
   };
 
   const addOption = (sectionIndex: number, questionIndex: number) => {
@@ -460,6 +473,18 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => toggleSectionCollapse(sectionIndex)}
+                    className="p-1 h-6 w-6"
+                  >
+                    {collapsedSections.has(sectionIndex) ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
                   <CardTitle className="text-lg">
                     {section.title || `Section ${sectionIndex + 1}`}
                   </CardTitle>
@@ -473,6 +498,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       )}
                     </>
                   )}
+                  {collapsedSections.has(sectionIndex) && (
+                    <span className="text-sm text-muted-foreground">
+                      ({section.questions.length} question{section.questions.length !== 1 ? 's' : ''})
+                    </span>
+                  )}
                 </div>
                 {!isPreviewMode && (
                   <Button variant="ghost" size="sm" onClick={() => removeSection(sectionIndex)}>
@@ -484,7 +514,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 <p className="text-sm text-muted-foreground mt-2">{section.description}</p>
               )}
             </CardHeader>
-            <CardContent className="space-y-4">
+            {!collapsedSections.has(sectionIndex) && (
+              <CardContent className="space-y-4">
               {/* Section Settings - Hide in preview mode */}
               {!isPreviewMode && (
                 <div className="space-y-4">
@@ -785,7 +816,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 )}
 
               </div>
-            </CardContent>
+              </CardContent>
+            )}
           </Card>
         ))}
 
