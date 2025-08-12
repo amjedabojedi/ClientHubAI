@@ -38,7 +38,7 @@ interface TemplateBuilderProps {
 interface QuestionForm {
   id?: number;
   text: string;
-  type: "short_text" | "long_text" | "multiple_choice" | "rating_scale" | "checkbox";
+  type: "short_text" | "long_text" | "multiple_choice" | "rating_scale" | "checkbox" | "date" | "number";
   options: string[];
   required: boolean;
   scoreValues: number[];
@@ -673,6 +673,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                               )}
                             </div>
                           )}
+                          
+                          {question.type === "date" && (
+                            <Input type="date" disabled className="bg-white dark:bg-gray-700" />
+                          )}
+                          
+                          {question.type === "number" && (
+                            <Input type="number" placeholder="Enter a number..." disabled className="bg-white dark:bg-gray-700" />
+                          )}
                         </div>
                       ) : (
                         // Edit Mode: Show editing interface
@@ -700,6 +708,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                               <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
                               <SelectItem value="rating_scale">Rating Scale</SelectItem>
                               <SelectItem value="checkbox">Checkbox</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="number">Number</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

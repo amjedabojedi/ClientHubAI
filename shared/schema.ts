@@ -587,7 +587,7 @@ export const connectionTypeEnum = pgEnum('connection_type', [
 ]);
 
 // Assessment Template Enums
-export const questionTypeEnum = pgEnum('question_type', ['short_text', 'long_text', 'multiple_choice', 'rating_scale', 'checkbox']);
+export const questionTypeEnum = pgEnum('question_type', ['short_text', 'long_text', 'multiple_choice', 'rating_scale', 'checkbox', 'date', 'number']);
 export const sectionAccessEnum = pgEnum('section_access', ['therapist_only', 'client_only', 'shared']);
 export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'client_in_progress', 'waiting_for_therapist', 'therapist_completed', 'completed']);
 export const reportSectionEnum = pgEnum('report_section', [
