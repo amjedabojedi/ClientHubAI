@@ -92,10 +92,19 @@ export default function DashboardPage() {
     queryKey: ["/api/tasks/upcoming"],
   });
 
-  // Get all sessions and filter for today in the frontend
-  const { data: allSessions = [], isLoading: sessionsLoading, error: sessionsError } = useQuery<SessionWithDetails[]>({
-    queryKey: ["/api/sessions"],
+  // Get all sessions for dashboard (using a 3-month range for performance)
+  const { data: allSessionsData, isLoading: sessionsLoading, error: sessionsError } = useQuery<{
+    sessions: SessionWithDetails[];
+    total: number;
+  }>({
+    queryKey: ["/api/sessions", { 
+      limit: 100,
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
+      endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0]
+    }],
   });
+
+  const allSessions = allSessionsData?.sessions || [];
 
   // Get recent sessions (last 10) instead of just today's
   const recentSessions = allSessions
