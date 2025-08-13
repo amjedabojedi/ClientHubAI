@@ -407,11 +407,13 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const saveTemplate = async () => {
     setIsSaving(true);
+    const startTime = Date.now();
+    const totalQuestions = sections.reduce((total, s) => total + s.questions.length, 0);
     
     // Add progress feedback
     toast({
       title: "Saving Template",
-      description: "Processing sections and questions...",
+      description: `Processing ${sections.length} sections with ${totalQuestions} questions...`,
     });
     
     try {
@@ -436,8 +438,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         }
       }
 
-      // Save sections and questions
-      for (const section of sections) {
+      // Process sections in parallel
+      const sectionPromises = sections.map(async (section) => {
         const sectionData: InsertAssessmentSection = {
           templateId,
           title: section.title,
@@ -460,8 +462,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           sectionId = result.id;
         }
 
-        // Save questions for this section
-        for (const question of section.questions) {
+        // Process questions in parallel for this section
+        const questionPromises = section.questions.map(async (question) => {
           const questionData: InsertAssessmentQuestion = {
             sectionId: sectionId!,
             questionText: question.text,
@@ -508,13 +510,19 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               await apiRequest(`/api/assessments/question-options/bulk`, "POST", { options: optionsData });
             }
           }
-        }
-      }
+        });
+
+        await Promise.all(questionPromises);
+      });
+
+      await Promise.all(sectionPromises);
 
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+      
+      const saveTime = ((Date.now() - startTime) / 1000).toFixed(1);
       toast({
-        title: "Template Saved",
-        description: "All sections and questions have been saved successfully",
+        title: "Template Saved Successfully",
+        description: `Saved ${sections.length} sections with ${totalQuestions} questions in ${saveTime}s`,
       });
     } catch (error: any) {
       toast({
