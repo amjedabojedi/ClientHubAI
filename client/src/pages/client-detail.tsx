@@ -1734,6 +1734,52 @@ export default function ClientDetailPage() {
               </Card>
             </div>
 
+            {/* Available Assessment Templates */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Assessment Templates</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {availableTemplates.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {availableTemplates.map((template) => (
+                      <Card key={template.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-semibold text-slate-900">{template.title}</h4>
+                              {template.description && (
+                                <p className="text-sm text-slate-600 mt-1 line-clamp-2">{template.description}</p>
+                              )}
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-500">
+                              <span>Category: {template.category}</span>
+                              <span>v{template.version}</span>
+                            </div>
+                            <Button
+                              onClick={() => handleAssignAssessment(template.id)}
+                              size="sm"
+                              className="w-full"
+                              disabled={assignAssessmentMutation.isPending}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Assign to Client
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <ClipboardList className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No assessment templates available</p>
+                    <p className="text-slate-400 text-sm">Templates will appear here once created</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Assessment List */}
             <Card>
               <CardHeader>
