@@ -21,6 +21,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { CreateTemplateModal } from "@/components/assessments/create-template-modal";
 import { EditTemplateModal } from "@/components/assessments/edit-template-modal";
 import { TemplateBuilder } from "@/components/assessments/template-builder";
+import { AssignAssessmentModal } from "@/components/assessments/assign-assessment-modal";
 
 // Types
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
@@ -53,8 +54,10 @@ export default function AssessmentsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<AssessmentTemplate | null>(null);
+  const [assigningTemplate, setAssigningTemplate] = useState<AssessmentTemplate | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -152,6 +155,11 @@ export default function AssessmentsPage() {
 
   const handleDeleteTemplate = async (templateId: number) => {
     await deleteTemplateMutation.mutateAsync(templateId);
+  };
+
+  const handleAssignTemplate = (template: AssessmentTemplate) => {
+    setAssigningTemplate(template);
+    setShowAssignModal(true);
   };
 
   // Show template builder if a template is selected
@@ -319,7 +327,11 @@ export default function AssessmentsPage() {
                           <Settings className="h-4 w-4 mr-2" />
                           Build
                         </Button>
-                        <Button size="sm" className="flex-1">
+                        <Button 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => handleAssignTemplate(template)}
+                        >
                           Assign
                         </Button>
                       </div>
@@ -411,7 +423,7 @@ export default function AssessmentsPage() {
                   ? "No assignments match your current search." 
                   : "No clients have been assigned assessments yet."}
               </p>
-              <Button>
+              <Button onClick={() => setShowAssignModal(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Assign Assessment
               </Button>
@@ -428,6 +440,16 @@ export default function AssessmentsPage() {
         open={showEditModal} 
         onOpenChange={setShowEditModal} 
         template={editingTemplate}
+      />
+      <AssignAssessmentModal
+        open={showAssignModal}
+        onOpenChange={(open) => {
+          setShowAssignModal(open);
+          if (!open) {
+            setAssigningTemplate(null);
+          }
+        }}
+        template={assigningTemplate || undefined}
       />
     </div>
   );
