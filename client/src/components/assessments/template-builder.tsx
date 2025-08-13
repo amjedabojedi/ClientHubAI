@@ -194,6 +194,43 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     setSections(updated);
   };
 
+  const moveQuestionUp = (sectionIndex: number, questionIndex: number) => {
+    if (questionIndex === 0) return; // Can't move first question up
+    
+    console.log('Moving question up:', questionIndex, sections[sectionIndex].questions[questionIndex]?.text);
+    
+    const updated = [...sections];
+    const questions = [...updated[sectionIndex].questions];
+    const temp = questions[questionIndex];
+    questions[questionIndex] = questions[questionIndex - 1];
+    questions[questionIndex - 1] = temp;
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions
+    };
+    setSections(updated);
+  };
+
+  const moveQuestionDown = (sectionIndex: number, questionIndex: number) => {
+    const questions = sections[sectionIndex].questions;
+    if (questionIndex === questions.length - 1) return; // Can't move last question down
+    
+    console.log('Moving question down:', questionIndex, questions[questionIndex]?.text);
+    
+    const updated = [...sections];
+    const updatedQuestions = [...updated[sectionIndex].questions];
+    const temp = updatedQuestions[questionIndex];
+    updatedQuestions[questionIndex] = updatedQuestions[questionIndex + 1];
+    updatedQuestions[questionIndex + 1] = temp;
+    
+    updated[sectionIndex] = {
+      ...updated[sectionIndex],
+      questions: updatedQuestions
+    };
+    setSections(updated);
+  };
+
   const copyQuestion = (sectionIndex: number, questionIndex: number) => {
     const updated = [...sections];
     const originalQuestion = updated[sectionIndex].questions[questionIndex];
@@ -709,6 +746,26 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-sm">Question {questionIndex + 1}</span>
                           <div className="flex space-x-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => moveQuestionUp(sectionIndex, questionIndex)}
+                              disabled={questionIndex === 0}
+                              title="Move question up"
+                              className="p-1 h-6 w-6"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => moveQuestionDown(sectionIndex, questionIndex)}
+                              disabled={questionIndex === section.questions.length - 1}
+                              title="Move question down"
+                              className="p-1 h-6 w-6"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => copyQuestion(sectionIndex, questionIndex)}>
                               <Copy className="h-4 w-4" />
                             </Button>
