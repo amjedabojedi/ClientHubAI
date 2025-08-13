@@ -1262,10 +1262,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.clientId);
       const { templateId, assignedBy, status = 'assigned' } = req.body;
       
+      console.log('Assessment assignment data:', { clientId, templateId, assignedBy, status });
+      
       const assessmentData = {
         clientId,
         templateId,
-        assignedBy,
+        assignedBy: assignedBy || 17, // Default to existing therapist if not provided
         assignedDate: new Date(),
         status,
         responses: null,
@@ -1275,8 +1277,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assessment = await storage.assignAssessmentToClient(assessmentData);
       res.status(201).json(assessment);
     } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Assessment assignment error:', error);
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

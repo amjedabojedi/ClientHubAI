@@ -915,7 +915,7 @@ export default function ClientDetailPage() {
       return await apiRequest(`/api/clients/${clientId}/assessments`, "POST", {
         templateId,
         assignedDate: new Date().toISOString(),
-        assignedBy: 1, // Current therapist ID - should be from auth context
+        assignedBy: 17, // Use valid therapist ID - Abi Cherian
         status: 'pending'
       });
     },
