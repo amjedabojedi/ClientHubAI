@@ -46,6 +46,7 @@ interface QuestionForm {
   options: string[];
   required: boolean;
   scoreValues: number[];
+  sortOrder?: number;
 }
 
 interface SectionForm {
@@ -91,8 +92,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           type: q.questionType,
           options: q.options || [],
           required: q.isRequired,
-          scoreValues: q.scoreValues || []
-        })) || []
+          scoreValues: q.scoreValues || [],
+          sortOrder: q.sortOrder || 0
+        })).sort((a, b) => a.sortOrder - b.sortOrder) || []
       }))
       .sort((a, b) => a.order - b.order) // Sort by order field
   });
@@ -134,7 +136,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       type: "short_text",
       options: [],
       required: false,
-      scoreValues: []
+      scoreValues: [],
+      sortOrder: sections[sectionIndex].questions.length
     };
     
     const updated = [...sections];
@@ -205,6 +208,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     questions[questionIndex] = questions[questionIndex - 1];
     questions[questionIndex - 1] = temp;
     
+    // Update sortOrder values to match new positions
+    questions.forEach((question, index) => {
+      question.sortOrder = index;
+    });
+    
     updated[sectionIndex] = {
       ...updated[sectionIndex],
       questions
@@ -224,6 +232,11 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     updatedQuestions[questionIndex] = updatedQuestions[questionIndex + 1];
     updatedQuestions[questionIndex + 1] = temp;
     
+    // Update sortOrder values to match new positions
+    updatedQuestions.forEach((question, index) => {
+      question.sortOrder = index;
+    });
+    
     updated[sectionIndex] = {
       ...updated[sectionIndex],
       questions: updatedQuestions
@@ -239,7 +252,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       type: originalQuestion.type,
       options: [...originalQuestion.options],
       required: originalQuestion.required,
-      scoreValues: [...originalQuestion.scoreValues]
+      scoreValues: [...originalQuestion.scoreValues],
+      sortOrder: questionIndex + 1
     };
     
     const newQuestions = [...updated[sectionIndex].questions];
@@ -453,7 +467,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             questionText: question.text,
             questionType: question.type as any,
             isRequired: question.required,
-            sortOrder: section.questions.indexOf(question)
+            sortOrder: question.sortOrder !== undefined ? question.sortOrder : section.questions.indexOf(question)
           };
 
           let questionId = question.id;

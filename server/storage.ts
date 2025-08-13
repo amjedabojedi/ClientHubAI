@@ -2705,7 +2705,8 @@ export class DatabaseStorage implements IStorage {
   async getAssessmentSections(templateId: number): Promise<any[]> {
     try {
       const sections = await db.select().from(assessmentSections)
-        .where(eq(assessmentSections.templateId, templateId));
+        .where(eq(assessmentSections.templateId, templateId))
+        .orderBy(asc(assessmentSections.sortOrder));
 
       if (!sections || sections.length === 0) {
         return [];
@@ -2715,7 +2716,8 @@ export class DatabaseStorage implements IStorage {
       const sectionsWithQuestions = [];
       for (const section of sections) {
         const questions = await db.select().from(assessmentQuestions)
-          .where(eq(assessmentQuestions.sectionId, section.id));
+          .where(eq(assessmentQuestions.sectionId, section.id))
+          .orderBy(asc(assessmentQuestions.sortOrder));
 
         // Get options for each question
         const questionsWithOptions = [];
