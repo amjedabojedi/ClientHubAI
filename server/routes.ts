@@ -10,6 +10,7 @@ import { z } from "zod";
 
 // Internal Services
 import { storage } from "./storage";
+// Auth will be implemented later, for now removing to test audit logging
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { db } from "./db";
