@@ -2794,6 +2794,44 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Generate AI assessment report
+  app.post("/api/assessments/assignments/:assignmentId/generate-report", async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      // Get assignment details, responses, and sections
+      const assignment = await storage.getAssessmentAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assessment assignment not found" });
+      }
+
+      const responses = await storage.getAssessmentResponses(assignmentId);
+      const sections = await storage.getAssessmentSections(assignment.templateId);
+
+      // Generate the report using AI
+      const { generateAssessmentReport } = await import("../ai/openai");
+      const generatedContent = await generateAssessmentReport(assignment, responses, sections);
+
+      // Save the generated report
+      const reportData = {
+        assignmentId,
+        generatedContent,
+        reportData: JSON.stringify({ responses, sections }),
+        generatedAt: new Date(),
+        createdById: 17 // Valid therapist ID
+      };
+
+      const report = await storage.createAssessmentReport(reportData);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error('Error generating assessment report:', error);
+      res.status(500).json({ message: "Failed to generate assessment report" });
+    }
+  });
+
   // Service Management API
   app.get("/api/services", async (req, res) => {
     try {

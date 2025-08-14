@@ -438,6 +438,83 @@ Return only a JSON array of strings, each suggestion should be 1-2 sentences max
   }
 }
 
+// Assessment Report Generation
+export async function generateAssessmentReport(
+  assignment: any, 
+  responses: any[], 
+  sections: any[]
+): Promise<string> {
+  const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts. Use third-person narrative format suitable for clinical documentation.
+
+Key requirements:
+- Professional clinical language
+- Third-person narrative style
+- Evidence-based observations
+- Structured by assessment sections
+- Include specific client responses when relevant
+- Follow clinical documentation standards`;
+
+  // Build the user prompt with all section data
+  let userPrompt = `Generate a comprehensive assessment report for ${assignment.client?.fullName || 'Client'}.
+
+Assessment: ${assignment.template?.name || 'Assessment'}
+Client ID: ${assignment.client?.clientId || 'N/A'}
+Completion Date: ${assignment.completedAt ? new Date(assignment.completedAt).toLocaleDateString() : 'N/A'}
+
+`;
+
+  // Add each section with its responses and AI prompt
+  sections.forEach(section => {
+    const sectionResponses = responses.filter(r => 
+      section.questions?.some(q => q.id === r.questionId)
+    );
+
+    if (sectionResponses.length > 0) {
+      userPrompt += `\n## ${section.title}\n`;
+      
+      if (section.aiReportPrompt) {
+        userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+      }
+
+      userPrompt += `Responses:\n`;
+      sectionResponses.forEach(response => {
+        const question = section.questions?.find(q => q.id === response.questionId);
+        if (question) {
+          userPrompt += `- ${question.questionText}: `;
+          
+          if (response.responseText) {
+            userPrompt += response.responseText;
+          } else if (response.selectedOptions && question.options) {
+            const selectedTexts = response.selectedOptions
+              .map(index => question.options[index])
+              .filter(Boolean);
+            userPrompt += selectedTexts.join(', ');
+          } else if (response.ratingValue !== null) {
+            userPrompt += `Rating: ${response.ratingValue}`;
+          }
+          userPrompt += '\n';
+        }
+      });
+    }
+  });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.6,
+      max_tokens: 3000,
+    });
+
+    return response.choices[0].message.content || '';
+  } catch (error) {
+    throw new Error(`Assessment report generation failed: ${error.message}`);
+  }
+}
+
 export async function generateClinicalReport(sessionNoteData: any): Promise<string> {
   const systemPrompt = `You are a licensed clinical psychologist. Generate a formal, professional clinical report in third-person narrative format. Use flowing prose suitable for official medical records, insurance documentation, and clinical case files.
 

@@ -21,7 +21,8 @@ import {
   AlertCircle,
   ClipboardList,
   User,
-  Clock
+  Clock,
+  FileText
 } from "lucide-react";
 
 // Utils and Types
@@ -208,6 +209,28 @@ export default function AssessmentCompletionPage() {
     }
   });
 
+  // Generate AI report mutation
+  const generateReportMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/assessments/assignments/${assignmentId}/generate-report`, "POST", {});
+    },
+    onSuccess: (report) => {
+      toast({
+        title: "AI Report Generated",
+        description: "Professional assessment report has been created successfully.",
+      });
+      // Navigate to the report view
+      setLocation(`/assessments/${assignmentId}/report`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Report Generation Failed",
+        description: "There was an error generating the assessment report. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleResponseChange = (questionId: number, value: any, type: string) => {
     setResponses(prev => ({
       ...prev,
@@ -245,6 +268,10 @@ export default function AssessmentCompletionPage() {
 
   const handleCompleteAssessment = () => {
     completeAssessmentMutation.mutate();
+  };
+
+  const handleGenerateReport = () => {
+    generateReportMutation.mutate();
   };
 
   const renderQuestion = (question: AssessmentQuestion) => {
@@ -572,14 +599,25 @@ export default function AssessmentCompletionPage() {
                 Next Section
               </Button>
             ) : (
-              <Button
-                onClick={handleCompleteAssessment}
-                disabled={isSubmitting || completeAssessmentMutation.isPending}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Complete Assessment
-              </Button>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={handleGenerateReport}
+                  disabled={generateReportMutation.isPending}
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
+                </Button>
+                <Button
+                  onClick={handleCompleteAssessment}
+                  disabled={isSubmitting || completeAssessmentMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Complete Assessment
+                </Button>
+              </div>
             )}
           </div>
         </div>
