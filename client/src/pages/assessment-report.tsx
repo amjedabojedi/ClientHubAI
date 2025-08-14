@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 
 // UI Components
@@ -20,12 +20,15 @@ import {
 } from "lucide-react";
 
 // Utils
-import { getQueryFn } from "@/lib/queryClient";
+import { getQueryFn, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AssessmentReportPage() {
   const [match, params] = useRoute("/assessments/:assignmentId/report");
   const [, setLocation] = useLocation();
   const assignmentId = params?.assignmentId ? parseInt(params.assignmentId) : null;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch assessment assignment details
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
@@ -46,6 +49,35 @@ export default function AssessmentReportPage() {
     queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignment?.templateId,
+  });
+
+  // Fetch existing AI report if available
+  const { data: existingReport } = useQuery({
+    queryKey: [`/api/assessments/assignments/${assignmentId}/report`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!assignmentId,
+  });
+
+  // Generate AI report mutation
+  const generateReportMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/assessments/assignments/${assignmentId}/generate-report`, "POST", {});
+    },
+    onSuccess: (report) => {
+      toast({
+        title: "AI Report Generated",
+        description: "Professional assessment report has been created successfully.",
+      });
+      // Refresh the report data
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Report Generation Failed",
+        description: "There was an error generating the assessment report. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
 
   if (assignmentLoading || responsesLoading) {
@@ -158,6 +190,18 @@ export default function AssessmentReportPage() {
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Completed
               </Badge>
+              {!existingReport && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => generateReportMutation.mutate()}
+                  disabled={generateReportMutation.isPending}
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
+                </Button>
+              )}
               <Button variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
@@ -223,6 +267,39 @@ export default function AssessmentReportPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI Generated Report */}
+        {existingReport?.generatedContent && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-green-600" />
+                <span>AI Generated Clinical Report</span>
+                <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+                  Professional Report
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose max-w-none">
+                <div className="bg-slate-50 p-6 rounded-lg border">
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {existingReport.generatedContent}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
+                  <div className="text-sm text-slate-600">
+                    Generated on {new Date(existingReport.generatedAt).toLocaleDateString()} at {new Date(existingReport.generatedAt).toLocaleTimeString()}
+                  </div>
+                  <Button variant="outline" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Report
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Assessment Description */}
         {assignment.template.description && (
