@@ -38,7 +38,7 @@ import {
   FileText,
   AlertCircle,
 } from "lucide-react";
-import { getQueryFn } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AuditLog {
   id: number;
@@ -70,13 +70,11 @@ export default function HIPAAAuditPage() {
   // Fetch audit logs
   const { data: auditLogs = [], isLoading } = useQuery({
     queryKey: ['/api/audit/logs', filters],
-    queryFn: getQueryFn(),
   });
 
   // Fetch audit statistics
   const { data: auditStats } = useQuery({
     queryKey: ['/api/audit/stats', filters],
-    queryFn: getQueryFn(),
   });
 
   const getRiskLevelColor = (level: string) => {
