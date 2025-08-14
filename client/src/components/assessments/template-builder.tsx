@@ -94,7 +94,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           required: q.isRequired,
           scoreValues: q.scoreValues || [],
           sortOrder: q.sortOrder || 0
-        })).sort((a, b) => a.sortOrder - b.sortOrder) || []
+        })).sort((a: any, b: any) => a.sortOrder - b.sortOrder) || []
       }))
       .sort((a, b) => a.order - b.order) // Sort by order field
   });
@@ -154,7 +154,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     const question = { ...updated[sectionIndex].questions[questionIndex] };
     
     // Update the field first
-    question[field] = value;
+    (question as any)[field] = value;
     
     // If changing question type to one that needs options, initialize them appropriately
     if (field === 'type' && (value === 'multiple_choice' || value === 'rating_scale' || value === 'checkbox')) {
@@ -197,7 +197,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     setSections(updated);
   };
 
-  const moveQuestionUp = (sectionIndex: number, questionIndex: number) => {
+  const moveQuestionUp = async (sectionIndex: number, questionIndex: number) => {
     if (questionIndex === 0) return; // Can't move first question up
     
     console.log('Moving question up:', questionIndex, sections[sectionIndex].questions[questionIndex]?.text);
@@ -218,9 +218,34 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       questions
     };
     setSections(updated);
+    
+    // Auto-save the reordering if questions have IDs (existing questions)
+    if (questions[questionIndex]?.id && questions[questionIndex - 1]?.id) {
+      try {
+        // Update both questions' sort orders in the database
+        await Promise.all([
+          apiRequest(`/api/assessments/questions/${questions[questionIndex].id}`, "PATCH", {
+            sortOrder: questionIndex
+          }),
+          apiRequest(`/api/assessments/questions/${questions[questionIndex - 1].id}`, "PATCH", {
+            sortOrder: questionIndex - 1
+          })
+        ]);
+        
+        // Refresh the data to ensure consistency
+        queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+      } catch (error) {
+        console.error('Failed to save question reorder:', error);
+        toast({
+          title: "Reorder Failed",
+          description: "Could not save question order. Please try the Save Template button.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
-  const moveQuestionDown = (sectionIndex: number, questionIndex: number) => {
+  const moveQuestionDown = async (sectionIndex: number, questionIndex: number) => {
     const questions = sections[sectionIndex].questions;
     if (questionIndex === questions.length - 1) return; // Can't move last question down
     
@@ -242,6 +267,31 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       questions: updatedQuestions
     };
     setSections(updated);
+    
+    // Auto-save the reordering if questions have IDs (existing questions)
+    if (updatedQuestions[questionIndex]?.id && updatedQuestions[questionIndex + 1]?.id) {
+      try {
+        // Update both questions' sort orders in the database
+        await Promise.all([
+          apiRequest(`/api/assessments/questions/${updatedQuestions[questionIndex].id}`, "PATCH", {
+            sortOrder: questionIndex
+          }),
+          apiRequest(`/api/assessments/questions/${updatedQuestions[questionIndex + 1].id}`, "PATCH", {
+            sortOrder: questionIndex + 1
+          })
+        ]);
+        
+        // Refresh the data to ensure consistency
+        queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+      } catch (error) {
+        console.error('Failed to save question reorder:', error);
+        toast({
+          title: "Reorder Failed",
+          description: "Could not save question order. Please try the Save Template button.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const copyQuestion = (sectionIndex: number, questionIndex: number) => {
