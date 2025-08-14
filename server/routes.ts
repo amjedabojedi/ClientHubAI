@@ -3785,8 +3785,8 @@ This happens because only the file metadata was stored, not the actual file cont
     try {
       const { startDate, endDate, riskLevel, hipaaOnly, action, userId } = req.query;
       
-      // Join with clients table to get client names
-      const logs = await db.select({
+      // Build query with filters
+      let query = db.select({
         id: auditLogs.id,
         userId: auditLogs.userId,
         username: auditLogs.username,
@@ -3804,9 +3804,45 @@ This happens because only the file metadata was stored, not the actual file cont
         timestamp: auditLogs.timestamp,
       })
       .from(auditLogs)
-      .leftJoin(clients, eq(auditLogs.clientId, clients.id))
-      .orderBy(desc(auditLogs.timestamp))
-      .limit(500);
+      .leftJoin(clients, eq(auditLogs.clientId, clients.id));
+
+      // Apply filters
+      const whereConditions = [];
+      
+      if (startDate) {
+        whereConditions.push(gte(auditLogs.timestamp, new Date(startDate as string)));
+      }
+      
+      if (endDate) {
+        const endDateTime = new Date(endDate as string);
+        endDateTime.setHours(23, 59, 59, 999); // End of day
+        whereConditions.push(lte(auditLogs.timestamp, endDateTime));
+      }
+      
+      if (riskLevel && riskLevel !== 'all') {
+        whereConditions.push(eq(auditLogs.riskLevel, riskLevel as string));
+      }
+      
+      if (action && action !== 'all') {
+        whereConditions.push(eq(auditLogs.action, action as string));
+      }
+      
+      if (userId && userId !== '') {
+        whereConditions.push(sql`${auditLogs.username} ILIKE ${`%${userId}%`}`);
+      }
+      
+      if (hipaaOnly === 'true') {
+        whereConditions.push(eq(auditLogs.hipaaRelevant, true));
+      }
+      
+      // Apply WHERE conditions if any exist
+      if (whereConditions.length > 0) {
+        query = query.where(and(...whereConditions));
+      }
+      
+      const logs = await query
+        .orderBy(desc(auditLogs.timestamp))
+        .limit(500);
       
       res.json(logs);
     } catch (error) {
@@ -3823,11 +3859,23 @@ This happens because only the file metadata was stored, not the actual file cont
       const highRiskEvents = await db.select({ count: sql`count(*)` }).from(auditLogs).where(sql`${auditLogs.riskLevel} IN ('high', 'critical')`);
       const failedAttempts = await db.select({ count: sql`count(*)` }).from(loginAttempts).where(eq(loginAttempts.success, false));
 
+      // Get top active users
+      const userActivity = await db.select({
+        username: auditLogs.username,
+        activityCount: sql`count(*)`,
+        lastActivity: sql`max(${auditLogs.timestamp})`,
+      })
+      .from(auditLogs)
+      .groupBy(auditLogs.username)
+      .orderBy(desc(sql`count(*)`))
+      .limit(10);
+
       const stats = {
         totalActivities: Number(totalActivities[0]?.count || 0),
         phiAccess: Number(phiAccess[0]?.count || 0),
         highRiskEvents: Number(highRiskEvents[0]?.count || 0),
         failedAttempts: Number(failedAttempts[0]?.count || 0),
+        userActivity,
       };
       
       res.json(stats);

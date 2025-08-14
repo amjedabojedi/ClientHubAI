@@ -58,6 +58,12 @@ interface AuditLog {
   details: string;
 }
 
+interface UserActivity {
+  username: string;
+  activityCount: number;
+  lastActivity: string;
+}
+
 export default function HIPAAAuditPage() {
   const [filters, setFilters] = useState({
     startDate: format(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
@@ -76,7 +82,7 @@ export default function HIPAAAuditPage() {
   // Fetch audit statistics
   const { data: auditStats = {} } = useQuery({
     queryKey: ['/api/audit/stats', filters],
-  }) as { data: { totalActivities: number; phiAccess: number; highRiskEvents: number; failedAttempts: number } };
+  }) as { data: { totalActivities: number; phiAccess: number; highRiskEvents: number; failedAttempts: number; userActivity: UserActivity[] } };
 
   const getRiskLevelColor = (level: string) => {
     switch (level) {
@@ -197,11 +203,11 @@ export default function HIPAAAuditPage() {
               Audit Filters
             </CardTitle>
             <CardDescription>
-              Filter audit logs by date range, risk level, and activity type
+              Filter audit logs by date range, user, risk level, and activity type to track who is making changes
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <Label htmlFor="startDate">Start Date</Label>
                 <Input
@@ -236,6 +242,17 @@ export default function HIPAAAuditPage() {
                     <SelectItem value="low">Low</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="user">User Filter</Label>
+                <Input
+                  id="user"
+                  type="text"
+                  placeholder="Filter by username..."
+                  value={filters.userId}
+                  onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
+                />
               </div>
               
               <div>
@@ -276,6 +293,44 @@ export default function HIPAAAuditPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* User Activity Summary */}
+        {auditStats.userActivity && auditStats.userActivity.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <UserCheck className="w-5 h-5 mr-2" />
+                User Activity Summary
+              </CardTitle>
+              <CardDescription>
+                Track who is making the most changes in the system
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {auditStats.userActivity.slice(0, 5).map((user, index) => (
+                  <div key={user.username} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm font-semibold mr-3">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{user.username}</p>
+                        <p className="text-sm text-slate-500">
+                          Last activity: {format(new Date(user.lastActivity), 'MMM dd, HH:mm')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-slate-900">{user.activityCount}</p>
+                      <p className="text-sm text-slate-500">activities</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Audit Log Table */}
         <Card>
