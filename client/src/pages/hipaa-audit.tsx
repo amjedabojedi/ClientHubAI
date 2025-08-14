@@ -49,6 +49,7 @@ interface AuditLog {
   resourceType: string;
   resourceId: string;
   clientId: number | null;
+  clientName: string | null;
   ipAddress: string;
   userAgent: string;
   riskLevel: string;
@@ -70,12 +71,12 @@ export default function HIPAAAuditPage() {
   // Fetch audit logs
   const { data: auditLogs = [], isLoading } = useQuery({
     queryKey: ['/api/audit/logs', filters],
-  });
+  }) as { data: AuditLog[]; isLoading: boolean };
 
   // Fetch audit statistics
-  const { data: auditStats } = useQuery({
+  const { data: auditStats = {} } = useQuery({
     queryKey: ['/api/audit/stats', filters],
-  });
+  }) as { data: { totalActivities: number; phiAccess: number; highRiskEvents: number; failedAttempts: number } };
 
   const getRiskLevelColor = (level: string) => {
     switch (level) {
@@ -97,8 +98,13 @@ export default function HIPAAAuditPage() {
 
   const exportAuditReport = () => {
     // This would trigger a download of the audit report
-    const params = new URLSearchParams(filters);
-    window.open(`/api/audit/export?${params}`, '_blank');
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== '' && value !== false) {
+        params.append(key, String(value));
+      }
+    });
+    window.open(`/api/audit/export?${params.toString()}`, '_blank');
   };
 
   if (isLoading) {
@@ -287,7 +293,7 @@ export default function HIPAAAuditPage() {
                     <TableHead>Timestamp</TableHead>
                     <TableHead>User</TableHead>
                     <TableHead>Action</TableHead>
-                    <TableHead>Resource</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Result</TableHead>
                     <TableHead>Risk Level</TableHead>
                     <TableHead>PHI</TableHead>
@@ -321,8 +327,13 @@ export default function HIPAAAuditPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div className="font-medium">{log.resourceType}</div>
-                            <div className="text-gray-500">ID: {log.resourceId}</div>
+                            {log.clientName ? (
+                              <div className="font-medium">{log.clientName}</div>
+                            ) : log.resourceType === 'client' && log.clientId ? (
+                              <div className="text-gray-500">Client ID: {log.clientId}</div>
+                            ) : (
+                              <div className="text-gray-400">—</div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>

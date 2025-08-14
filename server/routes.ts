@@ -13,8 +13,8 @@ import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { db } from "./db";
-import { users, auditLogs, loginAttempts } from "@shared/schema";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 
@@ -3784,14 +3784,29 @@ This happens because only the file metadata was stored, not the actual file cont
     try {
       const { startDate, endDate, riskLevel, hipaaOnly, action, userId } = req.query;
       
-      let query = db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp));
+      // Join with clients table to get client names
+      const logs = await db.select({
+        id: auditLogs.id,
+        userId: auditLogs.userId,
+        username: auditLogs.username,
+        action: auditLogs.action,
+        result: auditLogs.result,
+        resourceType: auditLogs.resourceType,
+        resourceId: auditLogs.resourceId,
+        clientId: auditLogs.clientId,
+        clientName: clients.fullName,
+        ipAddress: auditLogs.ipAddress,
+        userAgent: auditLogs.userAgent,
+        riskLevel: auditLogs.riskLevel,
+        hipaaRelevant: auditLogs.hipaaRelevant,
+        details: auditLogs.details,
+        timestamp: auditLogs.timestamp,
+      })
+      .from(auditLogs)
+      .leftJoin(clients, eq(auditLogs.clientId, clients.id))
+      .orderBy(desc(auditLogs.timestamp))
+      .limit(500);
       
-      // Apply filters (basic implementation)
-      if (startDate) {
-        // query = query.where(gte(auditLogs.timestamp, new Date(startDate as string)));
-      }
-      
-      const logs = await query.limit(500).execute();
       res.json(logs);
     } catch (error) {
       console.error("Error fetching audit logs:", error);
@@ -3801,12 +3816,19 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.get("/api/audit/stats", async (req, res) => {
     try {
+      // Calculate real statistics from actual audit log data
+      const totalActivities = await db.select({ count: sql`count(*)` }).from(auditLogs);
+      const phiAccess = await db.select({ count: sql`count(*)` }).from(auditLogs).where(eq(auditLogs.hipaaRelevant, true));
+      const highRiskEvents = await db.select({ count: sql`count(*)` }).from(auditLogs).where(sql`${auditLogs.riskLevel} IN ('high', 'critical')`);
+      const failedAttempts = await db.select({ count: sql`count(*)` }).from(loginAttempts).where(eq(loginAttempts.success, false));
+
       const stats = {
-        totalActivities: 150, // Would be calculated from actual data
-        phiAccess: 45,
-        highRiskEvents: 8,
-        failedAttempts: 3,
+        totalActivities: Number(totalActivities[0]?.count || 0),
+        phiAccess: Number(phiAccess[0]?.count || 0),
+        highRiskEvents: Number(highRiskEvents[0]?.count || 0),
+        failedAttempts: Number(failedAttempts[0]?.count || 0),
       };
+      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching audit stats:", error);
