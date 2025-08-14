@@ -32,12 +32,13 @@ interface AssessmentQuestion {
   id: number;
   sectionId: number;
   questionText: string;
-  questionType: 'short_text' | 'long_text' | 'multiple_choice' | 'rating_scale' | 'checkbox';
+  questionType: 'short_text' | 'long_text' | 'multiple_choice' | 'rating_scale' | 'checkbox' | 'number' | 'date';
   isRequired: boolean;
   options?: string[];
   scoreValues?: number[];
   ratingMin?: number;
   ratingMax?: number;
+  ratingLabels?: string[];
   sortOrder: number;
 }
 
@@ -124,6 +125,36 @@ export default function AssessmentCompletionPage() {
     }
   }, [existingResponses]);
 
+  // Auto-save functionality - save responses every 30 seconds
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      Object.keys(responses).forEach((questionId) => {
+        saveResponse(parseInt(questionId));
+      });
+    }, 30000); // Save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [responses]);
+
+  // Save progress on page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Save all current responses
+      Object.keys(responses).forEach((questionId) => {
+        saveResponse(parseInt(questionId));
+      });
+      
+      // Show warning if there are unsaved changes
+      if (Object.keys(responses).length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [responses]);
+
   // Save response mutation
   const saveResponseMutation = useMutation({
     mutationFn: async (responseData: any) => {
@@ -178,7 +209,7 @@ export default function AssessmentCompletionPage() {
       await saveResponseMutation.mutateAsync({
         assignmentId,
         questionId,
-        responderId: 1, // Current therapist ID - should be from auth context
+        responderId: 17, // Valid therapist ID - Abi Cherian
         responseText: response.responseText || null,
         selectedOptions: response.selectedOptions || null,
         ratingValue: response.ratingValue || null
@@ -293,6 +324,29 @@ export default function AssessmentCompletionPage() {
               </div>
             ))}
           </div>
+        );
+
+      case 'number':
+        return (
+          <Input
+            type="number"
+            value={response.responseText || ''}
+            onChange={(e) => handleResponseChange(question.id, e.target.value, 'responseText')}
+            onBlur={() => saveResponse(question.id)}
+            placeholder="Enter a number..."
+            className="w-full"
+          />
+        );
+
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={response.responseText || ''}
+            onChange={(e) => handleResponseChange(question.id, e.target.value, 'responseText')}
+            onBlur={() => saveResponse(question.id)}
+            className="w-full"
+          />
         );
 
       default:
@@ -469,6 +523,23 @@ export default function AssessmentCompletionPage() {
           </div>
           
           <div className="flex space-x-2">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                Object.keys(responses).forEach((questionId) => {
+                  saveResponse(parseInt(questionId));
+                });
+                toast({
+                  title: "Progress saved",
+                  description: "Your responses have been saved. You can continue later.",
+                });
+              }}
+              disabled={saveResponseMutation.isPending}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saveResponseMutation.isPending ? 'Saving...' : 'Save Progress'}
+            </Button>
+            
             {currentSection < sections.length - 1 ? (
               <Button
                 onClick={() => setCurrentSection(currentSection + 1)}
