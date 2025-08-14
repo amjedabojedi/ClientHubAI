@@ -115,9 +115,23 @@ export default function AssessmentCompletionPage() {
     if (existingResponses.length > 0) {
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
+        // Handle selectedOptions - database may return as JSON array or null
+        let selectedOptions = response.selectedOptions;
+        if (selectedOptions) {
+          // If it's already an array, use it directly
+          if (Array.isArray(selectedOptions)) {
+            selectedOptions = selectedOptions.map((val: any) => parseInt(val));
+          } else {
+            // Handle other formats by parsing as array
+            selectedOptions = [];
+          }
+        } else {
+          selectedOptions = [];
+        }
+        
         responseMap[response.questionId] = {
-          responseText: response.responseText,
-          selectedOptions: response.selectedOptions,
+          responseText: response.responseText || '',
+          selectedOptions: selectedOptions,
           ratingValue: response.ratingValue
         };
       });
@@ -205,17 +219,24 @@ export default function AssessmentCompletionPage() {
     const response = responses[questionId];
     if (!response) return;
 
+    // Only save if there's actually some data
+    const hasData = response.responseText || 
+                   (response.selectedOptions && response.selectedOptions.length > 0) || 
+                   response.ratingValue;
+    
+    if (!hasData) return; // Don't save empty responses
+
     try {
       await saveResponseMutation.mutateAsync({
         assignmentId,
         questionId,
         responderId: 17, // Valid therapist ID - Abi Cherian
         responseText: response.responseText || null,
-        selectedOptions: response.selectedOptions || null,
+        selectedOptions: (response.selectedOptions && response.selectedOptions.length > 0) ? response.selectedOptions : null,
         ratingValue: response.ratingValue || null
       });
     } catch (error) {
-
+      console.error('Failed to save response:', error);
     }
   };
 
