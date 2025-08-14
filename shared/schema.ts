@@ -35,6 +35,20 @@ export const notificationTypeEnum = pgEnum('notification_type', [
 export const notificationPriorityEnum = pgEnum('notification_priority', ['low', 'medium', 'high', 'urgent']);
 export const notificationDeliveryMethodEnum = pgEnum('notification_delivery_method', ['in_app', 'email', 'sms', 'push']);
 export const notificationTimingEnum = pgEnum('notification_timing', ['immediate', 'hourly_digest', 'daily_digest', 'weekly_digest']);
+
+// HIPAA Audit Logging Enums
+export const auditActionEnum = pgEnum('audit_action', [
+  'login', 'logout', 'login_failed', 'password_changed', 'account_locked',
+  'client_viewed', 'client_created', 'client_updated', 'client_deleted', 'client_search',
+  'session_viewed', 'session_created', 'session_updated', 'session_deleted',
+  'document_viewed', 'document_uploaded', 'document_downloaded', 'document_deleted',
+  'assessment_viewed', 'assessment_created', 'assessment_updated', 'assessment_completed',
+  'notes_viewed', 'notes_created', 'notes_updated', 'notes_deleted',
+  'billing_viewed', 'billing_created', 'billing_updated',
+  'report_generated', 'data_exported', 'system_access', 'unauthorized_access'
+]);
+
+export const auditResultEnum = pgEnum('audit_result', ['success', 'failure', 'blocked', 'warning']);
 // Dynamic roles and permissions system
 export const roles = pgTable("roles", {
   id: serial("id").primaryKey(),
@@ -794,6 +808,73 @@ export const notificationTemplates = pgTable("notification_templates", {
   activeIdx: index("notification_templates_active_idx").on(table.isActive),
 }));
 
+// HIPAA Audit Logging System
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: 'set null' }),
+  username: varchar("username", { length: 100 }), // Store username for records even if user deleted
+  action: auditActionEnum("action").notNull(),
+  result: auditResultEnum("result").notNull(),
+  resourceType: varchar("resource_type", { length: 50 }), // 'client', 'session', 'document', etc.
+  resourceId: varchar("resource_id", { length: 50 }), // ID of the resource accessed
+  clientId: integer("client_id").references(() => clients.id, { onDelete: 'set null' }), // PHI access tracking
+  ipAddress: varchar("ip_address", { length: 45 }), // IPv4/IPv6
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id", { length: 255 }), // Browser/app session ID
+  details: text("details"), // JSON with additional context
+  riskLevel: varchar("risk_level", { length: 20 }).default('low'), // low, medium, high, critical
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  
+  // Additional HIPAA-specific fields
+  hipaaRelevant: boolean("hipaa_relevant").notNull().default(false), // PHI access flag
+  dataFields: text("data_fields"), // JSON array of specific PHI fields accessed
+  accessReason: text("access_reason"), // Business justification for access
+  
+  // Index for fast queries
+}, (table) => ({
+  userIdx: index("audit_logs_user_idx").on(table.userId),
+  timestampIdx: index("audit_logs_timestamp_idx").on(table.timestamp),
+  actionIdx: index("audit_logs_action_idx").on(table.action),
+  clientIdx: index("audit_logs_client_idx").on(table.clientId),
+  hipaaIdx: index("audit_logs_hipaa_idx").on(table.hipaaRelevant),
+  riskIdx: index("audit_logs_risk_idx").on(table.riskLevel),
+  userTimestampIdx: index("audit_logs_user_timestamp_idx").on(table.userId, table.timestamp),
+}));
+
+// Login/Session tracking for security
+export const userSessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastActivity: timestamp("last_activity").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  tokenIdx: index("user_sessions_token_idx").on(table.sessionToken),
+  userIdx: index("user_sessions_user_idx").on(table.userId),
+  activeIdx: index("user_sessions_active_idx").on(table.isActive),
+  expiresIdx: index("user_sessions_expires_idx").on(table.expiresAt),
+}));
+
+// Failed login attempts tracking
+export const loginAttempts = pgTable("login_attempts", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 100 }).notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  success: boolean("success").notNull(),
+  failureReason: varchar("failure_reason", { length: 100 }), // 'invalid_password', 'account_locked', etc.
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+}, (table) => ({
+  usernameIdx: index("login_attempts_username_idx").on(table.username),
+  ipIdx: index("login_attempts_ip_idx").on(table.ipAddress),
+  timestampIdx: index("login_attempts_timestamp_idx").on(table.timestamp),
+  successIdx: index("login_attempts_success_idx").on(table.success),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, {
@@ -823,6 +904,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   assessmentTemplates: many(assessmentTemplates),
   assessmentResponses: many(assessmentResponses),
   roomBookings: many(roomBookings),
+  auditLogs: many(auditLogs),
+  userSessions: many(userSessions),
 }));
 
 export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
@@ -1136,6 +1219,25 @@ export const notificationTemplatesRelations = relations(notificationTemplates, (
   triggers: many(notificationTriggers),
 }));
 
+// HIPAA Audit Logging Relations
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+  client: one(clients, {
+    fields: [auditLogs.clientId],
+    references: [clients.id],
+  }),
+}));
+
+export const userSessionsRelations = relations(userSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSessions.userId],
+    references: [users.id],
+  }),
+}));
+
 // Zod schemas
 export const insertRoleSchema = createInsertSchema(roles).omit({
   id: true,
@@ -1365,6 +1467,30 @@ export const insertNotificationTemplateSchema = createInsertSchema(notificationT
   createdAt: true,
   updatedAt: true,
 });
+
+// HIPAA Audit Logging Schemas
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({
+  id: true,
+  timestamp: true,
+});
+
+// Types
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof insertAuditLogSchema._type;
+export type UserSession = typeof userSessions.$inferSelect;
+export type InsertUserSession = typeof insertUserSessionSchema._type;
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type InsertLoginAttempt = typeof insertLoginAttemptSchema._type;
 
 // Export types
 export type Role = typeof roles.$inferSelect;

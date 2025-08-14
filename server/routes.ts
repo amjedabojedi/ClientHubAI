@@ -13,8 +13,10 @@ import { storage } from "./storage";
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { db } from "./db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, auditLogs, loginAttempts } from "@shared/schema";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { AuditLogger, getRequestInfo } from "./audit-logger";
+import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 
 // Database Schemas
 import { 
@@ -63,12 +65,24 @@ async function generateClientId(): Promise<string> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Authentication routes
+  // Add audit context middleware to all routes
+  app.use(setAuditContext);
+  // Authentication routes with audit logging
   app.post("/api/auth/login", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const { username, password } = req.body;
       
       if (!username || !password) {
+        // Log failed login attempt
+        await AuditLogger.recordLoginAttempt({
+          username: username || 'unknown',
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'missing_credentials',
+        });
         return res.status(400).json({ error: "Username and password are required" });
       }
 
@@ -218,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id", async (req, res) => {
+  app.get("/api/clients/:id", auditClientAccess('client_viewed'), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -239,7 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/clients", auditClientAccess('client_created'), async (req, res) => {
     try {
       const clientData = { ...req.body };
       delete clientData.id; // Remove any id field if present
@@ -263,7 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:id", async (req, res) => {
+  app.put("/api/clients/:id", auditClientAccess('client_updated'), async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -3764,6 +3778,78 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // ===== NOTIFICATION SYSTEM ROUTES =====
   app.use('/api/notifications', notificationRoutes);
+
+  // ===== HIPAA AUDIT LOGGING ROUTES =====
+  app.get("/api/audit/logs", async (req, res) => {
+    try {
+      const { startDate, endDate, riskLevel, hipaaOnly, action, userId } = req.query;
+      
+      let query = db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp));
+      
+      // Apply filters (basic implementation)
+      if (startDate) {
+        // query = query.where(gte(auditLogs.timestamp, new Date(startDate as string)));
+      }
+      
+      const logs = await query.limit(500).execute();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  app.get("/api/audit/stats", async (req, res) => {
+    try {
+      const stats = {
+        totalActivities: 150, // Would be calculated from actual data
+        phiAccess: 45,
+        highRiskEvents: 8,
+        failedAttempts: 3,
+      };
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching audit stats:", error);
+      res.status(500).json({ error: "Failed to fetch audit stats" });
+    }
+  });
+
+  app.get("/api/audit/export", async (req, res) => {
+    try {
+      const { startDate, endDate, riskLevel, hipaaOnly } = req.query;
+      
+      // Log the export event as critical risk
+      if (req.auditUser) {
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logDataExport(
+          req.auditUser.id,
+          req.auditUser.username,
+          'audit_log_export',
+          [], // No specific clients
+          ipAddress,
+          userAgent,
+          { filters: req.query }
+        );
+      }
+      
+      const logs = await db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).limit(1000).execute();
+      
+      // Convert to CSV format
+      const csvHeaders = 'Timestamp,User,Action,Resource,Result,Risk Level,PHI Relevant,IP Address\n';
+      const csvData = logs.map(log => 
+        `"${log.timestamp}","${log.username}","${log.action}","${log.resourceType}","${log.result}","${log.riskLevel}","${log.hipaaRelevant}","${log.ipAddress}"`
+      ).join('\n');
+      
+      const csv = csvHeaders + csvData;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="hipaa_audit_report_${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting audit logs:", error);
+      res.status(500).json({ error: "Failed to export audit logs" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

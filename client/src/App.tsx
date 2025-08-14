@@ -29,6 +29,7 @@ import ChecklistManagementPage from "@/pages/checklist-management";
 import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
 import NotificationsPage from "@/pages/notifications";
+import HIPAAAuditPage from "@/pages/hipaa-audit";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 
 
@@ -63,6 +64,7 @@ function Navigation() {
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/notifications", label: "Notifications", icon: Bell },
+          { path: "/hipaa-audit", label: "HIPAA Audit", icon: Shield },
           { path: "/settings", label: "Settings", icon: Settings },
         ]
       });
@@ -213,6 +215,7 @@ function Router() {
           <Route path="/notifications" component={NotificationsPage} />
           <Route path="/settings" component={SettingsPage} />
           <Route path="/my-profile" component={MyProfilePage} />
+          <Route path="/hipaa-audit" component={HIPAAAuditPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
