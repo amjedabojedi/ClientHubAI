@@ -110,9 +110,9 @@ export default function AssessmentCompletionPage() {
     enabled: !!assignmentId,
   });
 
-  // Load existing responses into state
+  // Load existing responses into state (only when initially empty)
   useEffect(() => {
-    if (existingResponses.length > 0) {
+    if (existingResponses.length > 0 && Object.keys(responses).length === 0) {
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
         // Handle selectedOptions - database may return as JSON array or null
@@ -177,7 +177,8 @@ export default function AssessmentCompletionPage() {
       return apiRequest("/api/assessments/responses", "POST", responseData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
+      // Don't immediately invalidate queries to prevent UI flicker
+      // queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
     }
   });
 
