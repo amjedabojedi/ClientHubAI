@@ -208,11 +208,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     questions[questionIndex] = questions[questionIndex - 1];
     questions[questionIndex - 1] = temp;
     
-    // Update sortOrder values to match new positions
-    questions.forEach((question, index) => {
-      question.sortOrder = index;
-    });
-    
     updated[sectionIndex] = {
       ...updated[sectionIndex],
       questions
@@ -222,18 +217,28 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     // Auto-save the reordering if questions have IDs (existing questions)
     if (questions[questionIndex]?.id && questions[questionIndex - 1]?.id) {
       try {
+        // Swap the sortOrder values of the two questions
+        const currentQuestionNewOrder = questions[questionIndex - 1].sortOrder;
+        const previousQuestionNewOrder = questions[questionIndex].sortOrder;
+        
+        // Update the local state with the swapped sortOrder values
+        questions[questionIndex].sortOrder = currentQuestionNewOrder;
+        questions[questionIndex - 1].sortOrder = previousQuestionNewOrder;
+        
         // Update both questions' sort orders in the database
         await Promise.all([
           apiRequest(`/api/assessments/questions/${questions[questionIndex].id}`, "PATCH", {
-            sortOrder: questionIndex
+            sortOrder: currentQuestionNewOrder
           }),
           apiRequest(`/api/assessments/questions/${questions[questionIndex - 1].id}`, "PATCH", {
-            sortOrder: questionIndex - 1
+            sortOrder: previousQuestionNewOrder
           })
         ]);
         
-        // Refresh the data to ensure consistency
-        queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+        // Small delay before refresh to avoid race conditions
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+        }, 200);
       } catch (error) {
         console.error('Failed to save question reorder:', error);
         toast({
@@ -257,11 +262,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     updatedQuestions[questionIndex] = updatedQuestions[questionIndex + 1];
     updatedQuestions[questionIndex + 1] = temp;
     
-    // Update sortOrder values to match new positions
-    updatedQuestions.forEach((question, index) => {
-      question.sortOrder = index;
-    });
-    
     updated[sectionIndex] = {
       ...updated[sectionIndex],
       questions: updatedQuestions
@@ -271,18 +271,28 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     // Auto-save the reordering if questions have IDs (existing questions)
     if (updatedQuestions[questionIndex]?.id && updatedQuestions[questionIndex + 1]?.id) {
       try {
+        // Swap the sortOrder values of the two questions
+        const currentQuestionNewOrder = updatedQuestions[questionIndex + 1].sortOrder;
+        const nextQuestionNewOrder = updatedQuestions[questionIndex].sortOrder;
+        
+        // Update the local state with the swapped sortOrder values
+        updatedQuestions[questionIndex].sortOrder = currentQuestionNewOrder;
+        updatedQuestions[questionIndex + 1].sortOrder = nextQuestionNewOrder;
+        
         // Update both questions' sort orders in the database
         await Promise.all([
           apiRequest(`/api/assessments/questions/${updatedQuestions[questionIndex].id}`, "PATCH", {
-            sortOrder: questionIndex
+            sortOrder: currentQuestionNewOrder
           }),
           apiRequest(`/api/assessments/questions/${updatedQuestions[questionIndex + 1].id}`, "PATCH", {
-            sortOrder: questionIndex + 1
+            sortOrder: nextQuestionNewOrder
           })
         ]);
         
-        // Refresh the data to ensure consistency
-        queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+        // Small delay before refresh to avoid race conditions
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: [`/api/assessments/templates/${templateId}/sections`] });
+        }, 200);
       } catch (error) {
         console.error('Failed to save question reorder:', error);
         toast({
