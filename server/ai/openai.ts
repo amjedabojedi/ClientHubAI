@@ -439,7 +439,7 @@ Return only a JSON array of strings, each suggestion should be 1-2 sentences max
 }
 
 // Assessment Report Generation
-export async function generateAssessmentReport(
+async function generateAssessmentReport(
   assignment: any, 
   responses: any[], 
   sections: any[]
@@ -645,3 +645,7 @@ export function getFieldOptions(templateId: string, field: string): Array<{key: 
 export function getAllTemplates() {
   return clinicalTemplates;
 }
+
+// Export the assessment report generation function
+export { generateAssessmentReport };
+

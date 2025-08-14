@@ -2812,7 +2812,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const sections = await storage.getAssessmentSections(assignment.templateId);
 
       // Generate the report using AI
-      const { generateAssessmentReport } = await import("../ai/openai");
+      const { generateAssessmentReport } = await import("./ai/openai");
       const generatedContent = await generateAssessmentReport(assignment, responses, sections);
 
       // Save the generated report
