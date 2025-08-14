@@ -141,6 +141,8 @@ export default function AssessmentCompletionPage() {
 
   // Auto-save functionality - save responses every 30 seconds
   useEffect(() => {
+    if (Object.keys(responses).length === 0) return; // Don't auto-save if no responses
+
     const autoSaveInterval = setInterval(() => {
       Object.keys(responses).forEach((questionId) => {
         saveResponse(parseInt(questionId));
@@ -167,7 +169,7 @@ export default function AssessmentCompletionPage() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [responses]);
+  }, []);
 
   // Save response mutation
   const saveResponseMutation = useMutation({
@@ -308,7 +310,7 @@ export default function AssessmentCompletionPage() {
               value={response.ratingValue?.toString() || ''}
               onValueChange={(value) => {
                 handleResponseChange(question.id, parseInt(value), 'ratingValue');
-                setTimeout(() => saveResponse(question.id), 100);
+                setTimeout(() => saveResponse(question.id), 300);
               }}
               className="flex justify-between"
             >
@@ -338,7 +340,8 @@ export default function AssessmentCompletionPage() {
                       ? [...currentOptions, index]
                       : currentOptions.filter((opt: number) => opt !== index);
                     handleResponseChange(question.id, newOptions, 'selectedOptions');
-                    setTimeout(() => saveResponse(question.id), 100);
+                    // Debounced save with longer delay to prevent too many API calls
+                    setTimeout(() => saveResponse(question.id), 500);
                   }}
                 />
                 <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>

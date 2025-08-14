@@ -2578,10 +2578,10 @@ This happens because only the file metadata was stored, not the actual file cont
   app.post("/api/assessments/responses", async (req, res) => {
     try {
       const responseData = req.body;
-      const response = await storage.createAssessmentResponse(responseData);
+      const response = await storage.saveAssessmentResponse(responseData);
       res.status(201).json(response);
     } catch (error) {
-      // Error logged
+      console.error('Error saving assessment response:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
