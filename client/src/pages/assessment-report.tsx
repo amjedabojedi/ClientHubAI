@@ -65,8 +65,8 @@ export default function AssessmentReportPage() {
     },
     onSuccess: (report) => {
       toast({
-        title: "AI Report Generated",
-        description: "Professional assessment report has been created successfully.",
+        title: existingReport ? "AI Report Regenerated" : "AI Report Generated",
+        description: existingReport ? "A new version of the professional assessment report has been created." : "Professional assessment report has been created successfully.",
       });
       // Refresh the report data
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
@@ -190,7 +190,7 @@ export default function AssessmentReportPage() {
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Completed
               </Badge>
-              {!existingReport && (
+              {!existingReport ? (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -200,6 +200,17 @@ export default function AssessmentReportPage() {
                 >
                   <FileText className="w-4 h-4 mr-2" />
                   {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => generateReportMutation.mutate()}
+                  disabled={generateReportMutation.isPending}
+                  className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate Report'}
                 </Button>
               )}
               <Button variant="outline" size="sm">
@@ -289,12 +300,25 @@ export default function AssessmentReportPage() {
                 </div>
                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
                   <div className="text-sm text-slate-600">
-                    Generated on {new Date(existingReport.generatedAt).toLocaleDateString()} at {new Date(existingReport.generatedAt).toLocaleTimeString()}
+                    <div>Generated on {new Date(existingReport.generatedAt).toLocaleDateString()} at {new Date(existingReport.generatedAt).toLocaleTimeString()}</div>
+                    {existingReport.id && <div className="text-xs text-slate-500 mt-1">Report ID: #{existingReport.id}</div>}
                   </div>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Report
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => generateReportMutation.mutate()}
+                      disabled={generateReportMutation.isPending}
+                      className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate'}
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Report
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
