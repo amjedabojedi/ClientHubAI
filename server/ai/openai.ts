@@ -444,15 +444,24 @@ async function generateAssessmentReport(
   responses: any[], 
   sections: any[]
 ): Promise<string> {
-  const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts. Use third-person narrative format suitable for clinical documentation.
+  const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts.
 
 Key requirements:
-- Professional clinical language
-- Third-person narrative style
-- Evidence-based observations
-- Structured by assessment sections
-- Include specific client responses when relevant
-- Follow clinical documentation standards`;
+- Use professional clinical language appropriate for healthcare documentation
+- Write in third-person narrative style (e.g., "The client reported..." or "Ms./Mr. [Name] indicated...")
+- Transform raw responses into clinical observations and professional assessments
+- Follow each section's specific instructions for content and focus
+- Create flowing narrative prose, not bullet points or raw Q&A format
+- Include relevant clinical terminology and evidence-based observations
+- Structure content logically within each section
+- Synthesize information rather than simply listing responses
+
+For each section:
+1. Follow the specific instructions provided for that section
+2. Transform client responses into professional clinical narrative
+3. Focus on clinically relevant information and observations
+4. Use appropriate clinical terminology for the section's focus area
+5. Create coherent paragraphs that flow naturally`;
 
   // Build the user prompt with all section data
   let userPrompt = `Generate a comprehensive assessment report for ${assignment.client?.fullName || 'Client'}.
@@ -474,25 +483,57 @@ Completion Date: ${assignment.completedAt ? new Date(assignment.completedAt).toL
       
       if (section.aiReportPrompt) {
         userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+      } else {
+        // Default clinical section prompt
+        userPrompt += `Instructions: Generate a professional clinical narrative for the "${section.title}" section using third-person language appropriate for clinical documentation. Focus on clinically relevant information and observations.\n\n`;
       }
 
-      userPrompt += `Responses:\n`;
+      userPrompt += `Client Responses:\n`;
       sectionResponses.forEach(response => {
         const question = section.questions?.find(q => q.id === response.questionId);
         if (question) {
-          userPrompt += `- ${question.questionText}: `;
+          userPrompt += `Q: ${question.questionText}\nA: `;
           
-          if (response.responseText) {
-            userPrompt += response.responseText;
-          } else if (response.selectedOptions && question.options) {
-            const selectedTexts = response.selectedOptions
-              .map(index => question.options[index])
-              .filter(Boolean);
-            userPrompt += selectedTexts.join(', ');
-          } else if (response.ratingValue !== null) {
-            userPrompt += `Rating: ${response.ratingValue}`;
+          // Handle different response types properly
+          if (question.questionType === 'short_text' || question.questionType === 'long_text') {
+            userPrompt += response.responseText || 'No response provided';
+          } else if (question.questionType === 'multiple_choice') {
+            if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              const selectedTexts = response.selectedOptions
+                .map(index => question.options?.[index])
+                .filter(Boolean);
+              userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
+            } else if (response.responseText) {
+              userPrompt += response.responseText;
+            } else {
+              userPrompt += 'No selection made';
+            }
+          } else if (question.questionType === 'checkbox') {
+            if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              const selectedTexts = response.selectedOptions
+                .map(index => question.options?.[index])
+                .filter(Boolean);
+              userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selections made';
+            } else if (response.responseText) {
+              userPrompt += response.responseText;
+            } else {
+              userPrompt += 'No selections made';
+            }
+          } else if (question.questionType === 'rating_scale' && response.ratingValue !== null && response.ratingValue !== undefined) {
+            const rating = response.ratingValue;
+            const minLabel = question.ratingLabels?.[0] || 'Low';
+            const maxLabel = question.ratingLabels?.[1] || 'High';
+            const min = question.ratingMin || 1;
+            const max = question.ratingMax || 10;
+            userPrompt += `${rating}/${max} (${minLabel} to ${maxLabel} scale)`;
+          } else if (question.questionType === 'number' && response.responseValue !== null && response.responseValue !== undefined) {
+            userPrompt += response.responseValue.toString();
+          } else if (question.questionType === 'date' && response.responseValue) {
+            userPrompt += response.responseValue;
+          } else {
+            userPrompt += response.responseText || response.responseValue || 'No response provided';
           }
-          userPrompt += '\n';
+          userPrompt += '\n\n';
         }
       });
     }
