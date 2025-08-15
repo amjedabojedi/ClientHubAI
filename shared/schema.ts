@@ -606,7 +606,9 @@ export const sectionAccessEnum = pgEnum('section_access', ['therapist_only', 'cl
 export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'client_in_progress', 'waiting_for_therapist', 'therapist_completed', 'completed']);
 export const reportSectionEnum = pgEnum('report_section', [
   'referral_reason', 'presenting_symptoms', 'background_history', 'mental_status_exam', 
-  'risk_assessment', 'treatment_recommendations', 'goals_objectives', 'summary_impressions'
+  'risk_assessment', 'treatment_recommendations', 'goals_objectives', 'summary_impressions',
+  'clinical_summary', 'intervention_plan', 'diagnostic_impressions', 'recommendations',
+  'prognosis', 'follow_up', 'additional_notes'
 ]);
 
 export const libraryEntryConnections = pgTable("library_entry_connections", {
