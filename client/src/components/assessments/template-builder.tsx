@@ -24,7 +24,9 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  FileText,
+  Info
 } from "lucide-react";
 
 // Hooks & Utils
@@ -33,6 +35,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 // Types
 import type { AssessmentTemplate, AssessmentSection, AssessmentQuestion, InsertAssessmentSection, InsertAssessmentQuestion } from "@shared/schema";
+import { GeneralSectionHelper } from "./general-section-helper";
 
 interface TemplateBuilderProps {
   templateId: number;
@@ -760,18 +763,25 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Report Mapping</Label>
+                  <Label>Report Section Type</Label>
                   <Select value={section.reportMapping} onValueChange={(value) => updateSection(sectionIndex, "reportMapping", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select report section..." />
+                    <SelectTrigger className={section.reportMapping ? "border-blue-300 bg-blue-50" : ""}>
+                      <SelectValue placeholder="Choose report section type for AI generation..." />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">None (Regular Section)</SelectItem>
+                      <SelectItem value="clinical_summary">Clinical Summary</SelectItem>
+                      <SelectItem value="intervention_plan">Intervention Plan</SelectItem>
+                      <SelectItem value="diagnostic_impressions">Diagnostic Impressions</SelectItem>
+                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
+                      <SelectItem value="recommendations">Recommendations</SelectItem>
+                      <SelectItem value="prognosis">Prognosis</SelectItem>
+                      <SelectItem value="follow_up">Follow-up Plan</SelectItem>
+                      <SelectItem value="additional_notes">Additional Notes</SelectItem>
                       <SelectItem value="referral_reason">Referral Reason</SelectItem>
                       <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
                       <SelectItem value="background_history">Background History</SelectItem>
-                      <SelectItem value="objective_findings">Objective Findings</SelectItem>
                       <SelectItem value="mental_status_exam">Mental Status Exam</SelectItem>
-                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
                       <SelectItem value="treatment_recommendations">Treatment Recommendations</SelectItem>
                       <SelectItem value="goals_objectives">Goals & Objectives</SelectItem>
                       <SelectItem value="summary_impressions">Summary & Impressions</SelectItem>
@@ -788,16 +798,23 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>AI Report Prompt (Optional)</Label>
+                <Label>AI Report Instructions</Label>
                 <Textarea
                   value={section.aiReportPrompt}
                   onChange={(e) => updateSection(sectionIndex, "aiReportPrompt", e.target.value)}
-                  placeholder="Provide instructions for how this section should be analyzed and included in the AI-generated report..."
-                  rows={3}
+                  placeholder="Enter specific instructions for AI report generation... For example: 'Generate comprehensive risk assessment based on all responses, focusing on suicide risk, self-harm, substance use, and safety factors. Use clinical language suitable for documentation.'"
+                  rows={4}
+                  className={section.reportMapping && !section.aiReportPrompt ? "border-amber-300" : ""}
                 />
-                <p className="text-xs text-muted-foreground">
-                  This prompt will guide the AI when generating reports from this section's responses.
-                </p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>How it works:</strong> The AI will use these instructions to generate this section in reports.</p>
+                  {section.reportMapping && !section.aiReportPrompt && (
+                    <p className="text-amber-600 font-medium">⚠️ Add instructions above to customize how this section is generated.</p>
+                  )}
+                  {section.reportMapping && (
+                    <p><strong>Tip:</strong> Be specific about clinical focus, documentation style, and what to include.</p>
+                  )}
+                </div>
               </div>
 
                 </div>
