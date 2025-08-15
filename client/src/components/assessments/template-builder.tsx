@@ -86,7 +86,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         description: section.description,
         accessLevel: section.accessLevel,
         isScoring: section.isScoring,
-        reportMapping: section.reportMapping,
+        reportMapping: section.reportMapping || "",
         aiReportPrompt: section.aiReportPrompt || "",
         order: section.sortOrder || 0, // Use sortOrder from database
         questions: section.questions?.map((q: any) => ({
@@ -509,7 +509,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           description: section.description,
           accessLevel: section.accessLevel,
           isScoring: section.isScoring,
-          reportMapping: section.reportMapping || null,
+          reportMapping: (section.reportMapping === 'none' ? null : section.reportMapping) as any,
           aiReportPrompt: section.aiReportPrompt || null,
           sortOrder: section.order
         };
@@ -618,7 +618,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Template Builder</h1>
-            <p className="text-muted-foreground">{template?.name}</p>
+            <p className="text-muted-foreground">{template?.name || 'Loading...'}</p>
           </div>
         </div>
         <div className="flex space-x-2">
