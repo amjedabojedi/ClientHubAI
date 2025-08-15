@@ -2856,12 +2856,15 @@ This happens because only the file metadata was stored, not the actual file cont
       
       const page = await browser.newPage();
       
-      // Convert markdown to HTML with better formatting
+      // Convert markdown to HTML with professional formatting
       let htmlContent = report.generatedContent
+        .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>')
-        .replace(/## (.*?)<br>/g, '<h2>$1</h2>')
-        .replace(/# (.*?)<br>/g, '<h1>$1</h1>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        .replace(/## ([^<]+)/g, '<h2>$1</h2>')
+        .replace(/# ([^<]+)/g, '<h1>$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^([^<])/gm, '<p>$1')
+        .replace(/([^>])$/gm, '$1</p>');
       
       const fullHtml = `
         <!DOCTYPE html>
@@ -2870,14 +2873,55 @@ This happens because only the file metadata was stored, not the actual file cont
           <meta charset="UTF-8">
           <title>Assessment Report - ${assignment.client?.fullName}</title>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
-            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; page-break-after: avoid; }
-            h2 { color: #34495e; margin-top: 30px; page-break-after: avoid; }
-            .client-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-            .section { margin-bottom: 25px; page-break-inside: avoid; }
+            body { 
+              font-family: 'Times New Roman', serif; 
+              line-height: 1.8; 
+              margin: 1in; 
+              color: #000; 
+              font-size: 12pt;
+              background: white;
+            }
+            h1 { 
+              color: #000; 
+              border-bottom: 2px solid #000; 
+              padding-bottom: 10px; 
+              page-break-after: avoid; 
+              font-size: 18pt;
+              font-weight: bold;
+              text-align: center;
+              margin-bottom: 30px;
+              text-transform: uppercase;
+            }
+            h2 { 
+              color: #000; 
+              margin-top: 25px; 
+              margin-bottom: 15px;
+              page-break-after: avoid; 
+              font-size: 14pt;
+              font-weight: bold;
+              text-decoration: underline;
+            }
+            .client-info { 
+              border: 1px solid #000; 
+              padding: 20px; 
+              margin-bottom: 30px; 
+              background: white;
+            }
+            .section { 
+              margin-bottom: 25px; 
+              page-break-inside: avoid; 
+            }
+            p { 
+              margin-bottom: 12px; 
+              text-align: justify;
+              text-indent: 0.5in;
+            }
+            strong { font-weight: bold; }
             @media print { 
-              body { margin: 20px; }
+              body { margin: 0.75in; font-size: 11pt; }
               .no-print { display: none; }
+              h1 { font-size: 16pt; }
+              h2 { font-size: 13pt; }
             }
           </style>
         </head>
@@ -2926,36 +2970,57 @@ This happens because only the file metadata was stored, not the actual file cont
       // Generate Word document using docx
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       
-      // Parse the report content into paragraphs
+      // Parse the report content into paragraphs with better formatting
       const lines = report.generatedContent.split('\n');
       const paragraphs = [];
       
       for (const line of lines) {
         if (line.trim().startsWith('# ')) {
-          // Main heading
+          // Main heading - professional formatting
           paragraphs.push(new Paragraph({
-            children: [new TextRun({ text: line.replace('# ', ''), bold: true, size: 32 })],
+            children: [new TextRun({ 
+              text: line.replace('# ', '').toUpperCase(), 
+              bold: true, 
+              size: 32,
+              font: 'Times New Roman'
+            })],
             heading: HeadingLevel.HEADING_1,
-            spacing: { after: 200 }
+            spacing: { after: 400, before: 200 },
+            alignment: 'center'
           }));
         } else if (line.trim().startsWith('## ')) {
-          // Section heading
+          // Section heading - underlined and bold
           paragraphs.push(new Paragraph({
-            children: [new TextRun({ text: line.replace('## ', ''), bold: true, size: 28 })],
+            children: [new TextRun({ 
+              text: line.replace('## ', ''), 
+              bold: true, 
+              size: 26,
+              underline: { type: 'single' },
+              font: 'Times New Roman'
+            })],
             heading: HeadingLevel.HEADING_2,
-            spacing: { before: 200, after: 120 }
+            spacing: { before: 300, after: 200 }
           }));
         } else if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
           // Bold text
           paragraphs.push(new Paragraph({
-            children: [new TextRun({ text: line.replace(/\*\*/g, ''), bold: true })],
-            spacing: { after: 120 }
+            children: [new TextRun({ 
+              text: line.replace(/\*\*/g, ''), 
+              bold: true,
+              font: 'Times New Roman'
+            })],
+            spacing: { after: 200 }
           }));
         } else if (line.trim()) {
-          // Regular paragraph
+          // Regular paragraph with professional formatting
           paragraphs.push(new Paragraph({
-            children: [new TextRun(line)],
-            spacing: { after: 120 }
+            children: [new TextRun({ 
+              text: line,
+              font: 'Times New Roman'
+            })],
+            spacing: { after: 200 },
+            indent: { firstLine: 720 }, // 0.5 inch first line indent
+            alignment: 'both' // Justified text
           }));
         }
       }

@@ -228,19 +228,67 @@ export default function AssessmentReportPage() {
                         <head>
                           <title>Assessment Report - ${assignment.client?.fullName}</title>
                           <style>
-                            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
-                            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; page-break-after: avoid; }
-                            h2 { color: #34495e; margin-top: 30px; page-break-after: avoid; }
-                            .client-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-                            .section { margin-bottom: 25px; page-break-inside: avoid; }
+                            body { 
+                              font-family: 'Times New Roman', serif; 
+                              line-height: 1.8; 
+                              margin: 1in; 
+                              color: #000; 
+                              font-size: 12pt;
+                              background: white;
+                            }
+                            h1 { 
+                              color: #000; 
+                              border-bottom: 2px solid #000; 
+                              padding-bottom: 10px; 
+                              page-break-after: avoid; 
+                              font-size: 18pt;
+                              font-weight: bold;
+                              text-align: center;
+                              margin-bottom: 30px;
+                              text-transform: uppercase;
+                            }
+                            h2 { 
+                              color: #000; 
+                              margin-top: 25px; 
+                              margin-bottom: 15px;
+                              page-break-after: avoid; 
+                              font-size: 14pt;
+                              font-weight: bold;
+                              text-decoration: underline;
+                            }
+                            .client-info { 
+                              border: 1px solid #000; 
+                              padding: 20px; 
+                              margin-bottom: 30px; 
+                              background: white;
+                            }
+                            .section { 
+                              margin-bottom: 25px; 
+                              page-break-inside: avoid; 
+                            }
+                            p { 
+                              margin-bottom: 12px; 
+                              text-align: justify;
+                              text-indent: 0.5in;
+                            }
+                            strong { font-weight: bold; }
                             @media print { 
-                              body { margin: 20px; }
+                              body { margin: 0.75in; font-size: 11pt; }
                               .no-print { display: none; }
+                              h1 { font-size: 16pt; }
+                              h2 { font-size: 13pt; }
                             }
                           </style>
                         </head>
                         <body>
-                          ${reportContent.replace(/\n/g, '<br>').replace(/## /g, '<h2>').replace(/# /g, '<h1>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                          ${reportContent
+                            .replace(/\n\n/g, '</p><p>')
+                            .replace(/\n/g, '<br>')
+                            .replace(/## ([^<]+)/g, '<h2>$1</h2>')
+                            .replace(/# ([^<]+)/g, '<h1>$1</h1>')
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/^([^<])/gm, '<p>$1')
+                            .replace(/([^>])$/gm, '$1</p>')}
                         </body>
                         </html>
                       `);
@@ -394,19 +442,67 @@ export default function AssessmentReportPage() {
                               <head>
                                 <title>Assessment Report - ${assignment.client?.fullName}</title>
                                 <style>
-                                  body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
-                                  h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; page-break-after: avoid; }
-                                  h2 { color: #34495e; margin-top: 30px; page-break-after: avoid; }
-                                  .client-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-                                  .section { margin-bottom: 25px; page-break-inside: avoid; }
+                                  body { 
+                                    font-family: 'Times New Roman', serif; 
+                                    line-height: 1.8; 
+                                    margin: 1in; 
+                                    color: #000; 
+                                    font-size: 12pt;
+                                    background: white;
+                                  }
+                                  h1 { 
+                                    color: #000; 
+                                    border-bottom: 2px solid #000; 
+                                    padding-bottom: 10px; 
+                                    page-break-after: avoid; 
+                                    font-size: 18pt;
+                                    font-weight: bold;
+                                    text-align: center;
+                                    margin-bottom: 30px;
+                                    text-transform: uppercase;
+                                  }
+                                  h2 { 
+                                    color: #000; 
+                                    margin-top: 25px; 
+                                    margin-bottom: 15px;
+                                    page-break-after: avoid; 
+                                    font-size: 14pt;
+                                    font-weight: bold;
+                                    text-decoration: underline;
+                                  }
+                                  .client-info { 
+                                    border: 1px solid #000; 
+                                    padding: 20px; 
+                                    margin-bottom: 30px; 
+                                    background: white;
+                                  }
+                                  .section { 
+                                    margin-bottom: 25px; 
+                                    page-break-inside: avoid; 
+                                  }
+                                  p { 
+                                    margin-bottom: 12px; 
+                                    text-align: justify;
+                                    text-indent: 0.5in;
+                                  }
+                                  strong { font-weight: bold; }
                                   @media print { 
-                                    body { margin: 20px; }
+                                    body { margin: 0.75in; font-size: 11pt; }
                                     .no-print { display: none; }
+                                    h1 { font-size: 16pt; }
+                                    h2 { font-size: 13pt; }
                                   }
                                 </style>
                               </head>
                               <body>
-                                ${reportContent.replace(/\n/g, '<br>').replace(/## /g, '<h2>').replace(/# /g, '<h1>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                                ${reportContent
+                                  .replace(/\n\n/g, '</p><p>')
+                                  .replace(/\n/g, '<br>')
+                                  .replace(/## ([^<]+)/g, '<h2>$1</h2>')
+                                  .replace(/# ([^<]+)/g, '<h1>$1</h1>')
+                                  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                  .replace(/^([^<])/gm, '<p>$1')
+                                  .replace(/([^>])$/gm, '$1</p>')}
                               </body>
                               </html>
                             `);
