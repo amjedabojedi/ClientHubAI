@@ -511,8 +511,17 @@ ASSESSMENT SECTIONS:
       if (section.aiReportPrompt) {
         userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
       } else {
-        // Default clinical section prompt
-        userPrompt += `Instructions: Generate a professional clinical narrative for the "${section.title}" section using third-person language appropriate for clinical documentation. Focus on clinically relevant information and observations.\n\n`;
+        // Default clinical section prompt based on section type
+        const sectionTitle = section.title.toLowerCase();
+        if (sectionTitle.includes('background') || sectionTitle.includes('history')) {
+          userPrompt += `Instructions: Generate a comprehensive clinical background narrative for the "${section.title}" section. Focus on historical information, developmental factors, and contextual elements that inform the clinical picture. Use third-person clinical language appropriate for medical documentation.\n\n`;
+        } else if (sectionTitle.includes('symptom') || sectionTitle.includes('present')) {
+          userPrompt += `Instructions: Generate a detailed presentation of current symptoms and concerns for the "${section.title}" section. Focus on symptom severity, frequency, impact on functioning, and clinical observations. Use diagnostic criteria language where appropriate.\n\n`;
+        } else if (sectionTitle.includes('mental status') || sectionTitle.includes('cognitive')) {
+          userPrompt += `Instructions: Generate a formal mental status examination narrative for the "${section.title}" section. Include observations of appearance, behavior, mood, affect, thought process, thought content, perception, cognition, insight, and judgment as relevant to the responses.\n\n`;
+        } else {
+          userPrompt += `Instructions: Generate a professional clinical narrative for the "${section.title}" section using third-person language appropriate for clinical documentation. Focus on clinically relevant information and observations.\n\n`;
+        }
       }
 
       userPrompt += `Client Responses:\n`;
@@ -566,6 +575,35 @@ ASSESSMENT SECTIONS:
     }
   });
 
+  // Add standard clinical summary sections
+  userPrompt += `
+
+## CLINICAL SUMMARY
+
+Instructions: Generate a comprehensive clinical summary that synthesizes all assessment findings. Include:
+- Overall clinical presentation and diagnostic impressions
+- Key symptoms and their severity/impact
+- Risk factors and protective factors
+- Functional impairments and strengths
+- Clinical observations and professional judgment
+Use third-person clinical language suitable for diagnostic and treatment planning purposes.
+
+Client Response Data: Use all the assessment responses provided above to synthesize this summary.
+
+## INTERVENTION PLAN AND RECOMMENDATIONS
+
+Instructions: Generate evidence-based treatment recommendations and intervention planning based on the assessment findings. Include:
+- Recommended treatment modalities and therapeutic approaches
+- Specific intervention targets and goals
+- Referral recommendations if appropriate
+- Risk management strategies if indicated
+- Timeline and frequency recommendations
+- Client strengths that can support treatment
+Use professional clinical language appropriate for treatment planning documentation.
+
+Client Response Data: Base recommendations on the assessment findings and clinical summary above.
+`;
+
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -574,7 +612,7 @@ ASSESSMENT SECTIONS:
         { role: "user", content: userPrompt }
       ],
       temperature: 0.6,
-      max_tokens: 3000,
+      max_tokens: 4000,
     });
 
     return response.choices[0].message.content || '';
