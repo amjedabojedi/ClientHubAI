@@ -576,18 +576,31 @@ ASSESSMENT SECTIONS:
   });
 
   // Add database-driven general report sections
-  // Get general sections that are not question-based but have AI prompts
+  // Get general sections that have report mapping and AI prompts (can have questions or not)
   const generalSections = sections.filter(section => 
     section.reportMapping && 
-    section.aiReportPrompt && 
-    (!section.questions || section.questions.length === 0)
+    section.reportMapping !== 'none' &&
+    section.aiReportPrompt
   );
 
   // Add general sections with their custom prompts
   generalSections.forEach(section => {
-    userPrompt += `\n## ${section.title}\n`;
+    userPrompt += `\n## ${section.title.toUpperCase()}\n\n`;
     userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
-    userPrompt += `Client Assessment Data: Use all the assessment responses and findings provided above to generate this section.\n\n`;
+    
+    // If section has questions, include them specifically
+    if (section.questions && section.questions.length > 0) {
+      userPrompt += `Section-Specific Data: `;
+      section.questions.forEach(question => {
+        const response = responses.find(r => r.questionId === question.id);
+        if (response) {
+          userPrompt += `Q: ${question.questionText} A: ${response.responseValue} `;
+        }
+      });
+      userPrompt += `\n\n`;
+    }
+    
+    userPrompt += `Assessment Synthesis: Analyze and synthesize ALL assessment responses and findings provided above to generate this section according to the instructions.\n\n`;
   });
 
   // If no general sections configured, add default clinical sections
