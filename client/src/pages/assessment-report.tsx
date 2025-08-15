@@ -217,7 +217,37 @@ export default function AssessmentReportPage() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    // Create a new window with just the report content
+                    const reportContent = existingReport?.generatedContent || '';
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {
+                      printWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                          <title>Assessment Report - ${assignment.client?.fullName}</title>
+                          <style>
+                            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
+                            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; page-break-after: avoid; }
+                            h2 { color: #34495e; margin-top: 30px; page-break-after: avoid; }
+                            .client-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+                            .section { margin-bottom: 25px; page-break-inside: avoid; }
+                            @media print { 
+                              body { margin: 20px; }
+                              .no-print { display: none; }
+                            }
+                          </style>
+                        </head>
+                        <body>
+                          ${reportContent.replace(/\n/g, '<br>').replace(/## /g, '<h2>').replace(/# /g, '<h1>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                        </body>
+                        </html>
+                      `);
+                      printWindow.document.close();
+                      printWindow.print();
+                    }
+                  }}
                   className="border-gray-600 text-gray-600 hover:bg-gray-50"
                 >
                   <FileText className="w-4 h-4 mr-2" />
@@ -353,7 +383,37 @@ export default function AssessmentReportPage() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => window.print()}
+                        onClick={() => {
+                          // Create a new window with just the report content
+                          const reportContent = existingReport?.generatedContent || '';
+                          const printWindow = window.open('', '_blank');
+                          if (printWindow) {
+                            printWindow.document.write(`
+                              <!DOCTYPE html>
+                              <html>
+                              <head>
+                                <title>Assessment Report - ${assignment.client?.fullName}</title>
+                                <style>
+                                  body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
+                                  h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; page-break-after: avoid; }
+                                  h2 { color: #34495e; margin-top: 30px; page-break-after: avoid; }
+                                  .client-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+                                  .section { margin-bottom: 25px; page-break-inside: avoid; }
+                                  @media print { 
+                                    body { margin: 20px; }
+                                    .no-print { display: none; }
+                                  }
+                                </style>
+                              </head>
+                              <body>
+                                ${reportContent.replace(/\n/g, '<br>').replace(/## /g, '<h2>').replace(/# /g, '<h1>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+                              </body>
+                              </html>
+                            `);
+                            printWindow.document.close();
+                            printWindow.print();
+                          }
+                        }}
                         className="border-gray-600 text-gray-600 hover:bg-gray-50"
                       >
                         <FileText className="w-4 h-4 mr-2" />

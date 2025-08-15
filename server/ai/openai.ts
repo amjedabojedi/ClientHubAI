@@ -472,20 +472,30 @@ Gender: ${assignment.client?.gender || 'Not specified'}
 Phone: ${assignment.client?.phoneNumber || 'Not provided'}
 Email: ${assignment.client?.emailAddress || 'Not provided'}
 Address: ${assignment.client?.address ? `${assignment.client.address}${assignment.client.city ? ', ' + assignment.client.city : ''}${assignment.client.province ? ', ' + assignment.client.province : ''}${assignment.client.postalCode ? ' ' + assignment.client.postalCode : ''}` : 'Not provided'}
+Assessment: ${assignment.template?.name || 'Assessment'}
+Assessment Date: ${assignment.completedAt ? new Date(assignment.completedAt).toLocaleDateString() : 'N/A'}
+Clinician: ${assignment.assignedBy?.fullName || 'Clinician Name'}
+Report Generated: ${new Date().toLocaleDateString()}
 `;
 
   // Build the user prompt with client information and section data
   let userPrompt = `Generate a comprehensive clinical assessment report with the following structure:
 
-REPORT HEADER:
-Include complete client demographics and assessment details:
-${clientInfo}
-Assessment: ${assignment.template?.name || 'Assessment'}
-Assessment Date: ${assignment.completedAt ? new Date(assignment.completedAt).toLocaleDateString() : 'N/A'}
-Clinician: ${assignment.assignedBy?.fullName || 'Clinician Name'}
-Report Generated: ${new Date().toLocaleDateString()}
+# CLIENT INFORMATION
 
-IMPORTANT: Start with a professional header section that includes all client basic information before proceeding to the clinical sections.
+${clientInfo}
+
+---
+
+IMPORTANT INSTRUCTIONS:
+1. Start with the CLIENT INFORMATION section exactly as shown above
+2. Then proceed with each assessment section as a separate section with its own heading
+3. Use the section-specific AI prompt instructions when available
+4. Each section should have a clear title (## Section Name) 
+5. Transform raw responses into professional clinical narrative format
+6. Use third-person clinical language appropriate for medical documentation
+
+ASSESSMENT SECTIONS:
 
 `;
 
