@@ -463,12 +463,29 @@ For each section:
 4. Use appropriate clinical terminology for the section's focus area
 5. Create coherent paragraphs that flow naturally`;
 
-  // Build the user prompt with all section data
-  let userPrompt = `Generate a comprehensive assessment report for ${assignment.client?.fullName || 'Client'}.
-
-Assessment: ${assignment.template?.name || 'Assessment'}
+  // Build comprehensive client information header
+  const clientInfo = `
+Client Name: ${assignment.client?.fullName || 'Client Name'}
 Client ID: ${assignment.client?.clientId || 'N/A'}
-Completion Date: ${assignment.completedAt ? new Date(assignment.completedAt).toLocaleDateString() : 'N/A'}
+Date of Birth: ${assignment.client?.dateOfBirth ? new Date(assignment.client.dateOfBirth).toLocaleDateString() : 'Not provided'}
+Gender: ${assignment.client?.gender || 'Not specified'}
+Phone: ${assignment.client?.phoneNumber || 'Not provided'}
+Email: ${assignment.client?.emailAddress || 'Not provided'}
+Address: ${assignment.client?.address ? `${assignment.client.address}${assignment.client.city ? ', ' + assignment.client.city : ''}${assignment.client.province ? ', ' + assignment.client.province : ''}${assignment.client.postalCode ? ' ' + assignment.client.postalCode : ''}` : 'Not provided'}
+`;
+
+  // Build the user prompt with client information and section data
+  let userPrompt = `Generate a comprehensive clinical assessment report with the following structure:
+
+REPORT HEADER:
+Include complete client demographics and assessment details:
+${clientInfo}
+Assessment: ${assignment.template?.name || 'Assessment'}
+Assessment Date: ${assignment.completedAt ? new Date(assignment.completedAt).toLocaleDateString() : 'N/A'}
+Clinician: ${assignment.assignedBy?.fullName || 'Clinician Name'}
+Report Generated: ${new Date().toLocaleDateString()}
+
+IMPORTANT: Start with a professional header section that includes all client basic information before proceeding to the clinical sections.
 
 `;
 

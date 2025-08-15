@@ -2832,6 +2832,154 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Download assessment report as PDF
+  app.get("/api/assessments/assignments/:assignmentId/download/pdf", async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      const report = await storage.getAssessmentReport(assignmentId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Assessment report not found" });
+      }
+
+      const assignment = await storage.getAssessmentAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assessment assignment not found" });
+      }
+
+      // Generate PDF using puppeteer
+      const puppeteer = await import("puppeteer");
+      const browser = await puppeteer.default.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      const page = await browser.newPage();
+      
+      // Convert markdown to HTML with better formatting
+      let htmlContent = report.generatedContent
+        .replace(/\n/g, '<br>')
+        .replace(/## (.*?)<br>/g, '<h2>$1</h2>')
+        .replace(/# (.*?)<br>/g, '<h1>$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Assessment Report - ${assignment.client?.fullName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
+            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; page-break-after: avoid; }
+            h2 { color: #34495e; margin-top: 30px; page-break-after: avoid; }
+            .client-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+            .section { margin-bottom: 25px; page-break-inside: avoid; }
+            @media print { 
+              body { margin: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+        </html>
+      `;
+      
+      await page.setContent(fullHtml);
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }
+      });
+      
+      await browser.close();
+      
+      const filename = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(pdf);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // Download assessment report as Word document
+  app.get("/api/assessments/assignments/:assignmentId/download/docx", async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      const report = await storage.getAssessmentReport(assignmentId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Assessment report not found" });
+      }
+
+      const assignment = await storage.getAssessmentAssignment(assignmentId);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assessment assignment not found" });
+      }
+
+      // Generate Word document using docx
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
+      
+      // Parse the report content into paragraphs
+      const lines = report.generatedContent.split('\n');
+      const paragraphs = [];
+      
+      for (const line of lines) {
+        if (line.trim().startsWith('# ')) {
+          // Main heading
+          paragraphs.push(new Paragraph({
+            children: [new TextRun({ text: line.replace('# ', ''), bold: true, size: 32 })],
+            heading: HeadingLevel.HEADING_1,
+            spacing: { after: 200 }
+          }));
+        } else if (line.trim().startsWith('## ')) {
+          // Section heading
+          paragraphs.push(new Paragraph({
+            children: [new TextRun({ text: line.replace('## ', ''), bold: true, size: 28 })],
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 200, after: 120 }
+          }));
+        } else if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+          // Bold text
+          paragraphs.push(new Paragraph({
+            children: [new TextRun({ text: line.replace(/\*\*/g, ''), bold: true })],
+            spacing: { after: 120 }
+          }));
+        } else if (line.trim()) {
+          // Regular paragraph
+          paragraphs.push(new Paragraph({
+            children: [new TextRun(line)],
+            spacing: { after: 120 }
+          }));
+        }
+      }
+      
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: paragraphs
+        }]
+      });
+      
+      const buffer = await Packer.toBuffer(doc);
+      const filename = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+      
+    } catch (error) {
+      console.error('Error generating Word document:', error);
+      res.status(500).json({ message: "Failed to generate Word document" });
+    }
+  });
+
   // Service Management API
   app.get("/api/services", async (req, res) => {
     try {

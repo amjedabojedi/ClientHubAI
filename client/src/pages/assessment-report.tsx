@@ -213,10 +213,45 @@ export default function AssessmentReportPage() {
                   {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate Report'}
                 </Button>
               )}
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
-              </Button>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.print()}
+                  className="border-gray-600 text-gray-600 hover:bg-gray-50"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = `/api/assessments/assignments/${assignmentId}/download/pdf`;
+                    link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+                    link.click();
+                  }}
+                  className="border-red-600 text-red-600 hover:bg-red-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = `/api/assessments/assignments/${assignmentId}/download/docx`;
+                    link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+                    link.click();
+                  }}
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Word
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -314,10 +349,47 @@ export default function AssessmentReportPage() {
                       <FileText className="w-4 h-4 mr-2" />
                       {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate'}
                     </Button>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Report
-                    </Button>
+                    <div className="flex space-x-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.print()}
+                        className="border-gray-600 text-gray-600 hover:bg-gray-50"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Print
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Download as PDF
+                          const link = document.createElement('a');
+                          link.href = `/api/assessments/assignments/${assignmentId}/download/pdf`;
+                          link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+                          link.click();
+                        }}
+                        className="border-red-600 text-red-600 hover:bg-red-50"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        PDF
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Download as Word
+                          const link = document.createElement('a');
+                          link.href = `/api/assessments/assignments/${assignmentId}/download/docx`;
+                          link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+                          link.click();
+                        }}
+                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Word
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
