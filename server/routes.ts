@@ -2914,7 +2914,6 @@ This happens because only the file metadata was stored, not the actual file cont
             p { 
               margin-bottom: 12px; 
               text-align: justify;
-              text-indent: 0.5in;
             }
             strong { font-weight: bold; }
             @media print { 
@@ -3019,7 +3018,6 @@ This happens because only the file metadata was stored, not the actual file cont
               font: 'Times New Roman'
             })],
             spacing: { after: 200 },
-            indent: { firstLine: 720 }, // 0.5 inch first line indent
             alignment: 'both' // Justified text
           }));
         }

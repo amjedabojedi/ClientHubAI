@@ -269,7 +269,6 @@ export default function AssessmentReportPage() {
                             p { 
                               margin-bottom: 12px; 
                               text-align: justify;
-                              text-indent: 0.5in;
                             }
                             strong { font-weight: bold; }
                             @media print { 
@@ -483,7 +482,6 @@ export default function AssessmentReportPage() {
                                   p { 
                                     margin-bottom: 12px; 
                                     text-align: justify;
-                                    text-indent: 0.5in;
                                   }
                                   strong { font-weight: bold; }
                                   @media print { 
