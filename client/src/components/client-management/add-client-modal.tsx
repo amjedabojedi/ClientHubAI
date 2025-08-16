@@ -40,11 +40,49 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
     queryKey: ["/api/system-options/categories"],
   });
 
-  // Get client type options from system options
+  // Get system option categories
   const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
+  const clientSourceCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_source");
+  const maritalStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "marital_status");
+  const employmentStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "employment_status");
+  const educationLevelCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "education_level");
+  const genderCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "gender");
+  const preferredLanguageCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "preferred_language");
+
+  // Get options for each category
   const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
     queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
     enabled: !!clientTypeCategory?.id,
+  });
+
+  const { data: clientSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientSourceCategory?.id}`],
+    enabled: !!clientSourceCategory?.id,
+  });
+
+  const { data: maritalStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${maritalStatusCategory?.id}`],
+    enabled: !!maritalStatusCategory?.id,
+  });
+
+  const { data: employmentStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${employmentStatusCategory?.id}`],
+    enabled: !!employmentStatusCategory?.id,
+  });
+
+  const { data: educationLevelOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${educationLevelCategory?.id}`],
+    enabled: !!educationLevelCategory?.id,
+  });
+
+  const { data: genderOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${genderCategory?.id}`],
+    enabled: !!genderCategory?.id,
+  });
+
+  const { data: preferredLanguageOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${preferredLanguageCategory?.id}`],
+    enabled: !!preferredLanguageCategory?.id,
   });
 
   const form = useForm<ClientFormData>({
@@ -265,10 +303,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                            <SelectItem value="non_binary">Non-binary</SelectItem>
-                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                            {genderOptions.options.map((option: any) => (
+                              <SelectItem key={option.id} value={option.optionKey}>
+                                {option.optionLabel}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -291,13 +330,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="single">Single</SelectItem>
-                            <SelectItem value="married">Married</SelectItem>
-                            <SelectItem value="divorced">Divorced</SelectItem>
-                            <SelectItem value="widowed">Widowed</SelectItem>
-                            <SelectItem value="separated">Separated</SelectItem>
-                            <SelectItem value="domestic_partnership">Domestic Partnership</SelectItem>
-                            <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                            {maritalStatusOptions.options.map((option: any) => (
+                              <SelectItem key={option.id} value={option.optionKey}>
+                                {option.optionLabel}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -333,12 +370,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="English">English</SelectItem>
-                          <SelectItem value="Spanish">Spanish</SelectItem>
-                          <SelectItem value="French">French</SelectItem>
-                          <SelectItem value="Chinese">Chinese</SelectItem>
-                          <SelectItem value="Korean">Korean</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
+                          {preferredLanguageOptions.options.map((option: any) => (
+                            <SelectItem key={option.id} value={option.optionKey}>
+                              {option.optionLabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -995,14 +1031,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="self_referral">Self-referral</SelectItem>
-                          <SelectItem value="physician_referral">Physician Referral</SelectItem>
-                          <SelectItem value="insurance_referral">Insurance Referral</SelectItem>
-                          <SelectItem value="online_search">Online Search</SelectItem>
-                          <SelectItem value="friend_family">Friend/Family Referral</SelectItem>
-                          <SelectItem value="employee_assistance">Employee Assistance Program</SelectItem>
-                          <SelectItem value="advertisement">Advertisement</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          {clientSourceOptions.options.map((option: any) => (
+                            <SelectItem key={option.id} value={option.optionKey}>
+                              {option.optionLabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1090,15 +1123,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="full_time">Full-time Employed</SelectItem>
-                          <SelectItem value="part_time">Part-time Employed</SelectItem>
-                          <SelectItem value="self_employed">Self-employed</SelectItem>
-                          <SelectItem value="unemployed">Unemployed</SelectItem>
-                          <SelectItem value="retired">Retired</SelectItem>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="homemaker">Homemaker</SelectItem>
-                          <SelectItem value="disabled">Disabled</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          {employmentStatusOptions.options.map((option: any) => (
+                            <SelectItem key={option.id} value={option.optionKey}>
+                              {option.optionLabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1119,14 +1148,11 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="less_than_high_school">Less than High School</SelectItem>
-                          <SelectItem value="high_school">High School/GED</SelectItem>
-                          <SelectItem value="some_college">Some College</SelectItem>
-                          <SelectItem value="associates">Associate's Degree</SelectItem>
-                          <SelectItem value="bachelors">Bachelor's Degree</SelectItem>
-                          <SelectItem value="masters">Master's Degree</SelectItem>
-                          <SelectItem value="doctoral">Doctoral Degree</SelectItem>
-                          <SelectItem value="professional">Professional Degree</SelectItem>
+                          {educationLevelOptions.options.map((option: any) => (
+                            <SelectItem key={option.id} value={option.optionKey}>
+                              {option.optionLabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
