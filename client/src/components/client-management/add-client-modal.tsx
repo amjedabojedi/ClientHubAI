@@ -295,7 +295,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     name="gender"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Gender</FormLabel>
+                        <FormLabel>Gender Options</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -362,7 +362,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   name="preferredLanguage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Preferred Language</FormLabel>
+                      <FormLabel>Preferred Languages</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -1023,7 +1023,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   name="clientSource"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Client Source</FormLabel>
+                      <FormLabel>Referral Sources</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
@@ -1140,7 +1140,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   name="educationLevel"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Education Level</FormLabel>
+                      <FormLabel>Education Levels</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>

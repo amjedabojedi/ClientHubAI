@@ -368,7 +368,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     name="gender"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Gender</FormLabel>
+                        <FormLabel>Gender Options</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
@@ -435,7 +435,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   name="preferredLanguage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Preferred Language</FormLabel>
+                      <FormLabel>Preferred Languages</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || undefined}>
                         <FormControl>
                           <SelectTrigger>
@@ -1070,7 +1070,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     name="clientSource"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Client Source</FormLabel>
+                        <FormLabel>Referral Sources</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
@@ -1141,7 +1141,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     name="educationLevel"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Education Level</FormLabel>
+                        <FormLabel>Education Levels</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
                             <SelectTrigger>
