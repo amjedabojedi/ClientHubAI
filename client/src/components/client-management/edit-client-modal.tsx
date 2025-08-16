@@ -1049,6 +1049,20 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="referralNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Referral Notes</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Additional referral information..." value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </TabsContent>
 
