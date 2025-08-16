@@ -35,6 +35,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
     queryKey: ["/api/therapists"],
   });
 
+  // Fetch system options for dropdowns
+  const { data: systemOptions = [] } = useQuery<any[]>({
+    queryKey: ["/api/system-options/categories"],
+  });
+
+  // Get client type options from system options
+  const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
+  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
+    enabled: !!clientTypeCategory?.id,
+  });
+
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -411,14 +423,15 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Select client type" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="individual">Individual</SelectItem>
-                            <SelectItem value="couple">Couple</SelectItem>
-                            <SelectItem value="family">Family</SelectItem>
-                            <SelectItem value="group">Group</SelectItem>
+                            {clientTypeOptions.options?.map((option: any) => (
+                              <SelectItem key={option.optionKey} value={option.optionKey}>
+                                {option.optionLabel}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

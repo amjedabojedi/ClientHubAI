@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,18 @@ interface ClientDetailModalProps {
 
 export default function ClientDetailModal({ client, onClose }: ClientDetailModalProps) {
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Fetch system options for client type dropdown
+  const { data: systemOptions = [] } = useQuery<any[]>({
+    queryKey: ["/api/system-options/categories"],
+  });
+
+  // Get client type options from system options
+  const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
+  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
+    enabled: !!clientTypeCategory?.id,
+  });
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -190,10 +203,11 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="individual">Individual</SelectItem>
-                          <SelectItem value="couple">Couple</SelectItem>
-                          <SelectItem value="family">Family</SelectItem>
-                          <SelectItem value="group">Group</SelectItem>
+                          {clientTypeOptions.options?.map((option: any) => (
+                            <SelectItem key={option.optionKey} value={option.optionKey}>
+                              {option.optionLabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
