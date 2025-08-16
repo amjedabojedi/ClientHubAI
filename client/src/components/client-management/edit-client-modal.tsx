@@ -1036,11 +1036,12 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="referral">Professional Referral</SelectItem>
-                            <SelectItem value="insurance">Insurance Directory</SelectItem>
+                            <SelectItem value="self_referral">Self-referral</SelectItem>
+                            <SelectItem value="physician_referral">Physician Referral</SelectItem>
+                            <SelectItem value="insurance_referral">Insurance Referral</SelectItem>
                             <SelectItem value="online_search">Online Search</SelectItem>
-                            <SelectItem value="social_media">Social Media</SelectItem>
-                            <SelectItem value="word_of_mouth">Word of Mouth</SelectItem>
+                            <SelectItem value="friend_family">Friend/Family Referral</SelectItem>
+                            <SelectItem value="employee_assistance">Employee Assistance Program</SelectItem>
                             <SelectItem value="advertisement">Advertisement</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
