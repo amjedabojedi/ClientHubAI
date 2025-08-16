@@ -55,7 +55,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
   // Get system option categories
   const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
-  const clientSourceCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_source");
+  const referralSourceCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "referral_sources");
   const maritalStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "marital_status");
   const employmentStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "employment_status");
   const educationLevelCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "education_level");
@@ -69,10 +69,10 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     enabled: !!clientTypeCategory?.id,
   });
 
-  const { data: clientSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${clientSourceCategory?.id}`],
+  const { data: referralSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${referralSourceCategory?.id}`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientSourceCategory?.id,
+    enabled: !!referralSourceCategory?.id,
   });
 
   const { data: maritalStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
@@ -1078,7 +1078,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {clientSourceOptions.options.map((option: any) => (
+                            {referralSourceOptions.options.map((option: any) => (
                               <SelectItem key={option.id} value={option.optionKey}>
                                 {option.optionLabel}
                               </SelectItem>

@@ -42,7 +42,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
 
   // Get system option categories
   const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
-  const clientSourceCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_source");
+  const referralSourceCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "referral_sources");
   const maritalStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "marital_status");
   const employmentStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "employment_status");
   const educationLevelCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "education_level");
@@ -55,9 +55,9 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
     enabled: !!clientTypeCategory?.id,
   });
 
-  const { data: clientSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${clientSourceCategory?.id}`],
-    enabled: !!clientSourceCategory?.id,
+  const { data: referralSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${referralSourceCategory?.id}`],
+    enabled: !!referralSourceCategory?.id,
   });
 
   const { data: maritalStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
@@ -1031,7 +1031,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {clientSourceOptions.options.map((option: any) => (
+                          {referralSourceOptions.options.map((option: any) => (
                             <SelectItem key={option.id} value={option.optionKey}>
                               {option.optionLabel}
                             </SelectItem>
