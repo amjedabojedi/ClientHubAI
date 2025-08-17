@@ -3355,59 +3355,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Auto-assign checklists when client is created
-  
-  // Checklist Template Management
-  async getChecklistTemplates(): Promise<ChecklistTemplate[]> {
-    return await db.select().from(checklistTemplates)
-      .where(eq(checklistTemplates.isActive, true))
-      .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
-  }
-
-  async getChecklistTemplate(id: number): Promise<ChecklistTemplate | undefined> {
-    const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id));
-    return template;
-  }
-
-  async createChecklistTemplate(templateData: InsertChecklistTemplate): Promise<ChecklistTemplate> {
-    const [template] = await db.insert(checklistTemplates).values(templateData).returning();
-    return template;
-  }
-
-  async updateChecklistTemplate(id: number, templateData: Partial<InsertChecklistTemplate>): Promise<ChecklistTemplate> {
-    const [template] = await db.update(checklistTemplates)
-      .set({ ...templateData, updatedAt: new Date() })
-      .where(eq(checklistTemplates.id, id))
-      .returning();
-    return template;
-  }
-
-  async deleteChecklistTemplate(id: number): Promise<void> {
-    await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
-  }
-
-  // Checklist Items Management
-  async getChecklistItems(templateId: number): Promise<ChecklistItem[]> {
-    return await db.select().from(checklistItems)
-      .where(eq(checklistItems.templateId, templateId))
-      .orderBy(checklistItems.sortOrder);
-  }
-
-  async createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem> {
-    const [item] = await db.insert(checklistItems).values(itemData).returning();
-    return item;
-  }
-
-  async updateChecklistItem(id: number, itemData: Partial<InsertChecklistItem>): Promise<ChecklistItem> {
-    const [item] = await db.update(checklistItems)
-      .set(itemData)
-      .where(eq(checklistItems.id, id))
-      .returning();
-    return item;
-  }
-
-  async deleteChecklistItem(id: number): Promise<void> {
-    await db.delete(checklistItems).where(eq(checklistItems.id, id));
-  }
 
   // Client Checklist Management
   async getClientChecklists(clientId: number): Promise<any[]> {
@@ -3486,7 +3433,9 @@ export class DatabaseStorage implements IStorage {
       }).returning();
 
       // Create client checklist items
-      const items = await this.getChecklistItems(template.id);
+      const items = await db.select().from(checklistItems)
+        .where(eq(checklistItems.templateId, template.id))
+        .orderBy(checklistItems.sortOrder);
       const clientItems = items.map(item => ({
         clientChecklistId: clientChecklist.id,
         checklistItemId: item.id
