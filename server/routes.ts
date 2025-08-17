@@ -880,16 +880,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : req.body.sessionDate
       };
       
-      // Validate that new sessions cannot be scheduled in the past
+      // Allow past dates for session creation (for entering historical sessions)
+      // Just log a warning for past dates but allow the creation
       const sessionDate = new Date(sessionData.sessionDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Set to start of today
       
       if (sessionDate < today) {
-        return res.status(400).json({ 
-          message: "Cannot schedule new sessions in the past", 
-          error: "Session date must be today or in the future" 
-        });
+        console.log(`Creating session with past date: ${sessionDate.toISOString().split('T')[0]} for client ID: ${sessionData.clientId}`);
       }
       
       const validatedData = insertSessionSchema.parse(sessionData);

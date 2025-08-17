@@ -725,11 +725,9 @@ export default function SchedulingPage() {
                           control={form.control}
                           name="sessionDate"
                           render={({ field }) => {
-                            // For new sessions, prevent past dates
-                            // For editing existing sessions, allow the original date but still warn about past dates
                             const today = new Date().toISOString().split('T')[0];
                             const currentValue = field.value;
-                            const isEditingPastSession = editingSessionId && currentValue && currentValue < today;
+                            const isPastDate = currentValue && currentValue < today;
                             
                             return (
                               <FormItem>
@@ -738,13 +736,12 @@ export default function SchedulingPage() {
                                   <Input
                                     {...field}
                                     type="date"
-                                    min={editingSessionId ? undefined : today}
-                                    className={isEditingPastSession ? "border-orange-300 bg-orange-50" : ""}
+                                    className={isPastDate ? "border-orange-300 bg-orange-50" : ""}
                                   />
                                 </FormControl>
-                                {isEditingPastSession && (
+                                {isPastDate && (
                                   <p className="text-orange-600 text-xs mt-1">
-                                    ⚠️ This session is scheduled in the past. Consider rescheduling to a future date.
+                                    📅 This session is scheduled in the past
                                   </p>
                                 )}
                                 <FormMessage />
