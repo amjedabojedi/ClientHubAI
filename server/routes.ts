@@ -905,15 +905,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/sessions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertSessionSchema.partial().parse(req.body);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+      
+      // Convert sessionDate string to Date object if needed (same as create)
+      const sessionData = { ...req.body };
+      if (sessionData.sessionDate) {
+        const dateValue = typeof sessionData.sessionDate === 'string' 
+          ? new Date(sessionData.sessionDate) 
+          : sessionData.sessionDate;
+        
+        // Check if the date conversion was successful
+        if (isNaN(dateValue.getTime())) {
+          console.error(`Invalid date received: ${sessionData.sessionDate}`);
+          return res.status(400).json({ message: "Invalid session date format" });
+        }
+        
+        sessionData.sessionDate = dateValue;
+      }
+      
+      console.log(`Updating session ${id} with data:`, JSON.stringify(sessionData, null, 2));
+      
+      const validatedData = insertSessionSchema.partial().parse(sessionData);
       const session = await storage.updateSession(id, validatedData);
+      
+      console.log(`Session ${id} updated successfully`);
       res.json(session);
     } catch (error) {
+      console.error(`Error updating session ${req.params.id}:`, error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ message: "Internal server error", error: error.message, stack: error.stack });
     }
   });
 
