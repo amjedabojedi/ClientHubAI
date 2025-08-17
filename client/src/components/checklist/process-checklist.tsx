@@ -54,102 +54,11 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
   const [itemNotes, setItemNotes] = useState<{ [key: number]: string }>({});
   const queryClient = useQueryClient();
 
-  // Mock data for demonstration - in real implementation this would fetch from API
-  const mockChecklists: ProcessChecklist[] = [
-    {
-      id: 1,
-      templateId: 1,
-      isCompleted: false,
-      template: {
-        id: 1,
-        name: "Client Intake Process",
-        description: "Essential steps for new client onboarding and initial setup",
-        category: "intake"
-      },
-      items: [
-        {
-          id: 1,
-          checklistItemId: 1,
-          isCompleted: true,
-          completedAt: new Date().toISOString(),
-          completedBy: 1,
-          checklistItem: {
-            id: 1,
-            title: "Collect initial paperwork and consent forms",
-            description: "Obtain signed intake forms, consent for treatment, and HIPAA authorization",
-            isRequired: true,
-            daysFromStart: 1
-          },
-          completedByUser: { id: 1, username: "dr.smith" }
-        },
-        {
-          id: 2,
-          checklistItemId: 2,
-          isCompleted: false,
-          checklistItem: {
-            id: 2,
-            title: "Verify insurance coverage and benefits",
-            description: "Confirm insurance eligibility, copay amounts, and session limits",
-            isRequired: true,
-            daysFromStart: 3
-          }
-        },
-        {
-          id: 3,
-          checklistItemId: 3,
-          isCompleted: false,
-          checklistItem: {
-            id: 3,
-            title: "Complete intake assessment interview",
-            description: "Conduct comprehensive intake interview and document findings",
-            isRequired: true,
-            daysFromStart: 7
-          }
-        }
-      ]
-    },
-    {
-      id: 2,
-      templateId: 2,
-      isCompleted: false,
-      template: {
-        id: 2,
-        name: "Initial Assessment",
-        description: "Comprehensive assessment requirements for clinical evaluation",
-        category: "assessment"
-      },
-      items: [
-        {
-          id: 4,
-          checklistItemId: 4,
-          isCompleted: false,
-          checklistItem: {
-            id: 4,
-            title: "Complete clinical assessment battery",
-            description: "Administer standardized assessment tools and document results",
-            isRequired: true,
-            daysFromStart: 14
-          }
-        },
-        {
-          id: 5,
-          checklistItemId: 5,
-          isCompleted: false,
-          checklistItem: {
-            id: 5,
-            title: "Develop initial treatment plan",
-            description: "Create comprehensive treatment plan based on assessment findings",
-            isRequired: true,
-            daysFromStart: 21
-          }
-        }
-      ]
-    }
-  ];
-
-  // Use mock data for now - later this will be replaced with actual API call
-  const checklists = mockChecklists;
-  const isLoading = false;
+  // Fetch client checklists from API
+  const { data: checklists = [], isLoading } = useQuery<ProcessChecklist[]>({
+    queryKey: ['/api/clients', clientId, 'checklists'],
+    enabled: !!clientId,
+  });
 
   // Update checklist item mutation
   const updateItemMutation = useMutation({
@@ -157,6 +66,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
       apiRequest(`/api/client-checklist-items/${params.itemId}`, 'PUT', params.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'checklists'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
     }
   });
 
@@ -234,7 +144,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
 
   return (
     <div className="space-y-4">
-      {checklists.map((checklist) => {
+      {checklists.map((checklist: ProcessChecklist) => {
         const progress = calculateProgress(checklist.items);
         const isExpanded = expandedChecklist === checklist.id;
 
@@ -269,7 +179,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
             {isExpanded && (
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {checklist.items.map((item) => (
+                  {checklist.items.map((item: ChecklistItem) => (
                     <div key={item.id} className="border rounded-lg p-4 bg-slate-50">
                       <div className="flex items-start gap-3">
                         <Checkbox

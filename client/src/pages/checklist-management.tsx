@@ -68,7 +68,6 @@ const ChecklistManagement = () => {
       return response.json();
     },
     staleTime: 30000, // 30 seconds
-    cacheTime: 300000 // 5 minutes
   });
 
   // Ensure templates is always an array
@@ -100,8 +99,9 @@ const ChecklistManagement = () => {
       return response.json();
     },
     onSuccess: () => {
-      // Force refetch templates after item creation
+      // Force refetch templates after item creation and invalidate client checklists
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       refetchTemplates();
       setIsItemDialogOpen(false);
       setItemForm({ templateId: 0, title: "", description: "", isRequired: true, daysFromStart: 1, sortOrder: 1 });
@@ -120,11 +120,29 @@ const ChecklistManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       refetchTemplates();
       toast({ title: "Success", description: "Template deleted successfully" });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete template", variant: "destructive" });
+    }
+  });
+
+  // Delete item mutation
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: number) => {
+      const response = await apiRequest(`/api/checklist-items/${itemId}`, 'DELETE');
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      refetchTemplates();
+      toast({ title: "Success", description: "Checklist item deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete item", variant: "destructive" });
     }
   });
 
@@ -139,6 +157,12 @@ const ChecklistManagement = () => {
   const handleDeleteTemplate = (templateId: number) => {
     if (confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
       deleteTemplateMutation.mutate(templateId);
+    }
+  };
+
+  const handleDeleteItem = (itemId: number) => {
+    if (confirm("Are you sure you want to delete this checklist item? This action cannot be undone.")) {
+      deleteItemMutation.mutate(itemId);
     }
   };
 
@@ -293,7 +317,7 @@ const ChecklistManagement = () => {
                         {template.items.length} items • {template.items.filter(item => item.isRequired).length} required
                       </div>
                       <div className="space-y-2">
-                        {template.items.slice(0, 3).map((item) => (
+                        {template.items.slice(0, 3).map((item: any) => (
                           <div key={item.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                             <div className="flex items-center gap-2">
                               <CheckCircle className="w-4 h-4 text-slate-400" />
@@ -418,7 +442,7 @@ const ChecklistManagement = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {template.items.map((item, index) => (
+                      {template.items.map((item: any, index: number) => (
                         <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full text-xs font-medium">
@@ -436,7 +460,12 @@ const ChecklistManagement = () => {
                             {item.isRequired && (
                               <Badge variant="outline" className="text-xs">Required</Badge>
                             )}
-                            <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteItem(item.id)}
+                            >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
@@ -448,7 +477,7 @@ const ChecklistManagement = () => {
               )
             ))}
             
-            {templates.every(t => !t.items || t.items.length === 0) && (
+            {templates.every((t: any) => !t.items || t.items.length === 0) && (
               <div className="text-center py-12">
                 <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-900 mb-2">No Checklist Items</h3>
