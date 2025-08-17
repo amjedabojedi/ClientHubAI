@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -296,20 +297,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Gender Options</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {genderOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={genderOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="Select gender"
+                            searchPlaceholder="Search gender options..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -323,20 +322,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Marital Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {maritalStatusOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={maritalStatusOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="Select status"
+                            searchPlaceholder="Search marital status..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -363,20 +360,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Preferred Languages</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {preferredLanguageOptions.options.map((option: any) => (
-                            <SelectItem key={option.id} value={option.optionKey}>
-                              {option.optionLabel}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          options={preferredLanguageOptions.options.map((option: any) => ({
+                            value: option.optionKey,
+                            label: option.optionLabel
+                          }))}
+                          placeholder="Select language"
+                          searchPlaceholder="Search languages..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -529,21 +524,21 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Assigned Therapist</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select therapist" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {therapists?.map((therapist: any) => (
-                              <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                                {therapist.fullName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value?.toString() || "unassigned"}
+                            onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}
+                            options={[
+                              { value: "unassigned", label: "Unassigned" },
+                              ...(therapists?.map((therapist: any) => ({
+                                value: therapist.id.toString(),
+                                label: therapist.fullName
+                              })) || [])
+                            ]}
+                            placeholder="Select therapist"
+                            searchPlaceholder="Search therapists..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1024,20 +1019,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Referral Sources</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="How client found the practice" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {referralSourceOptions.options.map((option: any) => (
-                            <SelectItem key={option.id} value={option.optionKey}>
-                              {option.optionLabel}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          options={referralSourceOptions.options.map((option: any) => ({
+                            value: option.optionKey,
+                            label: option.optionLabel
+                          }))}
+                          placeholder="How client found the practice"
+                          searchPlaceholder="Search referral sources..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1116,20 +1109,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Employment Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select employment status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {employmentStatusOptions.options.map((option: any) => (
-                            <SelectItem key={option.id} value={option.optionKey}>
-                              {option.optionLabel}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          options={employmentStatusOptions.options.map((option: any) => ({
+                            value: option.optionKey,
+                            label: option.optionLabel
+                          }))}
+                          placeholder="Select employment status"
+                          searchPlaceholder="Search employment status..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1141,20 +1132,18 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Education Levels</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Highest education completed" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {educationLevelOptions.options.map((option: any) => (
-                            <SelectItem key={option.id} value={option.optionKey}>
-                              {option.optionLabel}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          options={educationLevelOptions.options.map((option: any) => ({
+                            value: option.optionKey,
+                            label: option.optionLabel
+                          }))}
+                          placeholder="Highest education completed"
+                          searchPlaceholder="Search education levels..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

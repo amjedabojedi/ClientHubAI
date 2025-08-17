@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -570,19 +571,20 @@ export default function SchedulingPage() {
                   className="w-64"
                 />
               </div>
-              <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="All Therapists" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Therapists</SelectItem>
-                  {therapists?.map((therapist: any) => (
-                    <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                      {therapist.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={selectedTherapist}
+                onValueChange={setSelectedTherapist}
+                options={[
+                  { value: "all", label: "All Therapists" },
+                  ...(therapists?.map((therapist: any) => ({
+                    value: therapist.id.toString(),
+                    label: therapist.fullName
+                  })) || [])
+                ]}
+                placeholder="All Therapists"
+                searchPlaceholder="Search therapists..."
+                className="w-48"
+              />
               <div className="flex items-center space-x-1 bg-slate-100 rounded-lg p-1">
                 <Button
                   variant={viewMode === "day" ? "default" : "ghost"}
@@ -667,24 +669,19 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Client</FormLabel>
-                              <Select 
-                                onValueChange={(value) => field.onChange(parseInt(value))}
-                                value={field.value?.toString()}
-                                disabled={!!clientIdFromUrl || isSchedulingFromExistingSession}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select client" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {clients.clients?.map((client: any) => (
-                                    <SelectItem key={client.id} value={client.id.toString()}>
-                                      {client.fullName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <FormControl>
+                                <SearchableSelect
+                                  value={field.value?.toString() || ""}
+                                  onValueChange={(value) => field.onChange(parseInt(value))}
+                                  options={clients.clients?.map((client: any) => ({
+                                    value: client.id.toString(),
+                                    label: client.fullName
+                                  })) || []}
+                                  placeholder="Select client"
+                                  searchPlaceholder="Search clients..."
+                                  disabled={!!clientIdFromUrl || isSchedulingFromExistingSession}
+                                />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -696,24 +693,19 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Therapist</FormLabel>
-                              <Select 
-                                onValueChange={(value) => field.onChange(parseInt(value))}
-                                value={field.value?.toString()}
-                                disabled={!!therapistIdFromUrl || isSchedulingFromExistingSession}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select therapist" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {therapists?.map((therapist: any) => (
-                                    <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                                      {therapist.fullName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <FormControl>
+                                <SearchableSelect
+                                  value={field.value?.toString() || ""}
+                                  onValueChange={(value) => field.onChange(parseInt(value))}
+                                  options={therapists?.map((therapist: any) => ({
+                                    value: therapist.id.toString(),
+                                    label: therapist.fullName
+                                  })) || []}
+                                  placeholder="Select therapist"
+                                  searchPlaceholder="Search therapists..."
+                                  disabled={!!therapistIdFromUrl || isSchedulingFromExistingSession}
+                                />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -806,20 +798,18 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Service</FormLabel>
-                              <Select onValueChange={(value) => field.onChange(parseInt(value))}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select service" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {services?.map((service) => (
-                                    <SelectItem key={service.id} value={service.id.toString()}>
-                                      {service.name} - ${service.baseRate} ({service.duration}min)
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <FormControl>
+                                <SearchableSelect
+                                  value={field.value?.toString() || ""}
+                                  onValueChange={(value) => field.onChange(parseInt(value))}
+                                  options={services?.map((service) => ({
+                                    value: service.id.toString(),
+                                    label: `${service.serviceName} - $${service.baseRate} (${service.duration}min)`
+                                  })) || []}
+                                  placeholder="Select service"
+                                  searchPlaceholder="Search services..."
+                                />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}

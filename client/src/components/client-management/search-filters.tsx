@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,36 +117,36 @@ export default function SearchFilters({
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Therapist</label>
-                <Select value={filters.therapistId || "all"} onValueChange={(value) => handleFilterChange('therapistId', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Therapists" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Therapists</SelectItem>
-                    {therapists?.map((therapist: any) => (
-                      <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                        {therapist.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={filters.therapistId || "all"}
+                  onValueChange={(value) => handleFilterChange('therapistId', value)}
+                  options={[
+                    { value: "all", label: "All Therapists" },
+                    ...(therapists?.map((therapist: any) => ({
+                      value: therapist.id.toString(),
+                      label: therapist.fullName
+                    })) || [])
+                  ]}
+                  placeholder="All Therapists"
+                  searchPlaceholder="Search therapists..."
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Client Type</label>
-                <Select value={filters.clientType || "all"} onValueChange={(value) => handleFilterChange('clientType', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    {clientTypeOptions.options?.map((option: any) => (
-                      <SelectItem key={option.optionKey} value={option.optionKey}>
-                        {option.optionLabel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={filters.clientType || "all"}
+                  onValueChange={(value) => handleFilterChange('clientType', value)}
+                  options={[
+                    { value: "all", label: "All Types" },
+                    ...(clientTypeOptions.options?.map((option: any) => ({
+                      value: option.optionKey,
+                      label: option.optionLabel
+                    })) || [])
+                  ]}
+                  placeholder="All Types"
+                  searchPlaceholder="Search client types..."
+                />
               </div>
 
               <div>

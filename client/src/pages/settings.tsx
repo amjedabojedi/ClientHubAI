@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 
 interface OptionCategory {
