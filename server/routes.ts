@@ -880,6 +880,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : req.body.sessionDate
       };
       
+      // Validate that new sessions cannot be scheduled in the past
+      const sessionDate = new Date(sessionData.sessionDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of today
+      
+      if (sessionDate < today) {
+        return res.status(400).json({ 
+          message: "Cannot schedule new sessions in the past", 
+          error: "Session date must be today or in the future" 
+        });
+      }
+      
       const validatedData = insertSessionSchema.parse(sessionData);
       const session = await storage.createSession(validatedData);
       res.status(201).json(session);

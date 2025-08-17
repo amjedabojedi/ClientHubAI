@@ -724,19 +724,33 @@ export default function SchedulingPage() {
                         <FormField
                           control={form.control}
                           name="sessionDate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Date</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  type="date"
-                                  min={new Date().toISOString().split('T')[0]}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                          render={({ field }) => {
+                            // For new sessions, prevent past dates
+                            // For editing existing sessions, allow the original date but still warn about past dates
+                            const today = new Date().toISOString().split('T')[0];
+                            const currentValue = field.value;
+                            const isEditingPastSession = editingSessionId && currentValue && currentValue < today;
+                            
+                            return (
+                              <FormItem>
+                                <FormLabel>Date</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    type="date"
+                                    min={editingSessionId ? undefined : today}
+                                    className={isEditingPastSession ? "border-orange-300 bg-orange-50" : ""}
+                                  />
+                                </FormControl>
+                                {isEditingPastSession && (
+                                  <p className="text-orange-600 text-xs mt-1">
+                                    ⚠️ This session is scheduled in the past. Consider rescheduling to a future date.
+                                  </p>
+                                )}
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
                         />
 
                         <FormField
