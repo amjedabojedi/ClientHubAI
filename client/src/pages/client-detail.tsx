@@ -1046,10 +1046,42 @@ export default function ClientDetailPage() {
     }))
   });
 
+  // Query for available checklist templates
+  const { data: checklistTemplates = [] } = useQuery({
+    queryKey: ['/api/checklist-templates'],
+    queryFn: getQueryFn({ on401: "throw" })
+  });
+
   const { data: assignedAssessments = [] } = useQuery<AssessmentAssignment[]>({
     queryKey: [`/api/clients/${clientId}/assessments`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
+  });
+
+  // Checklist assignment mutation
+  const assignChecklistMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      return apiRequest(`/api/clients/${clientId}/checklists`, "POST", { 
+        templateId,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+      });
+    },
+    onSuccess: (_, templateId) => {
+      const template = checklistTemplates.find(t => t.id === templateId);
+      setShowAssignDialog(false);
+      toast({ 
+        title: "Checklist assigned successfully",
+        description: `${template?.name} has been assigned to the client.`
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/checklists`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign checklist",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -2319,69 +2351,39 @@ export default function ClientDetailPage() {
             <div>
               <Label>Available Templates:</Label>
               <div className="space-y-2 mt-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => {
-                    // Assign template ID 1 (Client Intake Process)
-                    fetch(`/api/clients/${clientId}/checklists`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ templateId: 1 })
-                    }).then(() => {
-                      setShowAssignDialog(false);
-                      toast({ title: "Client Intake Process assigned successfully" });
-                      // Force refresh the checklists
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 1000);
-                    });
-                  }}
-                >
-                  Client Intake Process (intake)
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => {
-                    // Assign template ID 2 (Initial Assessment)
-                    fetch(`/api/clients/${clientId}/checklists`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ templateId: 2 })
-                    }).then(() => {
-                      setShowAssignDialog(false);
-                      toast({ title: "Initial Assessment assigned successfully" });
-                      // Force refresh the checklists
-                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/checklists`] });
-                    });
-                  }}
-                >
-                  Initial Assessment (assessment)
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => {
-                    // Assign template ID 3 (MVA Recovery Process)
-                    fetch(`/api/clients/${clientId}/checklists`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ templateId: 3 })
-                    }).then(() => {
-                      setShowAssignDialog(false);
-                      toast({ title: "MVA Recovery Process assigned successfully" });
-                      // Force refresh the checklists
-                      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/checklists`] });
-                    });
-                  }}
-                >
-                  MVA Recovery Process (ongoing)
-                </Button>
+                {checklistTemplates.length > 0 ? (
+                  checklistTemplates.map((template: any) => (
+                    <Button 
+                      key={template.id}
+                      variant="outline" 
+                      className="w-full justify-start"
+                      onClick={() => assignChecklistMutation.mutate(template.id)}
+                      disabled={assignChecklistMutation.isPending}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <CheckSquare className="w-4 h-4" />
+                        <div className="text-left">
+                          <div className="font-medium">{template.name}</div>
+                          <div className="text-xs text-slate-500">
+                            {template.category} • {template.items?.length || 0} items
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500">No checklist templates available. Create templates in the Checklist Management page first.</p>
+                )}
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAssignDialog(false)}
+                disabled={assignChecklistMutation.isPending}
+              >
+                Cancel
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>
