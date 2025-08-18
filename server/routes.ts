@@ -1341,7 +1341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertDocumentSchema.parse({
         ...documentData,
         clientId,
-        uploadedById: 3 // Default to first therapist for now
+        uploadedById: 6 // Default to admin user for now
       });
 
       
