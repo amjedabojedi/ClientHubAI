@@ -370,20 +370,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Gender Options</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {genderOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={genderOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="Select gender"
+                            searchPlaceholder="Search gender options..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -397,20 +395,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Marital Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {maritalStatusOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={maritalStatusOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="Select marital status"
+                            searchPlaceholder="Search marital status options..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -437,20 +433,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Preferred Languages</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || undefined}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {preferredLanguageOptions.options.map((option: any) => (
-                            <SelectItem key={option.id} value={option.optionKey}>
-                              {option.optionLabel}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          options={preferredLanguageOptions.options.map((option: any) => ({
+                            value: option.optionKey,
+                            label: option.optionLabel
+                          }))}
+                          placeholder="Select preferred language"
+                          searchPlaceholder="Search languages..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -719,20 +713,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Type</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {clientTypeOptions?.options?.map?.((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            )) || []}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={clientTypeOptions?.options?.map?.((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            })) || []}
+                            placeholder="Select client type"
+                            searchPlaceholder="Search client types..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -744,18 +736,19 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={[
+                              { value: "pending", label: "Pending" },
+                              { value: "active", label: "Active" },
+                              { value: "inactive", label: "Inactive" }
+                            ]}
+                            placeholder="Select status"
+                            searchPlaceholder="Search status options..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -769,18 +762,19 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Stage</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="intake">Intake</SelectItem>
-                            <SelectItem value="assessment">Assessment</SelectItem>
-                            <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={[
+                              { value: "intake", label: "Intake" },
+                              { value: "assessment", label: "Assessment" },
+                              { value: "psychotherapy", label: "Psychotherapy" }
+                            ]}
+                            placeholder="Select stage"
+                            searchPlaceholder="Search stage options..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -792,21 +786,21 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Assigned Therapist</FormLabel>
-                        <Select onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select therapist" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {therapists?.map?.((therapist: any) => (
-                              <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                                {therapist.fullName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value ? field.value.toString() : "unassigned"}
+                            onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}
+                            options={[
+                              { value: "unassigned", label: "Unassigned" },
+                              ...(therapists?.map?.((therapist: any) => ({
+                                value: therapist.id.toString(),
+                                label: therapist.fullName
+                              })) || [])
+                            ]}
+                            placeholder="Select therapist"
+                            searchPlaceholder="Search therapists..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -823,22 +817,23 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Service Type</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Treatment service details" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
-                              <SelectItem value="counseling">Counseling</SelectItem>
-                              <SelectItem value="assessment">Assessment</SelectItem>
-                              <SelectItem value="consultation">Consultation</SelectItem>
-                              <SelectItem value="group_therapy">Group Therapy</SelectItem>
-                              <SelectItem value="family_therapy">Family Therapy</SelectItem>
-                              <SelectItem value="couples_therapy">Couples Therapy</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SearchableSelect
+                              value={field.value || ""}
+                              onValueChange={field.onChange}
+                              options={[
+                                { value: "psychotherapy", label: "Psychotherapy" },
+                                { value: "counseling", label: "Counseling" },
+                                { value: "assessment", label: "Assessment" },
+                                { value: "consultation", label: "Consultation" },
+                                { value: "group_therapy", label: "Group Therapy" },
+                                { value: "family_therapy", label: "Family Therapy" },
+                                { value: "couples_therapy", label: "Couples Therapy" }
+                              ]}
+                              placeholder="Treatment service details"
+                              searchPlaceholder="Search service types..."
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -850,20 +845,21 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Service Frequency</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Frequency of treatment" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="weekly">Weekly</SelectItem>
-                              <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                              <SelectItem value="monthly">Monthly</SelectItem>
-                              <SelectItem value="as_needed">As Needed</SelectItem>
-                              <SelectItem value="intensive">Intensive (Multiple per week)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SearchableSelect
+                              value={field.value || ""}
+                              onValueChange={field.onChange}
+                              options={[
+                                { value: "weekly", label: "Weekly" },
+                                { value: "biweekly", label: "Bi-weekly" },
+                                { value: "monthly", label: "Monthly" },
+                                { value: "as_needed", label: "As Needed" },
+                                { value: "intensive", label: "Intensive (Multiple per week)" }
+                              ]}
+                              placeholder="Frequency of treatment"
+                              searchPlaceholder="Search frequency options..."
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1072,20 +1068,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Referral Sources</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="How did the client find us?" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {referralSourceOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={referralSourceOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="How did the client find us?"
+                            searchPlaceholder="Search referral sources..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1118,20 +1112,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Employment Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Current employment status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {employmentStatusOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={employmentStatusOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="Current employment status"
+                            searchPlaceholder="Search employment status..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1143,20 +1135,18 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Education Levels</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Highest education completed" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {educationLevelOptions.options.map((option: any) => (
-                              <SelectItem key={option.id} value={option.optionKey}>
-                                {option.optionLabel}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SearchableSelect
+                            value={field.value || ""}
+                            onValueChange={field.onChange}
+                            options={educationLevelOptions.options.map((option: any) => ({
+                              value: option.optionKey,
+                              label: option.optionLabel
+                            }))}
+                            placeholder="Highest education completed"
+                            searchPlaceholder="Search education levels..."
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
