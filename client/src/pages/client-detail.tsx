@@ -500,6 +500,11 @@ export default function ClientDetailPage() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [documentForm, setDocumentForm] = useState({
+    name: '',
+    category: 'uploaded',
+    description: ''
+  });
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
@@ -558,11 +563,23 @@ export default function ClientDetailPage() {
   const handleUploadDocument = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
+    setDocumentForm({
+      name: '',
+      category: 'uploaded',
+      description: ''
+    });
     setIsUploadDialogOpen(true);
   };
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
+    
+    // Auto-populate document name with file name (without extension)
+    const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, "");
+    setDocumentForm(prev => ({
+      ...prev,
+      name: nameWithoutExtension
+    }));
     
     // Generate preview URL for images
     if (file.type.startsWith('image/')) {
@@ -574,7 +591,7 @@ export default function ClientDetailPage() {
   };
 
   const handleUploadSubmit = async () => {
-    if (selectedFile) {
+    if (selectedFile && documentForm.name.trim()) {
       try {
         // Convert file to base64 for storage
         const fileContent = await new Promise<string>((resolve, reject) => {
@@ -592,14 +609,15 @@ export default function ClientDetailPage() {
         });
 
         uploadDocumentMutation.mutate({
-          fileName: selectedFile.name,
+          fileName: documentForm.name.trim(),
+          originalName: selectedFile.name,
           fileType: selectedFile.type,
           fileSize: selectedFile.size,
-          description: `Uploaded file: ${selectedFile.name}`,
+          category: documentForm.category,
+          description: documentForm.description.trim(),
           fileContent // Include actual file content
         });
       } catch (error) {
-
         toast({
           title: "Error",
           description: "Failed to read file. Please try again.",
@@ -615,6 +633,11 @@ export default function ClientDetailPage() {
     }
     setSelectedFile(null);
     setPreviewUrl(null);
+    setDocumentForm({
+      name: '',
+      category: 'uploaded',
+      description: ''
+    });
     setIsUploadDialogOpen(false);
   };
 
@@ -787,7 +810,7 @@ export default function ClientDetailPage() {
 
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
-    mutationFn: async (data: { fileName: string; fileType: string; fileSize: number; description?: string; fileContent?: string }) => {
+    mutationFn: async (data: { fileName: string; originalName: string; fileType: string; fileSize: number; category: string; description?: string; fileContent?: string }) => {
       try {
         const response = await fetch(`/api/clients/${clientId}/documents`, {
           method: "POST",
@@ -796,10 +819,10 @@ export default function ClientDetailPage() {
           },
           body: JSON.stringify({
             fileName: data.fileName,
-            originalName: data.fileName,
+            originalName: data.originalName,
             mimeType: data.fileType,
             fileSize: data.fileSize,
-            category: "uploaded",
+            category: data.category,
             fileContent: data.fileContent // Include file content for server storage
           })
         });
@@ -2269,22 +2292,25 @@ export default function ClientDetailPage() {
 
       {/* Upload Document Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
             <DialogDescription>
-              Upload a document for {client?.fullName}
+              Upload a document for {client?.fullName}. Supports PDFs, Word docs, images, and text files.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-4">
-              <div>
-                <Label htmlFor="file-upload">Choose File</Label>
+          <div className="grid gap-6 py-4">
+            {/* File Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="file-upload" className="text-sm font-medium">
+                Select File <span className="text-red-500">*</span>
+              </Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
                 <Input
                   id="file-upload"
                   type="file"
-                  className="mt-2"
-                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.bmp"
+                  className="w-full"
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.bmp,.xls,.xlsx"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -2293,32 +2319,97 @@ export default function ClientDetailPage() {
                   }}
                   disabled={uploadDocumentMutation.isPending}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported: PDF, Word, Excel, Images, Text files (Max 10MB)
+                </p>
               </div>
-              
-              {selectedFile && (
-                <div className="border rounded-lg p-4 bg-slate-50">
-                  <div className="flex items-center space-x-3">
-                    {previewUrl ? (
-                      <img 
-                        src={previewUrl} 
-                        alt={selectedFile.name}
-                        className="w-16 h-16 object-cover rounded-lg"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center">
-                        <FolderOpen className="w-6 h-6 text-slate-400" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">{selectedFile.name}</p>
-                      <p className="text-sm text-slate-500">
-                        {Math.round(selectedFile.size / 1024)} KB • {selectedFile.type}
-                      </p>
+            </div>
+
+            {/* Document Details Form */}
+            <div className="space-y-4">
+              {/* Document Name */}
+              <div className="space-y-2">
+                <Label htmlFor="document-name" className="text-sm font-medium">
+                  Document Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="document-name"
+                  type="text"
+                  placeholder="Enter document name"
+                  value={documentForm.name}
+                  onChange={(e) => setDocumentForm(prev => ({ ...prev, name: e.target.value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+              </div>
+
+              {/* Document Category */}
+              <div className="space-y-2">
+                <Label htmlFor="document-category" className="text-sm font-medium">
+                  Document Type
+                </Label>
+                <Select 
+                  value={documentForm.category} 
+                  onValueChange={(value) => setDocumentForm(prev => ({ ...prev, category: value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select document type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="uploaded">General Upload</SelectItem>
+                    <SelectItem value="forms">Forms & Intake</SelectItem>
+                    <SelectItem value="insurance">Insurance Documents</SelectItem>
+                    <SelectItem value="medical">Medical Records</SelectItem>
+                    <SelectItem value="assessment">Assessment Results</SelectItem>
+                    <SelectItem value="legal">Legal Documents</SelectItem>
+                    <SelectItem value="correspondence">Correspondence</SelectItem>
+                    <SelectItem value="reports">Reports & Summaries</SelectItem>
+                    <SelectItem value="treatment">Treatment Plans</SelectItem>
+                    <SelectItem value="shared">Shared with Client</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="document-description" className="text-sm font-medium">
+                  Description
+                </Label>
+                <Textarea
+                  id="document-description"
+                  placeholder="Add a description (optional)"
+                  value={documentForm.description}
+                  onChange={(e) => setDocumentForm(prev => ({ ...prev, description: e.target.value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            {/* File Preview */}
+            {selectedFile && (
+              <div className="border rounded-lg p-4 bg-slate-50">
+                <div className="flex items-center space-x-3">
+                  {previewUrl ? (
+                    <img 
+                      src={previewUrl} 
+                      alt={selectedFile.name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center">
+                      <FolderOpen className="w-6 h-6 text-slate-400" />
                     </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900">{selectedFile.name}</p>
+                    <p className="text-sm text-slate-500">
+                      {Math.round(selectedFile.size / 1024)} KB • {selectedFile.type}
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button 
@@ -2330,9 +2421,10 @@ export default function ClientDetailPage() {
             </Button>
             <Button 
               onClick={handleUploadSubmit}
-              disabled={!selectedFile || uploadDocumentMutation.isPending}
+              disabled={!selectedFile || !documentForm.name.trim() || uploadDocumentMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              {uploadDocumentMutation.isPending ? "Uploading..." : "Upload"}
+              {uploadDocumentMutation.isPending ? "Uploading..." : "Upload Document"}
             </Button>
           </DialogFooter>
         </DialogContent>
