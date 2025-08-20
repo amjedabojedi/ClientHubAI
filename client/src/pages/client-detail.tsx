@@ -503,7 +503,13 @@ export default function ClientDetailPage() {
   const [documentForm, setDocumentForm] = useState({
     name: '',
     category: 'uploaded',
-    description: ''
+    description: '',
+    referralSource: '',
+    documentId: '',
+    externalReference: '',
+    dateReceived: '',
+    priority: 'normal',
+    isConfidential: false
   });
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
@@ -566,7 +572,13 @@ export default function ClientDetailPage() {
     setDocumentForm({
       name: '',
       category: 'uploaded',
-      description: ''
+      description: '',
+      referralSource: '',
+      documentId: '',
+      externalReference: '',
+      dateReceived: new Date().toISOString().split('T')[0],
+      priority: 'normal',
+      isConfidential: false
     });
     setIsUploadDialogOpen(true);
   };
@@ -615,6 +627,12 @@ export default function ClientDetailPage() {
           fileSize: selectedFile.size,
           category: documentForm.category,
           description: documentForm.description.trim(),
+          referralSource: documentForm.referralSource.trim(),
+          documentId: documentForm.documentId.trim(),
+          externalReference: documentForm.externalReference.trim(),
+          dateReceived: documentForm.dateReceived,
+          priority: documentForm.priority,
+          isConfidential: documentForm.isConfidential,
           fileContent // Include actual file content
         });
       } catch (error) {
@@ -636,7 +654,13 @@ export default function ClientDetailPage() {
     setDocumentForm({
       name: '',
       category: 'uploaded',
-      description: ''
+      description: '',
+      referralSource: '',
+      documentId: '',
+      externalReference: '',
+      dateReceived: '',
+      priority: 'normal',
+      isConfidential: false
     });
     setIsUploadDialogOpen(false);
   };
@@ -810,7 +834,21 @@ export default function ClientDetailPage() {
 
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
-    mutationFn: async (data: { fileName: string; originalName: string; fileType: string; fileSize: number; category: string; description?: string; fileContent?: string }) => {
+    mutationFn: async (data: { 
+      fileName: string; 
+      originalName: string; 
+      fileType: string; 
+      fileSize: number; 
+      category: string; 
+      description?: string;
+      referralSource?: string;
+      documentId?: string;
+      externalReference?: string;
+      dateReceived?: string;
+      priority?: string;
+      isConfidential?: boolean;
+      fileContent?: string;
+    }) => {
       try {
         const response = await fetch(`/api/clients/${clientId}/documents`, {
           method: "POST",
@@ -2292,7 +2330,7 @@ export default function ClientDetailPage() {
 
       {/* Upload Document Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
             <DialogDescription>
@@ -2370,14 +2408,108 @@ export default function ClientDetailPage() {
                 </Select>
               </div>
 
+              {/* Document ID/Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="document-id" className="text-sm font-medium">
+                  Document ID/Reference
+                </Label>
+                <Input
+                  id="document-id"
+                  type="text"
+                  placeholder="Enter document ID or reference number"
+                  value={documentForm.documentId}
+                  onChange={(e) => setDocumentForm(prev => ({ ...prev, documentId: e.target.value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+              </div>
+
+              {/* Referral Source */}
+              <div className="space-y-2">
+                <Label htmlFor="referral-source" className="text-sm font-medium">
+                  Referral Source
+                </Label>
+                <Input
+                  id="referral-source"
+                  type="text"
+                  placeholder="Enter referral source (doctor, clinic, etc.)"
+                  value={documentForm.referralSource}
+                  onChange={(e) => setDocumentForm(prev => ({ ...prev, referralSource: e.target.value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+              </div>
+
+              {/* External Reference */}
+              <div className="space-y-2">
+                <Label htmlFor="external-reference" className="text-sm font-medium">
+                  External Reference
+                </Label>
+                <Input
+                  id="external-reference"
+                  type="text"
+                  placeholder="External system reference or case number"
+                  value={documentForm.externalReference}
+                  onChange={(e) => setDocumentForm(prev => ({ ...prev, externalReference: e.target.value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+              </div>
+
+              {/* Date Received */}
+              <div className="space-y-2">
+                <Label htmlFor="date-received" className="text-sm font-medium">
+                  Date Received
+                </Label>
+                <Input
+                  id="date-received"
+                  type="date"
+                  value={documentForm.dateReceived}
+                  onChange={(e) => setDocumentForm(prev => ({ ...prev, dateReceived: e.target.value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+              </div>
+
+              {/* Priority Level */}
+              <div className="space-y-2">
+                <Label htmlFor="priority" className="text-sm font-medium">
+                  Priority Level
+                </Label>
+                <Select 
+                  value={documentForm.priority} 
+                  onValueChange={(value) => setDocumentForm(prev => ({ ...prev, priority: value }))}
+                  disabled={uploadDocumentMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low Priority</SelectItem>
+                    <SelectItem value="normal">Normal Priority</SelectItem>
+                    <SelectItem value="high">High Priority</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Confidential Checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is-confidential"
+                  checked={documentForm.isConfidential}
+                  onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, isConfidential: !!checked }))}
+                  disabled={uploadDocumentMutation.isPending}
+                />
+                <Label htmlFor="is-confidential" className="text-sm font-medium">
+                  Mark as Confidential
+                </Label>
+              </div>
+
               {/* Description */}
               <div className="space-y-2">
                 <Label htmlFor="document-description" className="text-sm font-medium">
-                  Description
+                  Description & Notes
                 </Label>
                 <Textarea
                   id="document-description"
-                  placeholder="Add a description (optional)"
+                  placeholder="Add a description or notes about this document"
                   value={documentForm.description}
                   onChange={(e) => setDocumentForm(prev => ({ ...prev, description: e.target.value }))}
                   disabled={uploadDocumentMutation.isPending}
