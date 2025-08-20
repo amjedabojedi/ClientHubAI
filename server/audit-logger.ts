@@ -26,7 +26,7 @@ export class AuditLogger {
     userId: number,
     username: string,
     clientId: number,
-    action: 'client_viewed' | 'client_created' | 'client_updated' | 'client_deleted',
+    action: 'client_viewed' | 'client_created' | 'client_updated' | 'client_deleted' | 'client_status_changed' | 'client_assigned' | 'client_transferred',
     ipAddress: string,
     userAgent: string,
     details?: any
@@ -56,7 +56,7 @@ export class AuditLogger {
     username: string,
     sessionId: number,
     clientId: number,
-    action: 'session_viewed' | 'session_created' | 'session_updated' | 'session_deleted',
+    action: 'session_viewed' | 'session_created' | 'session_updated' | 'session_deleted' | 'session_cancelled' | 'session_rescheduled' | 'session_completed' | 'session_no_show',
     ipAddress: string,
     userAgent: string,
     details?: any
@@ -86,7 +86,7 @@ export class AuditLogger {
     username: string,
     documentId: number,
     clientId: number,
-    action: 'document_viewed' | 'document_uploaded' | 'document_downloaded' | 'document_deleted',
+    action: 'document_viewed' | 'document_uploaded' | 'document_downloaded' | 'document_deleted' | 'document_shared' | 'document_modified',
     ipAddress: string,
     userAgent: string,
     details?: any

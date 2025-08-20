@@ -180,6 +180,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Client export endpoint - moved before the :id route to avoid conflicts  
   app.get("/api/clients/export", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    // Log data export (critical HIPAA activity)
+    await AuditLogger.logReportAccess(
+      6, // admin user
+      'admin.user',
+      'client_export',
+      'data_exported',
+      ipAddress,
+      userAgent,
+      { export_type: 'clients_csv', timestamp: new Date() }
+    );
     try {
       const allClients = await storage.getAllClientsForExport();
       
@@ -302,6 +314,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/clients/:id", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    const clientId = parseInt(req.params.id);
+    
+    // Log client deletion (high risk activity)
+    await AuditLogger.logClientAccess(
+      6, 'admin.user', clientId, 'client_deleted',
+      ipAddress, userAgent, { deleted_at: new Date() }
+    );
     try {
       const id = parseInt(req.params.id);
       
@@ -871,6 +891,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/sessions", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Convert sessionDate string to Date object if needed
       const sessionData = {
@@ -892,6 +914,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertSessionSchema.parse(sessionData);
       const session = await storage.createSession(validatedData);
+      
+      // Log session creation
+      await AuditLogger.logSessionAccess(
+        6, 'admin.user', session.id, session.clientId,
+        'session_created', ipAddress, userAgent,
+        { session_date: session.sessionDate, session_type: session.sessionType, is_historical: sessionDate < today }
+      );
+      
       res.status(201).json(session);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -903,6 +933,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put("/api/sessions/:id", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const id = parseInt(req.params.id);
       
