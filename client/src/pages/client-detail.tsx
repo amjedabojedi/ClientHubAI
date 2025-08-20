@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -2355,39 +2356,36 @@ export default function ClientDetailPage() {
                 <Label htmlFor="document-category" className="text-sm font-medium">
                   Document Type
                 </Label>
-                <Select 
-                  value={documentForm.category} 
+                <SearchableSelect
+                  value={documentForm.category}
                   onValueChange={(value) => setDocumentForm(prev => ({ ...prev, category: value }))}
                   disabled={uploadDocumentMutation.isPending}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select document type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="uploaded">General Upload</SelectItem>
-                    <SelectItem value="forms">Forms & Intake</SelectItem>
-                    <SelectItem value="insurance">Insurance Documents</SelectItem>
-                    <SelectItem value="medical">Medical Records</SelectItem>
-                    <SelectItem value="assessment">Assessment Results</SelectItem>
-                    <SelectItem value="legal">Legal Documents</SelectItem>
-                    <SelectItem value="correspondence">Correspondence</SelectItem>
-                    <SelectItem value="reports">Reports & Summaries</SelectItem>
-                    <SelectItem value="treatment">Treatment Plans</SelectItem>
-                    <SelectItem value="shared">Shared with Client</SelectItem>
-                    <SelectItem value="referral">Referral Documents</SelectItem>
-                    <SelectItem value="id">ID Documents</SelectItem>
-                    <SelectItem value="consent">Consent Forms</SelectItem>
-                    <SelectItem value="authorization">Authorization Forms</SelectItem>
-                    <SelectItem value="progress">Progress Notes</SelectItem>
-                    <SelectItem value="discharge">Discharge Summaries</SelectItem>
-                    <SelectItem value="billing">Billing Documents</SelectItem>
-                    <SelectItem value="lab">Lab Results</SelectItem>
-                    <SelectItem value="imaging">Imaging Reports</SelectItem>
-                    <SelectItem value="prescription">Prescriptions</SelectItem>
-                    <SelectItem value="emergency">Emergency Contacts</SelectItem>
-                    <SelectItem value="other">Other Documents</SelectItem>
-                  </SelectContent>
-                </Select>
+                  placeholder="Search and select document type"
+                  options={[
+                    { value: "uploaded", label: "General Upload" },
+                    { value: "forms", label: "Forms & Intake" },
+                    { value: "insurance", label: "Insurance Documents" },
+                    { value: "medical", label: "Medical Records" },
+                    { value: "assessment", label: "Assessment Results" },
+                    { value: "legal", label: "Legal Documents" },
+                    { value: "correspondence", label: "Correspondence" },
+                    { value: "reports", label: "Reports & Summaries" },
+                    { value: "treatment", label: "Treatment Plans" },
+                    { value: "shared", label: "Shared with Client" },
+                    { value: "referral", label: "Referral Documents" },
+                    { value: "id", label: "ID Documents" },
+                    { value: "consent", label: "Consent Forms" },
+                    { value: "authorization", label: "Authorization Forms" },
+                    { value: "progress", label: "Progress Notes" },
+                    { value: "discharge", label: "Discharge Summaries" },
+                    { value: "billing", label: "Billing Documents" },
+                    { value: "lab", label: "Lab Results" },
+                    { value: "imaging", label: "Imaging Reports" },
+                    { value: "prescription", label: "Prescriptions" },
+                    { value: "emergency", label: "Emergency Contacts" },
+                    { value: "other", label: "Other Documents" }
+                  ]}
+                />
               </div>
 
               {/* Description */}
