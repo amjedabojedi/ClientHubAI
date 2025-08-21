@@ -532,7 +532,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                               { value: "unassigned", label: "Unassigned" },
                               ...(therapists?.map((therapist: any) => ({
                                 value: therapist.id.toString(),
-                                label: therapist.fullName
+                                label: therapist.fullName || `${therapist.firstName || ''} ${therapist.lastName || ''}`.trim() || therapist.username || `Therapist ${therapist.id}`
                               })) || [])
                             ]}
                             placeholder="Select therapist"
