@@ -45,8 +45,6 @@ import {
 } from "@shared/schema";
 
 // Database Schema - Types
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 import type { 
   Client, 
   InsertClient,
@@ -468,99 +466,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    // Hash password before storing
-    if (insertUser.password) {
-      insertUser.password = await this.hashPassword(insertUser.password);
-    }
     const [user] = await db
       .insert(users)
       .values(insertUser)
       .returning();
     return user;
-  }
-
-  // Password utilities
-  async hashPassword(password: string): Promise<string> {
-    const saltRounds = 12;
-    return bcrypt.hash(password, saltRounds);
-  }
-
-  async comparePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-    return bcrypt.compare(plainPassword, hashedPassword);
-  }
-
-  generateResetToken(): string {
-    return crypto.randomBytes(32).toString('hex');
-  }
-
-  // Password reset methods
-  async initiatePasswordReset(email: string): Promise<{ user: User; resetToken: string } | null> {
-    // Find user by email or username
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(or(eq(users.email, email), eq(users.username, email)))
-      .limit(1);
-
-    if (!user) {
-      return null;
-    }
-
-    // Generate reset token and expiry
-    const resetToken = this.generateResetToken();
-    const resetExpiry = new Date();
-    resetExpiry.setHours(resetExpiry.getHours() + 1); // 1 hour from now
-
-    // Update user with reset token
-    await db
-      .update(users)
-      .set({
-        passwordResetToken: resetToken,
-        passwordResetExpiry: resetExpiry,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, user.id));
-
-    return { user, resetToken };
-  }
-
-  async validateResetToken(token: string): Promise<User | null> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.passwordResetToken, token),
-          gte(users.passwordResetExpiry, new Date())
-        )
-      )
-      .limit(1);
-
-    return user || null;
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const user = await this.validateResetToken(token);
-    
-    if (!user) {
-      return false;
-    }
-
-    // Hash the new password
-    const hashedPassword = await this.hashPassword(newPassword);
-
-    // Update password and clear reset token
-    await db
-      .update(users)
-      .set({
-        password: hashedPassword,
-        passwordResetToken: null,
-        passwordResetExpiry: null,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, user.id));
-
-    return true;
   }
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User> {

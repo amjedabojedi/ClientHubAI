@@ -15,7 +15,6 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { db } from "./db";
 import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
-import { getEmailService } from './email-service';
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -88,186 +87,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      // Authenticate user with proper password hashing
+      // Simple authentication for demo purposes
+      // TODO: In production, implement proper password hashing with bcrypt
       const users = await storage.getUsers();
       const user = users.find(u => u.username === username);
       
-      if (!user) {
-        // Log failed login attempt
-        await AuditLogger.recordLoginAttempt({
-          username,
-          ipAddress,
-          userAgent,
-          success: false,
-          failureReason: 'user_not_found',
-        });
+      if (!user || password !== user.password) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
-
-      // Check password using bcrypt comparison
-      const isValidPassword = await storage.comparePassword(password, user.password);
-      if (!isValidPassword) {
-        // Log failed login attempt
-        await AuditLogger.recordLoginAttempt({
-          username,
-          ipAddress,
-          userAgent,
-          success: false,
-          failureReason: 'invalid_password',
-        });
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      // Log successful login
-      await AuditLogger.recordLoginAttempt({
-        username,
-        ipAddress,
-        userAgent,
-        success: true,
-      });
 
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
 
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Password Reset Routes
-  app.post("/api/auth/forgot-password", async (req, res) => {
-    const { ipAddress, userAgent } = getRequestInfo(req);
-    
-    try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-
-      // Always return success to prevent email enumeration
-      // But only send email if user exists
-      const result = await storage.initiatePasswordReset(email);
-      
-      if (result) {
-        try {
-          const emailService = getEmailService();
-          await emailService.sendPasswordResetEmail(
-            result.user.email || email, 
-            result.resetToken,
-            result.user.fullName
-          );
-
-          // Log password reset request
-          await AuditLogger.logAuthEvent(
-            result.user.id,
-            result.user.username,
-            'password_changed',
-            ipAddress,
-            userAgent,
-            'success',
-            { action: 'reset_requested', email }
-          );
-        } catch (emailError) {
-          console.error('Failed to send password reset email:', emailError);
-          return res.status(500).json({ error: "Failed to send password reset email" });
-        }
-      }
-
-      // Always return success message (security best practice)
-      res.json({ 
-        message: "If an account with that email exists, a password reset link has been sent." 
-      });
-    } catch (error) {
-      console.error('Forgot password error:', error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  app.post("/api/auth/reset-password", async (req, res) => {
-    const { ipAddress, userAgent } = getRequestInfo(req);
-    
-    try {
-      const { token, password, confirmPassword } = req.body;
-      
-      if (!token || !password || !confirmPassword) {
-        return res.status(400).json({ error: "Token, password, and password confirmation are required" });
-      }
-
-      if (password !== confirmPassword) {
-        return res.status(400).json({ error: "Passwords do not match" });
-      }
-
-      if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters long" });
-      }
-
-      // Validate token and reset password
-      const user = await storage.validateResetToken(token);
-      if (!user) {
-        return res.status(400).json({ error: "Invalid or expired reset token" });
-      }
-
-      const success = await storage.resetPassword(token, password);
-      
-      if (success) {
-        // Log successful password reset
-        await AuditLogger.logAuthEvent(
-          user.id,
-          user.username,
-          'password_changed',
-          ipAddress,
-          userAgent,
-          'success',
-          { action: 'reset_completed', token_used: token }
-        );
-
-        res.json({ message: "Password has been successfully reset" });
-      } else {
-        res.status(400).json({ error: "Failed to reset password" });
-      }
-    } catch (error) {
-      console.error('Reset password error:', error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Validate reset token (for frontend to check if token is still valid)
-  app.get("/api/auth/validate-reset-token/:token", async (req, res) => {
-    try {
-      const { token } = req.params;
-      const user = await storage.validateResetToken(token);
-      
-      if (user) {
-        res.json({ valid: true, username: user.username });
-      } else {
-        res.json({ valid: false });
-      }
-    } catch (error) {
-      console.error('Validate token error:', error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Validate reset token via POST (more secure - token not in URL)
-  app.post("/api/auth/validate-reset-token", async (req, res) => {
-    try {
-      const { token } = req.body;
-      if (!token) {
-        return res.status(400).json({ error: "Token is required" });
-      }
-      
-      const user = await storage.validateResetToken(token);
-      
-      if (user) {
-        res.json({ valid: true, username: user.username });
-      } else {
-        res.json({ valid: false });
-      }
-    } catch (error) {
-      console.error('Validate token error:', error);
+      // Error logged
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -3083,7 +2917,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const page = await browser.newPage();
       
       // Convert markdown to HTML with professional formatting
-      let htmlContent = report.generatedContent || ''
+      let htmlContent = report.generatedContent
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>')
         .replace(/## ([^<]+)/g, '<h2>$1</h2>')
@@ -3196,7 +3030,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       
       // Parse the report content into paragraphs with better formatting
-      const lines = (report.generatedContent || '').split('\n');
+      const lines = report.generatedContent.split('\n');
       const paragraphs = [];
       
       for (const line of lines) {
@@ -4299,7 +4133,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       if (action && action !== 'all') {
-        whereConditions.push(eq(auditLogs.action, action as any));
+        whereConditions.push(eq(auditLogs.action, action as string));
       }
       
       if (userId && userId !== '') {
@@ -4310,18 +4144,14 @@ This happens because only the file metadata was stored, not the actual file cont
         whereConditions.push(eq(auditLogs.hipaaRelevant, true));
       }
       
-      // Apply WHERE conditions if any exist and execute query
-      let logs;
+      // Apply WHERE conditions if any exist
       if (whereConditions.length > 0) {
-        logs = await query
-          .where(and(...whereConditions))
-          .orderBy(desc(auditLogs.timestamp))
-          .limit(500);
-      } else {
-        logs = await query
-          .orderBy(desc(auditLogs.timestamp))
-          .limit(500);
+        query = query.where(and(...whereConditions));
       }
+      
+      const logs = await query
+        .orderBy(desc(auditLogs.timestamp))
+        .limit(500);
       
       res.json(logs);
     } catch (error) {
