@@ -19,7 +19,25 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string, userFullName: string): Promise<void> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
+    // Auto-detect the correct base URL for password reset links
+    let baseUrl = process.env.FRONTEND_URL;
+    
+    if (!baseUrl) {
+      // Check if we're running in Replit production environment
+      if (process.env.REPLIT_DOMAINS) {
+        // Use the primary Replit domain
+        const domains = process.env.REPLIT_DOMAINS.split(',');
+        baseUrl = `https://${domains[0].trim()}`;
+      } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        // Fallback to standard Replit URL format
+        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      } else {
+        // Development fallback
+        baseUrl = 'http://localhost:5000';
+      }
+    }
+    
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
     
     const emailData = {
       options: {
