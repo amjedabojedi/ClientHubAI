@@ -28,12 +28,12 @@ export class EmailService {
         // Use the primary Replit domain
         const domains = process.env.REPLIT_DOMAINS.split(',');
         baseUrl = `https://${domains[0].trim()}`;
-      } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        // Fallback to standard Replit URL format
-        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-      } else {
-        // Development fallback
+      } else if (process.env.NODE_ENV === 'development') {
+        // Development environment
         baseUrl = 'http://localhost:5000';
+      } else {
+        // Production fallback - use the live TherapyFlow domain
+        baseUrl = 'https://resiliencecrm.replit.app';
       }
     }
     
