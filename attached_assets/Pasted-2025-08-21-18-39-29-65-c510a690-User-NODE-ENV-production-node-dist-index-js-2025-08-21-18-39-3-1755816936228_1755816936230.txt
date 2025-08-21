@@ -1,0 +1,132 @@
+2025-08-21 18:39:29.65
+c510a690
+User
+> NODE_ENV=production node dist/index.js
+2025-08-21 18:39:31.11
+c510a690
+User
+10:39:31 PM [express] serving on port 5000
+2025-08-21 18:41:25.39
+c510a690
+User
+10:41:25 PM [express] POST /api/auth/login 401 in 2722ms :: {"error":"Invalid credentials"}
+2025-08-21 18:42:16.57
+c510a690
+User
+10:42:16 PM [express] POST /api/auth/login 401 in 249ms :: {"error":"Invalid credentials"}
+2025-08-21 18:42:28.13
+781db3ee
+System
+system: received signal terminated
+2025-08-21 18:42:28.56
+c510a690
+User
+10:42:28 PM [express] POST /api/auth/login 401 in 258ms :: {"error":"Invalid credentials"}
+2025-08-21 18:42:29.36
+c510a690
+User
+10:42:29 PM [express] POST /api/auth/login 401 in 96ms :: {"error":"Invalid credentials"}
+2025-08-21 18:42:45.84
+c510a690
+User
+10:42:45 PM [express] POST /api/auth/login 401 in 252ms :: {"error":"Invalid credentials"}
+2025-08-21 18:44:11.93
+c510a690
+User
+10:44:11 PM [express] POST /api/auth/login 401 in 2687ms :: {"error":"Invalid credentials"}
+2025-08-21 18:46:08.62
+c510a690
+User
+10:46:08 PM [express] POST /api/auth/login 401 in 2644ms :: {"error":"Invalid credentials"}
+2025-08-21 18:46:21.35
+c510a690
+User
+10:46:21 PM [express] POST /api/auth/login 401 in 2255ms :: {"error":"Invalid credentials"}
+2025-08-21 18:46:54.76
+c510a690
+User
+10:46:54 PM [express] POST /api/auth/login 401 in 237ms :: {"error":"Invalid credentials"}
+2025-08-21 18:46:55.48
+c510a690
+User
+10:46:55 PM [express] POST /api/auth/login 401 in 91ms :: {"error":"Invalid credentials"}
+2025-08-21 18:49:08.35
+30231c72
+System
+starting up user application
+2025-08-21 18:49:08.54
+30231c72
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2025-08-21 18:49:09.85
+30231c72
+User
+> rest-express@1.0.0 start
+2025-08-21 18:49:09.85
+30231c72
+User
+> NODE_ENV=production node dist/index.js
+2025-08-21 18:49:11.14
+30231c72
+User
+10:49:11 PM [express] serving on port 5000
+2025-08-21 18:49:50.95
+30231c72
+User
+10:49:50 PM [express] POST /api/auth/login 401 in 2737ms :: {"error":"Invalid credentials"}
+2025-08-21 18:49:59.14
+30231c72
+User
+10:49:59 PM [express] POST /api/auth/login 401 in 96ms :: {"error":"Invalid credentials"}
+2025-08-21 18:51:06.08
+30231c72
+User
+10:51:06 PM [express] POST /api/auth/login 401 in 2258ms :: {"error":"Invalid credentials"}
+2025-08-21 18:51:42.21
+30231c72
+User
+10:51:42 PM [express] POST /api/auth/login 401 in 248ms :: {"error":"Invalid credentials"}
+2025-08-21 18:52:03.63
+c510a690
+System
+system: received signal terminated
+2025-08-21 18:52:37.69
+30231c72
+User
+10:52:37 PM [express] POST /api/auth/login 401 in 258ms :: {"error":"Invalid credentials"}
+2025-08-21 18:52:39.21
+30231c72
+User
+10:52:39 PM [express] POST /api/auth/login 401 in 94ms :: {"error":"Invalid credentials"}
+2025-08-21 18:52:41.80
+30231c72
+User
+10:52:41 PM [express] POST /api/auth/login 401 in 99ms :: {"error":"Invalid credentials"}
+2025-08-21 18:54:33.92
+30231c72
+User
+10:54:33 PM [express] POST /api/auth/login 401 in 271ms :: {"error":"Invalid credentials"}
+2025-08-21 18:54:38.12
+1de9d15f
+System
+starting up user application
+2025-08-21 18:54:38.41
+1de9d15f
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2025-08-21 18:54:40.66
+1de9d15f
+User
+> rest-express@1.0.0 start
+2025-08-21 18:54:40.66
+1de9d15f
+User
+> NODE_ENV=production node dist/index.js
+2025-08-21 18:54:43.12
+1de9d15f
+User
+10:54:42 PM [express] serving on port 5000
+
+Wrap
+
+Colors

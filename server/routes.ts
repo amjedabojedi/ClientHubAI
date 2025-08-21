@@ -4310,15 +4310,18 @@ This happens because only the file metadata was stored, not the actual file cont
         whereConditions.push(eq(auditLogs.hipaaRelevant, true));
       }
       
-      // Apply WHERE conditions if any exist
-      let finalQuery = query;
+      // Apply WHERE conditions if any exist and execute query
+      let logs;
       if (whereConditions.length > 0) {
-        finalQuery = query.where(and(...whereConditions));
+        logs = await query
+          .where(and(...whereConditions))
+          .orderBy(desc(auditLogs.timestamp))
+          .limit(500);
+      } else {
+        logs = await query
+          .orderBy(desc(auditLogs.timestamp))
+          .limit(500);
       }
-      
-      const logs = await finalQuery
-        .orderBy(desc(auditLogs.timestamp))
-        .limit(500);
       
       res.json(logs);
     } catch (error) {
