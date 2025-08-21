@@ -252,6 +252,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate reset token via POST (more secure - token not in URL)
+  app.post("/api/auth/validate-reset-token", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+      
+      const user = await storage.validateResetToken(token);
+      
+      if (user) {
+        res.json({ valid: true, username: user.username });
+      } else {
+        res.json({ valid: false });
+      }
+    } catch (error) {
+      console.error('Validate token error:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Client routes with role-based access control
   app.get("/api/clients", async (req, res) => {
     try {
