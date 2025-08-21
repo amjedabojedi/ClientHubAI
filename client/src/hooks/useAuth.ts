@@ -22,6 +22,7 @@ export function useAuth() {
 export function useAuthState(): AuthContextType {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in from localStorage
@@ -37,7 +38,7 @@ export function useAuthState(): AuthContextType {
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
+    setLoginLoading(true);
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -51,14 +52,15 @@ export function useAuthState(): AuthContextType {
         const userData = await response.json();
         setUser(userData);
         localStorage.setItem('currentUser', JSON.stringify(userData));
-        setIsLoading(false);
+        setLoginLoading(false);
         return true;
       } else {
-        setIsLoading(false);
+        setLoginLoading(false);
         return false;
       }
     } catch (error) {
-      setIsLoading(false);
+      console.error('Login error:', error);
+      setLoginLoading(false);
       return false;
     }
   };
@@ -71,7 +73,7 @@ export function useAuthState(): AuthContextType {
   return {
     user,
     isAuthenticated: !!user,
-    isLoading,
+    isLoading: loginLoading || isLoading,
     login,
     logout,
   };
