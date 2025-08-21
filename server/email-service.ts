@@ -23,10 +23,13 @@ export class EmailService {
     
     const emailData = {
       options: {
-        sandbox: true
+        sandbox: false
       },
       content: {
-        from: 'sandbox@sparkpostbox.com',
+        from: {
+          email: 'noreply@send.rcrc.ca',
+          name: 'TherapyFlow'
+        },
         subject: 'Reset Your TherapyFlow Password',
         html: `
           <!DOCTYPE html>
