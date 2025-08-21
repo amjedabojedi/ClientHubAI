@@ -994,7 +994,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     <FormItem>
                       <FormLabel>Referrer Name</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Who referred this client" />
+                        <Input {...field} placeholder="Who referred this client" value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1008,7 +1008,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     <FormItem>
                       <FormLabel>Reference Number</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Case reference ID" />
+                        <Input {...field} placeholder="Case reference ID" value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1049,7 +1049,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Referral Source (Legacy)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g., Self-referral, Physician" />
+                            <Input {...field} placeholder="e.g., Self-referral, Physician" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1063,7 +1063,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Referral Type (Legacy)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g., Medical, EAP" />
+                            <Input {...field} placeholder="e.g., Medical, EAP" value={field.value || ""} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1078,7 +1078,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Referring Person (Legacy)</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Name of referring person" />
+                          <Input {...field} placeholder="Name of referring person" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1092,7 +1092,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Referral Notes</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="Additional referral information..." />
+                          <Textarea {...field} placeholder="Additional referral information..." value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
