@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
+import { Link } from 'wouter';
 import { LogIn, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -91,6 +92,13 @@ export default function LoginPage() {
             </Button>
           </form>
           
+          <div className="text-center mt-4">
+            <Link href="/forgot-password">
+              <Button variant="ghost" className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                Forgot your password?
+              </Button>
+            </Link>
+          </div>
 
         </CardContent>
       </Card>

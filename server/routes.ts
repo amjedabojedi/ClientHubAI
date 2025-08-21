@@ -15,6 +15,7 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { db } from "./db";
 import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
+import { getEmailService } from './email-service';
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -87,21 +88,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      // Simple authentication for demo purposes
-      // TODO: In production, implement proper password hashing with bcrypt
+      // Authenticate user with proper password hashing
       const users = await storage.getUsers();
       const user = users.find(u => u.username === username);
       
-      if (!user || password !== user.password) {
+      if (!user) {
+        // Log failed login attempt
+        await AuditLogger.recordLoginAttempt({
+          username,
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'user_not_found',
+        });
         return res.status(401).json({ error: "Invalid credentials" });
       }
+
+      // Check password using bcrypt comparison
+      const isValidPassword = await storage.comparePassword(password, user.password);
+      if (!isValidPassword) {
+        // Log failed login attempt
+        await AuditLogger.recordLoginAttempt({
+          username,
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'invalid_password',
+        });
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Log successful login
+      await AuditLogger.recordLoginAttempt({
+        username,
+        ipAddress,
+        userAgent,
+        success: true,
+        userId: user.id,
+      });
 
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
 
       res.json(userWithoutPassword);
     } catch (error) {
-      // Error logged
+      console.error('Login error:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Password Reset Routes
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Always return success to prevent email enumeration
+      // But only send email if user exists
+      const result = await storage.initiatePasswordReset(email);
+      
+      if (result) {
+        try {
+          const emailService = getEmailService();
+          await emailService.sendPasswordResetEmail(
+            result.user.email || email, 
+            result.resetToken,
+            result.user.fullName
+          );
+
+          // Log password reset request
+          await AuditLogger.logAuthEvent(
+            result.user.id,
+            result.user.username,
+            'password_changed',
+            ipAddress,
+            userAgent,
+            'success',
+            { action: 'reset_requested', email }
+          );
+        } catch (emailError) {
+          console.error('Failed to send password reset email:', emailError);
+          return res.status(500).json({ error: "Failed to send password reset email" });
+        }
+      }
+
+      // Always return success message (security best practice)
+      res.json({ 
+        message: "If an account with that email exists, a password reset link has been sent." 
+      });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const { token, password, confirmPassword } = req.body;
+      
+      if (!token || !password || !confirmPassword) {
+        return res.status(400).json({ error: "Token, password, and password confirmation are required" });
+      }
+
+      if (password !== confirmPassword) {
+        return res.status(400).json({ error: "Passwords do not match" });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      }
+
+      // Validate token and reset password
+      const user = await storage.validateResetToken(token);
+      if (!user) {
+        return res.status(400).json({ error: "Invalid or expired reset token" });
+      }
+
+      const success = await storage.resetPassword(token, password);
+      
+      if (success) {
+        // Log successful password reset
+        await AuditLogger.logAuthEvent(
+          user.id,
+          user.username,
+          'password_changed',
+          ipAddress,
+          userAgent,
+          'success',
+          { action: 'reset_completed', token_used: token }
+        );
+
+        res.json({ message: "Password has been successfully reset" });
+      } else {
+        res.status(400).json({ error: "Failed to reset password" });
+      }
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Validate reset token (for frontend to check if token is still valid)
+  app.get("/api/auth/validate-reset-token/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const user = await storage.validateResetToken(token);
+      
+      if (user) {
+        res.json({ valid: true, username: user.username });
+      } else {
+        res.json({ valid: false });
+      }
+    } catch (error) {
+      console.error('Validate token error:', error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
