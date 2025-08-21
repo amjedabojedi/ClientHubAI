@@ -124,7 +124,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ipAddress,
         userAgent,
         success: true,
-        userId: user.id,
       });
 
       // Return user data without password
@@ -3084,7 +3083,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const page = await browser.newPage();
       
       // Convert markdown to HTML with professional formatting
-      let htmlContent = report.generatedContent
+      let htmlContent = report.generatedContent || ''
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>')
         .replace(/## ([^<]+)/g, '<h2>$1</h2>')
@@ -3197,7 +3196,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       
       // Parse the report content into paragraphs with better formatting
-      const lines = report.generatedContent.split('\n');
+      const lines = (report.generatedContent || '').split('\n');
       const paragraphs = [];
       
       for (const line of lines) {
@@ -4300,7 +4299,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       if (action && action !== 'all') {
-        whereConditions.push(eq(auditLogs.action, action as string));
+        whereConditions.push(eq(auditLogs.action, action as any));
       }
       
       if (userId && userId !== '') {
@@ -4312,11 +4311,12 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       // Apply WHERE conditions if any exist
+      let finalQuery = query;
       if (whereConditions.length > 0) {
-        query = query.where(and(...whereConditions));
+        finalQuery = query.where(and(...whereConditions));
       }
       
-      const logs = await query
+      const logs = await finalQuery
         .orderBy(desc(auditLogs.timestamp))
         .limit(500);
       
