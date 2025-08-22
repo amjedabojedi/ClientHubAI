@@ -264,7 +264,7 @@ export default function ClientDataGrid({
                       <div className="flex items-center space-x-2">
                         <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
                         <span className="text-sm text-slate-900">
-                          {client.assignedTherapist?.fullName || 'Unassigned'}
+                          {client.therapistName || 'Unassigned'}
                         </span>
                       </div>
                     </TableCell>
@@ -364,7 +364,7 @@ export default function ClientDataGrid({
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapist?.id || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
+                          onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent(client.therapistName || '')}`}
                           className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50"
                           title="Schedule Session"
                         >
