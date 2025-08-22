@@ -41,14 +41,14 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
     queryKey: ["/api/system-options/categories"],
   });
 
-  // Get system option categories
-  const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
-  const referralSourceCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "referral_sources");
-  const maritalStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "marital_status");
-  const employmentStatusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "employment_status");
-  const educationLevelCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "education_level");
-  const genderCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "gender");
-  const preferredLanguageCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "preferred_language");
+  // Get system option categories (handle both camelCase and lowercase field names)
+  const clientTypeCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "client_type");
+  const referralSourceCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "referral_sources");
+  const maritalStatusCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "marital_status");
+  const employmentStatusCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "employment_status");
+  const educationLevelCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "education_level");
+  const genderCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "gender");
+  const preferredLanguageCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "preferred_language");
 
   // Get options for each category
   const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
