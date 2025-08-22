@@ -422,6 +422,113 @@ app.get("/api/checklist-templates", async (req, res) => {
   res.json([]); // Return empty array for now
 });
 
+// ADMINISTRATION ENDPOINTS
+app.get("/api/users", async (req, res) => {
+  console.log("✅ Users admin GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT id, full_name, email, role, is_active, created_at
+      FROM users 
+      ORDER BY full_name
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Users admin error:", error);
+    res.status(500).json({ error: "Failed to load users" });
+  }
+});
+
+app.get("/api/roles", async (req, res) => {
+  console.log("✅ Roles admin GET working");
+  try {
+    const roles = [
+      { id: 1, name: "Administrator", description: "Full system access" },
+      { id: 2, name: "Clinical Supervisor", description: "Supervisor access" },
+      { id: 3, name: "Therapist", description: "Therapist access" },
+      { id: 4, name: "Intern/Trainee", description: "Limited access" }
+    ];
+    res.json(roles);
+  } catch (error) {
+    console.error("Roles admin error:", error);
+    res.status(500).json({ error: "Failed to load roles" });
+  }
+});
+
+app.get("/api/permissions", async (req, res) => {
+  console.log("✅ Permissions admin GET working");
+  try {
+    const permissions = [
+      { id: 1, name: "client_management", description: "Manage clients" },
+      { id: 2, name: "session_management", description: "Manage sessions" },
+      { id: 3, name: "user_management", description: "Manage users" },
+      { id: 4, name: "system_settings", description: "System settings" }
+    ];
+    res.json(permissions);
+  } catch (error) {
+    console.error("Permissions admin error:", error);
+    res.status(500).json({ error: "Failed to load permissions" });
+  }
+});
+
+app.get("/api/audit/logs", async (req, res) => {
+  console.log("✅ Audit logs GET working");
+  try {
+    // Return empty array for now - audit system would need implementation
+    res.json([]);
+  } catch (error) {
+    console.error("Audit logs error:", error);
+    res.status(500).json({ error: "Failed to load audit logs" });
+  }
+});
+
+app.get("/api/audit/stats", async (req, res) => {
+  console.log("✅ Audit stats GET working");
+  try {
+    res.json({
+      totalLogs: 0,
+      loginAttempts: 0,
+      dataAccess: 0,
+      systemChanges: 0
+    });
+  } catch (error) {
+    console.error("Audit stats error:", error);
+    res.status(500).json({ error: "Failed to load audit stats" });
+  }
+});
+
+app.get("/api/notifications", async (req, res) => {
+  console.log("✅ Notifications GET working");
+  try {
+    res.json([]);
+  } catch (error) {
+    console.error("Notifications error:", error);
+    res.status(500).json({ error: "Failed to load notifications" });
+  }
+});
+
+app.get("/api/notifications/triggers", async (req, res) => {
+  console.log("✅ Notification triggers GET working");
+  try {
+    res.json([]);
+  } catch (error) {
+    console.error("Notification triggers error:", error);
+    res.status(500).json({ error: "Failed to load notification triggers" });
+  }
+});
+
+app.get("/api/notifications/templates", async (req, res) => {
+  console.log("✅ Notification templates GET working");
+  try {
+    res.json([]);
+  } catch (error) {
+    console.error("Notification templates error:", error);
+    res.status(500).json({ error: "Failed to load notification templates" });
+  }
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
