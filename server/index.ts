@@ -201,6 +201,50 @@ app.use((req, res, next) => {
     }
   });
 
+// WORKING CLIENT DATA ENDPOINTS  
+app.get("/api/clients", async (req, res) => {
+  console.log("✅ Clients GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      SELECT id, client_id, full_name, email, phone, status, 
+             created_at, client_type, stage 
+      FROM clients 
+      ORDER BY created_at DESC 
+      LIMIT 100
+    `);
+    
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Clients error:", error);
+    res.status(500).json({ error: "Failed to load clients" });
+  }
+});
+
+app.get("/api/clients/stats", async (req, res) => {
+  console.log("✅ Client stats GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const totalResult = await client.query('SELECT COUNT(*) as total FROM clients');
+    const activeResult = await client.query("SELECT COUNT(*) as active FROM clients WHERE status = 'active'");
+    
+    await client.end();
+    
+    res.json({
+      totalClients: parseInt(totalResult.rows[0].total),
+      activeClients: activeResult.rows[0].active
+    });
+  } catch (error) {
+    console.error("Client stats error:", error);
+    res.status(500).json({ error: "Failed to load client stats" });
+  }
+});
+
 (async () => {
   // Create simple server instead of using broken registerRoutes
   const server = createServer(app);
