@@ -341,6 +341,87 @@ app.get("/api/sessions/:year/:month/month", async (req, res) => {
   }
 });
 
+// CLIENT-SPECIFIC PROFILE ENDPOINTS
+app.get("/api/clients/:id", async (req, res) => {
+  console.log("✅ Single client GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT c.*, u.full_name as "therapistName"
+      FROM clients c
+      LEFT JOIN users u ON c.assigned_therapist_id = u.id
+      WHERE c.id = $1
+    `, [clientId]);
+    await client.end();
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Single client error:", error);
+    res.status(500).json({ error: "Failed to load client" });
+  }
+});
+
+app.get("/api/clients/:id/sessions", async (req, res) => {
+  console.log("✅ Client sessions GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT s.*, u.full_name as "therapistName", c.full_name as "clientName"
+      FROM sessions s
+      LEFT JOIN users u ON s.therapist_id = u.id
+      LEFT JOIN clients c ON s.client_id = c.id
+      WHERE s.client_id = $1
+      ORDER BY s.session_date DESC
+    `, [clientId]);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Client sessions error:", error);
+    res.status(500).json({ error: "Failed to load client sessions" });
+  }
+});
+
+app.get("/api/clients/:id/session-conflicts", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+app.get("/api/clients/:id/notes", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+app.get("/api/clients/:id/documents", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+app.get("/api/clients/:id/tasks", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+app.get("/api/clients/:id/billing", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+app.get("/api/clients/:id/assessments", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+// ASSESSMENT AND CHECKLIST ENDPOINTS
+app.get("/api/assessments/templates", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
+app.get("/api/checklist-templates", async (req, res) => {
+  res.json([]); // Return empty array for now
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
