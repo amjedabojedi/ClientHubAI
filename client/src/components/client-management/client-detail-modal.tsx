@@ -31,6 +31,20 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
     enabled: !!clientTypeCategory?.id,
   });
 
+  // Get gender options from system options  
+  const genderCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "gender");
+  const { data: genderOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${genderCategory?.id}`],
+    enabled: !!genderCategory?.id,
+  });
+
+  // Get preferred language options from system options
+  const languageCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "preferred_language");
+  const { data: languageOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${languageCategory?.id}`],
+    enabled: !!languageCategory?.id,
+  });
+
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
@@ -68,7 +82,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                   {getStatusBadge(client.status)}
                   <span className="text-slate-400">•</span>
                   <span className="text-sm text-slate-600">
-                    {client.assignedTherapist?.fullName || 'Unassigned'}
+                    {client.therapistName || 'Unassigned'}
                   </span>
                 </div>
               </div>
@@ -123,24 +137,26 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="non_binary">Non-binary</SelectItem>
-                          <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                          {genderOptions.options?.map((option: any) => (
+                            <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
+                              {option.optionLabel || option.optionlabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label>Preferred Language</Label>
-                      <Select value={client.preferredLanguage || 'English'}>
+                      <Select value={client.preferredLanguage || ''}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="Select language" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="English">English</SelectItem>
-                          <SelectItem value="Spanish">Spanish</SelectItem>
-                          <SelectItem value="French">French</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
+                          {languageOptions.options?.map((option: any) => (
+                            <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
+                              {option.optionLabel || option.optionlabel}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
