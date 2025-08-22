@@ -304,6 +304,40 @@ app.get("/api/clients/stats", async (req, res) => {
   }
 });
 
+// SESSIONS API FOR RECENT SESSIONS
+app.get("/api/sessions", async (req, res) => {
+  console.log("✅ Sessions GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      SELECT 
+        s.id,
+        s.session_date as "sessionDate",
+        s.session_type as "sessionType", 
+        s.status,
+        s.duration,
+        s.service_provided as "serviceProvided",
+        c.full_name as "clientName",
+        c.client_id as "clientId",
+        u.full_name as "therapistName"
+      FROM sessions s
+      JOIN clients c ON s.client_id = c.id  
+      JOIN users u ON s.therapist_id = u.id
+      WHERE s.session_date >= NOW() - INTERVAL '30 days'
+      ORDER BY s.session_date DESC
+      LIMIT 20
+    `);
+    
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Sessions error:", error);
+    res.status(500).json({ error: "Failed to load sessions" });
+  }
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
