@@ -1160,7 +1160,7 @@ export default function SchedulingPage() {
                                 <div className="space-y-1 text-sm text-slate-600">
                                   <div className="flex items-center space-x-2">
                                     <User className="w-4 h-4" />
-                                    <span>Therapist: {session.therapist.fullName}</span>
+                                    <span>Therapist: {session.therapist?.fullName || session.therapist?.full_name || 'Unassigned'}</span>
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <FileText className="w-4 h-4" />
