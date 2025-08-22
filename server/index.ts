@@ -1030,12 +1030,12 @@ app.put("/api/sessions/:id/status", async (req, res) => {
         if (serviceResult.rows.length > 0) {
           const service = serviceResult.rows[0];
           
-          // Create billing record
+          // Create billing record using actual service date
           await client.query(`
             INSERT INTO session_billing 
             (session_id, service_code, units, rate_per_unit, total_amount, insurance_covered, payment_status, billing_date, created_at, updated_at)
-            VALUES ($1, $2, 1, $3, $3, false, 'pending', CURRENT_DATE, NOW(), NOW())
-          `, [sessionId, service.service_code, service.base_rate]);
+            VALUES ($1, $2, 1, $3, $3, false, 'pending', $4::date, NOW(), NOW())
+          `, [sessionId, service.service_code, service.base_rate, session.session_date]);
           
           console.log(`✅ Billing created: ${service.service_code} - $${service.base_rate}`);
         }
