@@ -118,22 +118,24 @@ export default function SettingsPage() {
   const { data: selectedCategory, isLoading: categoryLoading, error: categoryError } = useQuery({
     queryKey: ["/api/system-options/categories", selectedCategoryId],
     enabled: !!selectedCategoryId,
+    staleTime: 0, // Always refetch to avoid caching issues
     queryFn: () => selectedCategoryId ? fetch(`/api/system-options/categories/${selectedCategoryId}`).then(res => res.json()).then(data => {
+      console.log("Category API response:", data); // Debug logging
       return {
         id: data.id,
-        categoryName: data.categoryname,
-        categoryKey: data.categorykey,
+        categoryName: data.categoryname || data.categoryName, // Handle both cases
+        categoryKey: data.categorykey || data.categoryKey,
         description: data.description,
-        isActive: data.isactive,
-        isSystem: data.issystem,
+        isActive: data.isactive !== undefined ? data.isactive : data.isActive,
+        isSystem: data.issystem !== undefined ? data.issystem : data.isSystem,
         options: data.options?.map((option: any) => ({
           id: option.id,
-          optionKey: option.optionkey,
-          optionLabel: option.optionlabel,
-          sortOrder: option.sortorder,
-          isDefault: option.isdefault,
-          isActive: option.isactive,
-          isSystem: option.issystem
+          optionKey: option.optionkey || option.optionKey,
+          optionLabel: option.optionlabel || option.optionLabel,
+          sortOrder: option.sortorder !== undefined ? option.sortorder : option.sortOrder,
+          isDefault: option.isdefault !== undefined ? option.isdefault : option.isDefault,
+          isActive: option.isactive !== undefined ? option.isactive : option.isActive,
+          isSystem: option.issystem !== undefined ? option.issystem : option.isSystem
         })) || []
       };
     }) : null,
