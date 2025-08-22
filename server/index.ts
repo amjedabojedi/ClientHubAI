@@ -169,7 +169,8 @@ app.get("/api/clients", async (req, res) => {
     const clientsResult = await client.query(`
       SELECT 
         c.id, c.client_id as "clientId", c.full_name as "fullName", c.email, c.phone, c.status, c.stage,
-        c.client_type as "clientType", c.created_at as "createdAt", c.start_date as "firstSessionDate",
+        c.client_type as "clientType", c.created_at as "createdAt", 
+        (SELECT MIN(s.session_date) FROM sessions s WHERE s.client_id = c.id AND s.session_date IS NOT NULL) as "firstSessionDate",
         (SELECT MAX(s.session_date) FROM sessions s WHERE s.client_id = c.id AND s.status = 'completed') as "lastSessionDate",
         u.full_name as "therapistName"
       FROM clients c
