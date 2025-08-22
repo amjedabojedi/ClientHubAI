@@ -472,32 +472,230 @@ app.get("/api/clients/:id/session-conflicts", async (req, res) => {
 });
 
 app.get("/api/clients/:id/notes", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Client notes GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        id,
+        client_id as clientId,
+        title,
+        content,
+        note_type as noteType,
+        author_id as authorId,
+        is_private as isPrivate,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM notes
+      WHERE client_id = $1
+      ORDER BY created_at DESC
+    `, [clientId]);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Client notes error:", error);
+    res.status(500).json({ error: "Failed to load client notes" });
+  }
 });
 
 app.get("/api/clients/:id/documents", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Client documents GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        id,
+        client_id,
+        uploaded_by_id,
+        file_name,
+        original_name,
+        file_size,
+        mime_type,
+        category,
+        is_shared_in_portal,
+        download_count,
+        created_at
+      FROM documents
+      WHERE client_id = $1
+      ORDER BY created_at DESC
+    `, [clientId]);
+    
+    // Map to camelCase for frontend
+    const mappedDocuments = result.rows.map(row => ({
+      id: row.id,
+      clientId: row.client_id,
+      uploadedById: row.uploaded_by_id,
+      fileName: row.file_name,
+      originalName: row.original_name,
+      fileSize: row.file_size,
+      mimeType: row.mime_type,
+      category: row.category,
+      isSharedInPortal: row.is_shared_in_portal,
+      downloadCount: row.download_count,
+      createdAt: row.created_at
+    }));
+    await client.end();
+    res.json(mappedDocuments);
+  } catch (error) {
+    console.error("Client documents error:", error);
+    res.status(500).json({ error: "Failed to load client documents" });
+  }
 });
 
 app.get("/api/clients/:id/tasks", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Client tasks GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        id,
+        title,
+        description,
+        status,
+        priority,
+        due_date as dueDate,
+        assigned_to_id as assignedToId,
+        client_id as clientId,
+        completed_at as completedAt,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM tasks
+      WHERE client_id = $1
+      ORDER BY created_at DESC
+    `, [clientId]);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Client tasks error:", error);
+    res.status(500).json({ error: "Failed to load client tasks" });
+  }
 });
 
 app.get("/api/clients/:id/billing", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Client billing GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        sb.id,
+        sb.session_id as sessionId,
+        sb.service_code as serviceCode,
+        sb.units,
+        sb.rate_per_unit as ratePerUnit,
+        sb.total_amount as totalAmount,
+        sb.insurance_covered as insuranceCovered,
+        sb.payment_status as paymentStatus,
+        sb.billing_date as billingDate,
+        sb.copay_amount as copayAmount,
+        sb.payment_amount as paymentAmount,
+        sb.payment_date as paymentDate,
+        sb.payment_reference as paymentReference,
+        sb.payment_method as paymentMethod,
+        sb.payment_notes as paymentNotes,
+        s.session_date as sessionDate,
+        s.session_type as sessionType
+      FROM session_billing sb
+      JOIN sessions s ON sb.session_id = s.id
+      WHERE s.client_id = $1
+      ORDER BY sb.billing_date DESC
+    `, [clientId]);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Client billing error:", error);
+    res.status(500).json({ error: "Failed to load client billing" });
+  }
 });
 
 app.get("/api/clients/:id/assessments", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Client assessments GET working");
+  try {
+    const clientId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        aa.id,
+        aa.client_id as clientId,
+        aa.template_id as templateId,
+        aa.due_date as dueDate,
+        aa.completed_at as completedAt,
+        aa.status,
+        aa.total_score as totalScore,
+        at.name as templateTitle,
+        at.description as templateDescription
+      FROM assessment_assignments aa
+      JOIN assessment_templates at ON aa.template_id = at.id
+      WHERE aa.client_id = $1
+      ORDER BY aa.due_date DESC
+    `, [clientId]);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Client assessments error:", error);
+    res.status(500).json({ error: "Failed to load client assessments" });
+  }
 });
 
 // ASSESSMENT AND CHECKLIST ENDPOINTS
 app.get("/api/assessments/templates", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Assessment templates GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        id,
+        name as title,
+        description,
+        category,
+        version,
+        is_active as isActive,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM assessment_templates
+      WHERE is_active = true
+      ORDER BY name ASC
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Assessment templates error:", error);
+    res.status(500).json({ error: "Failed to load assessment templates" });
+  }
 });
 
 app.get("/api/checklist-templates", async (req, res) => {
-  res.json([]); // Return empty array for now
+  console.log("✅ Checklist templates GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        id,
+        name,
+        description,
+        category,
+        is_active as isActive,
+        created_at as createdAt
+      FROM checklist_templates
+      WHERE is_active = true
+      ORDER BY name ASC
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Checklist templates error:", error);
+    res.status(500).json({ error: "Failed to load checklist templates" });
+  }
 });
 
 // ADMINISTRATION ENDPOINTS
