@@ -1151,7 +1151,7 @@ export default function SchedulingPage() {
                                     {session.client?.fullName || session.clientName || 'Unknown Client'}
                                   </h3>
                                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
-                                    {session.client?.referenceNumber || session.client?.reference_number || 'No Ref#'}
+                                    {session.client?.referenceNumber || session.client?.reference_number || session.clientId || 'No Ref#'}
                                   </span>
                                   <Badge className={getStatusColor(session.status)} variant="secondary">
                                     {session.status}
