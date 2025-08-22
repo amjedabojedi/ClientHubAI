@@ -2581,7 +2581,7 @@ export default function ClientDetailPage() {
                       <thead>
                         <tr className="bg-slate-50">
                           <th className="border border-slate-200 px-4 py-2 text-left">Service</th>
-                          <th className="border border-slate-200 px-4 py-2 text-left">CPT Code</th>
+                          <th className="border border-slate-200 px-4 py-2 text-left">Service Code</th>
                           <th className="border border-slate-200 px-4 py-2 text-left">Date</th>
                           <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
                         </tr>
@@ -2590,7 +2590,7 @@ export default function ClientDetailPage() {
                         <tr>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceName || selectedBillingRecord.serviceName || 'Professional Service'}</td>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceCode || selectedBillingRecord.serviceCode}</td>
-                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.serviceDate || selectedBillingRecord.session?.sessionDate).toLocaleDateString()}</td>
+                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</td>
                           <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</td>
                         </tr>
                       </tbody>
