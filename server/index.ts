@@ -201,23 +201,82 @@ app.use((req, res, next) => {
     }
   });
 
-// WORKING CLIENT DATA ENDPOINTS  
+// PROPER CLIENT DATA ENDPOINT WITH PAGINATION AND FILTERS
 app.get("/api/clients", async (req, res) => {
-  console.log("✅ Clients GET working");
+  console.log("✅ Clients GET with proper format");
   try {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     
-    const result = await client.query(`
-      SELECT id, client_id, full_name, email, phone, status, 
-             created_at, client_type, stage 
-      FROM clients 
-      ORDER BY created_at DESC 
-      LIMIT 100
-    `);
+    // Get page and pageSize from query params
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 25;
+    const offset = (page - 1) * pageSize;
+    
+    // Get search and filters
+    const search = req.query.search as string || '';
+    const status = req.query.status as string || '';
+    
+    // Build WHERE clause
+    let whereClause = "WHERE 1=1";
+    const params: any[] = [];
+    let paramCount = 0;
+    
+    if (search) {
+      paramCount++;
+      whereClause += ` AND (full_name ILIKE $${paramCount} OR email ILIKE $${paramCount} OR client_id ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+    }
+    
+    if (status) {
+      paramCount++;
+      whereClause += ` AND status = $${paramCount}`;
+      params.push(status);
+    }
+    
+    // Get total count
+    const countResult = await client.query(`
+      SELECT COUNT(*) as total FROM clients ${whereClause}
+    `, params);
+    
+    // Get clients with therapist info
+    const clientsResult = await client.query(`
+      SELECT 
+        c.id,
+        c.client_id as "clientId",
+        c.full_name as "fullName",
+        c.email,
+        c.phone,
+        c.status,
+        c.stage,
+        c.client_type as "clientType",
+        c.created_at as "createdAt",
+        c.start_date as "firstSessionDate",
+        c.last_session_date as "lastSessionDate",
+        u.full_name as "therapistName"
+      FROM clients c
+      LEFT JOIN users u ON c.assigned_therapist_id = u.id
+      ${whereClause}
+      ORDER BY c.created_at DESC
+      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
+    `, [...params, pageSize, offset]);
+    
+    // Transform data to match component expectations
+    const clients = clientsResult.rows.map(row => ({
+      ...row,
+      assignedTherapist: row.therapistName ? { fullName: row.therapistName } : null
+    }));
     
     await client.end();
-    res.json(result.rows);
+    
+    res.json({
+      clients,
+      total: parseInt(countResult.rows[0].total),
+      page,
+      pageSize,
+      totalPages: Math.ceil(parseInt(countResult.rows[0].total) / pageSize)
+    });
+    
   } catch (error) {
     console.error("Clients error:", error);
     res.status(500).json({ error: "Failed to load clients" });
