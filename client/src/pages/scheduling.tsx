@@ -578,7 +578,7 @@ export default function SchedulingPage() {
                   { value: "all", label: "All Therapists" },
                   ...(therapists?.map((therapist: any) => ({
                     value: therapist.id.toString(),
-                    label: therapist.fullName
+                    label: therapist.fullName || therapist.full_name
                   })) || [])
                 ]}
                 placeholder="All Therapists"
@@ -675,7 +675,7 @@ export default function SchedulingPage() {
                                   onValueChange={(value) => field.onChange(parseInt(value))}
                                   options={clients.clients?.map((client: any) => ({
                                     value: client.id.toString(),
-                                    label: client.fullName
+                                    label: client.fullName || client.full_name
                                   })) || []}
                                   placeholder="Select client"
                                   searchPlaceholder="Search clients..."
@@ -699,7 +699,7 @@ export default function SchedulingPage() {
                                   onValueChange={(value) => field.onChange(parseInt(value))}
                                   options={therapists?.map((therapist: any) => ({
                                     value: therapist.id.toString(),
-                                    label: therapist.fullName
+                                    label: therapist.fullName || therapist.full_name
                                   })) || []}
                                   placeholder="Select therapist"
                                   searchPlaceholder="Search therapists..."
@@ -804,7 +804,7 @@ export default function SchedulingPage() {
                                   onValueChange={(value) => field.onChange(parseInt(value))}
                                   options={services?.map((service) => ({
                                     value: service.id.toString(),
-                                    label: `${service.serviceName} - $${service.baseRate} (${service.duration}min)`
+                                    label: `${service.serviceName || service.servicename} - $${service.baseRate || service.baserate} (${service.duration}min)`
                                   })) || []}
                                   placeholder="Select service"
                                   searchPlaceholder="Search services..."
@@ -831,7 +831,7 @@ export default function SchedulingPage() {
                               <SelectContent>
                                 {rooms?.map((room) => (
                                   <SelectItem key={room.id} value={room.id.toString()}>
-                                    Room {room.roomNumber} - {room.roomName}
+                                    Room {room.roomNumber || room.roomnumber} - {room.roomName || room.roomname}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1020,7 +1020,7 @@ export default function SchedulingPage() {
                         <SelectItem value="all">All Therapists</SelectItem>
                         {therapists.map((therapist) => (
                           <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                            {therapist.fullName}
+                            {therapist.fullName || therapist.full_name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1056,8 +1056,8 @@ export default function SchedulingPage() {
                       <SelectContent>
                         <SelectItem value="all">All Services</SelectItem>
                         {services.map((service: any) => (
-                          <SelectItem key={service.id} value={service.serviceCode}>
-                            {service.serviceCode} - {service.serviceName}
+                          <SelectItem key={service.id} value={service.serviceCode || service.servicecode}>
+                            {service.serviceCode || service.servicecode} - {service.serviceName || service.servicename}
                           </SelectItem>
                         ))}
                       </SelectContent>
