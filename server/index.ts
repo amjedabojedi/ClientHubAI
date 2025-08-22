@@ -1054,6 +1054,49 @@ app.put("/api/sessions/:id/status", async (req, res) => {
   }
 });
 
+// PAYMENT RECORDING ENDPOINT
+app.put("/api/billing/:id/payment", async (req, res) => {
+  console.log("✅ Payment recording working");
+  try {
+    const billingId = parseInt(req.params.id);
+    const { paymentAmount, paymentDate, paymentMethod, paymentReference, paymentNotes } = req.body;
+    
+    if (isNaN(billingId)) {
+      return res.status(400).json({ error: "Invalid billing ID" });
+    }
+    
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    // Update billing record with payment information
+    const result = await client.query(`
+      UPDATE session_billing 
+      SET 
+        payment_amount = $1,
+        payment_date = $2::date,
+        payment_method = $3,
+        payment_reference = $4,
+        payment_notes = $5,
+        payment_status = 'paid',
+        updated_at = NOW()
+      WHERE id = $6
+      RETURNING *
+    `, [paymentAmount, paymentDate, paymentMethod, paymentReference, paymentNotes, billingId]);
+    
+    await client.end();
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Billing record not found" });
+    }
+    
+    console.log(`✅ Payment recorded: $${paymentAmount} on ${paymentDate}`);
+    res.json({ success: true, billing: result.rows[0] });
+  } catch (error) {
+    console.error("Payment recording error:", error);
+    res.status(500).json({ error: "Failed to record payment" });
+  }
+});
+
 // USER PROFILES ADMIN ENDPOINT
 app.get("/api/user-profiles", async (req, res) => {
   console.log("✅ User profiles admin GET working");
