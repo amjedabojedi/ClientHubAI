@@ -586,29 +586,51 @@ app.get("/api/clients/:id/billing", async (req, res) => {
     const result = await client.query(`
       SELECT 
         sb.id,
-        sb.session_id as sessionId,
-        sb.service_code as serviceCode,
+        sb.session_id,
+        sb.service_code,
         sb.units,
-        sb.rate_per_unit as ratePerUnit,
-        sb.total_amount as totalAmount,
-        sb.insurance_covered as insuranceCovered,
-        sb.payment_status as paymentStatus,
-        sb.billing_date as billingDate,
-        sb.copay_amount as copayAmount,
-        sb.payment_amount as paymentAmount,
-        sb.payment_date as paymentDate,
-        sb.payment_reference as paymentReference,
-        sb.payment_method as paymentMethod,
-        sb.payment_notes as paymentNotes,
-        s.session_date as sessionDate,
-        s.session_type as sessionType
+        sb.rate_per_unit,
+        sb.total_amount,
+        sb.insurance_covered,
+        sb.payment_status,
+        sb.billing_date,
+        sb.copay_amount,
+        sb.payment_amount,
+        sb.payment_date,
+        sb.payment_reference,
+        sb.payment_method,
+        sb.payment_notes,
+        s.session_date,
+        s.session_type
       FROM session_billing sb
       JOIN sessions s ON sb.session_id = s.id
       WHERE s.client_id = $1
       ORDER BY sb.billing_date DESC
     `, [clientId]);
     await client.end();
-    res.json(result.rows);
+    
+    // Map to camelCase for frontend
+    const mappedBilling = result.rows.map(row => ({
+      id: row.id,
+      sessionId: row.session_id,
+      serviceCode: row.service_code,
+      units: row.units,
+      ratePerUnit: row.rate_per_unit,
+      totalAmount: row.total_amount,
+      insuranceCovered: row.insurance_covered,
+      paymentStatus: row.payment_status,
+      billingDate: row.billing_date,
+      copayAmount: row.copay_amount,
+      paymentAmount: row.payment_amount,
+      paymentDate: row.payment_date,
+      paymentReference: row.payment_reference,
+      paymentMethod: row.payment_method,
+      paymentNotes: row.payment_notes,
+      sessionDate: row.session_date,
+      sessionType: row.session_type
+    }));
+    
+    res.json(mappedBilling);
   } catch (error) {
     console.error("Client billing error:", error);
     res.status(500).json({ error: "Failed to load client billing" });
@@ -955,6 +977,76 @@ app.get("/api/library/categories", async (req, res) => {
   } catch (error) {
     console.error("Library categories error:", error);
     res.status(500).json({ error: "Failed to load library categories" });
+  }
+});
+
+// SESSION STATUS UPDATE WITH BILLING TRIGGER
+app.put("/api/sessions/:id/status", async (req, res) => {
+  console.log("✅ Session status UPDATE working");
+  try {
+    const sessionId = parseInt(req.params.id);
+    const { status } = req.body;
+    
+    if (isNaN(sessionId)) {
+      return res.status(400).json({ error: "Invalid session ID" });
+    }
+    
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    // Update session status
+    const updateResult = await client.query(`
+      UPDATE sessions 
+      SET status = $1, updated_at = NOW() 
+      WHERE id = $2 
+      RETURNING *
+    `, [status, sessionId]);
+    
+    if (updateResult.rows.length === 0) {
+      await client.end();
+      return res.status(404).json({ error: "Session not found" });
+    }
+    
+    const session = updateResult.rows[0];
+    
+    // AUTO-CREATE BILLING when status = 'completed'
+    if (status === 'completed') {
+      console.log(`🔥 Creating billing for completed session ${sessionId}`);
+      
+      // Check if billing already exists
+      const existingBilling = await client.query(`
+        SELECT id FROM session_billing WHERE session_id = $1
+      `, [sessionId]);
+      
+      if (existingBilling.rows.length === 0) {
+        // Get service details for billing
+        const serviceResult = await client.query(`
+          SELECT srv.service_code, srv.base_rate 
+          FROM services srv 
+          JOIN sessions s ON s.service_id = srv.id 
+          WHERE s.id = $1
+        `, [sessionId]);
+        
+        if (serviceResult.rows.length > 0) {
+          const service = serviceResult.rows[0];
+          
+          // Create billing record
+          await client.query(`
+            INSERT INTO session_billing 
+            (session_id, service_code, units, rate_per_unit, total_amount, insurance_covered, payment_status, billing_date, created_at, updated_at)
+            VALUES ($1, $2, 1, $3, $3, false, 'pending', CURRENT_DATE, NOW(), NOW())
+          `, [sessionId, service.service_code, service.base_rate]);
+          
+          console.log(`✅ Billing created: ${service.service_code} - $${service.base_rate}`);
+        }
+      }
+    }
+    
+    await client.end();
+    res.json(session);
+  } catch (error) {
+    console.error("Session status update error:", error);
+    res.status(500).json({ error: "Failed to update session status" });
   }
 });
 
