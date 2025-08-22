@@ -178,6 +178,7 @@ function Navigation() {
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -188,6 +189,15 @@ function Router() {
         </div>
       </div>
     );
+  }
+
+  // Allow access to password reset pages without authentication
+  if (location === "/forgot-password") {
+    return <ForgotPasswordPage />;
+  }
+
+  if (location === "/reset-password") {
+    return <ResetPasswordPage />;
   }
 
   if (!isAuthenticated) {
