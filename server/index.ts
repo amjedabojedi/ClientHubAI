@@ -170,7 +170,8 @@ app.get("/api/clients", async (req, res) => {
       SELECT 
         c.id, c.client_id as "clientId", c.full_name as "fullName", c.email, c.phone, c.status, c.stage,
         c.client_type as "clientType", c.created_at as "createdAt", c.start_date as "firstSessionDate",
-        c.last_session_date as "lastSessionDate", u.full_name as "therapistName"
+        (SELECT MAX(s.session_date) FROM sessions s WHERE s.client_id = c.id AND s.status = 'completed') as "lastSessionDate",
+        u.full_name as "therapistName"
       FROM clients c
       LEFT JOIN users u ON c.assigned_therapist_id = u.id
       ${whereClause}
