@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
-import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -662,7 +662,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (entry.tags && entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
       return matchesCategory && matchesSearch;
-    });
+    }) : [];
 
     // Mutation for incrementing usage count
     const incrementUsageMutation = useMutation({
