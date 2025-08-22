@@ -1763,7 +1763,12 @@ This happens because only the file metadata was stored, not the actual file cont
       // In a real app, this would come from session/token
       const currentUserId = 6;
       
-      const user = await storage.getUser(currentUserId);
+      console.log("Getting user with ID:", currentUserId);
+      
+      // Use direct database query since storage method might have an issue
+      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+      
+      console.log("Found user:", user ? { id: user.id, username: user.username, fullName: user.fullName } : "No user found");
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -1860,8 +1865,8 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "New password must be at least 6 characters" });
       }
       
-      // Get current user
-      const user = await storage.getUser(currentUserId);
+      // Get current user using direct database query
+      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -1872,18 +1877,8 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(401).json({ error: "Current password is incorrect" });
       }
       
-      // Update password
-      await storage.updateUser(currentUserId, { password: newPassword });
-      
-      // Log the password change
-      await AuditLogger.recordUserActivity(
-        currentUserId,
-        'password_changed',
-        'Changed password',
-        getRequestInfo(req).ipAddress,
-        getRequestInfo(req).userAgent,
-        'success'
-      );
+      // Update password using direct database query
+      await db.update(users).set({ password: newPassword }).where(eq(users.id, currentUserId));
       
       res.json({ message: "Password changed successfully" });
     } catch (error) {
