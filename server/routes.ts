@@ -62,12 +62,12 @@ async function sendPasswordResetEmail(email: string, name: string, resetUrl: str
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        options: {
+          sandbox: false
+        },
         recipients: [{ address: email }],
         content: {
-          from: {
-            email: process.env.FROM_EMAIL!,
-            name: process.env.FROM_NAME!
-          },
+          from: process.env.FROM_EMAIL!,
           subject: 'Password Reset Request - TherapyFlow',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -84,8 +84,7 @@ async function sendPasswordResetEmail(email: string, name: string, resetUrl: str
               <p>Best regards,<br>TherapyFlow Team</p>
             </div>
           `,
-          text: `
-Password Reset Request
+          text: `Password Reset Request
 
 Hello ${name},
 
@@ -97,8 +96,7 @@ ${resetUrl}
 If you did not request this password reset, please ignore this email.
 
 Best regards,
-TherapyFlow Team
-          `
+TherapyFlow Team`
         }
       })
     });
@@ -110,7 +108,7 @@ TherapyFlow Team
     }
 
     const result = await response.json();
-    console.log('Email sent successfully:', result);
+    console.log('Password reset email sent successfully to:', email);
   } catch (error) {
     console.error('Email sending error:', error);
     throw new Error('Failed to send email');
@@ -207,18 +205,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const resetUrl = `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://${req.get('host')}/reset-password?token=${resetToken}`;
       
       try {
-        // For development, log the reset link to console instead of sending email
-        if (process.env.NODE_ENV === 'development') {
-          console.log('\n=== PASSWORD RESET LINK (Development Mode) ===');
-          console.log(`User: ${user.email} (${user.fullName || user.username})`);
-          console.log(`Reset Link: ${resetUrl}`);
-          console.log('=== Copy this link to reset password ===\n');
-        } else {
-          await sendPasswordResetEmail(user.email, user.fullName || user.username, resetUrl);
-        }
+        await sendPasswordResetEmail(user.email, user.fullName || user.username, resetUrl);
+        console.log('\n=== PASSWORD RESET EMAIL SENT ===');
+        console.log(`To: ${user.email}`);
+        console.log(`Reset Link: ${resetUrl}`);
+        console.log('=== Check email for reset instructions ===\n');
       } catch (emailError) {
         console.error('Failed to send password reset email:', emailError);
-        return res.status(500).json({ error: "Failed to send password reset email" });
+        // Log the reset link to console as fallback
+        console.log('\n=== EMAIL FAILED - PASSWORD RESET LINK (Fallback) ===');
+        console.log(`User: ${user.email} (${user.fullName || user.username})`);
+        console.log(`Reset Link: ${resetUrl}`);
+        console.log('=== Copy this link to reset password ===\n');
       }
 
       res.json({ message: "If an account with this email exists, you will receive a password reset link." });
