@@ -3714,7 +3714,31 @@ export class DatabaseStorage implements IStorage {
 
   async comparePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
     const bcrypt = await import('bcrypt');
-    return bcrypt.compare(plainPassword, hashedPassword);
+    
+    // Handle both bcrypt hashed and plain text passwords (for production compatibility)
+    if (hashedPassword.startsWith('$2b$')) {
+      // Password is bcrypt hashed
+      return bcrypt.compare(plainPassword, hashedPassword);
+    } else {
+      // Password is plain text (legacy production data)
+      const isValid = plainPassword === hashedPassword;
+      
+      // If valid plain text password, update to hashed version
+      if (isValid) {
+        try {
+          const newHashedPassword = await this.hashPassword(plainPassword);
+          // Find user by password to get ID (this is a temporary fix)
+          const usersList = await db.select().from(users).where(eq(users.password, hashedPassword));
+          if (usersList.length > 0) {
+            await db.update(users).set({ password: newHashedPassword }).where(eq(users.id, usersList[0].id));
+          }
+        } catch (error) {
+          console.error('Failed to update password hash:', error);
+        }
+      }
+      
+      return isValid;
+    }
   }
 
   generateResetToken(): string {
