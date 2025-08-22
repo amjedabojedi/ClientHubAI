@@ -186,10 +186,14 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   // Reset form when client changes or sessions load
   useEffect(() => {
     if (client && (lastResetRef.current.clientId !== client.id || lastResetRef.current.sessionsCount !== sessions.length)) {
-      // Calculate first session date
-      const firstSessionDate = sessions.length > 0 
-        ? new Date(Math.min(...sessions.map((s: any) => new Date(s.sessionDate).getTime())))
-            .toISOString().split('T')[0]
+      // Calculate first session date - filter out invalid dates first
+      const validSessionDates = sessions
+        .map((s: any) => s.sessionDate)
+        .filter((date: any) => date && !isNaN(new Date(date).getTime()))
+        .map((date: any) => new Date(date).getTime());
+      
+      const firstSessionDate = validSessionDates.length > 0 
+        ? new Date(Math.min(...validSessionDates)).toISOString().split('T')[0]
         : client.startDate || "";
       
       form.reset({
