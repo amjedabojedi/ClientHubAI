@@ -87,14 +87,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      // Simple authentication for demo purposes
-      // TODO: In production, implement proper password hashing with bcrypt
       const users = await storage.getUsers();
       const user = users.find(u => u.username === username);
       
-      if (!user || password !== user.password) {
+      if (!user) {
+        await AuditLogger.recordLoginAttempt({
+          username,
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'user_not_found',
+        });
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      
+      const isValidPassword = await storage.comparePassword(password, user.password);
+      if (!isValidPassword) {
+        await AuditLogger.recordLoginAttempt({
+          username,
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'invalid_password',
+        });
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      await AuditLogger.recordLoginAttempt({
+        username,
+        ipAddress,
+        userAgent,
+        success: true,
+      });
 
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
@@ -102,6 +126,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userWithoutPassword);
     } catch (error) {
       // Error logged
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Password reset routes
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const resetData = await storage.initiatePasswordReset(email);
+      
+      if (!resetData) {
+        // Don't reveal if email exists or not for security
+        return res.json({ message: "If email exists, reset instructions have been sent" });
+      }
+
+      res.json({ message: "Reset instructions sent to your email" });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: "Token and new password are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+
+      const success = await storage.resetPassword(token, newPassword);
+      
+      if (!success) {
+        return res.status(400).json({ error: "Invalid or expired reset token" });
+      }
+
+      res.json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Password reset error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
