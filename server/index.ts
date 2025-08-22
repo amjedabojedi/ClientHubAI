@@ -289,7 +289,8 @@ app.get("/api/sessions", async (req, res) => {
     const result = await client.query(`
       SELECT s.id, s.session_date as "sessionDate", s.session_type as "sessionType", 
              s.status, s.duration, s.service_provided as "serviceProvided",
-             c.full_name as "clientName", c.client_id as "clientId", u.full_name as "therapistName"
+             c.full_name as "clientName", c.client_id as "clientId", c.reference_number as "referenceNumber", 
+             u.full_name as "therapistName"
       FROM sessions s
       JOIN clients c ON s.client_id = c.id  
       JOIN users u ON s.therapist_id = u.id
