@@ -52,6 +52,71 @@ import {
   insertSystemOptionSchema
 } from "@shared/schema";
 
+// Email sending function using SparkPost API
+async function sendPasswordResetEmail(email: string, name: string, resetUrl: string): Promise<void> {
+  try {
+    const response = await fetch('https://api.sparkpost.com/api/v1/transmissions', {
+      method: 'POST',
+      headers: {
+        'Authorization': process.env.SPARKPOST_API_KEY!,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipients: [{ address: email }],
+        content: {
+          from: {
+            email: process.env.FROM_EMAIL!,
+            name: process.env.FROM_NAME!
+          },
+          subject: 'Password Reset Request - TherapyFlow',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #333;">Password Reset Request</h2>
+              <p>Hello ${name},</p>
+              <p>You have requested to reset your password for your TherapyFlow account.</p>
+              <p>Please click the link below to reset your password. This link will expire in 15 minutes:</p>
+              <p style="margin: 20px 0;">
+                <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+                  Reset Password
+                </a>
+              </p>
+              <p>If you did not request this password reset, please ignore this email.</p>
+              <p>Best regards,<br>TherapyFlow Team</p>
+            </div>
+          `,
+          text: `
+Password Reset Request
+
+Hello ${name},
+
+You have requested to reset your password for your TherapyFlow account.
+
+Please visit the following link to reset your password (expires in 15 minutes):
+${resetUrl}
+
+If you did not request this password reset, please ignore this email.
+
+Best regards,
+TherapyFlow Team
+          `
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('SparkPost API error:', response.status, errorData);
+      throw new Error(`SparkPost API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Email sent successfully:', result);
+  } catch (error) {
+    console.error('Email sending error:', error);
+    throw new Error('Failed to send email');
+  }
+}
+
 // Helper function to generate unique client ID
 async function generateClientId(): Promise<string> {
   const date = new Date();
@@ -108,6 +173,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userWithoutPassword);
     } catch (error) {
       // Error logged
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Password reset routes
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Check if user exists
+      const users = await storage.getUsers();
+      const user = users.find(u => u.email === email);
+      
+      if (!user) {
+        // Still return success to prevent email enumeration
+        return res.json({ message: "If an account with this email exists, you will receive a password reset link." });
+      }
+
+      // Generate reset token
+      const crypto = await import('crypto');
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Store reset token (you'll need to add this to storage)
+      await storage.storePasswordResetToken(user.id, resetToken, resetTokenExpiry);
+
+      // Send reset email
+      const resetUrl = `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://${req.get('host')}/reset-password?token=${resetToken}`;
+      
+      try {
+        // For development, log the reset link to console instead of sending email
+        if (process.env.NODE_ENV === 'development') {
+          console.log('\n=== PASSWORD RESET LINK (Development Mode) ===');
+          console.log(`User: ${user.email} (${user.fullName || user.username})`);
+          console.log(`Reset Link: ${resetUrl}`);
+          console.log('=== Copy this link to reset password ===\n');
+        } else {
+          await sendPasswordResetEmail(user.email, user.fullName || user.username, resetUrl);
+        }
+      } catch (emailError) {
+        console.error('Failed to send password reset email:', emailError);
+        return res.status(500).json({ error: "Failed to send password reset email" });
+      }
+
+      res.json({ message: "If an account with this email exists, you will receive a password reset link." });
+    } catch (error) {
+      console.error('Password reset error:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      
+      if (!token || !password) {
+        return res.status(400).json({ error: "Token and password are required" });
+      }
+
+      // Verify reset token
+      const resetData = await storage.getPasswordResetToken(token);
+      
+      if (!resetData || new Date() > resetData.expiresAt) {
+        return res.status(400).json({ error: "Invalid or expired reset token" });
+      }
+
+      // Hash new password
+      const bcrypt = await import('bcrypt');
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      // Update user password
+      await storage.updateUserPassword(resetData.userId, hashedPassword);
+
+      // Delete reset token
+      await storage.deletePasswordResetToken(token);
+
+      res.json({ message: "Password has been reset successfully" });
+    } catch (error) {
+      console.error('Password reset error:', error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

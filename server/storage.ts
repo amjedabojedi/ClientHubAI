@@ -158,6 +158,12 @@ export interface IStorage {
   getTherapists(): Promise<User[]>;
   getUsers(): Promise<User[]>;
   
+  // Password reset methods
+  storePasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
+  getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | null>;
+  deletePasswordResetToken(token: string): Promise<void>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
+  
   // ===== USER PROFILES =====
   getUserProfile(userId: number): Promise<UserProfile | undefined>;
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
@@ -496,6 +502,60 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.isActive, true))
       .orderBy(asc(users.fullName));
+  }
+
+  // Password reset methods
+  async storePasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        passwordResetToken: token,
+        passwordResetExpiry: expiresAt,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | null> {
+    const [user] = await db
+      .select({
+        userId: users.id,
+        expiresAt: users.passwordResetExpiry
+      })
+      .from(users)
+      .where(eq(users.passwordResetToken, token));
+    
+    if (!user || !user.expiresAt) {
+      return null;
+    }
+    
+    return {
+      userId: user.userId,
+      expiresAt: user.expiresAt
+    };
+  }
+
+  async deletePasswordResetToken(token: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+        updatedAt: new Date()
+      })
+      .where(eq(users.passwordResetToken, token));
+  }
+
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
   }
 
   // User Profile Methods
