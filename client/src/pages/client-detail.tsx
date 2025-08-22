@@ -2079,7 +2079,7 @@ export default function ClientDetailPage() {
                                 {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount}
                               </p>
                               <p className="text-sm text-slate-600">
-                                {billing.session ? new Date(billing.session.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
+                                {billing.sessionDate ? new Date(billing.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
                               </p>
                               {billing.paymentAmount && billing.paymentDate && (
                                 <p className="text-xs text-green-600 mt-1">
@@ -2549,7 +2549,7 @@ export default function ClientDetailPage() {
                       <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                       <p className="text-slate-600">Invoice #: INV-{client.clientId}-{selectedBillingRecord.id}</p>
                       <p className="text-slate-600">Date: {new Date().toLocaleDateString()}</p>
-                      <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
+                      <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
                       <h3 className="text-lg font-semibold text-slate-900 mb-2">Healthcare Services</h3>
