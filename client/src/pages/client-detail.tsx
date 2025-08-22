@@ -2548,7 +2548,7 @@ export default function ClientDetailPage() {
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                       <p className="text-slate-600">Invoice #: INV-{client.clientId}-{selectedBillingRecord.id}</p>
-                      <p className="text-slate-600">Date: {new Date().toLocaleDateString()}</p>
+                      <p className="text-slate-600">Invoice Date: {new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</p>
                       <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
