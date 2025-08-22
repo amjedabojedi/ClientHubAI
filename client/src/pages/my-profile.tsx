@@ -440,6 +440,8 @@ export default function MyProfilePage() {
                                 <SelectItem value="PhD">PhD - Doctor of Philosophy</SelectItem>
                                 <SelectItem value="PsyD">PsyD - Doctor of Psychology</SelectItem>
                                 <SelectItem value="MD">MD - Medical Doctor</SelectItem>
+                                <SelectItem value="CRPO">CRPO - College of Registered Psychotherapists of Ontario</SelectItem>
+                                <SelectItem value="OCSWSSW">The Ontario College of Social Workers and Social Service Workers</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
