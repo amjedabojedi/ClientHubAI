@@ -445,10 +445,10 @@ app.get("/api/roles", async (req, res) => {
   console.log("✅ Roles admin GET working");
   try {
     const roles = [
-      { id: 1, name: "Administrator", description: "Full system access" },
-      { id: 2, name: "Clinical Supervisor", description: "Supervisor access" },
-      { id: 3, name: "Therapist", description: "Therapist access" },
-      { id: 4, name: "Intern/Trainee", description: "Limited access" }
+      { id: 1, name: "Administrator", displayName: "Administrator", description: "Full system access" },
+      { id: 2, name: "Clinical Supervisor", displayName: "Clinical Supervisor", description: "Supervisor access" },
+      { id: 3, name: "Therapist", displayName: "Therapist", description: "Therapist access" },
+      { id: 4, name: "Intern/Trainee", displayName: "Intern/Trainee", description: "Limited access" }
     ];
     res.json(roles);
   } catch (error) {
