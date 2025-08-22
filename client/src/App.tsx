@@ -28,8 +28,6 @@ import SettingsPage from "@/pages/settings";
 import ChecklistManagementPage from "@/pages/checklist-management";
 import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
-import ForgotPasswordPage from "@/pages/forgot-password";
-import ResetPasswordPage from "@/pages/reset-password";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
@@ -180,7 +178,6 @@ function Navigation() {
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
-  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -191,15 +188,6 @@ function Router() {
         </div>
       </div>
     );
-  }
-
-  // Allow access to password reset pages without authentication
-  if (location === "/forgot-password") {
-    return <ForgotPasswordPage />;
-  }
-
-  if (location === "/reset-password") {
-    return <ResetPasswordPage />;
   }
 
   if (!isAuthenticated) {

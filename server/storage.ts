@@ -1,6 +1,6 @@
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray, gt } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray } from "drizzle-orm";
 
 // Database Schema - Tables
 import { 
@@ -3703,111 +3703,6 @@ export class DatabaseStorage implements IStorage {
       total: totalResult[0]?.count || 0,
       unread: unreadResult[0]?.count || 0
     };
-  }
-
-  // Password utilities
-  async hashPassword(password: string): Promise<string> {
-    const bcrypt = await import('bcrypt');
-    const saltRounds = 12;
-    return bcrypt.hash(password, saltRounds);
-  }
-
-  async comparePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-    const bcrypt = await import('bcrypt');
-    
-    // Handle both bcrypt hashed and plain text passwords (for production compatibility)
-    if (hashedPassword.startsWith('$2b$')) {
-      // Password is bcrypt hashed
-      return bcrypt.compare(plainPassword, hashedPassword);
-    } else {
-      // Password is plain text (legacy production data)
-      const isValid = plainPassword === hashedPassword;
-      
-      // If valid plain text password, update to hashed version
-      if (isValid) {
-        try {
-          const newHashedPassword = await this.hashPassword(plainPassword);
-          // Find user by password to get ID (this is a temporary fix)
-          const usersList = await db.select().from(users).where(eq(users.password, hashedPassword));
-          if (usersList.length > 0) {
-            await db.update(users).set({ password: newHashedPassword }).where(eq(users.id, usersList[0].id));
-          }
-        } catch (error) {
-          console.error('Failed to update password hash:', error);
-        }
-      }
-      
-      return isValid;
-    }
-  }
-
-  generateResetToken(): string {
-    // Simple token generation using Math.random and timestamp
-    return Math.random().toString(36).substring(2) + Date.now().toString(36) + Math.random().toString(36).substring(2);
-  }
-
-  // Password reset methods
-  async initiatePasswordReset(email: string): Promise<{ token: string; email: string } | null> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(or(eq(users.email, email), eq(users.username, email)))
-      .limit(1);
-    
-    if (!user) {
-      return null;
-    }
-
-    const token = this.generateResetToken();
-    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-    await db
-      .update(users)
-      .set({
-        passwordResetToken: token,
-        passwordResetExpiry: resetExpiry,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, user.id));
-
-    // Send email via notification service
-    try {
-      const { notificationService } = await import('./notification-service');
-      await notificationService.sendPasswordResetEmail(user.email, token, user.username);
-    } catch (error) {
-      console.error('Failed to send password reset email:', error);
-    }
-
-    return { token, email: user.email };
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(and(
-        eq(users.passwordResetToken, token),
-        gt(users.passwordResetExpiry, new Date())
-      ))
-      .limit(1);
-
-    if (!user) {
-      return false;
-    }
-
-    const hashedPassword = await this.hashPassword(newPassword);
-
-    await db
-      .update(users)
-      .set({
-        password: hashedPassword,
-        passwordResetToken: null,
-        passwordResetExpiry: null,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, user.id));
-
-    return true;
   }
 }
 
