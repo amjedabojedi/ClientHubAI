@@ -285,7 +285,7 @@ export default function DashboardPage() {
                     <div className="flex-1">
                       <h4 className="font-medium text-sm">{task.title}</h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-600">{task.client.fullName}</span>
+                        <span className="text-xs text-slate-600">{task.client?.fullName || 'No client'}</span>
                         <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
                           {task.priority}
                         </Badge>
@@ -352,7 +352,7 @@ export default function DashboardPage() {
                     onClick={() => setLocation("/scheduling")}
                   >
                     <div className="flex-1">
-                      <h4 className="font-medium text-sm">{session.client.fullName}</h4>
+                      <h4 className="font-medium text-sm">{session.clientName}</h4>
                       <div className="flex items-center gap-2 mt-1">
                         <Clock className="w-3 h-3 text-slate-400" />
                         <span className="text-xs text-slate-600">
@@ -389,7 +389,7 @@ export default function DashboardPage() {
                   onClick={() => setEditingTask(task)}
                 >
                   <h4 className="font-medium text-sm mb-1">{task.title}</h4>
-                  <p className="text-xs text-slate-600 mb-2">{task.client.fullName}</p>
+                  <p className="text-xs text-slate-600 mb-2">{task.client?.fullName || 'No client'}</p>
                   <div className="flex items-center justify-between">
                     <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
                       {task.priority}
@@ -453,7 +453,7 @@ export default function DashboardPage() {
             <div className="py-4">
               <div className="mb-4">
                 <h4 className="font-medium text-sm mb-2">{editingTask.title}</h4>
-                <p className="text-xs text-slate-600 mb-2">Client: {editingTask.client.fullName}</p>
+                <p className="text-xs text-slate-600 mb-2">Client: {editingTask.client?.fullName || 'No client'}</p>
                 <p className="text-xs text-slate-500">{editingTask.description}</p>
               </div>
               <Button 
