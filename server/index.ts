@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import pg from "pg";
+const { Client } = pg;
 
 const app = express();
 // Increase payload limits for document uploads (50MB limit)
@@ -43,30 +45,71 @@ app.use((req, res, next) => {
   const server = createServer(app);
 
   // WORKING PROFILE ROUTES
-  app.get("/api/users/me", (req, res) => {
+  app.get("/api/users/me", async (req, res) => {
     console.log("✅ Profile GET working");
-    res.json({
-      id: 6,
-      username: "admin",
-      fullName: "admin", 
-      email: "admin@therapyflow.com",
-      role: "administrator",
-      status: "active",
-      isActive: true
-    });
+    try {
+      // Get real data from database  
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      await client.connect();
+      
+      const result = await client.query('SELECT id, username, full_name, email, role, status FROM users WHERE id = $1', [6]);
+      await client.end();
+      
+      if (result.rows[0]) {
+        const user = result.rows[0];
+        res.json({
+          id: user.id,
+          username: user.username,
+          fullName: user.full_name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          isActive: true
+        });
+      } else {
+        res.status(404).json({ message: "User not found" });
+      }
+    } catch (error) {
+      console.error("Get error:", error);
+      res.status(500).json({ message: "Failed to load profile" });
+    }
   });
 
-  app.put("/api/users/me", (req, res) => {
+  app.put("/api/users/me", async (req, res) => {
     console.log("✅ Profile UPDATE working:", req.body);
-    res.json({
-      id: 6,
-      username: "admin",
-      fullName: req.body.fullName || "admin",
-      email: req.body.email || "admin@therapyflow.com", 
-      role: "administrator",
-      status: "active",
-      isActive: true
-    });
+    try {
+      // Actually save to database
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      await client.connect();
+      
+      const { fullName, email } = req.body;
+      await client.query(
+        'UPDATE users SET full_name = $1, email = $2, updated_at = NOW() WHERE id = $3',
+        [fullName, email, 6]
+      );
+      
+      // Get updated user data
+      const result = await client.query('SELECT id, username, full_name, email, role, status FROM users WHERE id = $1', [6]);
+      await client.end();
+      
+      if (result.rows[0]) {
+        const user = result.rows[0];
+        res.json({
+          id: user.id,
+          username: user.username,
+          fullName: user.full_name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          isActive: true
+        });
+      } else {
+        res.status(404).json({ message: "User not found" });
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      res.status(500).json({ message: "Failed to save profile" });
+    }
   });
   
   // Skip broken routes file for now to fix profile
