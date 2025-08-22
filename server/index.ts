@@ -529,6 +529,106 @@ app.get("/api/notifications/templates", async (req, res) => {
   }
 });
 
+// SETTINGS AND SYSTEM OPTIONS ENDPOINTS
+app.get("/api/settings", async (req, res) => {
+  console.log("✅ Settings GET working");
+  try {
+    res.json({
+      general: {
+        organizationName: "TherapyFlow Practice",
+        timeZone: "America/Toronto",
+        businessHours: "9:00 AM - 6:00 PM"
+      },
+      security: {
+        sessionTimeout: 30,
+        passwordPolicy: "strong"
+      },
+      notifications: {
+        emailEnabled: true,
+        smsEnabled: false
+      }
+    });
+  } catch (error) {
+    console.error("Settings error:", error);
+    res.status(500).json({ error: "Failed to load settings" });
+  }
+});
+
+app.get("/api/system-options", async (req, res) => {
+  console.log("✅ System options GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT DISTINCT category_id, option_key, option_label, display_order
+      FROM system_options 
+      ORDER BY category_id, display_order
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("System options error:", error);
+    res.status(500).json({ error: "Failed to load system options" });
+  }
+});
+
+// LIBRARY ENDPOINTS
+app.get("/api/library", async (req, res) => {
+  console.log("✅ Library GET working");
+  try {
+    res.json([]);
+  } catch (error) {
+    console.error("Library error:", error);
+    res.status(500).json({ error: "Failed to load library" });
+  }
+});
+
+app.get("/api/library/categories", async (req, res) => {
+  console.log("✅ Library categories GET working");
+  try {
+    res.json([
+      { id: 1, name: "Session Focus", description: "Focus areas for therapy sessions" },
+      { id: 2, name: "Symptoms", description: "Common symptoms and presentations" },
+      { id: 3, name: "Goals", description: "Treatment goals and objectives" },
+      { id: 4, name: "Interventions", description: "Therapeutic interventions" },
+      { id: 5, name: "Progress", description: "Progress tracking measures" }
+    ]);
+  } catch (error) {
+    console.error("Library categories error:", error);
+    res.status(500).json({ error: "Failed to load library categories" });
+  }
+});
+
+// USER PROFILES ADMIN ENDPOINT
+app.get("/api/user-profiles", async (req, res) => {
+  console.log("✅ User profiles admin GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT id, full_name, email, role, is_active, created_at, last_login
+      FROM users 
+      ORDER BY full_name
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("User profiles admin error:", error);
+    res.status(500).json({ error: "Failed to load user profiles" });
+  }
+});
+
+// ASSESSMENTS ASSIGNMENTS ENDPOINT (was missing)
+app.get("/api/assessments/assignments", async (req, res) => {
+  console.log("✅ Assessment assignments GET working");
+  try {
+    res.json([]);
+  } catch (error) {
+    console.error("Assessment assignments error:", error);
+    res.status(500).json({ error: "Failed to load assessment assignments" });
+  }
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
