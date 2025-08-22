@@ -118,7 +118,25 @@ export default function SettingsPage() {
   const { data: selectedCategory, isLoading: categoryLoading, error: categoryError } = useQuery({
     queryKey: ["/api/system-options/categories", selectedCategoryId],
     enabled: !!selectedCategoryId,
-    queryFn: () => selectedCategoryId ? fetch(`/api/system-options/categories/${selectedCategoryId}`).then(res => res.json()) : null,
+    queryFn: () => selectedCategoryId ? fetch(`/api/system-options/categories/${selectedCategoryId}`).then(res => res.json()).then(data => {
+      return {
+        id: data.id,
+        categoryName: data.categoryname,
+        categoryKey: data.categorykey,
+        description: data.description,
+        isActive: data.isactive,
+        isSystem: data.issystem,
+        options: data.options?.map((option: any) => ({
+          id: option.id,
+          optionKey: option.optionkey,
+          optionLabel: option.optionlabel,
+          sortOrder: option.sortorder,
+          isDefault: option.isdefault,
+          isActive: option.isactive,
+          isSystem: option.issystem
+        })) || []
+      };
+    }) : null,
   });
 
   // Mutations

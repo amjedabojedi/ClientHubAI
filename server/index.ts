@@ -600,6 +600,61 @@ app.get("/api/system-options/categories", async (req, res) => {
   }
 });
 
+// INDIVIDUAL CATEGORY WITH OPTIONS ENDPOINT 
+app.get("/api/system-options/categories/:id", async (req, res) => {
+  console.log("✅ Individual category GET working");
+  const categoryId = req.params.id;
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    // Get category info
+    const categoryResult = await client.query(`
+      SELECT 
+        id,
+        category_name as categoryName,
+        category_key as categoryKey,
+        description,
+        is_active as isActive,
+        is_system as isSystem
+      FROM option_categories
+      WHERE id = $1
+    `, [categoryId]);
+    
+    // Get options for this category
+    const optionsResult = await client.query(`
+      SELECT 
+        id,
+        option_key as optionKey,
+        option_label as optionLabel,
+        sort_order as sortOrder,
+        is_default as isDefault,
+        is_active as isActive,
+        is_system as isSystem
+      FROM system_options
+      WHERE category_id = $1
+      ORDER BY sort_order, option_label
+    `, [categoryId]);
+    
+    await client.end();
+    
+    if (categoryResult.rows.length === 0) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+    
+    const category = categoryResult.rows[0];
+    const options = optionsResult.rows;
+    
+    res.json({
+      ...category,
+      options: options
+    });
+  } catch (error) {
+    console.error("Individual category error:", error);
+    res.status(500).json({ error: "Failed to load category" });
+  }
+});
+
 // LIBRARY ENDPOINTS
 app.get("/api/library", async (req, res) => {
   console.log("✅ Library GET working");
