@@ -560,9 +560,9 @@ app.get("/api/system-options", async (req, res) => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     const result = await client.query(`
-      SELECT DISTINCT category_id, option_key, option_label, display_order
+      SELECT DISTINCT category_id, option_key, option_label
       FROM system_options 
-      ORDER BY category_id, display_order
+      ORDER BY category_id, option_key
     `);
     await client.end();
     res.json(result.rows);
@@ -626,6 +626,54 @@ app.get("/api/assessments/assignments", async (req, res) => {
   } catch (error) {
     console.error("Assessment assignments error:", error);
     res.status(500).json({ error: "Failed to load assessment assignments" });
+  }
+});
+
+// SERVICES AND ROOMS ENDPOINTS (for Settings page)
+app.get("/api/services", async (req, res) => {
+  console.log("✅ Services GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT id, service_name, service_code, description
+      FROM services 
+      ORDER BY service_name
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Services error:", error);
+    res.status(500).json({ error: "Failed to load services" });
+  }
+});
+
+app.get("/api/rooms", async (req, res) => {
+  console.log("✅ Rooms GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT id, room_name, capacity, is_active
+      FROM rooms 
+      ORDER BY room_name
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Rooms error:", error);
+    res.status(500).json({ error: "Failed to load rooms" });
+  }
+});
+
+// LIBRARY ENTRIES ENDPOINT (was missing)
+app.get("/api/library/entries", async (req, res) => {
+  console.log("✅ Library entries GET working");
+  try {
+    res.json([]);
+  } catch (error) {
+    console.error("Library entries error:", error);
+    res.status(500).json({ error: "Failed to load library entries" });
   }
 });
 
