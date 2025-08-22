@@ -72,6 +72,15 @@ export default function SettingsPage() {
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/system-options/categories"],
+    queryFn: () => fetch("/api/system-options/categories").then(res => res.json()).then(data => {
+      return data.map((category: any) => ({
+        id: category.id,
+        categoryName: category.categoryname,
+        categoryKey: category.categorykey,
+        isActive: category.isactive,
+        isSystem: category.issystem
+      }));
+    }),
   });
 
   // Fetch service codes from Services table
@@ -80,9 +89,9 @@ export default function SettingsPage() {
     queryFn: () => fetch("/api/services").then(res => res.json()).then(data => {
       return data.map((service: any) => ({
         id: service.id,
-        optionKey: service.serviceCode,
-        optionLabel: service.serviceName,
-        price: service.baseRate
+        optionKey: service.servicecode,
+        optionLabel: service.servicename,
+        price: service.baserate || '0.00'
       }));
     }),
     staleTime: 0, // Always refetch when needed
@@ -92,6 +101,15 @@ export default function SettingsPage() {
   // Fetch rooms
   const { data: rooms = [], isLoading: roomsLoading } = useQuery({
     queryKey: ["/api/rooms"],
+    queryFn: () => fetch("/api/rooms").then(res => res.json()).then(data => {
+      return data.map((room: any) => ({
+        id: room.id,
+        roomNumber: room.roomnumber,
+        roomName: room.roomname,
+        capacity: room.capacity,
+        isActive: room.isactive
+      }));
+    }),
   }) as { data: any[], isLoading: boolean };
 
   // Fetch category with options when selected

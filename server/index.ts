@@ -572,6 +572,29 @@ app.get("/api/system-options", async (req, res) => {
   }
 });
 
+app.get("/api/system-options/categories", async (req, res) => {
+  console.log("✅ System options categories GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT DISTINCT 
+        category_id as id,
+        ('Category ' || category_id) as categoryName,
+        ('category_' || category_id) as categoryKey,
+        true as isActive,
+        false as isSystem
+      FROM system_options 
+      ORDER BY category_id
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("System options categories error:", error);
+    res.status(500).json({ error: "Failed to load system options categories" });
+  }
+});
+
 // LIBRARY ENDPOINTS
 app.get("/api/library", async (req, res) => {
   console.log("✅ Library GET working");
@@ -636,7 +659,12 @@ app.get("/api/services", async (req, res) => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     const result = await client.query(`
-      SELECT id, service_name, service_code, description
+      SELECT 
+        id, 
+        service_name as serviceName,
+        service_code as serviceCode, 
+        description,
+        0.00 as baseRate
       FROM services 
       ORDER BY service_name
     `);
@@ -654,7 +682,12 @@ app.get("/api/rooms", async (req, res) => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     const result = await client.query(`
-      SELECT id, room_name, capacity, is_active
+      SELECT 
+        id, 
+        room_name as roomName,
+        id as roomNumber,
+        capacity, 
+        is_active as isActive
       FROM rooms 
       ORDER BY room_name
     `);
