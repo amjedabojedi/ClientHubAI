@@ -484,8 +484,8 @@ export default function SchedulingPage() {
     
     if (searchQuery) {
       filtered = filtered.filter((session: Session) =>
-        session.client?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        session.therapist?.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
+        (session.client?.fullName || session.clientName)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (session.therapist?.fullName || session.therapistName)?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     
@@ -952,7 +952,7 @@ export default function SchedulingPage() {
                                 setIsEditSessionModalOpen(true);
                               }}
                             >
-                              {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {session.client?.fullName}
+                              {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {session.client?.fullName || session.clientName}
                             </div>
                           ))}
                           {sessionsForDay.length > 5 && (
@@ -1141,14 +1141,14 @@ export default function SchedulingPage() {
                               
                               <Avatar className="w-12 h-12">
                                 <AvatarFallback className="bg-blue-100 text-blue-600">
-                                  {getInitials(session.client?.fullName || 'UC')}
+                                  {getInitials(session.client?.fullName || session.clientName || 'UC')}
                                 </AvatarFallback>
                               </Avatar>
                               
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
                                   <h3 className="font-medium text-blue-600">
-                                    {session.client?.fullName || 'Unknown Client'}
+                                    {session.client?.fullName || session.clientName || 'Unknown Client'}
                                   </h3>
                                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
                                     {session.client?.referenceNumber || session.client?.reference_number || 'No Ref#'}
@@ -1160,7 +1160,7 @@ export default function SchedulingPage() {
                                 <div className="space-y-1 text-sm text-slate-600">
                                   <div className="flex items-center space-x-2">
                                     <User className="w-4 h-4" />
-                                    <span>Therapist: {session.therapist?.fullName || session.therapist?.full_name || 'Unassigned'}</span>
+                                    <span>Therapist: {session.therapist?.fullName || session.therapist?.full_name || session.therapistName || 'Unassigned'}</span>
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <FileText className="w-4 h-4" />
@@ -1299,15 +1299,15 @@ export default function SchedulingPage() {
                           <div className="flex items-center space-x-3 mb-2">
                             <Avatar className="w-8 h-8">
                               <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                                {getInitials(session.client?.fullName || 'UC')}
+                                {getInitials(session.client?.fullName || session.clientName || 'UC')}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-blue-600">
-                                {session.client?.fullName || 'Unknown Client'}
+                                {session.client?.fullName || session.clientName || 'Unknown Client'}
                               </p>
                               <p className="text-xs text-slate-600">
-                                with {session.therapist.fullName}
+                                with {session.therapist?.fullName || session.therapistName || 'Unassigned'}
                               </p>
                             </div>
                           </div>
@@ -1439,14 +1439,14 @@ export default function SchedulingPage() {
                                 
                                 <Avatar className="w-12 h-12">
                                   <AvatarFallback className="bg-blue-100 text-blue-600">
-                                    {getInitials(session.client?.fullName || 'UC')}
+                                    {getInitials(session.client?.fullName || session.clientName || 'UC')}
                                   </AvatarFallback>
                                 </Avatar>
                                 
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">
                                     <h3 className="font-medium text-blue-600">
-                                      {session.client?.fullName || 'Unknown Client'}
+                                      {session.client?.fullName || session.clientName || 'Unknown Client'}
                                     </h3>
                                     <Badge className={getStatusColor(session.status)} variant="secondary">
                                       {session.status}
