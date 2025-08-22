@@ -601,9 +601,12 @@ app.get("/api/clients/:id/billing", async (req, res) => {
         sb.payment_method,
         sb.payment_notes,
         s.session_date,
-        s.session_type
+        s.session_type,
+        srv.service_name,
+        srv.service_code as service_service_code
       FROM session_billing sb
       JOIN sessions s ON sb.session_id = s.id
+      JOIN services srv ON s.service_id = srv.id
       WHERE s.client_id = $1
       ORDER BY sb.billing_date DESC
     `, [clientId]);
@@ -614,6 +617,7 @@ app.get("/api/clients/:id/billing", async (req, res) => {
       id: row.id,
       sessionId: row.session_id,
       serviceCode: row.service_code,
+      serviceName: row.service_name,
       units: row.units,
       ratePerUnit: row.rate_per_unit,
       totalAmount: row.total_amount,
