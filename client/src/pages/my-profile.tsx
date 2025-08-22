@@ -281,18 +281,21 @@ export default function MyProfilePage() {
           </p>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-7">
-                <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                <TabsTrigger value="license">License</TabsTrigger>
-                <TabsTrigger value="specializations">Specializations</TabsTrigger>
-                <TabsTrigger value="background">Background</TabsTrigger>
-                <TabsTrigger value="schedule">Schedule</TabsTrigger>
-                <TabsTrigger value="contact">Contact</TabsTrigger>
-                <TabsTrigger value="password">Password</TabsTrigger>
-              </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="license">License</TabsTrigger>
+            <TabsTrigger value="specializations">Specializations</TabsTrigger>
+            <TabsTrigger value="background">Background</TabsTrigger>
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="contact">Contact</TabsTrigger>
+            <TabsTrigger value="password">Password</TabsTrigger>
+          </TabsList>
+
+          {/* Profile Form - All tabs except password */}
+          {activeTab !== 'password' && (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
               <TabsContent value="basic" className="space-y-6">
                 <Card>
@@ -652,91 +655,95 @@ export default function MyProfilePage() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="password" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Lock className="w-5 h-5" />
-                      Change Password
-                    </CardTitle>
-                    <CardDescription>
-                      Update your account password for security
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Form {...passwordForm}>
-                      <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6">
-                        <FormField
-                          control={passwordForm.control}
-                          name="currentPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Current Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" placeholder="Enter your current password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={passwordForm.control}
-                          name="newPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>New Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" placeholder="Enter your new password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={passwordForm.control}
-                          name="confirmPassword"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Confirm New Password</FormLabel>
-                              <FormControl>
-                                <Input type="password" placeholder="Confirm your new password" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="flex justify-end">
-                          <Button 
-                            type="submit" 
-                            disabled={changePasswordMutation.isPending}
-                            className="flex items-center gap-2"
-                          >
-                            <Lock className="w-4 h-4" />
-                            {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                <div className="flex justify-end space-x-4">
+                  <Button 
+                    type="submit" 
+                    disabled={updateUserMutation.isPending || updateProfileMutation.isPending || createProfileMutation.isPending}
+                    className="flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    {updateUserMutation.isPending || updateProfileMutation.isPending || createProfileMutation.isPending 
+                      ? "Saving..." 
+                      : "Save Profile"
+                    }
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          )}
 
-            <div className="flex justify-end space-x-4">
-              <Button 
-                type="submit" 
-                disabled={updateUserMutation.isPending || updateProfileMutation.isPending || createProfileMutation.isPending}
-                className="flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                {updateUserMutation.isPending || updateProfileMutation.isPending || createProfileMutation.isPending 
-                  ? "Saving..." 
-                  : "Save Profile"
-                }
-              </Button>
-            </div>
-          </form>
-        </Form>
+          {/* Password Tab - Separate form */}
+          {activeTab === 'password' && (
+            <TabsContent value="password" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lock className="w-5 h-5" />
+                    Change Password
+                  </CardTitle>
+                  <CardDescription>
+                    Update your account password for security
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Form {...passwordForm}>
+                    <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6">
+                      <FormField
+                        control={passwordForm.control}
+                        name="currentPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Current Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Enter your current password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={passwordForm.control}
+                        name="newPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>New Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Enter your new password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={passwordForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Confirm New Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="Confirm your new password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end">
+                        <Button 
+                          type="submit" 
+                          disabled={changePasswordMutation.isPending}
+                          className="flex items-center gap-2"
+                        >
+                          <Lock className="w-4 h-4" />
+                          {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </div>
   );

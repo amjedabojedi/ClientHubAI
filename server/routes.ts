@@ -1763,14 +1763,17 @@ This happens because only the file metadata was stored, not the actual file cont
       // In a real app, this would come from session/token
       const currentUserId = 6;
       
-      // Use direct database query since storage method has an issue
-      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+      const user = await storage.getUser(currentUserId);
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+      
+      // Return user data without password for security
+      const { password, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
     } catch (error) {
+      console.error("Error getting current user:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
