@@ -34,7 +34,11 @@ import { insertSessionNoteSchema } from "@shared/schema";
 import { format } from "date-fns";
 
 // Utility function to parse UTC date strings without timezone shift
-const parseSessionDate = (dateString: string): Date => {
+const parseSessionDate = (dateString: string | null | undefined): Date => {
+  // Handle null, undefined, or empty string
+  if (!dateString) {
+    return new Date();
+  }
   // If date is already in YYYY-MM-DD format, add time to avoid timezone issues
   if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
     return new Date(dateString + 'T12:00:00');
@@ -326,7 +330,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
     onSuccess: (result) => {
       setGeneratedContent(result.generatedContent);
-      form.setValue('sessionNotes', result.generatedContent);
+      form.setValue('content', result.generatedContent);
       setIsGeneratingAI(false);
       setShowPreview(true);
       
@@ -337,22 +341,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           sessionId: formValues.sessionId,
           clientId: clientId,
           therapistId: 1, // Default therapist ID - should be from session
-          date: new Date().toISOString(),
-          generatedContent: result.generatedContent,
-          finalContent: result.generatedContent,
+          date: new Date(),
+          content: result.generatedContent,
           aiEnabled: true,
           customAiPrompt: savedTemplate,
-          isDraft: false,
-          isFinalized: true,
           sessionFocus: formValues.sessionFocus || '',
           symptoms: formValues.symptoms || '',
           shortTermGoals: formValues.shortTermGoals || '',
           intervention: formValues.intervention || '',
           progress: formValues.progress || '',
           remarks: formValues.remarks || '',
-          recommendations: formValues.recommendations || '',
-          moodBefore: formValues.moodBefore,
-          moodAfter: formValues.moodAfter
+          recommendations: formValues.recommendations || ''
         };
         
         createSessionNoteMutation.mutate(sessionNoteData);
@@ -506,12 +505,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     defaultValues: {
       clientId,
       therapistId: 3, // Mock therapist ID - in real app this would come from auth
-      noteType: 'general',
+      date: new Date(),
+      sessionId: undefined,
       content: '',
-      confidentialityLevel: 'standard',
-      isPrivate: false,
-      followUpNeeded: false,
-      riskLevel: 'low',
       aiEnabled: false,
     },
   });
@@ -538,12 +534,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       sessionId: preSelectedSessionId || undefined,
       clientId,
       therapistId: 3,
-      noteType: 'general',
+      date: new Date(),
       content: '',
-      confidentialityLevel: 'standard',
-      isPrivate: false,
-      followUpNeeded: false,
-      riskLevel: 'low',
       aiEnabled: false,
     });
   };
@@ -554,7 +546,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       sessionId: note.sessionId,
       clientId: note.clientId,
       therapistId: note.therapistId,
-      noteType: note.noteType,
+      date: new Date(note.createdAt),
       content: note.content,
       sessionFocus: note.sessionFocus,
       symptoms: note.symptoms,
@@ -563,14 +555,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       progress: note.progress,
       remarks: note.remarks,
       recommendations: note.recommendations,
-      moodBefore: note.moodBefore,
-      moodAfter: note.moodAfter,
-      assessments: note.assessments,
-      homework: note.homework,
-      followUpNeeded: note.followUpNeeded,
-      riskLevel: note.riskLevel,
-      confidentialityLevel: note.confidentialityLevel,
-      isPrivate: note.isPrivate,
       aiEnabled: note.aiEnabled,
       customAiPrompt: note.customAiPrompt,
     });

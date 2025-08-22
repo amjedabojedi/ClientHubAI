@@ -242,7 +242,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
         onClick={() => setShowItems(true)}
       >
         <CheckSquare className="w-4 h-4 mr-2" />
-        View Items ({templateItems?.length || '...'})
+        View Items ({templateItems?.length ?? 0})
       </Button>
     );
   }
@@ -1347,14 +1347,14 @@ export default function ClientDetailPage() {
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center justify-between py-2 border-b border-slate-100">
                     <span className="text-sm font-medium text-slate-600">Treatment Stage</span>
-                    <Badge className={`${getStageColor(client.stage)} px-3 py-1`}>
+                    <Badge className={`${getStageColor(client.stage || 'intake')} px-3 py-1`}>
                       {(client.stage || 'intake').charAt(0).toUpperCase() + (client.stage || 'intake').slice(1)}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-slate-100">
                     <span className="text-sm font-medium text-slate-600">Client Type</span>
                     <span className="text-slate-900 font-medium">
-                      {(client.clientType || client.client_type || 'Individual').charAt(0).toUpperCase() + (client.clientType || client.client_type || 'Individual').slice(1)}
+                      {(client.clientType || 'Individual').charAt(0).toUpperCase() + (client.clientType || 'Individual').slice(1)}
                     </span>
                   </div>
                   {client.serviceType && (
@@ -1409,7 +1409,7 @@ export default function ClientDetailPage() {
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{client.therapistName || 'Unassigned'}</h4>
+                      <h4 className="font-semibold text-slate-900 mb-1">Unassigned</h4>
                       <p className="text-slate-600 text-sm">Assigned</p>
                     </div>
                   ) : (
@@ -1636,8 +1636,7 @@ export default function ClientDetailPage() {
                                 )}
                               </div>
                               <p className="text-sm text-slate-600">
-                                {session.sessionDate ? parseSessionDate(session.sessionDate).toLocaleDateString() : 'Date TBD'}
-                                {session.sessionTime && ` • ${session.sessionTime}`}
+                                {session.sessionDate ? parseSessionDate(session.sessionDate.toString()).toLocaleDateString() : 'Date TBD'}
                                 {hasConflicts && conflictInfo && (
                                   <span className="text-orange-600 ml-2">
                                     • {conflictInfo.sessions.length} sessions on same day
@@ -1707,9 +1706,9 @@ export default function ClientDetailPage() {
                             </Button>
                           </div>
                         </div>
-                        {session.therapist && (
+                        {session.therapistName && (
                           <p className="text-sm text-slate-600 mb-2">
-                            <span className="font-medium">Therapist:</span> {session.therapist.fullName}
+                            <span className="font-medium">Therapist:</span> {session.therapistName}
                           </p>
                         )}
                         {session.notes && (
@@ -1868,7 +1867,7 @@ export default function ClientDetailPage() {
                               }`} />
                             </div>
                             <div>
-                              <h4 className="font-semibold text-slate-900">{assessment.template.title}</h4>
+                              <h4 className="font-semibold text-slate-900">{assessment.template.name}</h4>
                               <p className="text-sm text-slate-600">
                                 Assigned: {new Date(assessment.assignedDate).toLocaleDateString()}
                                 {assessment.completedDate && (
@@ -1987,10 +1986,11 @@ export default function ClientDetailPage() {
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling!.style.display = 'flex';
+                                  const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                  if (sibling) sibling.classList.remove('hidden');
                                 }}
                               />
-                              <FolderOpen className="w-5 h-5 text-slate-400" style={{ display: 'none' }} />
+                              <FolderOpen className="w-5 h-5 text-slate-400 hidden" />
                             </div>
                           ) : (
                             <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
@@ -2276,7 +2276,7 @@ export default function ClientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <ClientChecklistsDisplay clientId={clientId} />
+                <ClientChecklistsDisplay clientId={clientId!} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -2462,7 +2462,7 @@ export default function ClientDetailPage() {
               <Label>Available Templates:</Label>
               <div className="space-y-2 mt-2">
                 {checklistTemplates.length > 0 ? (
-                  checklistTemplates.map((template: any) => (
+                  (checklistTemplates as ChecklistTemplate[]).map((template: ChecklistTemplate) => (
                     <Button 
                       key={template.id}
                       variant="outline" 
@@ -2509,7 +2509,7 @@ export default function ClientDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-auto">
-            {renderDocumentPreview(previewDocument)}
+            {previewDocument && renderDocumentPreview(previewDocument)}
           </div>
           <DialogFooter>
             <Button 
@@ -2570,8 +2570,8 @@ export default function ClientDetailPage() {
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900 mb-2">Insurance Info:</h3>
                       <p className="text-slate-600">Provider: {client.insuranceProvider}</p>
-                      <p className="text-slate-600">Policy: {client.insurancePolicyNumber}</p>
-                      <p className="text-slate-600">Group: {client.insuranceGroupNumber}</p>
+                      <p className="text-slate-600">Policy: {client.policyNumber || 'N/A'}</p>
+                      <p className="text-slate-600">Group: {client.groupNumber || 'N/A'}</p>
                     </div>
                   </div>
 

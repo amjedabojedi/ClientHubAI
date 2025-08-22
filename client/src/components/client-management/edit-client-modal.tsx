@@ -189,12 +189,16 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       // Calculate first session date - filter out invalid dates first
       const validSessionDates = sessions
         .map((s: any) => s.sessionDate)
-        .filter((date: any) => date && !isNaN(new Date(date).getTime()))
+        .filter((date: any) => {
+          if (!date) return false;
+          const dateObj = new Date(date);
+          return !isNaN(dateObj.getTime());
+        })
         .map((date: any) => new Date(date).getTime());
       
       const firstSessionDate = validSessionDates.length > 0 
         ? new Date(Math.min(...validSessionDates)).toISOString().split('T')[0]
-        : client.startDate || "";
+        : (client.startDate || "");
       
       form.reset({
         // Personal Information
