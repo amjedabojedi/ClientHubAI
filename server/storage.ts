@@ -158,12 +158,6 @@ export interface IStorage {
   getTherapists(): Promise<User[]>;
   getUsers(): Promise<User[]>;
   
-  // Password reset methods
-  storePasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void>;
-  getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | null>;
-  deletePasswordResetToken(token: string): Promise<void>;
-  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
-  
   // ===== USER PROFILES =====
   getUserProfile(userId: number): Promise<UserProfile | undefined>;
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
@@ -502,60 +496,6 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.isActive, true))
       .orderBy(asc(users.fullName));
-  }
-
-  // Password reset methods
-  async storePasswordResetToken(userId: number, token: string, expiresAt: Date): Promise<void> {
-    await db
-      .update(users)
-      .set({
-        passwordResetToken: token,
-        passwordResetExpiry: expiresAt,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId));
-  }
-
-  async getPasswordResetToken(token: string): Promise<{ userId: number; expiresAt: Date } | null> {
-    const [user] = await db
-      .select({
-        userId: users.id,
-        expiresAt: users.passwordResetExpiry
-      })
-      .from(users)
-      .where(eq(users.passwordResetToken, token));
-    
-    if (!user || !user.expiresAt) {
-      return null;
-    }
-    
-    return {
-      userId: user.userId,
-      expiresAt: user.expiresAt
-    };
-  }
-
-  async deletePasswordResetToken(token: string): Promise<void> {
-    await db
-      .update(users)
-      .set({
-        passwordResetToken: null,
-        passwordResetExpiry: null,
-        updatedAt: new Date()
-      })
-      .where(eq(users.passwordResetToken, token));
-  }
-
-  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
-    await db
-      .update(users)
-      .set({
-        password: hashedPassword,
-        passwordResetToken: null,
-        passwordResetExpiry: null,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, userId));
   }
 
   // User Profile Methods
@@ -1127,6 +1067,25 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]> {
+    const results = await db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .orderBy(desc(sessions.sessionDate));
+
+    return results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client 
+    }));
+  }
+
   async createSession(session: InsertSession): Promise<Session> {
     const [newSession] = await db
       .insert(sessions)
@@ -1617,11 +1576,11 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (params?.status) {
-      conditions.push(eq(tasks.status, params.status as any));
+      conditions.push(eq(tasks.status, params.status));
     }
     
     if (params?.priority) {
-      conditions.push(eq(tasks.priority, params.priority as any));
+      conditions.push(eq(tasks.priority, params.priority));
     }
     
     if (params?.assignedToId) {
@@ -1738,16 +1697,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(id: number, taskData: Partial<InsertTask>): Promise<Task> {
-    const updateData = { ...taskData, updatedAt: new Date() };
-    
     // Auto-set completion timestamp when status changes to completed
-    if (taskData.status === 'completed') {
-      (updateData as any).completedAt = new Date();
+    if (taskData.status === 'completed' && !taskData.completedAt) {
+      taskData.completedAt = new Date();
     }
     
     const [task] = await db
       .update(tasks)
-      .set(updateData)
+      .set({ ...taskData, updatedAt: new Date() })
       .where(eq(tasks.id, id))
       .returning();
     return task;

@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { LogIn, Loader2 } from 'lucide-react';
-import { Link } from 'wouter';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -92,11 +91,6 @@ export default function LoginPage() {
             </Button>
           </form>
           
-          <div className="text-center pt-4">
-            <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
-              Forgot your password?
-            </Link>
-          </div>
 
         </CardContent>
       </Card>

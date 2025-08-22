@@ -52,69 +52,6 @@ import {
   insertSystemOptionSchema
 } from "@shared/schema";
 
-// Email sending function using SparkPost API
-async function sendPasswordResetEmail(email: string, name: string, resetUrl: string): Promise<void> {
-  try {
-    const response = await fetch('https://api.sparkpost.com/api/v1/transmissions', {
-      method: 'POST',
-      headers: {
-        'Authorization': process.env.SPARKPOST_API_KEY!,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        options: {
-          sandbox: false
-        },
-        recipients: [{ address: email }],
-        content: {
-          from: process.env.FROM_EMAIL!,
-          subject: 'Password Reset Request - TherapyFlow',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Password Reset Request</h2>
-              <p>Hello ${name},</p>
-              <p>You have requested to reset your password for your TherapyFlow account.</p>
-              <p>Please click the link below to reset your password. This link will expire in 15 minutes:</p>
-              <p style="margin: 20px 0;">
-                <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
-                  Reset Password
-                </a>
-              </p>
-              <p>If you did not request this password reset, please ignore this email.</p>
-              <p>Best regards,<br>TherapyFlow Team</p>
-            </div>
-          `,
-          text: `Password Reset Request
-
-Hello ${name},
-
-You have requested to reset your password for your TherapyFlow account.
-
-Please visit the following link to reset your password (expires in 15 minutes):
-${resetUrl}
-
-If you did not request this password reset, please ignore this email.
-
-Best regards,
-TherapyFlow Team`
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('SparkPost API error:', response.status, errorData);
-      throw new Error(`SparkPost API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('Password reset email sent successfully to:', email);
-  } catch (error) {
-    console.error('Email sending error:', error);
-    throw new Error('Failed to send email');
-  }
-}
-
 // Helper function to generate unique client ID
 async function generateClientId(): Promise<string> {
   const date = new Date();
@@ -150,18 +87,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      // Get user for authentication
+      // Simple authentication for demo purposes
+      // TODO: In production, implement proper password hashing with bcrypt
       const users = await storage.getUsers();
       const user = users.find(u => u.username === username);
       
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-      
-      // Check password with bcrypt
-      const bcrypt = await import('bcrypt');
-      const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) {
+      if (!user || password !== user.password) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
@@ -171,89 +102,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userWithoutPassword);
     } catch (error) {
       // Error logged
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Password reset routes
-  app.post("/api/auth/forgot-password", async (req, res) => {
-    try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-
-      // Check if user exists
-      const users = await storage.getUsers();
-      const user = users.find(u => u.email === email);
-      
-      if (!user) {
-        // Still return success to prevent email enumeration
-        return res.json({ message: "If an account with this email exists, you will receive a password reset link." });
-      }
-
-      // Generate reset token
-      const crypto = await import('crypto');
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-      // Store reset token (you'll need to add this to storage)
-      await storage.storePasswordResetToken(user.id, resetToken, resetTokenExpiry);
-
-      // Send reset email
-      const resetUrl = `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://${req.get('host')}/reset-password?token=${resetToken}`;
-      
-      try {
-        await sendPasswordResetEmail(user.email, user.fullName || user.username, resetUrl);
-        console.log('\n=== PASSWORD RESET EMAIL SENT ===');
-        console.log(`To: ${user.email}`);
-        console.log(`Reset Link: ${resetUrl}`);
-        console.log('=== Check email for reset instructions ===\n');
-      } catch (emailError) {
-        console.error('Failed to send password reset email:', emailError);
-        // Log the reset link to console as fallback
-        console.log('\n=== EMAIL FAILED - PASSWORD RESET LINK (Fallback) ===');
-        console.log(`User: ${user.email} (${user.fullName || user.username})`);
-        console.log(`Reset Link: ${resetUrl}`);
-        console.log('=== Copy this link to reset password ===\n');
-      }
-
-      res.json({ message: "If an account with this email exists, you will receive a password reset link." });
-    } catch (error) {
-      console.error('Password reset error:', error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  app.post("/api/auth/reset-password", async (req, res) => {
-    try {
-      const { token, password } = req.body;
-      
-      if (!token || !password) {
-        return res.status(400).json({ error: "Token and password are required" });
-      }
-
-      // Verify reset token
-      const resetData = await storage.getPasswordResetToken(token);
-      
-      if (!resetData || new Date() > resetData.expiresAt) {
-        return res.status(400).json({ error: "Invalid or expired reset token" });
-      }
-
-      // Hash new password
-      const bcrypt = await import('bcrypt');
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      // Update user password
-      await storage.updateUserPassword(resetData.userId, hashedPassword);
-
-      // Delete reset token
-      await storage.deletePasswordResetToken(token);
-
-      res.json({ message: "Password has been reset successfully" });
-    } catch (error) {
-      console.error('Password reset error:', error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -335,8 +183,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     // Log data export (critical HIPAA activity)
-    // TODO: Implement logReportAccess method in AuditLogger
-    // await AuditLogger.logReportAccess(...);
+    await AuditLogger.logReportAccess(
+      6, // admin user
+      'admin.user',
+      'client_export',
+      'data_exported',
+      ipAddress,
+      userAgent,
+      { export_type: 'clients_csv', timestamp: new Date() }
+    );
     try {
       const allClients = await storage.getAllClientsForExport();
       
@@ -1115,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
-      res.status(500).json({ message: "Internal server error", error: (error as Error).message, stack: (error as Error).stack });
+      res.status(500).json({ message: "Internal server error", error: error.message, stack: error.stack });
     }
   });
 
