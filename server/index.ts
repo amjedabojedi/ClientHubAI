@@ -297,7 +297,11 @@ app.get("/api/sessions", async (req, res) => {
       ORDER BY s.session_date DESC LIMIT 20
     `);
     await client.end();
-    res.json(result.rows);
+    // Return format expected by dashboard
+    res.json({ 
+      sessions: result.rows,
+      total: result.rows.length
+    });
   } catch (error) {
     console.error("Sessions error:", error);
     res.status(500).json({ error: "Failed to load sessions" });
