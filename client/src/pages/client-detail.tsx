@@ -1409,7 +1409,7 @@ export default function ClientDetailPage() {
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist?.fullName || 'Unassigned'}</h4>
+                      <h4 className="font-semibold text-slate-900 mb-1">{client.therapistName || 'Unassigned'}</h4>
                       <p className="text-slate-600 text-sm">Assigned</p>
                     </div>
                   ) : (
