@@ -1840,6 +1840,55 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Password change endpoint
+  app.post("/api/users/me/change-password", async (req, res) => {
+    try {
+      // For now, simulate updating current user by ID 6 (admin)
+      // In a real app, this would come from session/token
+      const currentUserId = 6;
+      
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current password and new password are required" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: "New password must be at least 6 characters" });
+      }
+      
+      // Get current user
+      const user = await storage.getUser(currentUserId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check current password (for now, plain text comparison)
+      // TODO: In production, use bcrypt for password hashing
+      if (currentPassword !== user.password) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+      
+      // Update password
+      await storage.updateUser(currentUserId, { password: newPassword });
+      
+      // Log the password change
+      await AuditLogger.recordUserActivity(
+        currentUserId,
+        'password_changed',
+        'Changed password',
+        getRequestInfo(req).ipAddress,
+        getRequestInfo(req).userAgent,
+        'success'
+      );
+      
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
   // User Profile Routes
   app.get("/api/users/:userId/profile", async (req, res) => {
     try {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone } from "lucide-react";
+import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +61,18 @@ const profileFormSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileFormSchema>;
 
+// Password change form schema
+const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+  confirmPassword: z.string().min(1, "Please confirm your new password"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type PasswordChangeData = z.infer<typeof passwordChangeSchema>;
+
 export default function MyProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -109,6 +121,16 @@ export default function MyProfilePage() {
       continuingEducation: [],
       awardRecognitions: [],
       professionalReferences: [],
+    },
+  });
+
+  // Password change form setup
+  const passwordForm = useForm<PasswordChangeData>({
+    resolver: zodResolver(passwordChangeSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
@@ -180,6 +202,27 @@ export default function MyProfilePage() {
     },
   });
 
+  // Password change mutation
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: PasswordChangeData) => {
+      return await apiRequest("/api/users/me/change-password", "POST", data);
+    },
+    onSuccess: () => {
+      passwordForm.reset();
+      toast({
+        title: "Success",
+        description: "Your password has been changed successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = async (data: ProfileFormData) => {
     try {
       // Update user basic info
@@ -211,6 +254,10 @@ export default function MyProfilePage() {
     }
   };
 
+  const onPasswordSubmit = async (data: PasswordChangeData) => {
+    await changePasswordMutation.mutateAsync(data);
+  };
+
   if (userLoading || profileLoading) {
     return (
       <div className="container mx-auto px-4 py-12">
@@ -237,13 +284,14 @@ export default function MyProfilePage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="basic">Basic Info</TabsTrigger>
                 <TabsTrigger value="license">License</TabsTrigger>
                 <TabsTrigger value="specializations">Specializations</TabsTrigger>
                 <TabsTrigger value="background">Background</TabsTrigger>
                 <TabsTrigger value="schedule">Schedule</TabsTrigger>
                 <TabsTrigger value="contact">Contact</TabsTrigger>
+                <TabsTrigger value="password">Password</TabsTrigger>
               </TabsList>
 
               <TabsContent value="basic" className="space-y-6">
@@ -600,6 +648,75 @@ export default function MyProfilePage() {
                         </FormItem>
                       )}
                     />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="password" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Lock className="w-5 h-5" />
+                      Change Password
+                    </CardTitle>
+                    <CardDescription>
+                      Update your account password for security
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...passwordForm}>
+                      <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6">
+                        <FormField
+                          control={passwordForm.control}
+                          name="currentPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Current Password</FormLabel>
+                              <FormControl>
+                                <Input type="password" placeholder="Enter your current password" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={passwordForm.control}
+                          name="newPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>New Password</FormLabel>
+                              <FormControl>
+                                <Input type="password" placeholder="Enter your new password" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={passwordForm.control}
+                          name="confirmPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirm New Password</FormLabel>
+                              <FormControl>
+                                <Input type="password" placeholder="Confirm your new password" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex justify-end">
+                          <Button 
+                            type="submit" 
+                            disabled={changePasswordMutation.isPending}
+                            className="flex items-center gap-2"
+                          >
+                            <Lock className="w-4 h-4" />
+                            {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
                   </CardContent>
                 </Card>
               </TabsContent>
