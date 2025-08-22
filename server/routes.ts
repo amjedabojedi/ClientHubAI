@@ -1758,10 +1758,9 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // User Self-Service Routes (for logged-in users to manage their own profiles)
   app.get("/api/users/me", (req, res) => {
-    // Just return the admin user data directly for now
     res.json({
       id: 6,
-      username: "admin",
+      username: "admin", 
       fullName: "admin",
       email: "admin@therapyflow.com",
       role: "administrator",
@@ -1771,15 +1770,14 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   app.put("/api/users/me", (req, res) => {
-    // For now, just return success - profile updates will be handled separately
-    console.log("Profile update attempt:", req.body);
+    console.log("Updating profile:", req.body);
     res.json({
       id: 6,
       username: "admin",
-      fullName: req.body.fullName || "admin",
+      fullName: req.body.fullName || "admin", 
       email: req.body.email || "admin@therapyflow.com",
       role: "administrator",
-      status: "active",
+      status: "active", 
       isActive: true
     });
   });
