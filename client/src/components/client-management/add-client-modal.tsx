@@ -302,8 +302,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             value={field.value || ""}
                             onValueChange={field.onChange}
                             options={genderOptions.options.map((option: any) => ({
-                              value: option.optionKey,
-                              label: option.optionLabel
+                              value: option.optionKey || option.optionkey,
+                              label: option.optionLabel || option.optionlabel
                             }))}
                             placeholder="Select gender"
                             searchPlaceholder="Search gender options..."
@@ -327,8 +327,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             value={field.value || ""}
                             onValueChange={field.onChange}
                             options={maritalStatusOptions.options.map((option: any) => ({
-                              value: option.optionKey,
-                              label: option.optionLabel
+                              value: option.optionKey || option.optionkey,
+                              label: option.optionLabel || option.optionlabel
                             }))}
                             placeholder="Select status"
                             searchPlaceholder="Search marital status..."
@@ -365,8 +365,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           value={field.value || ""}
                           onValueChange={field.onChange}
                           options={preferredLanguageOptions.options.map((option: any) => ({
-                            value: option.optionKey,
-                            label: option.optionLabel
+                            value: option.optionKey || option.optionkey,
+                            label: option.optionLabel || option.optionlabel
                           }))}
                           placeholder="Select language"
                           searchPlaceholder="Search languages..."
@@ -456,8 +456,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             value={field.value || ""}
                             onValueChange={field.onChange}
                             options={clientTypeOptions.options?.map((option: any) => ({
-                              value: option.optionKey,
-                              label: option.optionLabel
+                              value: option.optionKey || option.optionkey,
+                              label: option.optionLabel || option.optionlabel
                             })) || []}
                             placeholder="Select client type"
                             searchPlaceholder="Search client types..."
@@ -1026,8 +1026,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           value={field.value || ""}
                           onValueChange={field.onChange}
                           options={referralSourceOptions.options.map((option: any) => ({
-                            value: option.optionKey,
-                            label: option.optionLabel
+                            value: option.optionKey || option.optionkey,
+                            label: option.optionLabel || option.optionlabel
                           }))}
                           placeholder="How client found the practice"
                           searchPlaceholder="Search referral sources..."
@@ -1116,8 +1116,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           value={field.value || ""}
                           onValueChange={field.onChange}
                           options={employmentStatusOptions.options.map((option: any) => ({
-                            value: option.optionKey,
-                            label: option.optionLabel
+                            value: option.optionKey || option.optionkey,
+                            label: option.optionLabel || option.optionlabel
                           }))}
                           placeholder="Select employment status"
                           searchPlaceholder="Search employment status..."
@@ -1139,8 +1139,8 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                           value={field.value || ""}
                           onValueChange={field.onChange}
                           options={educationLevelOptions.options.map((option: any) => ({
-                            value: option.optionKey,
-                            label: option.optionLabel
+                            value: option.optionKey || option.optionkey,
+                            label: option.optionLabel || option.optionlabel
                           }))}
                           placeholder="Highest education completed"
                           searchPlaceholder="Search education levels..."

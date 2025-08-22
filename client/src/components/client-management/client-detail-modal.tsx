@@ -204,8 +204,8 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                         </SelectTrigger>
                         <SelectContent>
                           {clientTypeOptions.options?.map((option: any) => (
-                            <SelectItem key={option.optionKey} value={option.optionKey}>
-                              {option.optionLabel}
+                            <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
+                              {option.optionLabel || option.optionlabel}
                             </SelectItem>
                           ))}
                         </SelectContent>
