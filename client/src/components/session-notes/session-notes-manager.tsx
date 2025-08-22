@@ -74,19 +74,21 @@ interface SessionNote {
   content: string;
   
   // Core clinical documentation fields
-  sessionFocus?: string;
-  symptoms?: string;
-  shortTermGoals?: string;
-  intervention?: string;
-  progress?: string;
-  remarks?: string;
-  recommendations?: string;
+  sessionFocus?: string | null;
+  symptoms?: string | null;
+  shortTermGoals?: string | null;
+  intervention?: string | null;
+  progress?: string | null;
+  remarks?: string | null;
+  recommendations?: string | null;
   
-
+  // Mood tracking fields
+  moodBefore?: number | null;
+  moodAfter?: number | null;
   
   // Additional clinical fields
-  assessments?: string;
-  homework?: string;
+  assessments?: string | null;
+  homework?: string | null;
   followUpNeeded?: boolean;
   riskLevel?: 'low' | 'medium' | 'high';
   confidentialityLevel: 'standard' | 'restricted' | 'highly_confidential';
@@ -279,7 +281,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       printWindow.document.write(`
         <html>
           <head>
-            <title>Session Note - ${clientData?.fullName || 'Client'}</title>
+            <title>Session Note - ${(clientData as any)?.fullName || 'Client'}</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
               .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
@@ -480,8 +482,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
     // Check if at least some fields are filled
     const hasContent = formValues.sessionFocus || formValues.symptoms || formValues.shortTermGoals || 
-                      formValues.intervention || formValues.progress || formValues.assessments || 
-                      formValues.homework || formValues.remarks;
+                      formValues.intervention || formValues.progress || formValues.remarks;
 
     if (!hasContent) {
       toast({ title: "Please fill out some clinical fields first", variant: "destructive" });
@@ -1028,31 +1029,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="noteType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Note Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="general">General</SelectItem>
-                          <SelectItem value="progress">Progress</SelectItem>
-                          <SelectItem value="assessment">Assessment</SelectItem>
-                          <SelectItem value="intervention">Intervention</SelectItem>
-                          <SelectItem value="homework">Homework</SelectItem>
-                          <SelectItem value="crisis">Crisis</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Note Type field removed as it's not in the form schema */}
               </div>
 
               {/* AI Template Controls */}
@@ -1160,6 +1137,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <Textarea 
                               placeholder="Main topics or issues addressed during the session..."
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
 
@@ -1188,6 +1166,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <Textarea 
                               placeholder="Observed or reported symptoms..."
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
 
@@ -1218,6 +1197,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <Textarea 
                               placeholder="Goals worked on during this session..."
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
                           <FormMessage />
@@ -1245,6 +1225,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <Textarea 
                               placeholder="Therapeutic techniques/interventions used..."
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
 
@@ -1275,6 +1256,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <Textarea 
                               placeholder="Progress made toward goals..."
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
                           <FormMessage />
@@ -1292,6 +1274,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <Textarea 
                               placeholder="Additional clinical observations..."
                               {...field}
+                              value={field.value || ''}
                             />
                           </FormControl>
                           <FormMessage />
@@ -1310,6 +1293,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           <Textarea 
                             placeholder="Future treatment recommendations..."
                             {...field}
+                            value={field.value || ''}
                           />
                         </FormControl>
                         <FormMessage />

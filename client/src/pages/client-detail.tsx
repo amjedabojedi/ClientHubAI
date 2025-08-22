@@ -759,7 +759,7 @@ export default function ClientDetailPage() {
     }
 
     if (isText) {
-      return <TextFileViewer clientId={clientId || ''} document={doc} />;
+      return <TextFileViewer clientId={clientId?.toString() || ''} document={doc} />;
     }
 
     return (
@@ -1079,7 +1079,7 @@ export default function ClientDetailPage() {
   });
 
   // Query for available checklist templates
-  const { data: checklistTemplates = [] } = useQuery({
+  const { data: checklistTemplates = [] } = useQuery<ChecklistTemplate[]>({
     queryKey: ['/api/checklist-templates'],
     queryFn: getQueryFn({ on401: "throw" })
   });
@@ -1099,7 +1099,7 @@ export default function ClientDetailPage() {
       });
     },
     onSuccess: (_, templateId) => {
-      const template = checklistTemplates.find(t => t.id === templateId);
+      const template = (checklistTemplates as ChecklistTemplate[]).find((t: ChecklistTemplate) => t.id === templateId);
       setShowAssignDialog(false);
       toast({ 
         title: "Checklist assigned successfully",
@@ -1266,11 +1266,11 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
                 <div className="flex space-x-3">
-                  <Badge className={`${getStatusColor(client.status)} px-3 py-1 text-sm font-medium`}>
-                    {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
+                  <Badge className={`${getStatusColor(client.status || 'inactive')} px-3 py-1 text-sm font-medium`}>
+                    {client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : 'Unknown'}
                   </Badge>
-                  <Badge className={`${getStageColor(client.stage)} px-3 py-1 text-sm font-medium`}>
-                    {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
+                  <Badge className={`${getStageColor(client.stage || 'initial')} px-3 py-1 text-sm font-medium`}>
+                    {client.stage ? client.stage.charAt(0).toUpperCase() + client.stage.slice(1) : 'Unknown'}
                   </Badge>
                 </div>
               </div>
@@ -1608,7 +1608,7 @@ export default function ClientDetailPage() {
                   <div className="space-y-3">
                     {sessions.map((session: Session) => {
                       // Check if this session's date has conflicts
-                      const sessionDate = session.sessionDate ? parseSessionDate(session.sessionDate).toISOString().split('T')[0] : null;
+                      const sessionDate = session.sessionDate ? parseSessionDate(session.sessionDate.toString()).toISOString().split('T')[0] : null;
                       const hasConflicts = sessionDate && sessionConflicts?.conflictDates?.includes(sessionDate);
                       const conflictInfo = hasConflicts ? sessionConflicts?.conflicts?.find(c => c.date === sessionDate) : null;
                       
@@ -1706,9 +1706,9 @@ export default function ClientDetailPage() {
                             </Button>
                           </div>
                         </div>
-                        {session.therapistName && (
+                        {(session as any).therapistName && (
                           <p className="text-sm text-slate-600 mb-2">
-                            <span className="font-medium">Therapist:</span> {session.therapistName}
+                            <span className="font-medium">Therapist:</span> {(session as any).therapistName}
                           </p>
                         )}
                         {session.notes && (
@@ -2286,14 +2286,14 @@ export default function ClientDetailPage() {
       {/* Edit and Delete Modals */}
       {client && (
         <EditClientModal 
-          client={client}
+          client={client as any}
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
         />
       )}
 
       <DeleteClientDialog 
-        client={client}
+        client={client as any}
         isOpen={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
         onDeleteSuccess={handleDeleteSuccess}
