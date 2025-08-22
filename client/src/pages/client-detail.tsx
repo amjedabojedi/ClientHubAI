@@ -1348,13 +1348,13 @@ export default function ClientDetailPage() {
                   <div className="flex items-center justify-between py-2 border-b border-slate-100">
                     <span className="text-sm font-medium text-slate-600">Treatment Stage</span>
                     <Badge className={`${getStageColor(client.stage)} px-3 py-1`}>
-                      {client.stage.charAt(0).toUpperCase() + client.stage.slice(1)}
+                      {(client.stage || 'intake').charAt(0).toUpperCase() + (client.stage || 'intake').slice(1)}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-slate-100">
                     <span className="text-sm font-medium text-slate-600">Client Type</span>
                     <span className="text-slate-900 font-medium">
-                      {client.clientType.charAt(0).toUpperCase() + client.clientType.slice(1)}
+                      {(client.clientType || client.client_type || 'Individual').charAt(0).toUpperCase() + (client.clientType || client.client_type || 'Individual').slice(1)}
                     </span>
                   </div>
                   {client.serviceType && (
