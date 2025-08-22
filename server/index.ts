@@ -308,6 +308,39 @@ app.get("/api/sessions", async (req, res) => {
   }
 });
 
+// CALENDAR MONTH-SPECIFIC SESSION ENDPOINTS
+app.get("/api/sessions/:year/:month/month", async (req, res) => {
+  console.log("✅ Calendar month sessions GET working");
+  try {
+    const year = parseInt(req.params.year);
+    const month = parseInt(req.params.month);
+    
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ message: "Invalid year or month" });
+    }
+
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT s.id, s.session_date as "sessionDate", s.session_type as "sessionType", 
+             s.status, s.duration, s.service_provided as "serviceProvided",
+             c.full_name as "clientName", c.client_id as "clientId", u.full_name as "therapistName",
+             s.client_id as "clientId", s.therapist_id as "therapistId"
+      FROM sessions s
+      JOIN clients c ON s.client_id = c.id  
+      JOIN users u ON s.therapist_id = u.id
+      WHERE EXTRACT(YEAR FROM s.session_date) = $1 
+        AND EXTRACT(MONTH FROM s.session_date) = $2
+      ORDER BY s.session_date ASC
+    `, [year, month]);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Calendar month sessions error:", error);
+    res.status(500).json({ error: "Failed to load calendar sessions" });
+  }
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
