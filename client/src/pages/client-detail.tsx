@@ -2079,7 +2079,7 @@ export default function ClientDetailPage() {
                                 {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount}
                               </p>
                               <p className="text-sm text-slate-600">
-                                {billing.sessionDate ? new Date(billing.sessionDate).toLocaleDateString() : 'No session date'} • CPT: {billing.service?.serviceCode || billing.serviceCode}
+                                {billing.sessionDate ? new Date(billing.sessionDate).toLocaleDateString() : 'No session date'} • Service: {billing.service?.serviceCode || billing.serviceCode}
                               </p>
                               {billing.paymentAmount && billing.paymentDate && (
                                 <p className="text-xs text-green-600 mt-1">
