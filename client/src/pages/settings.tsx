@@ -77,8 +77,10 @@ export default function SettingsPage() {
         id: category.id,
         categoryName: category.categoryname,
         categoryKey: category.categorykey,
+        description: category.description,
         isActive: category.isactive,
-        isSystem: category.issystem
+        isSystem: category.issystem,
+        optionCount: category.optioncount || 0
       }));
     }),
   });

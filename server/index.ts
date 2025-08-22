@@ -578,14 +578,19 @@ app.get("/api/system-options/categories", async (req, res) => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     const result = await client.query(`
-      SELECT DISTINCT 
-        category_id as id,
-        ('Category ' || category_id) as categoryName,
-        ('category_' || category_id) as categoryKey,
-        true as isActive,
-        false as isSystem
-      FROM system_options 
-      ORDER BY category_id
+      SELECT 
+        oc.id,
+        oc.category_name as categoryName,
+        oc.category_key as categoryKey,
+        oc.description,
+        oc.is_active as isActive,
+        oc.is_system as isSystem,
+        COUNT(so.id) as optionCount
+      FROM option_categories oc
+      LEFT JOIN system_options so ON oc.id = so.category_id
+      WHERE oc.is_active = true
+      GROUP BY oc.id, oc.category_name, oc.category_key, oc.description, oc.is_active, oc.is_system
+      ORDER BY oc.id
     `);
     await client.end();
     res.json(result.rows);
