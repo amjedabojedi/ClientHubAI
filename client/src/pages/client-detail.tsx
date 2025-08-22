@@ -242,7 +242,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
         onClick={() => setShowItems(true)}
       >
         <CheckSquare className="w-4 h-4 mr-2" />
-        View Items ({templateItems?.length ?? 0})
+        View Items ({Array.isArray(templateItems) ? templateItems.length : 0})
       </Button>
     );
   }

@@ -293,8 +293,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               <h1>Clinical Session Note</h1>
             </div>
             <div class="client-info">
-              <p><strong>Client:</strong> ${clientData?.fullName || 'N/A'}</p>
-              <p><strong>Client ID:</strong> ${clientData?.clientId || 'N/A'}</p>
+              <p><strong>Client:</strong> ${(clientData as any)?.fullName || 'N/A'}</p>
+              <p><strong>Client ID:</strong> ${(clientData as any)?.clientId || 'N/A'}</p>
               <p><strong>Session Date:</strong> ${currentSession ? new Date(currentSession.sessionDate + 'T12:00:00').toLocaleDateString() : 'N/A'}</p>
               <p><strong>Session Type:</strong> ${currentSession?.sessionType || 'N/A'}</p>
               <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
@@ -655,7 +655,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     });
 
     // Filter entries by category and search
-    const filteredEntries = (libraryEntries || []).filter((entry: LibraryEntry) => {
+    const filteredEntries = Array.isArray(libraryEntries) ? libraryEntries.filter((entry: LibraryEntry) => {
       const matchesCategory = entry.categoryId === categoryIds[fieldType];
       const matchesSearch = !searchQuery || 
         entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
