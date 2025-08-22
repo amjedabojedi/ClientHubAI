@@ -2057,7 +2057,7 @@ export default function ClientDetailPage() {
                       <span>Policy: {client.policyNumber}</span>
                     )}
                     {client.copayAmount && (
-                      <span>Copay: ${client.copayAmount}</span>
+                      <span>Copay: ${client.copayAmount || '0.00'}</span>
                     )}
                   </div>
                 </div>
@@ -2076,14 +2076,14 @@ export default function ClientDetailPage() {
                             </div>
                             <div>
                               <p className="font-medium text-slate-900">
-                                {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount}
+                                {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount || '0.00'}
                               </p>
                               <p className="text-sm text-slate-600">
                                 {billing.sessionDate ? new Date(billing.sessionDate).toLocaleDateString() : 'No session date'} • Service: {billing.service?.serviceCode || billing.serviceCode}
                               </p>
                               {billing.paymentAmount && billing.paymentDate && (
                                 <p className="text-xs text-green-600 mt-1">
-                                  Payment: ${billing.paymentAmount} on {new Date(billing.paymentDate).toLocaleDateString()}
+                                  Payment: ${billing.paymentAmount || '0.00'} on {new Date(billing.paymentDate).toLocaleDateString()}
                                   {billing.paymentMethod && ` via ${billing.paymentMethod.replace('_', ' ')}`}
                                   {billing.paymentReference && ` (Ref: ${billing.paymentReference})`}
                                 </p>
@@ -2100,7 +2100,7 @@ export default function ClientDetailPage() {
                                   : 'bg-red-100 text-red-800'
                               } px-3 py-1 text-sm font-medium`}
                             >
-                              {billing.paymentStatus?.charAt(0).toUpperCase() + billing.paymentStatus?.slice(1)}
+                              {billing.paymentStatus ? billing.paymentStatus.charAt(0).toUpperCase() + billing.paymentStatus.slice(1) : 'Unknown'}
                             </Badge>
                             <p className="text-xs text-slate-500 mt-1">
                               {billing.billingDate}
@@ -2110,7 +2110,7 @@ export default function ClientDetailPage() {
                         {billing.insuranceCovered && (
                           <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
                             <p className="text-blue-800">
-                              Insurance: Covered {billing.copayAmount ? `• Copay: $${billing.copayAmount}` : ''}
+                              Insurance: Covered {billing.copayAmount ? `• Copay: $${billing.copayAmount || '0.00'}` : ''}
                             </p>
                           </div>
                         )}
