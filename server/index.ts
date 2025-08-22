@@ -245,6 +245,50 @@ app.get("/api/clients/stats", async (req, res) => {
   }
 });
 
+// THERAPISTS API FOR CLIENT FILTERS
+app.get("/api/therapists", async (req, res) => {
+  console.log("✅ Therapists GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      SELECT id, full_name, role 
+      FROM users 
+      WHERE role IN ('Administrator', 'Clinical Supervisor', 'therapist', 'Intern/Trainee')
+      ORDER BY full_name
+    `);
+    
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Therapists error:", error);
+    res.status(500).json({ error: "Failed to load therapists" });
+  }
+});
+
+// SYSTEM OPTIONS API FOR FILTERS
+app.get("/api/system-options/categories", async (req, res) => {
+  console.log("✅ System options GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      SELECT category_id, option_key, option_label 
+      FROM system_options 
+      WHERE is_active = true
+      ORDER BY category_id, sort_order
+    `);
+    
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("System options error:", error);
+    res.status(500).json({ error: "Failed to load system options" });
+  }
+});
+
 (async () => {
   // Create simple server instead of using broken registerRoutes
   const server = createServer(app);
