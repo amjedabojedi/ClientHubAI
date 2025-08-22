@@ -794,7 +794,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                               { value: "unassigned", label: "Unassigned" },
                               ...(therapists?.map?.((therapist: any) => ({
                                 value: therapist.id.toString(),
-                                label: therapist.fullName
+                                label: therapist.fullName || therapist.full_name
                               })) || [])
                             ]}
                             placeholder="Select therapist"

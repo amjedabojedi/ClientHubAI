@@ -124,7 +124,7 @@ export default function SearchFilters({
                     { value: "all", label: "All Therapists" },
                     ...(therapists?.map((therapist: any) => ({
                       value: therapist.id.toString(),
-                      label: therapist.fullName
+                      label: therapist.fullName || therapist.full_name
                     })) || [])
                   ]}
                   placeholder="All Therapists"
@@ -140,8 +140,8 @@ export default function SearchFilters({
                   options={[
                     { value: "all", label: "All Types" },
                     ...(clientTypeOptions.options?.map((option: any) => ({
-                      value: option.optionKey,
-                      label: option.optionLabel
+                      value: option.optionKey || option.optionkey,
+                      label: option.optionLabel || option.optionlabel
                     })) || [])
                   ]}
                   placeholder="All Types"
