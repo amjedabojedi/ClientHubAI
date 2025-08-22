@@ -425,7 +425,18 @@ app.get("/api/clients/:id/sessions", async (req, res) => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     const result = await client.query(`
-      SELECT s.*, u.full_name as "therapistName", c.full_name as "clientName"
+      SELECT 
+        s.id,
+        s.client_id,
+        s.therapist_id,
+        s.session_date,
+        s.session_type,
+        s.status,
+        s.notes,
+        s.room,
+        s.service_id,
+        u.full_name as therapist_name,
+        c.full_name as client_name
       FROM sessions s
       LEFT JOIN users u ON s.therapist_id = u.id
       LEFT JOIN clients c ON s.client_id = c.id
@@ -433,7 +444,23 @@ app.get("/api/clients/:id/sessions", async (req, res) => {
       ORDER BY s.session_date DESC
     `, [clientId]);
     await client.end();
-    res.json(result.rows);
+    
+    // Map to camelCase for frontend
+    const mappedSessions = result.rows.map(row => ({
+      id: row.id,
+      clientId: row.client_id,
+      therapistId: row.therapist_id,
+      sessionDate: row.session_date,
+      sessionType: row.session_type,
+      status: row.status,
+      notes: row.notes,
+      room: row.room,
+      serviceId: row.service_id,
+      therapistName: row.therapist_name,
+      clientName: row.client_name
+    }));
+    
+    res.json(mappedSessions);
   } catch (error) {
     console.error("Client sessions error:", error);
     res.status(500).json({ error: "Failed to load client sessions" });
