@@ -100,6 +100,11 @@ export default function SettingsPage() {
   // Mutation to update practice settings
   const updatePracticeSettingsMutation = useMutation({
     mutationFn: async (settingsData: any) => {
+      // Get current practice settings to find option IDs
+      const response = await fetch("/api/system-options/categories/35");
+      const data = await response.json();
+      const options = data.options || [];
+
       const updates = [
         { optionKey: 'practice_name', optionLabel: settingsData.practiceName },
         { optionKey: 'practice_description', optionLabel: settingsData.description },
@@ -111,12 +116,15 @@ export default function SettingsPage() {
       ];
 
       for (const update of updates) {
-        const response = await apiRequest(`/api/system-options/categories/35/options`, {
-          method: 'PUT',
-          body: JSON.stringify(update)
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to update ${update.optionKey}`);
+        const option = options.find((o: any) => o.optionKey === update.optionKey);
+        if (option) {
+          const updateResponse = await apiRequest(`/api/system-options/${option.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ optionLabel: update.optionLabel })
+          });
+          if (!updateResponse.ok) {
+            throw new Error(`Failed to update ${update.optionKey}`);
+          }
         }
       }
       
