@@ -2516,7 +2516,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Get template sections with questions for assessment completion
-  async getAssessmentTemplateSections(templateId: number): Promise<(AssessmentSection & { questions: AssessmentQuestion[] })[]> {
+  async getAssessmentTemplateSections(templateId: number): Promise<any[]> {
     const sections = await db
       .select()
       .from(assessmentSections)
@@ -2532,8 +2532,31 @@ export class DatabaseStorage implements IStorage {
           .orderBy(asc(assessmentQuestions.sortOrder));
 
         return {
-          ...section,
-          questions
+          id: section.id,
+          templateId: section.templateId,
+          title: section.title,
+          description: section.description,
+          accessLevel: section.accessLevel,
+          isScoring: section.isScoring,
+          reportMapping: section.reportMapping,
+          aiReportPrompt: section.aiReportPrompt,
+          sortOrder: section.sortOrder,
+          createdAt: section.createdAt,
+          updatedAt: section.updatedAt,
+          questions: questions.map(q => ({
+            id: q.id,
+            sectionId: q.sectionId,
+            questionText: q.questionText,
+            questionType: q.questionType,
+            isRequired: q.isRequired,
+            sortOrder: q.sortOrder,
+            ratingMin: q.ratingMin,
+            ratingMax: q.ratingMax,
+            ratingLabels: q.ratingLabels,
+            contributesToScore: q.contributesToScore,
+            createdAt: q.createdAt,
+            updatedAt: q.updatedAt
+          }))
         };
       })
     );
