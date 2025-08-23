@@ -153,7 +153,7 @@ export default function LibraryPage() {
             fromEntryId: entry.id,
             toEntryId: targetId,
             connectionType: "relates_to",
-            connectionStrength: 7, // Default strong connection for auto-detected
+            strength: 4, // Default strong connection for auto-detected (1-5 scale)
             description: "Auto-connected based on shared keywords",
             createdById: 6
           })
