@@ -1243,10 +1243,75 @@ app.get("/api/rooms", async (req, res) => {
 app.get("/api/library/entries", async (req, res) => {
   console.log("✅ Library entries GET working");
   try {
-    res.json([]);
+    const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    let query = `
+      SELECT 
+        id,
+        category_id as categoryId,
+        title,
+        content,
+        tags,
+        created_by_id as createdById,
+        is_active as isActive,
+        sort_order as sortOrder,
+        usage_count as usageCount,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM library_entries
+      WHERE is_active = true
+    `;
+    
+    const params = [];
+    if (categoryId) {
+      query += ` AND category_id = $1`;
+      params.push(categoryId);
+    }
+    
+    query += ` ORDER BY sort_order, title`;
+    
+    const result = await client.query(query, params);
+    await client.end();
+    
+    res.json(result.rows);
   } catch (error) {
     console.error("Library entries error:", error);
     res.status(500).json({ error: "Failed to load library entries" });
+  }
+});
+
+// CREATE LIBRARY ENTRY
+app.post("/api/library/entries", async (req, res) => {
+  console.log("✅ Library entry CREATE working");
+  try {
+    const { categoryId, title, content, tags } = req.body;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      INSERT INTO library_entries (category_id, title, content, tags, created_by_id, is_active, sort_order, usage_count, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, 6, true, 0, 0, NOW(), NOW())
+      RETURNING 
+        id,
+        category_id as categoryId,
+        title,
+        content,
+        tags,
+        created_by_id as createdById,
+        is_active as isActive,
+        sort_order as sortOrder,
+        usage_count as usageCount,
+        created_at as createdAt,
+        updated_at as updatedAt
+    `, [categoryId, title, content, JSON.stringify(tags || [])]);
+    
+    await client.end();
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Library entry CREATE error:", error);
+    res.status(500).json({ error: "Failed to create library entry" });
   }
 });
 
