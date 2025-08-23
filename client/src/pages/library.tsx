@@ -42,17 +42,8 @@ export default function LibraryPage() {
   const queryClient = useQueryClient();
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Set initial active tab to first category when categories load
-  useEffect(() => {
-    if (categories.length > 0 && !activeTab) {
-      setActiveTab(categories[0].id.toString());
-    }
-  }, [categories, activeTab]);
 
 
-
-  // Get current category ID from active tab
-  const currentCategoryId = categories.find(cat => cat.id.toString() === activeTab)?.id;
 
   // Fetch all categories (still needed for form dropdowns)
   const { data: categories = [], isLoading: loadingCategories } = useQuery<LibraryCategoryWithChildren[]>({
@@ -63,6 +54,16 @@ export default function LibraryPage() {
       return response.json();
     },
   });
+
+  // Set initial active tab to first category when categories load
+  useEffect(() => {
+    if (categories.length > 0 && !activeTab) {
+      setActiveTab(categories[0].id.toString());
+    }
+  }, [categories, activeTab]);
+
+  // Get current category ID from active tab
+  const currentCategoryId = categories.find(cat => cat.id.toString() === activeTab)?.id;
 
   // Fetch entries for current active tab category
   const { data: entries = [], isLoading: loadingEntries } = useQuery<LibraryEntryWithDetails[]>({
