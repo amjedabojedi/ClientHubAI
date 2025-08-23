@@ -1515,7 +1515,7 @@ export default function ClientDetailPage() {
             </div>
 
             {/* Referral Information */}
-            {(client.referrerName || client.referralDate || client.clientSource) && (
+            {(client.referrerName || client.referralDate || client.referralSource) && (
               <Card className="shadow-sm">
                 <CardHeader className="bg-slate-50 rounded-t-lg">
                   <CardTitle className="flex items-center space-x-2">
@@ -1539,11 +1539,11 @@ export default function ClientDetailPage() {
                         </div>
                       </div>
                     )}
-                    {client.clientSource && (
+                    {client.referralSource && (
                       <div className="text-center p-4 bg-green-50 rounded-lg">
                         <div className="text-sm font-medium text-green-800 mb-1">Source</div>
                         <div className="text-green-700 font-semibold">
-                          {client.clientSource.replace('_', ' ').charAt(0).toUpperCase() + client.clientSource.replace('_', ' ').slice(1)}
+                          {client.referralSource.replace('_', ' ').charAt(0).toUpperCase() + client.referralSource.replace('_', ' ').slice(1)}
                         </div>
                       </div>
                     )}
