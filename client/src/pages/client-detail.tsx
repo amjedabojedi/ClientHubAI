@@ -2614,9 +2614,22 @@ export default function ClientDetailPage() {
                         <span className="text-slate-600">Copay Amount:</span>
                         <span className="text-slate-900">${Number(selectedBillingRecord.copayAmount || 0).toFixed(2)}</span>
                       </div>
+                      {selectedBillingRecord.paymentAmount && (
+                        <div className="flex justify-between mb-2">
+                          <span className="text-slate-600">Payment Made:</span>
+                          <span className="text-green-700">-${Number(selectedBillingRecord.paymentAmount).toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between font-semibold text-lg border-t pt-2">
                         <span>Total Due:</span>
-                        <span>${Number(selectedBillingRecord.copayAmount || selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</span>
+                        <span className={selectedBillingRecord.paymentStatus === 'paid' ? 'text-green-700' : ''}>
+                          ${(() => {
+                            const originalAmount = Number(selectedBillingRecord.copayAmount || selectedBillingRecord.totalAmount || selectedBillingRecord.amount);
+                            const paidAmount = Number(selectedBillingRecord.paymentAmount || 0);
+                            const dueAmount = originalAmount - paidAmount;
+                            return Math.max(0, dueAmount).toFixed(2);
+                          })()}
+                        </span>
                       </div>
                     </div>
                   </div>
