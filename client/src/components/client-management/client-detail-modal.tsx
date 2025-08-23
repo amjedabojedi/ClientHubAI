@@ -82,7 +82,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                   {getStatusBadge(client.status)}
                   <span className="text-slate-400">•</span>
                   <span className="text-sm text-slate-600">
-                    {client.therapistName || 'Unassigned'}
+                    {client.assignedTherapist?.fullName || 'Unassigned'}
                   </span>
                 </div>
               </div>

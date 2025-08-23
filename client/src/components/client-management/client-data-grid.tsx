@@ -264,7 +264,7 @@ export default function ClientDataGrid({
                       <div className="flex items-center space-x-2">
                         <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
                         <span className="text-sm text-slate-900">
-                          {client.therapistName || 'Unassigned'}
+                          {client.assignedTherapist?.fullName || 'Unassigned'}
                         </span>
                       </div>
                     </TableCell>
