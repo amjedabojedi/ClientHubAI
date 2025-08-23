@@ -65,12 +65,22 @@ const PracticeHeader = () => {
   const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Healthcare Services";
   const practiceDescription = options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services";
   const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Licensed Clinical Practice";
+  const practiceAddress = options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210";
+  const practicePhone = options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "(555) 123-4567";
+  const practiceEmail = options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "contact@therapyflow.com";
+  const practiceWebsite = options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.therapyflow.com";
 
   return (
     <>
       <h3 className="text-lg font-semibold text-slate-900 mb-2">{practiceName}</h3>
       <p className="text-slate-600">{practiceDescription}</p>
       <p className="text-slate-600">{practiceSubtitle}</p>
+      <div className="mt-2 text-sm text-slate-600">
+        <p className="whitespace-pre-line">{practiceAddress}</p>
+        <p>Phone: {practicePhone}</p>
+        <p>Email: {practiceEmail}</p>
+        <p>Website: {practiceWebsite}</p>
+      </div>
     </>
   );
 };
