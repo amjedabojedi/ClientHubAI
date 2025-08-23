@@ -1375,9 +1375,11 @@ app.get("/api/checklist-templates", async (req, res) => {
     // Get items for each template
     const templates = templatesResult.rows;
     console.log("📋 Found templates:", templates.length);
-    for (const template of templates) {
-      console.log(`📋 Getting items for template ${template.id}: ${template.name}`);
-      const itemsResult = await client.query(`
+    
+    // Get all items at once to avoid multiple queries
+    if (templates.length > 0) {
+      const templateIds = templates.map(t => t.id);
+      const allItemsResult = await client.query(`
         SELECT 
           id,
           template_id as templateId,
@@ -1388,14 +1390,28 @@ app.get("/api/checklist-templates", async (req, res) => {
           sort_order as sortOrder,
           created_at as createdAt
         FROM checklist_items
-        WHERE template_id = $1
-        ORDER BY sort_order, title
-      `, [template.id]);
+        WHERE template_id = ANY($1::int[])
+        ORDER BY template_id, sort_order, title
+      `, [templateIds]);
       
-      console.log(`📋 Found ${itemsResult.rows.length} items for template ${template.id}`);
-      template.items = itemsResult.rows;
-      console.log(`📋 Template now has items:`, template.items.length);
+      console.log(`📋 Found total ${allItemsResult.rows.length} items for all templates`);
+      
+      // Group items by template ID
+      const itemsByTemplate: any = {};
+      allItemsResult.rows.forEach((item: any) => {
+        if (!itemsByTemplate[item.templateid]) {
+          itemsByTemplate[item.templateid] = [];
+        }
+        itemsByTemplate[item.templateid].push(item);
+      });
+      
+      // Assign items to templates
+      templates.forEach((template: any) => {
+        template.items = itemsByTemplate[template.id] || [];
+        console.log(`📋 Template ${template.id} (${template.name}) has ${template.items.length} items`);
+      });
     }
+    
     console.log("📋 Final templates with items:", templates.map(t => ({id: t.id, name: t.name, itemCount: t.items?.length || 0})));
     
     await client.end();
