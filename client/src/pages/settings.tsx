@@ -78,6 +78,67 @@ export default function SettingsPage() {
     subtitle: "Licensed Clinical Practice"
   });
 
+  // Fetch practice settings from system options
+  const { data: practiceSettings } = useQuery({
+    queryKey: ["/api/system-options/categories/35"],
+    queryFn: () => fetch("/api/system-options/categories/35").then(res => res.json()).then(data => {
+      const options = data.options || [];
+      const config = {
+        practiceName: options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "TherapyFlow Healthcare Services",
+        practiceAddress: options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210",
+        practicePhone: options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "(555) 123-4567",
+        practiceEmail: options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "contact@therapyflow.com",
+        practiceWebsite: options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.therapyflow.com",
+        description: options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services",
+        subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Licensed Clinical Practice"
+      };
+      setPracticeConfig(config);
+      return config;
+    }),
+  });
+
+  // Mutation to update practice settings
+  const updatePracticeSettingsMutation = useMutation({
+    mutationFn: async (settingsData: any) => {
+      const updates = [
+        { optionKey: 'practice_name', optionLabel: settingsData.practiceName },
+        { optionKey: 'practice_description', optionLabel: settingsData.description },
+        { optionKey: 'practice_subtitle', optionLabel: settingsData.subtitle },
+        { optionKey: 'practice_address', optionLabel: settingsData.practiceAddress },
+        { optionKey: 'practice_phone', optionLabel: settingsData.practicePhone },
+        { optionKey: 'practice_email', optionLabel: settingsData.practiceEmail },
+        { optionKey: 'practice_website', optionLabel: settingsData.practiceWebsite }
+      ];
+
+      for (const update of updates) {
+        const response = await apiRequest(`/api/system-options/categories/35/options`, {
+          method: 'PUT',
+          body: JSON.stringify(update)
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to update ${update.optionKey}`);
+        }
+      }
+      
+      return settingsData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/35"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories"] });
+      toast({
+        title: "Configuration Saved",
+        description: "Practice configuration has been updated successfully and will appear in invoices.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save practice configuration. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/system-options/categories"],
@@ -1139,16 +1200,12 @@ export default function SettingsPage() {
                 <h4 className="text-md font-medium">Actions</h4>
                 <div className="space-y-3">
                   <Button 
-                    onClick={() => {
-                      toast({
-                        title: "Configuration Saved",
-                        description: "Practice configuration has been updated successfully.",
-                      });
-                    }}
+                    onClick={() => updatePracticeSettingsMutation.mutate(practiceConfig)}
+                    disabled={updatePracticeSettingsMutation.isPending}
                     className="w-full"
                   >
                     <Save size={16} className="mr-2" />
-                    Save Configuration
+                    {updatePracticeSettingsMutation.isPending ? "Saving..." : "Save Configuration"}
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     Configuration is automatically used in invoices, reports, and other documents.

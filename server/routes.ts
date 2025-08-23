@@ -3431,7 +3431,11 @@ This happens because only the file metadata was stored, not the actual file cont
       let practiceSettings = {
         name: 'Healthcare Services',
         description: 'Professional Mental Health Services', 
-        subtitle: 'Licensed Clinical Practice'
+        subtitle: 'Licensed Clinical Practice',
+        address: '123 Healthcare Ave, Suite 100\nMental Health City, CA 90210',
+        phone: '(555) 123-4567',
+        email: 'contact@therapyflow.com',
+        website: 'www.therapyflow.com'
       };
       
       try {
@@ -3439,6 +3443,10 @@ This happens because only the file metadata was stored, not the actual file cont
         practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
         practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
         practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
       } catch (error) {
         console.log('Could not get practice settings, using defaults:', error);
       }
@@ -3530,6 +3538,12 @@ This happens because only the file metadata was stored, not the actual file cont
               <h3>${practiceSettings.name}</h3>
               <p>${practiceSettings.description}</p>
               <p>${practiceSettings.subtitle}</p>
+              <div style="margin-top: 10px; font-size: 0.9em;">
+                <p>${practiceSettings.address.replace('\n', '<br>')}</p>
+                <p>Phone: ${practiceSettings.phone}</p>
+                <p>Email: ${practiceSettings.email}</p>
+                <p>Website: ${practiceSettings.website}</p>
+              </div>
             </div>
           </div>
           
