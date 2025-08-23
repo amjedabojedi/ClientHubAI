@@ -53,6 +53,28 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 
 // Types
+
+// Practice Header Component for Invoice Preview
+const PracticeHeader = () => {
+  const { data: practiceSettings } = useQuery({
+    queryKey: ['/api/system-options/categories/35'],
+    queryFn: getQueryFn,
+  });
+
+  const options = practiceSettings?.options || [];
+  const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Healthcare Services";
+  const practiceDescription = options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services";
+  const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Licensed Clinical Practice";
+
+  return (
+    <>
+      <h3 className="text-lg font-semibold text-slate-900 mb-2">{practiceName}</h3>
+      <p className="text-slate-600">{practiceDescription}</p>
+      <p className="text-slate-600">{practiceSubtitle}</p>
+    </>
+  );
+};
+
 import type { Client, Task, Document, User, Session } from "@shared/schema";
 
 // Utility function to parse UTC date strings without timezone shift
@@ -2552,9 +2574,7 @@ export default function ClientDetailPage() {
                       <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-2">Healthcare Services</h3>
-                      <p className="text-slate-600">Professional Mental Health Services</p>
-                      <p className="text-slate-600">Licensed Clinical Practice</p>
+                      <PracticeHeader />
                     </div>
                   </div>
 
