@@ -144,6 +144,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // Fetch task title options from system settings
   const { data: taskTitleOptions = {} } = useQuery({
     queryKey: ["/api/system-options/categories", 31],               // Task Titles category ID
+    queryFn: () => fetch(`/api/system-options/categories/31`).then(res => res.json()),
   });
 
   // ===== TASK CREATION WORKFLOW =====
