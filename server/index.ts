@@ -1348,6 +1348,65 @@ app.post("/api/library/entries", async (req, res) => {
   }
 });
 
+// CHECKLIST TEMPLATE ENDPOINTS
+app.get("/api/checklist-templates", async (req, res) => {
+  console.log("✅ Checklist templates GET working");
+  try {
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const result = await client.query(`
+      SELECT 
+        id,
+        name,
+        description,
+        category,
+        client_type as clientType,
+        is_active as isActive,
+        sort_order as sortOrder,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM checklist_templates
+      WHERE is_active = true
+      ORDER BY sort_order, name
+    `);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Checklist templates error:", error);
+    res.status(500).json({ error: "Failed to load checklist templates" });
+  }
+});
+
+app.post("/api/checklist-templates", async (req, res) => {
+  console.log("✅ Checklist template CREATE working");
+  try {
+    const { name, description, category, clientType, isActive, sortOrder } = req.body;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      INSERT INTO checklist_templates (name, description, category, client_type, is_active, sort_order, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING 
+        id,
+        name,
+        description,
+        category,
+        client_type as clientType,
+        is_active as isActive,
+        sort_order as sortOrder,
+        created_at as createdAt,
+        updated_at as updatedAt
+    `, [name, description, category, clientType || 'all', isActive !== false, sortOrder || 0]);
+    
+    await client.end();
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Checklist template CREATE error:", error);
+    res.status(500).json({ error: "Failed to create checklist template" });
+  }
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
