@@ -765,11 +765,13 @@ app.get("/api/assessments/templates/:templateId/sections", async (req, res) => {
 });
 
 app.get("/api/checklist-templates", async (req, res) => {
-  console.log("✅ Checklist templates GET working");
+  console.log("✅ Checklist templates GET working WITH ITEMS");
   try {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
-    const result = await client.query(`
+    
+    // Get templates
+    const templatesResult = await client.query(`
       SELECT 
         id,
         name,
@@ -781,8 +783,51 @@ app.get("/api/checklist-templates", async (req, res) => {
       WHERE is_active = true
       ORDER BY name ASC
     `);
+    
+    // Get items for each template
+    const templates = templatesResult.rows;
+    console.log("📋 Found templates:", templates.length);
+    
+    // Get all items for all templates
+    if (templates.length > 0) {
+      const templateIds = templates.map(t => t.id);
+      const allItemsResult = await client.query(`
+        SELECT 
+          id,
+          template_id as templateId,
+          title,
+          description,
+          is_required as isRequired,
+          days_from_start as daysFromStart,
+          sort_order as sortOrder,
+          created_at as createdAt
+        FROM checklist_items
+        WHERE template_id = ANY($1::int[])
+        ORDER BY template_id, sort_order, title
+      `, [templateIds]);
+      
+      console.log(`📋 Found total ${allItemsResult.rows.length} items for all templates`);
+      
+      // Group items by template ID
+      const itemsByTemplate: any = {};
+      allItemsResult.rows.forEach((item: any) => {
+        if (!itemsByTemplate[item.templateid]) {
+          itemsByTemplate[item.templateid] = [];
+        }
+        itemsByTemplate[item.templateid].push(item);
+      });
+      
+      // Assign items to templates
+      templates.forEach((template: any) => {
+        template.items = itemsByTemplate[template.id] || [];
+        console.log(`📋 Template ${template.id} (${template.name}) has ${template.items.length} items`);
+      });
+    }
+    
+    console.log("📋 Final templates with items:", templates.map(t => ({id: t.id, name: t.name, itemCount: t.items?.length || 0})));
+    
     await client.end();
-    res.json(result.rows);
+    res.json(templates);
   } catch (error) {
     console.error("Checklist templates error:", error);
     res.status(500).json({ error: "Failed to load checklist templates" });
@@ -1348,79 +1393,7 @@ app.post("/api/library/entries", async (req, res) => {
   }
 });
 
-// CHECKLIST TEMPLATE ENDPOINTS
-app.get("/api/checklist-templates", async (req, res) => {
-  console.log("✅ Checklist templates GET working");
-  try {
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
-    await client.connect();
-    
-    // Get templates
-    const templatesResult = await client.query(`
-      SELECT 
-        id,
-        name,
-        description,
-        category,
-        client_type as clientType,
-        is_active as isActive,
-        sort_order as sortOrder,
-        created_at as createdAt,
-        updated_at as updatedAt
-      FROM checklist_templates
-      WHERE is_active = true
-      ORDER BY sort_order, name
-    `);
-    
-    // Get items for each template
-    const templates = templatesResult.rows;
-    console.log("📋 Found templates:", templates.length);
-    
-    // Get all items at once to avoid multiple queries
-    if (templates.length > 0) {
-      const templateIds = templates.map(t => t.id);
-      const allItemsResult = await client.query(`
-        SELECT 
-          id,
-          template_id as templateId,
-          title,
-          description,
-          is_required as isRequired,
-          days_from_start as daysFromStart,
-          sort_order as sortOrder,
-          created_at as createdAt
-        FROM checklist_items
-        WHERE template_id = ANY($1::int[])
-        ORDER BY template_id, sort_order, title
-      `, [templateIds]);
-      
-      console.log(`📋 Found total ${allItemsResult.rows.length} items for all templates`);
-      
-      // Group items by template ID
-      const itemsByTemplate: any = {};
-      allItemsResult.rows.forEach((item: any) => {
-        if (!itemsByTemplate[item.templateid]) {
-          itemsByTemplate[item.templateid] = [];
-        }
-        itemsByTemplate[item.templateid].push(item);
-      });
-      
-      // Assign items to templates
-      templates.forEach((template: any) => {
-        template.items = itemsByTemplate[template.id] || [];
-        console.log(`📋 Template ${template.id} (${template.name}) has ${template.items.length} items`);
-      });
-    }
-    
-    console.log("📋 Final templates with items:", templates.map(t => ({id: t.id, name: t.name, itemCount: t.items?.length || 0})));
-    
-    await client.end();
-    res.json(templates);
-  } catch (error) {
-    console.error("Checklist templates error:", error);
-    res.status(500).json({ error: "Failed to load checklist templates" });
-  }
-});
+// CHECKLIST TEMPLATE ENDPOINTS - REMOVED DUPLICATE
 
 app.post("/api/checklist-templates", async (req, res) => {
   console.log("✅ Checklist template CREATE working");
