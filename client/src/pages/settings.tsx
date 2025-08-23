@@ -75,12 +75,12 @@ export default function SettingsPage() {
     queryFn: () => fetch("/api/system-options/categories").then(res => res.json()).then(data => {
       return data.map((category: any) => ({
         id: category.id,
-        categoryName: category.categoryname,
-        categoryKey: category.categorykey,
+        categoryName: category.categoryName,
+        categoryKey: category.categoryKey,
         description: category.description,
-        isActive: category.isactive,
-        isSystem: category.issystem,
-        optionCount: category.optioncount || 0
+        isActive: category.isActive,
+        isSystem: category.isSystem,
+        optionCount: category.optionCount || 0
       }));
     }),
   });
