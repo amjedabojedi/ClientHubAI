@@ -1274,11 +1274,11 @@ app.get("/api/library/entries", async (req, res) => {
     
     const params = [];
     if (categoryId) {
-      query += ` AND category_id = $1`;
+      query += ` AND le.category_id = $1`;
       params.push(categoryId);
     }
     
-    query += ` ORDER BY sort_order, title`;
+    query += ` ORDER BY le.sort_order, le.title`;
     
     const result = await client.query(query, params);
     await client.end();
