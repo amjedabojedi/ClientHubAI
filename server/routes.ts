@@ -2682,17 +2682,6 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // Assessment sections routes
-  app.get("/api/assessments/templates/:templateId/sections", async (req, res) => {
-    try {
-      const templateId = parseInt(req.params.templateId);
-      const sections = await storage.getAssessmentSections(templateId);
-      res.json(sections);
-    } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
 
   app.post("/api/assessments/sections", async (req, res) => {
     try {
@@ -3632,10 +3621,13 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get('/api/assessments/templates/:templateId/sections', async (req, res) => {
     try {
       const { templateId } = req.params;
+      console.log('Getting sections for template ID:', templateId);
       const sections = await storage.getAssessmentTemplateSections(parseInt(templateId));
+      console.log('Found sections:', sections.length);
       res.json(sections);
     } catch (error) {
-      res.status(500).json({ message: 'Internal server error' });
+      console.error('Error getting sections:', error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
     }
   });
 
