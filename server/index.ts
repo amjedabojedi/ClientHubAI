@@ -1292,7 +1292,7 @@ app.post("/api/library/entries", async (req, res) => {
     
     const result = await client.query(`
       INSERT INTO library_entries (category_id, title, content, tags, created_by_id, is_active, sort_order, usage_count, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, 6, true, 0, 0, NOW(), NOW())
+      VALUES ($1, $2, $3, $4::text[], 6, true, 0, 0, NOW(), NOW())
       RETURNING 
         id,
         category_id as categoryId,
@@ -1305,7 +1305,7 @@ app.post("/api/library/entries", async (req, res) => {
         usage_count as usageCount,
         created_at as createdAt,
         updated_at as updatedAt
-    `, [categoryId, title, content, JSON.stringify(tags || [])]);
+    `, [categoryId, title, content, tags || []]);
     
     await client.end();
     res.status(201).json(result.rows[0]);
