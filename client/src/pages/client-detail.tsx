@@ -1515,15 +1515,15 @@ export default function ClientDetailPage() {
             </div>
 
             {/* Referral Information */}
-            {(client.referrerName || client.referralDate || client.referralSource) && (
-              <Card className="shadow-sm">
-                <CardHeader className="bg-slate-50 rounded-t-lg">
-                  <CardTitle className="flex items-center space-x-2">
-                    <FileText className="w-5 h-5 text-orange-600" />
-                    <span>Referral Information</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
+            <Card className="shadow-sm">
+              <CardHeader className="bg-slate-50 rounded-t-lg">
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="w-5 h-5 text-orange-600" />
+                  <span>Referral Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                {(client.referrerName || client.referralDate || client.referralSource) ? (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {client.referrerName && (
                       <div className="text-center p-4 bg-orange-50 rounded-lg">
@@ -1548,9 +1548,17 @@ export default function ClientDetailPage() {
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="bg-gray-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-slate-500 mb-2">No referral information available</p>
+                    <p className="text-slate-400 text-sm">Referred By, Referral Date, and Source will appear here when added</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Sessions Tab */}
