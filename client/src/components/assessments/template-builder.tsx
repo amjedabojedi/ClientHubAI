@@ -95,12 +95,12 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         order: section.sortOrder || 0,
         questions: section.questions?.map((q: any) => ({
           id: q.id,
-          text: q.questionText,
-          type: q.questionType,
+          text: q.questiontext || q.questionText,
+          type: q.questiontype || q.questionType,
           options: q.options || [],
-          required: q.isRequired,
+          required: q.isrequired || q.isRequired,
           scoreValues: q.scoreValues || [],
-          sortOrder: q.sortOrder || 0
+          sortOrder: q.sortorder || q.sortOrder || 0
         })).sort((a: any, b: any) => a.sortOrder - b.sortOrder) || []
       })).sort((a, b) => a.order - b.order);
     }
