@@ -183,11 +183,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     // Log data export (critical HIPAA activity)
-    await AuditLogger.logReportAccess(
+    await AuditLogger.logDataExport(
       6, // admin user
       'admin.user',
       'client_export',
-      'data_exported',
+      [], // No specific clients
       ipAddress,
       userAgent,
       { export_type: 'clients_csv', timestamp: new Date() }
