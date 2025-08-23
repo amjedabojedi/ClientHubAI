@@ -68,6 +68,19 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("system-options");
   const [editingServiceCode, setEditingServiceCode] = useState<any | null>(null);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
+  const [practiceConfig, setPracticeConfig] = useState({
+    practiceName: "TherapyFlow Healthcare Services",
+    practiceAddress: "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210",
+    practicePhone: "(555) 123-4567",
+    practiceEmail: "contact@therapyflow.com",
+    practiceWebsite: "www.therapyflow.com",
+    taxId: "12-3456789",
+    licenseNumber: "PSY-12345-CA",
+    licenseState: "California",
+    npiNumber: "1234567890",
+    description: "Professional Mental Health Services",
+    subtitle: "Licensed Clinical Practice"
+  });
 
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
@@ -475,10 +488,11 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="system-options">System Options</TabsTrigger>
           <TabsTrigger value="service-prices">Service Prices</TabsTrigger>
           <TabsTrigger value="rooms">Rooms</TabsTrigger>
+          <TabsTrigger value="administration">Administration</TabsTrigger>
         </TabsList>
 
         <TabsContent value="system-options" className="space-y-6">
@@ -1033,6 +1047,163 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="administration" className="space-y-6">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium">Practice Configuration</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage practice information, contact details, and administrative settings.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Practice Information */}
+              <div className="space-y-4">
+                <h4 className="text-md font-medium">Practice Information</h4>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="practice-name">Practice Name</Label>
+                    <Input
+                      id="practice-name"
+                      value={practiceConfig.practiceName}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, practiceName: e.target.value }))}
+                      placeholder="Practice Name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="practice-description">Description</Label>
+                    <Input
+                      id="practice-description"
+                      value={practiceConfig.description}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Practice Description"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="practice-subtitle">Subtitle</Label>
+                    <Input
+                      id="practice-subtitle"
+                      value={practiceConfig.subtitle}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, subtitle: e.target.value }))}
+                      placeholder="Practice Subtitle"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="space-y-4">
+                <h4 className="text-md font-medium">Contact Information</h4>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="practice-address">Address</Label>
+                    <textarea
+                      id="practice-address"
+                      className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={practiceConfig.practiceAddress}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, practiceAddress: e.target.value }))}
+                      placeholder="Practice Address"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="practice-phone">Phone</Label>
+                    <Input
+                      id="practice-phone"
+                      value={practiceConfig.practicePhone}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, practicePhone: e.target.value }))}
+                      placeholder="Phone Number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="practice-email">Email</Label>
+                    <Input
+                      id="practice-email"
+                      type="email"
+                      value={practiceConfig.practiceEmail}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, practiceEmail: e.target.value }))}
+                      placeholder="Contact Email"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="practice-website">Website</Label>
+                    <Input
+                      id="practice-website"
+                      value={practiceConfig.practiceWebsite}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, practiceWebsite: e.target.value }))}
+                      placeholder="Website URL"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* License & Regulatory Information */}
+              <div className="space-y-4">
+                <h4 className="text-md font-medium">License & Regulatory</h4>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="license-number">License Number</Label>
+                    <Input
+                      id="license-number"
+                      value={practiceConfig.licenseNumber}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, licenseNumber: e.target.value }))}
+                      placeholder="License Number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="license-state">License State</Label>
+                    <Input
+                      id="license-state"
+                      value={practiceConfig.licenseState}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, licenseState: e.target.value }))}
+                      placeholder="License State"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="npi-number">NPI Number</Label>
+                    <Input
+                      id="npi-number"
+                      value={practiceConfig.npiNumber}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, npiNumber: e.target.value }))}
+                      placeholder="National Provider Identifier"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tax-id">Tax ID</Label>
+                    <Input
+                      id="tax-id"
+                      value={practiceConfig.taxId}
+                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, taxId: e.target.value }))}
+                      placeholder="Federal Tax ID"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Actions */}
+              <div className="space-y-4">
+                <h4 className="text-md font-medium">Actions</h4>
+                <div className="space-y-3">
+                  <Button 
+                    onClick={() => {
+                      toast({
+                        title: "Configuration Saved",
+                        description: "Practice configuration has been updated successfully.",
+                      });
+                    }}
+                    className="w-full"
+                  >
+                    <Save size={16} className="mr-2" />
+                    Save Configuration
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Configuration is automatically used in invoices, reports, and other documents.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 

@@ -428,6 +428,10 @@ export interface IStorage {
   processNotificationEvent(eventType: string, entityData: any): Promise<void>;
   cleanupExpiredNotifications(): Promise<void>;
   getNotificationStats(): Promise<{ total: number; unread: number }>;
+  
+  // ===== PRACTICE CONFIGURATION MANAGEMENT =====
+  getPracticeConfiguration(): Promise<PracticeConfiguration | null>;
+  updatePracticeConfiguration(config: Partial<InsertPracticeConfiguration>): Promise<PracticeConfiguration>;
 }
 
 export class DatabaseStorage implements IStorage {

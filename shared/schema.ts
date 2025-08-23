@@ -877,6 +877,24 @@ export const loginAttempts = pgTable("login_attempts", {
   successIdx: index("login_attempts_success_idx").on(table.success),
 }));
 
+// Practice Configuration Table
+export const practiceConfiguration = pgTable("practice_configuration", {
+  id: serial("id").primaryKey(),
+  practiceName: varchar("practice_name", { length: 255 }).notNull().default("TherapyFlow Healthcare Services"),
+  practiceAddress: text("practice_address").default("123 Healthcare Ave, Suite 100\nMental Health City, CA 90210"),
+  practicePhone: varchar("practice_phone", { length: 50 }).default("(555) 123-4567"),
+  practiceEmail: varchar("practice_email", { length: 255 }).default("contact@therapyflow.com"),
+  practiceWebsite: varchar("practice_website", { length: 255 }).default("www.therapyflow.com"),
+  taxId: varchar("tax_id", { length: 50 }).default("12-3456789"),
+  licenseNumber: varchar("license_number", { length: 100 }).default("PSY-12345-CA"),
+  licenseState: varchar("license_state", { length: 50 }).default("California"),
+  npiNumber: varchar("npi_number", { length: 50 }).default("1234567890"),
+  description: text("description").default("Professional Mental Health Services"),
+  subtitle: text("subtitle").default("Licensed Clinical Practice"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(userProfiles, {
@@ -1409,6 +1427,13 @@ export const insertLibraryEntryConnectionSchema = createInsertSchema(libraryEntr
   updatedAt: true,
 });
 
+// Practice Configuration Schema  
+export const insertPracticeConfigurationSchema = createInsertSchema(practiceConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Assessment Template Schemas
 export const insertAssessmentTemplateSchema = createInsertSchema(assessmentTemplates).omit({
   id: true,
@@ -1613,3 +1638,7 @@ export type InsertNotificationPreference = z.infer<typeof insertNotificationPref
 
 export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
 export type InsertNotificationTemplate = z.infer<typeof insertNotificationTemplateSchema>;
+
+// Practice Configuration Types
+export type PracticeConfiguration = typeof practiceConfiguration.$inferSelect;
+export type InsertPracticeConfiguration = z.infer<typeof insertPracticeConfigurationSchema>;
