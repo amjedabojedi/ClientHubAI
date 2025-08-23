@@ -3587,28 +3587,13 @@ This happens because only the file metadata was stored, not the actual file cont
             <p>Thank you for choosing our mental health services.</p>
           </div>
           
-          <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 11px; color: #64748b;">
+          <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
             <h4 style="color: #1e293b; margin-bottom: 15px; font-size: 13px;">Provider Information for Insurance Reimbursement</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-              <div>
-                <p><strong>Provider Name:</strong> ${therapistInfo.name}</p>
-                <p><strong>Credentials:</strong> ${therapistInfo.credentials}</p>
-                <p><strong>NPI Number:</strong> ${therapistInfo.npi}</p>
-                <p><strong>License Number:</strong> ${therapistInfo.license}</p>
-                <p><strong>License State:</strong> California</p>
-              </div>
-              <div>
-                <p><strong>Tax ID (EIN):</strong> 12-3456789</p>
-                <p><strong>Practice Address:</strong> 123 Healthcare Ave, Suite 100<br>
-                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Mental Health City, CA 90210</p>
-                <p><strong>Phone:</strong> (555) 123-4567</p>
-                <p><strong>Service Type:</strong> Outpatient Mental Health Services</p>
-              </div>
+            <div>
+              <p><strong>Provider Name:</strong> ${therapistInfo.name}</p>
+              <p><strong>License Name:</strong> ${therapistInfo.credentials}</p>
+              <p><strong>License Number:</strong> ${therapistInfo.license}</p>
             </div>
-            <p style="margin-top: 15px; font-style: italic;">
-              For insurance claims: Please submit this invoice along with required forms to your insurance provider. 
-              This document serves as an official receipt of services rendered by a licensed mental health professional.
-            </p>
           </div>
         </body>
         </html>
