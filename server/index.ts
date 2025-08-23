@@ -1354,7 +1354,9 @@ app.get("/api/checklist-templates", async (req, res) => {
   try {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
-    const result = await client.query(`
+    
+    // Get templates
+    const templatesResult = await client.query(`
       SELECT 
         id,
         name,
@@ -1369,8 +1371,35 @@ app.get("/api/checklist-templates", async (req, res) => {
       WHERE is_active = true
       ORDER BY sort_order, name
     `);
+    
+    // Get items for each template
+    const templates = templatesResult.rows;
+    console.log("📋 Found templates:", templates.length);
+    for (const template of templates) {
+      console.log(`📋 Getting items for template ${template.id}: ${template.name}`);
+      const itemsResult = await client.query(`
+        SELECT 
+          id,
+          template_id as templateId,
+          title,
+          description,
+          is_required as isRequired,
+          days_from_start as daysFromStart,
+          sort_order as sortOrder,
+          created_at as createdAt
+        FROM checklist_items
+        WHERE template_id = $1
+        ORDER BY sort_order, title
+      `, [template.id]);
+      
+      console.log(`📋 Found ${itemsResult.rows.length} items for template ${template.id}`);
+      template.items = itemsResult.rows;
+      console.log(`📋 Template now has items:`, template.items.length);
+    }
+    console.log("📋 Final templates with items:", templates.map(t => ({id: t.id, name: t.name, itemCount: t.items?.length || 0})));
+    
     await client.end();
-    res.json(result.rows);
+    res.json(templates);
   } catch (error) {
     console.error("Checklist templates error:", error);
     res.status(500).json({ error: "Failed to load checklist templates" });
