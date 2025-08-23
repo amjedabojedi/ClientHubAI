@@ -352,7 +352,7 @@ export default function DashboardPage() {
                     onClick={() => setLocation("/scheduling")}
                   >
                     <div className="flex-1">
-                      <h4 className="font-medium text-sm">{session.clientName}</h4>
+                      <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
                       <div className="flex items-center gap-2 mt-1">
                         <Clock className="w-3 h-3 text-slate-400" />
                         <span className="text-xs text-slate-600">
