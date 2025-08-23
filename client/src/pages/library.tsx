@@ -27,17 +27,9 @@ interface LibraryEntryWithDetails extends LibraryEntry {
   createdBy: { id: number; username: string };
 }
 
-// Main category mappings (moved outside component for reuse)
-const mainCategories = {
-  "session-focus": { id: 1, name: "Session Focus", description: "Primary focus areas for therapy sessions" },
-  "symptoms": { id: 2, name: "Symptoms", description: "Observable symptoms and presentations" },
-  "short-term-goals": { id: 3, name: "Short-term Goals", description: "Immediate therapeutic objectives" },
-  "interventions": { id: 4, name: "Interventions", description: "Therapeutic techniques and approaches" },
-  "progress": { id: 5, name: "Progress", description: "Progress indicators and measurements" }
-};
 
 export default function LibraryPage() {
-  const [activeTab, setActiveTab] = useState("session-focus");
+  const [activeTab, setActiveTab] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
@@ -50,10 +42,17 @@ export default function LibraryPage() {
   const queryClient = useQueryClient();
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+  // Set initial active tab to first category when categories load
+  useEffect(() => {
+    if (categories.length > 0 && !activeTab) {
+      setActiveTab(categories[0].id.toString());
+    }
+  }, [categories, activeTab]);
+
 
 
   // Get current category ID from active tab
-  const currentCategoryId = mainCategories[activeTab as keyof typeof mainCategories]?.id;
+  const currentCategoryId = categories.find(cat => cat.id.toString() === activeTab)?.id;
 
   // Fetch all categories (still needed for form dropdowns)
   const { data: categories = [], isLoading: loadingCategories } = useQuery<LibraryCategoryWithChildren[]>({
@@ -253,23 +252,23 @@ export default function LibraryPage() {
 
         {/* Tab-based Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="session-focus">Session Focus</TabsTrigger>
-            <TabsTrigger value="symptoms">Symptoms</TabsTrigger>
-            <TabsTrigger value="short-term-goals">Short-term Goals</TabsTrigger>
-            <TabsTrigger value="interventions">Interventions</TabsTrigger>
-            <TabsTrigger value="progress">Progress</TabsTrigger>
+          <TabsList className={`grid w-full grid-cols-${Math.min(categories.length, 6)}`}>
+            {categories.map((category) => (
+              <TabsTrigger key={category.id} value={category.id.toString()}>
+                {category.name}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          {Object.entries(mainCategories).map(([tabKey, category]) => (
-            <TabsContent key={tabKey} value={tabKey} className="mt-6">
+          {categories.map((category) => (
+            <TabsContent key={category.id} value={category.id.toString()} className="mt-6">
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">{category.name}</CardTitle>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {category.description}
+                        {category.description || `Clinical content for ${category.name.toLowerCase()}`}
                       </p>
                     </div>
                     <Button
