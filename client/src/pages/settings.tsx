@@ -118,8 +118,9 @@ export default function SettingsPage() {
       for (const update of updates) {
         const option = options.find((o: any) => o.optionKey === update.optionKey);
         if (option) {
-          const updateResponse = await apiRequest(`/api/system-options/${option.id}`, {
+          const updateResponse = await fetch(`/api/system-options/${option.id}`, {
             method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ optionLabel: update.optionLabel })
           });
           if (!updateResponse.ok) {
