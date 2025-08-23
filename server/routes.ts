@@ -3427,6 +3427,22 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
+      // Get practice settings from system options
+      let practiceSettings = {
+        name: 'Healthcare Services',
+        description: 'Professional Mental Health Services', 
+        subtitle: 'Licensed Clinical Practice'
+      };
+      
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
+        practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+      } catch (error) {
+        console.log('Could not get practice settings, using defaults:', error);
+      }
+      
       // Get therapist information from the sessions
       let therapistInfo = null;
       if (billingRecords.length > 0 && billingRecords[0].sessionId) {
@@ -3511,9 +3527,9 @@ This happens because only the file metadata was stored, not the actual file cont
               ${serviceDate ? `<p>Service Date: ${new Date(serviceDate).toLocaleDateString()}</p>` : ''}
             </div>
             <div class="company-info">
-              <h3>Healthcare Services</h3>
-              <p>Professional Mental Health Services</p>
-              <p>Licensed Clinical Practice</p>
+              <h3>${practiceSettings.name}</h3>
+              <p>${practiceSettings.description}</p>
+              <p>${practiceSettings.subtitle}</p>
             </div>
           </div>
           
