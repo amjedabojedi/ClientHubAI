@@ -987,6 +987,7 @@ export default function SettingsPage() {
             <CardContent>
               {roomsLoading && <p>Loading rooms...</p>}
               {!roomsLoading && rooms.length === 0 && <p>No rooms found</p>}
+              {!roomsLoading && rooms.length > 0 && <p className="text-sm text-green-600 mb-2">Found {rooms.length} rooms</p>}
               
               {/* Room Table - consistent with other settings */}
               <div className="border rounded-lg">
