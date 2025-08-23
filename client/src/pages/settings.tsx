@@ -74,10 +74,6 @@ export default function SettingsPage() {
     practicePhone: "(555) 123-4567",
     practiceEmail: "contact@therapyflow.com",
     practiceWebsite: "www.therapyflow.com",
-    taxId: "12-3456789",
-    licenseNumber: "PSY-12345-CA",
-    licenseState: "California",
-    npiNumber: "1234567890",
     description: "Professional Mental Health Services",
     subtitle: "Licensed Clinical Practice"
   });
@@ -1133,49 +1129,6 @@ export default function SettingsPage() {
                       value={practiceConfig.practiceWebsite}
                       onChange={(e) => setPracticeConfig(prev => ({ ...prev, practiceWebsite: e.target.value }))}
                       placeholder="Website URL"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* License & Regulatory Information */}
-              <div className="space-y-4">
-                <h4 className="text-md font-medium">License & Regulatory</h4>
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="license-number">License Number</Label>
-                    <Input
-                      id="license-number"
-                      value={practiceConfig.licenseNumber}
-                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, licenseNumber: e.target.value }))}
-                      placeholder="License Number"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="license-state">License State</Label>
-                    <Input
-                      id="license-state"
-                      value={practiceConfig.licenseState}
-                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, licenseState: e.target.value }))}
-                      placeholder="License State"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="npi-number">NPI Number</Label>
-                    <Input
-                      id="npi-number"
-                      value={practiceConfig.npiNumber}
-                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, npiNumber: e.target.value }))}
-                      placeholder="National Provider Identifier"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tax-id">Tax ID</Label>
-                    <Input
-                      id="tax-id"
-                      value={practiceConfig.taxId}
-                      onChange={(e) => setPracticeConfig(prev => ({ ...prev, taxId: e.target.value }))}
-                      placeholder="Federal Tax ID"
                     />
                   </div>
                 </div>
