@@ -3427,6 +3427,39 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
+      // Get therapist information from the sessions
+      let therapistInfo = null;
+      if (billingRecords.length > 0 && billingRecords[0].sessionId) {
+        try {
+          // Get sessions for this client which includes therapist info
+          const clientSessions = await storage.getSessionsByClient(clientId);
+          const targetSession = clientSessions.find(s => s.id === billingRecords[0].sessionId);
+          
+          if (targetSession && targetSession.therapist) {
+            const therapist = targetSession.therapist;
+            therapistInfo = {
+              name: therapist.fullName || therapist.username,
+              credentials: therapist.credentials || 'Licensed Mental Health Professional',
+              license: therapist.licenseNumber || 'PSY-12345-CA',
+              npi: therapist.npiNumber || '1234567890'
+            };
+          }
+        } catch (error) {
+          // If therapist lookup fails, use default values
+          console.log('Could not get therapist info:', error);
+        }
+      }
+      
+      // Use default if no therapist found
+      if (!therapistInfo) {
+        therapistInfo = {
+          name: 'Healthcare Services Provider',
+          credentials: 'Licensed Mental Health Professional', 
+          license: 'PSY-12345-CA',
+          npi: '1234567890'
+        };
+      }
+      
       // Generate invoice HTML
       const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0);
       const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.totalAmount || 0) * 0.8), 0);
@@ -3558,9 +3591,10 @@ This happens because only the file metadata was stored, not the actual file cont
             <h4 style="color: #1e293b; margin-bottom: 15px; font-size: 13px;">Provider Information for Insurance Reimbursement</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
               <div>
-                <p><strong>Provider Name:</strong> Healthcare Services</p>
-                <p><strong>NPI Number:</strong> 1234567890</p>
-                <p><strong>License Number:</strong> PSY-12345-CA</p>
+                <p><strong>Provider Name:</strong> ${therapistInfo.name}</p>
+                <p><strong>Credentials:</strong> ${therapistInfo.credentials}</p>
+                <p><strong>NPI Number:</strong> ${therapistInfo.npi}</p>
+                <p><strong>License Number:</strong> ${therapistInfo.license}</p>
                 <p><strong>License State:</strong> California</p>
               </div>
               <div>
