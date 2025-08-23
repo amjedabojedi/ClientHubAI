@@ -106,10 +106,10 @@ export default function SettingsPage() {
     queryFn: () => fetch("/api/rooms").then(res => res.json()).then(data => {
       return data.map((room: any) => ({
         id: room.id,
-        roomNumber: room.roomnumber,
-        roomName: room.roomname,
+        roomNumber: room.roomNumber,
+        roomName: room.roomName,
         capacity: room.capacity,
-        isActive: room.isactive
+        isActive: room.isActive
       }));
     }),
   }) as { data: any[], isLoading: boolean };
