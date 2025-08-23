@@ -1407,6 +1407,130 @@ app.post("/api/checklist-templates", async (req, res) => {
   }
 });
 
+// CHECKLIST ITEM ENDPOINTS  
+app.get("/api/checklist-items", async (req, res) => {
+  console.log("✅ Checklist items GET working");
+  try {
+    const templateId = req.query.templateId ? parseInt(req.query.templateId as string) : undefined;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    let query = `
+      SELECT 
+        id,
+        template_id as templateId,
+        title,
+        description,
+        is_required as isRequired,
+        days_from_start as daysFromStart,
+        sort_order as sortOrder,
+        created_at as createdAt
+      FROM checklist_items
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    
+    if (templateId) {
+      query += ` AND template_id = $1`;
+      params.push(templateId);
+    }
+    
+    query += ` ORDER BY sort_order, title`;
+    
+    const result = await client.query(query, params);
+    await client.end();
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Checklist items error:", error);
+    res.status(500).json({ error: "Failed to load checklist items" });
+  }
+});
+
+app.post("/api/checklist-items", async (req, res) => {
+  console.log("✅ Checklist item CREATE working");
+  try {
+    const { templateId, title, description, isRequired, daysFromStart, sortOrder } = req.body;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      INSERT INTO checklist_items (template_id, title, description, is_required, days_from_start, sort_order, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING 
+        id,
+        template_id as templateId,
+        title,
+        description,
+        is_required as isRequired,
+        days_from_start as daysFromStart,
+        sort_order as sortOrder,
+        created_at as createdAt
+    `, [templateId, title, description, isRequired || false, daysFromStart || null, sortOrder || 0]);
+    
+    await client.end();
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Checklist item CREATE error:", error);
+    res.status(500).json({ error: "Failed to create checklist item" });
+  }
+});
+
+app.put("/api/checklist-items/:id", async (req, res) => {
+  console.log("✅ Checklist item UPDATE working");
+  try {
+    const itemId = parseInt(req.params.id);
+    const { title, description, isRequired, daysFromStart, sortOrder } = req.body;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`
+      UPDATE checklist_items 
+      SET title = $1, description = $2, is_required = $3, days_from_start = $4, sort_order = $5
+      WHERE id = $6
+      RETURNING 
+        id,
+        template_id as templateId,
+        title,
+        description,
+        is_required as isRequired,
+        days_from_start as daysFromStart,
+        sort_order as sortOrder,
+        created_at as createdAt
+    `, [title, description, isRequired, daysFromStart, sortOrder, itemId]);
+    
+    await client.end();
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: "Checklist item not found" });
+    } else {
+      res.json(result.rows[0]);
+    }
+  } catch (error) {
+    console.error("Checklist item UPDATE error:", error);
+    res.status(500).json({ error: "Failed to update checklist item" });
+  }
+});
+
+app.delete("/api/checklist-items/:id", async (req, res) => {
+  console.log("✅ Checklist item DELETE working");
+  try {
+    const itemId = parseInt(req.params.id);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    const result = await client.query(`DELETE FROM checklist_items WHERE id = $1`, [itemId]);
+    await client.end();
+    
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "Checklist item not found" });
+    } else {
+      res.status(204).send();
+    }
+  } catch (error) {
+    console.error("Checklist item DELETE error:", error);
+    res.status(500).json({ error: "Failed to delete checklist item" });
+  }
+});
+
 // THERAPISTS API FOR CLIENT FILTERS
 app.get("/api/therapists", async (req, res) => {
   console.log("✅ Therapists GET working");
