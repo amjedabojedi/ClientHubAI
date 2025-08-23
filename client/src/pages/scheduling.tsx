@@ -68,10 +68,10 @@ const parseSessionDate = (dateString: string): Date => {
 // Additional type definitions for better type safety
 interface Service {
   id: number;
-  code: string;
-  name: string;
+  serviceCode: string;
+  serviceName: string;
   duration: number;
-  baseRate: number;
+  baseRate: string;
 }
 
 interface ClientData {
@@ -804,7 +804,7 @@ export default function SchedulingPage() {
                                   onValueChange={(value) => field.onChange(parseInt(value))}
                                   options={services?.map((service) => ({
                                     value: service.id.toString(),
-                                    label: `${service.serviceName || service.servicename} - $${service.baseRate || service.baserate} (${service.duration}min)`
+                                    label: `${service.serviceName} - $${service.baseRate} (${service.duration}min)`
                                   })) || []}
                                   placeholder="Select service"
                                   searchPlaceholder="Search services..."
@@ -1056,8 +1056,8 @@ export default function SchedulingPage() {
                       <SelectContent>
                         <SelectItem value="all">All Services</SelectItem>
                         {services.map((service: any) => (
-                          <SelectItem key={service.id} value={service.serviceCode || service.servicecode}>
-                            {service.serviceCode || service.servicecode} - {service.serviceName || service.servicename}
+                          <SelectItem key={service.id} value={service.serviceCode}>
+                            {service.serviceCode} - {service.serviceName}
                           </SelectItem>
                         ))}
                       </SelectContent>
