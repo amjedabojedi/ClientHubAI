@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +97,13 @@ export default function SettingsPage() {
     }),
   });
 
+  // Update practiceConfig when data is fetched
+  useEffect(() => {
+    if (practiceSettings) {
+      setPracticeConfig(practiceSettings);
+    }
+  }, [practiceSettings]);
+
   // Mutation to update practice settings
   const updatePracticeSettingsMutation = useMutation({
     mutationFn: async (settingsData: any) => {
@@ -131,7 +138,10 @@ export default function SettingsPage() {
       
       return settingsData;
     },
-    onSuccess: () => {
+    onSuccess: (savedData) => {
+      // Update local state immediately
+      setPracticeConfig(savedData);
+      // Then invalidate queries to fetch fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/35"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories"] });
       toast({
