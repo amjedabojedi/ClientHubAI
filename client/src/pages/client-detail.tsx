@@ -1434,13 +1434,13 @@ export default function ClientDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {client.assignedTherapistId ? (
+                  {client.assignedTherapist ? (
                     <div className="text-center">
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">Unassigned</h4>
-                      <p className="text-slate-600 text-sm">Assigned</p>
+                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist.fullName}</h4>
+                      <p className="text-slate-600 text-sm">{client.assignedTherapist.title || 'Therapist'}</p>
                     </div>
                   ) : (
                     <div className="text-center py-4">
