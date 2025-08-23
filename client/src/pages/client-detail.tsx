@@ -58,7 +58,7 @@ import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 const PracticeHeader = () => {
   const { data: practiceSettings } = useQuery({
     queryKey: ['/api/system-options/categories/35'],
-    queryFn: getQueryFn,
+    queryFn: () => fetch('/api/system-options/categories/35').then(res => res.json()),
   });
 
   const options = practiceSettings?.options || [];
