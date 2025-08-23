@@ -72,6 +72,7 @@ export default function QuickTaskForm({
   // Fetch task title options from system settings
   const { data: taskTitleOptions = {} } = useQuery({
     queryKey: ["/api/system-options/categories", 31],
+    queryFn: () => fetch(`/api/system-options/categories/31`).then(res => res.json()),
   });
 
   const createTaskMutation = useMutation({
