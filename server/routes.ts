@@ -3440,20 +3440,13 @@ This happens because only the file metadata was stored, not the actual file cont
       
       try {
         const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
-        console.log('Invoice: Found practice options:', practiceOptions.map(o => ({ key: o.optionKey, label: o.optionLabel })));
-        
-        const nameOption = practiceOptions.find(o => o.optionKey === 'practice_name');
-        console.log('Invoice: Practice name option:', nameOption);
-        
-        practiceSettings.name = nameOption?.optionLabel || practiceSettings.name;
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
         practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
         practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
         practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
         practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
         practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
         practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
-        
-        console.log('Invoice: Final practice settings:', practiceSettings);
       } catch (error) {
         console.log('Could not get practice settings, using defaults:', error);
       }
