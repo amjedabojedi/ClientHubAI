@@ -91,9 +91,9 @@ export default function SettingsPage() {
     queryFn: () => fetch("/api/services").then(res => res.json()).then(data => {
       return data.map((service: any) => ({
         id: service.id,
-        optionKey: service.servicecode,
-        optionLabel: service.servicename,
-        price: service.baserate || '0.00'
+        optionKey: service.serviceCode,
+        optionLabel: service.serviceName,
+        price: service.baseRate || '0.00'
       }));
     }),
     staleTime: 0, // Always refetch when needed
