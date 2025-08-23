@@ -73,8 +73,6 @@ const PracticeHeader = () => {
   return (
     <>
       <h3 className="text-lg font-semibold text-slate-900 mb-2">{practiceName}</h3>
-      <p className="text-slate-600">{practiceDescription}</p>
-      <p className="text-slate-600">{practiceSubtitle}</p>
       <div className="mt-2 text-sm text-slate-600">
         <p className="whitespace-pre-line">{practiceAddress}</p>
         <p>Phone: {practicePhone}</p>
