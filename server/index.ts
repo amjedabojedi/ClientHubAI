@@ -1249,19 +1249,27 @@ app.get("/api/library/entries", async (req, res) => {
     
     let query = `
       SELECT 
-        id,
-        category_id as categoryId,
-        title,
-        content,
-        tags,
-        created_by_id as createdById,
-        is_active as isActive,
-        sort_order as sortOrder,
-        usage_count as usageCount,
-        created_at as createdAt,
-        updated_at as updatedAt
-      FROM library_entries
-      WHERE is_active = true
+        le.id,
+        le.category_id as categoryId,
+        le.title,
+        le.content,
+        le.tags,
+        le.created_by_id as createdById,
+        le.is_active as isActive,
+        le.sort_order as sortOrder,
+        le.usage_count as usageCount,
+        le.created_at as createdAt,
+        le.updated_at as updatedAt,
+        lc.id as cat_id,
+        lc.name as cat_name,
+        lc.description as cat_description,
+        u.id as usr_id,
+        u.full_name as usr_fullname,
+        u.email as usr_email
+      FROM library_entries le
+      LEFT JOIN library_categories lc ON le.category_id = lc.id
+      LEFT JOIN users u ON le.created_by_id = u.id
+      WHERE le.is_active = true
     `;
     
     const params = [];
@@ -1275,7 +1283,32 @@ app.get("/api/library/entries", async (req, res) => {
     const result = await client.query(query, params);
     await client.end();
     
-    res.json(result.rows);
+    // Format the response to match LibraryEntryWithDetails interface
+    const formattedEntries = result.rows.map(row => ({
+      id: row.id,
+      categoryId: row.categoryid,
+      title: row.title,
+      content: row.content,
+      tags: row.tags,
+      createdById: row.createdbyid,
+      isActive: row.isactive,
+      sortOrder: row.sortorder,
+      usageCount: row.usagecount,
+      createdAt: row.createdat,
+      updatedAt: row.updatedat,
+      category: {
+        id: row.cat_id,
+        name: row.cat_name,
+        description: row.cat_description
+      },
+      createdBy: {
+        id: row.usr_id,
+        username: row.usr_fullname,
+        email: row.usr_email
+      }
+    }));
+    
+    res.json(formattedEntries);
   } catch (error) {
     console.error("Library entries error:", error);
     res.status(500).json({ error: "Failed to load library entries" });
