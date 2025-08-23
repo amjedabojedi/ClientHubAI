@@ -824,9 +824,9 @@ function ConnectionForm({
         fromEntryId: sourceEntry.id,
         toEntryId: selectedTargetId,
         connectionType: "relates_to",
-        connectionStrength: 5,
+        strength: 5,
         description: null,
-        createdById: 1
+        createdById: 6
       };
 
       const response = await fetch("/api/library/connections", {
