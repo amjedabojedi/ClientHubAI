@@ -155,7 +155,7 @@ export default function LibraryPage() {
             connectionType: "relates_to",
             connectionStrength: 7, // Default strong connection for auto-detected
             description: "Auto-connected based on shared keywords",
-            createdById: 1
+            createdById: 6
           })
         );
         await Promise.all(connectionPromises);
@@ -612,7 +612,7 @@ function EntryForm({
     categoryId: entry?.categoryId || selectedCategoryId || (categories[0]?.id || 0),
     tags: entry?.tags?.join(", ") || "",
     sortOrder: entry?.sortOrder || 0,
-    createdById: entry?.createdById || 1,
+    createdById: entry?.createdById || 6,
   });
   
   const [suggestedConnections, setSuggestedConnections] = useState<LibraryEntryWithDetails[]>([]);
