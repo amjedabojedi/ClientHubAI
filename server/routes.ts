@@ -3431,6 +3431,8 @@ This happens because only the file metadata was stored, not the actual file cont
       const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0);
       const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.totalAmount || 0) * 0.8), 0);
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
+      const totalPayments = billingRecords.reduce((sum, record) => sum + Number(record.paymentAmount || 0), 0);
+      const remainingDue = subtotal - totalPayments;
       
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
@@ -3533,9 +3535,14 @@ This happens because only the file metadata was stored, not the actual file cont
               <span>Copay Amount:</span>
               <span>$${copayTotal.toFixed(2)}</span>
             </div>
+            ${totalPayments > 0 ? `
+            <div class="total-row">
+              <span>Payments Received:</span>
+              <span>-$${totalPayments.toFixed(2)}</span>
+            </div>` : ''}
             <div class="total-row total-due">
               <span>Total Due:</span>
-              <span>$${copayTotal > 0 ? copayTotal.toFixed(2) : subtotal.toFixed(2)}</span>
+              <span>$${remainingDue.toFixed(2)}</span>
             </div>
           </div>
           
