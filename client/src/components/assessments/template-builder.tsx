@@ -79,8 +79,12 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
   const { data: existingSections = [] } = useQuery({
     queryKey: [`/api/assessments/templates/${templateId}/sections`],
-    select: (data: any[]) => data
-      .map((section: any) => ({
+    select: (data: any[]) => {
+      if (!Array.isArray(data)) {
+        return [];
+      }
+      
+      return data.map((section: any) => ({
         id: section.id,
         title: section.title,
         description: section.description,
@@ -88,7 +92,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
         isScoring: section.isScoring,
         reportMapping: section.reportMapping || "",
         aiReportPrompt: section.aiReportPrompt || "",
-        order: section.sortOrder || 0, // Use sortOrder from database
+        order: section.sortOrder || 0,
         questions: section.questions?.map((q: any) => ({
           id: q.id,
           text: q.questionText,
@@ -98,8 +102,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           scoreValues: q.scoreValues || [],
           sortOrder: q.sortOrder || 0
         })).sort((a: any, b: any) => a.sortOrder - b.sortOrder) || []
-      }))
-      .sort((a, b) => a.order - b.order) // Sort by order field
+      })).sort((a, b) => a.order - b.order);
+    }
   });
 
   // Initialize sections when data loads

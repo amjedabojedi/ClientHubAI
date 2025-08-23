@@ -699,6 +699,71 @@ app.get("/api/assessments/templates", async (req, res) => {
   }
 });
 
+// Get template sections with questions for Template Builder
+app.get("/api/assessments/templates/:templateId/sections", async (req, res) => {
+  console.log("✅ Assessment template sections GET working");
+  try {
+    const templateId = parseInt(req.params.templateId);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    
+    // Get sections
+    const sectionsResult = await client.query(`
+      SELECT 
+        id,
+        template_id as templateId,
+        title,
+        description,
+        access_level as accessLevel,
+        is_scoring as isScoring,
+        report_mapping as reportMapping,
+        ai_report_prompt as aiReportPrompt,
+        sort_order as sortOrder,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM assessment_sections
+      WHERE template_id = $1
+      ORDER BY sort_order ASC
+    `, [templateId]);
+    
+    // Get questions for each section
+    const sectionsWithQuestions = await Promise.all(
+      sectionsResult.rows.map(async (section) => {
+        const questionsResult = await client.query(`
+          SELECT 
+            id,
+            section_id as sectionId,
+            question_text as questionText,
+            question_type as questionType,
+            is_required as isRequired,
+            sort_order as sortOrder,
+            rating_min as ratingMin,
+            rating_max as ratingMax,
+            rating_labels as ratingLabels,
+            contributes_to_score as contributesToScore,
+            created_at as createdAt,
+            updated_at as updatedAt
+          FROM assessment_questions
+          WHERE section_id = $1
+          ORDER BY sort_order ASC
+        `, [section.id]);
+
+        return {
+          ...section,
+          questions: questionsResult.rows
+        };
+      })
+    );
+    
+    await client.end();
+    console.log(`Returning ${sectionsWithQuestions.length} sections with questions`);
+    res.json(sectionsWithQuestions);
+  } catch (error) {
+    console.error("Assessment template sections error:", error);
+    res.status(500).json({ error: "Failed to load assessment template sections" });
+  }
+});
+
 app.get("/api/checklist-templates", async (req, res) => {
   console.log("✅ Checklist templates GET working");
   try {
