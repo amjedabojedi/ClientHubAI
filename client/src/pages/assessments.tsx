@@ -307,11 +307,11 @@ export default function AssessmentsPage() {
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Sections</span>
-                        <span>{template.sectionsCount}</span>
+                        <span>{template.sectionsCount || 0}</span>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Created by</span>
-                        <span>{template.createdBy.fullName}</span>
+                        <span>{template.createdBy?.fullName || 'Unknown'}</span>
                       </div>
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Version</span>
