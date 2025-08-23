@@ -3455,7 +3455,16 @@ This happens because only the file metadata was stored, not the actual file cont
             .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
             .total-due { font-weight: bold; font-size: 18px; border-top: 2px solid #1e293b; padding-top: 8px; }
             .payment-terms { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
-            @media print { body { margin: 0; } }
+            @media print { 
+              body { margin: 0.5in; font-size: 11pt; }
+              .header { margin-bottom: 20px; }
+              .invoice-title { font-size: 20pt; }
+              .section-title { font-size: 14pt; }
+              .client-info { margin-bottom: 20px; }
+              .payment-terms { page-break-inside: avoid; }
+              table { font-size: 10pt; }
+              th, td { padding: 8px; }
+            }
           </style>
         </head>
         <body>
