@@ -2548,8 +2548,8 @@ export default function ClientDetailPage() {
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                       <p className="text-slate-600">Invoice #: INV-{client.clientId}-{selectedBillingRecord.id}</p>
-                      <p className="text-slate-600">Invoice Date: {new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</p>
-                      <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</p>
+                      <p className="text-slate-600">Invoice Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
+                      <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
                       <h3 className="text-lg font-semibold text-slate-900 mb-2">Healthcare Services</h3>
@@ -2590,7 +2590,7 @@ export default function ClientDetailPage() {
                         <tr>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceName || selectedBillingRecord.serviceName || 'Professional Service'}</td>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceCode || selectedBillingRecord.serviceCode}</td>
-                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.sessionDate).toLocaleDateString()}</td>
+                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</td>
                           <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</td>
                         </tr>
                       </tbody>
