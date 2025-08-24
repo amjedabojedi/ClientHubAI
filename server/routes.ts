@@ -2100,29 +2100,52 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // User Self-Service Routes (for logged-in users to manage their own profiles)
-  app.get("/api/users/me", (req, res) => {
-    res.json({
-      id: 6,
-      username: "admin", 
-      fullName: "admin",
-      email: "admin@therapyflow.com",
-      role: "administrator",
-      status: "active",
-      isActive: true
-    });
+  app.get("/api/users/me", async (req, res) => {
+    try {
+      // Get current user from database (admin user ID 6)
+      const currentUserId = 6;
+      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+      
+      if (!user) {
+        console.error("User not found with ID:", currentUserId);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return user data without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
-  app.put("/api/users/me", (req, res) => {
-    console.log("Updating profile:", req.body);
-    res.json({
-      id: 6,
-      username: "admin",
-      fullName: req.body.fullName || "admin", 
-      email: req.body.email || "admin@therapyflow.com",
-      role: "administrator",
-      status: "active", 
-      isActive: true
-    });
+  app.put("/api/users/me", async (req, res) => {
+    try {
+      // Update current user in database (admin user ID 6)
+      const currentUserId = 6;
+      const updateData = {
+        fullName: req.body.fullName,
+        email: req.body.email,
+        updatedAt: new Date()
+      };
+      
+      const [updatedUser] = await db.update(users)
+        .set(updateData)
+        .where(eq(users.id, currentUserId))
+        .returning();
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Return updated user data without password
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
   app.get("/api/users/me/profile", async (req, res) => {
