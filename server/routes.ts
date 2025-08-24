@@ -3991,8 +3991,6 @@ This happens because only the file metadata was stored, not the actual file cont
             </div>
             <div class="company-info">
               <h3>${practiceSettings.name}</h3>
-              <p>${practiceSettings.description}</p>
-              <p>${practiceSettings.subtitle}</p>
               <div style="margin-top: 10px; font-size: 0.9em;">
                 <p>${practiceSettings.address.replace('\n', '<br>')}</p>
                 <p>Phone: ${practiceSettings.phone}</p>
