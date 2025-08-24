@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import * as fs from "fs";
 import * as path from "path";
 import multer from "multer";
+import bcrypt from "bcrypt";
 
 // Validation
 import { z } from "zod";
@@ -87,14 +88,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Username and password are required" });
       }
 
-      // Simple authentication for demo purposes
-      // TODO: In production, implement proper password hashing with bcrypt
+      // Authentication with bcrypt password verification
       const users = await storage.getUsers();
       const user = users.find(u => u.username === username);
       
-      if (!user || password !== user.password) {
+      if (!user || !await bcrypt.compare(password, user.password)) {
+        // Log failed login attempt
+        await AuditLogger.recordLoginAttempt({
+          username,
+          ipAddress,
+          userAgent,
+          success: false,
+          failureReason: 'invalid_credentials',
+        });
         return res.status(401).json({ error: "Invalid credentials" });
       }
+
+      // Log successful login attempt
+      await AuditLogger.recordLoginAttempt({
+        username,
+        ipAddress,
+        userAgent,
+        success: true,
+        userId: user.id,
+      });
 
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
