@@ -3890,13 +3890,13 @@ This happens because only the file metadata was stored, not the actual file cont
             body { 
               font-family: 'Times New Roman', Times, serif; 
               margin: 40px; 
-              font-size: 12pt;
+              font-size: 11pt;
               line-height: 1.4;
               color: #000000;
             }
             .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
             .invoice-title { 
-              font-size: 28px; 
+              font-size: 26px; 
               font-weight: bold; 
               color: #000000; 
               font-family: 'Times New Roman', Times, serif;
@@ -3906,11 +3906,11 @@ This happens because only the file metadata was stored, not the actual file cont
             .company-info { 
               text-align: right; 
               color: #333333;
-              font-size: 11pt;
+              font-size: 10pt;
               line-height: 1.3;
             }
             .company-info h3 {
-              font-size: 14pt;
+              font-size: 13pt;
               font-weight: bold;
               color: #000000;
               margin-bottom: 8px;
@@ -3918,7 +3918,7 @@ This happens because only the file metadata was stored, not the actual file cont
             }
             .client-info { display: flex; gap: 60px; margin-bottom: 40px; }
             .section-title { 
-              font-size: 14pt; 
+              font-size: 13pt; 
               font-weight: bold; 
               color: #000000; 
               margin-bottom: 12px;
@@ -3931,7 +3931,7 @@ This happens because only the file metadata was stored, not the actual file cont
               width: 100%; 
               border-collapse: collapse; 
               margin-bottom: 30px;
-              font-size: 11pt;
+              font-size: 10pt;
             }
             th, td { 
               border: 1px solid #000000; 
@@ -3949,11 +3949,11 @@ This happens because only the file metadata was stored, not the actual file cont
               display: flex; 
               justify-content: space-between; 
               margin-bottom: 8px;
-              font-size: 11pt;
+              font-size: 10pt;
             }
             .total-due { 
               font-weight: bold; 
-              font-size: 14pt; 
+              font-size: 13pt; 
               border-top: 2px solid #000000; 
               padding-top: 8px;
               color: #000000;
@@ -3963,20 +3963,20 @@ This happens because only the file metadata was stored, not the actual file cont
               padding: 20px; 
               border: 1px solid #cccccc; 
               margin-top: 40px;
-              font-size: 10pt;
+              font-size: 9pt;
             }
             .invoice-number {
               font-weight: bold;
-              font-size: 12pt;
+              font-size: 11pt;
             }
             @media print { 
-              body { margin: 0.5in; font-size: 11pt; }
+              body { margin: 0.5in; font-size: 10pt; }
               .header { margin-bottom: 20px; }
-              .invoice-title { font-size: 24pt; }
-              .section-title { font-size: 12pt; }
+              .invoice-title { font-size: 22pt; }
+              .section-title { font-size: 11pt; }
               .client-info { margin-bottom: 20px; }
               .payment-terms { page-break-inside: avoid; }
-              table { font-size: 10pt; }
+              table { font-size: 9pt; }
               th, td { padding: 8px; }
             }
           </style>
