@@ -6,7 +6,8 @@ import * as path from "path";
 import multer from "multer";
 import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
-import htmlPdf from "html-pdf-node";
+import puppeteer from "puppeteer";
+import { execSync } from "child_process";
 
 // Validation
 import { z } from "zod";
@@ -4033,8 +4034,47 @@ This happens because only the file metadata was stored, not the actual file cont
             // Use the configured send domain for emails
             const fromEmail = 'noreply@send.rcrc.ca';
             
-            // For now, send the complete HTML invoice in the email body
-            // PDF generation will be added once Chrome dependencies are resolved
+            // Generate PDF from HTML using system chromium
+            let pdfBuffer;
+            try {
+              // Get chromium path dynamically or use direct path
+              let chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+              try {
+                const pathResult = execSync('which chromium', { encoding: 'utf8' }).trim();
+                if (pathResult) chromiumPath = pathResult;
+              } catch {
+                console.log('Using hardcoded chromium path');
+              }
+              console.log('Using chromium path:', chromiumPath);
+              
+              const browser = await puppeteer.launch({
+                executablePath: chromiumPath,
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+                headless: true
+              });
+              
+              const page = await browser.newPage();
+              await page.setContent(invoiceHtml);
+              
+              pdfBuffer = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: {
+                  top: '20mm',
+                  right: '10mm',
+                  bottom: '20mm',
+                  left: '10mm'
+                }
+              });
+              
+              await browser.close();
+              console.log('PDF generated successfully');
+            } catch (pdfError) {
+              console.error('PDF generation failed:', pdfError);
+              // Fall back to HTML email if PDF generation fails
+              pdfBuffer = null;
+            }
+
             const result = await sp.transmissions.send({
               options: {
                 sandbox: false  // Set to false for production sending
@@ -4052,80 +4092,44 @@ This happens because only the file metadata was stored, not the actual file cont
                 },
                 subject: `Invoice from Resilience Counseling - ${client.fullName}`,
                 html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 20px;">
-                      <h1 style="color: #1e293b; margin: 0; font-size: 28px;">INVOICE</h1>
-                      <p style="color: #64748b; margin: 5px 0 0 0;">Resilience Counseling Research & Consultation</p>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
-                      <div>
-                        <h3 style="color: #1e293b; margin-bottom: 10px;">Bill To:</h3>
-                        <p style="margin: 0; line-height: 1.4;"><strong>${client.fullName}</strong></p>
-                        <p style="margin: 0; line-height: 1.4;">${client.email}</p>
-                      </div>
-                      <div style="text-align: right;">
-                        <p style="margin: 0; line-height: 1.4;"><strong>Invoice #:</strong> INV-${client.clientId}-${billingId}</p>
-                        <p style="margin: 0; line-height: 1.4;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-                        <p style="margin: 0; line-height: 1.4;"><strong>Due Date:</strong> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                      <thead>
-                        <tr style="background-color: #f8fafc;">
-                          <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: left;">Service</th>
-                          <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: center;">Date</th>
-                          <th style="border: 1px solid #e2e8f0; padding: 12px; text-align: right;">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style="border: 1px solid #e2e8f0; padding: 12px;">${billingRecords[0].serviceCode} - ${billingRecords[0].notes || 'Therapy Session'}</td>
-                          <td style="border: 1px solid #e2e8f0; padding: 12px; text-align: center;">${new Date(billingRecords[0].session.sessionDate).toLocaleDateString()}</td>
-                          <td style="border: 1px solid #e2e8f0; padding: 12px; text-align: right;">$${billingRecords[0].totalAmount}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    
-                    <div style="text-align: right; margin-bottom: 30px;">
-                      <div style="display: inline-block; border-top: 2px solid #1e293b; padding-top: 10px;">
-                        <p style="margin: 0; font-size: 18px; font-weight: bold;">Total Due: $${remainingDue.toFixed(2)}</p>
-                      </div>
-                    </div>
-                    
-                    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                      <h4 style="color: #1e293b; margin-top: 0;">Payment Information</h4>
-                      <p style="margin: 5px 0; line-height: 1.4;">Please remit payment within 30 days of the invoice date.</p>
-                      <p style="margin: 5px 0; line-height: 1.4;">For questions regarding this invoice, please contact us at the information below.</p>
-                    </div>
-                    
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #1e293b;">Invoice from Resilience Counseling Research & Consultation</h2>
+                    <p>Dear ${client.fullName},</p>
+                    <p>Please find your invoice attached as a PDF document.</p>
+                    <p><strong>Invoice Details:</strong></p>
+                    <ul style="margin: 20px 0;">
+                      <li>Invoice #: INV-${client.clientId}-${billingId}</li>
+                      <li>Date: ${new Date().toLocaleDateString()}</li>
+                      <li>Amount: $${remainingDue.toFixed(2)}</li>
+                      <li>Service: ${billingRecords[0].serviceCode}</li>
+                    </ul>
+                    <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
                     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
-                    <div style="text-align: center; color: #64748b; font-size: 14px;">
-                      <p style="margin: 5px 0;"><strong>Resilience Counseling Research & Consultation</strong></p>
-                      <p style="margin: 5px 0;">111 Waterloo St Unit 406, London, ON N6B 2M4</p>
-                      <p style="margin: 5px 0;">Phone: +1 (548)866-0366 | Email: mail@resiliencec.com</p>
-                      <p style="margin: 5px 0;">Website: www.resiliencec.com</p>
+                    <div style="color: #64748b; font-size: 14px;">
+                      <p><strong>Resilience Counseling Research & Consultation</strong></p>
+                      <p>111 Waterloo St Unit 406, London, ON N6B 2M4</p>
+                      <p>Phone: +1 (548)866-0366 | Email: mail@resiliencec.com</p>
+                      <p>Website: www.resiliencec.com</p>
                     </div>
                   </div>
                 `,
-                text: `Invoice from Resilience Counseling Research & Consultation
-                
-Bill To: ${client.fullName}
-Invoice #: INV-${client.clientId}-${billingId}
-Date: ${new Date().toLocaleDateString()}
-Amount: $${remainingDue.toFixed(2)}
-Service: ${billingRecords[0].serviceCode}
-
-Please remit payment within 30 days. For questions, contact us at mail@resiliencec.com or +1 (548)866-0366.`
+                text: `Please find your invoice attached as a PDF. Invoice #: INV-${client.clientId}-${billingId}, Amount: $${remainingDue.toFixed(2)}. For questions, contact us at mail@resiliencec.com or +1 (548)866-0366.`,
+                ...(pdfBuffer && {
+                  attachments: [{
+                    name: `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
+                    type: 'application/pdf',
+                    data: pdfBuffer.toString('base64')
+                  }]
+                })
               }
             });
             
             console.log('SparkPost success:', result);
             res.json({ 
-              message: "Invoice email sent successfully to " + client.email,
+              message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,
-              note: "Invoice sent as professional HTML email from configured domain."
+              attachmentType: pdfBuffer ? 'PDF' : 'HTML',
+              note: `Invoice sent as ${pdfBuffer ? 'PDF attachment' : 'professional HTML email'} from configured domain.`
             });
           } catch (error) {
             console.error('SparkPost error:', error);
