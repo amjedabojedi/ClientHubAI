@@ -70,8 +70,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User profile routes - working version
   app.get("/api/users/me", async (req, res) => {
     try {
-      const currentUserId = 6; // Admin user
-      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+      // Get user ID from query parameter (frontend will send it)
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : 6; // Default to admin
+      const [user] = await db.select().from(users).where(eq(users.id, userId));
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -87,7 +88,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/users/me", async (req, res) => {
     try {
-      const currentUserId = 6; // Admin user
+      // Get user ID from query parameter (frontend will send it)
+      const currentUserId = req.query.userId ? parseInt(req.query.userId as string) : 6; // Default to admin
       const updateData = {
         fullName: req.body.fullName,
         email: req.body.email,

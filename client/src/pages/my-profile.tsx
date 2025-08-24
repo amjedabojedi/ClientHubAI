@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 // Profile form schema
 const profileFormSchema = z.object({
@@ -77,15 +78,35 @@ export default function MyProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("basic");
+  
+  // Get current logged-in user
+  const { user: authUser } = useAuth();
+  const userId = authUser?.user?.id || authUser?.id;
 
   // Fetch current user information
   const { data: user, isLoading: userLoading } = useQuery({
-    queryKey: ["/api/users/me"],
+    queryKey: ["/api/users/me", { userId }],
+    enabled: !!userId,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      const response = await fetch(`/api/users/me?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch user');
+      return response.json();
+    },
   });
 
   // Fetch current user profile
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ["/api/users/me/profile"],
+    queryKey: ["/api/users/me/profile", { userId }],
+    enabled: !!userId,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      const response = await fetch(`/api/users/me/profile?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch profile');
+      return response.json();
+    },
   });
 
   // Form setup
@@ -175,20 +196,36 @@ export default function MyProfilePage() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async (data: { fullName: string; email: string }) => {
-      return await apiRequest("/api/users/me", "PUT", data);
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      const response = await fetch(`/api/users/me?${params.toString()}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update user');
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me", { userId }] });
     },
   });
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Omit<ProfileFormData, 'fullName' | 'email'>) => {
-      return await apiRequest("/api/users/me/profile", "PUT", data);
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      const response = await fetch(`/api/users/me/profile?${params.toString()}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update profile');
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/profile", { userId }] });
     },
   });
 
