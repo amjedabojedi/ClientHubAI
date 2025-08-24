@@ -4248,17 +4248,18 @@ This happens because only the file metadata was stored, not the actual file cont
             });
           } catch (error) {
             console.error('SparkPost error:', error);
-            console.error('Error details:', error.errors);
+            const err = error as any;
+            console.error('Error details:', err.errors);
             
             // Provide helpful error message about domain configuration
             let errorMessage = "Failed to send invoice email";
-            if (error.errors?.[0]?.message?.includes('Unconfigured Sending Domain')) {
+            if (err.errors?.[0]?.message?.includes('Unconfigured Sending Domain')) {
               errorMessage = "Email domain needs to be verified in SparkPost. Please contact your administrator to configure send.rcrc.ca domain in SparkPost.";
             }
             
             res.status(500).json({ 
               message: errorMessage,
-              error: error.errors?.[0]?.message || error.message,
+              error: err.errors?.[0]?.message || err.message,
               help: "To fix this, verify the domain 'send.rcrc.ca' in your SparkPost account under Account Settings > Sending Domains"
             });
           }
