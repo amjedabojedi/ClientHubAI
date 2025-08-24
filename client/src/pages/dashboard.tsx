@@ -82,6 +82,17 @@ export default function DashboardPage() {
   const { data: clientStats } = useQuery<DashboardStats>({
     queryKey: ["/api/clients/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
     enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = user?.user?.role || user?.role;
+      const params = new URLSearchParams();
+      if (userId) params.append('currentUserId', userId.toString());
+      if (userRole) params.append('currentUserRole', userRole);
+      
+      const response = await fetch(`/api/clients/stats?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      return response.json();
+    },
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
