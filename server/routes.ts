@@ -3887,24 +3887,93 @@ This happens because only the file metadata was stored, not the actual file cont
         <head>
           <title>Invoice - ${client.fullName}${billingId ? ` - ${billingRecords[0].serviceCode}` : ''}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
+            body { 
+              font-family: 'Times New Roman', Times, serif; 
+              margin: 40px; 
+              font-size: 12pt;
+              line-height: 1.4;
+              color: #000000;
+            }
             .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
-            .invoice-title { font-size: 24px; font-weight: bold; color: #1e293b; }
-            .company-info { text-align: right; color: #64748b; }
+            .invoice-title { 
+              font-size: 28px; 
+              font-weight: bold; 
+              color: #000000; 
+              font-family: 'Times New Roman', Times, serif;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .company-info { 
+              text-align: right; 
+              color: #333333;
+              font-size: 11pt;
+              line-height: 1.3;
+            }
+            .company-info h3 {
+              font-size: 14pt;
+              font-weight: bold;
+              color: #000000;
+              margin-bottom: 8px;
+              font-family: 'Times New Roman', Times, serif;
+            }
             .client-info { display: flex; gap: 60px; margin-bottom: 40px; }
-            .section-title { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { background-color: #f8fafc; }
+            .section-title { 
+              font-size: 14pt; 
+              font-weight: bold; 
+              color: #000000; 
+              margin-bottom: 12px;
+              font-family: 'Times New Roman', Times, serif;
+              text-transform: uppercase;
+              border-bottom: 1px solid #000000;
+              padding-bottom: 4px;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 30px;
+              font-size: 11pt;
+            }
+            th, td { 
+              border: 1px solid #000000; 
+              padding: 10px 12px; 
+              text-align: left;
+              font-family: 'Times New Roman', Times, serif;
+            }
+            th { 
+              background-color: #f5f5f5;
+              font-weight: bold;
+              color: #000000;
+            }
             .totals { width: 300px; margin-left: auto; }
-            .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-            .total-due { font-weight: bold; font-size: 18px; border-top: 2px solid #1e293b; padding-top: 8px; }
-            .payment-terms { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
+            .total-row { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 8px;
+              font-size: 11pt;
+            }
+            .total-due { 
+              font-weight: bold; 
+              font-size: 14pt; 
+              border-top: 2px solid #000000; 
+              padding-top: 8px;
+              color: #000000;
+            }
+            .payment-terms { 
+              background-color: #f9f9f9; 
+              padding: 20px; 
+              border: 1px solid #cccccc; 
+              margin-top: 40px;
+              font-size: 10pt;
+            }
+            .invoice-number {
+              font-weight: bold;
+              font-size: 12pt;
+            }
             @media print { 
               body { margin: 0.5in; font-size: 11pt; }
               .header { margin-bottom: 20px; }
-              .invoice-title { font-size: 20pt; }
-              .section-title { font-size: 14pt; }
+              .invoice-title { font-size: 24pt; }
+              .section-title { font-size: 12pt; }
               .client-info { margin-bottom: 20px; }
               .payment-terms { page-break-inside: avoid; }
               table { font-size: 10pt; }
