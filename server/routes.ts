@@ -4029,8 +4029,8 @@ This happens because only the file metadata was stored, not the actual file cont
           try {
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
             
-            // Use SparkPost's verified domain for better deliverability
-            const fromEmail = 'invoices@sparkpostbox.com';
+            // Use the configured send domain for emails
+            const fromEmail = 'noreply@send.rcrc.ca';
             
             const result = await sp.transmissions.send({
               options: {
