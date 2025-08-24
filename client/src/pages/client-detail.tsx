@@ -766,14 +766,26 @@ export default function ClientDetailPage() {
         }
       } else if (action === 'email') {
         const result = await response.json();
+        
+        // Check if client has an email address
+        if (!client?.email) {
+          toast({
+            title: "No email address",
+            description: "Client doesn't have an email address. Please add one in their profile first.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         toast({
-          title: "Email sent",
-          description: result.message || "Invoice has been sent to client's email address.",
+          title: "Email sent successfully!",
+          description: result.message || `Invoice has been sent to ${client.email}`,
         });
       }
     } catch (error: any) {
+      console.error('Invoice generation error:', error);
       toast({
-        title: "Error",
+        title: "Invoice Error",
         description: error.message || "Failed to generate invoice. Please try again.",
         variant: "destructive",
       });
