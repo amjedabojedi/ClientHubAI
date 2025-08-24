@@ -926,10 +926,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return (newStart < existingEnd && newEnd > existingStart);
   }
 
-  // Check therapist availability endpoint
+  // Enhanced availability checking endpoint with room conflicts
   app.get("/api/sessions/conflicts/check", async (req, res) => {
     try {
-      const { therapistId, sessionDate, duration = 60, excludeSessionId } = req.query;
+      const { therapistId, sessionDate, duration = 60, excludeSessionId, roomId } = req.query;
       
       if (!therapistId || !sessionDate) {
         return res.status(400).json({ message: "therapistId and sessionDate are required" });
@@ -939,8 +939,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newSessionDate = new Date(sessionDate as string);
       const sessionDuration = parseInt(duration as string);
       
-      // Check for conflicts with existing sessions
-      const conflicts = allSessions.filter(session => {
+      // Check for therapist conflicts
+      const therapistConflicts = allSessions.filter(session => {
         // Skip the session being edited
         if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) {
           return false;
@@ -962,15 +962,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, 60);
       });
 
+      // Check for room conflicts (if roomId provided)
+      let roomConflicts: any[] = [];
+      if (roomId) {
+        roomConflicts = allSessions.filter(session => {
+          // Skip the session being edited
+          if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) {
+            return false;
+          }
+          
+          // Only check sessions for the same room
+          if (session.roomId !== parseInt(roomId as string)) {
+            return false;
+          }
+          
+          // Only check on the same date
+          const sessionDate = new Date(session.sessionDate);
+          const newDate = new Date(newSessionDate);
+          if (sessionDate.toDateString() !== newDate.toDateString()) {
+            return false;
+          }
+          
+          // Check time overlap
+          return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, 60);
+        });
+      }
+
       // Suggest alternative times if conflicts found
       let suggestedTimes: string[] = [];
-      if (conflicts.length > 0) {
+      const hasAnyConflict = therapistConflicts.length > 0 || roomConflicts.length > 0;
+      
+      if (hasAnyConflict) {
         const dateStr = newSessionDate.toISOString().split('T')[0];
         const workingHours = [9, 10, 11, 13, 14, 15, 16, 17]; // 9am-6pm, skip 12pm lunch
         
         for (const hour of workingHours) {
           const suggestedDateTime = new Date(`${dateStr}T${hour.toString().padStart(2, '0')}:00:00`);
-          const hasConflict = allSessions.some(session => {
+          
+          // Check both therapist and room availability for suggestions
+          const hasTherapistConflict = allSessions.some(session => {
             if (session.therapistId !== parseInt(therapistId as string)) return false;
             if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) return false;
             
@@ -979,22 +1009,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, 60);
           });
+
+          const hasRoomConflict = roomId ? allSessions.some(session => {
+            if (session.roomId !== parseInt(roomId as string)) return false;
+            if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) return false;
+            
+            const sessionDate = new Date(session.sessionDate);
+            if (sessionDate.toDateString() !== suggestedDateTime.toDateString()) return false;
+            
+            return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, 60);
+          }) : false;
           
-          if (!hasConflict) {
+          if (!hasTherapistConflict && !hasRoomConflict) {
             suggestedTimes.push(suggestedDateTime.toISOString());
           }
         }
       }
 
       res.json({
-        hasConflict: conflicts.length > 0,
-        conflicts: conflicts.map(session => ({
+        hasConflict: hasAnyConflict,
+        therapistConflicts: therapistConflicts.map(session => ({
           id: session.id,
           clientName: session.client?.fullName || 'Unknown Client',
           sessionDate: session.sessionDate,
-          sessionType: session.sessionType
+          sessionType: session.sessionType,
+          type: 'therapist'
+        })),
+        roomConflicts: roomConflicts.map(session => ({
+          id: session.id,
+          clientName: 'Private Session', // Hide client details for room conflicts
+          sessionDate: session.sessionDate,
+          sessionType: session.sessionType,
+          therapistName: session.therapist?.fullName || 'Unknown Therapist',
+          type: 'room'
         })),
         suggestedTimes: suggestedTimes.slice(0, 3) // Limit to 3 suggestions
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // General availability endpoint (shows busy/free slots without client details)
+  app.get("/api/sessions/availability", async (req, res) => {
+    try {
+      const { date, therapistId, roomId } = req.query;
+      
+      if (!date) {
+        return res.status(400).json({ message: "date is required" });
+      }
+
+      const allSessions = await storage.getAllSessions();
+      const targetDate = new Date(date as string);
+      
+      // Generate working hours time slots (9 AM - 6 PM, 30-minute slots)
+      const timeSlots = [];
+      for (let hour = 9; hour <= 17; hour++) {
+        for (let minute = 0; minute < 60; minute += 30) {
+          const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          const slotDateTime = new Date(`${targetDate.toISOString().split('T')[0]}T${time}:00`);
+          
+          // Check availability for this slot
+          const isTherapistBusy = therapistId ? allSessions.some(session => {
+            if (session.therapistId !== parseInt(therapistId as string)) return false;
+            
+            const sessionDate = new Date(session.sessionDate);
+            if (sessionDate.toDateString() !== targetDate.toDateString()) return false;
+            
+            return checkTimeConflict(slotDateTime, 60, sessionDate, 60);
+          }) : false;
+
+          const isRoomBusy = roomId ? allSessions.some(session => {
+            if (session.roomId !== parseInt(roomId as string)) return false;
+            
+            const sessionDate = new Date(session.sessionDate);
+            if (sessionDate.toDateString() !== targetDate.toDateString()) return false;
+            
+            return checkTimeConflict(slotDateTime, 60, sessionDate, 60);
+          }) : false;
+
+          // General room occupancy (for any room if not specified)
+          const hasRoomConflicts = !roomId ? allSessions.some(session => {
+            const sessionDate = new Date(session.sessionDate);
+            if (sessionDate.toDateString() !== targetDate.toDateString()) return false;
+            
+            return checkTimeConflict(slotDateTime, 60, sessionDate, 60);
+          }) : false;
+
+          timeSlots.push({
+            time,
+            datetime: slotDateTime.toISOString(),
+            available: !isTherapistBusy && !isRoomBusy,
+            therapistBusy: isTherapistBusy,
+            roomBusy: isRoomBusy,
+            generallyBusy: hasRoomConflicts
+          });
+        }
+      }
+
+      res.json({
+        date: date,
+        therapistId: therapistId ? parseInt(therapistId as string) : null,
+        roomId: roomId ? parseInt(roomId as string) : null,
+        timeSlots
       });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -1023,9 +1140,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Creating session with past date: ${sessionDate.toISOString().split('T')[0]} for client ID: ${sessionData.clientId}`);
       }
 
-      // Check for scheduling conflicts
+      // Check for scheduling conflicts (therapist + room)
       const allSessions = await storage.getAllSessions();
-      const conflicts = allSessions.filter(session => {
+      
+      // Check therapist conflicts
+      const therapistConflicts = allSessions.filter(session => {
         if (session.therapistId !== sessionData.therapistId) return false;
         
         const existingDate = new Date(session.sessionDate);
@@ -1034,14 +1153,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return checkTimeConflict(sessionDate, 60, existingDate, 60);
       });
 
-      if (conflicts.length > 0 && !req.body.ignoreConflicts) {
+      // Check room conflicts
+      const roomConflicts = sessionData.roomId ? allSessions.filter(session => {
+        if (session.roomId !== sessionData.roomId) return false;
+        
+        const existingDate = new Date(session.sessionDate);
+        if (existingDate.toDateString() !== sessionDate.toDateString()) return false;
+        
+        return checkTimeConflict(sessionDate, 60, existingDate, 60);
+      }) : [];
+
+      const hasConflicts = therapistConflicts.length > 0 || roomConflicts.length > 0;
+
+      if (hasConflicts && !req.body.ignoreConflicts) {
         return res.status(409).json({ 
           message: "Scheduling conflict detected",
-          conflicts: conflicts.map(session => ({
+          therapistConflicts: therapistConflicts.map(session => ({
             id: session.id,
             clientName: session.client?.fullName || 'Unknown Client',
             sessionDate: session.sessionDate,
-            sessionType: session.sessionType
+            sessionType: session.sessionType,
+            type: 'therapist'
+          })),
+          roomConflicts: roomConflicts.map(session => ({
+            id: session.id,
+            clientName: 'Private Session',
+            sessionDate: session.sessionDate,
+            sessionType: session.sessionType,
+            therapistName: session.therapist?.fullName || 'Unknown Therapist',
+            type: 'room'
           }))
         });
       }
@@ -1091,10 +1231,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         sessionData.sessionDate = dateValue;
 
-        // Check for conflicts when updating session time/therapist
-        if (sessionData.therapistId) {
+        // Check for conflicts when updating session time/therapist/room
+        if (sessionData.therapistId || sessionData.roomId) {
           const allSessions = await storage.getAllSessions();
-          const conflicts = allSessions.filter(session => {
+          
+          // Check therapist conflicts
+          const therapistConflicts = sessionData.therapistId ? allSessions.filter(session => {
             if (session.id === id) return false; // Skip current session
             if (session.therapistId !== sessionData.therapistId) return false;
             
@@ -1103,16 +1245,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (existingDate.toDateString() !== newDate.toDateString()) return false;
             
             return checkTimeConflict(newDate, 60, existingDate, 60);
-          });
+          }) : [];
 
-          if (conflicts.length > 0 && !req.body.ignoreConflicts) {
+          // Check room conflicts
+          const roomConflicts = sessionData.roomId ? allSessions.filter(session => {
+            if (session.id === id) return false; // Skip current session
+            if (session.roomId !== sessionData.roomId) return false;
+            
+            const existingDate = new Date(session.sessionDate);
+            const newDate = new Date(sessionData.sessionDate);
+            if (existingDate.toDateString() !== newDate.toDateString()) return false;
+            
+            return checkTimeConflict(newDate, 60, existingDate, 60);
+          }) : [];
+
+          const hasConflicts = therapistConflicts.length > 0 || roomConflicts.length > 0;
+
+          if (hasConflicts && !req.body.ignoreConflicts) {
             return res.status(409).json({ 
               message: "Scheduling conflict detected",
-              conflicts: conflicts.map(session => ({
+              therapistConflicts: therapistConflicts.map(session => ({
                 id: session.id,
                 clientName: session.client?.fullName || 'Unknown Client',
                 sessionDate: session.sessionDate,
-                sessionType: session.sessionType
+                sessionType: session.sessionType,
+                type: 'therapist'
+              })),
+              roomConflicts: roomConflicts.map(session => ({
+                id: session.id,
+                clientName: 'Private Session',
+                sessionDate: session.sessionDate,
+                sessionType: session.sessionType,
+                therapistName: session.therapist?.fullName || 'Unknown Therapist',
+                type: 'room'
               }))
             });
           }

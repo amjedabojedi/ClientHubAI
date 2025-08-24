@@ -5,15 +5,25 @@ interface ConflictCheckParams {
   sessionDate: string; // ISO string
   duration?: number;
   excludeSessionId?: number;
+  roomId?: number;
 }
 
 interface ConflictResult {
   hasConflict: boolean;
-  conflicts: Array<{
+  therapistConflicts: Array<{
     id: number;
     clientName: string;
     sessionDate: string;
     sessionType: string;
+    type: 'therapist';
+  }>;
+  roomConflicts: Array<{
+    id: number;
+    clientName: string;
+    sessionDate: string;
+    sessionType: string;
+    therapistName: string;
+    type: 'room';
   }>;
   suggestedTimes: string[];
 }
@@ -33,6 +43,10 @@ export function useConflictDetection(params: ConflictCheckParams | null) {
         searchParams.append('excludeSessionId', params.excludeSessionId.toString());
       }
       
+      if (params.roomId) {
+        searchParams.append('roomId', params.roomId.toString());
+      }
+      
       const response = await fetch(`/api/sessions/conflicts/check?${searchParams.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to check for conflicts');
@@ -49,7 +63,8 @@ export function useRealTimeConflictCheck(
   therapistId: number | undefined,
   sessionDate: string | undefined,
   sessionTime: string | undefined,
-  excludeSessionId?: number
+  excludeSessionId?: number,
+  roomId?: number
 ) {
   const sessionDateTime = sessionDate && sessionTime 
     ? new Date(`${sessionDate}T${sessionTime}`).toISOString()
@@ -60,7 +75,8 @@ export function useRealTimeConflictCheck(
       ? { 
           therapistId, 
           sessionDate: sessionDateTime, 
-          excludeSessionId 
+          excludeSessionId,
+          roomId
         }
       : null
   );

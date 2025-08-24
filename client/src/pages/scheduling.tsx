@@ -284,6 +284,7 @@ export default function SchedulingPage() {
   const watchedDate = form.watch('sessionDate');
   const watchedTime = form.watch('sessionTime');
   const watchedTherapistId = form.watch('therapistId');
+  const watchedRoomId = form.watch('roomId');
   
   React.useEffect(() => {
     if (watchedDate && watchedTime) {
@@ -296,7 +297,8 @@ export default function SchedulingPage() {
     watchedTherapistId,
     watchedDate,
     watchedTime,
-    editingSessionId || undefined
+    editingSessionId || undefined,
+    watchedRoomId
   );
 
   const createSessionMutation = useMutation({
@@ -424,7 +426,7 @@ export default function SchedulingPage() {
   };
 
   // Check if a session has time conflicts with other sessions for the same therapist
-  const hasTimeConflict = (session: Session, allSessions: Session[]): boolean => {
+  const hasTherapistTimeConflict = (session: Session, allSessions: Session[]): boolean => {
     return allSessions.some(otherSession => {
       if (otherSession.id === session.id) return false; // Skip same session
       if (otherSession.therapistId !== session.therapistId) return false; // Different therapist
@@ -445,15 +447,46 @@ export default function SchedulingPage() {
     });
   };
 
-  // Get visual indicator for session based on conflicts
-  const getSessionConflictStyle = (session: Session): string => {
-    if (!sessions || sessions.length === 0) return '';
+  // Check if a session has room conflicts with other sessions
+  const hasRoomTimeConflict = (session: Session, allSessions: Session[]): boolean => {
+    if (!session.roomId) return false;
     
-    const hasConflict = hasTimeConflict(session, sessions);
-    if (hasConflict) {
-      return 'border-l-4 border-red-500 bg-red-50';
+    return allSessions.some(otherSession => {
+      if (otherSession.id === session.id) return false; // Skip same session
+      if (otherSession.roomId !== session.roomId) return false; // Different room
+      
+      const sessionTime = new Date(session.sessionDate);
+      const otherTime = new Date(otherSession.sessionDate);
+      
+      // Same day check
+      if (sessionTime.toDateString() !== otherTime.toDateString()) return false;
+      
+      // Check for time overlap (assuming 60-minute sessions)
+      const sessionStart = sessionTime.getTime();
+      const sessionEnd = sessionStart + (60 * 60 * 1000); // 60 minutes
+      const otherStart = otherTime.getTime();
+      const otherEnd = otherStart + (60 * 60 * 1000);
+      
+      return (sessionStart < otherEnd && sessionEnd > otherStart);
+    });
+  };
+
+  // Get visual indicator for session based on conflicts
+  const getSessionConflictStyle = (session: Session): { style: string; conflictType: 'therapist' | 'room' | 'both' | 'none' } => {
+    if (!sessions || sessions.length === 0) return { style: '', conflictType: 'none' };
+    
+    const hasTherapistConflict = hasTherapistTimeConflict(session, sessions);
+    const hasRoomConflict = hasRoomTimeConflict(session, sessions);
+    
+    if (hasTherapistConflict && hasRoomConflict) {
+      return { style: 'border-l-4 border-red-600 bg-red-100', conflictType: 'both' };
+    } else if (hasTherapistConflict) {
+      return { style: 'border-l-4 border-red-500 bg-red-50', conflictType: 'therapist' };
+    } else if (hasRoomConflict) {
+      return { style: 'border-l-4 border-orange-500 bg-orange-50', conflictType: 'room' };
     }
-    return '';
+    
+    return { style: '', conflictType: 'none' };
   };
 
   // Bulk update function to mark all scheduled sessions as completed
@@ -828,29 +861,49 @@ export default function SchedulingPage() {
                         />
                       </div>
 
-                      {/* Conflict Detection Warning */}
+                      {/* Enhanced Conflict Detection Warning */}
                       {conflictData?.hasConflict && !isCheckingConflicts && (
                         <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
                           <div className="flex items-start space-x-3">
                             <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
                             <div className="flex-1">
                               <h4 className="text-sm font-medium text-red-800">
-                                Scheduling Conflict Detected
+                                Scheduling Conflicts Detected
                               </h4>
-                              <p className="text-xs text-red-700 mt-1">
-                                This therapist already has a session at this time:
-                              </p>
-                              <ul className="mt-2 space-y-1">
-                                {conflictData.conflicts.map((conflict, index) => (
-                                  <li key={index} className="text-xs text-red-700">
-                                    • {conflict.clientName} - {conflict.sessionType} at {new Date(conflict.sessionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                  </li>
-                                ))}
-                              </ul>
-                              {conflictData.suggestedTimes.length > 0 && (
+                              
+                              {/* Therapist Conflicts */}
+                              {conflictData.therapistConflicts?.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-red-700 font-medium">Therapist Schedule Conflict:</p>
+                                  <ul className="mt-1 space-y-1">
+                                    {conflictData.therapistConflicts.map((conflict, index) => (
+                                      <li key={index} className="text-xs text-red-700">
+                                        • You have: {conflict.clientName} - {conflict.sessionType} at {new Date(conflict.sessionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Room Conflicts */}
+                              {conflictData.roomConflicts?.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-red-700 font-medium">Room Booking Conflict:</p>
+                                  <ul className="mt-1 space-y-1">
+                                    {conflictData.roomConflicts.map((conflict, index) => (
+                                      <li key={index} className="text-xs text-red-700">
+                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {new Date(conflict.sessionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Alternative Times */}
+                              {conflictData.suggestedTimes?.length > 0 && (
                                 <div className="mt-3">
                                   <p className="text-xs text-red-700 font-medium">
-                                    Suggested alternative times:
+                                    Suggested alternative times (therapist + room available):
                                   </p>
                                   <div className="flex gap-2 mt-1">
                                     {conflictData.suggestedTimes.map((time, index) => (
@@ -1048,8 +1101,21 @@ export default function SchedulingPage() {
                         </div>
                         <div className="space-y-1">
                           {sessionsForDay.slice(0, 5).map((session: Session) => {
-                            const conflictStyle = getSessionConflictStyle(session);
-                            const hasConflict = conflictStyle.includes('border-red-500');
+                            const conflictInfo = getSessionConflictStyle(session);
+                            const hasConflict = conflictInfo.conflictType !== 'none';
+                            
+                            const getConflictIndicator = () => {
+                              switch (conflictInfo.conflictType) {
+                                case 'therapist':
+                                  return <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" title="Therapist scheduling conflict"></span>;
+                                case 'room':
+                                  return <span className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Room booking conflict"></span>;
+                                case 'both':
+                                  return <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full" title="Multiple conflicts detected"></span>;
+                                default:
+                                  return null;
+                              }
+                            };
                             
                             return (
                               <div
@@ -1057,7 +1123,7 @@ export default function SchedulingPage() {
                                 className={`
                                   text-xs p-1 rounded cursor-pointer truncate relative
                                   ${getSessionTypeColor(session.sessionType)} hover:shadow-sm
-                                  ${conflictStyle}
+                                  ${conflictInfo.style}
                                 `}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1065,9 +1131,7 @@ export default function SchedulingPage() {
                                   setIsEditSessionModalOpen(true);
                                 }}
                               >
-                                {hasConflict && (
-                                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" title="Scheduling conflict detected"></span>
-                                )}
+                                {getConflictIndicator()}
                                 {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {getDisplayClientName(session)}
                               </div>
                             );
@@ -1541,21 +1605,29 @@ export default function SchedulingPage() {
                       {getTodaysSessions()
                         .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
                         .map((session: Session) => {
-                          const conflictStyle = getSessionConflictStyle(session);
-                          const hasConflict = conflictStyle.includes('border-red-500');
+                          const conflictInfo = getSessionConflictStyle(session);
+                          const hasConflict = conflictInfo.conflictType !== 'none';
                           
                           return (
                             <div
                               key={session.id}
                               className={`
                                 border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors relative
-                                ${conflictStyle}
+                                ${conflictInfo.style}
                               `}
                             >
                             {hasConflict && (
-                              <div className="absolute top-2 right-2 flex items-center space-x-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
+                              <div className={`absolute top-2 right-2 flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                                conflictInfo.conflictType === 'therapist' ? 'bg-red-100 text-red-700' :
+                                conflictInfo.conflictType === 'room' ? 'bg-orange-100 text-orange-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
                                 <AlertCircle className="w-3 h-3" />
-                                <span>Conflict</span>
+                                <span>
+                                  {conflictInfo.conflictType === 'therapist' ? 'Schedule' :
+                                   conflictInfo.conflictType === 'room' ? 'Room' :
+                                   'Multiple'} Conflict
+                                </span>
                               </div>
                             )}
                             <div className="flex items-start justify-between">
