@@ -846,10 +846,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Role-based filtering
-      if (currentUserRole === "therapist" && currentUserId) {
-        const therapistIdFilter = parseInt(currentUserId as string);
-        sessions = sessions.filter(session => session.therapistId === therapistIdFilter);
-      } else if (currentUserRole === "supervisor" && currentUserId) {
+      // Therapists can now see all sessions (removed restriction)
+      if (currentUserRole === "supervisor" && currentUserId) {
         const supervisorId = parseInt(currentUserId as string);
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
         
