@@ -994,7 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (hasAnyConflict) {
         const dateStr = newSessionDate.toISOString().split('T')[0];
-        const workingHours = [9, 10, 11, 13, 14, 15, 16, 17]; // 9am-6pm, skip 12pm lunch
+        const workingHours = [9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // 9am-9pm, skip 12pm lunch
         
         for (const hour of workingHours) {
           const suggestedDateTime = new Date(`${dateStr}T${hour.toString().padStart(2, '0')}:00:00`);
