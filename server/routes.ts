@@ -4048,19 +4048,24 @@ This happens because only the file metadata was stored, not the actual file cont
           });
           
           await browser.close();
+          console.log('PDF generated successfully for download, size:', pdfBuffer.length);
           
-          // Send PDF file for download
+          // Send PDF file for download with proper binary handling
           const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-          res.send(pdfBuffer);
+          res.writeHead(200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Length': pdfBuffer.length
+          });
+          res.end(pdfBuffer, 'binary');
+          return;
           
         } catch (pdfError) {
           console.error('PDF generation failed for download:', pdfError);
           // Fallback to HTML if PDF generation fails
           res.setHeader('Content-Type', 'text/html');
           res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
-          res.send(invoiceHtml);
+          return res.send(invoiceHtml);
         }
       } else if (action === 'print') {
         // Return HTML for printing
