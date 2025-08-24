@@ -745,7 +745,7 @@ export default function ClientDetailPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `invoice-${client?.clientId}-${billingId?.toString() || 'all'}-${new Date().toISOString().split('T')[0]}.html`;
+        a.download = `invoice-${client?.clientId}-${billingId?.toString() || 'all'}-${new Date().toISOString().split('T')[0]}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
