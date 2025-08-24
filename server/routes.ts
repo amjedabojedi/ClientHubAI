@@ -4029,9 +4029,8 @@ This happens because only the file metadata was stored, not the actual file cont
           try {
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
             
-            // For production with verified domain (once domain is set up)
-            // Use resiliencec.com domain when configured
-            const fromEmail = 'mail@resiliencec.com';
+            // Use the configured send domain for emails
+            const fromEmail = 'noreply@send.rcrc.ca';
             
             const result = await sp.transmissions.send({
               options: {
@@ -4067,13 +4066,13 @@ This happens because only the file metadata was stored, not the actual file cont
             // Provide helpful error message about domain configuration
             let errorMessage = "Failed to send invoice email";
             if (error.errors?.[0]?.message?.includes('Unconfigured Sending Domain')) {
-              errorMessage = "Email domain needs to be verified in SparkPost. Please contact your administrator to configure mail@resiliencec.com domain in SparkPost.";
+              errorMessage = "Email domain needs to be verified in SparkPost. Please contact your administrator to configure send.rcrc.ca domain in SparkPost.";
             }
             
             res.status(500).json({ 
               message: errorMessage,
               error: error.errors?.[0]?.message || error.message,
-              help: "To fix this, verify the domain 'resiliencec.com' in your SparkPost account under Account Settings > Sending Domains"
+              help: "To fix this, verify the domain 'send.rcrc.ca' in your SparkPost account under Account Settings > Sending Domains"
             });
           }
         } else {
