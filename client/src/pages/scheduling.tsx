@@ -48,6 +48,7 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 
 // Components
 import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
@@ -282,6 +283,7 @@ export default function SchedulingPage() {
   // Watch for date/time changes to update room availability
   const watchedDate = form.watch('sessionDate');
   const watchedTime = form.watch('sessionTime');
+  const watchedTherapistId = form.watch('therapistId');
   
   React.useEffect(() => {
     if (watchedDate && watchedTime) {
@@ -289,12 +291,21 @@ export default function SchedulingPage() {
     }
   }, [watchedDate, watchedTime]);
 
+  // Real-time conflict detection
+  const { data: conflictData, isLoading: isCheckingConflicts } = useRealTimeConflictCheck(
+    watchedTherapistId,
+    watchedDate,
+    watchedTime,
+    editingSessionId || undefined
+  );
+
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
       const sessionDateTime = new Date(`${data.sessionDate}T${data.sessionTime}`);
       const sessionData = {
         ...data,
         sessionDate: sessionDateTime.toISOString(),
+        ignoreConflicts: true, // User confirmed to proceed despite conflicts
       };
       
       if (editingSessionId) {
@@ -410,6 +421,39 @@ export default function SchedulingPage() {
 
   const getInitials = (name: string): string => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  // Check if a session has time conflicts with other sessions for the same therapist
+  const hasTimeConflict = (session: Session, allSessions: Session[]): boolean => {
+    return allSessions.some(otherSession => {
+      if (otherSession.id === session.id) return false; // Skip same session
+      if (otherSession.therapistId !== session.therapistId) return false; // Different therapist
+      
+      const sessionTime = new Date(session.sessionDate);
+      const otherTime = new Date(otherSession.sessionDate);
+      
+      // Same day check
+      if (sessionTime.toDateString() !== otherTime.toDateString()) return false;
+      
+      // Check for time overlap (assuming 60-minute sessions)
+      const sessionStart = sessionTime.getTime();
+      const sessionEnd = sessionStart + (60 * 60 * 1000); // 60 minutes
+      const otherStart = otherTime.getTime();
+      const otherEnd = otherStart + (60 * 60 * 1000);
+      
+      return (sessionStart < otherEnd && sessionEnd > otherStart);
+    });
+  };
+
+  // Get visual indicator for session based on conflicts
+  const getSessionConflictStyle = (session: Session): string => {
+    if (!sessions || sessions.length === 0) return '';
+    
+    const hasConflict = hasTimeConflict(session, sessions);
+    if (hasConflict) {
+      return 'border-l-4 border-red-500 bg-red-50';
+    }
+    return '';
   };
 
   // Bulk update function to mark all scheduled sessions as completed
@@ -784,6 +828,54 @@ export default function SchedulingPage() {
                         />
                       </div>
 
+                      {/* Conflict Detection Warning */}
+                      {conflictData?.hasConflict && !isCheckingConflicts && (
+                        <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+                          <div className="flex items-start space-x-3">
+                            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="text-sm font-medium text-red-800">
+                                Scheduling Conflict Detected
+                              </h4>
+                              <p className="text-xs text-red-700 mt-1">
+                                This therapist already has a session at this time:
+                              </p>
+                              <ul className="mt-2 space-y-1">
+                                {conflictData.conflicts.map((conflict, index) => (
+                                  <li key={index} className="text-xs text-red-700">
+                                    • {conflict.clientName} - {conflict.sessionType} at {new Date(conflict.sessionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </li>
+                                ))}
+                              </ul>
+                              {conflictData.suggestedTimes.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-xs text-red-700 font-medium">
+                                    Suggested alternative times:
+                                  </p>
+                                  <div className="flex gap-2 mt-1">
+                                    {conflictData.suggestedTimes.map((time, index) => (
+                                      <Button
+                                        key={index}
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs px-2 py-1 h-6 border-red-300 text-red-700 hover:bg-red-100"
+                                        onClick={() => {
+                                          const suggestedTime = new Date(time);
+                                          form.setValue('sessionTime', suggestedTime.toTimeString().slice(0, 5));
+                                        }}
+                                      >
+                                        {new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -955,22 +1047,31 @@ export default function SchedulingPage() {
                           {currentDate.getDate()}
                         </div>
                         <div className="space-y-1">
-                          {sessionsForDay.slice(0, 5).map((session: Session) => (
-                            <div
-                              key={session.id}
-                              className={`
-                                text-xs p-1 rounded cursor-pointer truncate
-                                ${getSessionTypeColor(session.sessionType)} hover:shadow-sm
-                              `}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedSession(session);
-                                setIsEditSessionModalOpen(true);
-                              }}
-                            >
-                              {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {getDisplayClientName(session)}
-                            </div>
-                          ))}
+                          {sessionsForDay.slice(0, 5).map((session: Session) => {
+                            const conflictStyle = getSessionConflictStyle(session);
+                            const hasConflict = conflictStyle.includes('border-red-500');
+                            
+                            return (
+                              <div
+                                key={session.id}
+                                className={`
+                                  text-xs p-1 rounded cursor-pointer truncate relative
+                                  ${getSessionTypeColor(session.sessionType)} hover:shadow-sm
+                                  ${conflictStyle}
+                                `}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSession(session);
+                                  setIsEditSessionModalOpen(true);
+                                }}
+                              >
+                                {hasConflict && (
+                                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" title="Scheduling conflict detected"></span>
+                                )}
+                                {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {getDisplayClientName(session)}
+                              </div>
+                            );
+                          })}
                           {sessionsForDay.length > 5 && (
                             <div 
                               className="text-xs text-slate-500 text-center cursor-pointer hover:text-slate-700"
@@ -1439,11 +1540,24 @@ export default function SchedulingPage() {
                     <div className="space-y-4">
                       {getTodaysSessions()
                         .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
-                        .map((session: Session) => (
-                          <div
-                            key={session.id}
-                            className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
-                          >
+                        .map((session: Session) => {
+                          const conflictStyle = getSessionConflictStyle(session);
+                          const hasConflict = conflictStyle.includes('border-red-500');
+                          
+                          return (
+                            <div
+                              key={session.id}
+                              className={`
+                                border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors relative
+                                ${conflictStyle}
+                              `}
+                            >
+                            {hasConflict && (
+                              <div className="absolute top-2 right-2 flex items-center space-x-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
+                                <AlertCircle className="w-3 h-3" />
+                                <span>Conflict</span>
+                              </div>
+                            )}
                             <div className="flex items-start justify-between">
                               <div className="flex items-center space-x-4 flex-1">
                                 <div className="text-center">
@@ -1538,7 +1652,8 @@ export default function SchedulingPage() {
                               </div>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   )}
                 </CardContent>

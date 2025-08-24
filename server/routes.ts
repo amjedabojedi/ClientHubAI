@@ -911,6 +911,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Conflict detection helper function
+  function checkTimeConflict(
+    newSessionDate: Date, 
+    duration: number, 
+    existingSessionDate: Date, 
+    existingDuration: number
+  ): boolean {
+    const newStart = newSessionDate.getTime();
+    const newEnd = newStart + (duration * 60 * 1000); // duration in minutes
+    const existingStart = existingSessionDate.getTime();
+    const existingEnd = existingStart + (existingDuration * 60 * 1000);
+    
+    return (newStart < existingEnd && newEnd > existingStart);
+  }
+
+  // Check therapist availability endpoint
+  app.get("/api/sessions/conflicts/check", async (req, res) => {
+    try {
+      const { therapistId, sessionDate, duration = 60, excludeSessionId } = req.query;
+      
+      if (!therapistId || !sessionDate) {
+        return res.status(400).json({ message: "therapistId and sessionDate are required" });
+      }
+
+      const allSessions = await storage.getAllSessions();
+      const newSessionDate = new Date(sessionDate as string);
+      const sessionDuration = parseInt(duration as string);
+      
+      // Check for conflicts with existing sessions
+      const conflicts = allSessions.filter(session => {
+        // Skip the session being edited
+        if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) {
+          return false;
+        }
+        
+        // Only check sessions for the same therapist
+        if (session.therapistId !== parseInt(therapistId as string)) {
+          return false;
+        }
+        
+        // Only check on the same date
+        const sessionDate = new Date(session.sessionDate);
+        const newDate = new Date(newSessionDate);
+        if (sessionDate.toDateString() !== newDate.toDateString()) {
+          return false;
+        }
+        
+        // Check time overlap
+        return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, 60);
+      });
+
+      // Suggest alternative times if conflicts found
+      let suggestedTimes: string[] = [];
+      if (conflicts.length > 0) {
+        const dateStr = newSessionDate.toISOString().split('T')[0];
+        const workingHours = [9, 10, 11, 13, 14, 15, 16, 17]; // 9am-6pm, skip 12pm lunch
+        
+        for (const hour of workingHours) {
+          const suggestedDateTime = new Date(`${dateStr}T${hour.toString().padStart(2, '0')}:00:00`);
+          const hasConflict = allSessions.some(session => {
+            if (session.therapistId !== parseInt(therapistId as string)) return false;
+            if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) return false;
+            
+            const sessionDate = new Date(session.sessionDate);
+            if (sessionDate.toDateString() !== suggestedDateTime.toDateString()) return false;
+            
+            return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, 60);
+          });
+          
+          if (!hasConflict) {
+            suggestedTimes.push(suggestedDateTime.toISOString());
+          }
+        }
+      }
+
+      res.json({
+        hasConflict: conflicts.length > 0,
+        conflicts: conflicts.map(session => ({
+          id: session.id,
+          clientName: session.client?.fullName || 'Unknown Client',
+          sessionDate: session.sessionDate,
+          sessionType: session.sessionType
+        })),
+        suggestedTimes: suggestedTimes.slice(0, 3) // Limit to 3 suggestions
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/sessions", async (req, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
@@ -931,6 +1021,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (sessionDate < today) {
         console.log(`Creating session with past date: ${sessionDate.toISOString().split('T')[0]} for client ID: ${sessionData.clientId}`);
+      }
+
+      // Check for scheduling conflicts
+      const allSessions = await storage.getAllSessions();
+      const conflicts = allSessions.filter(session => {
+        if (session.therapistId !== sessionData.therapistId) return false;
+        
+        const existingDate = new Date(session.sessionDate);
+        if (existingDate.toDateString() !== sessionDate.toDateString()) return false;
+        
+        return checkTimeConflict(sessionDate, 60, existingDate, 60);
+      });
+
+      if (conflicts.length > 0 && !req.body.ignoreConflicts) {
+        return res.status(409).json({ 
+          message: "Scheduling conflict detected",
+          conflicts: conflicts.map(session => ({
+            id: session.id,
+            clientName: session.client?.fullName || 'Unknown Client',
+            sessionDate: session.sessionDate,
+            sessionType: session.sessionType
+          }))
+        });
       }
       
       const validatedData = insertSessionSchema.parse(sessionData);
@@ -977,6 +1090,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         sessionData.sessionDate = dateValue;
+
+        // Check for conflicts when updating session time/therapist
+        if (sessionData.therapistId) {
+          const allSessions = await storage.getAllSessions();
+          const conflicts = allSessions.filter(session => {
+            if (session.id === id) return false; // Skip current session
+            if (session.therapistId !== sessionData.therapistId) return false;
+            
+            const existingDate = new Date(session.sessionDate);
+            const newDate = new Date(sessionData.sessionDate);
+            if (existingDate.toDateString() !== newDate.toDateString()) return false;
+            
+            return checkTimeConflict(newDate, 60, existingDate, 60);
+          });
+
+          if (conflicts.length > 0 && !req.body.ignoreConflicts) {
+            return res.status(409).json({ 
+              message: "Scheduling conflict detected",
+              conflicts: conflicts.map(session => ({
+                id: session.id,
+                clientName: session.client?.fullName || 'Unknown Client',
+                sessionDate: session.sessionDate,
+                sessionType: session.sessionType
+              }))
+            });
+          }
+        }
       }
       
       console.log(`Updating session ${id} with data:`, JSON.stringify(sessionData, null, 2));
