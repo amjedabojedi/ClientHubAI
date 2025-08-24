@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as path from "path";
 import multer from "multer";
 import bcrypt from "bcrypt";
+import SparkPost from "sparkpost";
 
 // Validation
 import { z } from "zod";
@@ -4026,24 +4027,54 @@ This happens because only the file metadata was stored, not the actual file cont
         // Email invoice using SparkPost if available
         if (process.env.SPARKPOST_API_KEY && client.email) {
           try {
-            const SparkPost = require('sparkpost');
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
             
-            await sp.transmissions.send({
-              content: {
-                from: 'mail@resiliencec.com',
-                subject: `Invoice - ${client.fullName}`,
-                html: invoiceHtml
+            // For production with verified domain (once domain is set up)
+            // Use resiliencec.com domain when configured
+            const fromEmail = 'mail@resiliencec.com';
+            
+            const result = await sp.transmissions.send({
+              options: {
+                sandbox: false  // Set to false for production sending
               },
-              recipients: [
-                { address: client.email }
-              ]
+              recipients: [{ 
+                address: {
+                  email: client.email,
+                  name: client.fullName
+                }
+              }],
+              content: {
+                from: {
+                  name: 'Resilience Counseling Research & Consultation',
+                  email: fromEmail
+                },
+                subject: `Invoice from Resilience Counseling - ${client.fullName}`,
+                html: invoiceHtml,
+                text: `Please find your invoice attached. If you have any questions, please contact us at ${fromEmail}.`
+              }
             });
             
-            res.json({ message: "Invoice sent successfully to " + client.email });
+            console.log('SparkPost success:', result);
+            res.json({ 
+              message: "Invoice sent successfully to " + client.email,
+              messageId: result.results?.id,
+              note: "Email sent from configured domain. If this fails, domain verification may be required in SparkPost."
+            });
           } catch (error) {
             console.error('SparkPost error:', error);
-            res.status(500).json({ message: "Failed to send invoice email" });
+            console.error('Error details:', error.errors);
+            
+            // Provide helpful error message about domain configuration
+            let errorMessage = "Failed to send invoice email";
+            if (error.errors?.[0]?.message?.includes('Unconfigured Sending Domain')) {
+              errorMessage = "Email domain needs to be verified in SparkPost. Please contact your administrator to configure mail@resiliencec.com domain in SparkPost.";
+            }
+            
+            res.status(500).json({ 
+              message: errorMessage,
+              error: error.errors?.[0]?.message || error.message,
+              help: "To fix this, verify the domain 'resiliencec.com' in your SparkPost account under Account Settings > Sending Domains"
+            });
           }
         } else {
           res.status(503).json({ message: "Email service not configured or client email not available" });
