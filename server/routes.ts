@@ -4114,7 +4114,8 @@ This happens because only the file metadata was stored, not the actual file cont
               });
               
               await browser.close();
-              console.log('PDF generated successfully');
+              console.log('PDF generated successfully for email, size:', pdfBuffer.length);
+              
             } catch (pdfError) {
               console.error('PDF generation failed:', pdfError);
               // Fall back to HTML email if PDF generation fails
@@ -4142,6 +4143,7 @@ This happens because only the file metadata was stored, not the actual file cont
                     <h2 style="color: #1e293b;">Invoice from Resilience Counseling Research & Consultation</h2>
                     <p>Dear ${client.fullName},</p>
                     <p>Please find your invoice attached as a PDF document.</p>
+                    <p><strong>Alternative:</strong> If the attachment doesn't open properly, you can also <a href="https://resiliencecrm.replit.app/clients/3670" style="color: #2563eb; text-decoration: underline;">download the invoice directly from your client portal</a>.</p>
                     <p><strong>Invoice Details:</strong></p>
                     <ul style="margin: 20px 0;">
                       <li>Invoice #: INV-${client.clientId}-${billingId}</li>
@@ -4164,7 +4166,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   attachments: [{
                     name: `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
                     type: 'application/pdf',
-                    data: Buffer.from(pdfBuffer).toString('base64')
+                    data: Buffer.isBuffer(pdfBuffer) ? pdfBuffer.toString('base64') : Buffer.from(pdfBuffer).toString('base64')
                   }]
                 })
               }
