@@ -4016,11 +4016,52 @@ This happens because only the file metadata was stored, not the actual file cont
       `;
       
       if (action === 'download') {
-        // For PDF generation, you'd normally use puppeteer or similar
-        // For now, return HTML that can be saved as PDF
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
-        res.send(invoiceHtml);
+        // Generate PDF for download using same logic as email
+        try {
+          // Get chromium path dynamically or use direct path
+          let chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+          try {
+            const pathResult = execSync('which chromium', { encoding: 'utf8' }).trim();
+            if (pathResult) chromiumPath = pathResult;
+          } catch {
+            console.log('Using hardcoded chromium path for download');
+          }
+          
+          const browser = await puppeteer.launch({
+            executablePath: chromiumPath,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+            headless: true
+          });
+          
+          const page = await browser.newPage();
+          await page.setContent(invoiceHtml);
+          
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+              top: '20mm',
+              right: '10mm',
+              bottom: '20mm',
+              left: '10mm'
+            }
+          });
+          
+          await browser.close();
+          
+          // Send PDF file for download
+          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          res.send(pdfBuffer);
+          
+        } catch (pdfError) {
+          console.error('PDF generation failed for download:', pdfError);
+          // Fallback to HTML if PDF generation fails
+          res.setHeader('Content-Type', 'text/html');
+          res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
+          res.send(invoiceHtml);
+        }
       } else if (action === 'print') {
         // Return HTML for printing
         res.setHeader('Content-Type', 'text/html');

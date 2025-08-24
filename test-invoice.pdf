@@ -1,0 +1,129 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invoice - Abdalmajid Z A Inshasi - ASS01</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
+            .invoice-title { font-size: 24px; font-weight: bold; color: #1e293b; }
+            .company-info { text-align: right; color: #64748b; }
+            .client-info { display: flex; gap: 60px; margin-bottom: 40px; }
+            .section-title { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+            th { background-color: #f8fafc; }
+            .totals { width: 300px; margin-left: auto; }
+            .total-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+            .total-due { font-weight: bold; font-size: 18px; border-top: 2px solid #1e293b; padding-top: 8px; }
+            .payment-terms { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
+            @media print { 
+              body { margin: 0.5in; font-size: 11pt; }
+              .header { margin-bottom: 20px; }
+              .invoice-title { font-size: 20pt; }
+              .section-title { font-size: 14pt; }
+              .client-info { margin-bottom: 20px; }
+              .payment-terms { page-break-inside: avoid; }
+              table { font-size: 10pt; }
+              th, td { padding: 8px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="invoice-title">INVOICE</h1>
+              <p>Invoice #: INV-CL-2025-1261-3094</p>
+              <p>Date: 8/24/2025</p>
+              <p>Service Date: 8/24/2025</p>
+            </div>
+            <div class="company-info">
+              <h3>Resilience Counseling Research & Consultation</h3>
+              <p>Professional Mental Health Services</p>
+              <p>Psychotherapy  Practice</p>
+              <div style="margin-top: 10px; font-size: 0.9em;">
+                <p>111 Waterloo St Unit 406, London, ON N6B 2M4<br></p>
+                <p>Phone:  +1 (548)866-0366</p>
+                <p>Email: mail@resiliencec.com</p>
+                <p>Website: www.resiliencec.com</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="client-info">
+            <div>
+              <h3 class="section-title">Bill To:</h3>
+              <p>Abdalmajid Z A Inshasi</p>
+              <p></p>
+              <p>5488884868</p>
+              <p>amjadabu@hotmail.com</p>
+            </div>
+            <div>
+              <h3 class="section-title">Insurance Info:</h3>
+              <p>Provider: N/A</p>
+              <p>Policy: N/A</p>
+              <p>Group: N/A</p>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>CPT Code</th>
+                <th>Date</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>Assessment 4 hours</td>
+                  <td>ASS01</td>
+                  <td>8/14/2025</td>
+                  <td style="text-align: right;">$820.00</td>
+                </tr>
+              
+            </tbody>
+          </table>
+          
+          <div class="totals">
+            <div class="total-row">
+              <span>Service Amount:</span>
+              <span>$820.00</span>
+            </div>
+            
+            <div class="total-row">
+              <span>Copay Amount:</span>
+              <span>$0.00</span>
+            </div>
+            
+            <div class="total-row">
+              <span>Payments Received:</span>
+              <span>-$820.00</span>
+            </div>
+            <div class="total-row total-due">
+              <span>Total Due:</span>
+              <span style="color: #16a34a; font-weight: bold;">
+                PAID IN FULL
+              </span>
+            </div>
+          </div>
+          
+          <div class="payment-terms">
+            <h3>Payment Terms</h3>
+            <p>Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
+            <p>Thank you for choosing our mental health services.</p>
+          </div>
+          
+          <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
+            <h4 style="color: #1e293b; margin-bottom: 15px; font-size: 13px;">Provider Information for Insurance Reimbursement</h4>
+            <div>
+              <p><strong>Provider Name:</strong> Amjed Abojedi</p>
+              <p><strong>License Name:</strong> Licensed Mental Health Professional</p>
+              <p><strong>License Number:</strong> PSY-12345-CA</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      
