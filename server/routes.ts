@@ -142,7 +142,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const users = await storage.getUsers();
       const user = users.find(u => u.username === username);
       
-      if (!user || !await bcrypt.compare(password, user.password)) {
+      // Handle both bcrypt hashed and plain text passwords
+      let passwordMatch = false;
+      if (user) {
+        if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+          // Bcrypt hashed password
+          passwordMatch = await bcrypt.compare(password, user.password);
+        } else {
+          // Plain text password (temporary compatibility)
+          passwordMatch = password === user.password;
+        }
+      }
+      
+      if (!user || !passwordMatch) {
         // Log failed login attempt
         await AuditLogger.recordLoginAttempt({
           username,
