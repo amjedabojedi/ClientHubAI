@@ -112,6 +112,7 @@ const formatDate = (dateString: string | null) => {
 
 // ===== TASK FORM COMPONENT =====
 function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () => void }) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
