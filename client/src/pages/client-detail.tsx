@@ -1057,7 +1057,7 @@ export default function ClientDetailPage() {
   });
 
   // Access Control - Redirect if user doesn't have access to this client
-  React.useEffect(() => {
+  useEffect(() => {
     if (client && user?.role === 'therapist' && user.id !== client.assignedTherapistId) {
       toast({
         title: "Access Denied",
