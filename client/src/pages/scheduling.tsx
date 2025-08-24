@@ -489,85 +489,6 @@ export default function SchedulingPage() {
     return { style: '', conflictType: 'none' };
   };
 
-  // Bulk update function to mark all scheduled sessions as completed
-  const handleBulkUpdateToCompleted = async () => {
-    try {
-      const scheduledSessions = filteredSessions.filter(session => 
-        session.status.toLowerCase() === 'scheduled'
-      );
-
-      if (scheduledSessions.length === 0) {
-        toast({
-          title: "No scheduled sessions found",
-          description: "There are no sessions with 'scheduled' status to update.",
-          variant: "default"
-        });
-        return;
-      }
-
-      toast({
-        title: "Updating sessions...",
-        description: `Processing ${scheduledSessions.length} sessions. Please wait...`,
-        variant: "default"
-      });
-
-      // Process sessions in batches to avoid overwhelming the server
-      const batchSize = 10;
-      let updatedCount = 0;
-      let failedCount = 0;
-
-      for (let i = 0; i < scheduledSessions.length; i += batchSize) {
-        const batch = scheduledSessions.slice(i, i + batchSize);
-        
-        const batchResults = await Promise.allSettled(
-          batch.map(session => 
-            apiRequest(`/api/sessions/${session.id}`, "PUT", { status: "completed" })
-          )
-        );
-
-        // Count successful and failed updates
-        batchResults.forEach(result => {
-          if (result.status === 'fulfilled') {
-            updatedCount++;
-          } else {
-            failedCount++;
-            // Failed to update session - error handled by toast
-          }
-        });
-
-        // Small delay between batches to prevent overwhelming
-        if (i + batchSize < scheduledSessions.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-
-      // Refresh the sessions data
-      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
-
-      if (failedCount === 0) {
-        toast({
-          title: "Sessions updated successfully",
-          description: `${updatedCount} sessions marked as completed`,
-          variant: "default"
-        });
-      } else {
-        toast({
-          title: "Partial update completed",
-          description: `${updatedCount} sessions updated, ${failedCount} failed. Check console for details.`,
-          variant: "default"
-        });
-      }
-
-    } catch (error) {
-      // Error updating sessions - handled by toast
-      toast({
-        title: "Error updating sessions",
-        description: "Failed to update sessions. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
 
   // Session Filtering and Data Processing
   const filteredSessions = useMemo(() => {
@@ -716,16 +637,6 @@ export default function SchedulingPage() {
                   </Button>
                 }
               />
-              {viewMode === "list" && (
-                <Button 
-                  onClick={handleBulkUpdateToCompleted}
-                  variant="outline"
-                  className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Mark All Scheduled as Completed
-                </Button>
-              )}
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
