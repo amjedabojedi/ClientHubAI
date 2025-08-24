@@ -15,13 +15,19 @@ export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) 
     queryFn: async () => {
       const userId = user?.user?.id || user?.id;
       const userRole = user?.user?.role || user?.role;
+      console.log('🔍 CLIENT TABS - User Data:', { fullUser: user, userId, userRole });
+      
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
       
+      console.log('🔍 CLIENT TABS - API URL:', `/api/clients/stats?${params.toString()}`);
+      
       const response = await fetch(`/api/clients/stats?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
+      const result = await response.json();
+      console.log('🔍 CLIENT TABS - API Response:', result);
+      return result;
     },
   });
 
