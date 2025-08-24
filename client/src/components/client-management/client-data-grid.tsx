@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,15 @@ export default function ClientDataGrid({
   onDeleteClient
 }: ClientDataGridProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Force cache invalidation when user changes to ensure fresh data
+  React.useEffect(() => {
+    if (user) {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+    }
+  }, [user?.id, user?.role, queryClient]);
+  
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sortBy, setSortBy] = useState("createdAt");
@@ -76,6 +85,8 @@ export default function ClientDataGrid({
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/clients", queryParams],
+    enabled: !!user, // Only fetch when user is loaded
+    staleTime: 0, // Always refetch to ensure fresh data
   });
 
   const handleSort = (column: string) => {
