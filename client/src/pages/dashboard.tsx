@@ -115,8 +115,28 @@ export default function DashboardPage() {
     queryKey: ["/api/sessions", { 
       limit: 100,
       startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
-      endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0]
+      endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0],
+      currentUserId: user?.user?.id || user?.id,
+      currentUserRole: user?.user?.role || user?.role,
     }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = user?.user?.role || user?.role;
+      const startDate = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
+      const endDate = new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0];
+      
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      params.append('startDate', startDate);
+      params.append('endDate', endDate);
+      if (userId) params.append('currentUserId', userId.toString());
+      if (userRole) params.append('currentUserRole', userRole);
+      
+      const response = await fetch(`/api/sessions?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch sessions');
+      return response.json();
+    },
   });
 
   const allSessions = allSessionsData?.sessions || [];
