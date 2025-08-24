@@ -44,7 +44,7 @@ export default function ClientDataGrid({
     if (user) {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
     }
-  }, [user?.id, user?.role, queryClient]);
+  }, [user?.user?.id || user?.id, user?.user?.role || user?.role, queryClient]);
   
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -67,25 +67,28 @@ export default function ClientDataGrid({
     }
   }, [activeTab]);
 
-  const queryParams = useMemo(() => ({
-    page,
-    pageSize,
-    search: debouncedSearch,
-    status: typeof statusFromTab === "string" ? statusFromTab : filters.status,
-    therapistId: filters.therapistId,
-    clientType: filters.clientType,
-    hasPortalAccess: filters.hasPortalAccess,
-    hasPendingTasks: filters.hasPendingTasks,
-    hasNoSessions: typeof statusFromTab === "object" && statusFromTab.hasNoSessions ? true : filters.hasNoSessions,
-    sortBy,
-    sortOrder,
-    currentUserId: user?.id,
-    currentUserRole: user?.role,
-  }), [page, pageSize, debouncedSearch, statusFromTab, filters, sortBy, sortOrder, user]);
+  const queryParams = useMemo(() => {
+    const params = {
+      page,
+      pageSize,
+      search: debouncedSearch,
+      status: typeof statusFromTab === "string" ? statusFromTab : filters.status,
+      therapistId: filters.therapistId,
+      clientType: filters.clientType,
+      hasPortalAccess: filters.hasPortalAccess,
+      hasPendingTasks: filters.hasPendingTasks,
+      hasNoSessions: typeof statusFromTab === "object" && statusFromTab.hasNoSessions ? true : filters.hasNoSessions,
+      sortBy,
+      sortOrder,
+      currentUserId: user?.user?.id || user?.id,
+      currentUserRole: user?.user?.role || user?.role,
+    };
+    return params;
+  }, [page, pageSize, debouncedSearch, statusFromTab, filters, sortBy, sortOrder, user]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/clients", queryParams],
-    enabled: !!user, // Only fetch when user is loaded
+    enabled: !!user && !!(user?.user?.id || user?.id), // Only fetch when user is fully loaded
     staleTime: 0, // Always refetch to ensure fresh data
   });
 

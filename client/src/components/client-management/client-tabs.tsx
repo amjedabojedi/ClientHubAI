@@ -10,8 +10,8 @@ export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) 
   const { user } = useAuth();
   
   const { data: stats = {} } = useQuery({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
-    enabled: !!user,
+    queryKey: ["/api/clients/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
   });
 
   const tabs = [

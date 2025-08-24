@@ -80,8 +80,8 @@ export default function DashboardPage() {
 
   // Data Fetching
   const { data: clientStats } = useQuery<DashboardStats>({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
-    enabled: !!user,
+    queryKey: ["/api/clients/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
