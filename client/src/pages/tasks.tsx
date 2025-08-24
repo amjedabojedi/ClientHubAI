@@ -132,7 +132,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // Fetch all clients to populate the "Assign to Client" dropdown
   // This loads client list when component mounts and caches the result
   const { data: clientsData = { clients: [] }, isLoading: clientsLoading } = useQuery({
-    queryKey: ["/api/clients"],                                     // Cache key for React Query
+    queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
   });
 
   // Fetch all therapists/staff to populate the "Assigned To" dropdown

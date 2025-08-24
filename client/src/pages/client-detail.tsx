@@ -50,6 +50,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 
 // Types
@@ -522,6 +523,9 @@ export default function ClientDetailPage() {
   const [match, params] = useRoute("/clients/:id");
   const [, setLocation] = useLocation();
   const clientId = params?.id ? parseInt(params.id) : null;
+  
+  // Authentication
+  const { user } = useAuth();
   
   // State
   const [activeTab, setActiveTab] = useState("overview");
@@ -1051,6 +1055,18 @@ export default function ClientDetailPage() {
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
+
+  // Access Control - Redirect if user doesn't have access to this client
+  React.useEffect(() => {
+    if (client && user?.role === 'therapist' && user.id !== client.assignedTherapistId) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view this client profile.",
+        variant: "destructive",
+      });
+      setLocation("/clients");
+    }
+  }, [client, user, setLocation, toast]);
 
   const { data: sessions = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/sessions`],

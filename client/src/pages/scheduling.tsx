@@ -209,7 +209,7 @@ export default function SchedulingPage() {
 
   // Fetch clients and therapists for dropdowns
   const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
-    queryKey: ["/api/clients"],
+    queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
@@ -370,6 +370,22 @@ export default function SchedulingPage() {
       'no_show': 'bg-yellow-100 text-yellow-800'
     };
     return statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Privacy protection - show client name only to assigned therapist and admins/supervisors
+  const getDisplayClientName = (session: Session): string => {
+    // Admins and supervisors can see all client names
+    if (user?.role === 'admin' || user?.role === 'supervisor') {
+      return session.client?.fullName || session.clientName || 'Unknown Client';
+    }
+    
+    // Therapists can only see their own clients' names
+    if (user?.role === 'therapist' && user?.id === session.therapistId) {
+      return session.client?.fullName || session.clientName || 'Unknown Client';
+    }
+    
+    // Other users see "Private Session"
+    return 'Private Session';
   };
 
   const getSessionTypeColor = (type: string): string => {
@@ -952,7 +968,7 @@ export default function SchedulingPage() {
                                 setIsEditSessionModalOpen(true);
                               }}
                             >
-                              {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {session.client?.fullName || session.clientName}
+                              {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {getDisplayClientName(session)}
                             </div>
                           ))}
                           {sessionsForDay.length > 5 && (
@@ -1446,7 +1462,7 @@ export default function SchedulingPage() {
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">
                                     <h3 className="font-medium text-blue-600">
-                                      {session.client?.fullName || session.clientName || 'Unknown Client'}
+                                      {getDisplayClientName(session)}
                                     </h3>
                                     <Badge className={getStatusColor(session.status)} variant="secondary">
                                       {session.status}

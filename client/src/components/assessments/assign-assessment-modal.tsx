@@ -16,6 +16,7 @@ import { Calendar as CalendarIcon, Search, User, FileText } from "lucide-react";
 
 // Utils
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -47,11 +48,12 @@ export function AssignAssessmentModal({ open, onOpenChange, template, preSelecte
   const [showCalendar, setShowCalendar] = useState(false);
   
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // Fetch clients for selection
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
+    queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
     select: (data: any) => data.clients?.filter((client: any) => client.status === "active") || [],
   });
 
