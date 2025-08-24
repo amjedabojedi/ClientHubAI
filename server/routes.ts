@@ -3908,6 +3908,7 @@ This happens because only the file metadata was stored, not the actual file cont
               color: #333333;
               font-size: 10pt;
               line-height: 1.3;
+              font-family: 'Times New Roman', Times, serif;
             }
             .company-info h3 {
               font-size: 13pt;
@@ -3950,6 +3951,7 @@ This happens because only the file metadata was stored, not the actual file cont
               justify-content: space-between; 
               margin-bottom: 8px;
               font-size: 10pt;
+              font-family: 'Times New Roman', Times, serif;
             }
             .total-due { 
               font-weight: bold; 
@@ -3957,6 +3959,7 @@ This happens because only the file metadata was stored, not the actual file cont
               border-top: 2px solid #000000; 
               padding-top: 8px;
               color: #000000;
+              font-family: 'Times New Roman', Times, serif;
             }
             .payment-terms { 
               background-color: #f9f9f9; 
@@ -3964,10 +3967,12 @@ This happens because only the file metadata was stored, not the actual file cont
               border: 1px solid #cccccc; 
               margin-top: 40px;
               font-size: 9pt;
+              font-family: 'Times New Roman', Times, serif;
             }
             .invoice-number {
               font-weight: bold;
               font-size: 11pt;
+              font-family: 'Times New Roman', Times, serif;
             }
             @media print { 
               body { margin: 0.5in; font-size: 10pt; }
