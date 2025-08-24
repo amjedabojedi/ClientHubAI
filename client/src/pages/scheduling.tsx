@@ -571,9 +571,6 @@ export default function SchedulingPage() {
                 <Home className="w-4 h-4" />
                 <span>Home</span>
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900">Scheduling & Calendar</h1>
-              </div>
             </div>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2">
