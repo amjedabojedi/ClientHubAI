@@ -290,15 +290,23 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       // Set flag to prevent form reset after update
       justUpdatedRef.current = true;
       
-      // Invalidate and refetch queries to ensure fresh data
-      await queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      await queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
+      // Force refetch with fresh data (not just invalidate cache)
+      await queryClient.refetchQueries({ queryKey: ["/api/clients"] });
+      await queryClient.refetchQueries({ queryKey: [`/api/clients/${client.id}`] });
+      
+      // Also invalidate related queries
+      await queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}/sessions`] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}/billing`] });
       
       toast({
         title: "Success",
         description: "Client updated successfully",
       });
-      handleClose();
+      
+      // Small delay to ensure cache refreshes before closing
+      setTimeout(() => {
+        handleClose();
+      }, 100);
     },
     onError: (error: any) => {
       toast({
