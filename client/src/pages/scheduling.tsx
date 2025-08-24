@@ -582,20 +582,22 @@ export default function SchedulingPage() {
                   className="w-64"
                 />
               </div>
-              <SearchableSelect
-                value={selectedTherapist}
-                onValueChange={setSelectedTherapist}
-                options={[
-                  { value: "all", label: "All Therapists" },
-                  ...(therapists?.map((therapist: any) => ({
-                    value: therapist.id.toString(),
-                    label: therapist.fullName || therapist.full_name
-                  })) || [])
-                ]}
-                placeholder="All Therapists"
-                searchPlaceholder="Search therapists..."
-                className="w-48"
-              />
+              {user?.role !== 'therapist' && (
+                <SearchableSelect
+                  value={selectedTherapist}
+                  onValueChange={setSelectedTherapist}
+                  options={[
+                    { value: "all", label: "All Therapists" },
+                    ...(therapists?.map((therapist: any) => ({
+                      value: therapist.id.toString(),
+                      label: therapist.fullName || therapist.full_name
+                    })) || [])
+                  ]}
+                  placeholder="All Therapists"
+                  searchPlaceholder="Search therapists..."
+                  className="w-48"
+                />
+              )}
               <div className="flex items-center space-x-1 bg-slate-100 rounded-lg p-1">
                 <Button
                   variant={viewMode === "day" ? "default" : "ghost"}
