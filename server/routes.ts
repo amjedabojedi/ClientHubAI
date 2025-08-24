@@ -1296,7 +1296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
-      res.status(500).json({ message: "Internal server error", error: error.message, stack: error.stack });
+      res.status(500).json({ message: "Internal server error", error: (error as any)?.message, stack: (error as any)?.stack });
     }
   });
 
@@ -3268,7 +3268,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const page = await browser.newPage();
       
       // Convert markdown to HTML with professional formatting
-      let htmlContent = report.generatedContent
+      let htmlContent = (report.generatedContent || '')
         .replace(/\n\n/g, '</p><p>')
         .replace(/\n/g, '<br>')
         .replace(/## ([^<]+)/g, '<h2>$1</h2>')
@@ -3381,7 +3381,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       
       // Parse the report content into paragraphs with better formatting
-      const lines = report.generatedContent.split('\n');
+      const lines = (report.generatedContent || '').split('\n');
       const paragraphs = [];
       
       for (const line of lines) {
@@ -4043,7 +4043,7 @@ This happens because only the file metadata was stored, not the actual file cont
       res.json(sections);
     } catch (error) {
       console.error('Error getting sections:', error);
-      res.status(500).json({ message: 'Internal server error', error: error.message });
+      res.status(500).json({ message: 'Internal server error', error: (error as any)?.message });
     }
   });
 
@@ -4577,7 +4577,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       if (action && action !== 'all') {
-        whereConditions.push(eq(auditLogs.action, action as string));
+        whereConditions.push(sql`${auditLogs.action} = ${action}`);
       }
       
       if (userId && userId !== '') {
@@ -4588,12 +4588,15 @@ This happens because only the file metadata was stored, not the actual file cont
         whereConditions.push(eq(auditLogs.hipaaRelevant, true));
       }
       
-      // Apply WHERE conditions if any exist
+      // Execute query with conditions
+      let finalQuery;
       if (whereConditions.length > 0) {
-        query = query.where(and(...whereConditions));
+        finalQuery = query.where(and(...whereConditions));
+      } else {
+        finalQuery = query;
       }
       
-      const logs = await query
+      const logs = await finalQuery
         .orderBy(desc(auditLogs.timestamp))
         .limit(500);
       

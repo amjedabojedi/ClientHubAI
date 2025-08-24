@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 
@@ -1450,13 +1450,13 @@ export default function ClientDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {client.assignedTherapist ? (
+                  {client.assignedTherapistId ? (
                     <div className="text-center">
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist.fullName}</h4>
-                      <p className="text-slate-600 text-sm">{client.assignedTherapist.title || 'Therapist'}</p>
+                      <h4 className="font-semibold text-slate-900 mb-1">Assigned Therapist</h4>
+                      <p className="text-slate-600 text-sm">ID: {client.assignedTherapistId}</p>
                     </div>
                   ) : (
                     <div className="text-center py-4">
