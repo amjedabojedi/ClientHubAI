@@ -1062,9 +1062,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allSessions = await storage.getAllSessions();
       const targetDate = new Date(date as string);
       
-      // Generate working hours time slots (9 AM - 6 PM, 30-minute slots)
+      // Generate working hours time slots (9 AM - 9 PM, 30-minute slots)
       const timeSlots = [];
-      for (let hour = 9; hour <= 17; hour++) {
+      for (let hour = 9; hour <= 21; hour++) {
         for (let minute = 0; minute < 60; minute += 30) {
           const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
           const slotDateTime = new Date(`${targetDate.toISOString().split('T')[0]}T${time}:00`);
