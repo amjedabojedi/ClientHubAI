@@ -182,9 +182,16 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
   // Track the last client ID and sessions count to avoid unnecessary resets
   const lastResetRef = useRef<{ clientId: number | null; sessionsCount: number }>({ clientId: null, sessionsCount: 0 });
+  const justUpdatedRef = useRef<boolean>(false);
 
   // Reset form when client changes or sessions load
   useEffect(() => {
+    // Don't reset if we just updated the client
+    if (justUpdatedRef.current) {
+      justUpdatedRef.current = false;
+      return;
+    }
+    
     if (client && (lastResetRef.current.clientId !== client.id || lastResetRef.current.sessionsCount !== sessions.length)) {
       // Calculate first session date - filter out invalid dates first
       const validSessionDates = sessions
@@ -280,6 +287,9 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
     mutationFn: (data: ClientFormData) => 
       apiRequest(`/api/clients/${client.id}`, "PUT", data),
     onSuccess: async (response) => {
+      // Set flag to prevent form reset after update
+      justUpdatedRef.current = true;
+      
       // Invalidate and refetch queries to ensure fresh data
       await queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       await queryClient.invalidateQueries({ queryKey: [`/api/clients/${client.id}`] });
