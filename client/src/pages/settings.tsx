@@ -81,9 +81,11 @@ export default function SettingsPage() {
   // Fetch practice settings from system options
   const { data: practiceSettings } = useQuery({
     queryKey: ["/api/system-options/categories/35"],
-    queryFn: () => fetch("/api/system-options/categories/35").then(res => res.json()).then(data => {
+    queryFn: async () => {
+      const response = await fetch("/api/system-options/categories/35");
+      const data = await response.json();
       const options = data.options || [];
-      const config = {
+      return {
         practiceName: options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "TherapyFlow Healthcare Services",
         practiceAddress: options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210",
         practicePhone: options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "(555) 123-4567",
@@ -92,9 +94,7 @@ export default function SettingsPage() {
         description: options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services",
         subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Licensed Clinical Practice"
       };
-      setPracticeConfig(config);
-      return config;
-    }),
+    },
   });
 
   // Update practiceConfig when data is fetched
