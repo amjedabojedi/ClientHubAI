@@ -3812,13 +3812,13 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Get practice settings from system options
       let practiceSettings = {
-        name: 'Healthcare Services',
+        name: 'Resilience Counseling Research & Consultation',
         description: 'Professional Mental Health Services', 
-        subtitle: 'Licensed Clinical Practice',
-        address: '123 Healthcare Ave, Suite 100\nMental Health City, CA 90210',
-        phone: '(555) 123-4567',
-        email: 'contact@therapyflow.com',
-        website: 'www.therapyflow.com'
+        subtitle: 'Psychotherapy Practice',
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'mail@resiliencec.com',
+        website: 'www.resiliencec.com'
       };
       
       try {

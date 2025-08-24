@@ -58,18 +58,40 @@ import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
 // Practice Header Component for Invoice Preview
 const PracticeHeader = () => {
   const { data: practiceSettings } = useQuery({
-    queryKey: ['/api/system-options/categories/35'],
-    queryFn: () => fetch('/api/system-options/categories/35').then(res => res.json()),
+    queryKey: ['/api/system-options/categories/practice_settings'],
+    queryFn: async () => {
+      // Try to find practice_settings category by key
+      const categoriesResponse = await fetch("/api/system-options/categories");
+      const categoriesData = await categoriesResponse.json();
+      const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
+      
+      if (!practiceCategory) {
+        return {
+          options: [
+            { optionKey: 'practice_name', optionLabel: 'Resilience Counseling Research & Consultation' },
+            { optionKey: 'practice_description', optionLabel: 'Professional Mental Health Services' },
+            { optionKey: 'practice_subtitle', optionLabel: 'Psychotherapy Practice' },
+            { optionKey: 'practice_address', optionLabel: '111 Waterloo St Unit 406, London, ON N6B 2M4' },
+            { optionKey: 'practice_phone', optionLabel: '+1 (548)866-0366' },
+            { optionKey: 'practice_email', optionLabel: 'mail@resiliencec.com' },
+            { optionKey: 'practice_website', optionLabel: 'www.resiliencec.com' }
+          ]
+        };
+      }
+      
+      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
+      return await response.json();
+    },
   });
 
   const options = practiceSettings?.options || [];
-  const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Healthcare Services";
+  const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Resilience Counseling Research & Consultation";
   const practiceDescription = options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services";
-  const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Licensed Clinical Practice";
-  const practiceAddress = options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210";
-  const practicePhone = options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "(555) 123-4567";
-  const practiceEmail = options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "contact@therapyflow.com";
-  const practiceWebsite = options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.therapyflow.com";
+  const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Psychotherapy Practice";
+  const practiceAddress = options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "111 Waterloo St Unit 406, London, ON N6B 2M4";
+  const practicePhone = options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "+1 (548)866-0366";
+  const practiceEmail = options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "mail@resiliencec.com";
+  const practiceWebsite = options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.resiliencec.com";
 
   return (
     <>
