@@ -626,14 +626,16 @@ export default function SchedulingPage() {
                   All Sessions
                 </Button>
               </div>
-              <SessionBulkUploadModal
-                trigger={
-                  <Button variant="outline">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import
-                  </Button>
-                }
-              />
+              {user?.role !== 'therapist' && (
+                <SessionBulkUploadModal
+                  trigger={
+                    <Button variant="outline">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Import
+                    </Button>
+                  }
+                />
+              )}
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
