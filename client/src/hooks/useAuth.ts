@@ -28,7 +28,9 @@ export function useAuthState(): AuthContextType {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        console.log('🔍 STORED USER - Retrieved from localStorage:', parsedUser);
+        setUser(parsedUser);
       } catch (error) {
         localStorage.removeItem('currentUser');
       }
@@ -49,6 +51,7 @@ export function useAuthState(): AuthContextType {
 
       if (response.ok) {
         const userData = await response.json();
+        console.log('🔍 LOGIN - Received user data:', userData);
         setUser(userData);
         localStorage.setItem('currentUser', JSON.stringify(userData));
         setIsLoading(false);
@@ -64,6 +67,7 @@ export function useAuthState(): AuthContextType {
   };
 
   const logout = () => {
+    console.log('🔍 LOGOUT - Clearing user data');
     setUser(null);
     localStorage.removeItem('currentUser');
   };
