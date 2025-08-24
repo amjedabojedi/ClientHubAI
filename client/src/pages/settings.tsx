@@ -69,30 +69,47 @@ export default function SettingsPage() {
   const [editingServiceCode, setEditingServiceCode] = useState<any | null>(null);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
   const [practiceConfig, setPracticeConfig] = useState({
-    practiceName: "TherapyFlow Healthcare Services",
-    practiceAddress: "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210",
-    practicePhone: "(555) 123-4567",
-    practiceEmail: "contact@therapyflow.com",
-    practiceWebsite: "www.therapyflow.com",
-    description: "Professional Mental Health Services",
-    subtitle: "Licensed Clinical Practice"
+    practiceName: "",
+    practiceAddress: "",
+    practicePhone: "",
+    practiceEmail: "",
+    practiceWebsite: "",
+    description: "",
+    subtitle: ""
   });
 
   // Fetch practice settings from system options
   const { data: practiceSettings } = useQuery({
-    queryKey: ["/api/system-options/categories/35"],
+    queryKey: ["/api/system-options/categories/practice_settings"],
     queryFn: async () => {
-      const response = await fetch("/api/system-options/categories/35");
+      // Try to find practice_settings category by key
+      const categoriesResponse = await fetch("/api/system-options/categories");
+      const categoriesData = await categoriesResponse.json();
+      const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
+      
+      if (!practiceCategory) {
+        return {
+          practiceName: "Resilience Counseling Research & Consultation",
+          practiceAddress: "111 Waterloo St Unit 406, London, ON N6B 2M4",
+          practicePhone: "+1 (548)866-0366",
+          practiceEmail: "mail@resiliencec.com",
+          practiceWebsite: "www.resiliencec.com",
+          description: "Professional Mental Health Services",
+          subtitle: "Psychotherapy Practice"
+        };
+      }
+      
+      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
       const data = await response.json();
       const options = data.options || [];
       return {
-        practiceName: options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "TherapyFlow Healthcare Services",
-        practiceAddress: options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "123 Healthcare Ave, Suite 100\nMental Health City, CA 90210",
-        practicePhone: options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "(555) 123-4567",
-        practiceEmail: options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "contact@therapyflow.com",
-        practiceWebsite: options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.therapyflow.com",
+        practiceName: options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Resilience Counseling Research & Consultation",
+        practiceAddress: options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "111 Waterloo St Unit 406, London, ON N6B 2M4",
+        practicePhone: options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "+1 (548)866-0366",
+        practiceEmail: options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "mail@resiliencec.com",
+        practiceWebsite: options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.resiliencec.com",
         description: options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services",
-        subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Licensed Clinical Practice"
+        subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Psychotherapy Practice"
       };
     },
   });
@@ -108,7 +125,15 @@ export default function SettingsPage() {
   const updatePracticeSettingsMutation = useMutation({
     mutationFn: async (settingsData: any) => {
       // Get current practice settings to find option IDs
-      const response = await fetch("/api/system-options/categories/35");
+      const categoriesResponse = await fetch("/api/system-options/categories");
+      const categoriesData = await categoriesResponse.json();
+      const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
+      
+      if (!practiceCategory) {
+        throw new Error('Practice settings category not found');
+      }
+      
+      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
       const data = await response.json();
       const options = data.options || [];
 
@@ -142,7 +167,7 @@ export default function SettingsPage() {
       // Update local state immediately
       setPracticeConfig(savedData);
       // Then invalidate queries to fetch fresh data
-      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/35"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories/practice_settings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/system-options/categories"] });
       toast({
         title: "Configuration Saved",
