@@ -4164,7 +4164,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   attachments: [{
                     name: `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
                     type: 'application/pdf',
-                    data: pdfBuffer.toString('base64')
+                    data: Buffer.from(pdfBuffer).toString('base64')
                   }]
                 })
               }
