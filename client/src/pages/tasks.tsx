@@ -105,9 +105,10 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const formatDate = (dateString: string | null) => {
+const formatDate = (dateString: string | null | Date) => {
   if (!dateString) return 'No due date';
-  return new Date(dateString).toLocaleDateString();
+  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  return date.toLocaleDateString();
 };
 
 // ===== TASK FORM COMPONENT =====
