@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ClientTabsProps {
   activeTab: string;
@@ -6,8 +7,11 @@ interface ClientTabsProps {
 }
 
 export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) {
+  const { user } = useAuth();
+  
   const { data: stats = {} } = useQuery({
-    queryKey: ["/api/clients/stats"],
+    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    enabled: !!user,
   });
 
   const tabs = [

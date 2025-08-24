@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Users, CalendarCheck, ClipboardList, Lightbulb, TrendingUp } from "lucide-react";
 
 export default function ClientSidebar() {
+  const { user } = useAuth();
+  
   const { data: stats } = useQuery({
-    queryKey: ["/api/clients/stats"],
+    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    enabled: !!user,
   });
 
   const { data: pendingTasks } = useQuery({

@@ -170,7 +170,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client stats - moved before the :id route to avoid conflicts
   app.get("/api/clients/stats", async (req, res) => {
     try {
-      const stats = await storage.getClientStats();
+      const { currentUserId, currentUserRole } = req.query;
+      
+      // Role-based filtering for stats
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
+      if (currentUserRole === "therapist" && currentUserId) {
+        // Therapists can only see stats for their own clients
+        therapistId = parseInt(currentUserId as string);
+      } else if (currentUserRole === "supervisor" && currentUserId) {
+        // Supervisors can only see stats for their supervised therapists' clients
+        const userId = parseInt(currentUserId as string);
+        const supervisorAssignments = await storage.getSupervisorAssignments(userId);
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        
+        if (supervisedTherapistIds.length === 0) {
+          return res.json({ totalClients: 0, activeClients: 0, pendingClients: 0, completedClients: 0 });
+        }
+      }
+      // Admins can see all stats (no filtering needed)
+      
+      const stats = await storage.getClientStats(therapistId, supervisedTherapistIds);
       res.json(stats);
     } catch (error) {
       // Error logged

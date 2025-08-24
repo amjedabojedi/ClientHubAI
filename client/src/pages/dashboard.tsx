@@ -67,6 +67,7 @@ interface SessionWithDetails {
 
 // Utils & Shared Functions
 import { getPriorityColor, getStatusColor, formatDate, formatTime } from "@/lib/task-utils";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function DashboardPage() {
   const [, setLocation] = useLocation();
@@ -74,10 +75,13 @@ export default function DashboardPage() {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
+  
+  const { user } = useAuth();
 
   // Data Fetching
   const { data: clientStats } = useQuery<DashboardStats>({
-    queryKey: ["/api/clients/stats"],
+    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    enabled: !!user,
   });
 
   const { data: taskStats } = useQuery<TaskStats>({

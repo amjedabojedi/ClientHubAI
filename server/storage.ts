@@ -201,7 +201,7 @@ export interface IStorage {
   updateClient(id: number, client: Partial<InsertClient>): Promise<Client>;
   deleteClient(id: number): Promise<void>;
   getClientCountByMonth(year: number, month: number): Promise<number>;
-  getClientStats(): Promise<{
+  getClientStats(therapistId?: number, supervisedTherapistIds?: number[]): Promise<{
     totalClients: number;
     activeClients: number;
     inactiveClients: number;
@@ -896,7 +896,7 @@ export class DatabaseStorage implements IStorage {
     return result.count;
   }
 
-  async getClientStats(): Promise<{
+  async getClientStats(therapistId?: number, supervisedTherapistIds?: number[]): Promise<{
     totalClients: number;
     activeClients: number;
     inactiveClients: number;
@@ -905,6 +905,17 @@ export class DatabaseStorage implements IStorage {
     psychotherapy: number;
     noSessions: number;
   }> {
+    // Build where conditions for role-based filtering
+    const whereConditions = [];
+    
+    if (therapistId) {
+      whereConditions.push(eq(clients.assignedTherapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      whereConditions.push(inArray(clients.assignedTherapistId, supervisedTherapistIds));
+    }
+    
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
     const [stats] = await db
       .select({
         totalClients: count(),
@@ -915,7 +926,8 @@ export class DatabaseStorage implements IStorage {
         psychotherapy: sql<number>`COUNT(*) FILTER (WHERE stage = 'psychotherapy')`,
         noSessions: sql<number>`COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id))`
       })
-      .from(clients);
+      .from(clients)
+      .where(whereClause);
 
     return {
       totalClients: stats.totalClients,
