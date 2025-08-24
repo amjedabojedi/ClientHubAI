@@ -120,6 +120,7 @@ export default function DashboardPage() {
       currentUserRole: user?.user?.role || user?.role,
     }],
     enabled: !!user && !!(user?.user?.id || user?.id),
+    staleTime: 0, // Always fetch fresh data
     queryFn: async () => {
       const userId = user?.user?.id || user?.id;
       const userRole = user?.user?.role || user?.role;
