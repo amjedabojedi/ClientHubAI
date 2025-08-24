@@ -4023,22 +4023,26 @@ This happens because only the file metadata was stored, not the actual file cont
         res.setHeader('Content-Type', 'text/html');
         res.send(invoiceHtml);
       } else if (action === 'email') {
-        // Email invoice using SendGrid if available
-        if (process.env.SENDGRID_API_KEY && client.email) {
+        // Email invoice using SparkPost if available
+        if (process.env.SPARKPOST_API_KEY && client.email) {
           try {
-            const sgMail = require('@sendgrid/mail');
-            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+            const SparkPost = require('sparkpost');
+            const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
             
-            const msg = {
-              to: client.email,
-              from: 'noreply@healthcare-services.com',
-              subject: `Invoice - ${client.fullName}`,
-              html: invoiceHtml,
-            };
+            await sp.transmissions.send({
+              content: {
+                from: 'mail@resiliencec.com',
+                subject: `Invoice - ${client.fullName}`,
+                html: invoiceHtml
+              },
+              recipients: [
+                { address: client.email }
+              ]
+            });
             
-            await sgMail.send(msg);
             res.json({ message: "Invoice sent successfully to " + client.email });
           } catch (error) {
+            console.error('SparkPost error:', error);
             res.status(500).json({ message: "Failed to send invoice email" });
           }
         } else {
