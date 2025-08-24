@@ -81,7 +81,7 @@ export default function MyProfilePage() {
   
   // Get current logged-in user
   const { user: authUser } = useAuth();
-  const userId = authUser?.user?.id || authUser?.id;
+  const userId = authUser?.id;
 
   // Fetch current user information
   const { data: user, isLoading: userLoading } = useQuery({
