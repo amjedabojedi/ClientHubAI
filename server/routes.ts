@@ -4090,19 +4090,58 @@ This happens because only the file metadata was stored, not the actual file cont
       if (action === 'download') {
         // Generate PDF for download using same logic as email
         try {
-          // Get chromium path dynamically or use direct path
-          let chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+          // Get chromium path dynamically
+          let chromiumPath;
           try {
             const pathResult = execSync('which chromium', { encoding: 'utf8' }).trim();
-            if (pathResult) chromiumPath = pathResult;
+            if (pathResult) {
+              chromiumPath = pathResult;
+            } else {
+              throw new Error('Chromium not found via which');
+            }
           } catch {
-            console.log('Using hardcoded chromium path for download');
+            // Try alternative paths
+            const possiblePaths = [
+              '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+              '/usr/bin/chromium',
+              '/usr/bin/chromium-browser',
+              '/usr/bin/google-chrome',
+              '/snap/bin/chromium'
+            ];
+            
+            chromiumPath = possiblePaths.find(path => {
+              try {
+                execSync(`test -x ${path}`, { stdio: 'ignore' });
+                return true;
+              } catch {
+                return false;
+              }
+            });
+            
+            if (!chromiumPath) {
+              throw new Error('No valid chromium executable found');
+            }
           }
+          console.log('Using chromium path for download:', chromiumPath);
           
           const browser = await puppeteer.launch({
             executablePath: chromiumPath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-            headless: true
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--disable-extensions',
+              '--disable-default-apps',
+              '--disable-features=TranslateUI',
+              '--disable-ipc-flooding-protection',
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding',
+              '--single-process'
+            ],
+            headless: true,
+            timeout: 30000
           });
           
           const page = await browser.newPage();
@@ -4116,7 +4155,9 @@ This happens because only the file metadata was stored, not the actual file cont
               right: '10mm',
               bottom: '20mm',
               left: '10mm'
-            }
+            },
+            timeout: 30000,
+            preferCSSPageSize: true
           });
           
           await browser.close();
@@ -4133,7 +4174,12 @@ This happens because only the file metadata was stored, not the actual file cont
           return;
           
         } catch (pdfError) {
-          console.error('PDF generation failed for download:', pdfError);
+          console.error('PDF generation failed for download:', {
+            error: pdfError.message,
+            stack: pdfError.stack,
+            clientId: client.clientId,
+            timestamp: new Date().toISOString()
+          });
           // Fallback to HTML if PDF generation fails
           res.setHeader('Content-Type', 'text/html');
           res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
@@ -4155,20 +4201,58 @@ This happens because only the file metadata was stored, not the actual file cont
             // Generate PDF from HTML using system chromium
             let pdfBuffer;
             try {
-              // Get chromium path dynamically or use direct path
-              let chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+              // Get chromium path dynamically
+              let chromiumPath;
               try {
                 const pathResult = execSync('which chromium', { encoding: 'utf8' }).trim();
-                if (pathResult) chromiumPath = pathResult;
+                if (pathResult) {
+                  chromiumPath = pathResult;
+                } else {
+                  throw new Error('Chromium not found via which');
+                }
               } catch {
-                console.log('Using hardcoded chromium path');
+                // Try alternative paths
+                const possiblePaths = [
+                  '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+                  '/usr/bin/chromium',
+                  '/usr/bin/chromium-browser',
+                  '/usr/bin/google-chrome',
+                  '/snap/bin/chromium'
+                ];
+                
+                chromiumPath = possiblePaths.find(path => {
+                  try {
+                    execSync(`test -x ${path}`, { stdio: 'ignore' });
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                });
+                
+                if (!chromiumPath) {
+                  throw new Error('No valid chromium executable found');
+                }
               }
               console.log('Using chromium path:', chromiumPath);
               
               const browser = await puppeteer.launch({
                 executablePath: chromiumPath,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-                headless: true
+                args: [
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-dev-shm-usage',
+                  '--disable-gpu',
+                  '--disable-extensions',
+                  '--disable-default-apps',
+                  '--disable-features=TranslateUI',
+                  '--disable-ipc-flooding-protection',
+                  '--disable-background-timer-throttling',
+                  '--disable-backgrounding-occluded-windows',
+                  '--disable-renderer-backgrounding',
+                  '--single-process'
+                ],
+                headless: true,
+                timeout: 30000
               });
               
               const page = await browser.newPage();
@@ -4182,14 +4266,22 @@ This happens because only the file metadata was stored, not the actual file cont
                   right: '10mm',
                   bottom: '20mm',
                   left: '10mm'
-                }
+                },
+                timeout: 30000,
+                preferCSSPageSize: true
               });
               
               await browser.close();
               console.log('PDF generated successfully for email, size:', pdfBuffer.length);
               
             } catch (pdfError) {
-              console.error('PDF generation failed:', pdfError);
+              console.error('PDF generation failed for email:', {
+                error: pdfError.message,
+                stack: pdfError.stack,
+                clientId: client.clientId,
+                clientEmail: client.email,
+                timestamp: new Date().toISOString()
+              });
               // Fall back to HTML email if PDF generation fails
               pdfBuffer = null;
             }
