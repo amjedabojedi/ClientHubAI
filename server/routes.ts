@@ -3813,30 +3813,6 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
-      // Get practice settings from system options
-      let practiceSettings = {
-        name: 'Resilience Counseling Research & Consultation',
-        description: 'Professional Mental Health Services', 
-        subtitle: 'Psychotherapy Practice',
-        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
-        phone: '+1 (548)866-0366',
-        email: 'mail@resiliencec.com',
-        website: 'www.resiliencec.com'
-      };
-      
-      try {
-        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
-        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
-        practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
-        practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
-        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
-        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
-        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
-        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
-      } catch (error) {
-        console.log('Could not get practice settings, using defaults:', error);
-      }
-      
       // Get current user's profile information for provider details
       let providerInfo = null;
       try {
@@ -3871,6 +3847,30 @@ This happens because only the file metadata was stored, not the actual file cont
           experience: 0,
           specializations: []
         };
+      }
+      
+      // Get practice settings with your actual information (after providerInfo is available)
+      let practiceSettings = {
+        name: providerInfo ? providerInfo.name + ' - Mental Health Services' : 'Amjed Abojedi - Mental Health Services',
+        description: 'Professional Mental Health Services', 
+        subtitle: 'Licensed Mental Health Practice',
+        address: 'Please update practice address in your profile',
+        phone: 'Please update phone number in your profile',
+        email: 'Please update email in your profile',
+        website: 'Please update website in your profile'
+      };
+      
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
+        practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      } catch (error) {
+        console.log('Could not get practice settings, using defaults:', error);
       }
       
       // Generate invoice HTML
@@ -4290,10 +4290,10 @@ This happens because only the file metadata was stored, not the actual file cont
               }],
               content: {
                 from: {
-                  name: 'Resilience Counseling Research & Consultation',
+                  name: practiceSettings.name,
                   email: fromEmail
                 },
-                subject: `Invoice from Resilience Counseling - ${client.fullName}`,
+                subject: `Invoice from ${providerInfo.name} - ${client.fullName}`,
                 html: `
                   <div style="font-family: 'Times New Roman', Times, serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border: 1px solid #e5e7eb;">
                     <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 20px;">
@@ -4327,14 +4327,14 @@ This happens because only the file metadata was stored, not the actual file cont
                     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
                     
                     <div style="text-align: center; color: #6b7280; font-size: 14px; line-height: 1.5;">
-                      <p style="margin: 5px 0; font-weight: bold; color: #1e293b;">Resilience Counseling Research & Consultation</p>
-                      <p style="margin: 5px 0;">111 Waterloo St Unit 406, London, ON N6B 2M4</p>
-                      <p style="margin: 5px 0;">Phone: +1 (548)866-0366 | Email: mail@resiliencec.com</p>
-                      <p style="margin: 5px 0;">Website: www.resiliencec.com</p>
+                      <p style="margin: 5px 0; font-weight: bold; color: #1e293b;">${practiceSettings.name}</p>
+                      <p style="margin: 5px 0;">${practiceSettings.address}</p>
+                      <p style="margin: 5px 0;">Phone: ${practiceSettings.phone} | Email: ${practiceSettings.email}</p>
+                      <p style="margin: 5px 0;">Website: ${practiceSettings.website}</p>
                     </div>
                   </div>
                 `,
-                text: `Please find your invoice attached as a PDF. Invoice #: INV-${client.clientId}-${billingId}, Amount: $${remainingDue.toFixed(2)}. For questions, contact us at mail@resiliencec.com or +1 (548)866-0366.`,
+                text: `Please find your invoice attached as a PDF. Invoice #: INV-${client.clientId}-${billingId}, Amount: $${remainingDue.toFixed(2)}. For questions, contact us at ${practiceSettings.email} or ${practiceSettings.phone}.`,
                 ...(pdfBuffer && {
                   attachments: [{
                     name: `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
