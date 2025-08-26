@@ -4141,20 +4141,43 @@ This happens because only the file metadata was stored, not the actual file cont
               '--single-process',
               '--no-zygote',
               '--disable-web-security',
-              '--disable-features=VizDisplayCompositor'
+              '--disable-features=VizDisplayCompositor',
+              '--memory-pressure-off',
+              '--max_old_space_size=2048',
+              '--disable-background-networking',
+              '--disable-default-apps',
+              '--disable-sync',
+              '--disable-translate',
+              '--hide-scrollbars',
+              '--metrics-recording-only',
+              '--mute-audio',
+              '--no-first-run',
+              '--safebrowsing-disable-auto-update',
+              '--disable-logging',
+              '--disable-permissions-api'
             ],
             headless: true,
-            timeout: 60000,
-            protocolTimeout: 60000
+            timeout: 120000,
+            protocolTimeout: 120000,
+            handleSIGINT: false,
+            handleSIGTERM: false,
+            handleSIGHUP: false
           });
           
           const page = await browser.newPage();
           
           // Set longer timeouts for the page
-          await page.setDefaultTimeout(60000);
-          await page.setDefaultNavigationTimeout(60000);
+          await page.setDefaultTimeout(120000);
+          await page.setDefaultNavigationTimeout(120000);
           
-          await page.setContent(invoiceHtml, { waitUntil: 'networkidle0', timeout: 60000 });
+          // Optimize page for PDF generation
+          await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 1 });
+          await page.emulateMediaType('print');
+          
+          await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 120000 });
+          
+          // Wait a bit for fonts and styling to load
+          await page.waitForTimeout(2000);
           
           const pdfBuffer = await page.pdf({
             format: 'A4',
@@ -4165,8 +4188,9 @@ This happens because only the file metadata was stored, not the actual file cont
               bottom: '20mm',
               left: '10mm'
             },
-            timeout: 60000,
-            preferCSSPageSize: true
+            timeout: 120000,
+            preferCSSPageSize: true,
+            omitBackground: false
           });
           
           await browser.close();
@@ -4269,19 +4293,42 @@ This happens because only the file metadata was stored, not the actual file cont
                   '--single-process',
                   '--no-zygote',
                   '--disable-web-security',
-                  '--disable-features=VizDisplayCompositor'
+                  '--disable-features=VizDisplayCompositor',
+                  '--memory-pressure-off',
+                  '--max_old_space_size=2048',
+                  '--disable-background-networking',
+                  '--disable-default-apps',
+                  '--disable-sync',
+                  '--disable-translate',
+                  '--hide-scrollbars',
+                  '--metrics-recording-only',
+                  '--mute-audio',
+                  '--no-first-run',
+                  '--safebrowsing-disable-auto-update',
+                  '--disable-logging',
+                  '--disable-permissions-api'
                 ],
                 headless: true,
-                timeout: 60000,
-                protocolTimeout: 60000
+                timeout: 120000,
+                protocolTimeout: 120000,
+                handleSIGINT: false,
+                handleSIGTERM: false,
+                handleSIGHUP: false
               });
               
               const page = await browser.newPage();
               
               // Set longer timeouts for the page
-              await page.setDefaultTimeout(60000);
-              await page.setDefaultNavigationTimeout(60000);
-              await page.setContent(invoiceHtml, { waitUntil: 'networkidle0', timeout: 60000 });
+              await page.setDefaultTimeout(120000);
+              await page.setDefaultNavigationTimeout(120000);
+              
+              // Optimize page for PDF generation
+              await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 1 });
+              await page.emulateMediaType('print');
+              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 120000 });
+              
+              // Wait a bit for fonts and styling to load
+              await page.waitForTimeout(2000);
               
               pdfBuffer = await page.pdf({
                 format: 'A4',
@@ -4292,8 +4339,9 @@ This happens because only the file metadata was stored, not the actual file cont
                   bottom: '20mm',
                   left: '10mm'
                 },
-                timeout: 60000,
-                preferCSSPageSize: true
+                timeout: 120000,
+                preferCSSPageSize: true,
+                omitBackground: false
               });
               
               await browser.close();
