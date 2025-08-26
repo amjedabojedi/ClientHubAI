@@ -4173,10 +4173,10 @@ This happens because only the file metadata was stored, not the actual file cont
           res.end(pdfBuffer, 'binary');
           return;
           
-        } catch (pdfError) {
+        } catch (pdfError: any) {
           console.error('PDF generation failed for download:', {
-            error: pdfError.message,
-            stack: pdfError.stack,
+            error: pdfError?.message || 'Unknown error',
+            stack: pdfError?.stack || 'No stack trace',
             clientId: client.clientId,
             timestamp: new Date().toISOString()
           });
@@ -4191,6 +4191,14 @@ This happens because only the file metadata was stored, not the actual file cont
         res.send(invoiceHtml);
       } else if (action === 'email') {
         // Email invoice using SparkPost if available
+        console.log('Email sending attempt:', {
+          hasApiKey: !!process.env.SPARKPOST_API_KEY,
+          hasClientEmail: !!client.email,
+          clientEmail: client.email,
+          environment: process.env.NODE_ENV,
+          timestamp: new Date().toISOString()
+        });
+        
         if (process.env.SPARKPOST_API_KEY && client.email) {
           try {
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
@@ -4274,10 +4282,10 @@ This happens because only the file metadata was stored, not the actual file cont
               await browser.close();
               console.log('PDF generated successfully for email, size:', pdfBuffer.length);
               
-            } catch (pdfError) {
+            } catch (pdfError: any) {
               console.error('PDF generation failed for email:', {
-                error: pdfError.message,
-                stack: pdfError.stack,
+                error: pdfError?.message || 'Unknown error',
+                stack: pdfError?.stack || 'No stack trace',
                 clientId: client.clientId,
                 clientEmail: client.email,
                 timestamp: new Date().toISOString()
@@ -4336,7 +4344,14 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             });
             
-            console.log('SparkPost success:', result);
+            console.log('SparkPost success:', {
+              messageId: result.results?.id,
+              recipients: result.results?.total_accepted_recipients,
+              rejected: result.results?.total_rejected_recipients,
+              clientEmail: client.email,
+              hasPdf: !!pdfBuffer,
+              timestamp: new Date().toISOString()
+            });
             res.json({ 
               message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,
@@ -4344,9 +4359,19 @@ This happens because only the file metadata was stored, not the actual file cont
               note: `Invoice sent as ${pdfBuffer ? 'PDF attachment' : 'professional HTML email'} from configured domain.`
             });
           } catch (error) {
-            console.error('SparkPost error:', error);
+            console.error('SparkPost error details:', {
+              error: error,
+              clientId: client.clientId,
+              clientEmail: client.email,
+              environment: process.env.NODE_ENV,
+              timestamp: new Date().toISOString()
+            });
             const err = error as any;
-            console.error('Error details:', err.errors);
+            console.error('SparkPost API response:', {
+              errors: err.errors,
+              statusCode: err.statusCode,
+              message: err.message
+            });
             
             // Provide helpful error message about domain configuration
             let errorMessage = "Failed to send invoice email";
@@ -4361,7 +4386,23 @@ This happens because only the file metadata was stored, not the actual file cont
             });
           }
         } else {
-          res.status(503).json({ message: "Email service not configured or client email not available" });
+          const issues = [];
+          if (!process.env.SPARKPOST_API_KEY) issues.push('SPARKPOST_API_KEY not set');
+          if (!client.email) issues.push('Client email not available');
+          
+          console.error('Email service configuration issue:', {
+            issues,
+            clientId: client.clientId,
+            hasApiKey: !!process.env.SPARKPOST_API_KEY,
+            hasClientEmail: !!client.email,
+            environment: process.env.NODE_ENV
+          });
+          
+          res.status(503).json({ 
+            message: "Email service not configured or client email not available",
+            issues,
+            help: "Check environment variables and client email address"
+          });
         }
       }
     } catch (error) {
