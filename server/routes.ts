@@ -3837,36 +3837,39 @@ This happens because only the file metadata was stored, not the actual file cont
         console.log('Could not get practice settings, using defaults:', error);
       }
       
-      // Get therapist information from the sessions
-      let therapistInfo = null;
-      if (billingRecords.length > 0 && billingRecords[0].sessionId) {
-        try {
-          // Get sessions for this client which includes therapist info
-          const clientSessions = await storage.getSessionsByClient(clientId);
-          const targetSession = clientSessions.find(s => s.id === billingRecords[0].sessionId);
-          
-          if (targetSession && targetSession.therapist) {
-            const therapist = targetSession.therapist;
-            therapistInfo = {
-              name: therapist.fullName || therapist.username,
-              credentials: therapist.credentials || 'Licensed Mental Health Professional',
-              license: therapist.licenseNumber || 'PSY-12345-CA',
-              npi: therapist.npiNumber || '1234567890'
-            };
-          }
-        } catch (error) {
-          // If therapist lookup fails, use default values
-          console.log('Could not get therapist info:', error);
+      // Get current user's profile information for provider details
+      let providerInfo = null;
+      try {
+        // Get the current user (assuming admin/primary therapist for now)
+        const users = await storage.getUsers();
+        const primaryUser = users.find((u: any) => u.role === 'admin' || u.username === 'abi.cherian') || users[0];
+        
+        if (primaryUser && primaryUser.profile) {
+          const profile = primaryUser.profile;
+          providerInfo = {
+            name: primaryUser.fullName || 'Amjed Abojedi',
+            credentials: profile.licenseType || 'Licensed Mental Health Professional',
+            license: profile.licenseNumber || 'Please update license number in profile',
+            licenseState: profile.licenseState || 'ON',
+            npi: profile.npiNumber || 'Please update NPI in profile',
+            experience: profile.yearsOfExperience || 0,
+            specializations: profile.specializations || []
+          };
         }
+      } catch (error) {
+        console.log('Could not get provider profile info:', error);
       }
       
-      // Use default if no therapist found
-      if (!therapistInfo) {
-        therapistInfo = {
-          name: 'Healthcare Services Provider',
-          credentials: 'Licensed Mental Health Professional', 
-          license: 'PSY-12345-CA',
-          npi: '1234567890'
+      // Use your actual information if profile not found
+      if (!providerInfo) {
+        providerInfo = {
+          name: 'Amjed Abojedi',
+          credentials: 'Licensed Mental Health Professional',
+          license: 'Please update license number in your profile',
+          licenseState: 'ON',
+          npi: 'Please update NPI in your profile',
+          experience: 0,
+          specializations: []
         };
       }
       
@@ -4078,9 +4081,9 @@ This happens because only the file metadata was stored, not the actual file cont
           <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
             <h4 style="color: #1e293b; margin-bottom: 15px; font-size: 13px;">Provider Information for Insurance Reimbursement</h4>
             <div>
-              <p><strong>Provider Name:</strong> ${therapistInfo.name}</p>
-              <p><strong>License Name:</strong> ${therapistInfo.credentials}</p>
-              <p><strong>License Number:</strong> ${therapistInfo.license}</p>
+              <p><strong>Provider Name:</strong> ${providerInfo.name}</p>
+              <p><strong>License Name:</strong> ${providerInfo.credentials}</p>
+              <p><strong>License Number:</strong> ${providerInfo.license}</p>
             </div>
           </div>
         </body>
