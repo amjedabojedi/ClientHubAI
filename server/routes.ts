@@ -3851,15 +3851,15 @@ This happens because only the file metadata was stored, not the actual file cont
         };
       }
       
-      // Get practice settings with your actual information (after providerInfo is available)
+      // Get practice settings with your actual business information
       let practiceSettings = {
-        name: providerInfo ? providerInfo.name + ' - Mental Health Services' : 'Amjed Abojedi - Mental Health Services',
+        name: 'Resilience Counseling Research & Consultation',
         description: 'Professional Mental Health Services', 
         subtitle: 'Licensed Mental Health Practice',
-        address: 'Please update practice address in your profile',
-        phone: 'Please update phone number in your profile',
-        email: 'Please update email in your profile',
-        website: 'Please update website in your profile'
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'mail@resiliencec.com',
+        website: 'www.resiliencec.com'
       };
       
       try {
