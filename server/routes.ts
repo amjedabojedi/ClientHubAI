@@ -3813,25 +3813,45 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
-      // Get current user's profile information for provider details
+      // Get provider information from the actual therapist who provided the services
       let providerInfo = null;
       try {
-        // Get the admin user profile (ID 6 as per the system)
-        const adminProfile = await storage.getUserProfile(6);
+        // Find the therapist who provided these services
+        let therapistId = null;
+        if (billingRecords.length > 0 && billingRecords[0].session?.therapistId) {
+          therapistId = billingRecords[0].session.therapistId;
+        }
         
-        if (adminProfile) {
-          // Get the admin user basic info
-          const users = await storage.getUsers();
-          const adminUser = users.find((u: any) => u.id === 6);
-          
+        // If no therapist found, use admin as fallback
+        if (!therapistId) {
+          therapistId = 6; // Default admin
+        }
+        
+        // Get the therapist's profile
+        const therapistProfile = await storage.getUserProfile(therapistId);
+        const users = await storage.getUsers();
+        const therapist = users.find((u: any) => u.id === therapistId);
+        
+        if (therapistProfile && therapist) {
           providerInfo = {
-            name: adminUser?.fullName || adminProfile.fullName || 'Amjed Abojedi',
-            credentials: adminProfile.licenseType || 'Licensed Mental Health Professional',
-            license: adminProfile.licenseNumber || 'Please update license number in your profile',
-            licenseState: adminProfile.licenseState || 'ON',
-            npi: adminProfile.npiNumber || 'Please update NPI in your profile',
-            experience: adminProfile.yearsOfExperience || 0,
-            specializations: adminProfile.specializations || []
+            name: therapist.fullName || 'Please update therapist name',
+            credentials: therapistProfile.licenseType || 'Licensed Mental Health Professional',
+            license: therapistProfile.licenseNumber || 'Please update license number in profile',
+            licenseState: therapistProfile.licenseState || 'ON',
+            npi: therapistProfile.npiNumber || 'Please update NPI in profile',
+            experience: therapistProfile.yearsOfExperience || 0,
+            specializations: therapistProfile.specializations || []
+          };
+        } else if (therapist) {
+          // Use therapist basic info even without profile
+          providerInfo = {
+            name: therapist.fullName || 'Please update therapist name',
+            credentials: 'Licensed Mental Health Professional',
+            license: 'Please update license number in profile',
+            licenseState: 'ON',
+            npi: 'Please update NPI in profile',
+            experience: 0,
+            specializations: []
           };
         }
       } catch (error) {
