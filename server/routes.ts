@@ -4138,14 +4138,23 @@ This happens because only the file metadata was stored, not the actual file cont
               '--disable-background-timer-throttling',
               '--disable-backgrounding-occluded-windows',
               '--disable-renderer-backgrounding',
-              '--single-process'
+              '--single-process',
+              '--no-zygote',
+              '--disable-web-security',
+              '--disable-features=VizDisplayCompositor'
             ],
             headless: true,
-            timeout: 30000
+            timeout: 60000,
+            protocolTimeout: 60000
           });
           
           const page = await browser.newPage();
-          await page.setContent(invoiceHtml);
+          
+          // Set longer timeouts for the page
+          await page.setDefaultTimeout(60000);
+          await page.setDefaultNavigationTimeout(60000);
+          
+          await page.setContent(invoiceHtml, { waitUntil: 'networkidle0', timeout: 60000 });
           
           const pdfBuffer = await page.pdf({
             format: 'A4',
@@ -4156,7 +4165,7 @@ This happens because only the file metadata was stored, not the actual file cont
               bottom: '20mm',
               left: '10mm'
             },
-            timeout: 30000,
+            timeout: 60000,
             preferCSSPageSize: true
           });
           
@@ -4257,14 +4266,22 @@ This happens because only the file metadata was stored, not the actual file cont
                   '--disable-background-timer-throttling',
                   '--disable-backgrounding-occluded-windows',
                   '--disable-renderer-backgrounding',
-                  '--single-process'
+                  '--single-process',
+                  '--no-zygote',
+                  '--disable-web-security',
+                  '--disable-features=VizDisplayCompositor'
                 ],
                 headless: true,
-                timeout: 30000
+                timeout: 60000,
+                protocolTimeout: 60000
               });
               
               const page = await browser.newPage();
-              await page.setContent(invoiceHtml);
+              
+              // Set longer timeouts for the page
+              await page.setDefaultTimeout(60000);
+              await page.setDefaultNavigationTimeout(60000);
+              await page.setContent(invoiceHtml, { waitUntil: 'networkidle0', timeout: 60000 });
               
               pdfBuffer = await page.pdf({
                 format: 'A4',
@@ -4275,7 +4292,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   bottom: '20mm',
                   left: '10mm'
                 },
-                timeout: 30000,
+                timeout: 60000,
                 preferCSSPageSize: true
               });
               
