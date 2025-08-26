@@ -1,0 +1,68 @@
+2025-08-26 10:55:14.14
+d23c4839
+User
+PDF generation failed for email: {
+2025-08-26 10:55:14.14
+d23c4839
+User
+error: "Network.enable timed out. Increase the 'protocolTimeout' setting in launch/connect calls for a higher timeout if needed.",
+2025-08-26 10:55:14.14
+d23c4839
+User
+stack: "ProtocolError: Network.enable timed out. Increase the 'protocolTimeout' setting in launch/connect calls for a higher timeout if needed.\n" +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:98:14)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at new Callback (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:102:16)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at CallbackRegistry.create (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/common/CallbackRegistry.js:21:26)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at Connection._rawSend (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Connection.js:95:26)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at CdpCDPSession.send (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/CdpSession.js:70:33)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at NetworkManager.addClient (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/NetworkManager.js:68:24)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at FrameManager.initialize (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/FrameManager.js:171:38)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at #initialize (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Page.js:287:36)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at CdpPage._create (file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Page.js:99:31)\n' +
+2025-08-26 10:55:14.14
+d23c4839
+User
+' at file:///home/runner/workspace/node_modules/puppeteer-core/lib/esm/puppeteer/cdp/Target.js:201:32',
+2025-08-26 10:55:14.14
+d23c4839
+User
+clientId: 'CL-2025-1261',
+2025-08-26 10:55:14.14
+d23c4839
+User
+clientEmail: 'aabojedi@resiliencec.com',
+2025-08-26 10:55:14.14
+d23c4839
+User
+timestamp: '2025-08-26T14:55:14.147Z'
+2025-08-26 10:55:14.14
+d23c4839
+User
+}
