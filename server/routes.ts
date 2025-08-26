@@ -4089,74 +4089,102 @@ This happens because only the file metadata was stored, not the actual file cont
       `;
       
       if (action === 'download') {
-        // Generate PDF for download using system chromium
-        try {
-          console.log('Generating PDF for download using system chromium');
+        // Generate PDF for download - handle environment constraints
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT;
+        
+        if (isProduction) {
+          console.log('Production environment - providing HTML download instead of PDF');
+          // Enhanced HTML for production download
+          const enhancedHtml = invoiceHtml.replace(
+            '</head>',
+            `<style>
+              @media screen { 
+                body { background: #f5f5f5; padding: 20px; }
+                .invoice-container { 
+                  background: white; max-width: 800px; margin: 0 auto; 
+                  padding: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; 
+                }
+              }
+              @media print { 
+                body { background: white; padding: 0; }
+                .invoice-container { box-shadow: none; border-radius: 0; }
+              }
+            </style></head><body><div class="invoice-container">`
+          ).replace('</body>', '</div></body>');
           
-          // Use system chromium which has all required libraries
-          const chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
-          
-          const browser = await puppeteer.launch({
-            executablePath: chromiumPath,
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--disable-extensions',
-              '--disable-default-apps',
-              '--disable-web-security',
-              '--single-process',
-              '--no-zygote',
-              '--disable-logging'
-            ],
-            headless: true,
-            timeout: 60000
-          });
-          
-          const page = await browser.newPage();
-          await page.setViewport({ width: 1200, height: 800 });
-          await page.emulateMediaType('print');
-          await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
-          
-          // Wait for fonts to load
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: {
-              top: '20mm',
-              right: '10mm',
-              bottom: '20mm',
-              left: '10mm'
-            }
-          });
-          
-          await browser.close();
-          console.log('PDF generated successfully for download, size:', pdfBuffer.length);
-          
-          // Send PDF file for download
-          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
-          res.writeHead(200, {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Content-Length': pdfBuffer.length
-          });
-          res.end(pdfBuffer, 'binary');
-          return;
-          
-        } catch (pdfError: any) {
-          console.error('PDF generation failed for download:', {
-            error: pdfError?.message || 'Unknown error',
-            stack: pdfError?.stack || 'No stack trace',
-            clientId: client.clientId,
-            timestamp: new Date().toISOString()
-          });
-          // Fallback to HTML if PDF generation fails
+          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html`;
           res.setHeader('Content-Type', 'text/html');
-          res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
-          return res.send(invoiceHtml);
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          return res.send(enhancedHtml);
+        } else {
+          try {
+            console.log('Development environment - generating PDF for download');
+            
+            // Use system chromium in development
+            const chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+            
+            const browser = await puppeteer.launch({
+              executablePath: chromiumPath,
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--disable-extensions',
+                '--disable-default-apps',
+                '--disable-web-security',
+                '--single-process',
+                '--no-zygote',
+                '--disable-logging'
+              ],
+              headless: true,
+              timeout: 60000
+            });
+            
+            const page = await browser.newPage();
+            await page.setViewport({ width: 1200, height: 800 });
+            await page.emulateMediaType('print');
+            await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
+            
+            // Wait for fonts to load
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const pdfBuffer = await page.pdf({
+              format: 'A4',
+              printBackground: true,
+              margin: {
+                top: '20mm',
+                right: '10mm',
+                bottom: '20mm',
+                left: '10mm'
+              }
+            });
+            
+            await browser.close();
+            console.log('PDF generated successfully for download, size:', pdfBuffer.length);
+            
+            // Send PDF file for download
+            const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
+            res.writeHead(200, {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              'Content-Length': pdfBuffer.length
+            });
+            res.end(pdfBuffer, 'binary');
+            return;
+            
+          } catch (pdfError: any) {
+            console.error('PDF generation failed for download:', {
+              error: pdfError?.message || 'Unknown error',
+              stack: pdfError?.stack || 'No stack trace',
+              clientId: client.clientId,
+              timestamp: new Date().toISOString()
+            });
+            // Fallback to HTML if PDF generation fails
+            res.setHeader('Content-Type', 'text/html');
+            res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
+            return res.send(invoiceHtml);
+          }
         }
       } else if (action === 'print') {
         // Return HTML for printing
@@ -4179,62 +4207,69 @@ This happens because only the file metadata was stored, not the actual file cont
             // Use the configured send domain for emails
             const fromEmail = 'noreply@send.rcrc.ca';
             
-            // Generate PDF from HTML using system chromium
+            // Generate PDF from HTML - detect environment constraints
             let pdfBuffer;
-            try {
-              // Use system chromium which has all required libraries
-              const chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
-              
-              const browser = await puppeteer.launch({
-                executablePath: chromiumPath,
-                args: [
-                  '--no-sandbox',
-                  '--disable-setuid-sandbox',
-                  '--disable-dev-shm-usage',
-                  '--disable-gpu',
-                  '--disable-extensions',
-                  '--disable-default-apps',
-                  '--disable-web-security',
-                  '--single-process',
-                  '--no-zygote',
-                  '--disable-logging'
-                ],
-                headless: true,
-                timeout: 60000
-              });
-              
-              const page = await browser.newPage();
-              await page.setViewport({ width: 1200, height: 800 });
-              await page.emulateMediaType('print');
-              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
-              
-              // Wait for fonts to load
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              pdfBuffer = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                margin: {
-                  top: '20mm',
-                  right: '10mm',
-                  bottom: '20mm',
-                  left: '10mm'
-                }
-              });
-              
-              await browser.close();
-              console.log('PDF generated successfully for email, size:', pdfBuffer.length);
-              
-            } catch (pdfError: any) {
-              console.error('PDF generation failed for email:', {
-                error: pdfError?.message || 'Unknown error',
-                stack: pdfError?.stack || 'No stack trace',
-                clientId: client.clientId,
-                clientEmail: client.email,
-                timestamp: new Date().toISOString()
-              });
-              // Fall back to HTML email if PDF generation fails
+            const isProduction = process.env.NODE_ENV === 'production' || process.env.REPLIT_DEPLOYMENT;
+            
+            if (isProduction) {
+              console.log('Production environment detected - skipping PDF due to process constraints');
               pdfBuffer = null;
+            } else {
+              try {
+                // Use system chromium in development
+                const chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+                
+                const browser = await puppeteer.launch({
+                  executablePath: chromiumPath,
+                  args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-extensions',
+                    '--disable-default-apps',
+                    '--disable-web-security',
+                    '--single-process',
+                    '--no-zygote',
+                    '--disable-logging'
+                  ],
+                  headless: true,
+                  timeout: 60000
+                });
+                
+                const page = await browser.newPage();
+                await page.setViewport({ width: 1200, height: 800 });
+                await page.emulateMediaType('print');
+                await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
+                
+                // Wait for fonts to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                pdfBuffer = await page.pdf({
+                  format: 'A4',
+                  printBackground: true,
+                  margin: {
+                    top: '20mm',
+                    right: '10mm',
+                    bottom: '20mm',
+                    left: '10mm'
+                  }
+                });
+                
+                await browser.close();
+                console.log('PDF generated successfully for email, size:', pdfBuffer.length);
+                
+              } catch (pdfError: any) {
+                console.error('PDF generation failed for email:', {
+                  error: pdfError?.message || 'Unknown error',
+                  stack: pdfError?.stack || 'No stack trace',
+                  clientId: client.clientId,
+                  clientEmail: client.email,
+                  timestamp: new Date().toISOString()
+                });
+                // Fall back to HTML email if PDF generation fails
+                pdfBuffer = null;
+              }
             }
 
             const result = await sp.transmissions.send({
