@@ -7,6 +7,7 @@ import multer from "multer";
 import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
+import htmlPdf from "html-pdf-node";
 import { execSync } from "child_process";
 
 // Validation
@@ -4088,112 +4089,23 @@ This happens because only the file metadata was stored, not the actual file cont
       `;
       
       if (action === 'download') {
-        // Generate PDF for download using same logic as email
+        // Generate PDF for download using html-pdf-node (more reliable than Puppeteer)
         try {
-          // Get chromium path dynamically
-          let chromiumPath;
-          try {
-            const pathResult = execSync('which chromium', { encoding: 'utf8' }).trim();
-            if (pathResult) {
-              chromiumPath = pathResult;
-            } else {
-              throw new Error('Chromium not found via which');
-            }
-          } catch {
-            // Try alternative paths
-            const possiblePaths = [
-              '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-              '/usr/bin/chromium',
-              '/usr/bin/chromium-browser',
-              '/usr/bin/google-chrome',
-              '/snap/bin/chromium'
-            ];
-            
-            chromiumPath = possiblePaths.find(path => {
-              try {
-                execSync(`test -x ${path}`, { stdio: 'ignore' });
-                return true;
-              } catch {
-                return false;
-              }
-            });
-            
-            if (!chromiumPath) {
-              throw new Error('No valid chromium executable found');
-            }
-          }
-          console.log('Using chromium path for download:', chromiumPath);
-          
-          const browser = await puppeteer.launch({
-            executablePath: chromiumPath,
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--disable-extensions',
-              '--disable-default-apps',
-              '--disable-features=TranslateUI',
-              '--disable-ipc-flooding-protection',
-              '--disable-background-timer-throttling',
-              '--disable-backgrounding-occluded-windows',
-              '--disable-renderer-backgrounding',
-              '--single-process',
-              '--no-zygote',
-              '--disable-web-security',
-              '--disable-features=VizDisplayCompositor',
-              '--memory-pressure-off',
-              '--max_old_space_size=2048',
-              '--disable-background-networking',
-              '--disable-default-apps',
-              '--disable-sync',
-              '--disable-translate',
-              '--hide-scrollbars',
-              '--metrics-recording-only',
-              '--mute-audio',
-              '--no-first-run',
-              '--safebrowsing-disable-auto-update',
-              '--disable-logging',
-              '--disable-permissions-api'
-            ],
-            headless: true,
-            timeout: 120000,
-            protocolTimeout: 120000,
-            handleSIGINT: false,
-            handleSIGTERM: false,
-            handleSIGHUP: false
-          });
-          
-          const page = await browser.newPage();
-          
-          // Set longer timeouts for the page
-          await page.setDefaultTimeout(120000);
-          await page.setDefaultNavigationTimeout(120000);
-          
-          // Optimize page for PDF generation
-          await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 1 });
-          await page.emulateMediaType('print');
-          
-          await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 120000 });
-          
-          // Wait a bit for fonts and styling to load
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          const pdfBuffer = await page.pdf({
+          const options = {
             format: 'A4',
-            printBackground: true,
             margin: {
               top: '20mm',
               right: '10mm',
               bottom: '20mm',
               left: '10mm'
             },
-            timeout: 120000,
-            preferCSSPageSize: true,
-            omitBackground: false
-          });
+            printBackground: true,
+            preferCSSPageSize: true
+          };
           
-          await browser.close();
+          const file = { content: invoiceHtml };
+          const pdfBuffer = await htmlPdf.generatePdf(file, options);
+          
           console.log('PDF generated successfully for download, size:', pdfBuffer.length);
           
           // Send PDF file for download with proper binary handling
@@ -4239,112 +4151,24 @@ This happens because only the file metadata was stored, not the actual file cont
             // Use the configured send domain for emails
             const fromEmail = 'noreply@send.rcrc.ca';
             
-            // Generate PDF from HTML using system chromium
+            // Generate PDF from HTML using html-pdf-node (more reliable than Puppeteer)
             let pdfBuffer;
             try {
-              // Get chromium path dynamically
-              let chromiumPath;
-              try {
-                const pathResult = execSync('which chromium', { encoding: 'utf8' }).trim();
-                if (pathResult) {
-                  chromiumPath = pathResult;
-                } else {
-                  throw new Error('Chromium not found via which');
-                }
-              } catch {
-                // Try alternative paths
-                const possiblePaths = [
-                  '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-                  '/usr/bin/chromium',
-                  '/usr/bin/chromium-browser',
-                  '/usr/bin/google-chrome',
-                  '/snap/bin/chromium'
-                ];
-                
-                chromiumPath = possiblePaths.find(path => {
-                  try {
-                    execSync(`test -x ${path}`, { stdio: 'ignore' });
-                    return true;
-                  } catch {
-                    return false;
-                  }
-                });
-                
-                if (!chromiumPath) {
-                  throw new Error('No valid chromium executable found');
-                }
-              }
-              console.log('Using chromium path:', chromiumPath);
-              
-              const browser = await puppeteer.launch({
-                executablePath: chromiumPath,
-                args: [
-                  '--no-sandbox',
-                  '--disable-setuid-sandbox',
-                  '--disable-dev-shm-usage',
-                  '--disable-gpu',
-                  '--disable-extensions',
-                  '--disable-default-apps',
-                  '--disable-features=TranslateUI',
-                  '--disable-ipc-flooding-protection',
-                  '--disable-background-timer-throttling',
-                  '--disable-backgrounding-occluded-windows',
-                  '--disable-renderer-backgrounding',
-                  '--single-process',
-                  '--no-zygote',
-                  '--disable-web-security',
-                  '--disable-features=VizDisplayCompositor',
-                  '--memory-pressure-off',
-                  '--max_old_space_size=2048',
-                  '--disable-background-networking',
-                  '--disable-default-apps',
-                  '--disable-sync',
-                  '--disable-translate',
-                  '--hide-scrollbars',
-                  '--metrics-recording-only',
-                  '--mute-audio',
-                  '--no-first-run',
-                  '--safebrowsing-disable-auto-update',
-                  '--disable-logging',
-                  '--disable-permissions-api'
-                ],
-                headless: true,
-                timeout: 120000,
-                protocolTimeout: 120000,
-                handleSIGINT: false,
-                handleSIGTERM: false,
-                handleSIGHUP: false
-              });
-              
-              const page = await browser.newPage();
-              
-              // Set longer timeouts for the page
-              await page.setDefaultTimeout(120000);
-              await page.setDefaultNavigationTimeout(120000);
-              
-              // Optimize page for PDF generation
-              await page.setViewport({ width: 1200, height: 800, deviceScaleFactor: 1 });
-              await page.emulateMediaType('print');
-              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 120000 });
-              
-              // Wait a bit for fonts and styling to load
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              pdfBuffer = await page.pdf({
+              const options = {
                 format: 'A4',
-                printBackground: true,
                 margin: {
                   top: '20mm',
                   right: '10mm',
                   bottom: '20mm',
                   left: '10mm'
                 },
-                timeout: 120000,
-                preferCSSPageSize: true,
-                omitBackground: false
-              });
+                printBackground: true,
+                preferCSSPageSize: true
+              };
               
-              await browser.close();
+              const file = { content: invoiceHtml };
+              pdfBuffer = await htmlPdf.generatePdf(file, options);
+              
               console.log('PDF generated successfully for email, size:', pdfBuffer.length);
               
             } catch (pdfError: any) {
