@@ -4089,51 +4089,74 @@ This happens because only the file metadata was stored, not the actual file cont
       `;
       
       if (action === 'download') {
-        // Send HTML version for download due to PDF generation constraints in production
+        // Generate PDF for download using system chromium
         try {
-          console.log('Sending HTML invoice for download due to production environment constraints');
+          console.log('Generating PDF for download using system chromium');
           
-          // Create a more professional HTML download with enhanced styling
-          const enhancedHtml = invoiceHtml.replace(
-            '<title>Invoice',
-            '<title>Invoice - Professional Format'
-          ).replace(
-            '</head>',
-            `
-            <style>
-              @media screen {
-                body { 
-                  background: #f5f5f5; 
-                  padding: 20px; 
-                }
-                .invoice-container {
-                  background: white;
-                  max-width: 800px;
-                  margin: 0 auto;
-                  padding: 40px;
-                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                  border-radius: 8px;
-                }
-              }
-              @media print {
-                body { background: white; padding: 0; }
-                .invoice-container { box-shadow: none; border-radius: 0; }
-              }
-            </style>
-            </head>
-            <body>
-            <div class="invoice-container">`
-          ).replace('</body>', '</div></body>');
+          // Use system chromium which has all required libraries
+          const chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
           
-          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html`;
-          res.setHeader('Content-Type', 'text/html');
-          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-          return res.send(enhancedHtml);
+          const browser = await puppeteer.launch({
+            executablePath: chromiumPath,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--disable-extensions',
+              '--disable-default-apps',
+              '--disable-web-security',
+              '--single-process',
+              '--no-zygote',
+              '--disable-logging'
+            ],
+            headless: true,
+            timeout: 60000
+          });
           
-        } catch (error: any) {
-          console.error('HTML download generation failed:', error);
-          res.status(500).json({ message: "Failed to generate invoice download" });
+          const page = await browser.newPage();
+          await page.setViewport({ width: 1200, height: 800 });
+          await page.emulateMediaType('print');
+          await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
+          
+          // Wait for fonts to load
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+              top: '20mm',
+              right: '10mm',
+              bottom: '20mm',
+              left: '10mm'
+            }
+          });
+          
+          await browser.close();
+          console.log('PDF generated successfully for download, size:', pdfBuffer.length);
+          
+          // Send PDF file for download
+          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
+          res.writeHead(200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Length': pdfBuffer.length
+          });
+          res.end(pdfBuffer, 'binary');
           return;
+          
+        } catch (pdfError: any) {
+          console.error('PDF generation failed for download:', {
+            error: pdfError?.message || 'Unknown error',
+            stack: pdfError?.stack || 'No stack trace',
+            clientId: client.clientId,
+            timestamp: new Date().toISOString()
+          });
+          // Fallback to HTML if PDF generation fails
+          res.setHeader('Content-Type', 'text/html');
+          res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
+          return res.send(invoiceHtml);
         }
       } else if (action === 'print') {
         // Return HTML for printing
@@ -4156,10 +4179,63 @@ This happens because only the file metadata was stored, not the actual file cont
             // Use the configured send domain for emails
             const fromEmail = 'noreply@send.rcrc.ca';
             
-            // Skip PDF generation in production due to browser engine constraints
-            // Send professional HTML email instead
-            let pdfBuffer = null;
-            console.log('Skipping PDF generation - sending professional HTML email instead');
+            // Generate PDF from HTML using system chromium
+            let pdfBuffer;
+            try {
+              // Use system chromium which has all required libraries
+              const chromiumPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+              
+              const browser = await puppeteer.launch({
+                executablePath: chromiumPath,
+                args: [
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-dev-shm-usage',
+                  '--disable-gpu',
+                  '--disable-extensions',
+                  '--disable-default-apps',
+                  '--disable-web-security',
+                  '--single-process',
+                  '--no-zygote',
+                  '--disable-logging'
+                ],
+                headless: true,
+                timeout: 60000
+              });
+              
+              const page = await browser.newPage();
+              await page.setViewport({ width: 1200, height: 800 });
+              await page.emulateMediaType('print');
+              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
+              
+              // Wait for fonts to load
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              pdfBuffer = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: {
+                  top: '20mm',
+                  right: '10mm',
+                  bottom: '20mm',
+                  left: '10mm'
+                }
+              });
+              
+              await browser.close();
+              console.log('PDF generated successfully for email, size:', pdfBuffer.length);
+              
+            } catch (pdfError: any) {
+              console.error('PDF generation failed for email:', {
+                error: pdfError?.message || 'Unknown error',
+                stack: pdfError?.stack || 'No stack trace',
+                clientId: client.clientId,
+                clientEmail: client.email,
+                timestamp: new Date().toISOString()
+              });
+              // Fall back to HTML email if PDF generation fails
+              pdfBuffer = null;
+            }
 
             const result = await sp.transmissions.send({
               options: {
