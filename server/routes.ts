@@ -4177,7 +4177,7 @@ This happens because only the file metadata was stored, not the actual file cont
           await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 120000 });
           
           // Wait a bit for fonts and styling to load
-          await page.waitForTimeout(2000);
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
           const pdfBuffer = await page.pdf({
             format: 'A4',
@@ -4328,7 +4328,7 @@ This happens because only the file metadata was stored, not the actual file cont
               await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 120000 });
               
               // Wait a bit for fonts and styling to load
-              await page.waitForTimeout(2000);
+              await new Promise(resolve => setTimeout(resolve, 2000));
               
               pdfBuffer = await page.pdf({
                 format: 'A4',
