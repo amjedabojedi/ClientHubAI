@@ -7,7 +7,6 @@ import multer from "multer";
 import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
-import htmlPdf from "html-pdf-node";
 import { execSync } from "child_process";
 
 // Validation
