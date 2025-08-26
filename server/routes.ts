@@ -4208,15 +4208,15 @@ This happens because only the file metadata was stored, not the actual file cont
                   '--disable-logging'
                 ],
                 headless: true,
-                timeout: 45000,
-                protocolTimeout: 45000
+                timeout: 60000,
+                protocolTimeout: 75000
               });
               
               const page = await browser.newPage();
-              await page.setDefaultTimeout(30000);
+              await page.setDefaultTimeout(45000);
               await page.setViewport({ width: 1200, height: 800 });
               await page.emulateMediaType('print');
-              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 45000 });
               
               // Wait for fonts and styling to load
               await new Promise(resolve => setTimeout(resolve, 2000));
@@ -4230,7 +4230,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   bottom: '20mm',
                   left: '10mm'
                 },
-                timeout: 30000
+                timeout: 45000
               });
               
               await browser.close();
