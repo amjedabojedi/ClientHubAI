@@ -4205,18 +4205,22 @@ This happens because only the file metadata was stored, not the actual file cont
                   '--disable-web-security',
                   '--single-process',
                   '--no-zygote',
-                  '--disable-logging'
+                  '--disable-logging',
+                  '--disable-background-networking',
+                  '--disable-background-timer-throttling',
+                  '--disable-renderer-backgrounding',
+                  '--disable-features=TranslateUI,BlinkGenPropertyTrees'
                 ],
                 headless: true,
-                timeout: 60000,
-                protocolTimeout: 75000
+                timeout: 90000,
+                protocolTimeout: 120000
               });
               
               const page = await browser.newPage();
-              await page.setDefaultTimeout(45000);
+              await page.setDefaultTimeout(60000);
               await page.setViewport({ width: 1200, height: 800 });
               await page.emulateMediaType('print');
-              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 45000 });
+              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
               
               // Wait for fonts and styling to load
               await new Promise(resolve => setTimeout(resolve, 2000));
@@ -4230,7 +4234,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   bottom: '20mm',
                   left: '10mm'
                 },
-                timeout: 45000
+                timeout: 60000
               });
               
               await browser.close();
