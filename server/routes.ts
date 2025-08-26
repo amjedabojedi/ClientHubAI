@@ -4089,66 +4089,84 @@ This happens because only the file metadata was stored, not the actual file cont
       `;
       
       if (action === 'download') {
-        // Provide reliable HTML download instead of unstable PDF generation
-        console.log('Providing professional HTML download - reliable across all environments');
-        
-        // Create print-optimized HTML with enhanced styling
-        const printOptimizedHtml = invoiceHtml.replace(
-          '</head>',
-          `
-          <style>
-            @media screen { 
-              body { 
-                background: #f8f9fa; 
-                padding: 30px; 
-                font-family: 'Times New Roman', Times, serif;
-              }
-              .invoice-container { 
-                background: white; 
-                max-width: 800px; 
-                margin: 0 auto; 
-                padding: 40px; 
-                box-shadow: 0 8px 16px rgba(0,0,0,0.1); 
-                border-radius: 12px;
-                border: 1px solid #dee2e6;
-              }
-              .print-instructions {
-                background: #e3f2fd;
-                padding: 15px;
-                margin-bottom: 20px;
-                border-radius: 8px;
-                border-left: 4px solid #1976d2;
-                font-size: 14px;
-                color: #1565c0;
-              }
+        // Generate PDF for download with improved error handling
+        try {
+          console.log('Generating PDF for download...');
+          
+          const browser = await puppeteer.launch({
+            executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--disable-extensions',
+              '--disable-default-apps',
+              '--disable-web-security',
+              '--single-process',
+              '--no-zygote'
+            ],
+            headless: true,
+            timeout: 45000,
+            protocolTimeout: 45000
+          });
+          
+          const page = await browser.newPage();
+          await page.setViewport({ width: 1200, height: 800 });
+          await page.emulateMediaType('print');
+          await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
+          
+          // Wait for fonts to load
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+              top: '20mm',
+              right: '10mm',
+              bottom: '20mm',
+              left: '10mm'
             }
-            @media print { 
-              body { 
-                background: white; 
-                padding: 0; 
-                font-family: 'Times New Roman', Times, serif;
-              }
-              .invoice-container { 
-                box-shadow: none; 
-                border-radius: 0; 
-                border: none;
-                padding: 20px;
-              }
-              .print-instructions { display: none; }
-            }
-          </style>
-          </head>
-          <body>
-          <div class="print-instructions">
-            <strong>💡 How to convert to PDF:</strong> Use your browser's Print function (Ctrl/Cmd + P) and select "Save as PDF" as the destination. This ensures perfect formatting and Times New Roman font preservation.
-          </div>
-          <div class="invoice-container">
-        `).replace('</body>', '</div></body>');
-        
-        const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html`;
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        return res.send(printOptimizedHtml);
+          });
+          
+          await browser.close();
+          console.log('PDF generated successfully for download, size:', pdfBuffer.length);
+          
+          // Send PDF file for download
+          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
+          res.writeHead(200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            'Content-Length': pdfBuffer.length
+          });
+          res.end(pdfBuffer, 'binary');
+          return;
+          
+        } catch (pdfError: any) {
+          console.error('PDF generation failed for download:', {
+            error: pdfError?.message || 'Unknown error',
+            stack: pdfError?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack',
+            clientId: client.clientId,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Fallback to enhanced HTML if PDF generation fails
+          console.log('Falling back to HTML download due to PDF error');
+          const enhancedHtml = invoiceHtml.replace(
+            '</head>',
+            `<style>
+              @media screen { body { background: #f5f5f5; padding: 20px; font-family: 'Times New Roman', serif; } 
+                .invoice-container { background: white; max-width: 800px; margin: 0 auto; padding: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; } }
+              @media print { body { background: white; padding: 0; } .invoice-container { box-shadow: none; border-radius: 0; } }
+            </style></head><body><div class="invoice-container">`
+          ).replace('</body>', '</div></body>');
+          
+          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html`;
+          res.setHeader('Content-Type', 'text/html');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          return res.send(enhancedHtml);
+        }
       } else if (action === 'print') {
         // Return HTML for printing
         res.setHeader('Content-Type', 'text/html');
@@ -4170,9 +4188,89 @@ This happens because only the file metadata was stored, not the actual file cont
             // Use the configured send domain for emails
             const fromEmail = 'noreply@send.rcrc.ca';
             
-            // Skip browser-based PDF generation - use reliable HTML email approach
-            console.log('Using reliable HTML email format instead of unstable PDF generation');
-            let pdfBuffer = null;
+            // Generate PDF for email attachment with improved reliability
+            let pdfBuffer;
+            try {
+              console.log('Generating PDF for email attachment...');
+              
+              const browser = await puppeteer.launch({
+                executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+                args: [
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                  '--disable-dev-shm-usage',
+                  '--disable-gpu',
+                  '--disable-extensions',
+                  '--disable-default-apps',
+                  '--disable-web-security',
+                  '--single-process',
+                  '--no-zygote',
+                  '--disable-logging'
+                ],
+                headless: true,
+                timeout: 45000,
+                protocolTimeout: 45000
+              });
+              
+              const page = await browser.newPage();
+              await page.setDefaultTimeout(30000);
+              await page.setViewport({ width: 1200, height: 800 });
+              await page.emulateMediaType('print');
+              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              
+              // Wait for fonts and styling to load
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              pdfBuffer = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                margin: {
+                  top: '20mm',
+                  right: '10mm',
+                  bottom: '20mm',
+                  left: '10mm'
+                },
+                timeout: 30000
+              });
+              
+              await browser.close();
+              console.log('PDF generated successfully for email, size:', pdfBuffer.length);
+              
+            } catch (pdfError: any) {
+              console.error('PDF generation failed for email:', {
+                error: pdfError?.message || 'Unknown error',
+                errorType: pdfError?.name || 'Unknown',
+                stack: pdfError?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack',
+                clientId: client.clientId,
+                clientEmail: client.email,
+                timestamp: new Date().toISOString()
+              });
+              
+              // Retry once with different settings if it's a timeout
+              if (pdfError?.message?.includes('timeout') || pdfError?.message?.includes('timed out')) {
+                console.log('Retrying PDF generation with extended timeout...');
+                try {
+                  const browser = await puppeteer.launch({
+                    executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+                    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+                    headless: true,
+                    timeout: 60000,
+                    protocolTimeout: 60000
+                  });
+                  
+                  const page = await browser.newPage();
+                  await page.setContent(invoiceHtml);
+                  pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+                  await browser.close();
+                  console.log('PDF generated on retry, size:', pdfBuffer.length);
+                } catch (retryError: any) {
+                  console.log('Retry also failed:', retryError.message);
+                  pdfBuffer = null;
+                }
+              } else {
+                pdfBuffer = null;
+              }
+            }
 
             const result = await sp.transmissions.send({
               options: {
