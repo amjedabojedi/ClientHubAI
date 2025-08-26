@@ -3816,20 +3816,22 @@ This happens because only the file metadata was stored, not the actual file cont
       // Get current user's profile information for provider details
       let providerInfo = null;
       try {
-        // Get the current user (assuming admin/primary therapist for now)
-        const users = await storage.getUsers();
-        const primaryUser = users.find((u: any) => u.role === 'admin' || u.username === 'abi.cherian') || users[0];
+        // Get the admin user profile (ID 6 as per the system)
+        const adminProfile = await storage.getUserProfile(6);
         
-        if (primaryUser && primaryUser.profile) {
-          const profile = primaryUser.profile;
+        if (adminProfile) {
+          // Get the admin user basic info
+          const users = await storage.getUsers();
+          const adminUser = users.find((u: any) => u.id === 6);
+          
           providerInfo = {
-            name: primaryUser.fullName || 'Amjed Abojedi',
-            credentials: profile.licenseType || 'Licensed Mental Health Professional',
-            license: profile.licenseNumber || 'Please update license number in profile',
-            licenseState: profile.licenseState || 'ON',
-            npi: profile.npiNumber || 'Please update NPI in profile',
-            experience: profile.yearsOfExperience || 0,
-            specializations: profile.specializations || []
+            name: adminUser?.fullName || adminProfile.fullName || 'Amjed Abojedi',
+            credentials: adminProfile.licenseType || 'Licensed Mental Health Professional',
+            license: adminProfile.licenseNumber || 'Please update license number in your profile',
+            licenseState: adminProfile.licenseState || 'ON',
+            npi: adminProfile.npiNumber || 'Please update NPI in your profile',
+            experience: adminProfile.yearsOfExperience || 0,
+            specializations: adminProfile.specializations || []
           };
         }
       } catch (error) {
