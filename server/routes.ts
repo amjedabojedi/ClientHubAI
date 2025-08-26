@@ -4089,46 +4089,51 @@ This happens because only the file metadata was stored, not the actual file cont
       `;
       
       if (action === 'download') {
-        // Generate PDF for download using html-pdf-node (more reliable than Puppeteer)
+        // Send HTML version for download due to PDF generation constraints in production
         try {
-          const options = {
-            format: 'A4',
-            margin: {
-              top: '20mm',
-              right: '10mm',
-              bottom: '20mm',
-              left: '10mm'
-            },
-            printBackground: true,
-            preferCSSPageSize: true
-          };
+          console.log('Sending HTML invoice for download due to production environment constraints');
           
-          const file = { content: invoiceHtml };
-          const pdfBuffer = await htmlPdf.generatePdf(file, options);
+          // Create a more professional HTML download with enhanced styling
+          const enhancedHtml = invoiceHtml.replace(
+            '<title>Invoice',
+            '<title>Invoice - Professional Format'
+          ).replace(
+            '</head>',
+            `
+            <style>
+              @media screen {
+                body { 
+                  background: #f5f5f5; 
+                  padding: 20px; 
+                }
+                .invoice-container {
+                  background: white;
+                  max-width: 800px;
+                  margin: 0 auto;
+                  padding: 40px;
+                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                  border-radius: 8px;
+                }
+              }
+              @media print {
+                body { background: white; padding: 0; }
+                .invoice-container { box-shadow: none; border-radius: 0; }
+              }
+            </style>
+            </head>
+            <body>
+            <div class="invoice-container">`
+          ).replace('</body>', '</div></body>');
           
-          console.log('PDF generated successfully for download, size:', pdfBuffer.length);
-          
-          // Send PDF file for download with proper binary handling
-          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
-          res.writeHead(200, {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Content-Length': pdfBuffer.length
-          });
-          res.end(pdfBuffer, 'binary');
-          return;
-          
-        } catch (pdfError: any) {
-          console.error('PDF generation failed for download:', {
-            error: pdfError?.message || 'Unknown error',
-            stack: pdfError?.stack || 'No stack trace',
-            clientId: client.clientId,
-            timestamp: new Date().toISOString()
-          });
-          // Fallback to HTML if PDF generation fails
+          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html`;
           res.setHeader('Content-Type', 'text/html');
-          res.setHeader('Content-Disposition', `attachment; filename="invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html"`);
-          return res.send(invoiceHtml);
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          return res.send(enhancedHtml);
+          
+        } catch (error: any) {
+          console.error('HTML download generation failed:', error);
+          res.status(500).json({ message: "Failed to generate invoice download" });
+          return;
         }
       } else if (action === 'print') {
         // Return HTML for printing
@@ -4151,37 +4156,10 @@ This happens because only the file metadata was stored, not the actual file cont
             // Use the configured send domain for emails
             const fromEmail = 'noreply@send.rcrc.ca';
             
-            // Generate PDF from HTML using html-pdf-node (more reliable than Puppeteer)
-            let pdfBuffer;
-            try {
-              const options = {
-                format: 'A4',
-                margin: {
-                  top: '20mm',
-                  right: '10mm',
-                  bottom: '20mm',
-                  left: '10mm'
-                },
-                printBackground: true,
-                preferCSSPageSize: true
-              };
-              
-              const file = { content: invoiceHtml };
-              pdfBuffer = await htmlPdf.generatePdf(file, options);
-              
-              console.log('PDF generated successfully for email, size:', pdfBuffer.length);
-              
-            } catch (pdfError: any) {
-              console.error('PDF generation failed for email:', {
-                error: pdfError?.message || 'Unknown error',
-                stack: pdfError?.stack || 'No stack trace',
-                clientId: client.clientId,
-                clientEmail: client.email,
-                timestamp: new Date().toISOString()
-              });
-              // Fall back to HTML email if PDF generation fails
-              pdfBuffer = null;
-            }
+            // Skip PDF generation in production due to browser engine constraints
+            // Send professional HTML email instead
+            let pdfBuffer = null;
+            console.log('Skipping PDF generation - sending professional HTML email instead');
 
             const result = await sp.transmissions.send({
               options: {
@@ -4200,25 +4178,42 @@ This happens because only the file metadata was stored, not the actual file cont
                 },
                 subject: `Invoice from Resilience Counseling - ${client.fullName}`,
                 html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #1e293b;">Invoice from Resilience Counseling Research & Consultation</h2>
-                    <p>Dear ${client.fullName},</p>
-                    <p>Please find your invoice attached as a PDF document.</p>
-                    <p><strong>Alternative:</strong> If the attachment doesn't open properly, you can also <a href="https://resiliencecrm.replit.app/clients/3670" style="color: #2563eb; text-decoration: underline;">download the invoice directly from your client portal</a>.</p>
-                    <p><strong>Invoice Details:</strong></p>
-                    <ul style="margin: 20px 0;">
-                      <li>Invoice #: INV-${client.clientId}-${billingId}</li>
-                      <li>Date: ${new Date().toLocaleDateString()}</li>
-                      <li>Amount: $${remainingDue.toFixed(2)}</li>
-                      <li>Service: ${billingRecords[0].serviceCode}</li>
-                    </ul>
-                    <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
-                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
-                    <div style="color: #64748b; font-size: 14px;">
-                      <p><strong>Resilience Counseling Research & Consultation</strong></p>
-                      <p>111 Waterloo St Unit 406, London, ON N6B 2M4</p>
-                      <p>Phone: +1 (548)866-0366 | Email: mail@resiliencec.com</p>
-                      <p>Website: www.resiliencec.com</p>
+                  <div style="font-family: 'Times New Roman', Times, serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border: 1px solid #e5e7eb;">
+                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 20px;">
+                      <h1 style="color: #1e293b; font-size: 28px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">INVOICE</h1>
+                      <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">Professional Mental Health Services</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 25px;">
+                      <p style="margin: 5px 0; color: #1e293b;"><strong>Dear ${client.fullName},</strong></p>
+                      <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Thank you for choosing our professional mental health services. Below are the details of your recent session and billing information.</p>
+                    </div>
+                    
+                    <div style="background: #f8fafc; padding: 20px; border-left: 4px solid #3b82f6; margin: 25px 0;">
+                      <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px;">Invoice Details</h3>
+                      <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="padding: 5px 0; color: #6b7280; width: 40%;">Invoice Number:</td><td style="padding: 5px 0; color: #1e293b; font-weight: bold;">INV-${client.clientId}-${billingId}</td></tr>
+                        <tr><td style="padding: 5px 0; color: #6b7280;">Date:</td><td style="padding: 5px 0; color: #1e293b;">${new Date().toLocaleDateString()}</td></tr>
+                        <tr><td style="padding: 5px 0; color: #6b7280;">Service:</td><td style="padding: 5px 0; color: #1e293b;">${billingRecords[0].serviceCode}</td></tr>
+                        <tr><td style="padding: 5px 0; color: #6b7280;">Amount Due:</td><td style="padding: 5px 0; color: #dc2626; font-weight: bold; font-size: 18px;">$${remainingDue.toFixed(2)}</td></tr>
+                      </table>
+                    </div>
+                    
+                    <div style="margin: 25px 0; padding: 15px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;">
+                      <p style="margin: 0; color: #92400e; font-size: 14px;"><strong>Payment Information:</strong> Payment is due within 30 days of invoice date. For questions or payment arrangements, please contact our billing department.</p>
+                    </div>
+                    
+                    <div style="margin: 25px 0;">
+                      <p style="color: #374151; line-height: 1.6;">You can also <a href="https://resiliencecrm.replit.app/clients/3670" style="color: #2563eb; text-decoration: underline; font-weight: bold;">access your client portal</a> to view this invoice and make payments online.</p>
+                    </div>
+                    
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    
+                    <div style="text-align: center; color: #6b7280; font-size: 14px; line-height: 1.5;">
+                      <p style="margin: 5px 0; font-weight: bold; color: #1e293b;">Resilience Counseling Research & Consultation</p>
+                      <p style="margin: 5px 0;">111 Waterloo St Unit 406, London, ON N6B 2M4</p>
+                      <p style="margin: 5px 0;">Phone: +1 (548)866-0366 | Email: mail@resiliencec.com</p>
+                      <p style="margin: 5px 0;">Website: www.resiliencec.com</p>
                     </div>
                   </div>
                 `,
