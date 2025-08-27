@@ -3874,7 +3874,7 @@ This happens because only the file metadata was stored, not the actual file cont
       // Get practice settings with your actual business information
       let practiceSettings = {
         name: 'Resilience Counseling Research & Consultation',
-        description: 'Professional Mental Health Services', 
+        description: 'Licensed Mental Health Practice', 
         subtitle: 'Licensed Mental Health Practice',
         address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
         phone: '+1 (548)866-0366',
@@ -4320,7 +4320,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   <div style="font-family: 'Times New Roman', Times, serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border: 1px solid #e5e7eb;">
                     <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 20px;">
                       <h1 style="color: #1e293b; font-size: 28px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">INVOICE</h1>
-                      <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">Professional Mental Health Services</p>
+                      <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">${practiceSettings.name}</p>
                     </div>
                     
                     <div style="margin-bottom: 25px;">
