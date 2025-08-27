@@ -1902,7 +1902,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(documents.clientId, clientId))
       .orderBy(desc(documents.createdAt));
 
-    return results.map(r => ({ ...r.document, uploadedBy: r.uploadedBy }));
+    return results.map(r => ({ 
+      ...r.document, 
+      // Map database field names to expected camelCase
+      fileName: r.document.file_name,
+      fileSize: r.document.file_size,
+      mimeType: r.document.mime_type,
+      uploadedBy: r.uploadedBy 
+    }));
   }
 
   async createDocument(document: InsertDocument): Promise<Document> {
