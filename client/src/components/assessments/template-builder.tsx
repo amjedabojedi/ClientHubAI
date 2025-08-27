@@ -488,7 +488,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
       for (const existingSection of existingSections) {
         const currentSection = sections.find(s => s.id === existingSection.id);
         
-        if (currentSection) {
+        if (!currentSection && existingSection.id) {
+          // Section was deleted, remove it from database
+          try {
+            await apiRequest(`/api/assessments/sections/${existingSection.id}`, "DELETE");
+          } catch (error) {
+            console.error('Error deleting section:', error);
+            // Continue with other operations
+          }
+        } else if (currentSection) {
           // Section still exists, check for deleted questions
           for (const existingQuestion of existingSection.questions) {
             const currentQuestion = currentSection.questions.find(q => q.id === existingQuestion.id);

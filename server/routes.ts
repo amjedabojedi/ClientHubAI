@@ -3098,6 +3098,17 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.delete("/api/assessments/sections/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAssessmentSection(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Assessment section deletion error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Assessment questions routes
   app.post("/api/assessments/questions", async (req, res) => {
     try {
