@@ -18,11 +18,12 @@ interface UserWithProfile {
 interface UserCardProps {
   user: UserWithProfile;
   onEditProfile: (user: UserWithProfile) => void;
+  onEditBasicInfo: (user: UserWithProfile) => void;
   onDeleteUser: (user: UserWithProfile) => void;
   onToggleStatus: (user: UserWithProfile, newStatus: string) => void;
 }
 
-export function UserCard({ user, onEditProfile, onDeleteUser, onToggleStatus }: UserCardProps) {
+export function UserCard({ user, onEditProfile, onEditBasicInfo, onDeleteUser, onToggleStatus }: UserCardProps) {
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "supervisor":
@@ -170,23 +171,34 @@ export function UserCard({ user, onEditProfile, onDeleteUser, onToggleStatus }: 
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="space-y-2 pt-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onEditProfile(user)}
-            className="flex-1"
+            onClick={() => onEditBasicInfo(user)}
+            className="w-full"
           >
             <Edit className="w-4 h-4 mr-1" />
-            Edit Professional Details
+            Edit Basic Info
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => onDeleteUser(user)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditProfile(user)}
+              className="flex-1"
+            >
+              <Edit className="w-4 h-4 mr-1" />
+              Professional Details
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onDeleteUser(user)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

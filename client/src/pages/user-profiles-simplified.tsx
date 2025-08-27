@@ -14,6 +14,7 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { UserCard } from "@/components/user-profiles/UserCard";
 import { ProfileDialog } from "@/components/user-profiles/ProfileDialog";
+import { BasicInfoDialog } from "@/components/user-profiles/BasicInfoDialog";
 import { useToast } from "@/hooks/use-toast";
 import SupervisorAssignments from "@/components/supervision/supervisor-assignments";
 
@@ -80,6 +81,7 @@ export default function UserProfilesSimplified() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isBasicInfoModalOpen, setIsBasicInfoModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserWithProfile | null>(null);
 
@@ -175,6 +177,28 @@ export default function UserProfilesSimplified() {
     },
   });
 
+  const updateBasicInfoMutation = useMutation({
+    mutationFn: async (data: { userId: number; basicInfo: { fullName: string; email: string } }) => {
+      return await apiRequest(`/api/users/${data.userId}`, "PUT", data.basicInfo);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsBasicInfoModalOpen(false);
+      setSelectedUser(null);
+      toast({
+        title: "Success",
+        description: "User basic information updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user basic information",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
       return await apiRequest(`/api/users/${userId}`, "DELETE");
@@ -207,6 +231,11 @@ export default function UserProfilesSimplified() {
     setIsProfileModalOpen(true);
   };
 
+  const handleEditBasicInfo = (user: UserWithProfile) => {
+    setSelectedUser(user);
+    setIsBasicInfoModalOpen(true);
+  };
+
   const handleProfileSubmit = (data: ProfileFormData) => {
     if (selectedUser) {
       if (selectedUser.profile) {
@@ -214,6 +243,12 @@ export default function UserProfilesSimplified() {
       } else {
         createProfileMutation.mutate({ userId: selectedUser.id, profile: data });
       }
+    }
+  };
+
+  const handleBasicInfoSubmit = (data: { fullName: string; email: string }) => {
+    if (selectedUser) {
+      updateBasicInfoMutation.mutate({ userId: selectedUser.id, basicInfo: data });
     }
   };
 
@@ -455,6 +490,7 @@ export default function UserProfilesSimplified() {
             key={user.id}
             user={user}
             onEditProfile={handleEditProfile}
+            onEditBasicInfo={handleEditBasicInfo}
             onDeleteUser={handleDeleteUser}
             onToggleStatus={handleToggleUserStatus}
           />
@@ -479,6 +515,18 @@ export default function UserProfilesSimplified() {
         selectedUser={selectedUser}
         onSubmit={handleProfileSubmit}
         isLoading={createProfileMutation.isPending || updateProfileMutation.isPending}
+      />
+
+      {/* Basic Info Dialog */}
+      <BasicInfoDialog
+        isOpen={isBasicInfoModalOpen}
+        onClose={() => {
+          setIsBasicInfoModalOpen(false);
+          setSelectedUser(null);
+        }}
+        selectedUser={selectedUser}
+        onSubmit={handleBasicInfoSubmit}
+        isLoading={updateBasicInfoMutation.isPending}
       />
 
       {/* Delete Confirmation Dialog */}
