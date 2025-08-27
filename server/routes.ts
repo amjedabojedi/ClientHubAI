@@ -4341,9 +4341,6 @@ This happens because only the file metadata was stored, not the actual file cont
                       <p style="margin: 0; color: #92400e; font-size: 14px;"><strong>Payment Information:</strong> Payment is due within 30 days of invoice date. For questions or payment arrangements, please contact our billing department.</p>
                     </div>
                     
-                    <div style="margin: 25px 0;">
-                      <p style="color: #374151; line-height: 1.6;">You can also <a href="https://resiliencecrm.replit.app/clients/3670" style="color: #2563eb; text-decoration: underline; font-weight: bold;">access your client portal</a> to view this invoice and make payments online.</p>
-                    </div>
                     
                     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
                     
