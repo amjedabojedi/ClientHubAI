@@ -4324,8 +4324,7 @@ This happens because only the file metadata was stored, not the actual file cont
                     </div>
                     
                     <div style="margin-bottom: 25px;">
-                      <p style="margin: 5px 0; color: #1e293b;"><strong>Dear ${client.fullName},</strong></p>
-                      <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Thank you for choosing our professional mental health services. Below are the details of your recent session and billing information.</p>
+                      <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Thank you for choosing ${practiceSettings.name}. Please find below the details of your recent session and billing information.</p>
                     </div>
                     
                     <div style="background: #f8fafc; padding: 20px; border-left: 4px solid #3b82f6; margin: 25px 0;">
