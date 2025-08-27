@@ -3079,7 +3079,7 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid section data", errors: error.errors });
       }
       console.error('Assessment section creation error:', error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -3094,7 +3094,7 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid section data", errors: error.errors });
       }
       console.error('Assessment section update error:', error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
