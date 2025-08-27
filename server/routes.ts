@@ -3071,24 +3071,30 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/assessments/sections", async (req, res) => {
     try {
-      const sectionData = req.body;
-      const section = await storage.createAssessmentSection(sectionData);
+      const validatedData = insertAssessmentSectionSchema.parse(req.body);
+      const section = await storage.createAssessmentSection(validatedData);
       res.status(201).json(section);
     } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid section data", errors: error.errors });
+      }
+      console.error('Assessment section creation error:', error);
+      res.status(500).json({ message: "Internal server error", error: error.message });
     }
   });
 
   app.patch("/api/assessments/sections/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const sectionData = req.body;
-      const section = await storage.updateAssessmentSection(id, sectionData);
+      const validatedData = insertAssessmentSectionSchema.partial().parse(req.body);
+      const section = await storage.updateAssessmentSection(id, validatedData);
       res.json(section);
     } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid section data", errors: error.errors });
+      }
+      console.error('Assessment section update error:', error);
+      res.status(500).json({ message: "Internal server error", error: error.message });
     }
   });
 
@@ -3838,7 +3844,7 @@ This happens because only the file metadata was stored, not the actual file cont
             credentials: therapistProfile.licenseType || 'CRPO',
             license: therapistProfile.licenseNumber || '822106',
             licenseState: therapistProfile.licenseState || 'ON',
-            npi: therapistProfile.npiNumber || 'Please update NPI in profile',
+            npi: 'Please update NPI in profile',
             experience: therapistProfile.yearsOfExperience || 0,
             specializations: therapistProfile.specializations || []
           };
