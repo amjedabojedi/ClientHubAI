@@ -3832,11 +3832,11 @@ This happens because only the file metadata was stored, not the actual file cont
         const users = await storage.getUsers();
         const therapist = users.find((u: any) => u.id === therapistId);
         
-        if (therapistProfile && therapist) {
+        if (therapistProfile) {
           providerInfo = {
-            name: therapist.fullName || 'Please update therapist name',
-            credentials: therapistProfile.licenseType || 'Licensed Mental Health Professional',
-            license: therapistProfile.licenseNumber || 'Please update license number in profile',
+            name: therapist?.fullName || 'Amjed Abojedi',
+            credentials: therapistProfile.licenseType || 'CRPO',
+            license: therapistProfile.licenseNumber || '822106',
             licenseState: therapistProfile.licenseState || 'ON',
             npi: therapistProfile.npiNumber || 'Please update NPI in profile',
             experience: therapistProfile.yearsOfExperience || 0,
@@ -3845,9 +3845,9 @@ This happens because only the file metadata was stored, not the actual file cont
         } else if (therapist) {
           // Use therapist basic info even without profile
           providerInfo = {
-            name: therapist.fullName || 'Please update therapist name',
-            credentials: 'Licensed Mental Health Professional',
-            license: 'Please update license number in profile',
+            name: therapist.fullName || 'Amjed Abojedi',
+            credentials: 'CRPO',
+            license: '822106',
             licenseState: 'ON',
             npi: 'Please update NPI in profile',
             experience: 0,
@@ -3862,8 +3862,8 @@ This happens because only the file metadata was stored, not the actual file cont
       if (!providerInfo) {
         providerInfo = {
           name: 'Amjed Abojedi',
-          credentials: 'Licensed Mental Health Professional',
-          license: 'Please update license number in your profile',
+          credentials: 'CRPO',
+          license: '822106',
           licenseState: 'ON',
           npi: 'Please update NPI in your profile',
           experience: 0,
