@@ -2064,6 +2064,69 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // PDF viewer endpoint
+  app.get("/api/clients/:clientId/documents/:id/viewer", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      
+      // Validate parameters
+      if (isNaN(id) || isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid document or client ID" });
+      }
+      
+      // Get document info from database
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Only serve PDF files through this endpoint
+      if (document.mimeType !== 'application/pdf') {
+        return res.status(400).json({ message: "This endpoint only serves PDF files" });
+      }
+      
+      // Try Object Storage first, then fallback to filesystem
+      try {
+        const objectStorage = new ObjectStorageClient();
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        // Try to get file from Object Storage
+        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        
+        if (!downloadResult.ok) {
+          throw new Error(`Object storage download failed: ${downloadResult.error}`);
+        }
+        
+        // Convert base64 back to buffer and serve
+        const buffer = Buffer.from(downloadResult.value, 'base64');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+        res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+        res.send(buffer);
+        
+      } catch (objectStorageError) {
+        // Fallback to filesystem
+        const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+        
+        if (fs.existsSync(filePath)) {
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
+          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+          res.sendFile(path.resolve(filePath));
+        } else {
+          res.status(404).json({ message: "File not found on server" });
+        }
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Error serving PDF file" });
+    }
+  });
+
   app.get("/api/clients/:clientId/documents/:id/download", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
