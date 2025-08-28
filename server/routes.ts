@@ -1790,18 +1790,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.createDocument(validatedData);
 
       
-      // Store file content reliably using filesystem (like your other working Replit systems)
+      // Store file content using Object Storage for production persistence
       if (fileContent) {
-        const uploadsDir = path.join(process.cwd(), 'uploads');
-        if (!fs.existsSync(uploadsDir)) {
-          fs.mkdirSync(uploadsDir, { recursive: true });
+        try {
+          // Try Object Storage first (production requirement)
+          const { Client } = await import('@replit/object-storage');
+          const objectStorage = new Client();
+          const objectKey = `documents/${document.id}-${document.fileName}`;
+          
+          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
+          
+          if (uploadResult.ok) {
+            console.log(`File uploaded to object storage: ${objectKey}`);
+          } else {
+            throw new Error(`Object storage upload failed: ${uploadResult.error}`);
+          }
+        } catch (storageError) {
+          console.error('Object storage upload failed, using filesystem fallback:', storageError);
+          // Fallback to filesystem for development
+          const uploadsDir = path.join(process.cwd(), 'uploads');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          
+          const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
+          const buffer = Buffer.from(fileContent, 'base64');
+          fs.writeFileSync(filePath, buffer);
+          
+          console.log(`File stored locally as fallback: ${filePath}`);
         }
-        
-        const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
-        const buffer = Buffer.from(fileContent, 'base64');
-        fs.writeFileSync(filePath, buffer);
-        
-        console.log(`File stored: ${filePath}`);
       }
       
       res.status(201).json(document);
@@ -1984,7 +2001,28 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Serve from filesystem (reliable approach like your other working systems)
+      // Try Object Storage first, then filesystem fallback
+      try {
+        const { Client } = await import('@replit/object-storage');
+        const objectStorage = new Client();
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        
+        if (downloadResult.ok) {
+          const buffer = Buffer.from(downloadResult.value, 'base64');
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
+          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+          res.send(buffer);
+          return;
+        }
+      } catch (error) {
+        console.log('Object storage download failed, trying filesystem:', error);
+      }
+      
+      // Fallback to filesystem
       const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
       
       if (fs.existsSync(filePath)) {
@@ -2025,7 +2063,28 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Serve from filesystem (reliable approach like your other working systems)
+      // Try Object Storage first, then filesystem fallback
+      try {
+        const { Client } = await import('@replit/object-storage');
+        const objectStorage = new Client();
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        
+        if (downloadResult.ok) {
+          const buffer = Buffer.from(downloadResult.value, 'base64');
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
+          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+          res.send(buffer);
+          return;
+        }
+      } catch (error) {
+        console.log('Object storage download failed, trying filesystem:', error);
+      }
+      
+      // Fallback to filesystem
       const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
       
       if (fs.existsSync(filePath)) {
@@ -2055,7 +2114,26 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // Serve from filesystem (reliable approach like your other working systems)
+      // Try Object Storage first, then filesystem fallback
+      try {
+        const { Client } = await import('@replit/object-storage');
+        const objectStorage = new Client();
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        
+        if (downloadResult.ok) {
+          const buffer = Buffer.from(downloadResult.value, 'base64');
+          res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+          res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
+          res.send(buffer);
+          return;
+        }
+      } catch (error) {
+        console.log('Object storage download failed, trying filesystem:', error);
+      }
+      
+      // Fallback to filesystem
       const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
       
       if (fs.existsSync(filePath)) {
