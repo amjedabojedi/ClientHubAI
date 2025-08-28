@@ -781,7 +781,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       <SelectValue placeholder="Choose report section type for AI generation..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None (Regular Section)</SelectItem>
+                      <SelectItem value="">None (Regular Section)</SelectItem>
                       <SelectItem value="clinical_summary">Clinical Summary</SelectItem>
                       <SelectItem value="intervention_plan">Intervention Plan</SelectItem>
                       <SelectItem value="diagnostic_impressions">Diagnostic Impressions</SelectItem>
