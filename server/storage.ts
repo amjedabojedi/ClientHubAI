@@ -871,8 +871,8 @@ export class DatabaseStorage implements IStorage {
     // Delete client checklists
     await db.delete(clientChecklists).where(eq(clientChecklists.clientId, id));
     
-    // Delete documents
-    await db.delete(documents).where(eq(documents.clientId, id));
+    // NOTE: Documents are preserved when clients are deleted for record keeping
+    // Documents will remain accessible even after client deletion
     
     // Delete notes
     await db.delete(notes).where(eq(notes.clientId, id));
