@@ -1904,10 +1904,6 @@ export class DatabaseStorage implements IStorage {
 
     return results.map(r => ({ 
       ...r.document, 
-      // Map database field names to expected camelCase
-      fileName: r.document.file_name,
-      fileSize: r.document.file_size,
-      mimeType: r.document.mime_type,
       uploadedBy: r.uploadedBy 
     }));
   }
