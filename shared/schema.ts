@@ -469,7 +469,7 @@ export const notes = pgTable("notes", {
 // Documents table
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").notNull().references(() => clients.id),
   uploadedById: integer("uploaded_by_id").notNull().references(() => users.id),
   fileName: text("file_name").notNull(),
   originalName: text("original_name").notNull(),
