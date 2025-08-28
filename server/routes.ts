@@ -8,7 +8,6 @@ import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
 import { execSync } from "child_process";
-import { Client as ObjectStorageClient } from '@replit/object-storage';
 
 // Validation
 import { z } from "zod";
@@ -1791,34 +1790,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.createDocument(validatedData);
 
       
-      // Store actual file content using Replit Object Storage if provided
+      // Store file content reliably using filesystem (like your other working Replit systems)
       if (fileContent) {
-        try {
-          const objectStorage = new ObjectStorageClient();
-          const objectKey = `documents/${document.id}-${document.fileName}`;
-          
-          // Upload file to Object Storage
-          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
-          
-          if (!uploadResult.ok) {
-            throw new Error(`Object storage upload failed: ${uploadResult.error}`);
-          }
-          
-          console.log(`File uploaded to object storage: ${objectKey}`);
-        } catch (storageError) {
-          console.error('Object storage upload failed:', storageError);
-          // Fallback to filesystem storage for development
-          const uploadsDir = path.join(process.cwd(), 'uploads');
-          if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-          }
-          
-          const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
-          const buffer = Buffer.from(fileContent, 'base64');
-          fs.writeFileSync(filePath, buffer);
-          
-          console.log(`File stored locally as fallback: ${filePath}`);
+        const uploadsDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
         }
+        
+        const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
+        const buffer = Buffer.from(fileContent, 'base64');
+        fs.writeFileSync(filePath, buffer);
+        
+        console.log(`File stored: ${filePath}`);
       }
       
       res.status(201).json(document);
@@ -1919,60 +1902,36 @@ This happens because only the file metadata was stored, not the actual file cont
           `);
         }
       } else if (isText) {
-        // For text files, try Object Storage first, then filesystem
-        try {
-          const objectStorage = new ObjectStorageClient();
-          const objectKey = `documents/${document.id}-${document.fileName}`;
-          
-          // Try to get text content from Object Storage
-          const downloadResult = await objectStorage.downloadAsText(objectKey);
-          
-          if (!downloadResult.ok) {
-            throw new Error(`Object storage download failed: ${downloadResult.error}`);
-          }
-          
-          const decodedText = Buffer.from(downloadResult.value, 'base64').toString('utf-8');
-          
-          res.setHeader('Content-Type', 'application/json');
-          res.json({
-            type: 'text',
-            content: decodedText,
-            fileName: document.fileName,
-            fileSize: document.fileSize
-          });
-          
-        } catch (objectStorageError) {
-          // Fallback to filesystem
-          const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
-          
-          if (fs.existsSync(filePath)) {
-            try {
-              const textContent = fs.readFileSync(filePath, 'utf-8');
-              res.setHeader('Content-Type', 'application/json');
-              res.json({
-                type: 'text',
-                content: textContent,
-                fileName: document.fileName,
-                fileSize: document.fileSize
-              });
-            } catch (error) {
-              res.setHeader('Content-Type', 'application/json');
-              res.json({
-                type: 'text',
-                content: `Error reading text file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                fileName: document.fileName,
-                fileSize: document.fileSize
-              });
-            }
-          } else {
+        // For text files, serve from filesystem (reliable approach)
+        const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+        
+        if (fs.existsSync(filePath)) {
+          try {
+            const textContent = fs.readFileSync(filePath, 'utf-8');
             res.setHeader('Content-Type', 'application/json');
             res.json({
               type: 'text',
-              content: `Text file not found on server.\n\nThe file ${document.fileName} was uploaded but the content is not available for preview.`,
+              content: textContent,
+              fileName: document.fileName,
+              fileSize: document.fileSize
+            });
+          } catch (error) {
+            res.setHeader('Content-Type', 'application/json');
+            res.json({
+              type: 'text',
+              content: `Error reading text file: ${error instanceof Error ? error.message : 'Unknown error'}`,
               fileName: document.fileName,
               fileSize: document.fileSize
             });
           }
+        } else {
+          res.setHeader('Content-Type', 'application/json');
+          res.json({
+            type: 'text',
+            content: `Text file not found on server.\n\nThe file ${document.fileName} was uploaded but the content is not available for preview.`,
+            fileName: document.fileName,
+            fileSize: document.fileSize
+          });
         }
       } else {
         // For other files, show generic document preview
@@ -2025,39 +1984,17 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Try Object Storage first, then fallback to filesystem
-      try {
-        const objectStorage = new ObjectStorageClient();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        // Try to get file from Object Storage
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
-        
-        if (!downloadResult.ok) {
-          throw new Error(`Object storage download failed: ${downloadResult.error}`);
-        }
-        
-        // Convert base64 back to buffer and serve
-        const buffer = Buffer.from(downloadResult.value, 'base64');
+      // Serve from filesystem (reliable approach like your other working systems)
+      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      
+      if (fs.existsSync(filePath)) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-        res.send(buffer);
-        
-      } catch (objectStorageError) {
-        // Fallback to filesystem
-        const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
-        
-        if (fs.existsSync(filePath)) {
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
-          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-          res.sendFile(path.resolve(filePath));
-        } else {
-          res.status(404).json({ message: "File not found on server" });
-        }
+        res.sendFile(path.resolve(filePath));
+      } else {
+        res.status(404).json({ message: "File not found on server" });
       }
     } catch (error) {
       res.status(500).json({ message: "Error serving PDF file" });
@@ -2088,39 +2025,17 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Try Object Storage first, then fallback to filesystem
-      try {
-        const objectStorage = new ObjectStorageClient();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        // Try to get file from Object Storage
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
-        
-        if (!downloadResult.ok) {
-          throw new Error(`Object storage download failed: ${downloadResult.error}`);
-        }
-        
-        // Convert base64 back to buffer and serve
-        const buffer = Buffer.from(downloadResult.value, 'base64');
+      // Serve from filesystem (reliable approach like your other working systems)
+      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      
+      if (fs.existsSync(filePath)) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-        res.send(buffer);
-        
-      } catch (objectStorageError) {
-        // Fallback to filesystem
-        const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
-        
-        if (fs.existsSync(filePath)) {
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `inline; filename="${document.fileName}"`);
-          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-          res.sendFile(path.resolve(filePath));
-        } else {
-          res.status(404).json({ message: "File not found on server" });
-        }
+        res.sendFile(path.resolve(filePath));
+      } else {
+        res.status(404).json({ message: "File not found on server" });
       }
     } catch (error) {
       res.status(500).json({ message: "Error serving PDF file" });
@@ -2140,35 +2055,15 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // Try Object Storage first, then fallback to filesystem
-      try {
-        const objectStorage = new ObjectStorageClient();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        // Try to get file from Object Storage
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
-        
-        if (!downloadResult.ok) {
-          throw new Error(`Object storage download failed: ${downloadResult.error}`);
-        }
-        
-        // Convert base64 back to buffer and serve
-        const buffer = Buffer.from(downloadResult.value, 'base64');
+      // Serve from filesystem (reliable approach like your other working systems)
+      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      
+      if (fs.existsSync(filePath)) {
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
-        res.send(buffer);
-        
-      } catch (objectStorageError) {
-        // Fallback to filesystem
-        const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
-        
-        if (fs.existsSync(filePath)) {
-          res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
-          res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
-          res.sendFile(path.resolve(filePath));
-        } else {
-          res.status(404).json({ message: "File not found on server" });
-        }
+        res.sendFile(path.resolve(filePath));
+      } else {
+        res.status(404).json({ message: "File not found on server" });
       }
     } catch (error) {
       // Error logged
