@@ -1792,33 +1792,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Store file content using Object Storage for production persistence
       if (fileContent) {
-        try {
-          // Use Object Storage for production (persistent across deployments)
-          const { Client } = await import('@replit/object-storage');
-          const objectStorage = new Client();
-          const objectKey = `documents/${document.id}-${document.fileName}`;
-          
-          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
-          
-          if (uploadResult.ok) {
-            console.log(`File uploaded to object storage: ${objectKey}`);
-          } else {
-            throw new Error(`Object storage upload failed: ${uploadResult.error}`);
-          }
-        } catch (storageError) {
-          console.error('Object storage upload failed, using filesystem fallback:', storageError);
-          // Fallback to filesystem for development only
-          const uploadsDir = path.join(process.cwd(), 'uploads');
-          if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
-          }
-          
-          const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
-          const buffer = Buffer.from(fileContent, 'base64');
-          fs.writeFileSync(filePath, buffer);
-          
-          console.log(`File stored locally as fallback: ${filePath}`);
+        // Use Object Storage for production (persistent across deployments)
+        const { Client } = await import('@replit/object-storage');
+        const objectStorage = new Client();
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        const buffer = Buffer.from(fileContent, 'base64');
+        const uploadResult = await objectStorage.uploadFromBuffer(objectKey, buffer);
+        
+        if (!uploadResult.ok) {
+          throw new Error(`Object storage upload failed: ${uploadResult.error}`);
         }
+        
+        console.log(`File uploaded to object storage: ${objectKey}`);
       }
       
       res.status(201).json(document);
@@ -2007,10 +1993,10 @@ This happens because only the file metadata was stored, not the actual file cont
         const objectStorage = new Client();
         const objectKey = `documents/${document.id}-${document.fileName}`;
         
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        const downloadResult = await objectStorage.downloadAsBuffer(objectKey);
         
         if (downloadResult.ok) {
-          const buffer = Buffer.from(downloadResult.value, 'base64');
+          const buffer = downloadResult.value;
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
           res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -2069,10 +2055,10 @@ This happens because only the file metadata was stored, not the actual file cont
         const objectStorage = new Client();
         const objectKey = `documents/${document.id}-${document.fileName}`;
         
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        const downloadResult = await objectStorage.downloadAsBuffer(objectKey);
         
         if (downloadResult.ok) {
-          const buffer = Buffer.from(downloadResult.value, 'base64');
+          const buffer = downloadResult.value;
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
           res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -2120,10 +2106,10 @@ This happens because only the file metadata was stored, not the actual file cont
         const objectStorage = new Client();
         const objectKey = `documents/${document.id}-${document.fileName}`;
         
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
+        const downloadResult = await objectStorage.downloadAsBuffer(objectKey);
         
         if (downloadResult.ok) {
-          const buffer = Buffer.from(downloadResult.value, 'base64');
+          const buffer = downloadResult.value;
           res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
           res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
           res.send(buffer);
