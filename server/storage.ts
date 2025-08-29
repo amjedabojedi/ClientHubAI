@@ -701,7 +701,11 @@ export class DatabaseStorage implements IStorage {
     const clientsQuery = db
       .select({
         client: clients,
-        assignedTherapist: users,
+        assignedTherapist: {
+          id: users.id,
+          fullName: users.fullName,
+          role: users.role
+        },
         sessionCount: sql<number>`(
           SELECT COUNT(*) FROM ${sessions} 
           WHERE ${sessions.clientId} = ${clients.id}
