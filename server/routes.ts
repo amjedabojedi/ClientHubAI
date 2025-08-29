@@ -1977,7 +1977,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // Serve PDF file directly for viewing
+  // Serve PDF file directly for viewing  
   app.get("/api/clients/:clientId/documents/:id/file", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
