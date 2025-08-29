@@ -1555,17 +1555,12 @@ export default function SchedulingPage() {
                               `}
                             >
                             {hasConflict && (
-                              <div className={`absolute top-2 right-2 flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                              <div className={`absolute top-2 right-2 flex items-center px-2 py-1 rounded text-xs ${
                                 conflictInfo.conflictType === 'therapist' ? 'bg-red-100 text-red-700' :
                                 conflictInfo.conflictType === 'room' ? 'bg-orange-100 text-orange-700' :
                                 'bg-red-100 text-red-700'
                               }`}>
                                 <AlertCircle className="w-3 h-3" />
-                                <span>
-                                  {conflictInfo.conflictType === 'therapist' ? 'Schedule' :
-                                   conflictInfo.conflictType === 'room' ? 'Room' :
-                                   'Multiple'} Conflict
-                                </span>
                               </div>
                             )}
                             <div className="flex items-start justify-between">
