@@ -39,7 +39,7 @@ interface BillingRecord {
   insuranceCovered: boolean;
   copayAmount?: number;
   billingDate?: string;
-  paymentStatus: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded';
+  paymentStatus: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded' | 'follow_up';
   paymentAmount?: number;
   paymentDate?: string;
   paymentReference?: string;
@@ -265,6 +265,7 @@ export default function BillingDashboard() {
       case 'paid': return 'bg-green-100 text-green-800';
       case 'denied': return 'bg-red-100 text-red-800';
       case 'refunded': return 'bg-gray-100 text-gray-800';
+      case 'follow_up': return 'bg-orange-100 text-orange-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -276,6 +277,7 @@ export default function BillingDashboard() {
       case 'paid': return <CheckCircle className="h-4 w-4" />;
       case 'denied': return <AlertTriangle className="h-4 w-4" />;
       case 'refunded': return <CreditCard className="h-4 w-4" />;
+      case 'follow_up': return <Eye className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
     }
   };
@@ -458,6 +460,7 @@ export default function BillingDashboard() {
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="denied">Denied</SelectItem>
                   <SelectItem value="refunded">Refunded</SelectItem>
+                  <SelectItem value="follow_up">Follow Up</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -614,6 +617,9 @@ export default function BillingDashboard() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'denied' })}>
                                 Mark Denied
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'follow_up' })}>
+                                Mark Follow Up
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
