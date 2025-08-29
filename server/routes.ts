@@ -1812,8 +1812,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid document data", errors: error.errors });
       }
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Document upload error:', error);
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
