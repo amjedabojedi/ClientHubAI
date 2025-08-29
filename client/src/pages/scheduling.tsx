@@ -1386,8 +1386,11 @@ export default function SchedulingPage() {
                     mode="single"
                     selected={selectedDate}
                     onSelect={(date) => date && setSelectedDate(date)}
-                    showOutsideDays={false}
+                    showOutsideDays={true}
                     className="rounded-md border"
+                    classNames={{
+                      day_outside: "text-slate-300 opacity-50 hover:text-slate-400"
+                    }}
                   />
                 </CardContent>
               </Card>
