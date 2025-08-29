@@ -1,0 +1,126 @@
+2025-08-29 09:48:01.70
+3c676cba
+User
+^
+2025-08-29 09:48:01.70
+3c676cba
+User
+2025-08-29 09:48:01.70
+3c676cba
+User
+TypeError: fetch failed
+2025-08-29 09:48:01.70
+3c676cba
+User
+at node:internal/deps/undici/undici:13510:13
+2025-08-29 09:48:01.70
+3c676cba
+User
+at async getDefaultBucketId (file:///home/runner/workspace/node_modules/@replit/object-storage/dist/index.mjs:62:20)
+2025-08-29 09:48:01.70
+3c676cba
+User
+at async Client.init (file:///home/runner/workspace/node_modules/@replit/object-storage/dist/index.mjs:99:51) {
+2025-08-29 09:48:01.70
+3c676cba
+User
+[cause]: SocketError: other side closed
+2025-08-29 09:48:01.70
+3c676cba
+User
+at Socket. (node:internal/deps/undici/undici:6294:28)
+2025-08-29 09:48:01.70
+3c676cba
+User
+at Socket.emit (node:events:536:35)
+2025-08-29 09:48:01.70
+3c676cba
+User
+at endReadableNT (node:internal/streams/readable:1698:12)
+2025-08-29 09:48:01.70
+3c676cba
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+2025-08-29 09:48:01.70
+3c676cba
+User
+code: 'UND_ERR_SOCKET',
+2025-08-29 09:48:01.70
+3c676cba
+User
+socket: {
+2025-08-29 09:48:01.70
+3c676cba
+User
+localAddress: '127.0.0.1',
+2025-08-29 09:48:01.70
+3c676cba
+User
+localPort: 49708,
+2025-08-29 09:48:01.70
+3c676cba
+User
+remoteAddress: '127.0.0.1',
+2025-08-29 09:48:01.70
+3c676cba
+User
+remotePort: 1106,
+2025-08-29 09:48:01.70
+3c676cba
+User
+remoteFamily: 'IPv4',
+2025-08-29 09:48:01.70
+3c676cba
+User
+timeout: undefined,
+2025-08-29 09:48:01.70
+3c676cba
+User
+bytesWritten: 198,
+2025-08-29 09:48:01.70
+3c676cba
+User
+bytesRead: 0
+2025-08-29 09:48:01.70
+3c676cba
+User
+}
+2025-08-29 09:48:01.70
+3c676cba
+User
+}
+2025-08-29 09:48:01.70
+3c676cba
+User
+}
+2025-08-29 09:48:01.70
+3c676cba
+User
+2025-08-29 09:48:01.70
+3c676cba
+User
+Node.js v20.19.3
+2025-08-29 09:48:01.72
+3c676cba
+User
+npm notice
+2025-08-29 09:48:01.72
+3c676cba
+User
+npm notice New major version of npm available! 10.8.2 -> 11.5.2
+2025-08-29 09:48:01.72
+3c676cba
+User
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.5.2
+2025-08-29 09:48:01.72
+3c676cba
+User
+npm notice To update run: npm install -g npm@11.5.2
+2025-08-29 09:48:01.72
+3c676cba
+User
+npm notice
+2025-08-29 09:48:01.74
+3c676cba
+System
+command finished with error [npm run start]: exit status 1
