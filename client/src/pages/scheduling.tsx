@@ -542,6 +542,20 @@ export default function SchedulingPage() {
     );
   };
 
+  // Get week dates centered around selected date
+  const getWeekDates = (): Date[] => {
+    const startOfWeek = new Date(selectedDate);
+    startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay()); // Start on Sunday
+    
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      weekDates.push(date);
+    }
+    return weekDates;
+  };
+
   // Navigation Functions
   const navigateMonth = (direction: 'prev' | 'next'): void => {
     setCurrentMonth(prev => {
@@ -1377,15 +1391,15 @@ export default function SchedulingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Clock className="w-5 h-5" />
-                    <span>Today's Sessions</span>
+                    <span>{selectedDate.toDateString() === new Date().toDateString() ? "Today's Sessions" : "Sessions for " + selectedDate.toLocaleDateString()}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {getTodaysSessions().length === 0 ? (
+                  {getSessionsForDate(selectedDate).length === 0 ? (
                     <p className="text-slate-600 text-sm">No sessions scheduled for today</p>
                   ) : (
                     <div className="space-y-3">
-                      {getTodaysSessions().slice(0, 5).map((session: Session) => (
+                      {getSessionsForDate(selectedDate).slice(0, 5).map((session: Session) => (
                         <div key={session.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50">
                           <div className="flex items-center justify-between mb-2">
                             <p className="font-medium text-sm">
@@ -1455,7 +1469,7 @@ export default function SchedulingPage() {
                 <CardContent className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600">Today</span>
-                    <span className="font-medium">{getTodaysSessions().length} sessions</span>
+                    <span className="font-medium">{getSessionsForDate(selectedDate).length} sessions</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600">This Month</span>
@@ -1508,7 +1522,7 @@ export default function SchedulingPage() {
                       <p className="text-slate-600">Loading schedule...</p>
                     </div>
                   </div>
-                ) : getTodaysSessions().length === 0 ? (
+                ) : getSessionsForDate(selectedDate).length === 0 ? (
                   <div className="text-center py-12">
                     <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-slate-900 mb-2">No sessions scheduled</h3>
@@ -1520,7 +1534,7 @@ export default function SchedulingPage() {
                   </div>
                   ) : (
                     <div className="space-y-4">
-                      {getTodaysSessions()
+                      {getSessionsForDate(selectedDate)
                         .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
                         .map((session: Session) => {
                           const conflictInfo = getSessionConflictStyle(session);
