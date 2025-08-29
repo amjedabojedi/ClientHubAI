@@ -1790,21 +1790,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.createDocument(validatedData);
 
       
-      // Store file content using Object Storage for production persistence
+      // Store file content
       if (fileContent) {
-        // Use Object Storage for production (persistent across deployments)
-        const { Client } = await import('@replit/object-storage');
-        const objectStorage = new Client();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        const buffer = Buffer.from(fileContent, 'base64');
-        const uploadResult = await objectStorage.uploadFromBuffer(objectKey, buffer);
-        
-        if (!uploadResult.ok) {
-          throw new Error(`Object storage upload failed: ${uploadResult.error}`);
+        if (process.env.NODE_ENV === 'production') {
+          // Use Object Storage for production (persistent across deployments)
+          const { Client } = await import('@replit/object-storage');
+          const objectStorage = new Client();
+          const objectKey = `documents/${document.id}-${document.fileName}`;
+          
+          const buffer = Buffer.from(fileContent, 'base64');
+          const uploadResult = await objectStorage.uploadFromBuffer(objectKey, buffer);
+          
+          if (!uploadResult.ok) {
+            throw new Error(`Object storage upload failed: ${uploadResult.error}`);
+          }
+          
+          console.log(`File uploaded to object storage: ${objectKey}`);
+        } else {
+          // Development: Use filesystem fallback
+          const uploadsDir = path.join(process.cwd(), 'uploads');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          
+          const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
+          const buffer = Buffer.from(fileContent, 'base64');
+          fs.writeFileSync(filePath, buffer);
+          
+          console.log(`File stored locally: ${filePath}`);
         }
-        
-        console.log(`File uploaded to object storage: ${objectKey}`);
       }
       
       res.status(201).json(document);
