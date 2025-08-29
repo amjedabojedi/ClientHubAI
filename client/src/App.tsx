@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -30,6 +30,7 @@ import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
+import BillingDashboard from "@/pages/billing-dashboard";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 
 
@@ -48,6 +49,7 @@ function Navigation() {
       { path: "/", label: "Dashboard", icon: LayoutDashboard },
       { path: "/clients", label: "Clients", icon: Users },
       { path: "/scheduling", label: "Scheduling", icon: Calendar },
+      { path: "/billing", label: "Billing", icon: CreditCard },
       { path: "/tasks", label: "Tasks", icon: CheckSquare },
     ];
 
@@ -203,6 +205,7 @@ function Router() {
           <Route path="/clients" component={ClientsPage} />
           <Route path="/clients/:id" component={ClientDetailPage} />
           <Route path="/scheduling" component={SchedulingPage} />
+          <Route path="/billing" component={BillingDashboard} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
           <Route path="/library" component={LibraryPage} />
