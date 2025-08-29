@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 // Icons
 import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings, Edit, Trash2 } from "lucide-react";
@@ -16,6 +18,7 @@ import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangl
 // Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 // Components
 import { CreateTemplateModal } from "@/components/assessments/create-template-modal";
@@ -58,8 +61,11 @@ export default function AssessmentsPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<AssessmentTemplate | null>(null);
   const [assigningTemplate, setAssigningTemplate] = useState<AssessmentTemplate | null>(null);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [managingAssignment, setManagingAssignment] = useState<AssessmentAssignmentWithDetails | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Fetch assessment templates
   const { data: templates = [], isLoading: templatesLoading } = useQuery<AssessmentTemplateWithDetails[]>({
@@ -148,6 +154,69 @@ export default function AssessmentsPage() {
     },
   });
 
+  // Assignment management mutations
+  const updateAssignmentStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      return apiRequest(`/api/assessments/assignments/${id}`, "PATCH", { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments/assignments"] });
+      toast({
+        title: "Success",
+        description: "Assignment status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update assignment status",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateAssignmentDueDateMutation = useMutation({
+    mutationFn: async ({ id, dueDate }: { id: number; dueDate: string }) => {
+      return apiRequest(`/api/assessments/assignments/${id}`, "PATCH", { dueDate: dueDate || null });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments/assignments"] });
+      toast({
+        title: "Success",
+        description: "Assignment due date updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update assignment due date",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/assessments/assignments/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/assessments/assignments"] });
+      setShowManageModal(false);
+      setManagingAssignment(null);
+      toast({
+        title: "Success",
+        description: "Assignment deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete assignment",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleEditTemplate = (template: AssessmentTemplate) => {
     setEditingTemplate(template);
     setShowEditModal(true);
@@ -155,6 +224,19 @@ export default function AssessmentsPage() {
 
   const handleDeleteTemplate = async (templateId: number) => {
     await deleteTemplateMutation.mutateAsync(templateId);
+  };
+
+  // Assignment management handlers
+  const handleUpdateAssignmentStatus = (assignmentId: number, status: string) => {
+    updateAssignmentStatusMutation.mutate({ id: assignmentId, status });
+  };
+
+  const handleUpdateAssignmentDueDate = (assignmentId: number, dueDate: string) => {
+    updateAssignmentDueDateMutation.mutate({ id: assignmentId, dueDate });
+  };
+
+  const handleDeleteAssignment = (assignmentId: number) => {
+    deleteAssignmentMutation.mutate(assignmentId);
   };
 
   const handleAssignTemplate = (template: AssessmentTemplate) => {
@@ -399,10 +481,26 @@ export default function AssessmentsPage() {
                       <div className="flex flex-col items-end gap-2">
                         {getStatusBadge(assignment.status)}
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            View
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              if (assignment.status === 'completed') {
+                                navigate(`/assessments/${assignment.id}/report`);
+                              } else {
+                                navigate(`/assessments/${assignment.id}/complete`);
+                              }
+                            }}
+                          >
+                            {assignment.status === 'completed' ? 'View Report' : 'Complete'}
                           </Button>
-                          <Button size="sm">
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              setManagingAssignment(assignment);
+                              setShowManageModal(true);
+                            }}
+                          >
                             Manage
                           </Button>
                         </div>
@@ -451,6 +549,81 @@ export default function AssessmentsPage() {
         }}
         template={assigningTemplate || undefined}
       />
+
+      {/* Assignment Management Modal */}
+      <Dialog open={showManageModal} onOpenChange={setShowManageModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Assignment</DialogTitle>
+          </DialogHeader>
+          
+          {managingAssignment && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Assessment</Label>
+                <p className="text-sm text-muted-foreground">{managingAssignment.template.name}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Client</Label>
+                <p className="text-sm text-muted-foreground">
+                  {managingAssignment.client.firstName} {managingAssignment.client.lastName} ({managingAssignment.client.clientId})
+                </p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Status</Label>
+                <Select 
+                  value={managingAssignment.status} 
+                  onValueChange={(value) => {
+                    // Update assignment status
+                    handleUpdateAssignmentStatus(managingAssignment.id, value);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">Due Date</Label>
+                <Input
+                  type="date"
+                  value={managingAssignment.dueDate ? new Date(managingAssignment.dueDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    // Update assignment due date
+                    handleUpdateAssignmentDueDate(managingAssignment.id, e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (managingAssignment) {
+                  handleDeleteAssignment(managingAssignment.id);
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Assignment
+            </Button>
+            
+            <Button variant="outline" onClick={() => setShowManageModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
