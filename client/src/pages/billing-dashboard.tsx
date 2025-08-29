@@ -206,27 +206,43 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 }
 
 export default function BillingDashboard() {
+  // Set default date range to current month
+  const currentDate = new Date();
+  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<BillingRecord | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Fetch billing data with role-based filtering
+  // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ['/api/billing/reports', user?.id],
+    queryKey: ['/api/billing/reports', user?.id, startDate, endDate],
     queryFn: async () => {
       let url = '/api/billing/reports';
+      const params = new URLSearchParams();
+      
+      // Add date range (default to current month)
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
       // If user is not Administrator, filter by their therapist ID
       if (user?.role !== 'Administrator' && user?.id) {
-        url += `?therapistId=${user.id}`;
+        params.append('therapistId', user.id.toString());
       }
+      
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
+      
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch billing data');
       return response.json();
@@ -291,9 +307,8 @@ export default function BillingDashboard() {
     }
   };
 
-  // Only show records when filters are applied (not showing all by default)
-  // For non-admin users, we always have active filters since we filter by therapist automatically
-  const hasActiveFilters = user?.role !== 'Administrator' || selectedStatus !== 'all' || selectedTherapist !== 'all' || selectedService !== 'all' || clientSearch.trim() !== '' || startDate !== '' || endDate !== '';
+  // Always show records now that we default to current month
+  const hasActiveFilters = true;
   
   const allBillingRecords = Array.isArray(billingData) ? billingData : billingData?.billingRecords || [];
   
@@ -595,14 +610,14 @@ export default function BillingDashboard() {
               size="sm"
               onClick={() => {
                 setClientSearch('');
-                setStartDate('');
-                setEndDate('');
+                setStartDate(firstDayOfMonth.toISOString().split('T')[0]);
+                setEndDate(lastDayOfMonth.toISOString().split('T')[0]);
                 setSelectedStatus('all');
                 setSelectedTherapist('all');
                 setSelectedService('all');
               }}
             >
-              Clear All Filters
+              Reset Filters
             </Button>
           </div>
         </CardContent>
