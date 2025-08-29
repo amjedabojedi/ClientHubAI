@@ -279,7 +279,12 @@ export default function BillingDashboard() {
     }
   };
 
-  const filteredBillingRecords = (Array.isArray(billingData) ? billingData : billingData?.billingRecords || []).filter((record: any) => {
+  // Only show records when filters are applied (not showing all by default)
+  const hasActiveFilters = selectedStatus !== 'all' || selectedTherapist !== 'all' || clientSearch.trim() !== '' || startDate !== '' || endDate !== '';
+  
+  const allBillingRecords = Array.isArray(billingData) ? billingData : billingData?.billingRecords || [];
+  
+  const filteredBillingRecords = hasActiveFilters ? allBillingRecords.filter((record: any) => {
     const billingRecord = record.billing || record;
     const client = record.client || {};
     const session = record.session || {};
@@ -301,10 +306,13 @@ export default function BillingDashboard() {
     }
     
     return statusMatch && therapistMatch && clientNameMatch && dateMatch;
-  });
+  }) : [];
 
+  // Summary stats based on all records (for overview) or filtered records (when filtering)
+  const statsData = hasActiveFilters ? filteredBillingRecords : [];
+  
   const summaryStats = {
-    totalOutstanding: filteredBillingRecords
+    totalOutstanding: statsData
       .filter((r: any) => {
         const billing = r.billing || r;
         return billing.paymentStatus === 'pending' || billing.paymentStatus === 'billed';
@@ -313,7 +321,7 @@ export default function BillingDashboard() {
         const billing = r.billing || r;
         return sum + (Number(billing.totalAmount) - Number(billing.paymentAmount || 0));
       }, 0),
-    totalPaid: filteredBillingRecords
+    totalPaid: statsData
       .filter((r: any) => {
         const billing = r.billing || r;
         return billing.paymentStatus === 'paid';
@@ -322,14 +330,16 @@ export default function BillingDashboard() {
         const billing = r.billing || r;
         return sum + Number(billing.paymentAmount || 0);
       }, 0),
-    pendingCount: filteredBillingRecords.filter((r: any) => {
+    pendingCount: statsData.filter((r: any) => {
       const billing = r.billing || r;
       return billing.paymentStatus === 'pending';
     }).length,
-    paidCount: filteredBillingRecords.filter((r: any) => {
+    paidCount: statsData.filter((r: any) => {
       const billing = r.billing || r;
       return billing.paymentStatus === 'paid';
     }).length,
+    totalRecords: statsData.length,
+    totalClients: new Set(statsData.map((r: any) => r.client?.id).filter(Boolean)).size
   };
 
   const handleRecordPayment = (record: BillingRecord) => {
@@ -393,7 +403,7 @@ export default function BillingDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(filteredBillingRecords.map((r: any) => r.client?.id).filter(Boolean)).size}
+              {summaryStats.totalClients}
             </div>
             <p className="text-xs text-muted-foreground">
               With billing records
@@ -406,7 +416,7 @@ export default function BillingDashboard() {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredBillingRecords.length}</div>
+            <div className="text-2xl font-bold">{summaryStats.totalRecords}</div>
             <p className="text-xs text-muted-foreground">
               Billing records
             </p>
@@ -588,11 +598,21 @@ export default function BillingDashboard() {
                 })}
               </TableBody>
             </Table>
-            {filteredBillingRecords.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No billing records found with current filters.
+            {!hasActiveFilters ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">Search Billing Records</h3>
+                <p className="text-sm max-w-sm mx-auto">
+                  Use the filters above to search for specific billing records by client name, 
+                  payment status, therapist, or date range.
+                </p>
               </div>
-            )}
+            ) : filteredBillingRecords.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                No billing records match your current filters.
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>
