@@ -234,7 +234,6 @@ export default function SettingsPage() {
     enabled: !!selectedCategoryId,
     staleTime: 0, // Always refetch to avoid caching issues
     queryFn: () => selectedCategoryId ? fetch(`/api/system-options/categories/${selectedCategoryId}`).then(res => res.json()).then(data => {
-      console.log("Category API response:", data); // Debug logging
       return {
         id: data.id,
         categoryName: data.categoryname || data.categoryName, // Handle both cases

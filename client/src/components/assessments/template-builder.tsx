@@ -207,7 +207,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const moveQuestionUp = async (sectionIndex: number, questionIndex: number) => {
     if (questionIndex === 0) return; // Can't move first question up
     
-    console.log('Moving question up:', questionIndex, sections[sectionIndex].questions[questionIndex]?.text);
     
     const updated = [...sections];
     const questions = [...updated[sectionIndex].questions];
@@ -261,7 +260,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     const questions = sections[sectionIndex].questions;
     if (questionIndex === questions.length - 1) return; // Can't move last question down
     
-    console.log('Moving question down:', questionIndex, questions[questionIndex]?.text);
     
     const updated = [...sections];
     const updatedQuestions = [...updated[sectionIndex].questions];
@@ -346,8 +344,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const moveSectionUp = (sectionIndex: number) => {
     if (sectionIndex === 0) return; // Can't move first section up
     
-    console.log('Moving section up:', sectionIndex, sections[sectionIndex]?.title);
-    console.log('Current sections:', sections.map(s => ({title: s.title, order: s.order})));
     
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
@@ -376,8 +372,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   const moveSectionDown = (sectionIndex: number) => {
     if (sectionIndex === sections.length - 1) return; // Can't move last section down
     
-    console.log('Moving section down:', sectionIndex, sections[sectionIndex]?.title);
-    console.log('Current sections:', sections.map(s => ({title: s.title, order: s.order})));
     
     const newSections = [...sections];
     const temp = newSections[sectionIndex];
