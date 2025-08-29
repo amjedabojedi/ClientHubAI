@@ -279,7 +279,7 @@ export default function BillingDashboard() {
   const filteredBillingRecords = (Array.isArray(billingData) ? billingData : billingData?.billingRecords || []).filter((record: any) => {
     const billingRecord = record.billing || record;
     const statusMatch = selectedStatus === 'all' || billingRecord.paymentStatus === selectedStatus;
-    const therapistMatch = selectedTherapist === 'all' || record.session?.therapist?.id.toString() === selectedTherapist;
+    const therapistMatch = selectedTherapist === 'all' || record.therapist?.id.toString() === selectedTherapist;
     return statusMatch && therapistMatch;
   });
 
@@ -373,7 +373,7 @@ export default function BillingDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(filteredBillingRecords.map((r: any) => r.session?.client?.id).filter(Boolean)).size}
+              {new Set(filteredBillingRecords.map((r: any) => r.client?.id).filter(Boolean)).size}
             </div>
             <p className="text-xs text-muted-foreground">
               With billing records
@@ -464,10 +464,12 @@ export default function BillingDashboard() {
                 {filteredBillingRecords.map((record: any) => {
                   const billing = record.billing || record;
                   const session = record.session || {};
+                  const client = record.client || {};
+                  const therapist = record.therapist || {};
                   return (
                     <TableRow key={billing.id}>
                       <TableCell className="font-medium">
-                        {session.client?.fullName || 'Unknown Client'}
+                        {client.fullName || 'Unknown Client'}
                       </TableCell>
                       <TableCell>{billing.serviceCode}</TableCell>
                       <TableCell>
@@ -476,7 +478,7 @@ export default function BillingDashboard() {
                           : 'N/A'
                         }
                       </TableCell>
-                      <TableCell>{session.therapist?.fullName || 'N/A'}</TableCell>
+                      <TableCell>{therapist.fullName || 'N/A'}</TableCell>
                       <TableCell>${Number(billing.totalAmount).toFixed(2)}</TableCell>
                       <TableCell>${Number(billing.paymentAmount || 0).toFixed(2)}</TableCell>
                       <TableCell>
