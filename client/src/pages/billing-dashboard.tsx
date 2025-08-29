@@ -488,7 +488,7 @@ export default function BillingDashboard() {
                   {Array.from(new Set((billingData || []).map((record: any) => {
                     const service = record.service || {};
                     return service.serviceCode;
-                  }).filter(Boolean))).sort().map((serviceCode: string) => {
+                  }).filter(Boolean))).sort().map((serviceCode: any) => {
                     const serviceRecord = (billingData || []).find((record: any) => record.service?.serviceCode === serviceCode);
                     const service = serviceRecord?.service || {};
                     return (
