@@ -3858,7 +3858,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const billingId = parseInt(req.params.billingId);
       const { status } = req.body;
       
-      if (!['pending', 'billed', 'paid', 'denied', 'refunded'].includes(status)) {
+      if (!['pending', 'billed', 'paid', 'denied', 'refunded', 'follow_up'].includes(status)) {
         return res.status(400).json({ message: "Invalid billing status" });
       }
       
@@ -4527,7 +4527,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const billingId = parseInt(req.params.billingId);
       const { status, amount, date, reference, method, notes } = req.body;
       
-      if (!['pending', 'billed', 'paid', 'denied', 'refunded'].includes(status)) {
+      if (!['pending', 'billed', 'paid', 'denied', 'refunded', 'follow_up'].includes(status)) {
         return res.status(400).json({ message: "Invalid payment status" });
       }
       
