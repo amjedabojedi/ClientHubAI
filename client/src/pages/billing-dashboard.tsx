@@ -519,7 +519,7 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'admin' ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'}`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'admin' || user?.role === 'administrator' ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-2'}`}>
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -580,7 +580,7 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-0">
+            <div className={`min-w-0 ${user?.role !== 'admin' && user?.role !== 'administrator' ? 'md:col-span-2 lg:col-span-2' : ''}`}>
               <Label>Date Range</Label>
               <div className="flex flex-col sm:flex-row gap-8 max-w-full">
                 <div className="w-full sm:w-48 mb-4 sm:mb-0">
