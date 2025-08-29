@@ -582,8 +582,8 @@ export default function BillingDashboard() {
             </div>
             <div className="min-w-0">
               <Label>Date Range</Label>
-              <div className="flex flex-col sm:flex-row gap-4 max-w-full">
-                <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row gap-6 max-w-full">
+                <div className="flex-1 min-w-0 mb-2 sm:mb-0">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -611,7 +611,7 @@ export default function BillingDashboard() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 mt-2 sm:mt-0">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
