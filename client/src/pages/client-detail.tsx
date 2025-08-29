@@ -1416,6 +1416,57 @@ export default function ClientDetailPage() {
                 </CardContent>
               </Card>
 
+              {/* Personal Demographics Card */}
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-slate-50 rounded-t-lg">
+                  <CardTitle className="flex items-center space-x-2 text-lg">
+                    <UserIcon className="w-5 h-5 text-purple-600" />
+                    <span>Personal Information</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  {client.dateOfBirth && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Date of Birth</span>
+                      <span className="text-slate-900 font-medium">
+                        {new Date(client.dateOfBirth).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {client.gender && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Gender</span>
+                      <span className="text-slate-900 font-medium">
+                        {client.gender.charAt(0).toUpperCase() + client.gender.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                  {client.maritalStatus && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Marital Status</span>
+                      <span className="text-slate-900 font-medium">
+                        {client.maritalStatus.charAt(0).toUpperCase() + client.maritalStatus.slice(1).toLowerCase()}
+                      </span>
+                    </div>
+                  )}
+                  {client.preferredLanguage && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Preferred Language</span>
+                      <span className="text-slate-900 font-medium">{client.preferredLanguage}</span>
+                    </div>
+                  )}
+                  {client.referenceNumber && (
+                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-sm font-medium text-slate-600">Reference Number</span>
+                      <span className="text-slate-900 font-medium">{client.referenceNumber}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Clinical Status Row */}
+            <div className="grid grid-cols-1 gap-8">
               {/* Clinical Status Card */}
               <Card className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="bg-slate-50 rounded-t-lg">

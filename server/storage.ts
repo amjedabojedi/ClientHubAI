@@ -780,7 +780,11 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...result.client,
-      assignedTherapist: result.assignedTherapist || undefined,
+      assignedTherapist: result.assignedTherapist ? {
+        id: result.assignedTherapist.id,
+        fullName: result.assignedTherapist.fullName,
+        role: result.assignedTherapist.role,
+      } : undefined,
       sessionCount: result.sessionCount
     };
   }
