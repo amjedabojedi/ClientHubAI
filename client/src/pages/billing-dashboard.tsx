@@ -530,12 +530,12 @@ export default function BillingDashboard() {
                   {Array.from(new Set((billingData || []).map((record: any) => {
                     const service = record.service || {};
                     return service.serviceCode;
-                  }).filter(code => code && code.trim() !== ''))).sort().map((serviceCode: any) => {
+                  }).filter((code): code is string => code && typeof code === 'string' && code.trim() !== ''))).sort().map((serviceCode: string) => {
                     const serviceRecord = (billingData || []).find((record: any) => record.service?.serviceCode === serviceCode);
                     const service = serviceRecord?.service || {};
                     return (
-                      <SelectItem key={serviceCode} value={serviceCode}>
-                        {serviceCode} - {service.serviceName}
+                      <SelectItem key={serviceCode} value={serviceCode || 'unknown'}>
+                        {serviceCode} - {service.serviceName || 'Unknown Service'}
                       </SelectItem>
                     );
                   })}
