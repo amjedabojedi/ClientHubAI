@@ -580,7 +580,7 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div className={`min-w-0 ${user?.role !== 'admin' && user?.role !== 'administrator' ? 'md:col-span-2 lg:col-span-2' : ''}`}>
+            <div className="min-w-0 md:col-span-2 lg:col-span-full">
               <Label>Date Range</Label>
               <div className="flex flex-col sm:flex-row gap-8 max-w-full">
                 <div className="w-full sm:w-48 mb-4 sm:mb-0">
