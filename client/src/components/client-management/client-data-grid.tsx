@@ -89,7 +89,7 @@ export default function ClientDataGrid({
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/clients", queryParams],
     enabled: !!user && !!(user?.user?.id || user?.id), // Only fetch when user is fully loaded
-    staleTime: 0, // Always refetch to ensure fresh data
+    staleTime: 30000, // Cache for 30 seconds for better tab switching performance
   });
 
   const handleSort = (column: string) => {
