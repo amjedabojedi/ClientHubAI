@@ -511,7 +511,7 @@ export default function BillingDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Therapists</SelectItem>
-                  {therapists?.map((therapist: any) => (
+                  {therapists?.filter((therapist: any) => therapist.id && therapist.id.toString().trim() !== '').map((therapist: any) => (
                     <SelectItem key={therapist.id} value={therapist.id.toString()}>
                       {therapist.fullName}
                     </SelectItem>

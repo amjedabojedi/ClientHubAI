@@ -175,7 +175,7 @@ export default function SupervisorAssignments() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {supervisors.map((supervisor) => (
+                          {supervisors.filter(supervisor => supervisor.id && supervisor.id.toString().trim() !== '').map((supervisor) => (
                             <SelectItem key={supervisor.id} value={supervisor.id.toString()}>
                               <div className="flex items-center gap-2">
                                 <Shield className="w-4 h-4" />
@@ -206,7 +206,7 @@ export default function SupervisorAssignments() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {therapists.map((therapist) => (
+                          {therapists.filter(therapist => therapist.id && therapist.id.toString().trim() !== '').map((therapist) => (
                             <SelectItem key={therapist.id} value={therapist.id.toString()}>
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4" />

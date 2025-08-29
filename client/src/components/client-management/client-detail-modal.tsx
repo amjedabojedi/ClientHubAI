@@ -137,7 +137,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
                         <SelectContent>
-                          {genderOptions.options?.map((option: any) => (
+                          {genderOptions.options?.filter((option: any) => (option.optionKey || option.optionkey) && (option.optionKey || option.optionkey).trim() !== '').map((option: any) => (
                             <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
                               {option.optionLabel || option.optionlabel}
                             </SelectItem>
@@ -152,7 +152,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                           <SelectValue placeholder="Select language" />
                         </SelectTrigger>
                         <SelectContent>
-                          {languageOptions.options?.map((option: any) => (
+                          {languageOptions.options?.filter((option: any) => (option.optionKey || option.optionkey) && (option.optionKey || option.optionkey).trim() !== '').map((option: any) => (
                             <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
                               {option.optionLabel || option.optionlabel}
                             </SelectItem>
@@ -219,7 +219,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {clientTypeOptions.options?.map((option: any) => (
+                          {clientTypeOptions.options?.filter((option: any) => (option.optionKey || option.optionkey) && (option.optionKey || option.optionkey).trim() !== '').map((option: any) => (
                             <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
                               {option.optionLabel || option.optionlabel}
                             </SelectItem>

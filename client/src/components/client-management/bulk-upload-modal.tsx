@@ -380,7 +380,7 @@ export default function BulkUploadModal({ trigger }: BulkUploadModalProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="skip">Skip this field</SelectItem>
-                      {parsedData.headers.map((header, index) => (
+                      {parsedData.headers.filter((header: any) => header && header.trim() !== '').map((header, index) => (
                         <SelectItem key={index} value={header}>
                           {header}
                         </SelectItem>

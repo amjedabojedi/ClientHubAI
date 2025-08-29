@@ -280,7 +280,7 @@ export default function TaskHistoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Assignees</SelectItem>
-                  {Array.isArray(therapists) && therapists.map((therapist: UserType) => (
+                  {Array.isArray(therapists) && therapists.filter((therapist: UserType) => therapist.id && therapist.id.toString().trim() !== '').map((therapist: UserType) => (
                     <SelectItem key={therapist.id} value={therapist.id.toString()}>
                       {therapist.fullName}
                     </SelectItem>
