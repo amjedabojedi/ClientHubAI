@@ -174,6 +174,7 @@ export default function SchedulingPage() {
   const { data: sessions = [], isLoading } = useQuery<Session[]>({
     queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 60 * 1000, // Cache for 1 minute - sessions change but not every second
   });
 
   // State for sessions list filters
@@ -203,7 +204,8 @@ export default function SchedulingPage() {
       ...sessionsFilters
     }],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: viewMode === "list"
+    enabled: viewMode === "list",
+    staleTime: 30 * 1000, // Cache for 30 seconds - list view needs fresher data
   });
 
   const allSessions = allSessionsData?.sessions || [];
@@ -212,23 +214,27 @@ export default function SchedulingPage() {
   const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
     queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes - clients don't change often
   });
 
   const { data: therapists = [] } = useQuery<TherapistData[]>({
     queryKey: ["/api/therapists"],
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 10 * 60 * 1000, // Cache for 10 minutes - therapist list rarely changes
   });
 
   // Fetch services for booking
   const { data: services = [] } = useQuery<Service[]>({
     queryKey: ["/api/services"],
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 15 * 60 * 1000, // Cache for 15 minutes - services rarely change
   });
 
   // Fetch rooms for booking
   const { data: rooms = [] } = useQuery<RoomData[]>({
     queryKey: ["/api/rooms"],
     queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 15 * 60 * 1000, // Cache for 15 minutes - rooms rarely change
   });
 
   // Initialize form before queries that depend on it
@@ -389,12 +395,12 @@ export default function SchedulingPage() {
   const getDisplayClientName = (session: Session): string => {
     // Admins and supervisors can see all client names
     if (user?.role === 'admin' || user?.role === 'supervisor') {
-      return session.client?.fullName || session.clientName || 'Unknown Client';
+      return session.client?.fullName || 'Unknown Client';
     }
     
     // Therapists can only see their own clients' names
     if (user?.role === 'therapist' && user?.id === session.therapistId) {
-      return session.client?.fullName || session.clientName || 'Unknown Client';
+      return session.client?.fullName || 'Unknown Client';
     }
     
     // Other users see "Private Session"
@@ -498,8 +504,8 @@ export default function SchedulingPage() {
     
     if (searchQuery) {
       filtered = filtered.filter((session: Session) =>
-        (session.client?.fullName || session.clientName)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (session.therapist?.fullName || session.therapistName)?.toLowerCase().includes(searchQuery.toLowerCase())
+        session.client?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        session.therapist?.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     
@@ -904,7 +910,7 @@ export default function SchedulingPage() {
                               <SelectContent>
                                 {rooms?.map((room) => (
                                   <SelectItem key={room.id} value={room.id.toString()}>
-                                    Room {room.roomNumber || room.roomnumber} - {room.roomName || room.roomname}
+                                    Room {room.roomNumber} - {room.roomName}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -1113,7 +1119,7 @@ export default function SchedulingPage() {
                         <SelectItem value="all">All Therapists</SelectItem>
                         {therapists.map((therapist) => (
                           <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                            {therapist.fullName || therapist.full_name}
+                            {therapist.fullName}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1234,17 +1240,17 @@ export default function SchedulingPage() {
                               
                               <Avatar className="w-12 h-12">
                                 <AvatarFallback className="bg-blue-100 text-blue-600">
-                                  {getInitials(session.client?.fullName || session.clientName || 'UC')}
+                                  {getInitials(session.client?.fullName || 'UC')}
                                 </AvatarFallback>
                               </Avatar>
                               
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
                                   <h3 className="font-medium text-blue-600">
-                                    {session.client?.fullName || session.clientName || 'Unknown Client'}
+                                    {session.client?.fullName || 'Unknown Client'}
                                   </h3>
                                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
-                                    {session.referenceNumber || session.client?.referenceNumber || session.client?.reference_number || 'No Ref#'}
+                                    {session.client?.referenceNumber || 'No Ref#'}
                                   </span>
                                   <Badge className={getStatusColor(session.status)} variant="secondary">
                                     {session.status}
@@ -1253,7 +1259,7 @@ export default function SchedulingPage() {
                                 <div className="space-y-1 text-sm text-slate-600">
                                   <div className="flex items-center space-x-2">
                                     <User className="w-4 h-4" />
-                                    <span>Therapist: {session.therapist?.fullName || session.therapist?.full_name || session.therapistName || 'Unassigned'}</span>
+                                    <span>Therapist: {session.therapist?.fullName || 'Unassigned'}</span>
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     <FileText className="w-4 h-4" />
@@ -1392,15 +1398,15 @@ export default function SchedulingPage() {
                           <div className="flex items-center space-x-3 mb-2">
                             <Avatar className="w-8 h-8">
                               <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                                {getInitials(session.client?.fullName || session.clientName || 'UC')}
+                                {getInitials(session.client?.fullName || 'UC')}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-blue-600">
-                                {session.client?.fullName || session.clientName || 'Unknown Client'}
+                                {session.client?.fullName || 'Unknown Client'}
                               </p>
                               <p className="text-xs text-slate-600">
-                                with {session.therapist?.fullName || session.therapistName || 'Unassigned'}
+                                with {session.therapist?.fullName || 'Unassigned'}
                               </p>
                             </div>
                           </div>
@@ -1553,7 +1559,7 @@ export default function SchedulingPage() {
                                 
                                 <Avatar className="w-12 h-12">
                                   <AvatarFallback className="bg-blue-100 text-blue-600">
-                                    {getInitials(session.client?.fullName || session.clientName || 'UC')}
+                                    {getInitials(session.client?.fullName || 'UC')}
                                   </AvatarFallback>
                                 </Avatar>
                                 

@@ -80,6 +80,7 @@ export interface Client {
     id: number;
     fullName: string;
     email: string;
+    role: string;
   };
   sessionCount?: number;
   taskCount?: number;

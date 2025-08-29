@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Eye, Edit, Trash2, CalendarDays } from "lucide-react";
 import Pagination from "./pagination";
-import { Client } from "@/types/client";
+import { Client, ClientsQueryResult } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -86,7 +86,7 @@ export default function ClientDataGrid({
     return params;
   }, [page, pageSize, debouncedSearch, statusFromTab, filters, sortBy, sortOrder, user]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<ClientsQueryResult>({
     queryKey: ["/api/clients", queryParams],
     enabled: !!user && !!(user?.user?.id || user?.id), // Only fetch when user is fully loaded
     staleTime: 30000, // Cache for 30 seconds for better tab switching performance
@@ -103,7 +103,7 @@ export default function ClientDataGrid({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedClients(data?.clients?.map((c: any) => c.id) || []);
+      setSelectedClients(data?.clients?.map((c: Client) => c.id) || []);
     } else {
       setSelectedClients([]);
     }
