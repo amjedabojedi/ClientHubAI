@@ -25,7 +25,8 @@ import {
   Filter,
   Download,
   Eye,
-  Edit
+  Edit,
+  Mail
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -351,6 +352,44 @@ export default function BillingDashboard() {
     setPaymentDialogOpen(true);
   };
 
+  // Email invoice function following existing pattern from client-detail.tsx
+  const handleEmailInvoice = async (billing: any, client: any) => {
+    try {
+      if (!client?.email) {
+        toast({
+          title: "No email address",
+          description: "Client doesn't have an email address. Please add one in their profile first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`/api/clients/${client.id}/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'email', billingId: billing.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send invoice email');
+      }
+
+      const result = await response.json();
+      toast({
+        title: "Email sent successfully!",
+        description: result.message || `Invoice has been sent to ${client.email}`,
+      });
+    } catch (error: any) {
+      console.error('Invoice email error:', error);
+      toast({
+        title: "Email Error",
+        description: error.message || "Failed to send invoice email. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -599,6 +638,14 @@ export default function BillingDashboard() {
                               Pay
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEmailInvoice(billing, client)}
+                          >
+                            <Mail className="h-3 w-3 mr-1" />
+                            Email
+                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button size="sm" variant="ghost">
