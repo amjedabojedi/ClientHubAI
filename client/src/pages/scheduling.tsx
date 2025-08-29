@@ -170,12 +170,44 @@ export default function SchedulingPage() {
   const therapistIdFromUrl = urlParams.get('therapistId');
   const therapistNameFromUrl = urlParams.get('therapistName');
   
-  // Fetch sessions for the selected date range
+  // Determine which month to fetch based on selected date and view mode
+  const getMonthToFetch = () => {
+    if (viewMode === "month") return currentMonth;
+    // For day/week view, use the selected date's month
+    return selectedDate;
+  };
+
+  const monthToFetch = getMonthToFetch();
+
+  // Fetch sessions for the appropriate month
   const { data: sessions = [], isLoading } = useQuery<Session[]>({
-    queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 60 * 1000, // Cache for 1 minute - sessions change but not every second
   });
+
+  // Also fetch neighboring months for cross-month navigation
+  const prevMonth = new Date(monthToFetch);
+  prevMonth.setMonth(monthToFetch.getMonth() - 1);
+  const nextMonth = new Date(monthToFetch);
+  nextMonth.setMonth(monthToFetch.getMonth() + 1);
+
+  const { data: prevMonthSessions = [] } = useQuery<Session[]>({
+    queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 60 * 1000,
+    enabled: viewMode !== "month" // Only fetch when not in month view
+  });
+
+  const { data: nextMonthSessions = [] } = useQuery<Session[]>({
+    queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 60 * 1000,
+    enabled: viewMode !== "month" // Only fetch when not in month view
+  });
+
+  // Combine all sessions for cross-month availability
+  const allAvailableSessions = [...sessions, ...prevMonthSessions, ...nextMonthSessions];
 
   // State for sessions list filters
   const [sessionsFilters, setSessionsFilters] = useState({
@@ -324,7 +356,10 @@ export default function SchedulingPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
+      // Invalidate all month queries that might be affected
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`] });
       toast({
         title: "Success",
         description: editingSessionId ? "Session updated successfully" : "Session scheduled successfully",
@@ -350,7 +385,9 @@ export default function SchedulingPage() {
     onSuccess: (data, variables) => {
       // Invalidate all session-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${currentMonth.getFullYear()}/${currentMonth.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`] });
       
       // Update the selected session state to reflect the change
       if (selectedSession) {
@@ -499,7 +536,7 @@ export default function SchedulingPage() {
   // Session Filtering and Data Processing
   const filteredSessions = useMemo(() => {
     // Use the appropriate sessions data based on view mode
-    const currentSessions = viewMode === "list" ? allSessions : sessions;
+    const currentSessions = viewMode === "list" ? allSessions : allAvailableSessions;
     let filtered = currentSessions;
     
     if (searchQuery) {
@@ -516,7 +553,7 @@ export default function SchedulingPage() {
     }
     
     return filtered;
-  }, [sessions, allSessions, searchQuery, selectedTherapist, viewMode]);
+  }, [allAvailableSessions, allSessions, searchQuery, selectedTherapist, viewMode]);
 
   const getTodaysSessions = (): Session[] => {
     const today = selectedDate.toISOString().split('T')[0];
