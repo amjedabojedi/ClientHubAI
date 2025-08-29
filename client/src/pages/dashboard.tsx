@@ -163,7 +163,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Key Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 ${
+        user?.role === 'admin' || user?.role === 'supervisor' 
+          ? 'lg:grid-cols-4' 
+          : 'lg:grid-cols-3'
+      }`}>
         {/* Active Clients */}
         <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowAddClientModal(true)}>
           <CardContent className="p-6">
@@ -212,23 +216,25 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Assessment Templates */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/assessments")}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Assessments</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {clientStats?.pendingClients || 0}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">Pending assignments</p>
+        {/* Assessment Templates - Only show for admin/supervisor */}
+        {(user?.role === 'admin' || user?.role === 'supervisor') && (
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/assessments")}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Assessments</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {clientStats?.pendingClients || 0}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Pending assignments</p>
+                </div>
+                <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-purple-600" />
+                </div>
               </div>
-              <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -265,14 +271,17 @@ export default function DashboardPage() {
               <Plus className="w-4 h-4 mr-2" />
               Create Task
             </Button>
-            <Button 
-              className="h-12 justify-start" 
-              variant="outline"
-              onClick={() => setLocation("/assessments")}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Assign Assessment
-            </Button>
+            {/* Only show Assign Assessment for admin/supervisor */}
+            {(user?.role === 'admin' || user?.role === 'supervisor') && (
+              <Button 
+                className="h-12 justify-start" 
+                variant="outline"
+                onClick={() => setLocation("/assessments")}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Assign Assessment
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
