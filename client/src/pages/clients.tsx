@@ -13,9 +13,11 @@ import BulkUploadModal from "@/components/client-management/bulk-upload-modal";
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import { Client } from "@/types/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ClientsPage() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -76,21 +78,25 @@ export default function ClientsPage() {
                 <p className="text-slate-600 mt-1">Manage and organize your client profiles efficiently</p>
               </div>
               <div className="flex items-center space-x-3">
-                <button 
-                  onClick={() => window.open('/api/clients/export', '_blank')}
-                  className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Export</span>
-                </button>
-                <BulkUploadModal 
-                  trigger={
-                    <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
-                      <Upload className="w-4 h-4" />
-                      <span>Import</span>
+                {user?.role === 'Administrator' && (
+                  <>
+                    <button 
+                      onClick={() => window.open('/api/clients/export', '_blank')}
+                      className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Export</span>
                     </button>
-                  }
-                />
+                    <BulkUploadModal 
+                      trigger={
+                        <button className="flex items-center space-x-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">
+                          <Upload className="w-4 h-4" />
+                          <span>Import</span>
+                        </button>
+                      }
+                    />
+                  </>
+                )}
                 <button 
                   onClick={handleOpenAddClientModal}
                   className="flex items-center space-x-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
