@@ -260,6 +260,16 @@ export default function BillingDashboard() {
     }
   });
 
+  // Fetch services for filter
+  const { data: services } = useQuery({
+    queryKey: ['/api/services'],
+    queryFn: async () => {
+      const response = await fetch('/api/services');
+      if (!response.ok) throw new Error('Failed to fetch services');
+      return response.json();
+    }
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ billingId, status }: { billingId: number; status: string }) => {
       const response = await fetch(`/api/billing/${billingId}/status`, {
@@ -557,28 +567,11 @@ export default function BillingDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Services</SelectItem>
-                  {(() => {
-                    const serviceCodes = Array.from(new Set(
-                      (billingData || [])
-                        .map((record: any) => record.service?.serviceCode)
-                        .filter((code: any): code is string => 
-                          code && 
-                          typeof code === 'string' && 
-                          code.trim() !== ''
-                        )
-                    )).sort() as string[];
-                    
-                    return serviceCodes.map((serviceCode: string) => {
-                      const serviceRecord = (billingData || []).find((record: any) => record.service?.serviceCode === serviceCode);
-                      const service = serviceRecord?.service || {};
-                      
-                      return (
-                        <SelectItem key={serviceCode} value={serviceCode}>
-                          {serviceCode} - {service.serviceName || 'Unknown Service'}
-                        </SelectItem>
-                      );
-                    });
-                  })()}
+                  {services?.map((service: any) => (
+                    <SelectItem key={service.serviceCode} value={service.serviceCode}>
+                      {service.serviceCode} - {service.serviceName}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
