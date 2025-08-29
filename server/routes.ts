@@ -2001,28 +2001,7 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Try Object Storage first (production), then filesystem fallback (development)
-      try {
-        const { Client } = await import('@replit/object-storage');
-        const objectStorage = new Client();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
-        
-        if (downloadResult.ok) {
-          const buffer = Buffer.from(downloadResult.value, 'base64');
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
-          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-          res.send(buffer);
-          return;
-        }
-      } catch (error) {
-        console.log('Object storage download failed, trying filesystem:', error);
-      }
-      
-      // Fallback to filesystem for development
+      // Development: Use filesystem directly
       const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
       
       if (fs.existsSync(filePath)) {
@@ -2063,28 +2042,7 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Try Object Storage first (production), then filesystem fallback (development)
-      try {
-        const { Client } = await import('@replit/object-storage');
-        const objectStorage = new Client();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
-        
-        if (downloadResult.ok) {
-          const buffer = Buffer.from(downloadResult.value, 'base64');
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
-          res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-          res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-          res.send(buffer);
-          return;
-        }
-      } catch (error) {
-        console.log('Object storage download failed, trying filesystem:', error);
-      }
-      
-      // Fallback to filesystem for development
+      // Development: Use filesystem directly
       const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
       
       if (fs.existsSync(filePath)) {
