@@ -776,12 +776,12 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Report Section Type</Label>
-                  <Select value={section.reportMapping} onValueChange={(value) => updateSection(sectionIndex, "reportMapping", value)}>
+                  <Select value={section.reportMapping || "none"} onValueChange={(value) => updateSection(sectionIndex, "reportMapping", value === "none" ? "" : value)}>
                     <SelectTrigger className={section.reportMapping ? "border-blue-300 bg-blue-50" : ""}>
                       <SelectValue placeholder="Choose report section type for AI generation..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None (Regular Section)</SelectItem>
+                      <SelectItem value="none">None (Regular Section)</SelectItem>
                       <SelectItem value="clinical_summary">Clinical Summary</SelectItem>
                       <SelectItem value="intervention_plan">Intervention Plan</SelectItem>
                       <SelectItem value="diagnostic_impressions">Diagnostic Impressions</SelectItem>
