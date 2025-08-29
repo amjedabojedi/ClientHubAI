@@ -1371,7 +1371,7 @@ export default function SchedulingPage() {
           </div>
         ) : (
           /* Day/Week View */
-          (<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar Sidebar */}
             <div className="lg:col-span-1">
               <Card>
@@ -1497,7 +1497,7 @@ export default function SchedulingPage() {
               </Card>
             </div>
             {/* Main Schedule View */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
