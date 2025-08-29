@@ -402,7 +402,9 @@ export default function BillingDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Billing Dashboard</h1>
         <div className="flex gap-2">
@@ -476,7 +478,7 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -552,21 +554,27 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="min-w-0">
               <Label>Date Range</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  placeholder="Start Date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <Input
-                  type="date"
-                  placeholder="End Date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+              <div className="flex flex-col sm:flex-row gap-2 max-w-full">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    type="date"
+                    placeholder="Start Date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Input
+                    type="date"
+                    placeholder="End Date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -715,6 +723,8 @@ export default function BillingDashboard() {
           setSelectedBillingRecord(null);
         }}
       />
+        </div>
+      </div>
     </div>
   );
 }
