@@ -235,7 +235,8 @@ export default function BillingDashboard() {
       if (endDate) params.append('endDate', endDate);
       
       // If user is not admin, filter by their therapist ID
-      if (user?.role !== 'admin' && user?.id) {
+      // Admin users should see all records, so no therapist filter for them
+      if (user?.role !== 'admin' && user?.role !== 'administrator' && user?.id) {
         params.append('therapistId', user.id.toString());
       }
       
@@ -243,11 +244,9 @@ export default function BillingDashboard() {
         url += '?' + params.toString();
       }
       
-      console.log('Billing API URL:', url); // Debug log
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch billing data');
       const data = await response.json();
-      console.log('Billing API response:', data.length, 'records'); // Debug log
       return data;
     },
     enabled: !!user // Only fetch when user is loaded
@@ -544,7 +543,7 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            {user?.role === 'admin' && (
+            {(user?.role === 'admin' || user?.role === 'administrator') && (
               <div>
                 <Label htmlFor="therapist-filter">Therapist</Label>
                 <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
