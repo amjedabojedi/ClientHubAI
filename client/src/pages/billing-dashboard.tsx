@@ -206,6 +206,9 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 export default function BillingDashboard() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
+  const [clientSearch, setClientSearch] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<BillingRecord | null>(null);
   const { toast } = useToast();
@@ -278,9 +281,26 @@ export default function BillingDashboard() {
 
   const filteredBillingRecords = (Array.isArray(billingData) ? billingData : billingData?.billingRecords || []).filter((record: any) => {
     const billingRecord = record.billing || record;
+    const client = record.client || {};
+    const session = record.session || {};
+    
     const statusMatch = selectedStatus === 'all' || billingRecord.paymentStatus === selectedStatus;
     const therapistMatch = selectedTherapist === 'all' || record.therapist?.id.toString() === selectedTherapist;
-    return statusMatch && therapistMatch;
+    const clientNameMatch = !clientSearch || (client.fullName && client.fullName.toLowerCase().includes(clientSearch.toLowerCase()));
+    
+    // Date range filtering
+    let dateMatch = true;
+    if (startDate || endDate) {
+      const sessionDate = session.sessionDate ? new Date(session.sessionDate) : null;
+      if (sessionDate) {
+        if (startDate && sessionDate < new Date(startDate)) dateMatch = false;
+        if (endDate && sessionDate > new Date(endDate + 'T23:59:59')) dateMatch = false;
+      } else {
+        dateMatch = false; // Exclude records without session dates when filtering by date
+      }
+    }
+    
+    return statusMatch && therapistMatch && clientNameMatch && dateMatch;
   });
 
   const summaryStats = {
@@ -403,8 +423,17 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="client-search">Client Name</Label>
+              <Input
+                id="client-search"
+                placeholder="Search by client name..."
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+              />
+            </div>
+            <div>
               <Label htmlFor="status-filter">Payment Status</Label>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger>
@@ -420,7 +449,7 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
+            <div>
               <Label htmlFor="therapist-filter">Therapist</Label>
               <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
                 <SelectTrigger>
@@ -436,6 +465,38 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label>Date Range</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  placeholder="Start Date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <Input
+                  type="date"
+                  placeholder="End Date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setClientSearch('');
+                setStartDate('');
+                setEndDate('');
+                setSelectedStatus('all');
+                setSelectedTherapist('all');
+              }}
+            >
+              Clear All Filters
+            </Button>
           </div>
         </CardContent>
       </Card>
