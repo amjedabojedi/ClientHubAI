@@ -206,6 +206,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 export default function BillingDashboard() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
+  const [selectedService, setSelectedService] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -280,7 +281,7 @@ export default function BillingDashboard() {
   };
 
   // Only show records when filters are applied (not showing all by default)
-  const hasActiveFilters = selectedStatus !== 'all' || selectedTherapist !== 'all' || clientSearch.trim() !== '' || startDate !== '' || endDate !== '';
+  const hasActiveFilters = selectedStatus !== 'all' || selectedTherapist !== 'all' || selectedService !== 'all' || clientSearch.trim() !== '' || startDate !== '' || endDate !== '';
   
   const allBillingRecords = Array.isArray(billingData) ? billingData : billingData?.billingRecords || [];
   
@@ -291,6 +292,7 @@ export default function BillingDashboard() {
     
     const statusMatch = selectedStatus === 'all' || billingRecord.paymentStatus === selectedStatus;
     const therapistMatch = selectedTherapist === 'all' || record.therapist?.id.toString() === selectedTherapist;
+    const serviceMatch = selectedService === 'all' || billingRecord.serviceCode === selectedService;
     const clientNameMatch = !clientSearch || (client.fullName && client.fullName.toLowerCase().includes(clientSearch.toLowerCase()));
     
     // Date range filtering
@@ -305,7 +307,7 @@ export default function BillingDashboard() {
       }
     }
     
-    return statusMatch && therapistMatch && clientNameMatch && dateMatch;
+    return statusMatch && therapistMatch && serviceMatch && clientNameMatch && dateMatch;
   }) : [];
 
   // Summary stats based on all records (for overview) or filtered records (when filtering)
@@ -433,7 +435,7 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -476,6 +478,29 @@ export default function BillingDashboard() {
               </Select>
             </div>
             <div>
+              <Label htmlFor="service-filter">Service Code</Label>
+              <Select value={selectedService} onValueChange={setSelectedService}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Services</SelectItem>
+                  {Array.from(new Set((billingData || []).map((record: any) => {
+                    const service = record.service || {};
+                    return service.serviceCode;
+                  }).filter(Boolean))).sort().map((serviceCode: string) => {
+                    const serviceRecord = (billingData || []).find((record: any) => record.service?.serviceCode === serviceCode);
+                    const service = serviceRecord?.service || {};
+                    return (
+                      <SelectItem key={serviceCode} value={serviceCode}>
+                        {serviceCode} - {service.serviceName}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Date Range</Label>
               <div className="flex gap-2">
                 <Input
@@ -503,6 +528,7 @@ export default function BillingDashboard() {
                 setEndDate('');
                 setSelectedStatus('all');
                 setSelectedTherapist('all');
+                setSelectedService('all');
               }}
             >
               Clear All Filters
