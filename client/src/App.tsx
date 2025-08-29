@@ -210,7 +210,42 @@ function Router() {
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
           <Route path="/library" component={LibraryPage} />
-          <Route path="/assessments" component={AssessmentsPage} />
+          <Route path="/assessments" component={() => {
+            const { user } = useAuth();
+            if (user?.role === 'admin' || user?.role === 'supervisor') {
+              return <AssessmentsPage />;
+            } else {
+              // Redirect therapists to dashboard with a message
+              return (
+                <div className="max-w-2xl mx-auto mt-8">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <Shield className="h-5 w-5 text-yellow-400" />
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-yellow-800">
+                          Access Restricted
+                        </h3>
+                        <div className="mt-2 text-sm text-yellow-700">
+                          <p>Assessment template management is restricted to administrators and supervisors.</p>
+                          <p className="mt-2">You can still assign assessments to clients through their individual profiles.</p>
+                        </div>
+                        <div className="mt-4">
+                          <Link href="/clients">
+                            <Button variant="outline" size="sm">
+                              <Users className="h-4 w-4 mr-2" />
+                              Go to Clients
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          }} />
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
           <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
           <Route path="/checklist-management" component={ChecklistManagementPage} />
