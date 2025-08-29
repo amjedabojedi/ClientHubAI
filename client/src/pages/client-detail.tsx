@@ -450,6 +450,80 @@ function ChecklistAssignmentForm({ clientId, onClose }: { clientId: number; onCl
   );
 }
 
+// Docx File Viewer Component
+function DocxFileViewer({ clientId, document }: { clientId: string; document: Document }) {
+  const [htmlContent, setHtmlContent] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDocxContent = async () => {
+      try {
+        const response = await fetch(`/api/clients/${clientId}/documents/${document.id}/docx-viewer`);
+        if (!response.ok) {
+          throw new Error('Failed to load document');
+        }
+        const data = await response.json();
+        setHtmlContent(data.html);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDocxContent();
+  }, [clientId, document.id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2">Loading document...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600 p-4">
+        <p>Error loading document: {error}</p>
+        <Button 
+          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/file`, '_blank')}
+          className="mt-2"
+        >
+          Download Document
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-sm border">
+      <div className="mb-4 flex justify-between items-center">
+        <h3 className="text-lg font-semibold">{document.fileName}</h3>
+        <Button 
+          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/file`, '_blank')}
+          variant="outline"
+          size="sm"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download
+        </Button>
+      </div>
+      <div 
+        className="prose max-w-none docx-content" 
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+        style={{
+          lineHeight: '1.6',
+          fontFamily: 'Times New Roman, serif',
+          fontSize: '14px'
+        }}
+      />
+    </div>
+  );
+}
+
 // Text File Viewer Component
 function TextFileViewer({ clientId, document }: { clientId: string; document: Document }) {
   const [textContent, setTextContent] = useState<string>("");
@@ -828,6 +902,14 @@ export default function ClientDetailPage() {
 
     if (isText) {
       return <TextFileViewer clientId={clientId?.toString() || ''} document={doc} />;
+    }
+
+    // Check if it's a Word document
+    const isDocx = doc.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                   doc.fileName?.toLowerCase().endsWith('.docx') || 
+                   doc.fileName?.toLowerCase().endsWith('.doc');
+    if (isDocx) {
+      return <DocxFileViewer clientId={clientId?.toString() || ''} document={doc} />;
     }
 
     return (
@@ -1540,8 +1622,8 @@ export default function ClientDetailPage() {
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist?.fullName || 'Unknown Therapist'}</h4>
-                      <p className="text-slate-600 text-sm">{client.assignedTherapist?.role?.charAt(0).toUpperCase() + client.assignedTherapist?.role?.slice(1) || 'Therapist'}</p>
+                      <h4 className="font-semibold text-slate-900 mb-1">Therapist Assigned</h4>
+                      <p className="text-slate-600 text-sm">ID: {client.assignedTherapistId}</p>
                     </div>
                   ) : (
                     <div className="text-center py-4">

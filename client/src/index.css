@@ -122,6 +122,69 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800;
   }
   
+  /* Docx content styling */
+  .docx-content {
+    font-family: 'Times New Roman', serif;
+    line-height: 1.6;
+    color: #333;
+  }
+
+  .docx-content p {
+    margin-bottom: 12px;
+  }
+
+  .docx-content h1, .docx-content h2, .docx-content h3 {
+    margin-top: 20px;
+    margin-bottom: 12px;
+    font-weight: bold;
+  }
+
+  .docx-content h1 {
+    font-size: 1.5em;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 4px;
+  }
+
+  .docx-content h2 {
+    font-size: 1.3em;
+    color: #444;
+  }
+
+  .docx-content h3 {
+    font-size: 1.1em;
+    color: #555;
+  }
+
+  .docx-content strong {
+    font-weight: bold;
+  }
+
+  .docx-content em {
+    font-style: italic;
+  }
+
+  .docx-content ul, .docx-content ol {
+    margin-left: 20px;
+    margin-bottom: 12px;
+  }
+
+  .docx-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  .docx-content td, .docx-content th {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+
+  .docx-content th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+  }
+
   .ai-gradient {
     @apply bg-gradient-to-r from-purple-500 to-pink-500;
   }

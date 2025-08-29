@@ -64,6 +64,7 @@
     "html-pdf-node": "^1.0.8",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.453.0",
+    "mammoth": "^1.10.0",
     "memoizee": "^0.4.17",
     "memorystore": "^1.6.7",
     "multer": "^2.0.2",

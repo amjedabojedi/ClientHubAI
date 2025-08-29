@@ -2068,6 +2068,60 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Docx viewer endpoint
+  app.get("/api/clients/:clientId/documents/:id/docx-viewer", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      
+      // Validate parameters
+      if (isNaN(id) || isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid document or client ID" });
+      }
+      
+      // Get document info from database
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Only serve Word documents through this endpoint
+      const isDocx = document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                     document.fileName?.toLowerCase().endsWith('.docx') || 
+                     document.fileName?.toLowerCase().endsWith('.doc');
+      
+      if (!isDocx) {
+        return res.status(400).json({ message: "This endpoint only serves Word documents" });
+      }
+      
+      // Use Object Storage with specific bucket ID
+      const { Client } = await import('@replit/object-storage');
+      const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+      const objectKey = `documents/${document.id}-${document.fileName}`;
+      
+      const downloadResult = await objectStorage.downloadAsText(objectKey);
+      
+      if (downloadResult.ok) {
+        // Convert docx to HTML using mammoth
+        const mammoth = await import('mammoth');
+        const buffer = Buffer.from(downloadResult.value, 'base64');
+        const result = await mammoth.convertToHtml({ buffer: buffer });
+        
+        res.json({ 
+          html: result.value,
+          messages: result.messages 
+        });
+      } else {
+        res.status(404).json({ message: "File not found in storage" });
+      }
+    } catch (error) {
+      console.error('Docx conversion error:', error);
+      res.status(500).json({ message: "Error converting Word document" });
+    }
+  });
+
   app.get("/api/clients/:clientId/documents/:id/download", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
