@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -215,15 +216,22 @@ export default function BillingDashboard() {
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<BillingRecord | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  // Fetch billing data
+  // Fetch billing data with role-based filtering
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ['/api/billing/reports'],
+    queryKey: ['/api/billing/reports', user?.id],
     queryFn: async () => {
-      const response = await fetch('/api/billing/reports');
+      let url = '/api/billing/reports';
+      // If user is not Administrator, filter by their therapist ID
+      if (user?.role !== 'Administrator' && user?.id) {
+        url += `?therapistId=${user.id}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch billing data');
       return response.json();
-    }
+    },
+    enabled: !!user // Only fetch when user is loaded
   });
 
   // Fetch therapists for filter
@@ -284,7 +292,8 @@ export default function BillingDashboard() {
   };
 
   // Only show records when filters are applied (not showing all by default)
-  const hasActiveFilters = selectedStatus !== 'all' || selectedTherapist !== 'all' || selectedService !== 'all' || clientSearch.trim() !== '' || startDate !== '' || endDate !== '';
+  // For non-admin users, we always have active filters since we filter by therapist automatically
+  const hasActiveFilters = user?.role !== 'Administrator' || selectedStatus !== 'all' || selectedTherapist !== 'all' || selectedService !== 'all' || clientSearch.trim() !== '' || startDate !== '' || endDate !== '';
   
   const allBillingRecords = Array.isArray(billingData) ? billingData : billingData?.billingRecords || [];
   
@@ -478,7 +487,7 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'Administrator' ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'}`}>
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -505,22 +514,24 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="therapist-filter">Therapist</Label>
-              <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Therapists</SelectItem>
-                  {therapists?.filter((therapist: any) => therapist.id && therapist.id.toString().trim() !== '').map((therapist: any) => (
-                    <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                      {therapist.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {user?.role === 'Administrator' && (
+              <div>
+                <Label htmlFor="therapist-filter">Therapist</Label>
+                <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Therapists</SelectItem>
+                    {therapists?.filter((therapist: any) => therapist.id && therapist.id.toString().trim() !== '').map((therapist: any) => (
+                      <SelectItem key={therapist.id} value={therapist.id.toString()}>
+                        {therapist.fullName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label htmlFor="service-filter">Service Code</Label>
               <Select value={selectedService} onValueChange={setSelectedService}>
