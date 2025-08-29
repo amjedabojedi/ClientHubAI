@@ -1372,6 +1372,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertSessionSchema.partial().parse(sessionData);
       const session = await storage.updateSession(id, validatedData);
       
+      // Trigger billing when session status changes to completed
+      if (sessionData.status === 'completed') {
+        try {
+          console.log(`Session ${id} completed - checking for billing record`);
+          // Check if billing already exists
+          const existingBilling = await storage.getSessionBilling(id);
+          if (!existingBilling) {
+            console.log(`Creating billing record for session ${id}`);
+            await storage.createSessionBilling(id);
+            console.log(`Billing record created for session ${id}`);
+          } else {
+            console.log(`Billing record already exists for session ${id}`);
+          }
+        } catch (billingError) {
+          console.error(`Error creating billing for session ${id}:`, billingError);
+          // Continue with session update even if billing fails
+        }
+      }
+      
       console.log(`Session ${id} updated successfully`);
       res.json(session);
     } catch (error) {
