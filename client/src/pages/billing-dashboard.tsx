@@ -225,7 +225,7 @@ export default function BillingDashboard() {
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ['/api/billing/reports', user?.id, startDate, endDate],
+    queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService],
     queryFn: async () => {
       let url = '/api/billing/reports';
       const params = new URLSearchParams();
@@ -243,9 +243,12 @@ export default function BillingDashboard() {
         url += '?' + params.toString();
       }
       
+      console.log('Billing API URL:', url); // Debug log
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch billing data');
-      return response.json();
+      const data = await response.json();
+      console.log('Billing API response:', data.length, 'records'); // Debug log
+      return data;
     },
     enabled: !!user // Only fetch when user is loaded
   });
