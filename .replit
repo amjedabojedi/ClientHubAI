@@ -38,3 +38,6 @@ externalPort = 80
 
 [agent]
 integrations = ["javascript_log_in_with_replit==1.0.0", "javascript_database==1.0.0"]
+
+[objectStorage]
+defaultBucketID = "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8"

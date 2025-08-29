@@ -1790,18 +1790,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.createDocument(validatedData);
 
       
-      // Store file content - Use filesystem for all environments
+      // Store file content - Use Object Storage with specific bucket ID
       if (fileContent) {
-        const uploadsDir = path.join(process.cwd(), 'uploads');
-        if (!fs.existsSync(uploadsDir)) {
-          fs.mkdirSync(uploadsDir, { recursive: true });
+        const { Client } = await import('@replit/object-storage');
+        const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
+        
+        if (!uploadResult.ok) {
+          throw new Error(`Object storage upload failed: ${uploadResult.error}`);
         }
         
-        const filePath = path.join(uploadsDir, `${document.id}-${document.fileName}`);
-        const buffer = Buffer.from(fileContent, 'base64');
-        fs.writeFileSync(filePath, buffer);
-        
-        console.log(`File stored: ${filePath}`);
+        console.log(`File uploaded to object storage: ${objectKey}`);
       }
       
       res.status(201).json(document);
@@ -1984,19 +1985,25 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      // Development: Use filesystem directly
-      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      // Use Object Storage with specific bucket ID
+      const { Client } = await import('@replit/object-storage');
+      const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+      const objectKey = `documents/${document.id}-${document.fileName}`;
       
-      if (fs.existsSync(filePath)) {
+      const downloadResult = await objectStorage.downloadAsText(objectKey);
+      
+      if (downloadResult.ok) {
+        const buffer = Buffer.from(downloadResult.value, 'base64');
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-        res.sendFile(path.resolve(filePath));
+        res.send(buffer);
       } else {
-        res.status(404).json({ message: "File not found on server" });
+        res.status(404).json({ message: "File not found in storage" });
       }
     } catch (error) {
+      console.error('File serving error:', error);
       res.status(500).json({ message: "Error serving PDF file" });
     }
   });
@@ -2055,18 +2062,23 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // Development: Use filesystem directly
-      const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+      // Use Object Storage with specific bucket ID
+      const { Client } = await import('@replit/object-storage');
+      const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+      const objectKey = `documents/${document.id}-${document.fileName}`;
       
-      if (fs.existsSync(filePath)) {
+      const downloadResult = await objectStorage.downloadAsText(objectKey);
+      
+      if (downloadResult.ok) {
+        const buffer = Buffer.from(downloadResult.value, 'base64');
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
-        res.sendFile(path.resolve(filePath));
+        res.send(buffer);
       } else {
-        res.status(404).json({ message: "File not found on server" });
+        res.status(404).json({ message: "File not found in storage" });
       }
     } catch (error) {
-      // Error logged
+      console.error('Download error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
