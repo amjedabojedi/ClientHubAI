@@ -1017,6 +1017,11 @@ export default function SchedulingPage() {
                     const isSelected = currentDate.toDateString() === selectedDate.toDateString();
                     const sessionsForDay = getSessionsForDate(currentDate);
                     
+                    // Hide dates outside current month
+                    if (!isCurrentMonth) {
+                      return null;
+                    }
+                    
                     return (
                       <div
                         key={i}
@@ -1381,6 +1386,7 @@ export default function SchedulingPage() {
                     mode="single"
                     selected={selectedDate}
                     onSelect={(date) => date && setSelectedDate(date)}
+                    showOutsideDays={false}
                     className="rounded-md border"
                   />
                 </CardContent>
