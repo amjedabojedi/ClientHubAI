@@ -234,8 +234,8 @@ export default function BillingDashboard() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      // If user is not Administrator, filter by their therapist ID
-      if (user?.role !== 'Administrator' && user?.id) {
+      // If user is not admin, filter by their therapist ID
+      if (user?.role !== 'admin' && user?.id) {
         params.append('therapistId', user.id.toString());
       }
       
@@ -431,7 +431,7 @@ export default function BillingDashboard() {
         <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Billing Dashboard</h1>
-        {user?.role === 'Administrator' && (
+        {user?.role === 'admin' && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
@@ -504,7 +504,7 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'Administrator' ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'}`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'admin' ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'}`}>
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -531,7 +531,7 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            {user?.role === 'Administrator' && (
+            {user?.role === 'admin' && (
               <div>
                 <Label htmlFor="therapist-filter">Therapist</Label>
                 <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
