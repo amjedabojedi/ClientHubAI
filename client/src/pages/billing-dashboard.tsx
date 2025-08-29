@@ -276,21 +276,40 @@ export default function BillingDashboard() {
     }
   };
 
-  const filteredBillingRecords = billingData?.billingRecords?.filter((record: BillingRecord) => {
-    const statusMatch = selectedStatus === 'all' || record.paymentStatus === selectedStatus;
+  const filteredBillingRecords = (Array.isArray(billingData) ? billingData : billingData?.billingRecords || []).filter((record: any) => {
+    const billingRecord = record.billing || record;
+    const statusMatch = selectedStatus === 'all' || billingRecord.paymentStatus === selectedStatus;
     const therapistMatch = selectedTherapist === 'all' || record.session?.therapist?.id.toString() === selectedTherapist;
     return statusMatch && therapistMatch;
-  }) || [];
+  });
 
   const summaryStats = {
     totalOutstanding: filteredBillingRecords
-      .filter((r: BillingRecord) => r.paymentStatus === 'pending' || r.paymentStatus === 'billed')
-      .reduce((sum: number, r: BillingRecord) => sum + (Number(r.totalAmount) - Number(r.paymentAmount || 0)), 0),
+      .filter((r: any) => {
+        const billing = r.billing || r;
+        return billing.paymentStatus === 'pending' || billing.paymentStatus === 'billed';
+      })
+      .reduce((sum: number, r: any) => {
+        const billing = r.billing || r;
+        return sum + (Number(billing.totalAmount) - Number(billing.paymentAmount || 0));
+      }, 0),
     totalPaid: filteredBillingRecords
-      .filter((r: BillingRecord) => r.paymentStatus === 'paid')
-      .reduce((sum: number, r: BillingRecord) => sum + Number(r.paymentAmount || 0), 0),
-    pendingCount: filteredBillingRecords.filter((r: BillingRecord) => r.paymentStatus === 'pending').length,
-    paidCount: filteredBillingRecords.filter((r: BillingRecord) => r.paymentStatus === 'paid').length,
+      .filter((r: any) => {
+        const billing = r.billing || r;
+        return billing.paymentStatus === 'paid';
+      })
+      .reduce((sum: number, r: any) => {
+        const billing = r.billing || r;
+        return sum + Number(billing.paymentAmount || 0);
+      }, 0),
+    pendingCount: filteredBillingRecords.filter((r: any) => {
+      const billing = r.billing || r;
+      return billing.paymentStatus === 'pending';
+    }).length,
+    paidCount: filteredBillingRecords.filter((r: any) => {
+      const billing = r.billing || r;
+      return billing.paymentStatus === 'paid';
+    }).length,
   };
 
   const handleRecordPayment = (record: BillingRecord) => {
@@ -354,7 +373,7 @@ export default function BillingDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Set(filteredBillingRecords.map((r: BillingRecord) => r.session?.client?.id)).size}
+              {new Set(filteredBillingRecords.map((r: any) => r.session?.client?.id).filter(Boolean)).size}
             </div>
             <p className="text-xs text-muted-foreground">
               With billing records
@@ -442,64 +461,68 @@ export default function BillingDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBillingRecords.map((record: BillingRecord) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">
-                      {record.session?.client?.fullName || 'Unknown Client'}
-                    </TableCell>
-                    <TableCell>{record.serviceCode}</TableCell>
-                    <TableCell>
-                      {record.session?.sessionDate 
-                        ? format(new Date(record.session.sessionDate), 'MMM dd, yyyy')
-                        : 'N/A'
-                      }
-                    </TableCell>
-                    <TableCell>{record.session?.therapist?.fullName || 'N/A'}</TableCell>
-                    <TableCell>${Number(record.totalAmount).toFixed(2)}</TableCell>
-                    <TableCell>${Number(record.paymentAmount || 0).toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusBadgeColor(record.paymentStatus)}>
-                        {getStatusIcon(record.paymentStatus)}
-                        <span className="ml-1 capitalize">{record.paymentStatus}</span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {record.paymentStatus === 'pending' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRecordPayment(record)}
-                          >
-                            <CreditCard className="h-3 w-3 mr-1" />
-                            Pay
-                          </Button>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="ghost">
-                              <Edit className="h-3 w-3" />
+                {filteredBillingRecords.map((record: any) => {
+                  const billing = record.billing || record;
+                  const session = record.session || {};
+                  return (
+                    <TableRow key={billing.id}>
+                      <TableCell className="font-medium">
+                        {session.client?.fullName || 'Unknown Client'}
+                      </TableCell>
+                      <TableCell>{billing.serviceCode}</TableCell>
+                      <TableCell>
+                        {session.sessionDate 
+                          ? format(new Date(session.sessionDate), 'MMM dd, yyyy')
+                          : 'N/A'
+                        }
+                      </TableCell>
+                      <TableCell>{session.therapist?.fullName || 'N/A'}</TableCell>
+                      <TableCell>${Number(billing.totalAmount).toFixed(2)}</TableCell>
+                      <TableCell>${Number(billing.paymentAmount || 0).toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusBadgeColor(billing.paymentStatus)}>
+                          {getStatusIcon(billing.paymentStatus)}
+                          <span className="ml-1 capitalize">{billing.paymentStatus}</span>
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {billing.paymentStatus === 'pending' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleRecordPayment(billing)}
+                            >
+                              <CreditCard className="h-3 w-3 mr-1" />
+                              Pay
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: record.id, status: 'pending' })}>
-                              Mark Pending
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: record.id, status: 'billed' })}>
-                              Mark Billed
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: record.id, status: 'paid' })}>
-                              Mark Paid
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: record.id, status: 'denied' })}>
-                              Mark Denied
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost">
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'pending' })}>
+                                Mark Pending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'billed' })}>
+                                Mark Billed
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'paid' })}>
+                                Mark Paid
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'denied' })}>
+                                Mark Denied
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
             {filteredBillingRecords.length === 0 && (
