@@ -527,18 +527,28 @@ export default function BillingDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Services</SelectItem>
-                  {Array.from(new Set((billingData || []).map((record: any) => {
-                    const service = record.service || {};
-                    return service.serviceCode;
-                  }).filter((code): code is string => code && typeof code === 'string' && code.trim() !== ''))).sort().map((serviceCode: string) => {
-                    const serviceRecord = (billingData || []).find((record: any) => record.service?.serviceCode === serviceCode);
-                    const service = serviceRecord?.service || {};
-                    return (
-                      <SelectItem key={serviceCode} value={serviceCode || 'unknown'}>
-                        {serviceCode} - {service.serviceName || 'Unknown Service'}
-                      </SelectItem>
-                    );
-                  })}
+                  {(() => {
+                    const serviceCodes = Array.from(new Set(
+                      (billingData || [])
+                        .map((record: any) => record.service?.serviceCode)
+                        .filter((code: any): code is string => 
+                          code && 
+                          typeof code === 'string' && 
+                          code.trim() !== ''
+                        )
+                    )).sort() as string[];
+                    
+                    return serviceCodes.map((serviceCode: string) => {
+                      const serviceRecord = (billingData || []).find((record: any) => record.service?.serviceCode === serviceCode);
+                      const service = serviceRecord?.service || {};
+                      
+                      return (
+                        <SelectItem key={serviceCode} value={serviceCode}>
+                          {serviceCode} - {service.serviceName || 'Unknown Service'}
+                        </SelectItem>
+                      );
+                    });
+                  })()}
                 </SelectContent>
               </Select>
             </div>
