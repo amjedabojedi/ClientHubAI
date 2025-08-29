@@ -73,7 +73,7 @@ export default function AssessmentsPage() {
 
   // Filter templates
   const filteredTemplates = templates.filter(template => {
-    const matchesSearch = (template.name || template.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          template.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "all" || template.category === selectedCategory;
     return matchesSearch && matchesCategory;
@@ -81,7 +81,7 @@ export default function AssessmentsPage() {
 
   // Filter assignments
   const filteredAssignments = assignments.filter(assignment => {
-    const matchesSearch = (assignment.template.name || assignment.template.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = assignment.template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          `${assignment.client.firstName} ${assignment.client.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
@@ -256,7 +256,7 @@ export default function AssessmentsPage() {
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
-                        <CardTitle className="text-lg">{template.title || template.name}</CardTitle>
+                        <CardTitle className="text-lg">{template.name}</CardTitle>
                         <CardDescription className="line-clamp-2">
                           {template.description}
                         </CardDescription>
@@ -282,7 +282,7 @@ export default function AssessmentsPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete the template "{template.title || template.name}" and all its data. This action cannot be undone.
+                                This will permanently delete the template "{template.name}" and all its data. This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -386,7 +386,7 @@ export default function AssessmentsPage() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           {getStatusIcon(assignment.status)}
-                          <CardTitle className="text-lg">{assignment.template.title || assignment.template.name}</CardTitle>
+                          <CardTitle className="text-lg">{assignment.template.name}</CardTitle>
                         </div>
                         <CardDescription>
                           Assigned to: {assignment.client.firstName} {assignment.client.lastName} ({assignment.client.clientId})
