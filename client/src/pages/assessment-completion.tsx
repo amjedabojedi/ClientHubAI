@@ -85,7 +85,6 @@ export default function AssessmentCompletionPage() {
   const assignmentId = params?.assignmentId ? parseInt(params.assignmentId) : null;
   
   const [responses, setResponses] = useState<Record<number, any>>({});
-  const [sessionFormat, setSessionFormat] = useState<string>('');
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -111,11 +110,6 @@ export default function AssessmentCompletionPage() {
     queryKey: [`/api/assessments/assignments/${assignmentId}/responses`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
-  });
-
-  // Fetch session format options
-  const { data: sessionFormatOptions = [] } = useQuery({
-    queryKey: ["/api/system-options/categories/24"],
   });
 
   // Load existing responses into state (only when initially empty)
@@ -309,6 +303,27 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'multiple_choice':
+        // Special handling for session format question
+        if (question.questionText.toLowerCase().includes('session format')) {
+          const sessionOptions = ['In-Person', 'Online', 'Phone'];
+          return (
+            <RadioGroup
+              value={response.selectedOptions?.[0]?.toString() || ''}
+              onValueChange={(value) => {
+                handleResponseChange(question.id, [parseInt(value)], 'selectedOptions');
+                setTimeout(() => saveResponse(question.id), 100);
+              }}
+            >
+              {sessionOptions.map((option, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <RadioGroupItem value={index.toString()} id={`q${question.id}_${index}`} />
+                  <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          );
+        }
+        
         return (
           <RadioGroup
             value={response.selectedOptions?.[0]?.toString() || ''}
@@ -482,31 +497,6 @@ export default function AssessmentCompletionPage() {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Session Format Selection */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="sessionFormat" className="text-base font-medium text-slate-900">
-                  Session Format <span className="text-red-500">*</span>
-                </Label>
-                <Select value={sessionFormat} onValueChange={setSessionFormat}>
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Select session format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessionFormatOptions?.options?.map((option: any) => (
-                      <SelectItem key={option.id} value={option.optionKey}>
-                        {option.optionLabel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Assessment Info */}
         <Card className="mb-6">
           <CardContent className="p-6">
