@@ -711,7 +711,7 @@ export default function BillingDashboard() {
                       <TableCell className="font-medium">
                         <div>
                           <div>{client.fullName || 'Unknown Client'}</div>
-                          <div className="text-xs text-muted-foreground">{client.clientId}</div>
+                          <div className="text-xs text-muted-foreground">{client.referenceNumber}</div>
                         </div>
                       </TableCell>
                       <TableCell>{billing.serviceCode}</TableCell>
