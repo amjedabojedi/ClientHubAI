@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -218,6 +218,16 @@ export default function BillingDashboard() {
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
+  const [debouncedClientSearch, setDebouncedClientSearch] = useState<string>('');
+  
+  // Debounce client search to prevent excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedClientSearch(clientSearch);
+    }, 500); // 500ms delay
+    
+    return () => clearTimeout(timer);
+  }, [clientSearch]);
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -228,19 +238,24 @@ export default function BillingDashboard() {
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService],
+    queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, debouncedClientSearch],
     queryFn: async () => {
       let url = '/api/billing/reports';
       const params = new URLSearchParams();
       
-      // Add date range (default to current month)
+      // Add all filters to server-side query
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      if (selectedStatus !== 'all') params.append('status', selectedStatus);
+      if (selectedService !== 'all') params.append('serviceCode', selectedService);
+      if (debouncedClientSearch.trim()) params.append('clientSearch', debouncedClientSearch.trim());
       
-      // If user is not admin, filter by their therapist ID
-      // Admin users should see all records, so no therapist filter for them
+      // Role-based therapist filtering
       if (user?.role !== 'admin' && user?.role !== 'administrator' && user?.id) {
         params.append('therapistId', user.id.toString());
+      } else if (selectedTherapist !== 'all') {
+        // Admin users can filter by specific therapist
+        params.append('therapistId', selectedTherapist);
       }
       
       if (params.toString()) {
@@ -252,7 +267,9 @@ export default function BillingDashboard() {
       const data = await response.json();
       return data;
     },
-    enabled: !!user // Only fetch when user is loaded
+    enabled: !!user, // Only fetch when user is loaded
+    staleTime: 30000, // Cache for 30 seconds to prevent excessive refetching
+    refetchOnWindowFocus: false // Prevent refetch on window focus
   });
 
   // Fetch therapists for filter
@@ -322,38 +339,12 @@ export default function BillingDashboard() {
     }
   };
 
-  // Always show records now that we default to current month
-  const hasActiveFilters = true;
-  
+  // All filtering is now done server-side, so we just use the returned data
   const allBillingRecords = Array.isArray(billingData) ? billingData : billingData?.billingRecords || [];
-  
-  const filteredBillingRecords = hasActiveFilters ? allBillingRecords.filter((record: any) => {
-    const billingRecord = record.billing || record;
-    const client = record.client || {};
-    const session = record.session || {};
-    
-    const statusMatch = selectedStatus === 'all' || billingRecord.paymentStatus === selectedStatus;
-    const therapistMatch = selectedTherapist === 'all' || record.therapist?.id.toString() === selectedTherapist;
-    const serviceMatch = selectedService === 'all' || billingRecord.serviceCode === selectedService;
-    const clientNameMatch = !clientSearch || (client.fullName && client.fullName.toLowerCase().includes(clientSearch.toLowerCase()));
-    
-    // Date range filtering
-    let dateMatch = true;
-    if (startDate || endDate) {
-      const sessionDate = session.sessionDate ? new Date(session.sessionDate) : null;
-      if (sessionDate) {
-        if (startDate && sessionDate < new Date(startDate)) dateMatch = false;
-        if (endDate && sessionDate > new Date(endDate + 'T23:59:59')) dateMatch = false;
-      } else {
-        dateMatch = false; // Exclude records without session dates when filtering by date
-      }
-    }
-    
-    return statusMatch && therapistMatch && serviceMatch && clientNameMatch && dateMatch;
-  }) : [];
+  const filteredBillingRecords = allBillingRecords;
 
-  // Summary stats based on all records (for overview) or filtered records (when filtering)
-  const statsData = hasActiveFilters ? filteredBillingRecords : [];
+  // Summary stats are calculated server-side or based on filtered results
+  const statsData = filteredBillingRecords;
   
   const summaryStats = {
     totalOutstanding: statsData
@@ -759,21 +750,15 @@ export default function BillingDashboard() {
                 })}
               </TableBody>
             </Table>
-            {!hasActiveFilters ? (
+            {filteredBillingRecords.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-2">Search Billing Records</h3>
+                <h3 className="text-lg font-medium mb-2">No Records Found</h3>
                 <p className="text-sm max-w-sm mx-auto">
-                  Use the filters above to search for specific billing records by client name, 
-                  payment status, therapist, or date range.
+                  No billing records match your current filters. Try adjusting the date range or other filters.
                 </p>
               </div>
-            ) : filteredBillingRecords.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                No billing records match your current filters.
-              </div>
-            ) : null}
+            )}
           </div>
         </CardContent>
       </Card>
