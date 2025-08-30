@@ -709,7 +709,10 @@ export default function BillingDashboard() {
                   return (
                     <TableRow key={billing.id}>
                       <TableCell className="font-medium">
-                        {client.clientId || client.fullName || 'Unknown Client'}
+                        <div>
+                          <div>{client.fullName || 'Unknown Client'}</div>
+                          <div className="text-xs text-muted-foreground">{client.clientId}</div>
+                        </div>
                       </TableCell>
                       <TableCell>{billing.serviceCode}</TableCell>
                       <TableCell>
