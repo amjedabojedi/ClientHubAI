@@ -573,63 +573,49 @@ export default function BillingDashboard() {
             </div>
             <div className="min-w-0 md:col-span-2 lg:col-span-full">
               <Label>Date Range</Label>
-              <div className="flex flex-col sm:flex-row gap-8 max-w-full">
-                <div className="w-full sm:w-48 mb-4 sm:mb-0">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !startDate && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {startDate ? format(new Date(startDate), "PPP") : <span>Pick start date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <CalendarComponent
-                        mode="single"
-                        selected={startDate ? new Date(startDate) : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            setStartDate(format(date, "yyyy-MM-dd"));
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="w-full sm:w-48">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !endDate && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {endDate ? format(new Date(endDate), "PPP") : <span>Pick end date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <CalendarComponent
-                        mode="single"
-                        selected={endDate ? new Date(endDate) : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            setEndDate(format(date, "yyyy-MM-dd"));
-                          }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+              <div className="flex justify-center">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full max-w-md justify-start text-left font-normal",
+                        (!startDate || !endDate) && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {startDate && endDate ? (
+                        <>
+                          {format(new Date(startDate), "MMM d, yyyy")} - {format(new Date(endDate), "MMM d, yyyy")}
+                        </>
+                      ) : (
+                        <span>Pick date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="center">
+                    <CalendarComponent
+                      mode="range"
+                      selected={{
+                        from: startDate ? new Date(startDate) : undefined,
+                        to: endDate ? new Date(endDate) : undefined,
+                      }}
+                      onSelect={(range) => {
+                        if (range?.from) {
+                          setStartDate(format(range.from, "yyyy-MM-dd"));
+                        }
+                        if (range?.to) {
+                          setEndDate(format(range.to, "yyyy-MM-dd"));
+                        } else if (range?.from && !range?.to) {
+                          // If only start date is selected, clear end date
+                          setEndDate('');
+                        }
+                      }}
+                      numberOfMonths={2}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
