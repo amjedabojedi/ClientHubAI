@@ -573,49 +573,91 @@ export default function BillingDashboard() {
             </div>
             <div className="min-w-0 md:col-span-2 lg:col-span-full">
               <Label>Date Range</Label>
-              <div className="flex justify-center">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full max-w-md justify-start text-left font-normal",
-                        (!startDate || !endDate) && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {startDate && endDate ? (
-                        <>
-                          {format(new Date(startDate), "MMM d, yyyy")} - {format(new Date(endDate), "MMM d, yyyy")}
-                        </>
-                      ) : (
-                        <span>Pick date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <CalendarComponent
-                      mode="range"
-                      selected={{
-                        from: startDate ? new Date(startDate) : undefined,
-                        to: endDate ? new Date(endDate) : undefined,
-                      }}
-                      onSelect={(range) => {
-                        if (range?.from) {
-                          setStartDate(format(range.from, "yyyy-MM-dd"));
-                        }
-                        if (range?.to) {
-                          setEndDate(format(range.to, "yyyy-MM-dd"));
-                        } else if (range?.from && !range?.to) {
-                          // If only start date is selected, clear end date
-                          setEndDate('');
-                        }
-                      }}
-                      numberOfMonths={2}
-                      initialFocus
+              <div className="space-y-3">
+                {/* Quick preset buttons */}
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                      setStartDate(firstDay.toISOString().split('T')[0]);
+                      setEndDate(lastDay.toISOString().split('T')[0]);
+                    }}
+                  >
+                    This Month
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                      const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+                      setStartDate(firstDay.toISOString().split('T')[0]);
+                      setEndDate(lastDay.toISOString().split('T')[0]);
+                    }}
+                  >
+                    Last Month
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+                      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                      setStartDate(threeMonthsAgo.toISOString().split('T')[0]);
+                      setEndDate(lastDay.toISOString().split('T')[0]);
+                    }}
+                  >
+                    Last 3 Months
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const yearStart = new Date(today.getFullYear(), 0, 1);
+                      const yearEnd = new Date(today.getFullYear(), 11, 31);
+                      setStartDate(yearStart.toISOString().split('T')[0]);
+                      setEndDate(yearEnd.toISOString().split('T')[0]);
+                    }}
+                  >
+                    This Year
+                  </Button>
+                </div>
+                
+                {/* Custom date inputs */}
+                <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">From</Label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="mt-1"
                     />
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">To</Label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                
+                {/* Display selected range */}
+                {startDate && endDate && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Selected: {format(new Date(startDate), "MMM d, yyyy")} - {format(new Date(endDate), "MMM d, yyyy")}
+                  </div>
+                )}
               </div>
             </div>
           </div>
