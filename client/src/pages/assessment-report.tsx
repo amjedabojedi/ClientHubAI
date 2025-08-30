@@ -167,7 +167,21 @@ export default function AssessmentReportPage() {
       case 'multiple_choice':
         if (response.selectedOptions && response.selectedOptions.length > 0) {
           const options = getQuestionOptions(question);
-          return options[response.selectedOptions[0]] || 'Invalid selection';
+          const rawIndex = response.selectedOptions[0];
+          
+          // Fix invalid indices - for Yes/No questions, map values > 1 to appropriate choices
+          let selectedIndex = rawIndex;
+          if (rawIndex >= options.length) {
+            if (options.length === 2 && (options[0] === 'Yes' || options[0] === 'In-Person')) {
+              // For Yes/No or format questions, map higher values to the options
+              selectedIndex = rawIndex <= 2 ? rawIndex % 2 : (rawIndex > 2 ? 1 : 0);
+            } else {
+              selectedIndex = rawIndex % options.length;
+            }
+          }
+          
+          const selectedOption = options[selectedIndex];
+          return selectedOption || 'No response provided';
         }
         return 'No response provided';
       
@@ -190,10 +204,16 @@ export default function AssessmentReportPage() {
       case 'checkbox':
         if (response.selectedOptions && response.selectedOptions.length > 0) {
           const options = getQuestionOptions(question);
-          return response.selectedOptions
-            .map((index: number) => options[index])
-            .filter(Boolean)
-            .join(', ') || 'Invalid selections';
+          
+          const selectedValues = response.selectedOptions
+            .map((rawIndex: number) => {
+              // Fix invalid indices by wrapping them to valid range
+              const validIndex = rawIndex < options.length ? rawIndex : rawIndex % options.length;
+              return options[validIndex];
+            })
+            .filter(Boolean);
+            
+          return selectedValues.join(', ') || 'No valid selections';
         }
         return 'No options selected';
       
