@@ -133,6 +133,32 @@ export default function AssessmentReportPage() {
         if (question.questionText?.toLowerCase().includes('session format')) {
           return ['In-Person', 'Online', 'Phone'];
         }
+        
+        // Beck Depression Inventory questions (BDI-II scale)
+        const text = question.questionText?.toLowerCase() || '';
+        if (text.includes('sadness')) {
+          return ['I do not feel sad', 'I feel sad much of the time', 'I am sad all the time', 'I am so sad or unhappy that I cannot stand it'];
+        } else if (text.includes('pessimism')) {
+          return ['I am not discouraged about my future', 'I feel more discouraged about my future than I used to', 'I do not expect things to work out for me', 'I feel my future is hopeless and will only get worse'];
+        } else if (text.includes('past failure')) {
+          return ['I do not feel like a failure', 'I have failed more than I should have', 'As I look back, I see a lot of failures', 'I feel I am a total failure as a person'];
+        } else if (text.includes('loss of pleasure')) {
+          return ['I get as much pleasure as I ever did from things I enjoy', 'I do not enjoy things as much as I used to', 'I get very little pleasure from things I used to enjoy', 'I cannot get any pleasure from things I used to enjoy'];
+        } else if (text.includes('guilty feelings')) {
+          return ['I do not feel particularly guilty', 'I feel guilty over many things I have done or should have done', 'I feel quite guilty most of the time', 'I feel guilty all of the time'];
+        } else if (text.includes('punishment feelings')) {
+          return ['I do not feel I am being punished', 'I feel I may be punished', 'I expect to be punished', 'I feel I am being punished'];
+        } else if (text.includes('self-dislike')) {
+          return ['I feel the same about myself as ever', 'I have lost confidence in myself', 'I am disappointed in myself', 'I dislike myself'];
+        } else if (text.includes('self-criticalness')) {
+          return ['I do not criticize or blame myself more than usual', 'I am more critical of myself than I used to be', 'I criticize myself for all of my faults', 'I blame myself for everything bad that happens'];
+        } else if (text.includes('suicidal thoughts')) {
+          return ['I do not have any thoughts of killing myself', 'I have thoughts of killing myself, but I would not carry them out', 'I would like to kill myself', 'I would kill myself if I had the chance'];
+        } else if (text.includes('crying')) {
+          return ['I do not cry anymore than I used to', 'I cry more than I used to', 'I cry over every little thing', 'I feel like crying, but I cannot'];
+        }
+        
+        // Default to Yes/No for other questions
         return ['Yes', 'No'];
       }
       
