@@ -124,6 +124,41 @@ export default function AssessmentReportPage() {
   const getResponseDisplay = (response: any) => {
     const { question } = response;
     
+    // Helper function to get default options when question.options is null
+    const getQuestionOptions = (question: any) => {
+      if (question.options) return question.options;
+      
+      // Use the same default logic as the completion form
+      if (question.questionType === 'multiple_choice') {
+        if (question.questionText?.toLowerCase().includes('session format')) {
+          return ['In-Person', 'Online', 'Phone'];
+        }
+        return ['Yes', 'No'];
+      }
+      
+      if (question.questionType === 'checkbox') {
+        const text = question.questionText?.toLowerCase() || '';
+        if (text.includes('psychological tools') || text.includes('which psychological')) {
+          return ['Clinical Interview', 'Questionnaires', 'Standardized Tests', 'Behavioral Observation', 'Other'];
+        } else if (text.includes('physical concerns') || text.includes('physical')) {
+          return ['Headaches', 'Sleep problems', 'Fatigue', 'Appetite changes', 'Muscle tension', 'Other physical symptoms'];
+        } else if (text.includes('emotional concerns') || text.includes('emotional')) {
+          return ['Anxiety', 'Depression', 'Anger', 'Fear', 'Sadness', 'Feeling overwhelmed'];
+        } else if (text.includes('social') || text.includes('relational')) {
+          return ['Isolation', 'Relationship conflicts', 'Communication difficulties', 'Trust issues', 'Cultural adjustment'];
+        } else if (text.includes('cognitive') || text.includes('thinking')) {
+          return ['Memory problems', 'Concentration difficulties', 'Confusion', 'Racing thoughts', 'Negative thinking'];
+        } else if (text.includes('medical conditions') || text.includes('chronic')) {
+          return ['Diabetes', 'Heart disease', 'High blood pressure', 'Arthritis', 'Other chronic condition'];
+        } else if (text.includes('trauma') || text.includes('migration') || text.includes('stressors')) {
+          return ['Violence', 'Loss of family/friends', 'Economic hardship', 'Discrimination', 'Language barriers', 'Cultural conflicts'];
+        }
+        return ['Yes', 'No', 'Not applicable'];
+      }
+      
+      return [];
+    };
+    
     switch (question.questionType) {
       case 'short_text':
       case 'long_text':
@@ -131,7 +166,8 @@ export default function AssessmentReportPage() {
       
       case 'multiple_choice':
         if (response.selectedOptions && response.selectedOptions.length > 0) {
-          return question.options?.[response.selectedOptions[0]] || 'Invalid selection';
+          const options = getQuestionOptions(question);
+          return options[response.selectedOptions[0]] || 'Invalid selection';
         }
         return 'No response provided';
       
@@ -153,10 +189,11 @@ export default function AssessmentReportPage() {
       
       case 'checkbox':
         if (response.selectedOptions && response.selectedOptions.length > 0) {
+          const options = getQuestionOptions(question);
           return response.selectedOptions
-            .map((index: number) => question.options?.[index])
+            .map((index: number) => options[index])
             .filter(Boolean)
-            .join(', ');
+            .join(', ') || 'Invalid selections';
         }
         return 'No options selected';
       
