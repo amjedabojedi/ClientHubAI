@@ -77,7 +77,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                 <DialogTitle className="text-2xl font-bold text-slate-900">
                   {client.fullName}
                 </DialogTitle>
-                <p className="text-slate-600">ID: {client.clientId}</p>
+                <p className="text-slate-600">Ref: {client.referenceNumber}</p>
                 <div className="flex items-center space-x-2 mt-1">
                   {getStatusBadge(client.status)}
                   <span className="text-slate-400">•</span>

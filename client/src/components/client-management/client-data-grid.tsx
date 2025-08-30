@@ -261,7 +261,7 @@ export default function ClientDataGrid({
                           >
                             {client.fullName}
                           </p>
-                          <p className="text-sm text-slate-500">ID: {client.clientId}</p>
+                          <p className="text-sm text-slate-500">Ref: {client.referenceNumber}</p>
                         </div>
                       </div>
                     </TableCell>
