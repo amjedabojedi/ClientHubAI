@@ -3868,18 +3868,20 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.get("/api/billing/reports", async (req, res) => {
     try {
-      const { startDate, endDate, therapistId, status } = req.query;
+      const { startDate, endDate, therapistId, status, serviceCode, clientSearch } = req.query;
       
       const reports = await storage.getBillingReports({
         startDate: startDate as string,
         endDate: endDate as string,
         therapistId: therapistId ? parseInt(therapistId as string) : undefined,
-        status: status as string
+        status: status as string,
+        serviceCode: serviceCode as string,
+        clientSearch: clientSearch as string
       });
       
       res.json(reports);
     } catch (error) {
-      // Error logged
+      console.error('Billing reports error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

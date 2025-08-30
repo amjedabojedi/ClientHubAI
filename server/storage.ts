@@ -3074,6 +3074,8 @@ export class DatabaseStorage implements IStorage {
     endDate?: string;
     therapistId?: number;
     status?: string;
+    serviceCode?: string;
+    clientSearch?: string;
   }): Promise<any[]> {
     let query = db.select({
       billing: sessionBilling,
@@ -3104,6 +3106,14 @@ export class DatabaseStorage implements IStorage {
     
     if (params.status) {
       conditions.push(eq(sessionBilling.paymentStatus, params.status as any));
+    }
+    
+    if (params.serviceCode) {
+      conditions.push(eq(sessionBilling.serviceCode, params.serviceCode));
+    }
+    
+    if (params.clientSearch) {
+      conditions.push(sql`LOWER(${clients.fullName}) LIKE LOWER(${'%' + params.clientSearch + '%'})`);
     }
     
     if (conditions.length > 0) {
