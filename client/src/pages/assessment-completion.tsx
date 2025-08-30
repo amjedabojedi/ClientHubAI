@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
 import { 
@@ -84,6 +85,7 @@ export default function AssessmentCompletionPage() {
   const assignmentId = params?.assignmentId ? parseInt(params.assignmentId) : null;
   
   const [responses, setResponses] = useState<Record<number, any>>({});
+  const [sessionFormat, setSessionFormat] = useState<string>('');
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -109,6 +111,11 @@ export default function AssessmentCompletionPage() {
     queryKey: [`/api/assessments/assignments/${assignmentId}/responses`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
+  });
+
+  // Fetch session format options
+  const { data: sessionFormatOptions = [] } = useQuery({
+    queryKey: ["/api/system-options/categories/24"],
   });
 
   // Load existing responses into state (only when initially empty)
@@ -475,6 +482,31 @@ export default function AssessmentCompletionPage() {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Session Format Selection */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="sessionFormat" className="text-base font-medium text-slate-900">
+                  Session Format <span className="text-red-500">*</span>
+                </Label>
+                <Select value={sessionFormat} onValueChange={setSessionFormat}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select session format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sessionFormatOptions?.options?.map((option: any) => (
+                      <SelectItem key={option.id} value={option.optionKey}>
+                        {option.optionLabel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Assessment Info */}
         <Card className="mb-6">
           <CardContent className="p-6">
