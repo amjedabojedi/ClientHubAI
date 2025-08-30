@@ -303,25 +303,18 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'multiple_choice':
-        // Special handling for session format question
-        if (question.questionText.toLowerCase().includes('session format')) {
-          const sessionOptions = ['In-Person', 'Online', 'Phone'];
-          return (
-            <RadioGroup
-              value={response.selectedOptions?.[0]?.toString() || ''}
-              onValueChange={(value) => {
-                handleResponseChange(question.id, [parseInt(value)], 'selectedOptions');
-                setTimeout(() => saveResponse(question.id), 100);
-              }}
-            >
-              {sessionOptions.map((option, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <RadioGroupItem value={index.toString()} id={`q${question.id}_${index}`} />
-                  <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
-                </div>
-              ))}
-            </RadioGroup>
-          );
+        // Provide default options when question.options is null
+        let questionOptions = question.options;
+        
+        if (!questionOptions) {
+          // Special handling for session format question
+          if (question.questionText.toLowerCase().includes('session format')) {
+            questionOptions = ['In-Person', 'Online', 'Phone'];
+          } 
+          // Most other multiple choice questions appear to be Yes/No questions
+          else {
+            questionOptions = ['Yes', 'No'];
+          }
         }
         
         return (
@@ -332,7 +325,7 @@ export default function AssessmentCompletionPage() {
               setTimeout(() => saveResponse(question.id), 100);
             }}
           >
-            {question.options?.map((option, index) => (
+            {questionOptions.map((option, index) => (
               <div key={index} className="flex items-center space-x-2">
                 <RadioGroupItem value={index.toString()} id={`q${question.id}_${index}`} />
                 <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
