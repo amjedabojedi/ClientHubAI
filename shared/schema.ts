@@ -403,7 +403,13 @@ export const sessions = pgTable("sessions", {
   billingNotes: text("billing_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // Performance indexes for session queries
+  therapistIdIdx: index("sessions_therapist_id_idx").on(table.therapistId),
+  clientIdIdx: index("sessions_client_id_idx").on(table.clientId),
+  sessionDateIdx: index("sessions_date_idx").on(table.sessionDate),
+  serviceIdIdx: index("sessions_service_id_idx").on(table.serviceId),
+}));
 
 // Session billing table - Comprehensive billing records
 export const sessionBilling = pgTable("session_billing", {
@@ -425,7 +431,16 @@ export const sessionBilling = pgTable("session_billing", {
   paymentNotes: text("payment_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // Critical performance indexes for billing queries
+  billingDateIdx: index("billing_date_idx").on(table.billingDate),
+  paymentStatusIdx: index("payment_status_idx").on(table.paymentStatus),
+  serviceCodeIdx: index("service_code_idx").on(table.serviceCode),
+  sessionIdIdx: index("session_billing_session_id_idx").on(table.sessionId),
+  // Composite indexes for common query patterns
+  dateStatusIdx: index("billing_date_status_idx").on(table.billingDate, table.paymentStatus),
+  dateServiceIdx: index("billing_date_service_idx").on(table.billingDate, table.serviceCode),
+}));
 
 // Tasks table
 export const tasks = pgTable("tasks", {
