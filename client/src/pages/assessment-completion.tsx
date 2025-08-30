@@ -370,9 +370,34 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'checkbox':
+        // Provide default options when question.options is null
+        let checkboxOptions = question.options;
+        
+        if (!checkboxOptions) {
+          // Provide sensible defaults based on question text
+          if (question.questionText.toLowerCase().includes('psychological tools') || question.questionText.toLowerCase().includes('which psychological')) {
+            checkboxOptions = ['Clinical Interview', 'Questionnaires', 'Standardized Tests', 'Behavioral Observation', 'Other'];
+          } else if (question.questionText.toLowerCase().includes('physical concerns') || question.questionText.toLowerCase().includes('physical')) {
+            checkboxOptions = ['Headaches', 'Sleep problems', 'Fatigue', 'Appetite changes', 'Muscle tension', 'Other physical symptoms'];
+          } else if (question.questionText.toLowerCase().includes('emotional concerns') || question.questionText.toLowerCase().includes('emotional')) {
+            checkboxOptions = ['Anxiety', 'Depression', 'Anger', 'Fear', 'Sadness', 'Feeling overwhelmed'];
+          } else if (question.questionText.toLowerCase().includes('social') || question.questionText.toLowerCase().includes('relational')) {
+            checkboxOptions = ['Isolation', 'Relationship conflicts', 'Communication difficulties', 'Trust issues', 'Cultural adjustment'];
+          } else if (question.questionText.toLowerCase().includes('cognitive') || question.questionText.toLowerCase().includes('thinking')) {
+            checkboxOptions = ['Memory problems', 'Concentration difficulties', 'Confusion', 'Racing thoughts', 'Negative thinking'];
+          } else if (question.questionText.toLowerCase().includes('medical conditions') || question.questionText.toLowerCase().includes('chronic')) {
+            checkboxOptions = ['Diabetes', 'Heart disease', 'High blood pressure', 'Arthritis', 'Other chronic condition'];
+          } else if (question.questionText.toLowerCase().includes('trauma') || question.questionText.toLowerCase().includes('migration') || question.questionText.toLowerCase().includes('stressors')) {
+            checkboxOptions = ['Violence', 'Loss of family/friends', 'Economic hardship', 'Discrimination', 'Language barriers', 'Cultural conflicts'];
+          } else {
+            // Default checkbox options for other questions
+            checkboxOptions = ['Yes', 'No', 'Not applicable'];
+          }
+        }
+        
         return (
           <div className="space-y-2">
-            {question.options?.map((option, index) => (
+            {checkboxOptions.map((option, index) => (
               <div key={index} className="flex items-center space-x-2">
                 <Checkbox
                   id={`q${question.id}_${index}`}
