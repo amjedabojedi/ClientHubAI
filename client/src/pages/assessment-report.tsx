@@ -124,6 +124,40 @@ export default function AssessmentReportPage() {
   const getResponseDisplay = (response: any) => {
     const { question } = response;
     
+    // Get the same default options used in completion form
+    const getDefaultOptions = (question: any) => {
+      if (question.options) return question.options;
+      
+      if (question.questionType === 'multiple_choice') {
+        if (question.questionText?.toLowerCase().includes('session format')) {
+          return ['In-Person', 'Online', 'Phone'];
+        }
+        return ['Yes', 'No'];
+      }
+      
+      if (question.questionType === 'checkbox') {
+        const text = question.questionText?.toLowerCase() || '';
+        if (text.includes('psychological tools')) {
+          return ['Clinical Interview', 'Questionnaires', 'Standardized Tests', 'Behavioral Observation', 'Other'];
+        } else if (text.includes('physical concerns')) {
+          return ['Headaches', 'Sleep problems', 'Fatigue', 'Appetite changes', 'Muscle tension', 'Other physical symptoms'];
+        } else if (text.includes('emotional concerns')) {
+          return ['Anxiety', 'Depression', 'Anger', 'Fear', 'Sadness', 'Feeling overwhelmed'];
+        } else if (text.includes('social') || text.includes('relational')) {
+          return ['Isolation', 'Relationship conflicts', 'Communication difficulties', 'Trust issues', 'Cultural adjustment'];
+        } else if (text.includes('cognitive') || text.includes('thinking')) {
+          return ['Memory problems', 'Concentration difficulties', 'Confusion', 'Racing thoughts', 'Negative thinking'];
+        } else if (text.includes('medical conditions') || text.includes('chronic')) {
+          return ['Diabetes', 'Heart disease', 'High blood pressure', 'Arthritis', 'Other chronic condition'];
+        } else if (text.includes('trauma') || text.includes('migration') || text.includes('stressors')) {
+          return ['Violence', 'Loss of family/friends', 'Economic hardship', 'Discrimination', 'Language barriers', 'Cultural conflicts'];
+        }
+        return ['Yes', 'No', 'Not applicable'];
+      }
+      
+      return [];
+    };
+    
     switch (question.questionType) {
       case 'short_text':
       case 'long_text':
@@ -131,8 +165,9 @@ export default function AssessmentReportPage() {
       
       case 'multiple_choice':
         if (response.selectedOptions && response.selectedOptions.length > 0) {
-          // Just show the raw saved index value - don't make up options
-          return `Selected option ${response.selectedOptions[0]}`;
+          const options = getDefaultOptions(question);
+          const index = response.selectedOptions[0];
+          return options[index] || `Option ${index}`;
         }
         return 'No response provided';
       
@@ -144,8 +179,11 @@ export default function AssessmentReportPage() {
       
       case 'checkbox':
         if (response.selectedOptions && response.selectedOptions.length > 0) {
-          // Just show the raw saved index values - don't make up options
-          return `Selected options: ${response.selectedOptions.join(', ')}`;
+          const options = getDefaultOptions(question);
+          const selectedLabels = response.selectedOptions
+            .map((index: number) => options[index] || `Option ${index}`)
+            .join(', ');
+          return selectedLabels;
         }
         return 'No options selected';
       
