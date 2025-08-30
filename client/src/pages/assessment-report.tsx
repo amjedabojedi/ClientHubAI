@@ -134,7 +134,7 @@ export default function AssessmentReportPage() {
           return ['In-Person', 'Online', 'Phone'];
         }
         
-        // Beck Depression Inventory questions (BDI-II scale)
+        // Beck Depression Inventory questions (BDI-II scale) - ALL questions
         const text = question.questionText?.toLowerCase() || '';
         if (text.includes('sadness')) {
           return ['I do not feel sad', 'I feel sad much of the time', 'I am sad all the time', 'I am so sad or unhappy that I cannot stand it'];
@@ -156,6 +156,110 @@ export default function AssessmentReportPage() {
           return ['I do not have any thoughts of killing myself', 'I have thoughts of killing myself, but I would not carry them out', 'I would like to kill myself', 'I would kill myself if I had the chance'];
         } else if (text.includes('crying')) {
           return ['I do not cry anymore than I used to', 'I cry more than I used to', 'I cry over every little thing', 'I feel like crying, but I cannot'];
+        } else if (text.includes('agitation')) {
+          return ['I am no more restless or wound up than usual', 'I feel more restless or wound up than usual', 'I am so restless or agitated that it is hard to stay still', 'I am so restless or agitated that I have to keep moving or doing something'];
+        } else if (text.includes('loss of interest')) {
+          return ['I have not lost interest in other people or activities', 'I am less interested in other people or things than before', 'I have lost most of my interest in other people or things', 'It is hard to get interested in anything'];
+        } else if (text.includes('indecisiveness')) {
+          return ['I make decisions about as well as ever', 'I find it more difficult to make decisions than usual', 'I have much greater difficulty in making decisions than I used to', 'I have trouble making any decisions'];
+        } else if (text.includes('worthlessness')) {
+          return ['I do not feel worthless', 'I do not consider myself as worthwhile and useful as I used to', 'I feel more worthless as compared to other people', 'I feel utterly worthless'];
+        } else if (text.includes('loss of energy')) {
+          return ['I have as much energy as ever', 'I have less energy than I used to have', 'I do not have enough energy to do very much', 'I do not have enough energy to do anything'];
+        } else if (text.includes('sleeping pattern') || text.includes('changes in sleeping')) {
+          return ['I have not experienced any change in my sleeping pattern', 'I sleep somewhat more/less than usual', 'I sleep a lot more/less than usual', 'I sleep most of the day / I wake up 1-2 hours early and cannot get back to sleep'];
+        } else if (text.includes('irritability')) {
+          return ['I am no more irritable than usual', 'I am more irritable than usual', 'I am much more irritable than usual', 'I am irritable all the time'];
+        } else if (text.includes('appetite')) {
+          return ['I have not experienced any change in my appetite', 'My appetite is somewhat less/greater than usual', 'My appetite is much less/greater than usual', 'I have no appetite at all / I crave food all the time'];
+        } else if (text.includes('concentration')) {
+          return ['I can concentrate as well as ever', 'I cannot concentrate as well as usual', 'It is hard to keep my mind on anything for very long', 'I find I cannot concentrate on anything'];
+        } else if (text.includes('tiredness') || text.includes('fatigue')) {
+          return ['I am no more tired or fatigued than usual', 'I get more tired or fatigued more easily than usual', 'I am too tired or fatigued to do a lot of things I used to do', 'I am too tired or fatigued to do most of the things I used to do'];
+        } else if (text.includes('loss of interest in sex')) {
+          return ['I have not noticed any recent change in my interest in sex', 'I am less interested in sex than I used to be', 'I am much less interested in sex now', 'I have lost interest in sex completely'];
+        }
+        
+        // Beck Anxiety Inventory (BAI) questions
+        else if (text.includes('numbness') || text.includes('tingling')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('feeling hot')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('wobbliness') || text.includes('legs')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('unable to relax')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('fear') && text.includes('worst')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('dizzy') || text.includes('lightheaded')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('heart') && (text.includes('pounding') || text.includes('racing'))) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('unsteady')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('terrified') || text.includes('afraid')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('nervous')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('choking')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('hands') && text.includes('trembling')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('shaky') || text.includes('unsteady')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('fear') && text.includes('control')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('breathing') || text.includes('difficulty')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('fear') && text.includes('dying')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('scared')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('indigestion')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('faint') || text.includes('lightheaded')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('face') && text.includes('flushed')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        } else if (text.includes('hot') || text.includes('cold') || text.includes('sweats')) {
+          return ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+        }
+        
+        // PTSD questions (PCL-5 scale)
+        else if (text.includes('repeated') || text.includes('disturbing') || text.includes('memories')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('dreams') || text.includes('nightmares')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('suddenly acting') || text.includes('feeling') || text.includes('experience')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('upset') && text.includes('reminded')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('physical reactions')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('avoid') && text.includes('thinking')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('avoid') && text.includes('activities')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('trouble remembering')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('loss of interest')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('distant') || text.includes('cut off')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('emotionally numb')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('future') && text.includes('cut short')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('trouble') && text.includes('sleep')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('irritable') || text.includes('angry')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('difficulty concentrating')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('super alert') || text.includes('watchful')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
+        } else if (text.includes('jumpy') || text.includes('startled')) {
+          return ['Not at all', 'A little bit', 'Moderately', 'Quite a bit', 'Extremely'];
         }
         
         // Default to Yes/No for other questions
