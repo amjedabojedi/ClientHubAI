@@ -311,6 +311,12 @@ export default function AssessmentCompletionPage() {
           if (question.questionText.toLowerCase().includes('session format')) {
             questionOptions = ['In-Person', 'Online', 'Phone'];
           } 
+          // Clinical assessment questions (like Self-Dislike, Self-Criticalness) use severity scale
+          else if (question.questionText?.toLowerCase().includes('self-') || 
+                   question.questionText?.toLowerCase().includes('dislike') ||
+                   question.questionText?.toLowerCase().includes('critical')) {
+            questionOptions = ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+          }
           // Most other multiple choice questions appear to be Yes/No questions
           else {
             questionOptions = ['Yes', 'No'];
