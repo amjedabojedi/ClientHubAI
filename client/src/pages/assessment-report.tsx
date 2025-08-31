@@ -122,75 +122,18 @@ export default function AssessmentReportPage() {
   }, {});
 
   const getResponseDisplay = (response: any) => {
-    const { question } = response;
-    
-    // Use the actual responseText saved in database if it exists
+    // Only show responses that have actual text saved in database
     if (response.responseText && response.responseText.trim()) {
       return response.responseText.trim();
-    }
-    
-    // For multiple choice and checkbox, show the actual option text like in completion form
-    if (response.selectedOptions && response.selectedOptions.length > 0) {
-      // Use the same logic as assessment-completion.tsx to get options
-      let questionOptions = question.options;
-      
-      if (!questionOptions) {
-        if (question.questionType === 'multiple_choice') {
-          // Special handling for session format question
-          if (question.questionText?.toLowerCase().includes('session format')) {
-            questionOptions = ['In-Person', 'Online', 'Phone'];
-          } 
-          // Clinical assessment questions (like Self-Dislike, Self-Criticalness) use severity scale
-          else if (question.questionText?.toLowerCase().includes('self-') || 
-                   question.questionText?.toLowerCase().includes('dislike') ||
-                   question.questionText?.toLowerCase().includes('critical')) {
-            questionOptions = ['Not at all', 'Mildly', 'Moderately', 'Severely'];
-          }
-          // Most other multiple choice questions appear to be Yes/No questions
-          else {
-            questionOptions = ['Yes', 'No'];
-          }
-        } else if (question.questionType === 'checkbox') {
-          // Provide sensible defaults based on question text
-          if (question.questionText?.toLowerCase().includes('psychological tools') || question.questionText?.toLowerCase().includes('which psychological')) {
-            questionOptions = ['Clinical Interview', 'Questionnaires', 'Standardized Tests', 'Behavioral Observation', 'Other'];
-          } else if (question.questionText?.toLowerCase().includes('physical concerns') || question.questionText?.toLowerCase().includes('physical')) {
-            questionOptions = ['Headaches', 'Sleep problems', 'Fatigue', 'Appetite changes', 'Muscle tension', 'Other physical symptoms'];
-          } else if (question.questionText?.toLowerCase().includes('emotional concerns') || question.questionText?.toLowerCase().includes('emotional')) {
-            questionOptions = ['Anxiety', 'Depression', 'Anger', 'Fear', 'Sadness', 'Feeling overwhelmed'];
-          } else if (question.questionText?.toLowerCase().includes('social') || question.questionText?.toLowerCase().includes('relational')) {
-            questionOptions = ['Isolation', 'Relationship conflicts', 'Communication difficulties', 'Trust issues', 'Cultural adjustment'];
-          } else if (question.questionText?.toLowerCase().includes('cognitive') || question.questionText?.toLowerCase().includes('thinking')) {
-            questionOptions = ['Memory problems', 'Concentration difficulties', 'Confusion', 'Racing thoughts', 'Negative thinking'];
-          } else if (question.questionText?.toLowerCase().includes('medical conditions') || question.questionText?.toLowerCase().includes('chronic')) {
-            questionOptions = ['Diabetes', 'Heart disease', 'High blood pressure', 'Arthritis', 'Other chronic condition'];
-          } else if (question.questionText?.toLowerCase().includes('trauma') || question.questionText?.toLowerCase().includes('migration') || question.questionText?.toLowerCase().includes('stressors')) {
-            questionOptions = ['Violence', 'Loss of family/friends', 'Economic hardship', 'Discrimination', 'Language barriers', 'Cultural conflicts'];
-          } else {
-            // Default checkbox options for other questions
-            questionOptions = ['Yes', 'No', 'Not applicable'];
-          }
-        }
-      }
-      
-      if (question.questionType === 'multiple_choice') {
-        const selectedIndex = response.selectedOptions[0];
-        return questionOptions?.[selectedIndex] || `Selected: ${selectedIndex}`;
-      } else if (question.questionType === 'checkbox') {
-        const selectedLabels = response.selectedOptions
-          .map((index: number) => questionOptions?.[index] || `Option ${index}`)
-          .join(', ');
-        return selectedLabels;
-      }
-      
-      return `Selected: ${response.selectedOptions.join(', ')}`;
     }
     
     if (response.ratingValue !== null && response.ratingValue !== undefined) {
       return `Rating: ${response.ratingValue}`;
     }
     
-    return 'No response provided';
+    // Don't show multiple choice or checkbox responses since we can't guarantee 
+    // the exact option text matches what the user actually saw when they responded
+    return null;
   };
 
   return (
@@ -626,7 +569,11 @@ export default function AssessmentReportPage() {
                             </div>
                             <div className="bg-slate-50 rounded-lg p-3">
                               {response ? (
-                                <p className="text-slate-700">{getResponseDisplay(response)}</p>
+                                getResponseDisplay(response) ? (
+                                  <p className="text-slate-700">{getResponseDisplay(response)}</p>
+                                ) : (
+                                  <p className="text-slate-500 italic">Response not displayed (unable to verify exact option text)</p>
+                                )
                               ) : (
                                 <p className="text-slate-500 italic">No response provided</p>
                               )}
