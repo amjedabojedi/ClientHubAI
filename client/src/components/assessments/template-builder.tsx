@@ -565,6 +565,10 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
+            console.log(`SAVING OPTIONS for Q${questionId} (${question.type}): "${question.text.substring(0, 50)}..."`);
+            console.log(`- Options array length: ${question.options?.length || 0}`);
+            console.log(`- Options: [${question.options?.slice(0, 3).join(', ')}...]`);
+            
             // Only proceed if we have a valid questionId
             if (!questionId) {
               throw new Error("Question ID is missing - cannot create options");
@@ -585,8 +589,12 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               sortOrder: optionIndex
             }));
 
+            console.log(`- Creating ${optionsData.length} options for Q${questionId}`);
             if (optionsData.length > 0) {
               await apiRequest(`/api/assessments/question-options/bulk`, "POST", { options: optionsData });
+              console.log(`- ✅ Options saved for Q${questionId}`);
+            } else {
+              console.log(`- ⚠️ NO OPTIONS to save for Q${questionId}`);
             }
           }
         });
