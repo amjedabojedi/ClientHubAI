@@ -4176,7 +4176,7 @@ This happens because only the file metadata was stored, not the actual file cont
               <h1 class="invoice-title">INVOICE</h1>
               <p>Invoice #: ${invoiceNumber}</p>
               <p>Date: ${new Date().toLocaleDateString()}</p>
-              ${serviceDate ? `<p>Service Date: ${new Date(serviceDate).toLocaleDateString()}</p>` : ''}
+              ${serviceDate ? `<p>Service Date: ${serviceDate}</p>` : ''}
             </div>
             <div class="company-info">
               <h3>${practiceSettings.name}</h3>
