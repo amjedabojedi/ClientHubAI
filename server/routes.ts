@@ -4057,13 +4057,16 @@ This happens because only the file metadata was stored, not the actual file cont
       if (billingRecords.length === 1) {
         // Single service - use exact session date
         serviceDate = new Date(billingRecords[0].session.sessionDate).toLocaleDateString();
+        console.log('DEBUG: Single service date calculated:', serviceDate, 'from session date:', billingRecords[0].session.sessionDate);
       } else if (billingRecords.length > 1) {
         // Multiple services - show date range
         const dates = billingRecords.map(r => new Date(r.session.sessionDate)).sort((a, b) => a.getTime() - b.getTime());
         const startDate = dates[0].toLocaleDateString();
         const endDate = dates[dates.length - 1].toLocaleDateString();
         serviceDate = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+        console.log('DEBUG: Multiple service date range calculated:', serviceDate);
       }
+      console.log('DEBUG: Final serviceDate value for invoice:', serviceDate);
       
       const invoiceHtml = `
         <!DOCTYPE html>
