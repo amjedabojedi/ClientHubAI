@@ -4051,7 +4051,19 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
-      const serviceDate = billingRecords.length === 1 ? new Date() : null;
+      
+      // Calculate service date range from actual session dates
+      let serviceDate = null;
+      if (billingRecords.length === 1) {
+        // Single service - use exact session date
+        serviceDate = new Date(billingRecords[0].session.sessionDate).toLocaleDateString();
+      } else if (billingRecords.length > 1) {
+        // Multiple services - show date range
+        const dates = billingRecords.map(r => new Date(r.session.sessionDate)).sort((a, b) => a.getTime() - b.getTime());
+        const startDate = dates[0].toLocaleDateString();
+        const endDate = dates[dates.length - 1].toLocaleDateString();
+        serviceDate = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+      }
       
       const invoiceHtml = `
         <!DOCTYPE html>
