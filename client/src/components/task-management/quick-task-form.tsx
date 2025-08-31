@@ -98,7 +98,7 @@ export default function QuickTaskForm({
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks/upcoming"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "tasks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/tasks`] });
       form.reset();
       setOpen(false);
       onSuccess?.();
