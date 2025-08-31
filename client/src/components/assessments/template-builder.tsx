@@ -522,11 +522,17 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
         // Debug logging
         console.log(`Section ${section.title} - reportMapping:`, section.reportMapping, 'typeof:', typeof section.reportMapping);
+        console.log(`Section ${section.title} - full sectionData:`, JSON.stringify(sectionData, null, 2));
 
         let sectionId = section.id;
         if (section.id) {
           // Update existing section
-          await apiRequest(`/api/assessments/sections/${section.id}`, "PATCH", sectionData);
+          try {
+            await apiRequest(`/api/assessments/sections/${section.id}`, "PATCH", sectionData);
+          } catch (error) {
+            console.error(`ERROR updating section ${section.id} (${section.title}):`, error);
+            throw error;
+          }
         } else {
           // Create new section
           const response = await apiRequest(`/api/assessments/sections`, "POST", sectionData);
