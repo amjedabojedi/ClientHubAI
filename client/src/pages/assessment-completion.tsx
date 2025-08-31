@@ -311,11 +311,23 @@ export default function AssessmentCompletionPage() {
           if (question.questionText.toLowerCase().includes('session format')) {
             questionOptions = ['In-Person', 'Online', 'Phone'];
           } 
-          // Clinical assessment questions (like Self-Dislike, Self-Criticalness) use severity scale
-          else if (question.questionText?.toLowerCase().includes('self-') || 
-                   question.questionText?.toLowerCase().includes('dislike') ||
-                   question.questionText?.toLowerCase().includes('critical')) {
-            questionOptions = ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+          // BDI-II Self-Dislike (Item 7)
+          else if (question.questionText?.toLowerCase().includes('self-dislike')) {
+            questionOptions = [
+              'I feel the same about myself as ever.',
+              'I have lost confidence in myself.',
+              'I am disappointed in myself.',
+              'I dislike myself.'
+            ];
+          }
+          // BDI-II Self-Criticalness (Item 8)
+          else if (question.questionText?.toLowerCase().includes('self-criticalness')) {
+            questionOptions = [
+              "I don't criticize or blame myself more than usual.",
+              'I am more critical of myself than I used to be.',
+              'I criticize myself for all of my faults.',
+              'I blame myself for everything bad that happens.'
+            ];
           }
           // Most other multiple choice questions appear to be Yes/No questions
           else {
