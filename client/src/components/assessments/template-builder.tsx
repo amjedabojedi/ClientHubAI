@@ -516,7 +516,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           description: section.description,
           accessLevel: section.accessLevel,
           isScoring: section.isScoring,
-          reportMapping: (section.reportMapping === 'none' ? null : section.reportMapping?.trim()) as any,
+          reportMapping: (section.reportMapping === 'none' || !section.reportMapping?.trim() ? null : section.reportMapping.trim()) as any,
           aiReportPrompt: section.aiReportPrompt || null,
           sortOrder: section.order
         };
