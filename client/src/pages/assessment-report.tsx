@@ -122,22 +122,69 @@ export default function AssessmentReportPage() {
   }, {});
 
   const getResponseDisplay = (response: any) => {
+    const { question } = response;
+    
     // Show actual text responses
     if (response.responseText && response.responseText.trim()) {
       return response.responseText.trim();
     }
     
-    // Show actual rating values
+    // Show actual rating values  
     if (response.ratingValue !== null && response.ratingValue !== undefined) {
       return `Rating: ${response.ratingValue}`;
     }
     
-    // Show the raw selected option numbers as saved in database
+    // Show the exact labels for selected options (same logic as completion form)
     if (response.selectedOptions && response.selectedOptions.length > 0) {
-      if (response.selectedOptions.length === 1) {
-        return `Selected option: ${response.selectedOptions[0]}`;
-      } else {
-        return `Selected options: ${response.selectedOptions.join(', ')}`;
+      let questionOptions = question.options;
+      
+      if (!questionOptions) {
+        if (question.questionType === 'multiple_choice') {
+          // Special handling for session format question
+          if (question.questionText?.toLowerCase().includes('session format')) {
+            questionOptions = ['In-Person', 'Online', 'Phone'];
+          } 
+          // Clinical assessment questions (like Self-Dislike, Self-Criticalness) use severity scale
+          else if (question.questionText?.toLowerCase().includes('self-') || 
+                   question.questionText?.toLowerCase().includes('dislike') ||
+                   question.questionText?.toLowerCase().includes('critical')) {
+            questionOptions = ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+          }
+          // Most other multiple choice questions appear to be Yes/No questions
+          else {
+            questionOptions = ['Yes', 'No'];
+          }
+        } else if (question.questionType === 'checkbox') {
+          // Provide sensible defaults based on question text
+          if (question.questionText?.toLowerCase().includes('psychological tools') || question.questionText?.toLowerCase().includes('which psychological')) {
+            questionOptions = ['Clinical Interview', 'Questionnaires', 'Standardized Tests', 'Behavioral Observation', 'Other'];
+          } else if (question.questionText?.toLowerCase().includes('physical concerns') || question.questionText?.toLowerCase().includes('physical')) {
+            questionOptions = ['Headaches', 'Sleep problems', 'Fatigue', 'Appetite changes', 'Muscle tension', 'Other physical symptoms'];
+          } else if (question.questionText?.toLowerCase().includes('emotional concerns') || question.questionText?.toLowerCase().includes('emotional')) {
+            questionOptions = ['Anxiety', 'Depression', 'Anger', 'Fear', 'Sadness', 'Feeling overwhelmed'];
+          } else if (question.questionText?.toLowerCase().includes('social') || question.questionText?.toLowerCase().includes('relational')) {
+            questionOptions = ['Isolation', 'Relationship conflicts', 'Communication difficulties', 'Trust issues', 'Cultural adjustment'];
+          } else if (question.questionText?.toLowerCase().includes('cognitive') || question.questionText?.toLowerCase().includes('thinking')) {
+            questionOptions = ['Memory problems', 'Concentration difficulties', 'Confusion', 'Racing thoughts', 'Negative thinking'];
+          } else if (question.questionText?.toLowerCase().includes('medical conditions') || question.questionText?.toLowerCase().includes('chronic')) {
+            questionOptions = ['Diabetes', 'Heart disease', 'High blood pressure', 'Arthritis', 'Other chronic condition'];
+          } else if (question.questionText?.toLowerCase().includes('trauma') || question.questionText?.toLowerCase().includes('migration') || question.questionText?.toLowerCase().includes('stressors')) {
+            questionOptions = ['Violence', 'Loss of family/friends', 'Economic hardship', 'Discrimination', 'Language barriers', 'Cultural conflicts'];
+          } else {
+            // Default checkbox options for other questions
+            questionOptions = ['Yes', 'No', 'Not applicable'];
+          }
+        }
+      }
+      
+      if (question.questionType === 'multiple_choice') {
+        const selectedIndex = response.selectedOptions[0];
+        return questionOptions?.[selectedIndex] || `Selected option: ${selectedIndex}`;
+      } else if (question.questionType === 'checkbox') {
+        const selectedLabels = response.selectedOptions
+          .map((index: number) => questionOptions?.[index] || `Option ${index}`)
+          .join(', ');
+        return selectedLabels;
       }
     }
     
