@@ -1551,8 +1551,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tasks/recent", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      // For now, return empty array - will be properly implemented when adding task methods
-      res.json([]);
+      const recentTasks = await storage.getRecentTasks(limit);
+      res.json(recentTasks);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -1562,8 +1562,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tasks/upcoming", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      // For now, return empty array - will be properly implemented when adding task methods
-      res.json([]);
+      const upcomingTasks = await storage.getUpcomingTasks(limit);
+      res.json(upcomingTasks);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
