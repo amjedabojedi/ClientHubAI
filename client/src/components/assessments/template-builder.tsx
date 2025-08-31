@@ -776,21 +776,15 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None (Regular Section)</SelectItem>
-                      <SelectItem value="clinical_summary">Clinical Summary</SelectItem>
-                      <SelectItem value="intervention_plan">Intervention Plan</SelectItem>
-                      <SelectItem value="diagnostic_impressions">Diagnostic Impressions</SelectItem>
-                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
-                      <SelectItem value="recommendations">Recommendations</SelectItem>
-                      <SelectItem value="prognosis">Prognosis</SelectItem>
-                      <SelectItem value="follow_up">Follow-up Plan</SelectItem>
-                      <SelectItem value="additional_notes">Additional Notes</SelectItem>
                       <SelectItem value="referral_reason">Referral Reason</SelectItem>
                       <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
                       <SelectItem value="background_history">Background History</SelectItem>
                       <SelectItem value="mental_status_exam">Mental Status Exam</SelectItem>
+                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
                       <SelectItem value="treatment_recommendations">Treatment Recommendations</SelectItem>
                       <SelectItem value="goals_objectives">Goals & Objectives</SelectItem>
                       <SelectItem value="summary_impressions">Summary & Impressions</SelectItem>
+                      <SelectItem value="objective_findings">Objective Findings</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
