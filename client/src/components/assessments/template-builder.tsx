@@ -520,6 +520,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           sortOrder: section.order
         };
 
+        // Debug logging
+        console.log(`Section ${section.title} - reportMapping:`, section.reportMapping, 'typeof:', typeof section.reportMapping);
+
         let sectionId = section.id;
         if (section.id) {
           // Update existing section
