@@ -122,7 +122,7 @@ export default function AssessmentReportPage() {
   }, {});
 
   const getResponseDisplay = (response: any) => {
-    // ONLY show what is actually saved in the database - no fake labels
+    const { question } = response;
     
     // Show actual text responses
     if (response.responseText && response.responseText.trim()) {
@@ -134,12 +134,30 @@ export default function AssessmentReportPage() {
       return `Rating: ${response.ratingValue}`;
     }
     
-    // Show raw option numbers as saved in database (no fake labels)
+    // Show the exact labels that were used in the completion form when users made their selections
     if (response.selectedOptions && response.selectedOptions.length > 0) {
-      if (response.selectedOptions.length === 1) {
-        return `Option ${response.selectedOptions[0]}`;
-      } else {
-        return `Options: ${response.selectedOptions.join(', ')}`;
+      // Use the SAME EXACT logic as completion form to recreate the options the user saw
+      let questionOptions = question.options;
+      
+      if (!questionOptions) {
+        if (question.questionType === 'multiple_choice') {
+          if (question.questionText?.toLowerCase().includes('session format')) {
+            questionOptions = ['In-Person', 'Online', 'Phone'];
+          } 
+          else if (question.questionText?.toLowerCase().includes('self-') || 
+                   question.questionText?.toLowerCase().includes('dislike') ||
+                   question.questionText?.toLowerCase().includes('critical')) {
+            questionOptions = ['Not at all', 'Mildly', 'Moderately', 'Severely'];
+          }
+          else {
+            questionOptions = ['Yes', 'No'];
+          }
+        }
+      }
+      
+      if (question.questionType === 'multiple_choice') {
+        const selectedIndex = response.selectedOptions[0];
+        return questionOptions?.[selectedIndex] || `Option ${selectedIndex}`;
       }
     }
     
