@@ -467,6 +467,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const saveTemplate = async () => {
+    console.log('=== SAVE TEMPLATE STARTED ===');
     setIsSaving(true);
     const startTime = Date.now();
     const totalQuestions = sections.reduce((total, s) => total + s.questions.length, 0);
