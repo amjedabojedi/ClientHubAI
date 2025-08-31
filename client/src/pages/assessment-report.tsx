@@ -122,18 +122,26 @@ export default function AssessmentReportPage() {
   }, {});
 
   const getResponseDisplay = (response: any) => {
-    // Only show responses that have actual text saved in database
+    // Show actual text responses
     if (response.responseText && response.responseText.trim()) {
       return response.responseText.trim();
     }
     
+    // Show actual rating values
     if (response.ratingValue !== null && response.ratingValue !== undefined) {
       return `Rating: ${response.ratingValue}`;
     }
     
-    // Don't show multiple choice or checkbox responses since we can't guarantee 
-    // the exact option text matches what the user actually saw when they responded
-    return null;
+    // Show the raw selected option numbers as saved in database
+    if (response.selectedOptions && response.selectedOptions.length > 0) {
+      if (response.selectedOptions.length === 1) {
+        return `Selected option: ${response.selectedOptions[0]}`;
+      } else {
+        return `Selected options: ${response.selectedOptions.join(', ')}`;
+      }
+    }
+    
+    return 'No response provided';
   };
 
   return (
@@ -569,11 +577,7 @@ export default function AssessmentReportPage() {
                             </div>
                             <div className="bg-slate-50 rounded-lg p-3">
                               {response ? (
-                                getResponseDisplay(response) ? (
-                                  <p className="text-slate-700">{getResponseDisplay(response)}</p>
-                                ) : (
-                                  <p className="text-slate-500 italic">Response not displayed (unable to verify exact option text)</p>
-                                )
+                                <p className="text-slate-700">{getResponseDisplay(response)}</p>
                               ) : (
                                 <p className="text-slate-500 italic">No response provided</p>
                               )}
