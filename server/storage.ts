@@ -2558,6 +2558,33 @@ export class DatabaseStorage implements IStorage {
           .where(eq(assessmentQuestions.sectionId, section.id))
           .orderBy(asc(assessmentQuestions.sortOrder));
 
+        // Fetch options for each question
+        const questionsWithOptions = await Promise.all(
+          questions.map(async (q) => {
+            const options = await db
+              .select()
+              .from(assessmentQuestionOptions)
+              .where(eq(assessmentQuestionOptions.questionId, q.id))
+              .orderBy(asc(assessmentQuestionOptions.sortOrder));
+
+            return {
+              id: q.id,
+              sectionId: q.sectionId,
+              questionText: q.questionText,
+              questionType: q.questionType,
+              isRequired: q.isRequired,
+              sortOrder: q.sortOrder,
+              ratingMin: q.ratingMin,
+              ratingMax: q.ratingMax,
+              ratingLabels: q.ratingLabels,
+              contributesToScore: q.contributesToScore,
+              createdAt: q.createdAt,
+              updatedAt: q.updatedAt,
+              options: options.map(opt => opt.optionText)
+            };
+          })
+        );
+
         return {
           id: section.id,
           templateId: section.templateId,
@@ -2570,20 +2597,7 @@ export class DatabaseStorage implements IStorage {
           sortOrder: section.sortOrder,
           createdAt: section.createdAt,
           updatedAt: section.updatedAt,
-          questions: questions.map(q => ({
-            id: q.id,
-            sectionId: q.sectionId,
-            questionText: q.questionText,
-            questionType: q.questionType,
-            isRequired: q.isRequired,
-            sortOrder: q.sortOrder,
-            ratingMin: q.ratingMin,
-            ratingMax: q.ratingMax,
-            ratingLabels: q.ratingLabels,
-            contributesToScore: q.contributesToScore,
-            createdAt: q.createdAt,
-            updatedAt: q.updatedAt
-          }))
+          questions: questionsWithOptions
         };
       })
     );
