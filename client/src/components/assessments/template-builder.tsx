@@ -567,11 +567,14 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               throw new Error("Question ID is missing - cannot create options");
             }
 
-            // Delete ALL existing options first with single API call
-            try {
-              await apiRequest(`/api/assessments/questions/${questionId}/options`, "DELETE");
-            } catch (error) {
-              // Ignore error if no options exist
+            // FIXED: Only delete options if we're explicitly updating them
+            // For existing questions, preserve database options unless actively being edited
+            if (!question.id || (question.options && question.options.length > 0)) {
+              try {
+                await apiRequest(`/api/assessments/questions/${questionId}/options`, "DELETE");
+              } catch (error) {
+                // Ignore error if no options exist
+              }
             }
 
             // Create all new options in bulk
