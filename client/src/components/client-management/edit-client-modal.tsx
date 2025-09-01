@@ -203,8 +203,9 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         })
         .map((date: any) => new Date(date).getTime());
       
+      // Use the earliest session date from the database directly (already in YYYY-MM-DD format)
       const firstSessionDate = validSessionDates.length > 0 
-        ? new Date(Math.min(...validSessionDates)).toISOString().split('T')[0]
+        ? sessions.find((s: any) => new Date(s.sessionDate).getTime() === Math.min(...validSessionDates))?.sessionDate?.split('T')[0]
         : (client.startDate || "");
       
       form.reset({

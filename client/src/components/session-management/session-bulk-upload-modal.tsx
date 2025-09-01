@@ -132,29 +132,38 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
           headers.forEach((header, index) => {
             let value = row[index];
             
-            // Handle date fields - preserve YYYY-MM-DD format
+            // Handle date fields - preserve YYYY-MM-DD format without timezone conversion
             if (value instanceof Date && !isNaN(value.getTime())) {
-              // Convert Date object to YYYY-MM-DD format
-              value = value.toISOString().split('T')[0];
+              // Convert Date object to YYYY-MM-DD format without timezone shift
+              const year = value.getFullYear();
+              const month = String(value.getMonth() + 1).padStart(2, '0');
+              const day = String(value.getDate()).padStart(2, '0');
+              value = `${year}-${month}-${day}`;
             }
             // Handle Excel serial dates that might still come through as numbers
             else if (typeof value === 'number' && value > 1000 && 
                      (header.toLowerCase().includes('date') || header.toLowerCase().includes('time'))) {
-              // Convert Excel serial date to YYYY-MM-DD format
+              // Convert Excel serial date to YYYY-MM-DD format without timezone shift
               const excelEpoch = new Date(1899, 11, 30); // December 30, 1899 (Excel day 0)
               const dateFromSerial = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
-              value = dateFromSerial.toISOString().split('T')[0];
+              const year = dateFromSerial.getFullYear();
+              const month = String(dateFromSerial.getMonth() + 1).padStart(2, '0');
+              const day = String(dateFromSerial.getDate()).padStart(2, '0');
+              value = `${year}-${month}-${day}`;
             }
             // Handle string dates - ensure they stay in YYYY-MM-DD format
             else if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
               // Already in YYYY-MM-DD format, keep as-is
               value = value;
             }
-            // Handle other date string formats and convert to YYYY-MM-DD
+            // Handle other date string formats and convert to YYYY-MM-DD without timezone shift
             else if (typeof value === 'string' && header.toLowerCase().includes('date')) {
               const parsedDate = new Date(value);
               if (!isNaN(parsedDate.getTime())) {
-                value = parsedDate.toISOString().split('T')[0];
+                const year = parsedDate.getFullYear();
+                const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                const day = String(parsedDate.getDate()).padStart(2, '0');
+                value = `${year}-${month}-${day}`;
               }
             }
             
