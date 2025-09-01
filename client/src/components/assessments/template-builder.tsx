@@ -97,7 +97,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           id: q.id,
           text: q.questiontext || q.questionText,
           type: q.questiontype || q.questionType,
-          options: q.options ? q.options.map((opt: any) => opt.optionText || opt) : [],
+          options: q.options || [],
           required: q.isrequired || q.isRequired,
           scoreValues: q.scoreValues || [],
           sortOrder: q.sortorder || q.sortOrder || 0
