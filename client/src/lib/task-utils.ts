@@ -26,7 +26,12 @@ export const getStatusColor = (status: string) => {
 
 export const formatDate = (dateString: string | Date | null) => {
   if (!dateString) return 'No due date';
-  return new Date(dateString).toLocaleDateString();
+  if (typeof dateString === 'string') {
+    // For ISO strings, extract just the date part to avoid timezone conversion
+    return dateString.split('T')[0];
+  }
+  // For Date objects, format to YYYY-MM-DD to avoid timezone issues
+  return dateString.toISOString().split('T')[0];
 };
 
 export const formatTime = (timeString: string) => {

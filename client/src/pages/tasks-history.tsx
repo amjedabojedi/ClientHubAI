@@ -61,7 +61,8 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString();
+  // Extract just the date part to avoid timezone conversion
+  return dateString.split('T')[0];
 };
 
 const formatDateTime = (dateString: string | null) => {
