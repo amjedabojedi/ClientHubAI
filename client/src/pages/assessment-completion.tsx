@@ -128,7 +128,7 @@ export default function AssessmentCompletionPage() {
             selectedOptions = [];
           }
         } else {
-          selectedOptions = [];
+          selectedOptions = null; // Keep as null instead of empty array for radio buttons
         }
         
         responseMap[response.questionId] = {
