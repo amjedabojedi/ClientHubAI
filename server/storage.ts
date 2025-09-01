@@ -430,8 +430,7 @@ export interface IStorage {
   getNotificationStats(): Promise<{ total: number; unread: number }>;
   
   // ===== PRACTICE CONFIGURATION MANAGEMENT =====
-  getPracticeConfiguration(): Promise<PracticeConfiguration | null>;
-  updatePracticeConfiguration(config: Partial<InsertPracticeConfiguration>): Promise<PracticeConfiguration>;
+  // Note: Practice configuration methods removed - not implemented in current schema
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1581,11 +1580,11 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (params?.status) {
-      conditions.push(eq(tasks.status, params.status));
+      conditions.push(eq(tasks.status, params.status as any));
     }
     
     if (params?.priority) {
-      conditions.push(eq(tasks.priority, params.priority));
+      conditions.push(eq(tasks.priority, params.priority as any));
     }
     
     if (params?.assignedToId) {
@@ -1703,13 +1702,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateTask(id: number, taskData: Partial<InsertTask>): Promise<Task> {
     // Auto-set completion timestamp when status changes to completed
-    if (taskData.status === 'completed' && !taskData.completedAt) {
-      taskData.completedAt = new Date();
+    const updateData: any = { ...taskData };
+    if (taskData.status === 'completed' && !updateData.completedAt) {
+      updateData.completedAt = new Date();
     }
     
     const [task] = await db
       .update(tasks)
-      .set({ ...taskData, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(eq(tasks.id, id))
       .returning();
     return task;
