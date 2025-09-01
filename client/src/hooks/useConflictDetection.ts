@@ -67,7 +67,7 @@ export function useRealTimeConflictCheck(
   roomId?: number
 ) {
   const sessionDateTime = sessionDate && sessionTime 
-    ? new Date(`${sessionDate}T${sessionTime}`).toISOString()
+    ? `${sessionDate}T${sessionTime}:00`
     : undefined;
 
   return useConflictDetection(

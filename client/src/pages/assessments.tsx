@@ -595,7 +595,7 @@ export default function AssessmentsPage() {
                 <Label className="text-sm font-medium">Due Date</Label>
                 <Input
                   type="date"
-                  value={managingAssignment.dueDate ? new Date(managingAssignment.dueDate).toISOString().split('T')[0] : ''}
+                  value={managingAssignment.dueDate ? managingAssignment.dueDate.split('T')[0] : ''}
                   onChange={(e) => {
                     // Update assignment due date
                     handleUpdateAssignmentDueDate(managingAssignment.id, e.target.value);

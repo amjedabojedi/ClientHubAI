@@ -341,10 +341,9 @@ export default function SchedulingPage() {
 
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
-      const sessionDateTime = new Date(`${data.sessionDate}T${data.sessionTime}`);
       const sessionData = {
         ...data,
-        sessionDate: sessionDateTime.toISOString(),
+        sessionDate: `${data.sessionDate}T${data.sessionTime}:00`,
         ignoreConflicts: true, // User confirmed to proceed despite conflicts
       };
       
@@ -1836,9 +1835,10 @@ export default function SchedulingPage() {
                           form.setValue('roomId', selectedSession.roomId);
                           form.setValue('sessionType', selectedSession.sessionType as any);
                           
-                          // Better date/time parsing
+                          // Better date/time parsing - preserve timezone
                           const sessionDate = new Date(selectedSession.sessionDate);
-                          form.setValue('sessionDate', sessionDate.toISOString().split('T')[0]);
+                          const dateOnly = selectedSession.sessionDate.split('T')[0];
+                          form.setValue('sessionDate', dateOnly);
                           
                           // Format time properly to HH:MM
                           const hours = sessionDate.getHours().toString().padStart(2, '0');

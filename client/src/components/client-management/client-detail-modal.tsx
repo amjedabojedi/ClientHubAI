@@ -119,7 +119,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                       <Label>Date of Birth</Label>
                       <Input 
                         type="date" 
-                        value={client.dateOfBirth ? new Date(client.dateOfBirth).toISOString().split('T')[0] : ''} 
+                        value={client.dateOfBirth || ''} 
                       />
                     </div>
                     <div>
