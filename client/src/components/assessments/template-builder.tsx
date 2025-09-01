@@ -97,9 +97,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           id: q.id,
           text: q.questiontext || q.questionText,
           type: q.questiontype || q.questionType,
-          options: q.options || [],
+          options: q.options ? q.options.map((opt: any) => opt.optionText || opt) : [],
           required: q.isrequired || q.isRequired,
-          scoreValues: q.scoreValues || [],
+          scoreValues: q.options ? q.options.map((opt: any) => parseInt(opt.optionValue) || 0) : [],
           sortOrder: q.sortorder || q.sortOrder || 0
         })).sort((a: any, b: any) => a.sortOrder - b.sortOrder) || []
       })).sort((a, b) => a.order - b.order);
@@ -578,9 +578,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             }
 
             // Create all new options in bulk
-            console.log(`DEBUG: Question ${questionId} - options:`, question.options);
-            console.log(`DEBUG: Question ${questionId} - scoreValues:`, question.scoreValues);
-            
             const optionsData = question.options.map((optionText, optionIndex) => ({
               questionId: questionId,
               optionText: optionText,
@@ -589,8 +586,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 : optionIndex.toString(),
               sortOrder: optionIndex
             }));
-            
-            console.log(`DEBUG: Question ${questionId} - final optionsData:`, optionsData);
 
             if (optionsData.length > 0) {
               await apiRequest(`/api/assessments/question-options/bulk`, "POST", { options: optionsData });
