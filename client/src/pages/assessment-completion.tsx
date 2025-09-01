@@ -100,9 +100,9 @@ export default function AssessmentCompletionPage() {
 
   // Fetch assessment template with sections and questions
   const { data: sections = [], isLoading: sectionsLoading } = useQuery({
-    queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
+    queryKey: [`/api/assessments/templates/${(assignment as any)?.templateId}/sections`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!assignment?.templateId,
+    enabled: !!(assignment as any)?.templateId,
   });
 
   // Fetch existing responses if any
@@ -385,10 +385,7 @@ export default function AssessmentCompletionPage() {
           <RadioGroup
             value={response.selectedOptions?.[0]?.toString() || ''}
             onValueChange={(value) => {
-              const selectedIndex = parseInt(value);
-              // Save the actual score value instead of just the index
-              const scoreValue = question.scoreValues?.[selectedIndex] ?? selectedIndex;
-              handleResponseChange(question.id, [scoreValue], 'selectedOptions');
+              handleResponseChange(question.id, [parseInt(value)], 'selectedOptions');
               setTimeout(() => saveResponse(question.id), 100);
             }}
           >
