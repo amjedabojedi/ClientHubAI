@@ -435,10 +435,27 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const updateScoreValue = (sectionIndex: number, questionIndex: number, optionIndex: number, value: number) => {
+    console.log(`SCORE UPDATE: Section ${sectionIndex}, Question ${questionIndex}, Option ${optionIndex}, Value: ${value}`);
+    
     const updated = [...sections];
     const question = { ...updated[sectionIndex].questions[questionIndex] };
-    question.scoreValues = [...question.scoreValues];
+    
+    // Ensure scoreValues array exists and has correct length
+    if (!question.scoreValues) {
+      question.scoreValues = new Array(question.options.length).fill(0);
+    }
+    if (question.scoreValues.length < question.options.length) {
+      question.scoreValues = [...question.scoreValues];
+      while (question.scoreValues.length < question.options.length) {
+        question.scoreValues.push(0);
+      }
+    } else {
+      question.scoreValues = [...question.scoreValues];
+    }
+    
     question.scoreValues[optionIndex] = value;
+    
+    console.log(`SCORE UPDATE RESULT: scoreValues now:`, question.scoreValues);
     
     updated[sectionIndex] = {
       ...updated[sectionIndex],
