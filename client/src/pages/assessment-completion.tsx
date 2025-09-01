@@ -461,14 +461,7 @@ export default function AssessmentCompletionPage() {
         
         // ALWAYS render ALL checkbox questions in 2-column layout (database options AND fallback options)
         return (
-          <div 
-            style={{ 
-              display: 'grid !important', 
-              gridTemplateColumns: '1fr 1fr !important', 
-              gap: '1rem !important',
-              width: '100% !important'
-            }}
-          >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
             {checkboxOptions.map((option, index) => (
               <div key={index} className="flex items-center space-x-2">
                 <Checkbox
