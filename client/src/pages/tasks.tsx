@@ -126,7 +126,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
       assignedToId: task?.assignedToId || undefined,
       priority: task?.priority || "medium",
       status: task?.status || "pending",
-      dueDate: task?.dueDate || "",
+      dueDate: task?.dueDate ? task.dueDate.split('T')[0] : "",
     },
   });
 
