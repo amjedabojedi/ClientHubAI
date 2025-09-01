@@ -467,7 +467,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const saveTemplate = async () => {
-    console.log('=== SAVE TEMPLATE STARTED ===');
     setIsSaving(true);
     const startTime = Date.now();
     const totalQuestions = sections.reduce((total, s) => total + s.questions.length, 0);
@@ -521,9 +520,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           sortOrder: section.order
         };
 
-        // Debug logging
-        console.log(`Section ${section.title} - reportMapping:`, section.reportMapping, 'typeof:', typeof section.reportMapping);
-        console.log(`Section ${section.title} - full sectionData:`, JSON.stringify(sectionData, null, 2));
 
         let sectionId = section.id;
         if (section.id) {
@@ -565,9 +561,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
 
           // Save question options if the question type supports them
           if (question.type === 'multiple_choice' || question.type === 'rating_scale' || question.type === 'checkbox') {
-            console.log(`SAVING OPTIONS for Q${questionId} (${question.type}): "${question.text.substring(0, 50)}..."`);
-            console.log(`- Options array length: ${question.options?.length || 0}`);
-            console.log(`- Options: [${question.options?.slice(0, 3).join(', ')}...]`);
             
             // Only proceed if we have a valid questionId
             if (!questionId) {
@@ -589,12 +582,8 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
               sortOrder: optionIndex
             }));
 
-            console.log(`- Creating ${optionsData.length} options for Q${questionId}`);
             if (optionsData.length > 0) {
               await apiRequest(`/api/assessments/question-options/bulk`, "POST", { options: optionsData });
-              console.log(`- ✅ Options saved for Q${questionId}`);
-            } else {
-              console.log(`- ⚠️ NO OPTIONS to save for Q${questionId}`);
             }
           }
         });
@@ -642,7 +631,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Template Builder</h1>
-            <p className="text-muted-foreground">{template?.name || 'Loading...'}</p>
+            <p className="text-muted-foreground">{(template as any)?.name || 'Loading...'}</p>
           </div>
         </div>
         <div className="flex space-x-2">

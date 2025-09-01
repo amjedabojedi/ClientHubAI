@@ -116,11 +116,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Debug middleware to log all requests FIRST
-  app.use((req, res, next) => {
-    console.log(`=== DEBUG: ${req.method} ${req.path} ===`);
-    next();
-  });
   
   // Add audit context middleware to all routes
   app.use(setAuditContext);
@@ -1219,9 +1214,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Set to start of today
       
-      if (sessionDate < today) {
-        console.log(`Creating session with past date: ${sessionDate.toISOString().split('T')[0]} for client ID: ${sessionData.clientId}`);
-      }
 
       // Check for scheduling conflicts (therapist + room)
       const allSessions = await storage.getAllSessions();
@@ -1367,7 +1359,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`Updating session ${id} with data:`, JSON.stringify(sessionData, null, 2));
       
       const validatedData = insertSessionSchema.partial().parse(sessionData);
       const session = await storage.updateSession(id, validatedData);
@@ -1375,15 +1366,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Trigger billing when session status changes to completed
       if (sessionData.status === 'completed') {
         try {
-          console.log(`Session ${id} completed - checking for billing record`);
           // Check if billing already exists
           const existingBilling = await storage.getSessionBilling(id);
           if (!existingBilling) {
-            console.log(`Creating billing record for session ${id}`);
             await storage.createSessionBilling(id);
-            console.log(`Billing record created for session ${id}`);
-          } else {
-            console.log(`Billing record already exists for session ${id}`);
           }
         } catch (billingError) {
           console.error(`Error creating billing for session ${id}:`, billingError);
@@ -1391,7 +1377,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      console.log(`Session ${id} updated successfully`);
       res.json(session);
     } catch (error) {
       console.error(`Error updating session ${req.params.id}:`, error);
@@ -1772,7 +1757,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.clientId);
       const { templateId, assignedBy, status = 'assigned' } = req.body;
       
-      console.log('Assessment assignment data:', { clientId, templateId, assignedBy, status });
       
       const assessmentData = {
         clientId,
@@ -1821,7 +1805,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw new Error(`Object storage upload failed: ${uploadResult.error}`);
         }
         
-        console.log(`File uploaded to object storage: ${objectKey}`);
       }
       
       res.status(201).json(document);
@@ -4002,7 +3985,6 @@ This happens because only the file metadata was stored, not the actual file cont
           };
         }
       } catch (error) {
-        console.log('Could not get provider profile info:', error);
       }
       
       // Use your actual information if profile not found
@@ -4039,7 +4021,6 @@ This happens because only the file metadata was stored, not the actual file cont
         practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
         practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
       } catch (error) {
-        console.log('Could not get practice settings, using defaults:', error);
       }
       
       // Generate invoice HTML
@@ -4057,16 +4038,13 @@ This happens because only the file metadata was stored, not the actual file cont
       if (billingRecords.length === 1) {
         // Single service - use exact session date
         serviceDate = new Date(billingRecords[0].session.sessionDate).toLocaleDateString();
-        console.log('DEBUG: Single service date calculated:', serviceDate, 'from session date:', billingRecords[0].session.sessionDate);
       } else if (billingRecords.length > 1) {
         // Multiple services - show date range
         const dates = billingRecords.map(r => new Date(r.session.sessionDate)).sort((a, b) => a.getTime() - b.getTime());
         const startDate = dates[0].toLocaleDateString();
         const endDate = dates[dates.length - 1].toLocaleDateString();
         serviceDate = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
-        console.log('DEBUG: Multiple service date range calculated:', serviceDate);
       }
-      console.log('DEBUG: Final serviceDate value for invoice:', serviceDate);
       
       const invoiceHtml = `
         <!DOCTYPE html>
@@ -4277,7 +4255,6 @@ This happens because only the file metadata was stored, not the actual file cont
       if (action === 'download') {
         // Generate PDF for download with improved error handling
         try {
-          console.log('Generating PDF for download...');
           
           const browser = await puppeteer.launch({
             executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
@@ -4317,7 +4294,6 @@ This happens because only the file metadata was stored, not the actual file cont
           });
           
           await browser.close();
-          console.log('PDF generated successfully for download, size:', pdfBuffer.length);
           
           // Send PDF file for download
           const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -4338,7 +4314,6 @@ This happens because only the file metadata was stored, not the actual file cont
           });
           
           // Fallback to enhanced HTML if PDF generation fails
-          console.log('Falling back to HTML download due to PDF error');
           const enhancedHtml = invoiceHtml.replace(
             '</head>',
             `<style>
@@ -4359,14 +4334,6 @@ This happens because only the file metadata was stored, not the actual file cont
         res.send(invoiceHtml);
       } else if (action === 'email') {
         // Email invoice using SparkPost if available
-        console.log('Email sending attempt:', {
-          hasApiKey: !!process.env.SPARKPOST_API_KEY,
-          hasClientEmail: !!client.email,
-          clientEmail: client.email,
-          environment: process.env.NODE_ENV,
-          timestamp: new Date().toISOString()
-        });
-        
         if (process.env.SPARKPOST_API_KEY && client.email) {
           try {
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
@@ -4377,8 +4344,6 @@ This happens because only the file metadata was stored, not the actual file cont
             // Generate PDF for email attachment with improved reliability
             let pdfBuffer;
             try {
-              console.log('Generating PDF for email attachment...');
-              
               const browser = await puppeteer.launch({
                 executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
                 args: [
@@ -4424,7 +4389,6 @@ This happens because only the file metadata was stored, not the actual file cont
               });
               
               await browser.close();
-              console.log('PDF generated successfully for email, size:', pdfBuffer.length);
               
             } catch (pdfError: any) {
               console.error('PDF generation failed for email:', {
@@ -4438,7 +4402,6 @@ This happens because only the file metadata was stored, not the actual file cont
               
               // Retry once with different settings if it's a timeout
               if (pdfError?.message?.includes('timeout') || pdfError?.message?.includes('timed out')) {
-                console.log('Retrying PDF generation with extended timeout...');
                 try {
                   const browser = await puppeteer.launch({
                     executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
@@ -4452,9 +4415,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   await page.setContent(invoiceHtml);
                   pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
                   await browser.close();
-                  console.log('PDF generated on retry, size:', pdfBuffer.length);
                 } catch (retryError: any) {
-                  console.log('Retry also failed:', retryError.message);
                   pdfBuffer = null;
                 }
               } else {
@@ -4525,14 +4486,6 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             });
             
-            console.log('SparkPost success:', {
-              messageId: result.results?.id,
-              recipients: result.results?.total_accepted_recipients,
-              rejected: result.results?.total_rejected_recipients,
-              clientEmail: client.email,
-              hasPdf: !!pdfBuffer,
-              timestamp: new Date().toISOString()
-            });
             res.json({ 
               message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,
@@ -4540,19 +4493,7 @@ This happens because only the file metadata was stored, not the actual file cont
               note: `Invoice sent as ${pdfBuffer ? 'PDF attachment' : 'professional HTML email'} from configured domain.`
             });
           } catch (error) {
-            console.error('SparkPost error details:', {
-              error: error,
-              clientId: client.clientId,
-              clientEmail: client.email,
-              environment: process.env.NODE_ENV,
-              timestamp: new Date().toISOString()
-            });
             const err = error as any;
-            console.error('SparkPost API response:', {
-              errors: err.errors,
-              statusCode: err.statusCode,
-              message: err.message
-            });
             
             // Provide helpful error message about domain configuration
             let errorMessage = "Failed to send invoice email";
@@ -4570,14 +4511,6 @@ This happens because only the file metadata was stored, not the actual file cont
           const issues = [];
           if (!process.env.SPARKPOST_API_KEY) issues.push('SPARKPOST_API_KEY not set');
           if (!client.email) issues.push('Client email not available');
-          
-          console.error('Email service configuration issue:', {
-            issues,
-            clientId: client.clientId,
-            hasApiKey: !!process.env.SPARKPOST_API_KEY,
-            hasClientEmail: !!client.email,
-            environment: process.env.NODE_ENV
-          });
           
           res.status(503).json({ 
             message: "Email service not configured or client email not available",
@@ -4635,9 +4568,7 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get('/api/assessments/templates/:templateId/sections', async (req, res) => {
     try {
       const { templateId } = req.params;
-      console.log('Getting sections for template ID:', templateId);
       const sections = await storage.getAssessmentTemplateSections(parseInt(templateId));
-      console.log('Found sections:', sections.length);
       res.json(sections);
     } catch (error) {
       console.error('Error getting sections:', error);
