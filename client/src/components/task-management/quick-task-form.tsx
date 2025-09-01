@@ -82,7 +82,7 @@ export default function QuickTaskForm({
         clientId, // This should always be provided from props
         status: 'pending' as const,
         assignedToId: data.assignedToId || undefined,
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
+        dueDate: data.dueDate ? data.dueDate : undefined,
       };
       
       // Ensure clientId is properly set (should never be undefined/null)
