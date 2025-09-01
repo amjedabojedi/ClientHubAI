@@ -3356,61 +3356,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(systemOptions).where(eq(systemOptions.id, id));
   }
 
-  // Auto-assign checklists when client is created
-
-  // Client Checklist Management
-  async getClientChecklists(clientId: number): Promise<any[]> {
-    const checklists = await db.select({
-      checklist: clientChecklists,
-      template: checklistTemplates
-    })
-    .from(clientChecklists)
-    .innerJoin(checklistTemplates, eq(clientChecklists.templateId, checklistTemplates.id))
-    .where(eq(clientChecklists.clientId, clientId))
-    .orderBy(checklistTemplates.category, checklistTemplates.sortOrder);
-
-    // Get items for each checklist
-    const checklistsWithItems = await Promise.all(checklists.map(async (row) => {
-      const items = await db.select({
-        id: clientChecklistItems.id,
-        clientChecklistId: clientChecklistItems.clientChecklistId,
-        checklistItemId: clientChecklistItems.checklistItemId,
-        isCompleted: clientChecklistItems.isCompleted,
-        completedAt: clientChecklistItems.completedAt,
-        completedBy: clientChecklistItems.completedBy,
-        notes: clientChecklistItems.notes,
-        createdAt: clientChecklistItems.createdAt,
-        // Template item fields
-        title: checklistItems.title,
-        description: checklistItems.description,
-        isRequired: checklistItems.isRequired,
-        daysFromStart: checklistItems.daysFromStart,
-        sortOrder: checklistItems.sortOrder,
-        // User info (if completed)
-        completedByName: users.fullName
-      })
-      .from(clientChecklistItems)
-      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
-      .leftJoin(users, eq(clientChecklistItems.completedBy, users.id))
-      .where(eq(clientChecklistItems.clientChecklistId, row.checklist.id))
-      .orderBy(checklistItems.sortOrder);
-
-      return {
-        id: row.checklist.id,
-        clientId: row.checklist.clientId,
-        templateId: row.checklist.templateId,
-        isCompleted: row.checklist.isCompleted,
-        completedAt: row.checklist.completedAt,
-        dueDate: row.checklist.dueDate,
-        notes: row.checklist.notes,
-        template: row.template,
-        items: items
-      };
-    }));
-
-    return checklistsWithItems;
-  }
-
   async assignChecklistToClient(clientId: number, templateId: number, dueDate?: string): Promise<any> {
     const [assignment] = await db.insert(clientChecklists).values({
       clientId,
@@ -3435,19 +3380,6 @@ export class DatabaseStorage implements IStorage {
     }
 
     return assignment;
-  }
-
-  async createClientChecklist(checklistData: InsertClientChecklist): Promise<ClientChecklist> {
-    const [checklist] = await db.insert(clientChecklists).values(checklistData).returning();
-    return checklist;
-  }
-
-  async updateClientChecklistItem(id: number, itemData: Partial<InsertClientChecklistItem>): Promise<ClientChecklistItem> {
-    const [item] = await db.update(clientChecklistItems)
-      .set({ ...itemData, completedAt: itemData.isCompleted ? new Date() : null })
-      .where(eq(clientChecklistItems.id, id))
-      .returning();
-    return item;
   }
 
   // Auto-assign checklists when client is created
