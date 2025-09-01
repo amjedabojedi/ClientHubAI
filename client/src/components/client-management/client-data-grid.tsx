@@ -26,7 +26,7 @@ interface ClientDataGridProps {
   };
   onViewClient: (client: Client) => void;
   onEditClient: (client: Client) => void;
-  onDeleteClient: (client: Client) => void;
+  onDeleteClient?: (client: Client) => void;
 }
 
 export default function ClientDataGrid({ 
