@@ -1091,25 +1091,6 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]> {
-    const results = await db
-      .select({
-        session: sessions,
-        therapist: users,
-        client: clients
-      })
-      .from(sessions)
-      .innerJoin(users, eq(sessions.therapistId, users.id))
-      .innerJoin(clients, eq(sessions.clientId, clients.id))
-      .orderBy(desc(sessions.sessionDate));
-
-    return results.map(r => ({ 
-      ...r.session, 
-      therapist: r.therapist, 
-      client: r.client 
-    }));
-  }
-
   async createSession(session: InsertSession): Promise<Session> {
     const [newSession] = await db
       .insert(sessions)
@@ -2652,34 +2633,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Update assessment assignment status and completion details
-  async updateAssessmentAssignment(assignmentId: number, updateData: any): Promise<AssessmentAssignment> {
-    // Convert date strings to Date objects
-    const processedData = { ...updateData };
-    if (processedData.completedAt && typeof processedData.completedAt === 'string') {
-      processedData.completedAt = new Date(processedData.completedAt);
-    }
-    if (processedData.therapistCompletedAt && typeof processedData.therapistCompletedAt === 'string') {
-      processedData.therapistCompletedAt = new Date(processedData.therapistCompletedAt);
-    }
-    if (processedData.clientSubmittedAt && typeof processedData.clientSubmittedAt === 'string') {
-      processedData.clientSubmittedAt = new Date(processedData.clientSubmittedAt);
-    }
-    if (processedData.finalizedAt && typeof processedData.finalizedAt === 'string') {
-      processedData.finalizedAt = new Date(processedData.finalizedAt);
-    }
-
-    const [assignment] = await db
-      .update(assessmentAssignments)
-      .set({
-        ...processedData,
-        updatedAt: new Date()
-      })
-      .where(eq(assessmentAssignments.id, assignmentId))
-      .returning();
-    return assignment;
-  }
-
   // Assessment Responses Management
   async getAssessmentResponses(assignmentId: number): Promise<(AssessmentResponse & { question: AssessmentQuestion; responder: User })[]> {
     const results = await db
@@ -2716,15 +2669,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAssessmentResponse(id: number): Promise<void> {
     await db.delete(assessmentResponses).where(eq(assessmentResponses.id, id));
-  }
-
-  // Delete assessment assignment and its responses
-  async deleteAssessmentAssignment(assignmentId: number): Promise<void> {
-    // First delete all responses for this assignment
-    await db.delete(assessmentResponses).where(eq(assessmentResponses.assignmentId, assignmentId));
-    
-    // Then delete the assignment itself
-    await db.delete(assessmentAssignments).where(eq(assessmentAssignments.id, assignmentId));
   }
 
   // Assessment Reports Management
@@ -2807,24 +2751,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-
-
-  // Assessment Question Options Methods
-  async getAssessmentQuestionOptions(questionId: number): Promise<AssessmentQuestionOption[]> {
-    const options = await db.select().from(assessmentQuestionOptions)
-      .where(eq(assessmentQuestionOptions.questionId, questionId))
-      .orderBy(asc(assessmentQuestionOptions.sortOrder));
-    return options;
-  }
-
   // Service Management Methods
-  async getServices(): Promise<SelectService[]> {
-    const serviceList = await db.select().from(services)
-      .where(eq(services.isActive, true))
-      .orderBy(asc(services.serviceName));
-    return serviceList;
-  }
-
   async createService(serviceData: InsertService): Promise<SelectService> {
     const [service] = await db.insert(services).values(serviceData).returning();
     return service;
