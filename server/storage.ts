@@ -2580,7 +2580,8 @@ export class DatabaseStorage implements IStorage {
               contributesToScore: q.contributesToScore,
               createdAt: q.createdAt,
               updatedAt: q.updatedAt,
-              options: options.map(opt => opt.optionText)
+              options: options.map(opt => opt.optionText),
+              scoreValues: options.map(opt => Number(opt.optionValue) || 0)
             };
           })
         );
