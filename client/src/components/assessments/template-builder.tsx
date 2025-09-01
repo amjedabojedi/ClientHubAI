@@ -435,8 +435,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
   };
 
   const updateScoreValue = (sectionIndex: number, questionIndex: number, optionIndex: number, value: number) => {
-    console.log(`SCORE UPDATE: Section ${sectionIndex}, Question ${questionIndex}, Option ${optionIndex}, Value: ${value}`);
-    
     const updated = [...sections];
     const question = { ...updated[sectionIndex].questions[questionIndex] };
     
@@ -454,8 +452,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
     }
     
     question.scoreValues[optionIndex] = value;
-    
-    console.log(`SCORE UPDATE RESULT: scoreValues now:`, question.scoreValues);
     
     updated[sectionIndex] = {
       ...updated[sectionIndex],
@@ -595,13 +591,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             }
 
             // Create all new options in bulk
-            console.log(`SAVE DEBUG - Question ${questionId}:`, {
-              questionText: question.text,
-              options: question.options,
-              scoreValues: question.scoreValues,
-              hasScoreValues: !!(question.scoreValues && question.scoreValues.length > 0)
-            });
-            
             const optionsData = question.options.map((optionText, optionIndex) => ({
               questionId: questionId,
               optionText: optionText,
@@ -610,8 +599,6 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                 : optionIndex.toString(),
               sortOrder: optionIndex
             }));
-            
-            console.log(`SAVE DEBUG - Final optionsData for Question ${questionId}:`, optionsData);
 
             if (optionsData.length > 0) {
               await apiRequest(`/api/assessments/question-options/bulk`, "POST", { options: optionsData });
