@@ -119,7 +119,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                       <Label>Date of Birth</Label>
                       <Input 
                         type="date" 
-                        value={client.dateOfBirth || ''} 
+                        value={client.dateOfBirth ? client.dateOfBirth.split('T')[0] : ''} 
                       />
                     </div>
                     <div>
