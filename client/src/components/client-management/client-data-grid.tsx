@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Eye, Edit, Trash2, CalendarDays } from "lucide-react";
+import { Eye, Edit, CalendarDays, Plus } from "lucide-react";
 import Pagination from "./pagination";
 import { Client, ClientsQueryResult } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/hooks/useAuth";
+import QuickTaskForm from "@/components/task-management/quick-task-form";
 
 interface ClientDataGridProps {
   activeTab: string;
@@ -384,15 +385,21 @@ export default function ClientDataGrid({
                         >
                           <CalendarDays className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => onDeleteClient(client)}
-                          className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50"
-                          title="Delete Client"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <QuickTaskForm
+                          clientId={client.id}
+                          clientName={client.fullName}
+                          defaultAssigneeId={client.assignedTherapistId}
+                          trigger={
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                              title="Add Task"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          }
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
