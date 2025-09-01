@@ -107,8 +107,12 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (dateString: string | null | Date) => {
   if (!dateString) return 'No due date';
-  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-  return date.toLocaleDateString();
+  if (typeof dateString === 'string') {
+    // For ISO strings, extract just the date part to avoid timezone conversion
+    return dateString.split('T')[0];
+  }
+  // For Date objects, format to YYYY-MM-DD to avoid timezone issues
+  return dateString.toISOString().split('T')[0];
 };
 
 // ===== TASK FORM COMPONENT =====
@@ -126,7 +130,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
       assignedToId: task?.assignedToId || undefined,
       priority: task?.priority || "medium",
       status: task?.status || "pending",
-      dueDate: task?.dueDate ? task.dueDate.split('T')[0] : "",
+      dueDate: task?.dueDate ? (typeof task.dueDate === 'string' ? task.dueDate.split('T')[0] : task.dueDate.toISOString().split('T')[0]) : "",
     },
   });
 
