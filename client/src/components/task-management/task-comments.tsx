@@ -23,6 +23,7 @@ import {
 // Utils & Types
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
 import type { TaskComment, User } from "@shared/schema";
 
 interface TaskCommentsProps {
@@ -37,6 +38,7 @@ interface CommentWithAuthor extends TaskComment {
 export function TaskComments({ taskId, taskTitle }: TaskCommentsProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [newComment, setNewComment] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [editingComment, setEditingComment] = useState<number | null>(null);
@@ -102,12 +104,14 @@ export function TaskComments({ taskId, taskTitle }: TaskCommentsProps) {
   // ===== EVENT HANDLERS =====
   const handleAddComment = () => {
     if (!newComment.trim()) return;
+    if (!user?.id) {
+      toast({ title: "Error: User not authenticated", variant: "destructive" });
+      return;
+    }
     
-    // For demo purposes, using authorId = 1 (Dr. Williams)
-    // In a real app, this would come from the current user session
     createCommentMutation.mutate({
       content: newComment.trim(),
-      authorId: 1,
+      authorId: user.id,
       isInternal,
     });
   };
