@@ -581,7 +581,9 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
             const optionsData = question.options.map((optionText, optionIndex) => ({
               questionId: questionId,
               optionText: optionText,
-              optionValue: question.scoreValues && question.scoreValues[optionIndex] !== undefined ? question.scoreValues[optionIndex] : optionIndex,
+              optionValue: question.scoreValues && question.scoreValues[optionIndex] !== undefined 
+                ? question.scoreValues[optionIndex].toString() 
+                : optionIndex.toString(),
               sortOrder: optionIndex
             }));
 
