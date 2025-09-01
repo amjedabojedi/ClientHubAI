@@ -434,7 +434,7 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'checkbox':
-        // Provide default options when question.options is null
+        // Use options from database template OR provide defaults when question.options is null
         let checkboxOptions = question.options;
         
         if (!checkboxOptions) {
@@ -459,6 +459,7 @@ export default function AssessmentCompletionPage() {
           }
         }
         
+        // ALWAYS render ALL checkbox questions in 2-column layout (database options AND fallback options)
         return (
           <div className="w-full grid grid-cols-2 gap-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {checkboxOptions.map((option, index) => (
