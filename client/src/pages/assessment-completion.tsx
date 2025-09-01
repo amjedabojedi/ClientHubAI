@@ -385,7 +385,10 @@ export default function AssessmentCompletionPage() {
           <RadioGroup
             value={response.selectedOptions?.[0]?.toString() || ''}
             onValueChange={(value) => {
-              handleResponseChange(question.id, [parseInt(value)], 'selectedOptions');
+              const selectedIndex = parseInt(value);
+              // Save the actual score value instead of just the index
+              const scoreValue = question.scoreValues?.[selectedIndex] ?? selectedIndex;
+              handleResponseChange(question.id, [scoreValue], 'selectedOptions');
               setTimeout(() => saveResponse(question.id), 100);
             }}
           >
