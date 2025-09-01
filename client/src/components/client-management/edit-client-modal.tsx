@@ -211,7 +211,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
       form.reset({
         // Personal Information
         fullName: client.fullName || "",
-        dateOfBirth: client.dateOfBirth || "",
+        dateOfBirth: client.dateOfBirth ? client.dateOfBirth.split('T')[0] : "",
         gender: client.gender || "prefer_not_to_say",
         maritalStatus: client.maritalStatus || "",
         preferredLanguage: client.preferredLanguage || "English",
@@ -236,7 +236,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         // Referral & Case
         startDate: firstSessionDate,
         referrerName: client.referrerName || "",
-        referralDate: client.referralDate || "",
+        referralDate: client.referralDate ? client.referralDate.split('T')[0] : "",
         referenceNumber: client.referenceNumber || "",
         clientSource: client.clientSource || "",
         
