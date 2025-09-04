@@ -114,10 +114,11 @@ const parseSessionDate = (dateString: string): Date => {
   if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
     return new Date(dateString + 'T12:00:00');
   }
-  // If date includes time but is UTC, add noon time to avoid midnight timezone shifts
-  if (dateString.includes('T00:00:00')) {
-    return new Date(dateString.replace('T00:00:00', 'T12:00:00'));
+  // Handle ISO strings properly - keep the original time but ensure consistent parsing
+  if (dateString.includes('T')) {
+    return new Date(dateString);
   }
+  // Fallback for other formats
   return new Date(dateString);
 };
 
