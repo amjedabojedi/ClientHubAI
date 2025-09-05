@@ -879,7 +879,12 @@ export default function SchedulingPage() {
                                   <ul className="mt-1 space-y-1">
                                     {conflictData.therapistConflicts.map((conflict, index) => (
                                       <li key={index} className="text-xs text-red-700">
-                                        • You have: {conflict.clientName} - {conflict.sessionType} at {new Date(conflict.sessionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        • You have: {conflict.clientName} - {conflict.sessionType} at {(() => {
+                                          const sessionDate = parseSessionDate(conflict.sessionDate);
+                                          const hours = sessionDate.getHours().toString().padStart(2, '0');
+                                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                                          return `${hours}:${minutes}`;
+                                        })()}
                                       </li>
                                     ))}
                                   </ul>
@@ -893,7 +898,12 @@ export default function SchedulingPage() {
                                   <ul className="mt-1 space-y-1">
                                     {conflictData.roomConflicts.map((conflict, index) => (
                                       <li key={index} className="text-xs text-red-700">
-                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {new Date(conflict.sessionDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {(() => {
+                                          const sessionDate = parseSessionDate(conflict.sessionDate);
+                                          const hours = sessionDate.getHours().toString().padStart(2, '0');
+                                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                                          return `${hours}:${minutes}`;
+                                        })()}
                                       </li>
                                     ))}
                                   </ul>
@@ -916,10 +926,17 @@ export default function SchedulingPage() {
                                         className="text-xs px-2 py-1 h-6 border-red-300 text-red-700 hover:bg-red-100"
                                         onClick={() => {
                                           const suggestedTime = new Date(time);
-                                          form.setValue('sessionTime', suggestedTime.toTimeString().slice(0, 5));
+                                          const hours = suggestedTime.getHours().toString().padStart(2, '0');
+                                          const minutes = suggestedTime.getMinutes().toString().padStart(2, '0');
+                                          form.setValue('sessionTime', `${hours}:${minutes}`);
                                         }}
                                       >
-                                        {new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        {(() => {
+                                          const timeDate = new Date(time);
+                                          const hours = timeDate.getHours().toString().padStart(2, '0');
+                                          const minutes = timeDate.getMinutes().toString().padStart(2, '0');
+                                          return `${hours}:${minutes}`;
+                                        })()}
                                       </Button>
                                     ))}
                                   </div>
@@ -1138,7 +1155,13 @@ export default function SchedulingPage() {
                                 }}
                               >
                                 {getConflictIndicator()}
-                                {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {getDisplayClientName(session)}
+                                {(() => {
+                                  // Parse the session date and extract time without timezone conversion
+                                  const sessionDate = parseSessionDate(session.sessionDate);
+                                  const hours = sessionDate.getHours().toString().padStart(2, '0');
+                                  const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                                  return `${hours}:${minutes}`;
+                                })()} {getDisplayClientName(session)}
                               </div>
                             );
                           })}
@@ -1322,7 +1345,12 @@ export default function SchedulingPage() {
                                   {new Date(session.sessionDate).toLocaleDateString()}
                                 </p>
                                 <p className="text-sm text-slate-600">
-                                  {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {(() => {
+                                    const sessionDate = parseSessionDate(session.sessionDate);
+                                    const hours = sessionDate.getHours().toString().padStart(2, '0');
+                                    const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                                    return `${hours}:${minutes}`;
+                                  })()}
                                 </p>
                               </div>
                               
@@ -1481,7 +1509,12 @@ export default function SchedulingPage() {
                         <div key={session.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50">
                           <div className="flex items-center justify-between mb-2">
                             <p className="font-medium text-sm">
-                              {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {(() => {
+                                const sessionDate = parseSessionDate(session.sessionDate);
+                                const hours = sessionDate.getHours().toString().padStart(2, '0');
+                                const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                                return `${hours}:${minutes}`;
+                              })()}
                             </p>
                             <Badge className={`${getStatusColor(session.status)} text-xs`} variant="secondary">
                               {session.status}
@@ -1639,7 +1672,12 @@ export default function SchedulingPage() {
                               <div className="flex items-center space-x-4 flex-1">
                                 <div className="text-center">
                                   <p className="font-semibold text-lg">
-                                    {new Date(session.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {(() => {
+                                      const sessionDate = parseSessionDate(session.sessionDate);
+                                      const hours = sessionDate.getHours().toString().padStart(2, '0');
+                                      const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                                      return `${hours}:${minutes}`;
+                                    })()}
                                   </p>
                                   <p className="text-xs text-slate-600">{(session.service as any)?.duration || 60}min</p>
                                 </div>
@@ -1761,7 +1799,12 @@ export default function SchedulingPage() {
                     <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
                       <span>
                         {new Date(selectedSession.sessionDate).toLocaleDateString()} at{' '}
-                        {new Date(selectedSession.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {(() => {
+                          const sessionDate = parseSessionDate(selectedSession.sessionDate);
+                          const hours = sessionDate.getHours().toString().padStart(2, '0');
+                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                          return `${hours}:${minutes}`;
+                        })()}
                       </span>
                       <Badge className={getSessionTypeColor(selectedSession.sessionType)} variant="secondary">
                         {selectedSession.sessionType}
