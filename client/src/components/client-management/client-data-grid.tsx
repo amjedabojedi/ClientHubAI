@@ -257,38 +257,13 @@ export default function ClientDataGrid({
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <p 
-                              className="font-medium text-slate-900 cursor-pointer hover:text-primary"
-                              onClick={() => onViewClient(client)}
-                            >
-                              {client.fullName}
-                            </p>
-                            {client.needsFollowUp && (
-                              <Badge 
-                                variant={
-                                  client.followUpPriority === 'urgent' ? 'destructive' :
-                                  client.followUpPriority === 'high' ? 'default' :
-                                  client.followUpPriority === 'medium' ? 'secondary' :
-                                  'outline'
-                                }
-                                className={`text-xs ${
-                                  client.followUpPriority === 'urgent' ? 'bg-red-500 text-white' :
-                                  client.followUpPriority === 'high' ? 'bg-orange-500 text-white' :
-                                  client.followUpPriority === 'medium' ? 'bg-yellow-500 text-white' :
-                                  'bg-blue-500 text-white'
-                                }`}
-                              >
-                                Follow-up {client.followUpPriority}
-                              </Badge>
-                            )}
-                          </div>
+                          <p 
+                            className="font-medium text-slate-900 cursor-pointer hover:text-primary"
+                            onClick={() => onViewClient(client)}
+                          >
+                            {client.fullName}
+                          </p>
                           <p className="text-sm text-slate-500">Ref: {client.referenceNumber}</p>
-                          {client.needsFollowUp && client.followUpDate && (
-                            <p className="text-xs text-orange-600 mt-1">
-                              Due: {new Date(client.followUpDate).toLocaleDateString()}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </TableCell>
@@ -332,7 +307,7 @@ export default function ClientDataGrid({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="w-20">
+                      <div className="w-28">
                         {(() => {
                           const calculateSessionGap = (lastSessionDate: string | null) => {
                             if (!lastSessionDate) return { gap: "No sessions", color: "text-slate-400" };
@@ -373,10 +348,35 @@ export default function ClientDataGrid({
                           const result = calculateSessionGap(client.lastSessionDate);
                           
                           return (
-                            <div className="text-center">
+                            <div className="text-center space-y-1">
                               <div className={`text-sm font-medium ${result.color}`}>
                                 {result.gap}
                               </div>
+                              {client.needsFollowUp && (
+                                <div className="space-y-1">
+                                  <Badge 
+                                    variant={
+                                      client.followUpPriority === 'urgent' ? 'destructive' :
+                                      client.followUpPriority === 'high' ? 'default' :
+                                      client.followUpPriority === 'medium' ? 'secondary' :
+                                      'outline'
+                                    }
+                                    className={`text-xs px-1 py-0 ${
+                                      client.followUpPriority === 'urgent' ? 'bg-red-500 text-white' :
+                                      client.followUpPriority === 'high' ? 'bg-orange-500 text-white' :
+                                      client.followUpPriority === 'medium' ? 'bg-yellow-500 text-white' :
+                                      'bg-blue-500 text-white'
+                                    }`}
+                                  >
+                                    {client.followUpPriority?.toUpperCase() || 'FU'}
+                                  </Badge>
+                                  {client.followUpDate && (
+                                    <p className="text-xs text-orange-600">
+                                      Due: {new Date(client.followUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
