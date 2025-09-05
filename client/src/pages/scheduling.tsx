@@ -214,8 +214,14 @@ export default function SchedulingPage() {
   const [sessionsFilters, setSessionsFilters] = useState({
     page: 1,
     limit: 50,
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
+    startDate: (() => {
+      const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+    })(),
+    endDate: (() => {
+      const end = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
+      return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+    })(),
     therapistId: 'all',
     status: 'all',
     serviceCode: 'all',
@@ -559,10 +565,21 @@ export default function SchedulingPage() {
   }, [allAvailableSessions, allSessions, searchQuery, selectedTherapist, viewMode]);
 
   const getTodaysSessions = (): Session[] => {
-    const today = selectedDate.toISOString().split('T')[0];
-    return filteredSessions.filter((session: Session) => 
-      session.sessionDate.split('T')[0] === today
-    );
+    // Format selected date as YYYY-MM-DD in local timezone
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    
+    return filteredSessions.filter((session: Session) => {
+      const sessionLocalDate = parseSessionDate(session.sessionDate);
+      const sessionYear = sessionLocalDate.getFullYear();
+      const sessionMonth = String(sessionLocalDate.getMonth() + 1).padStart(2, '0');
+      const sessionDay = String(sessionLocalDate.getDate()).padStart(2, '0');
+      const sessionDateStr = `${sessionYear}-${sessionMonth}-${sessionDay}`;
+      
+      return sessionDateStr === todayStr;
+    });
   };
 
   const getMonthSessions = (): Session[] => {
@@ -576,10 +593,21 @@ export default function SchedulingPage() {
   };
 
   const getSessionsForDate = (date: Date): Session[] => {
-    const dateStr = date.toISOString().split('T')[0];
-    return filteredSessions.filter((session: Session) => 
-      session.sessionDate.split('T')[0] === dateStr
-    );
+    // Format date as YYYY-MM-DD in local timezone to avoid UTC conversion issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const localDateStr = `${year}-${month}-${day}`;
+    
+    return filteredSessions.filter((session: Session) => {
+      const sessionLocalDate = parseSessionDate(session.sessionDate);
+      const sessionYear = sessionLocalDate.getFullYear();
+      const sessionMonth = String(sessionLocalDate.getMonth() + 1).padStart(2, '0');
+      const sessionDay = String(sessionLocalDate.getDate()).padStart(2, '0');
+      const sessionLocalDateStr = `${sessionYear}-${sessionMonth}-${sessionDay}`;
+      
+      return sessionLocalDateStr === localDateStr;
+    });
   };
 
   // Get week dates centered around selected date
@@ -782,7 +810,8 @@ export default function SchedulingPage() {
                           control={form.control}
                           name="sessionDate"
                           render={({ field }) => {
-                            const today = new Date().toISOString().split('T')[0];
+                            const todayDate = new Date();
+                            const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
                             const currentValue = field.value;
                             const isPastDate = currentValue && currentValue < today;
                             
