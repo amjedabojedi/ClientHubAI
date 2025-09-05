@@ -64,6 +64,7 @@ export default function ClientDataGrid({
       case "assessment": return { stage: "assessment" };
       case "psychotherapy": return { stage: "psychotherapy" };
       case "no-sessions": return { hasNoSessions: true };
+      case "follow-up": return { needsFollowUp: true };
       default: return "";
     }
   }, [activeTab]);
@@ -255,14 +256,39 @@ export default function ClientDataGrid({
                             {getInitials(client.fullName)}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p 
-                            className="font-medium text-slate-900 cursor-pointer hover:text-primary"
-                            onClick={() => onViewClient(client)}
-                          >
-                            {client.fullName}
-                          </p>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <p 
+                              className="font-medium text-slate-900 cursor-pointer hover:text-primary"
+                              onClick={() => onViewClient(client)}
+                            >
+                              {client.fullName}
+                            </p>
+                            {client.needsFollowUp && (
+                              <Badge 
+                                variant={
+                                  client.followUpPriority === 'urgent' ? 'destructive' :
+                                  client.followUpPriority === 'high' ? 'default' :
+                                  client.followUpPriority === 'medium' ? 'secondary' :
+                                  'outline'
+                                }
+                                className={`text-xs ${
+                                  client.followUpPriority === 'urgent' ? 'bg-red-500 text-white' :
+                                  client.followUpPriority === 'high' ? 'bg-orange-500 text-white' :
+                                  client.followUpPriority === 'medium' ? 'bg-yellow-500 text-white' :
+                                  'bg-blue-500 text-white'
+                                }`}
+                              >
+                                Follow-up {client.followUpPriority}
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-slate-500">Ref: {client.referenceNumber}</p>
+                          {client.needsFollowUp && client.followUpDate && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              Due: {new Date(client.followUpDate).toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </TableCell>

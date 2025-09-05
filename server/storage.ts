@@ -911,6 +911,7 @@ export class DatabaseStorage implements IStorage {
     assessmentPhase: number;
     psychotherapy: number;
     noSessions: number;
+    needsFollowUp: number;
   }> {
     // Build where conditions for role-based filtering
     const whereConditions = [];
@@ -931,7 +932,8 @@ export class DatabaseStorage implements IStorage {
         newIntakes: sql<number>`COUNT(*) FILTER (WHERE stage = 'intake')`,
         assessmentPhase: sql<number>`COUNT(*) FILTER (WHERE stage = 'assessment')`,
         psychotherapy: sql<number>`COUNT(*) FILTER (WHERE stage = 'psychotherapy')`,
-        noSessions: sql<number>`COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id))`
+        noSessions: sql<number>`COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id))`,
+        needsFollowUp: sql<number>`COUNT(*) FILTER (WHERE needs_follow_up = true)`
       })
       .from(clients)
       .where(whereClause);
@@ -943,7 +945,8 @@ export class DatabaseStorage implements IStorage {
       newIntakes: stats.newIntakes,
       assessmentPhase: stats.assessmentPhase,
       psychotherapy: stats.psychotherapy,
-      noSessions: stats.noSessions
+      noSessions: stats.noSessions,
+      needsFollowUp: stats.needsFollowUp
     };
   }
 

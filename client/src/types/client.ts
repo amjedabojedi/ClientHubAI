@@ -68,6 +68,11 @@ export interface Client {
   // Additional information
   notes?: string | null;
   
+  // Follow-up Management
+  needsFollowUp?: boolean | null;
+  followUpPriority?: 'low' | 'medium' | 'high' | 'urgent' | null;
+  followUpDate?: string | null;
+  
   // Timestamps
   startDate?: string | null;
   lastSessionDate?: string | null;
@@ -93,6 +98,8 @@ export interface ClientStats {
   newIntakes: number;
   assessmentPhase: number;
   psychotherapy: number;
+  noSessions: number;
+  needsFollowUp: number;
 }
 
 export interface Document {

@@ -266,6 +266,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         // Additional
         notes: client.notes || "",
         
+        // Follow-up Management
+        needsFollowUp: client.needsFollowUp ?? false,
+        followUpPriority: client.followUpPriority || "",
+        followUpDate: client.followUpDate ? client.followUpDate.split('T')[0] : "",
+        
         // Legacy fields
         address: client.address || "",
         state: client.state || "",
@@ -832,6 +837,80 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                       </FormItem>
                     )}
                   />
+                </div>
+
+                <div className="border-t pt-4 mt-6">
+                  <h4 className="text-md font-medium text-slate-900 mb-4">Follow-up Management</h4>
+                  
+                  <div className="grid grid-cols-1 gap-4 mb-4">
+                    <FormField
+                      control={form.control}
+                      name="needsFollowUp"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Needs Follow-up
+                            </FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Mark this client for follow-up attention
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="followUpPriority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Follow-up Priority</FormLabel>
+                          <FormControl>
+                            <SearchableSelect
+                              value={field.value || ""}
+                              onValueChange={field.onChange}
+                              options={[
+                                { value: "", label: "None" },
+                                { value: "low", label: "Low" },
+                                { value: "medium", label: "Medium" },
+                                { value: "high", label: "High" },
+                                { value: "urgent", label: "Urgent" }
+                              ]}
+                              placeholder="Select priority"
+                              searchPlaceholder="Search priority levels..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="followUpDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Follow-up Date</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="date"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 <div className="border-t pt-4 mt-6">

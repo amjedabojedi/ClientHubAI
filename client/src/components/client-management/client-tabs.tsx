@@ -29,6 +29,7 @@ export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) 
     { id: "all", label: "All Clients", icon: "fas fa-users", count: stats?.totalClients },
     { id: "active", label: "Active", icon: "fas fa-user-check", count: stats?.activeClients },
     { id: "inactive", label: "Inactive", icon: "fas fa-user-times", count: stats?.inactiveClients },
+    { id: "follow-up", label: "Follow-up", icon: "fas fa-flag", count: stats?.needsFollowUp },
     { id: "intakes", label: "New Intakes", icon: "fas fa-user-plus", count: stats?.newIntakes },
     { id: "assessment", label: "Assessment Phase", icon: "fas fa-clipboard-list", count: stats?.assessmentPhase },
     { id: "psychotherapy", label: "Psychotherapy", icon: "fas fa-brain", count: stats?.psychotherapy },

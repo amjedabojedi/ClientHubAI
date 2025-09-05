@@ -303,6 +303,11 @@ export const clients = pgTable("clients", {
   referringPerson: text("referring_person"),
   referralNotes: text("referral_notes"),
   
+  // Follow-up Management
+  needsFollowUp: boolean("needs_follow_up").default(false),
+  followUpPriority: varchar("follow_up_priority", { length: 20 }), // low, medium, high, urgent
+  followUpDate: date("follow_up_date"),
+  
   // Timestamps
   lastSessionDate: timestamp("last_session_date"),
   nextAppointmentDate: timestamp("next_appointment_date"),
