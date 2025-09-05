@@ -1591,7 +1591,10 @@ export default function ClientDetailPage() {
                     <div className="flex items-center justify-between py-2 border-b border-slate-100">
                       <span className="text-sm font-medium text-slate-600">Start Date</span>
                       <span className="text-slate-900 font-medium">
-                        {new Date(Math.min(...sessions.map((s: Session) => new Date(s.sessionDate).getTime()))).toLocaleDateString()}
+                        {(() => {
+                          const firstSessionDate = new Date(Math.min(...sessions.map((s: Session) => new Date(s.sessionDate).getTime())));
+                          return `${firstSessionDate.getFullYear()}-${String(firstSessionDate.getMonth() + 1).padStart(2, '0')}-${String(firstSessionDate.getDate()).padStart(2, '0')}`;
+                        })()}
                       </span>
                     </div>
                   )}
@@ -1858,7 +1861,10 @@ export default function ClientDetailPage() {
                                 )}
                               </div>
                               <p className="text-sm text-slate-600">
-                                {session.sessionDate ? parseSessionDate(session.sessionDate.toString()).toLocaleDateString() : 'Date TBD'}
+                                {session.sessionDate ? (() => {
+                                  const sessionDate = parseSessionDate(session.sessionDate.toString());
+                                  return `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
+                                })() : 'Date TBD'}
                                 {hasConflicts && conflictInfo && (
                                   <span className="text-orange-600 ml-2">
                                     • {conflictInfo.sessions.length} sessions on same day
