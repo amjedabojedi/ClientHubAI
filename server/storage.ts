@@ -135,6 +135,7 @@ export interface ClientsQueryParams {
   hasPortalAccess?: boolean;
   hasPendingTasks?: boolean;
   hasNoSessions?: boolean;
+  needsFollowUp?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -641,6 +642,7 @@ export class DatabaseStorage implements IStorage {
       hasPortalAccess,
       hasPendingTasks,
       hasNoSessions,
+      needsFollowUp,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = params;
@@ -686,6 +688,10 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(
         sql`NOT EXISTS (SELECT 1 FROM ${sessions} WHERE ${sessions.clientId} = ${clients.id})`
       );
+    }
+
+    if (needsFollowUp !== undefined) {
+      whereConditions.push(eq(clients.needsFollowUp, needsFollowUp));
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;

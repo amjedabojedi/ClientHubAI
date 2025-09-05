@@ -307,6 +307,7 @@ export const clients = pgTable("clients", {
   needsFollowUp: boolean("needs_follow_up").default(false),
   followUpPriority: varchar("follow_up_priority", { length: 20 }), // low, medium, high, urgent
   followUpDate: date("follow_up_date"),
+  followUpNotes: text("follow_up_notes"),
   
   // Timestamps
   lastSessionDate: timestamp("last_session_date"),

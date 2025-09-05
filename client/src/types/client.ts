@@ -72,6 +72,7 @@ export interface Client {
   needsFollowUp?: boolean | null;
   followUpPriority?: 'low' | 'medium' | 'high' | 'urgent' | null;
   followUpDate?: string | null;
+  followUpNotes?: string | null;
   
   // Timestamps
   startDate?: string | null;

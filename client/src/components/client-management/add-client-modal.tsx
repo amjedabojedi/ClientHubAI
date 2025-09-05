@@ -573,13 +573,13 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="followUpPriority"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Follow-up Priority</FormLabel>
+                          <FormLabel>Priority</FormLabel>
                           <FormControl>
                             <SearchableSelect
                               value={field.value || ""}
@@ -605,10 +605,27 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       name="followUpDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Follow-up Date</FormLabel>
+                          <FormLabel>Due Date</FormLabel>
                           <FormControl>
                             <Input
                               type="date"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="followUpNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Follow-up Notes</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Brief follow-up notes..."
                               {...field}
                             />
                           </FormControl>
