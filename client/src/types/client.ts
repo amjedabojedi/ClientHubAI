@@ -96,11 +96,13 @@ export interface ClientStats {
   totalClients: number;
   activeClients: number;
   inactiveClients: number;
+  pendingClients: number;
   newIntakes: number;
   assessmentPhase: number;
   psychotherapy: number;
   noSessions: number;
   needsFollowUp: number;
+  unassignedClients: number;
 }
 
 export interface Document {
