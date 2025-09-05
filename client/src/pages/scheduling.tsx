@@ -1084,7 +1084,7 @@ export default function SchedulingPage() {
                 <div className="grid grid-cols-7 gap-1">
                   {/* Day Headers */}
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="p-2 text-center text-sm font-medium text-slate-600">
+                    <div key={day} className="p-2 text-center text-sm font-medium text-slate-600 border border-transparent">
                       {day}
                     </div>
                   ))}
