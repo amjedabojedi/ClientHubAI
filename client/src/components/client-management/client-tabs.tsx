@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
-interface ClientTabsProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
+interface ClientFilterProps {
+  activeFilter: string;
+  onFilterChange: (filter: string) => void;
 }
 
-export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) {
+export default function ClientFilter({ activeFilter, onFilterChange }: ClientFilterProps) {
   const { user } = useAuth();
   
   const { data: stats = {} } = useQuery({
@@ -25,45 +27,70 @@ export default function ClientTabs({ activeTab, onTabChange }: ClientTabsProps) 
     },
   });
 
-  const tabs = [
-    { id: "all", label: "All Clients", icon: "fas fa-users", count: stats?.totalClients },
-    { id: "active", label: "Active", icon: "fas fa-user-check", count: stats?.activeClients },
-    { id: "inactive", label: "Inactive", icon: "fas fa-user-times", count: stats?.inactiveClients },
-    { id: "follow-up", label: "Follow-up", icon: "fas fa-flag", count: stats?.needsFollowUp },
-    { id: "intakes", label: "New Intakes", icon: "fas fa-user-plus", count: stats?.newIntakes },
-    { id: "assessment", label: "Assessment Phase", icon: "fas fa-clipboard-list", count: stats?.assessmentPhase },
-    { id: "psychotherapy", label: "Psychotherapy", icon: "fas fa-brain", count: stats?.psychotherapy },
-    { id: "no-sessions", label: "No Sessions", icon: "fas fa-calendar-times", count: stats?.noSessions },
+  const filterGroups = [
+    {
+      label: "📊 Status",
+      options: [
+        { id: "all", label: "All Clients", count: stats?.totalClients },
+        { id: "active", label: "Active", count: stats?.activeClients },
+        { id: "inactive", label: "Inactive", count: stats?.inactiveClients },
+      ]
+    },
+    {
+      label: "🎯 Treatment Stage",
+      options: [
+        { id: "intakes", label: "New Intakes", count: stats?.newIntakes },
+        { id: "assessment", label: "Assessment Phase", count: stats?.assessmentPhase },
+        { id: "psychotherapy", label: "Psychotherapy", count: stats?.psychotherapy },
+      ]
+    },
+    {
+      label: "⚠️ Special Cases",
+      options: [
+        { id: "follow-up", label: "Follow-up", count: stats?.needsFollowUp },
+        { id: "no-sessions", label: "No Sessions", count: stats?.noSessions },
+      ]
+    },
   ];
 
+  const allOptions = filterGroups.flatMap(group => group.options);
+  const currentOption = allOptions.find(option => option.id === activeFilter);
+  const displayLabel = currentOption ? `${currentOption.label} (${currentOption.count?.toLocaleString() || 0})` : "All Clients";
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-6">
-      <div className="border-b border-slate-200">
-        <nav className="flex space-x-8 px-6">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex items-center space-x-2 py-4 ${
-                activeTab === tab.id
-                  ? "border-b-2 border-primary text-primary font-medium"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <i className={tab.icon}></i>
-              <span>{tab.label}</span>
-              <span 
-                className={`text-xs px-2 py-1 rounded-full ${
-                  activeTab === tab.id
-                    ? "bg-primary-100 text-primary"
-                    : "bg-slate-100 text-slate-600"
-                }`}
-              >
-                {tab.count?.toLocaleString() || 0}
-              </span>
-            </button>
-          ))}
-        </nav>
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-6 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <label className="text-sm font-medium text-slate-700">Filter Clients:</label>
+          <Select value={activeFilter} onValueChange={onFilterChange}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder={displayLabel} />
+            </SelectTrigger>
+            <SelectContent>
+              {filterGroups.map((group) => (
+                <div key={group.label}>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50">
+                    {group.label}
+                  </div>
+                  {group.options.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{option.label}</span>
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {option.count?.toLocaleString() || 0}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </div>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="text-sm text-slate-600">
+          Showing: <span className="font-medium text-slate-900">{displayLabel}</span>
+        </div>
       </div>
     </div>
   );

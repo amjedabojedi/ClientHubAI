@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 import { Download, Upload, Plus } from "lucide-react";
 
 // Component Imports
-import ClientTabs from "@/components/client-management/client-tabs";
+import ClientFilter from "@/components/client-management/client-tabs";
 import SearchFilters from "@/components/client-management/search-filters";
 import ClientDataGrid from "@/components/client-management/client-data-grid";
 import AddClientModal from "@/components/client-management/add-client-modal";
@@ -107,7 +107,7 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <ClientTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            <ClientFilter activeFilter={activeTab} onFilterChange={setActiveTab} />
             
             <SearchFilters 
               searchQuery={searchQuery}
