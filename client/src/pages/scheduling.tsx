@@ -1103,21 +1103,21 @@ export default function SchedulingPage() {
                     const isSelected = currentDate.toDateString() === selectedDate.toDateString();
                     const sessionsForDay = getSessionsForDate(currentDate);
                     
-                    // Hide dates outside current month
-                    if (!isCurrentMonth) {
-                      return null;
-                    }
+                    // Show disabled state for dates outside current month to maintain grid structure
                     
                     return (
                       <div
                         key={i}
                         className={`
-                          min-h-[140px] p-2 border border-slate-100 cursor-pointer hover:bg-slate-50
-                          ${!isCurrentMonth ? 'bg-slate-50 text-slate-400' : ''}
+                          min-h-[140px] p-2 border border-slate-100 
+                          ${!isCurrentMonth 
+                            ? 'bg-slate-50 text-slate-400 cursor-default opacity-50' 
+                            : 'cursor-pointer hover:bg-slate-50'
+                          }
                           ${isToday ? 'bg-blue-50 border-blue-200' : ''}
                           ${isSelected ? 'ring-2 ring-blue-500' : ''}
                         `}
-                        onClick={() => setSelectedDate(currentDate)}
+                        onClick={() => isCurrentMonth && setSelectedDate(currentDate)}
                       >
                         <div className={`text-sm font-medium mb-1 ${isToday ? 'text-blue-600' : ''}`}>
                           {currentDate.getDate()}
