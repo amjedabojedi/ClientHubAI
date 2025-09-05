@@ -77,6 +77,7 @@ export default function ClientDataGrid({
       pageSize,
       search: debouncedSearch,
       status: typeof statusFromTab === "string" ? statusFromTab : filters.status,
+      stage: typeof statusFromTab === "object" && statusFromTab.stage ? statusFromTab.stage : undefined,
       therapistId: filters.therapistId,
       clientType: filters.clientType,
       hasPortalAccess: filters.hasPortalAccess,

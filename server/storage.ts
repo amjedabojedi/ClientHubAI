@@ -129,6 +129,7 @@ export interface ClientsQueryParams {
   pageSize?: number;
   search?: string;
   status?: string;
+  stage?: string;
   therapistId?: number;
   supervisedTherapistIds?: number[];
   clientType?: string;
@@ -638,6 +639,7 @@ export class DatabaseStorage implements IStorage {
       pageSize = 25,
       search,
       status,
+      stage,
       therapistId,
       clientType,
       hasPortalAccess,
@@ -667,6 +669,10 @@ export class DatabaseStorage implements IStorage {
     
     if (status) {
       whereConditions.push(eq(clients.status, status as any));
+    }
+    
+    if (stage) {
+      whereConditions.push(eq(clients.stage, stage as any));
     }
     
     if (therapistId) {
