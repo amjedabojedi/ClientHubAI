@@ -60,11 +60,13 @@ export default function ClientDataGrid({
     switch (activeTab) {
       case "active": return "active";
       case "inactive": return "inactive";
+      case "pending": return "pending";
       case "intakes": return { stage: "intake" };
       case "assessment": return { stage: "assessment" };
       case "psychotherapy": return { stage: "psychotherapy" };
       case "no-sessions": return { hasNoSessions: true };
       case "follow-up": return { needsFollowUp: true };
+      case "unassigned": return { unassigned: true };
       default: return "";
     }
   }, [activeTab]);
@@ -80,6 +82,8 @@ export default function ClientDataGrid({
       hasPortalAccess: filters.hasPortalAccess,
       hasPendingTasks: filters.hasPendingTasks,
       hasNoSessions: typeof statusFromTab === "object" && statusFromTab.hasNoSessions ? true : filters.hasNoSessions,
+      needsFollowUp: typeof statusFromTab === "object" && statusFromTab.needsFollowUp ? true : undefined,
+      unassigned: typeof statusFromTab === "object" && statusFromTab.unassigned ? true : undefined,
       sortBy,
       sortOrder,
       currentUserId: user?.user?.id || user?.id,

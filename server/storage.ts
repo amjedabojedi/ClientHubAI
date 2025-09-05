@@ -1,6 +1,6 @@
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray, isNull } from "drizzle-orm";
 
 // Database Schema - Tables
 import { 
@@ -136,6 +136,7 @@ export interface ClientsQueryParams {
   hasPendingTasks?: boolean;
   hasNoSessions?: boolean;
   needsFollowUp?: boolean;
+  unassigned?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -643,6 +644,7 @@ export class DatabaseStorage implements IStorage {
       hasPendingTasks,
       hasNoSessions,
       needsFollowUp,
+      unassigned,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = params;
@@ -692,6 +694,11 @@ export class DatabaseStorage implements IStorage {
 
     if (needsFollowUp !== undefined) {
       whereConditions.push(eq(clients.needsFollowUp, needsFollowUp));
+    }
+
+    // Filter clients not assigned to a therapist
+    if (unassigned === true) {
+      whereConditions.push(isNull(clients.assignedTherapistId));
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
@@ -913,11 +920,13 @@ export class DatabaseStorage implements IStorage {
     totalClients: number;
     activeClients: number;
     inactiveClients: number;
+    pendingClients: number;
     newIntakes: number;
     assessmentPhase: number;
     psychotherapy: number;
     noSessions: number;
     needsFollowUp: number;
+    unassignedClients: number;
   }> {
     // Build where conditions for role-based filtering
     const whereConditions = [];
@@ -935,11 +944,13 @@ export class DatabaseStorage implements IStorage {
         totalClients: count(),
         activeClients: sql<number>`COUNT(*) FILTER (WHERE status = 'active')`,
         inactiveClients: sql<number>`COUNT(*) FILTER (WHERE status = 'inactive')`,
+        pendingClients: sql<number>`COUNT(*) FILTER (WHERE status = 'pending')`,
         newIntakes: sql<number>`COUNT(*) FILTER (WHERE stage = 'intake')`,
         assessmentPhase: sql<number>`COUNT(*) FILTER (WHERE stage = 'assessment')`,
         psychotherapy: sql<number>`COUNT(*) FILTER (WHERE stage = 'psychotherapy')`,
         noSessions: sql<number>`COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id))`,
-        needsFollowUp: sql<number>`COUNT(*) FILTER (WHERE needs_follow_up = true)`
+        needsFollowUp: sql<number>`COUNT(*) FILTER (WHERE needs_follow_up = true)`,
+        unassignedClients: sql<number>`COUNT(*) FILTER (WHERE assigned_therapist_id IS NULL)`
       })
       .from(clients)
       .where(whereClause);
@@ -948,11 +959,13 @@ export class DatabaseStorage implements IStorage {
       totalClients: stats.totalClients,
       activeClients: stats.activeClients,
       inactiveClients: stats.inactiveClients,
+      pendingClients: stats.pendingClients,
       newIntakes: stats.newIntakes,
       assessmentPhase: stats.assessmentPhase,
       psychotherapy: stats.psychotherapy,
       noSessions: stats.noSessions,
-      needsFollowUp: stats.needsFollowUp
+      needsFollowUp: stats.needsFollowUp,
+      unassignedClients: stats.unassignedClients
     };
   }
 

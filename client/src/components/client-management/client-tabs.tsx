@@ -34,6 +34,7 @@ export default function ClientFilter({ activeFilter, onFilterChange }: ClientFil
         { id: "all", label: "All Clients", count: stats?.totalClients },
         { id: "active", label: "Active", count: stats?.activeClients },
         { id: "inactive", label: "Inactive", count: stats?.inactiveClients },
+        { id: "pending", label: "Pending", count: stats?.pendingClients },
       ]
     },
     {
@@ -49,6 +50,7 @@ export default function ClientFilter({ activeFilter, onFilterChange }: ClientFil
       options: [
         { id: "follow-up", label: "Follow-up", count: stats?.needsFollowUp },
         { id: "no-sessions", label: "No Sessions", count: stats?.noSessions },
+        { id: "unassigned", label: "Unassigned Clients", count: stats?.unassignedClients },
       ]
     },
   ];
