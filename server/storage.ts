@@ -3144,7 +3144,7 @@ export class DatabaseStorage implements IStorage {
     const templatesWithItems = await Promise.all(templates.map(async (template) => {
       const items = await db.select().from(checklistItems)
         .where(eq(checklistItems.templateId, template.id))
-        .orderBy(checklistItems.sortOrder, checklistItems.title);
+        .orderBy(checklistItems.itemOrder, checklistItems.title);
       
       return { ...template, items };
     }));
@@ -3160,7 +3160,7 @@ export class DatabaseStorage implements IStorage {
 
     const items = await db.select().from(checklistItems)
       .where(eq(checklistItems.templateId, id))
-      .orderBy(checklistItems.sortOrder, checklistItems.title);
+      .orderBy(checklistItems.itemOrder, checklistItems.title);
 
     return { ...template, items };
   }
@@ -3190,7 +3190,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(checklistItems.templateId, templateId));
     }
     
-    return await query.orderBy(checklistItems.templateId, checklistItems.sortOrder, checklistItems.title);
+    return await query.orderBy(checklistItems.templateId, checklistItems.itemOrder, checklistItems.title);
   }
 
   async createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem> {
@@ -3243,7 +3243,7 @@ export class DatabaseStorage implements IStorage {
       .from(clientChecklistItems)
       .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
       .where(eq(clientChecklistItems.clientChecklistId, clientChecklistId))
-      .orderBy(checklistItems.sortOrder);
+      .orderBy(checklistItems.itemOrder);
 
       return items.map(row => ({
         ...row.clientItem,
@@ -3395,7 +3395,7 @@ export class DatabaseStorage implements IStorage {
     // Create checklist items for the client
     const templateItems = await db.select().from(checklistItems)
       .where(eq(checklistItems.templateId, templateId))
-      .orderBy(checklistItems.sortOrder);
+      .orderBy(checklistItems.itemOrder);
 
     if (templateItems.length > 0) {
       await db.insert(clientChecklistItems).values(
@@ -3433,7 +3433,7 @@ export class DatabaseStorage implements IStorage {
       // Create client checklist items
       const items = await db.select().from(checklistItems)
         .where(eq(checklistItems.templateId, template.id))
-        .orderBy(checklistItems.sortOrder);
+        .orderBy(checklistItems.itemOrder);
       const clientItems = items.map(item => ({
         clientChecklistId: clientChecklist.id,
         checklistItemId: item.id
