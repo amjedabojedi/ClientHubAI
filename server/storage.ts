@@ -138,7 +138,8 @@ export interface ClientsQueryParams {
   hasNoSessions?: boolean;
   needsFollowUp?: boolean;
   unassigned?: boolean;
-  checklistStatus?: 'completed' | 'in-progress' | 'not-started' | 'overdue';
+  checklistTemplateId?: number;
+  checklistItemId?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -648,7 +649,8 @@ export class DatabaseStorage implements IStorage {
       hasNoSessions,
       needsFollowUp,
       unassigned,
-      checklistStatus,
+      checklistTemplateId,
+      checklistItemId,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = params;
@@ -709,61 +711,28 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(isNull(clients.assignedTherapistId));
     }
 
-    // Filter clients by checklist status
-    if (checklistStatus) {
-      switch (checklistStatus) {
-        case 'completed':
-          whereConditions.push(
-            sql`EXISTS (
-              SELECT 1 FROM ${clientChecklists} cc 
-              WHERE cc.client_id = ${clients.id} 
-              AND NOT EXISTS (
-                SELECT 1 FROM ${clientChecklistItems} cci 
-                WHERE cci.client_checklist_id = cc.id 
-                AND cci.is_completed = false
-              )
-            )`
-          );
-          break;
-        case 'in-progress':
-          whereConditions.push(
-            sql`EXISTS (
-              SELECT 1 FROM ${clientChecklists} cc 
-              JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
-              WHERE cc.client_id = ${clients.id} 
-              AND EXISTS (SELECT 1 FROM ${clientChecklistItems} cci2 WHERE cci2.client_checklist_id = cc.id AND cci2.is_completed = true)
-              AND EXISTS (SELECT 1 FROM ${clientChecklistItems} cci3 WHERE cci3.client_checklist_id = cc.id AND cci3.is_completed = false)
-            )`
-          );
-          break;
-        case 'not-started':
-          whereConditions.push(
-            sql`EXISTS (
-              SELECT 1 FROM ${clientChecklists} cc 
-              WHERE cc.client_id = ${clients.id} 
-              AND NOT EXISTS (
-                SELECT 1 FROM ${clientChecklistItems} cci 
-                WHERE cci.client_checklist_id = cc.id 
-                AND cci.is_completed = true
-              )
-            )`
-          );
-          break;
-        case 'overdue':
-          whereConditions.push(
-            sql`EXISTS (
-              SELECT 1 FROM ${clientChecklists} cc 
-              WHERE cc.client_id = ${clients.id} 
-              AND cc.due_date < CURRENT_DATE 
-              AND NOT EXISTS (
-                SELECT 1 FROM ${clientChecklistItems} cci 
-                WHERE cci.client_checklist_id = cc.id 
-                AND cci.is_completed = false
-              )
-            )`
-          );
-          break;
-      }
+    // Filter clients by checklist template
+    if (checklistTemplateId) {
+      whereConditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${clientChecklists} cc 
+          WHERE cc.client_id = ${clients.id} 
+          AND cc.template_id = ${checklistTemplateId}
+        )`
+      );
+    }
+
+    // Filter clients by specific checklist item completion
+    if (checklistItemId) {
+      whereConditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${clientChecklists} cc 
+          JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
+          JOIN ${checklistItems} ci ON ci.id = cci.checklist_item_id
+          WHERE cc.client_id = ${clients.id} 
+          AND ci.id = ${checklistItemId}
+        )`
+      );
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;

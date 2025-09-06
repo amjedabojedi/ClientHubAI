@@ -19,6 +19,8 @@ interface SearchFiltersProps {
     hasPortalAccess?: boolean;
     hasPendingTasks?: boolean;
     hasNoSessions?: boolean;
+    checklistTemplateId?: string;
+    checklistItemId?: string;
   };
   onFiltersChange: (filters: any) => void;
 }
@@ -49,6 +51,22 @@ export default function SearchFilters({
     enabled: !!clientTypeCategory?.id,
   });
 
+  // Fetch checklist templates
+  const { data: checklistTemplates = [] } = useQuery<any[]>({
+    queryKey: ["/api/checklist-templates"],
+  });
+
+  // Fetch checklist items for selected template
+  const { data: checklistItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/checklist-items"],
+    enabled: !!filters.checklistTemplateId,
+  });
+
+  // Filter items by selected template
+  const filteredChecklistItems = checklistItems.filter((item: any) => 
+    !filters.checklistTemplateId || item.templateId?.toString() === filters.checklistTemplateId
+  );
+
   const activeFilterCount = Object.values(filters).filter(value => 
     value !== "" && value !== undefined
   ).length;
@@ -56,7 +74,13 @@ export default function SearchFilters({
   const handleFilterChange = (key: string, value: any) => {
     // Convert "all" back to empty string for backend compatibility
     const processedValue = value === "all" ? "" : value;
-    onFiltersChange({ ...filters, [key]: processedValue });
+    
+    // If changing checklist template, clear the selected item
+    if (key === 'checklistTemplateId') {
+      onFiltersChange({ ...filters, [key]: processedValue, checklistItemId: "" });
+    } else {
+      onFiltersChange({ ...filters, [key]: processedValue });
+    }
   };
 
   const clearFilters = () => {
@@ -67,6 +91,8 @@ export default function SearchFilters({
       hasPortalAccess: undefined,
       hasPendingTasks: undefined,
       hasNoSessions: undefined,
+      checklistTemplateId: "",
+      checklistItemId: "",
     });
   };
 
@@ -150,10 +176,47 @@ export default function SearchFilters({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Date Range</label>
-                <Input type="date" />
+                <label className="block text-sm font-medium text-slate-700 mb-2">Checklist Template</label>
+                <SearchableSelect
+                  value={filters.checklistTemplateId || "all"}
+                  onValueChange={(value) => handleFilterChange('checklistTemplateId', value)}
+                  options={[
+                    { value: "all", label: "All Templates" },
+                    ...(checklistTemplates?.map((template: any) => ({
+                      value: template.id.toString(),
+                      label: template.name
+                    })) || [])
+                  ]}
+                  placeholder="All Templates"
+                  searchPlaceholder="Search templates..."
+                />
               </div>
             </div>
+
+            {/* Second row for checklist items */}
+            {filters.checklistTemplateId && filters.checklistTemplateId !== "all" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Checklist Item</label>
+                  <SearchableSelect
+                    value={filters.checklistItemId || "all"}
+                    onValueChange={(value) => handleFilterChange('checklistItemId', value)}
+                    options={[
+                      { value: "all", label: "All Items" },
+                      ...(filteredChecklistItems?.map((item: any) => ({
+                        value: item.id.toString(),
+                        label: `${item.title} (${item.category})`
+                      })) || [])
+                    ]}
+                    placeholder="All Items"
+                    searchPlaceholder="Search checklist items..."
+                  />
+                </div>
+                <div></div>
+                <div></div>
+                <div></div>
+              </div>
+            )}
 
             <div className="flex items-center justify-between mt-4">
               <div className="flex items-center space-x-4">

@@ -53,15 +53,6 @@ export default function ClientFilter({ activeFilter, onFilterChange }: ClientFil
         { id: "unassigned", label: "Unassigned Clients", count: stats?.unassignedClients },
       ]
     },
-    {
-      label: "✅ Checklist Status",
-      options: [
-        { id: "checklist-completed", label: "All Checklists Complete", count: stats?.checklistCompleted },
-        { id: "checklist-in-progress", label: "Checklists In Progress", count: stats?.checklistInProgress },
-        { id: "checklist-not-started", label: "Checklists Not Started", count: stats?.checklistNotStarted },
-        { id: "checklist-overdue", label: "Overdue Checklists", count: stats?.checklistOverdue },
-      ]
-    },
   ];
 
   const allOptions = filterGroups.flatMap(group => group.options);
