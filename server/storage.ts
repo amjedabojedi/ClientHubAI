@@ -3426,8 +3426,7 @@ export class DatabaseStorage implements IStorage {
       const [clientChecklist] = await db.insert(clientChecklists).values({
         clientId,
         templateId: template.id,
-        dueDate: template.category === 'intake' ? sql`CURRENT_DATE + INTERVAL '30 days'` : 
-                 template.category === 'assessment' ? sql`CURRENT_DATE + INTERVAL '14 days'` : null
+        dueDate: null
       }).returning();
 
       // Create client checklist items
