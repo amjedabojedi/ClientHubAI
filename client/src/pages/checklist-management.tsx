@@ -17,7 +17,6 @@ interface ChecklistTemplate {
   id: number;
   name: string;
   description?: string;
-  category: string;
   clientType?: string;
   sortOrder: number;
   isActive: boolean;
@@ -30,6 +29,7 @@ interface ChecklistItem {
   templateId: number;
   title: string;
   description?: string;
+  category: string;
   isRequired: boolean;
   itemOrder?: number;
   sortOrder: number;
@@ -46,7 +46,6 @@ const ChecklistManagement = () => {
   const [templateForm, setTemplateForm] = useState({
     name: "",
     description: "",
-    category: "",
     clientType: "",
     sortOrder: 1
   });
@@ -54,6 +53,7 @@ const ChecklistManagement = () => {
     templateId: 0,
     title: "",
     description: "",
+    category: "",
     isRequired: true,
     itemOrder: 1,
     sortOrder: 1
@@ -61,6 +61,7 @@ const ChecklistManagement = () => {
   const [editItemForm, setEditItemForm] = useState({
     title: "",
     description: "",
+    category: "",
     isRequired: true,
     itemOrder: 1,
     sortOrder: 1
@@ -93,7 +94,7 @@ const ChecklistManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
       refetchTemplates();
       setIsTemplateDialogOpen(false);
-      setTemplateForm({ name: "", description: "", category: "", clientType: "", sortOrder: 1 });
+      setTemplateForm({ name: "", description: "", clientType: "", sortOrder: 1 });
       toast({ title: "Success", description: "Checklist template created successfully" });
     },
     onError: () => {
@@ -113,7 +114,7 @@ const ChecklistManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       refetchTemplates();
       setIsItemDialogOpen(false);
-      setItemForm({ templateId: 0, title: "", description: "", isRequired: true, itemOrder: 1, sortOrder: 1 });
+      setItemForm({ templateId: 0, title: "", description: "", category: "", isRequired: true, itemOrder: 1, sortOrder: 1 });
       toast({ title: "Success", description: "Checklist item created successfully" });
     },
     onError: () => {
@@ -187,6 +188,7 @@ const ChecklistManagement = () => {
     setEditItemForm({
       title: item.title,
       description: item.description || "",
+      category: item.category,
       isRequired: item.isRequired,
       itemOrder: item.itemOrder || 1,
       sortOrder: item.sortOrder
@@ -281,20 +283,6 @@ const ChecklistManagement = () => {
                       onChange={(e) => setTemplateForm(prev => ({ ...prev, description: e.target.value }))}
                       placeholder="Describe the checklist purpose and usage"
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="template-category">Category</Label>
-                    <Select value={templateForm.category} onValueChange={(value) => setTemplateForm(prev => ({ ...prev, category: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="intake">Intake</SelectItem>
-                        <SelectItem value="assessment">Assessment</SelectItem>
-                        <SelectItem value="ongoing">Ongoing Care</SelectItem>
-                        <SelectItem value="discharge">Discharge</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="template-sort">Sort Order</Label>
@@ -443,6 +431,20 @@ const ChecklistManagement = () => {
                       placeholder="Detailed description of the required action"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="item-category">Category</Label>
+                    <Select value={itemForm.category} onValueChange={(value) => setItemForm(prev => ({ ...prev, category: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="intake">Intake</SelectItem>
+                        <SelectItem value="assessment">Assessment</SelectItem>
+                        <SelectItem value="ongoing">Ongoing Care</SelectItem>
+                        <SelectItem value="discharge">Discharge</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex gap-4">
                     <div className="flex-1">
                       <Label htmlFor="item-order">Item Order</Label>
@@ -495,6 +497,20 @@ const ChecklistManagement = () => {
                       placeholder="Detailed description of the required action"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="edit-item-category">Category</Label>
+                    <Select value={editItemForm.category} onValueChange={(value) => setEditItemForm(prev => ({ ...prev, category: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="intake">Intake</SelectItem>
+                        <SelectItem value="assessment">Assessment</SelectItem>
+                        <SelectItem value="ongoing">Ongoing Care</SelectItem>
+                        <SelectItem value="discharge">Discharge</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex gap-4">
                     <div className="flex-1">
                       <Label htmlFor="edit-item-order">Item Order</Label>
@@ -530,15 +546,12 @@ const ChecklistManagement = () => {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {getCategoryIcon(template.category)}
+                        <FileText className="w-4 h-4" />
                         <div>
                           <CardTitle className="text-lg">{template.name}</CardTitle>
                           <p className="text-sm text-slate-600">{template.items.length} items</p>
                         </div>
                       </div>
-                      <Badge className={getCategoryColor(template.category)}>
-                        {template.category}
-                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -560,6 +573,9 @@ const ChecklistManagement = () => {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-xs text-slate-500">Order {item.itemOrder}</div>
+                            <Badge className={getCategoryColor(item.category)}>
+                              {item.category}
+                            </Badge>
                             {item.isRequired && (
                               <Badge variant="outline" className="text-xs">Required</Badge>
                             )}

@@ -40,7 +40,6 @@ interface ProcessChecklist {
     id: number;
     name: string;
     description?: string;
-    category: string;
   };
   items: ChecklistItem[];
 }
@@ -156,7 +155,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {getCategoryIcon(checklist.template.category)}
+                  <FileText className="w-4 h-4" />
                   <div>
                     <CardTitle className="text-lg">{checklist.template.name}</CardTitle>
                     {checklist.template.description && (
@@ -164,14 +163,9 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge className={getCategoryColor(checklist.template.category)}>
-                    {checklist.template.category}
-                  </Badge>
-                  <div className="text-right">
-                    <div className="text-sm font-medium">{progress}% Complete</div>
-                    <Progress value={progress} className="w-24 h-2" />
-                  </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium">{progress}% Complete</div>
+                  <Progress value={progress} className="w-24 h-2" />
                 </div>
               </div>
             </CardHeader>
