@@ -35,26 +35,15 @@ export default function SearchFilters({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { data: therapists } = useQuery({
-    queryKey: ["/api/therapists", { currentUserId: user?.id, currentUserRole: user?.role }],
+  // Use the optimized batch API - single call instead of 4+ separate calls
+  const { data: batchData } = useQuery({
+    queryKey: ["/api/client-filters/batch"],
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes since this data rarely changes
   });
 
-  // Fetch system options for client type dropdown
-  const { data: systemOptions = [] } = useQuery<any[]>({
-    queryKey: ["/api/system-options/categories"],
-  });
-
-  // Get client type options from system options
-  const clientTypeCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_type");
-  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
-    enabled: !!clientTypeCategory?.id,
-  });
-
-  // Fetch checklist templates
-  const { data: checklistTemplates = [] } = useQuery<any[]>({
-    queryKey: ["/api/checklist-templates"],
-  });
+  const therapists = batchData?.therapists || [];
+  const checklistTemplates = batchData?.checklistTemplates || [];
+  const clientTypeOptions = batchData?.systemOptions?.client_type?.options || [];
 
   // Fetch checklist items for selected template
   const { data: checklistItems = [] } = useQuery<any[]>({

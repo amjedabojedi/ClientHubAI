@@ -4799,6 +4799,48 @@ This happens because only the file metadata was stored, not the actual file cont
   // ===== SYSTEM OPTIONS API ROUTES =====
   // (Following same pattern as Services/Rooms)
 
+  // BATCH API: Get all filter data in one call (optimized for client page)
+  app.get("/api/client-filters/batch", async (req, res) => {
+    try {
+      // Get all data needed for client page filters in parallel
+      const [
+        categories,
+        therapists,
+        checklistTemplates
+      ] = await Promise.all([
+        storage.getOptionCategories(),
+        storage.getTherapists(),
+        storage.getChecklistTemplates()
+      ]);
+
+      // Get specific system options we need for client forms
+      const neededCategories = categories.filter(cat => 
+        ['client_type', 'referral_sources', 'marital_status', 'employment_status', 'education_level', 'gender', 'preferred_language'].includes(cat.categoryKey)
+      );
+      
+      const optionsPromises = neededCategories.map(cat => storage.getSystemOptions(cat.id));
+      const allOptions = await Promise.all(optionsPromises);
+      
+      // Organize options by category key
+      const systemOptions: { [key: string]: any } = {};
+      neededCategories.forEach((cat, index) => {
+        systemOptions[cat.categoryKey] = {
+          category: cat,
+          options: allOptions[index] || []
+        };
+      });
+
+      res.json({
+        therapists,
+        checklistTemplates,
+        systemOptions
+      });
+    } catch (error) {
+      console.error('Error fetching client filters batch:', error);
+      res.status(500).json({ error: 'Failed to fetch client filters' });
+    }
+  });
+
   // Option Categories Management
   app.get("/api/system-options/categories", async (req, res) => {
     try {

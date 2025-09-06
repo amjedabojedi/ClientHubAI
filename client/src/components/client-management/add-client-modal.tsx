@@ -32,59 +32,20 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const { data: therapists } = useQuery({
-    queryKey: ["/api/therapists"],
+  // Use the optimized batch API - single call instead of 9+ separate calls
+  const { data: batchData } = useQuery({
+    queryKey: ["/api/client-filters/batch"],
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes since this data rarely changes
   });
 
-  // Fetch system options for dropdowns
-  const { data: systemOptions = [] } = useQuery<any[]>({
-    queryKey: ["/api/system-options/categories"],
-  });
-
-  // Get system option categories (handle both camelCase and lowercase field names)
-  const clientTypeCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "client_type");
-  const referralSourceCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "referral_sources");
-  const maritalStatusCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "marital_status");
-  const employmentStatusCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "employment_status");
-  const educationLevelCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "education_level");
-  const genderCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "gender");
-  const preferredLanguageCategory = systemOptions?.find?.((cat: any) => (cat.categoryKey || cat.categorykey) === "preferred_language");
-
-  // Get options for each category
-  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
-    enabled: !!clientTypeCategory?.id,
-  });
-
-  const { data: referralSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${referralSourceCategory?.id}`],
-    enabled: !!referralSourceCategory?.id,
-  });
-
-  const { data: maritalStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${maritalStatusCategory?.id}`],
-    enabled: !!maritalStatusCategory?.id,
-  });
-
-  const { data: employmentStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${employmentStatusCategory?.id}`],
-    enabled: !!employmentStatusCategory?.id,
-  });
-
-  const { data: educationLevelOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${educationLevelCategory?.id}`],
-    enabled: !!educationLevelCategory?.id,
-  });
-
-  const { data: genderOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${genderCategory?.id}`],
-    enabled: !!genderCategory?.id,
-  });
-
-  const { data: preferredLanguageOptions = { options: [] } } = useQuery<{ options: any[] }>({
-    queryKey: [`/api/system-options/categories/${preferredLanguageCategory?.id}`],
-    enabled: !!preferredLanguageCategory?.id,
-  });
+  const therapists = batchData?.therapists || [];
+  const clientTypeOptions = batchData?.systemOptions?.client_type?.options || [];
+  const referralSourceOptions = batchData?.systemOptions?.referral_sources?.options || [];
+  const maritalStatusOptions = batchData?.systemOptions?.marital_status?.options || [];
+  const employmentStatusOptions = batchData?.systemOptions?.employment_status?.options || [];
+  const educationLevelOptions = batchData?.systemOptions?.education_level?.options || [];
+  const genderOptions = batchData?.systemOptions?.gender?.options || [];
+  const preferredLanguageOptions = batchData?.systemOptions?.preferred_language?.options || [];
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
