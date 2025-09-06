@@ -21,7 +21,7 @@ interface ChecklistItem {
     title: string;
     description?: string;
     isRequired: boolean;
-    daysFromStart?: number;
+    itemOrder?: number;
   };
   completedByUser?: {
     id: number;

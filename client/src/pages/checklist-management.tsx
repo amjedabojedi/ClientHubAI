@@ -31,7 +31,7 @@ interface ChecklistItem {
   title: string;
   description?: string;
   isRequired: boolean;
-  daysFromStart?: number;
+  itemOrder?: number;
   sortOrder: number;
   isActive: boolean;
 }
@@ -53,7 +53,7 @@ const ChecklistManagement = () => {
     title: "",
     description: "",
     isRequired: true,
-    daysFromStart: 1,
+    itemOrder: 1,
     sortOrder: 1
   });
 
@@ -104,7 +104,7 @@ const ChecklistManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       refetchTemplates();
       setIsItemDialogOpen(false);
-      setItemForm({ templateId: 0, title: "", description: "", isRequired: true, daysFromStart: 1, sortOrder: 1 });
+      setItemForm({ templateId: 0, title: "", description: "", isRequired: true, itemOrder: 1, sortOrder: 1 });
       toast({ title: "Success", description: "Checklist item created successfully" });
     },
     onError: () => {
@@ -327,7 +327,7 @@ const ChecklistManagement = () => {
                               )}
                             </div>
                             <div className="text-xs text-slate-500">
-                              Day {item.daysFromStart}
+                              Order {item.itemOrder}
                             </div>
                           </div>
                         ))}
@@ -396,12 +396,12 @@ const ChecklistManagement = () => {
                   </div>
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <Label htmlFor="item-days">Days from Start</Label>
+                      <Label htmlFor="item-order">Item Order</Label>
                       <Input
-                        id="item-days"
+                        id="item-order"
                         type="number"
-                        value={itemForm.daysFromStart}
-                        onChange={(e) => setItemForm(prev => ({ ...prev, daysFromStart: parseInt(e.target.value) || 1 }))}
+                        value={itemForm.itemOrder}
+                        onChange={(e) => setItemForm(prev => ({ ...prev, itemOrder: parseInt(e.target.value) || 1 }))}
                       />
                     </div>
                     <div className="flex items-center space-x-2 pt-6">
@@ -456,7 +456,7 @@ const ChecklistManagement = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="text-xs text-slate-500">Day {item.daysFromStart}</div>
+                            <div className="text-xs text-slate-500">Order {item.itemOrder}</div>
                             {item.isRequired && (
                               <Badge variant="outline" className="text-xs">Required</Badge>
                             )}
