@@ -80,13 +80,6 @@ export default function SearchFilters({
   const checklistTemplates = batchData?.checklistTemplates || [];
   const clientTypeOptions = batchData?.systemOptions?.client_type?.options || [];
   
-  // Debug: Log the data structure to console for troubleshooting
-  console.log('Batch data received:', { 
-    therapistsCount: therapists.length, 
-    templatesCount: checklistTemplates.length, 
-    clientTypeOptionsCount: clientTypeOptions.length,
-    sampleClientOption: clientTypeOptions[0]
-  });
 
   // Fetch checklist items for selected template
   const { data: checklistItems = [] } = useQuery<any[]>({
