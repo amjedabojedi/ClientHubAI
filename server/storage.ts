@@ -948,30 +948,30 @@ export class DatabaseStorage implements IStorage {
     const [stats] = await db
       .select({
         totalClients: count(),
-        activeClients: sql<number>`COUNT(*) FILTER (WHERE status = 'active')`,
-        inactiveClients: sql<number>`COUNT(*) FILTER (WHERE status = 'inactive')`,
-        pendingClients: sql<number>`COUNT(*) FILTER (WHERE status = 'pending')`,
-        newIntakes: sql<number>`COUNT(*) FILTER (WHERE stage = 'intake')`,
-        assessmentPhase: sql<number>`COUNT(*) FILTER (WHERE stage = 'assessment')`,
-        psychotherapy: sql<number>`COUNT(*) FILTER (WHERE stage = 'psychotherapy')`,
-        noSessions: sql<number>`COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id))`,
-        needsFollowUp: sql<number>`COUNT(*) FILTER (WHERE needs_follow_up = true)`,
-        unassignedClients: sql<number>`COUNT(*) FILTER (WHERE assigned_therapist_id IS NULL)`
+        activeClients: sql<number>`CAST(COUNT(*) FILTER (WHERE status = 'active') AS INTEGER)`,
+        inactiveClients: sql<number>`CAST(COUNT(*) FILTER (WHERE status = 'inactive') AS INTEGER)`,
+        pendingClients: sql<number>`CAST(COUNT(*) FILTER (WHERE status = 'pending') AS INTEGER)`,
+        newIntakes: sql<number>`CAST(COUNT(*) FILTER (WHERE stage = 'intake') AS INTEGER)`,
+        assessmentPhase: sql<number>`CAST(COUNT(*) FILTER (WHERE stage = 'assessment') AS INTEGER)`,
+        psychotherapy: sql<number>`CAST(COUNT(*) FILTER (WHERE stage = 'psychotherapy') AS INTEGER)`,
+        noSessions: sql<number>`CAST(COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id)) AS INTEGER)`,
+        needsFollowUp: sql<number>`CAST(COUNT(*) FILTER (WHERE needs_follow_up = true) AS INTEGER)`,
+        unassignedClients: sql<number>`CAST(COUNT(*) FILTER (WHERE assigned_therapist_id IS NULL) AS INTEGER)`
       })
       .from(clients)
       .where(whereClause);
 
     return {
-      totalClients: stats.totalClients,
-      activeClients: stats.activeClients,
-      inactiveClients: stats.inactiveClients,
-      pendingClients: stats.pendingClients,
-      newIntakes: stats.newIntakes,
-      assessmentPhase: stats.assessmentPhase,
-      psychotherapy: stats.psychotherapy,
-      noSessions: stats.noSessions,
-      needsFollowUp: stats.needsFollowUp,
-      unassignedClients: stats.unassignedClients
+      totalClients: Number(stats.totalClients),
+      activeClients: Number(stats.activeClients),
+      inactiveClients: Number(stats.inactiveClients),
+      pendingClients: Number(stats.pendingClients),
+      newIntakes: Number(stats.newIntakes),
+      assessmentPhase: Number(stats.assessmentPhase),
+      psychotherapy: Number(stats.psychotherapy),
+      noSessions: Number(stats.noSessions),
+      needsFollowUp: Number(stats.needsFollowUp),
+      unassignedClients: Number(stats.unassignedClients)
     };
   }
 
