@@ -474,11 +474,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [result] = await db
+    const result = await db
       .insert(users)
       .values(insertUser)
       .returning();
-    return result;
+    return (result as User[])[0];
   }
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User> {
@@ -1792,11 +1792,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(task: InsertTask): Promise<Task> {
-    const [result] = await db
+    const result = await db
       .insert(tasks)
-      .values(task)
+      .values(task as any)
       .returning();
-    return result;
+    return (result as Task[])[0];
   }
 
   async updateTask(id: number, taskData: Partial<InsertTask>): Promise<Task> {
@@ -2153,8 +2153,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLibraryCategory(categoryData: InsertLibraryCategory): Promise<LibraryCategory> {
-    const [result] = await db.insert(libraryCategories).values(categoryData).returning();
-    return result;
+    const result = await db.insert(libraryCategories).values(categoryData).returning();
+    return (result as LibraryCategory[])[0];
   }
 
   async updateLibraryCategory(id: number, categoryData: Partial<InsertLibraryCategory>): Promise<LibraryCategory> {
@@ -2252,12 +2252,13 @@ export class DatabaseStorage implements IStorage {
     const baseConditions = [eq(libraryEntryConnections.isActive, true)];
     
     if (entryId) {
-      baseConditions.push(
-        or(
-          eq(libraryEntryConnections.fromEntryId, entryId), 
-          eq(libraryEntryConnections.toEntryId, entryId)
-        )
+      const condition = or(
+        eq(libraryEntryConnections.fromEntryId, entryId), 
+        eq(libraryEntryConnections.toEntryId, entryId)
       );
+      if (condition) {
+        baseConditions.push(condition);
+      }
     }
 
     const query = db
@@ -3161,9 +3162,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`LOWER(${clients.fullName}) LIKE LOWER(${'%' + params.clientSearch + '%'})`);
     }
     
-    let finalQuery = query;
     if (conditions.length > 0) {
-      finalQuery = finalQuery.where(and(...conditions));
+      const results = await query.where(and(...conditions)).orderBy(desc(sessionBilling.billingDate));
+      return results;
     }
     
     const results = await finalQuery.orderBy(desc(sessionBilling.billingDate));
@@ -3266,12 +3267,14 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(checklistItems.templateId, templateId));
     }
     
-    let query = db.select().from(checklistItems);
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await db.select().from(checklistItems)
+        .where(and(...conditions))
+        .orderBy(checklistItems.templateId, checklistItems.itemOrder, checklistItems.title);
     }
     
-    return await query.orderBy(checklistItems.templateId, checklistItems.itemOrder, checklistItems.title);
+    return await db.select().from(checklistItems)
+      .orderBy(checklistItems.templateId, checklistItems.itemOrder, checklistItems.title);
   }
 
   async createChecklistItem(itemData: InsertChecklistItem): Promise<ChecklistItem> {
