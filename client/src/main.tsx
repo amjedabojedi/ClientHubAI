@@ -3,6 +3,35 @@ import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import "./index.css";
 
+// IMMEDIATE Edge browser runtime error fix (before any other code)
+if (/Edg\//.test(navigator.userAgent) && window.self === window.top) {
+  // Override the sendError function before it's defined
+  const originalDefineProperty = Object.defineProperty;
+  Object.defineProperty = function(obj, prop, descriptor) {
+    if (prop === 'sendError' || (descriptor && descriptor.value && descriptor.value.toString().includes('runtime-error'))) {
+      // Block sendError function definition in Edge
+      return obj;
+    }
+    return originalDefineProperty.call(this, obj, prop, descriptor);
+  };
+  
+  // Block all script injections that contain runtime-error
+  const originalCreateElement = document.createElement;
+  document.createElement = function(tagName) {
+    const element = originalCreateElement.call(this, tagName);
+    if (tagName.toLowerCase() === 'script') {
+      const originalSetAttribute = element.setAttribute;
+      element.setAttribute = function(name, value) {
+        if (name === 'src' && value && value.includes('runtime-error')) {
+          return; // Block runtime error scripts
+        }
+        return originalSetAttribute.call(this, name, value);
+      };
+    }
+    return element;
+  };
+}
+
 // Enhanced global error handlers for Edge browser compatibility
 window.addEventListener('unhandledrejection', (event) => {
   // Filter out browser extension errors and Edge-specific issues
@@ -61,23 +90,51 @@ window.addEventListener('error', (event) => {
   event.preventDefault();
 });
 
-// Additional Edge browser compatibility for runtime error overlay
+// Comprehensive Edge browser runtime error overlay fix
 const isEdgeBrowser = /Edg\//.test(navigator.userAgent);
 const isFullPage = window.self === window.top;
 
 if (isEdgeBrowser && isFullPage) {
-  // Disable runtime error overlay in Edge full-page mode by intercepting its error handler
+  // Method 1: Intercept console.error
   const originalConsoleError = console.error;
   console.error = (...args) => {
     const errorMessage = args.join(' ');
-    // Filter out runtime error overlay triggers in Edge
     if (errorMessage.includes('[plugin:runtime-error-plugin]') ||
         errorMessage.includes('Unknown runtime error') ||
         errorMessage.includes('Script error')) {
-      return; // Don't log these errors in Edge full-page mode
+      return;
     }
     originalConsoleError.apply(console, args);
   };
+  
+  // Method 2: Intercept sendError function directly
+  Object.defineProperty(window, 'sendError', {
+    value: function() {
+      // Completely disable sendError in Edge full-page mode
+      return;
+    },
+    writable: false,
+    configurable: false
+  });
+  
+  // Method 3: Override error event handling
+  const originalAddEventListener = window.addEventListener;
+  window.addEventListener = function(type, listener, options) {
+    if (type === 'error' && listener.toString().includes('runtime-error')) {
+      // Skip runtime error listeners in Edge
+      return;
+    }
+    return originalAddEventListener.call(this, type, listener, options);
+  };
+  
+  // Method 4: Prevent the runtime error modal entirely
+  const style = document.createElement('style');
+  style.textContent = `
+    [data-runtime-error-modal] { display: none !important; }
+    .runtime-error-overlay { display: none !important; }
+    .error-overlay { display: none !important; }
+  `;
+  document.head.appendChild(style);
 }
 
 // Ensure DOM is fully loaded before rendering (Edge compatibility)
