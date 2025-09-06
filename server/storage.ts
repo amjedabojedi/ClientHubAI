@@ -474,11 +474,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
+    const [result] = await db
       .insert(users)
       .values(insertUser)
       .returning();
-    return user;
+    return result;
   }
 
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User> {
@@ -1792,11 +1792,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(task: InsertTask): Promise<Task> {
-    const result = await db
+    const [result] = await db
       .insert(tasks)
       .values(task)
       .returning();
-    return result[0];
+    return result;
   }
 
   async updateTask(id: number, taskData: Partial<InsertTask>): Promise<Task> {
@@ -2249,14 +2249,16 @@ export class DatabaseStorage implements IStorage {
   // Library Entry Connections Management
   async getLibraryEntryConnections(entryId?: number): Promise<(LibraryEntryConnection & { fromEntry: LibraryEntry; toEntry: LibraryEntry; createdBy: User })[]> {
     // For now, let's simplify and just return the connections without the full entry details
-    let query = db
+    const baseConditions = [eq(libraryEntryConnections.isActive, true)];
+    
+    if (entryId) {
+      baseConditions.push(or(eq(libraryEntryConnections.fromEntryId, entryId), eq(libraryEntryConnections.toEntryId, entryId)));
+    }
+
+    const query = db
       .select()
       .from(libraryEntryConnections)
-      .where(eq(libraryEntryConnections.isActive, true));
-
-    if (entryId) {
-      query = query.where(or(eq(libraryEntryConnections.fromEntryId, entryId), eq(libraryEntryConnections.toEntryId, entryId)));
-    }
+      .where(and(...baseConditions));
 
     const connections = await query.orderBy(desc(libraryEntryConnections.strength), asc(libraryEntryConnections.createdAt));
     
@@ -3253,10 +3255,15 @@ export class DatabaseStorage implements IStorage {
 
   // Checklist Item Management
   async getChecklistItems(templateId?: number): Promise<ChecklistItem[]> {
-    let query = db.select().from(checklistItems);
+    const conditions = [];
     
     if (templateId) {
-      query = query.where(eq(checklistItems.templateId, templateId));
+      conditions.push(eq(checklistItems.templateId, templateId));
+    }
+    
+    let query = db.select().from(checklistItems);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
     }
     
     return await query.orderBy(checklistItems.templateId, checklistItems.itemOrder, checklistItems.title);
@@ -3325,17 +3332,19 @@ export class DatabaseStorage implements IStorage {
 
   // System Options Management
   async getSystemOptions(categoryId?: number): Promise<(SelectSystemOption & { category: SelectOptionCategory })[]> {
-    let query = db.select({
+    const conditions = [eq(systemOptions.isActive, true)];
+    
+    if (categoryId) {
+      conditions.push(eq(systemOptions.categoryId, categoryId));
+    }
+
+    const query = db.select({
       option: systemOptions,
       category: optionCategories
     })
     .from(systemOptions)
     .innerJoin(optionCategories, eq(systemOptions.categoryId, optionCategories.id))
-    .where(eq(systemOptions.isActive, true));
-
-    if (categoryId) {
-      query = query.where(eq(systemOptions.categoryId, categoryId));
-    }
+    .where(and(...conditions));
 
     const results = await query.orderBy(optionCategories.categoryName, systemOptions.sortOrder, systemOptions.optionLabel);
     return results.map(row => ({ ...row.option, category: row.category }));
@@ -3398,7 +3407,7 @@ export class DatabaseStorage implements IStorage {
       // Determine which table/column to update based on category
       const categoryKey = await this.getCategoryKey(currentOption.categoryId);
       
-      if (categoryKey) {
+      if (categoryKey && optionData.optionKey) {
         await this.migrateOptionData(categoryKey, oldOptionKey, optionData.optionKey);
       }
     }
@@ -3457,7 +3466,7 @@ export class DatabaseStorage implements IStorage {
     const [assignment] = await db.insert(clientChecklists).values({
       clientId,
       templateId,
-      dueDate: dueDate ? new Date(dueDate) : undefined,
+      dueDate,
       isCompleted: false
     }).returning();
 
