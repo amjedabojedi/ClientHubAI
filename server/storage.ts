@@ -3167,7 +3167,7 @@ export class DatabaseStorage implements IStorage {
       return results;
     }
     
-    const results = await finalQuery.orderBy(desc(sessionBilling.billingDate));
+    const results = await query.orderBy(desc(sessionBilling.billingDate));
     return results;
   }
 
