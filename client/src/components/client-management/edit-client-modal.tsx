@@ -36,20 +36,68 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Use the optimized batch API - single call instead of 9+ separate calls
-  const { data: batchData } = useQuery({
-    queryKey: ["/api/client-filters/batch"],
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes since this data rarely changes
+  // Fetch therapists and system options - using individual calls for better type safety
+  const { data: therapists = [] } = useQuery<any[]>({
+    queryKey: ["/api/therapists"],
+    staleTime: 5 * 60 * 1000,
   });
 
-  const therapists = batchData?.therapists || [];
-  const clientTypeOptions = batchData?.systemOptions?.client_type?.options || [];
-  const referralSourceOptions = batchData?.systemOptions?.referral_sources?.options || [];
-  const maritalStatusOptions = batchData?.systemOptions?.marital_status?.options || [];
-  const employmentStatusOptions = batchData?.systemOptions?.employment_status?.options || [];
-  const educationLevelOptions = batchData?.systemOptions?.education_level?.options || [];
-  const genderOptions = batchData?.systemOptions?.gender?.options || [];
-  const preferredLanguageOptions = batchData?.systemOptions?.preferred_language?.options || [];
+  // Fetch system option categories
+  const { data: systemCategories = [] } = useQuery<any[]>({
+    queryKey: ["/api/system-options/categories"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Get individual category options with proper typing
+  const clientTypeCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_type");
+  const referralSourceCategory = systemCategories.find((cat: any) => cat.categoryKey === "referral_sources");
+  const maritalStatusCategory = systemCategories.find((cat: any) => cat.categoryKey === "marital_status");
+  const employmentStatusCategory = systemCategories.find((cat: any) => cat.categoryKey === "employment_status");
+  const educationLevelCategory = systemCategories.find((cat: any) => cat.categoryKey === "education_level");
+  const genderCategory = systemCategories.find((cat: any) => cat.categoryKey === "gender");
+  const preferredLanguageCategory = systemCategories.find((cat: any) => cat.categoryKey === "preferred_language");
+
+  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
+    enabled: !!clientTypeCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: referralSourceOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${referralSourceCategory?.id}`],
+    enabled: !!referralSourceCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: maritalStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${maritalStatusCategory?.id}`],
+    enabled: !!maritalStatusCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: employmentStatusOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${employmentStatusCategory?.id}`],
+    enabled: !!employmentStatusCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: educationLevelOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${educationLevelCategory?.id}`],
+    enabled: !!educationLevelCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: genderOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${genderCategory?.id}`],
+    enabled: !!genderCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: preferredLanguageOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${preferredLanguageCategory?.id}`],
+    enabled: !!preferredLanguageCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Fetch client sessions to get first session date (this is client-specific so keep separate)
   const { data: sessions = [] } = useQuery<any[]>({
