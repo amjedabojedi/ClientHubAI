@@ -39,6 +39,41 @@ export default function SearchFilters({
   const { data: batchData } = useQuery({
     queryKey: ["/api/client-filters/batch"],
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes since this data rarely changes
+    queryFn: async () => {
+      const response = await fetch("/api/client-filters/batch");
+      if (!response.ok) {
+        // Fallback to individual calls if batch fails
+        const [therapistsRes, templatesRes, categoriesRes] = await Promise.all([
+          fetch("/api/therapists"),
+          fetch("/api/checklist-templates"), 
+          fetch("/api/system-options/categories")
+        ]);
+        
+        const [therapists, checklistTemplates, categories] = await Promise.all([
+          therapistsRes.json(),
+          templatesRes.json(),
+          categoriesRes.json()
+        ]);
+        
+        // Get client type options
+        const clientTypeCategory = categories.find((cat: any) => cat.categoryKey === "client_type");
+        let clientTypeOptions = [];
+        if (clientTypeCategory) {
+          const optionsRes = await fetch(`/api/system-options/categories/${clientTypeCategory.id}`);
+          const optionsData = await optionsRes.json();
+          clientTypeOptions = optionsData.options || [];
+        }
+        
+        return {
+          therapists,
+          checklistTemplates,
+          systemOptions: {
+            client_type: { options: clientTypeOptions }
+          }
+        };
+      }
+      return response.json();
+    }
   });
 
   const therapists = batchData?.therapists || [];
