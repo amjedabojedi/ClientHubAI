@@ -442,7 +442,9 @@ const ChecklistManagement = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {template.items.map((item: any, index: number) => (
+                      {template.items
+                        .sort((a: any, b: any) => (a.itemOrder || 0) - (b.itemOrder || 0))
+                        .map((item: any, index: number) => (
                         <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center justify-center w-6 h-6 bg-slate-100 rounded-full text-xs font-medium">

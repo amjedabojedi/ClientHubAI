@@ -179,7 +179,18 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
             {isExpanded && (
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  {checklist.items.map((item: ChecklistItem) => (
+                  {checklist.items
+                    .sort((a, b) => {
+                      // First sort by completion status (completed items at top)
+                      if (a.isCompleted !== b.isCompleted) {
+                        return a.isCompleted ? -1 : 1;
+                      }
+                      // Then sort by item order
+                      const orderA = a.checklistItem.itemOrder || 0;
+                      const orderB = b.checklistItem.itemOrder || 0;
+                      return orderA - orderB;
+                    })
+                    .map((item: ChecklistItem) => (
                     <div key={item.id} className="border rounded-lg p-4 bg-slate-50">
                       <div className="flex items-start gap-3">
                         <Checkbox
