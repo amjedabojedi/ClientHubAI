@@ -2153,8 +2153,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLibraryCategory(categoryData: InsertLibraryCategory): Promise<LibraryCategory> {
-    const result = await db.insert(libraryCategories).values(categoryData).returning();
-    return result[0];
+    const [result] = await db.insert(libraryCategories).values(categoryData).returning();
+    return result;
   }
 
   async updateLibraryCategory(id: number, categoryData: Partial<InsertLibraryCategory>): Promise<LibraryCategory> {
@@ -2252,7 +2252,12 @@ export class DatabaseStorage implements IStorage {
     const baseConditions = [eq(libraryEntryConnections.isActive, true)];
     
     if (entryId) {
-      baseConditions.push(or(eq(libraryEntryConnections.fromEntryId, entryId), eq(libraryEntryConnections.toEntryId, entryId)));
+      baseConditions.push(
+        or(
+          eq(libraryEntryConnections.fromEntryId, entryId), 
+          eq(libraryEntryConnections.toEntryId, entryId)
+        )
+      );
     }
 
     const query = db
@@ -3158,7 +3163,7 @@ export class DatabaseStorage implements IStorage {
     
     let finalQuery = query;
     if (conditions.length > 0) {
-      finalQuery = query.where(and(...conditions));
+      finalQuery = finalQuery.where(and(...conditions));
     }
     
     const results = await finalQuery.orderBy(desc(sessionBilling.billingDate));
