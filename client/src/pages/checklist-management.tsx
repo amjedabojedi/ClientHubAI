@@ -40,7 +40,9 @@ const ChecklistManagement = () => {
   const [activeTab, setActiveTab] = useState("templates");
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isItemDialogOpen, setIsItemDialogOpen] = useState(false);
+  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ChecklistTemplate | null>(null);
+  const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const [templateForm, setTemplateForm] = useState({
     name: "",
     description: "",
@@ -50,6 +52,13 @@ const ChecklistManagement = () => {
   });
   const [itemForm, setItemForm] = useState({
     templateId: 0,
+    title: "",
+    description: "",
+    isRequired: true,
+    itemOrder: 1,
+    sortOrder: 1
+  });
+  const [editItemForm, setEditItemForm] = useState({
     title: "",
     description: "",
     isRequired: true,
@@ -129,6 +138,25 @@ const ChecklistManagement = () => {
     }
   });
 
+  // Update item mutation
+  const updateItemMutation = useMutation({
+    mutationFn: async (params: { itemId: number; data: any }) => {
+      const response = await apiRequest(`/api/checklist-items/${params.itemId}`, 'PUT', params.data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/checklist-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      refetchTemplates();
+      setIsEditItemDialogOpen(false);
+      setEditingItem(null);
+      toast({ title: "Success", description: "Checklist item updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update item", variant: "destructive" });
+    }
+  });
+
   // Delete item mutation
   const deleteItemMutation = useMutation({
     mutationFn: async (itemId: number) => {
@@ -152,6 +180,27 @@ const ChecklistManagement = () => {
 
   const handleCreateItem = () => {
     createItemMutation.mutate(itemForm);
+  };
+
+  const handleEditItem = (item: ChecklistItem) => {
+    setEditingItem(item);
+    setEditItemForm({
+      title: item.title,
+      description: item.description || "",
+      isRequired: item.isRequired,
+      itemOrder: item.itemOrder || 1,
+      sortOrder: item.sortOrder
+    });
+    setIsEditItemDialogOpen(true);
+  };
+
+  const handleUpdateItem = () => {
+    if (editingItem) {
+      updateItemMutation.mutate({
+        itemId: editingItem.id,
+        data: editItemForm
+      });
+    }
   };
 
   const handleDeleteTemplate = (templateId: number) => {
@@ -420,6 +469,58 @@ const ChecklistManagement = () => {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Item Dialog */}
+            <Dialog open={isEditItemDialogOpen} onOpenChange={setIsEditItemDialogOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Edit Checklist Item</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-item-title">Item Title</Label>
+                    <Input
+                      id="edit-item-title"
+                      value={editItemForm.title}
+                      onChange={(e) => setEditItemForm(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g., Complete intake assessment"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-item-description">Description</Label>
+                    <Textarea
+                      id="edit-item-description"
+                      value={editItemForm.description}
+                      onChange={(e) => setEditItemForm(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Detailed description of the required action"
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor="edit-item-order">Item Order</Label>
+                      <Input
+                        id="edit-item-order"
+                        type="number"
+                        value={editItemForm.itemOrder}
+                        onChange={(e) => setEditItemForm(prev => ({ ...prev, itemOrder: parseInt(e.target.value) || 1 }))}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-6">
+                      <input
+                        type="checkbox"
+                        id="edit-item-required"
+                        checked={editItemForm.isRequired}
+                        onChange={(e) => setEditItemForm(prev => ({ ...prev, isRequired: e.target.checked }))}
+                      />
+                      <Label htmlFor="edit-item-required">Required</Label>
+                    </div>
+                  </div>
+                  <Button onClick={handleUpdateItem} className="w-full" disabled={updateItemMutation.isPending}>
+                    {updateItemMutation.isPending ? "Updating..." : "Update Item"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="space-y-6">
@@ -462,6 +563,14 @@ const ChecklistManagement = () => {
                             {item.isRequired && (
                               <Badge variant="outline" className="text-xs">Required</Badge>
                             )}
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditItem(item)}
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
                             <Button 
                               variant="ghost" 
                               size="sm" 
