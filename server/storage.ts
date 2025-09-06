@@ -1792,11 +1792,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(task: InsertTask): Promise<Task> {
-    const [newTask] = await db
+    const result = await db
       .insert(tasks)
       .values(task)
       .returning();
-    return newTask;
+    return result[0];
   }
 
   async updateTask(id: number, taskData: Partial<InsertTask>): Promise<Task> {
@@ -2153,8 +2153,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLibraryCategory(categoryData: InsertLibraryCategory): Promise<LibraryCategory> {
-    const [category] = await db.insert(libraryCategories).values(categoryData).returning();
-    return category;
+    const result = await db.insert(libraryCategories).values(categoryData).returning();
+    return result[0];
   }
 
   async updateLibraryCategory(id: number, categoryData: Partial<InsertLibraryCategory>): Promise<LibraryCategory> {
@@ -2947,10 +2947,7 @@ export class DatabaseStorage implements IStorage {
     if (!role) return undefined;
     
     const permissions = await this.getRolePermissions(id);
-    return {
-      ...role,
-      permissions
-    };
+    return role;
   }
 
   async createRole(roleData: InsertRole): Promise<Role> {
@@ -3157,11 +3154,12 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`LOWER(${clients.fullName}) LIKE LOWER(${'%' + params.clientSearch + '%'})`);
     }
     
+    let finalQuery = query;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      finalQuery = query.where(and(...conditions));
     }
     
-    const results = await query.orderBy(desc(sessionBilling.billingDate));
+    const results = await finalQuery.orderBy(desc(sessionBilling.billingDate));
     return results;
   }
 
