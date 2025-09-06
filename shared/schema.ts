@@ -545,7 +545,6 @@ export const checklistTemplates = pgTable("checklist_templates", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),
-  category: varchar("category", { length: 50 }).notNull(), // 'intake', 'assessment', 'ongoing', 'discharge'
   clientType: varchar("client_type", { length: 20 }), // Dynamic client type from system options
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
@@ -558,6 +557,7 @@ export const checklistItems = pgTable("checklist_items", {
   templateId: integer("template_id").notNull().references(() => checklistTemplates.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description"),
+  category: varchar("category", { length: 50 }).notNull(), // 'intake', 'assessment', 'ongoing', 'discharge'
   isRequired: boolean("is_required").notNull().default(false),
   itemOrder: integer("days_from_start"), // Order/sequence of items in the checklist
   sortOrder: integer("sort_order").notNull().default(0),
