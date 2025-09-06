@@ -59,12 +59,12 @@ export default function SearchFilters({
   // Fetch checklist items for selected template
   const { data: checklistItems = [] } = useQuery<any[]>({
     queryKey: ["/api/checklist-items"],
-    enabled: !!filters.checklistTemplateId,
+    enabled: !!filters.checklistTemplateId && filters.checklistTemplateId !== "all",
   });
 
   // Filter items by selected template
   const filteredChecklistItems = checklistItems.filter((item: any) => 
-    !filters.checklistTemplateId || item.templateId?.toString() === filters.checklistTemplateId
+    !filters.checklistTemplateId || filters.checklistTemplateId === "all" || item.templateId?.toString() === filters.checklistTemplateId
   );
 
   const activeFilterCount = Object.values(filters).filter(value => 
@@ -183,8 +183,8 @@ export default function SearchFilters({
                   options={[
                     { value: "all", label: "All Templates" },
                     ...(checklistTemplates?.map((template: any) => ({
-                      value: template.id.toString(),
-                      label: template.name
+                      value: template.id?.toString() || "",
+                      label: template.name || "Unnamed Template"
                     })) || [])
                   ]}
                   placeholder="All Templates"
@@ -204,8 +204,8 @@ export default function SearchFilters({
                     options={[
                       { value: "all", label: "All Items" },
                       ...(filteredChecklistItems?.map((item: any) => ({
-                        value: item.id.toString(),
-                        label: `${item.title} (${item.category})`
+                        value: item.id?.toString() || "",
+                        label: `${item.title || "Untitled"} (${item.category || "uncategorized"})`
                       })) || [])
                     ]}
                     placeholder="All Items"
