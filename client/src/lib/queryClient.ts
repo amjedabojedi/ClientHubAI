@@ -78,6 +78,8 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: Infinity,
       retry: false,
+      // Add small stagger to prevent simultaneous requests
+      refetchOnMount: "always",
     },
     mutations: {
       retry: false,
