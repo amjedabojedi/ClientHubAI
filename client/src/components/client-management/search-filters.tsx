@@ -79,6 +79,14 @@ export default function SearchFilters({
   const therapists = batchData?.therapists || [];
   const checklistTemplates = batchData?.checklistTemplates || [];
   const clientTypeOptions = batchData?.systemOptions?.client_type?.options || [];
+  
+  // Debug: Log the data structure to console for troubleshooting
+  console.log('Batch data received:', { 
+    therapistsCount: therapists.length, 
+    templatesCount: checklistTemplates.length, 
+    clientTypeOptionsCount: clientTypeOptions.length,
+    sampleClientOption: clientTypeOptions[0]
+  });
 
   // Fetch checklist items for selected template
   const { data: checklistItems = [] } = useQuery<any[]>({
@@ -189,7 +197,7 @@ export default function SearchFilters({
                   onValueChange={(value) => handleFilterChange('clientType', value)}
                   options={[
                     { value: "all", label: "All Types" },
-                    ...(clientTypeOptions.options?.map((option: any) => ({
+                    ...(clientTypeOptions?.map((option: any) => ({
                       value: option.optionKey || option.optionkey,
                       label: option.optionLabel || option.optionlabel
                     })) || [])
