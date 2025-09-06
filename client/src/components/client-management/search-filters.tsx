@@ -36,25 +36,25 @@ export default function SearchFilters({
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch therapists and checklist templates - simpler separate calls to avoid runtime errors
-  const { data: therapists = [] } = useQuery({
+  const { data: therapists = [] } = useQuery<any[]>({
     queryKey: ["/api/therapists"],
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: checklistTemplates = [] } = useQuery({
+  const { data: checklistTemplates = [] } = useQuery<any[]>({
     queryKey: ["/api/checklist-templates"],
     staleTime: 5 * 60 * 1000,
   });
 
   // Fetch system option categories
-  const { data: systemCategories = [] } = useQuery({
+  const { data: systemCategories = [] } = useQuery<any[]>({
     queryKey: ["/api/system-options/categories"],
     staleTime: 5 * 60 * 1000,
   });
 
   // Get client type category and options
   const clientTypeCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_type");
-  const { data: clientTypeData } = useQuery({
+  const { data: clientTypeData = { options: [] } } = useQuery<{ options: any[] }>({
     queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
     enabled: !!clientTypeCategory?.id,
     staleTime: 5 * 60 * 1000,
