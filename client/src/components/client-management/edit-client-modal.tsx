@@ -851,7 +851,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                           <FormControl>
                             <Checkbox
-                              checked={field.value}
+                              checked={field.value || false}
                               onCheckedChange={field.onChange}
                             />
                           </FormControl>
@@ -905,6 +905,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             <Input
                               type="date"
                               {...field}
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -922,6 +923,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                             <Input
                               placeholder="Brief follow-up notes..."
                               {...field}
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />

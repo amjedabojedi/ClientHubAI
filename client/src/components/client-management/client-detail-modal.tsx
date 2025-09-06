@@ -79,7 +79,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                 </DialogTitle>
                 <p className="text-slate-600">Ref: {client.referenceNumber}</p>
                 <div className="flex items-center space-x-2 mt-1">
-                  {getStatusBadge(client.status)}
+                  {getStatusBadge(client.status || 'pending')}
                   <span className="text-slate-400">•</span>
                   <span className="text-sm text-slate-600">
                     {client.assignedTherapist?.fullName || 'Unassigned'}
@@ -188,7 +188,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                   <div className="space-y-4">
                     <div>
                       <Label>Current Status</Label>
-                      <Select value={client.status}>
+                      <Select value={client.status || ''}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -201,7 +201,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                     </div>
                     <div>
                       <Label>Current Stage</Label>
-                      <Select value={client.stage}>
+                      <Select value={client.stage || ''}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -214,7 +214,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                     </div>
                     <div>
                       <Label>Client Type</Label>
-                      <Select value={client.clientType}>
+                      <Select value={client.clientType || ''}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -230,7 +230,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                     <div>
                       <Label>Portal Access</Label>
                       <div className="flex items-center space-x-2 mt-2">
-                        <Checkbox checked={client.hasPortalAccess} />
+                        <Checkbox checked={client.hasPortalAccess || false} />
                         <span className="text-sm text-slate-700">Enabled</span>
                       </div>
                     </div>
