@@ -559,7 +559,7 @@ export const checklistItems = pgTable("checklist_items", {
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description"),
   isRequired: boolean("is_required").notNull().default(false),
-  daysFromStart: integer("days_from_start"), // Days after client creation when item becomes due
+  itemOrder: integer("days_from_start"), // Order/sequence of items in the checklist
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
