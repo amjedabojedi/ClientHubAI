@@ -67,6 +67,10 @@ export default function ClientDataGrid({
       case "no-sessions": return { hasNoSessions: true };
       case "follow-up": return { needsFollowUp: true };
       case "unassigned": return { unassigned: true };
+      case "checklist-completed": return { checklistStatus: "completed" };
+      case "checklist-in-progress": return { checklistStatus: "in-progress" };
+      case "checklist-not-started": return { checklistStatus: "not-started" };
+      case "checklist-overdue": return { checklistStatus: "overdue" };
       default: return "";
     }
   }, [activeTab]);
@@ -85,6 +89,7 @@ export default function ClientDataGrid({
       hasNoSessions: typeof statusFromTab === "object" && statusFromTab.hasNoSessions ? true : filters.hasNoSessions,
       needsFollowUp: typeof statusFromTab === "object" && statusFromTab.needsFollowUp ? true : undefined,
       unassigned: typeof statusFromTab === "object" && statusFromTab.unassigned ? true : undefined,
+      checklistStatus: typeof statusFromTab === "object" && statusFromTab.checklistStatus ? statusFromTab.checklistStatus : undefined,
       sortBy,
       sortOrder,
       currentUserId: user?.user?.id || user?.id,

@@ -138,6 +138,7 @@ export interface ClientsQueryParams {
   hasNoSessions?: boolean;
   needsFollowUp?: boolean;
   unassigned?: boolean;
+  checklistStatus?: 'completed' | 'in-progress' | 'not-started' | 'overdue';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -647,6 +648,7 @@ export class DatabaseStorage implements IStorage {
       hasNoSessions,
       needsFollowUp,
       unassigned,
+      checklistStatus,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = params;
@@ -705,6 +707,63 @@ export class DatabaseStorage implements IStorage {
     // Filter clients not assigned to a therapist
     if (unassigned === true) {
       whereConditions.push(isNull(clients.assignedTherapistId));
+    }
+
+    // Filter clients by checklist status
+    if (checklistStatus) {
+      switch (checklistStatus) {
+        case 'completed':
+          whereConditions.push(
+            sql`EXISTS (
+              SELECT 1 FROM ${clientChecklists} cc 
+              WHERE cc.client_id = ${clients.id} 
+              AND NOT EXISTS (
+                SELECT 1 FROM ${clientChecklistItems} cci 
+                WHERE cci.client_checklist_id = cc.id 
+                AND cci.is_completed = false
+              )
+            )`
+          );
+          break;
+        case 'in-progress':
+          whereConditions.push(
+            sql`EXISTS (
+              SELECT 1 FROM ${clientChecklists} cc 
+              JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
+              WHERE cc.client_id = ${clients.id} 
+              AND EXISTS (SELECT 1 FROM ${clientChecklistItems} cci2 WHERE cci2.client_checklist_id = cc.id AND cci2.is_completed = true)
+              AND EXISTS (SELECT 1 FROM ${clientChecklistItems} cci3 WHERE cci3.client_checklist_id = cc.id AND cci3.is_completed = false)
+            )`
+          );
+          break;
+        case 'not-started':
+          whereConditions.push(
+            sql`EXISTS (
+              SELECT 1 FROM ${clientChecklists} cc 
+              WHERE cc.client_id = ${clients.id} 
+              AND NOT EXISTS (
+                SELECT 1 FROM ${clientChecklistItems} cci 
+                WHERE cci.client_checklist_id = cc.id 
+                AND cci.is_completed = true
+              )
+            )`
+          );
+          break;
+        case 'overdue':
+          whereConditions.push(
+            sql`EXISTS (
+              SELECT 1 FROM ${clientChecklists} cc 
+              WHERE cc.client_id = ${clients.id} 
+              AND cc.due_date < CURRENT_DATE 
+              AND NOT EXISTS (
+                SELECT 1 FROM ${clientChecklistItems} cci 
+                WHERE cci.client_checklist_id = cc.id 
+                AND cci.is_completed = false
+              )
+            )`
+          );
+          break;
+      }
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
@@ -933,6 +992,10 @@ export class DatabaseStorage implements IStorage {
     noSessions: number;
     needsFollowUp: number;
     unassignedClients: number;
+    checklistCompleted: number;
+    checklistInProgress: number;
+    checklistNotStarted: number;
+    checklistOverdue: number;
   }> {
     // Build where conditions for role-based filtering
     const whereConditions = [];
@@ -956,7 +1019,42 @@ export class DatabaseStorage implements IStorage {
         psychotherapy: sql<number>`CAST(COUNT(*) FILTER (WHERE stage = 'psychotherapy') AS INTEGER)`,
         noSessions: sql<number>`CAST(COUNT(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.client_id = clients.id)) AS INTEGER)`,
         needsFollowUp: sql<number>`CAST(COUNT(*) FILTER (WHERE needs_follow_up = true) AS INTEGER)`,
-        unassignedClients: sql<number>`CAST(COUNT(*) FILTER (WHERE assigned_therapist_id IS NULL) AS INTEGER)`
+        unassignedClients: sql<number>`CAST(COUNT(*) FILTER (WHERE assigned_therapist_id IS NULL) AS INTEGER)`,
+        checklistCompleted: sql<number>`CAST(COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM client_checklists cc 
+          WHERE cc.client_id = clients.id 
+          AND NOT EXISTS (
+            SELECT 1 FROM client_checklist_items cci 
+            WHERE cci.client_checklist_id = cc.id 
+            AND cci.is_completed = false
+          )
+        )) AS INTEGER)`,
+        checklistInProgress: sql<number>`CAST(COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM client_checklists cc 
+          JOIN client_checklist_items cci ON cci.client_checklist_id = cc.id
+          WHERE cc.client_id = clients.id 
+          AND EXISTS (SELECT 1 FROM client_checklist_items cci2 WHERE cci2.client_checklist_id = cc.id AND cci2.is_completed = true)
+          AND EXISTS (SELECT 1 FROM client_checklist_items cci3 WHERE cci3.client_checklist_id = cc.id AND cci3.is_completed = false)
+        )) AS INTEGER)`,
+        checklistNotStarted: sql<number>`CAST(COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM client_checklists cc 
+          WHERE cc.client_id = clients.id 
+          AND NOT EXISTS (
+            SELECT 1 FROM client_checklist_items cci 
+            WHERE cci.client_checklist_id = cc.id 
+            AND cci.is_completed = true
+          )
+        )) AS INTEGER)`,
+        checklistOverdue: sql<number>`CAST(COUNT(*) FILTER (WHERE EXISTS (
+          SELECT 1 FROM client_checklists cc 
+          WHERE cc.client_id = clients.id 
+          AND cc.due_date < CURRENT_DATE 
+          AND NOT EXISTS (
+            SELECT 1 FROM client_checklist_items cci 
+            WHERE cci.client_checklist_id = cc.id 
+            AND cci.is_completed = false
+          )
+        )) AS INTEGER)`
       })
       .from(clients)
       .where(whereClause);
@@ -971,7 +1069,11 @@ export class DatabaseStorage implements IStorage {
       psychotherapy: Number(stats.psychotherapy),
       noSessions: Number(stats.noSessions),
       needsFollowUp: Number(stats.needsFollowUp),
-      unassignedClients: Number(stats.unassignedClients)
+      unassignedClients: Number(stats.unassignedClients),
+      checklistCompleted: Number(stats.checklistCompleted),
+      checklistInProgress: Number(stats.checklistInProgress),
+      checklistNotStarted: Number(stats.checklistNotStarted),
+      checklistOverdue: Number(stats.checklistOverdue)
     };
   }
 
