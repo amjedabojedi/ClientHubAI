@@ -3139,11 +3139,11 @@ export class DatabaseStorage implements IStorage {
     const conditions = [];
     
     if (params.startDate) {
-      conditions.push(sql`${sessionBilling.billingDate} >= ${params.startDate}`);
+      conditions.push(sql`DATE(${sessions.sessionDate}) >= ${params.startDate}`);
     }
     
     if (params.endDate) {
-      conditions.push(sql`${sessionBilling.billingDate} <= ${params.endDate}`);
+      conditions.push(sql`DATE(${sessions.sessionDate}) <= ${params.endDate}`);
     }
     
     if (params.therapistId) {
