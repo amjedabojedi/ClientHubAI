@@ -1885,30 +1885,40 @@ This happens because only the file metadata was stored, not the actual file cont
           res.status(500).json({ error: 'Failed to process PDF content: ' + (error instanceof Error ? error.message : 'Unknown error') });
         }
       } else if (isImage) {
-        // For images, serve the actual image file
-        const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
-        
-        if (fs.existsSync(filePath)) {
-          res.setHeader('Content-Type', document.mimeType || 'image/jpeg');
-          res.sendFile(path.resolve(filePath));
-        } else {
-          // Fallback to icon if file not found
-          res.setHeader('Content-Type', 'image/svg+xml');
-          res.send(`
-            <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
-              <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
-              <rect x="20" y="20" width="360" height="220" fill="#f3f4f6" rx="4"/>
-              
-              <!-- Image Icon -->
-              <circle cx="120" cy="80" r="15" fill="#10b981"/>
-              <rect x="150" y="120" width="100" height="60" fill="#34d399" rx="8"/>
-              <polygon points="200,140 220,120 240,140 240,160 200,160" fill="#059669"/>
-              
-              <!-- File Info -->
-              <text x="200" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
-              <text x="200" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB • Image (File Not Found)</text>
-            </svg>
-          `);
+        // For images, serve from object storage
+        try {
+          const { Client } = await import('@replit/object-storage');
+          const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+          const objectKey = `documents/${document.id}-${document.fileName}`;
+          
+          const downloadResult = await objectStorage.downloadAsText(objectKey);
+          
+          if (downloadResult.ok) {
+            const buffer = Buffer.from(downloadResult.value, 'base64');
+            res.setHeader('Content-Type', document.mimeType || 'image/jpeg');
+            res.send(buffer);
+          } else {
+            // Fallback to icon if file not found
+            res.setHeader('Content-Type', 'image/svg+xml');
+            res.send(`
+              <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
+                <rect x="20" y="20" width="360" height="220" fill="#f3f4f6" rx="4"/>
+                
+                <!-- Image Icon -->
+                <circle cx="120" cy="80" r="15" fill="#10b981"/>
+                <rect x="150" y="120" width="100" height="60" fill="#34d399" rx="8"/>
+                <polygon points="200,140 220,120 240,140 240,160 200,160" fill="#059669"/>
+                
+                <!-- File Info -->
+                <text x="200" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
+                <text x="200" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB • Image (File Not Found)</text>
+              </svg>
+            `);
+          }
+        } catch (error) {
+          console.error('Image serving error:', error);
+          res.status(500).json({ error: 'Failed to serve image: ' + (error instanceof Error ? error.message : 'Unknown error') });
         }
       } else if (isText) {
         // For text files, serve from filesystem (reliable approach)
