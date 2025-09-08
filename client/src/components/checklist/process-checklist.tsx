@@ -175,11 +175,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
                 <div className="space-y-3">
                   {checklist.items
                     .sort((a, b) => {
-                      // First sort by completion status (completed items at top)
-                      if (a.isCompleted !== b.isCompleted) {
-                        return a.isCompleted ? -1 : 1;
-                      }
-                      // Then sort by item order
+                      // Sort by item order only - respect the original sequence
                       const orderA = a.checklistItem.itemOrder || 0;
                       const orderB = b.checklistItem.itemOrder || 0;
                       return orderA - orderB;
