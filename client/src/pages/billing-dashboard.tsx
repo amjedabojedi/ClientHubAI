@@ -268,7 +268,7 @@ export default function BillingDashboard() {
       return data;
     },
     enabled: !!user, // Only fetch when user is loaded
-    staleTime: 30000, // Cache for 30 seconds to prevent excessive refetching
+    staleTime: 0, // Always fetch fresh data for accurate date filtering
     refetchOnWindowFocus: false // Prevent refetch on window focus
   });
 
