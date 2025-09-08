@@ -3297,9 +3297,40 @@ export class DatabaseStorage implements IStorage {
   // Client Checklist Management
   async getClientChecklists(clientId: number): Promise<any[]> {
     try {
-      const checklists = await db.select().from(clientChecklists)
-        .where(eq(clientChecklists.clientId, clientId));
-      return checklists;
+      // Get checklists with template info
+      const checklists = await db.select({
+        checklist: clientChecklists,
+        template: checklistTemplates
+      })
+      .from(clientChecklists)
+      .innerJoin(checklistTemplates, eq(clientChecklists.templateId, checklistTemplates.id))
+      .where(eq(clientChecklists.clientId, clientId))
+      .orderBy(checklistTemplates.sortOrder, checklistTemplates.name);
+
+      // For each checklist, get its items with proper ordering
+      const checklistsWithItems = await Promise.all(
+        checklists.map(async (row) => {
+          const items = await db.select({
+            clientItem: clientChecklistItems,
+            checklistItem: checklistItems
+          })
+          .from(clientChecklistItems)
+          .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
+          .where(eq(clientChecklistItems.clientChecklistId, row.checklist.id))
+          .orderBy(checklistItems.itemOrder); // Sort by your intended order
+
+          return {
+            ...row.checklist,
+            template: row.template,
+            items: items.map(item => ({
+              ...item.clientItem,
+              checklistItem: item.checklistItem
+            }))
+          };
+        })
+      );
+
+      return checklistsWithItems;
     } catch (error) {
       return [];
     }
