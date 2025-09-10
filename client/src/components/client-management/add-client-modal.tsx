@@ -95,6 +95,14 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
     staleTime: 5 * 60 * 1000,
   });
 
+  // Get client stage category and fetch its options
+  const clientStageCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_stage");
+  const { data: clientStageOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientStageCategory?.id}`],
+    enabled: !!clientStageCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
@@ -479,21 +487,20 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
 
                   <FormField
                     control={form.control}
-                    name="status"
+                    name="stage"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Client Status</FormLabel>
+                        <FormLabel>Client Stage</FormLabel>
                         <FormControl>
                           <SearchableSelect
                             value={field.value || ""}
                             onValueChange={field.onChange}
-                            options={[
-                              { value: "pending", label: "Pending" },
-                              { value: "active", label: "Active" },
-                              { value: "inactive", label: "Inactive" }
-                            ]}
-                            placeholder="Select status"
-                            searchPlaceholder="Search status options..."
+                            options={clientStageOptions?.options?.map((option: any) => ({
+                              value: option.optionKey || option.optionkey,
+                              label: option.optionLabel || option.optionlabel
+                            })) || []}
+                            placeholder="Select stage"
+                            searchPlaceholder="Search stage options..."
                           />
                         </FormControl>
                         <FormMessage />
@@ -503,29 +510,6 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="stage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Stage</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            value={field.value || ""}
-                            onValueChange={field.onChange}
-                            options={[
-                              { value: "intake", label: "Intake" },
-                              { value: "assessment", label: "Assessment" },
-                              { value: "psychotherapy", label: "Psychotherapy" }
-                            ]}
-                            placeholder="Select stage"
-                            searchPlaceholder="Search stage options..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <FormField
                     control={form.control}
