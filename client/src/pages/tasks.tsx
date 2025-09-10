@@ -542,7 +542,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="font-semibold text-lg text-slate-900 mb-1">{task.title}</h3>
-            <p className="text-slate-600 text-sm line-clamp-2">{task.description || "No description"}</p>
+            <p className="text-slate-600 text-sm line-clamp-3">{task.description || "No description"}</p>
           </div>
           
           <div className="flex gap-2 ml-4">
