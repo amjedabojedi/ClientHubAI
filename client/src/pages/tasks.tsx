@@ -540,8 +540,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
         <div className="mb-4">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="font-semibold text-lg text-slate-900">{task.title}</h3>
+          <div className="flex justify-end mb-3">
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => onViewComments(task)} title="View Comments">
                 <ClipboardList className="w-4 h-4" />
@@ -553,6 +552,9 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
+          </div>
+          <div className="w-full mb-2">
+            <h3 className="font-semibold text-lg text-slate-900 w-full">{task.title}</h3>
           </div>
           <div className="w-full">
             <p className="text-slate-600 text-sm line-clamp-3 w-full">{task.description || "No description"}</p>
