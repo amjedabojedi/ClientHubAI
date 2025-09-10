@@ -51,7 +51,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { getClientStatusColor, getClientStageColor } from "@/lib/task-utils";
+import { getClientStageColor } from "@/lib/task-utils";
 
 // Types
 
@@ -1306,7 +1306,6 @@ export default function ClientDetailPage() {
   }
 
   // Use shared utility functions
-  const getStatusColor = getClientStatusColor;
   const getStageColor = getClientStageColor;
 
   return (
@@ -1429,11 +1428,8 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
                 <div className="flex space-x-3">
-                  <Badge className={`${getStatusColor(client.status || 'inactive')} px-3 py-1 text-sm font-medium`}>
-                    {client.status ? client.status.charAt(0).toUpperCase() + client.status.slice(1) : 'Unknown'}
-                  </Badge>
-                  <Badge className={`${getStageColor(client.stage || 'initial')} px-3 py-1 text-sm font-medium`}>
-                    {client.stage ? client.stage.charAt(0).toUpperCase() + client.stage.slice(1) : 'Unknown'}
+                  <Badge className={`${getStageColor(client.stage || 'intake')} px-3 py-1 text-sm font-medium`}>
+                    {client.stage ? client.stage.charAt(0).toUpperCase() + client.stage.slice(1) : 'Intake'}
                   </Badge>
                 </div>
               </div>
