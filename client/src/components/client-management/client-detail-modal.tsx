@@ -49,15 +49,16 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStageBadge = (stage: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      active: "default",
-      inactive: "secondary",
-      pending: "outline",
+      intake: "outline",
+      assessment: "secondary",
+      psychotherapy: "default",
+      closed: "destructive",
     };
     return (
-      <Badge variant={variants[status] || "default"}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <Badge variant={variants[stage] || "default"}>
+        {stage.charAt(0).toUpperCase() + stage.slice(1)}
       </Badge>
     );
   };
@@ -79,7 +80,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                 </DialogTitle>
                 <p className="text-slate-600">Ref: {client.referenceNumber}</p>
                 <div className="flex items-center space-x-2 mt-1">
-                  {getStatusBadge(client.status || 'pending')}
+                  {getStageBadge(client.stage || 'intake')}
                   <span className="text-slate-400">•</span>
                   <span className="text-sm text-slate-600">
                     {client.assignedTherapist?.fullName || 'Unassigned'}
@@ -184,21 +185,8 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
 
               <div className="space-y-6">
                 <div className="bg-slate-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Status</h3>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Information</h3>
                   <div className="space-y-4">
-                    <div>
-                      <Label>Current Status</Label>
-                      <Select value={client.status || ''}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                     <div>
                       <Label>Current Stage</Label>
                       <Select value={client.stage || ''}>

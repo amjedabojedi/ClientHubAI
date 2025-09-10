@@ -737,7 +737,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
               {/* Clinical Status & Progress Tab */}
               <TabsContent value="clinical" className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Status & Progress</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Stage & Progress</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -765,21 +765,20 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
                   <FormField
                     control={form.control}
-                    name="status"
+                    name="stage"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Client Status</FormLabel>
+                        <FormLabel>Client Stage</FormLabel>
                         <FormControl>
                           <SearchableSelect
                             value={field.value || ""}
                             onValueChange={field.onChange}
-                            options={[
-                              { value: "pending", label: "Pending" },
-                              { value: "active", label: "Active" },
-                              { value: "inactive", label: "Inactive" }
-                            ]}
-                            placeholder="Select status"
-                            searchPlaceholder="Search status options..."
+                            options={clientStageOptions?.options?.map((option: any) => ({
+                              value: option.optionKey || option.optionkey,
+                              label: option.optionLabel || option.optionlabel
+                            })) || []}
+                            placeholder="Select stage"
+                            searchPlaceholder="Search stage options..."
                           />
                         </FormControl>
                         <FormMessage />

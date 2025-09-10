@@ -459,7 +459,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
 
               {/* Clinical Status & Progress Tab */}
               <TabsContent value="clinical" className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Status & Progress</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Client Stage & Progress</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
