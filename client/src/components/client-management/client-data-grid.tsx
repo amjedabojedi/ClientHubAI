@@ -23,6 +23,8 @@ interface ClientDataGridProps {
     hasPortalAccess?: boolean;
     hasPendingTasks?: boolean;
     hasNoSessions?: boolean;
+    checklistTemplateId?: string;
+    checklistItemId?: string;
   };
   onViewClient: (client: Client) => void;
   onEditClient: (client: Client) => void;
@@ -131,7 +133,7 @@ export default function ClientDataGrid({
       psychotherapy: "default",
       closed: "destructive",
     };
-    const colors = {
+    const colors: Record<string, string> = {
       intake: "bg-blue-100 text-blue-800",
       assessment: "bg-purple-100 text-purple-800",
       psychotherapy: "bg-green-100 text-green-800",
