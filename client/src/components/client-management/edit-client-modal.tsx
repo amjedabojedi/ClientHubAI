@@ -50,6 +50,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
 
   // Get individual category options with proper typing
   const clientTypeCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_type");
+  const clientStageCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_stage");
   const referralSourceCategory = systemCategories.find((cat: any) => cat.categoryKey === "referral_sources");
   const maritalStatusCategory = systemCategories.find((cat: any) => cat.categoryKey === "marital_status");
   const employmentStatusCategory = systemCategories.find((cat: any) => cat.categoryKey === "employment_status");
@@ -60,6 +61,12 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
   const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
     queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
     enabled: !!clientTypeCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: clientStageOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientStageCategory?.id}`],
+    enabled: !!clientStageCategory?.id,
     staleTime: 5 * 60 * 1000,
   });
 
