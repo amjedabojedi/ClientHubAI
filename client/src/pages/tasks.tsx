@@ -539,22 +539,23 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg text-slate-900 mb-1">{task.title}</h3>
-            <p className="text-slate-600 text-sm line-clamp-3">{task.description || "No description"}</p>
+        <div className="mb-4">
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="font-semibold text-lg text-slate-900">{task.title}</h3>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => onViewComments(task)} title="View Comments">
+                <ClipboardList className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => onEdit(task)} title="Edit Task">
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => onDelete(task.id)} title="Delete Task">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          
-          <div className="flex gap-2 ml-4">
-            <Button variant="ghost" size="sm" onClick={() => onViewComments(task)} title="View Comments">
-              <ClipboardList className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onEdit(task)} title="Edit Task">
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete(task.id)} title="Delete Task">
-              <Trash2 className="w-4 h-4" />
-            </Button>
+          <div className="w-full">
+            <p className="text-slate-600 text-sm line-clamp-3 w-full">{task.description || "No description"}</p>
           </div>
         </div>
 
