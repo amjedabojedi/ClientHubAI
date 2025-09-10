@@ -25,7 +25,7 @@ export default function ClientsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    status: "",
+    stage: "",
     therapistId: "",
     clientType: "",
     hasPortalAccess: undefined as boolean | undefined,
@@ -107,13 +107,32 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <ClientFilter activeFilter={activeTab} onFilterChange={setActiveTab} />
+            <ClientFilter 
+              activeFilter={activeTab} 
+              onFilterChange={(newTab) => {
+                setActiveTab(newTab);
+                // Sync with SearchFilters stage
+                if (["intake", "assessment", "psychotherapy", "closed"].includes(newTab)) {
+                  setFilters(prev => ({ ...prev, stage: newTab }));
+                } else {
+                  setFilters(prev => ({ ...prev, stage: "" }));
+                }
+              }} 
+            />
             
             <SearchFilters 
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               filters={filters}
-              onFiltersChange={setFilters}
+              onFiltersChange={(newFilters) => {
+                setFilters(newFilters);
+                // Sync activeTab with stage filter
+                if (newFilters.stage && ["intake", "assessment", "psychotherapy", "closed"].includes(newFilters.stage)) {
+                  setActiveTab(newFilters.stage);
+                } else if (!newFilters.stage) {
+                  setActiveTab("all");
+                }
+              }}
             />
             
             <ClientDataGrid 
