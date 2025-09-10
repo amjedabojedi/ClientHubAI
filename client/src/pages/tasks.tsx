@@ -540,7 +540,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
         <div className="mb-4">
-          <div className="flex justify-end mb-3">
+          <div className="flex justify-center mb-3">
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => onViewComments(task)} title="View Comments">
                 <ClipboardList className="w-4 h-4" />
