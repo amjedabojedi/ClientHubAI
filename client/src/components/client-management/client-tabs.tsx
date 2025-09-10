@@ -29,20 +29,18 @@ export default function ClientFilter({ activeFilter, onFilterChange }: ClientFil
 
   const filterGroups = [
     {
-      label: "📊 Status",
+      label: "📊 All Clients",
       options: [
         { id: "all", label: "All Clients", count: stats?.totalClients },
-        { id: "active", label: "Active", count: stats?.activeClients },
-        { id: "inactive", label: "Inactive", count: stats?.inactiveClients },
-        { id: "pending", label: "Pending", count: stats?.pendingClients },
       ]
     },
     {
-      label: "🎯 Treatment Stage",
+      label: "🎯 Treatment Stage", 
       options: [
-        { id: "intakes", label: "New Intakes", count: stats?.newIntakes },
-        { id: "assessment", label: "Assessment Phase", count: stats?.assessmentPhase },
+        { id: "intake", label: "Intake", count: stats?.intake },
+        { id: "assessment", label: "Assessment", count: stats?.assessment },
         { id: "psychotherapy", label: "Psychotherapy", count: stats?.psychotherapy },
+        { id: "closed", label: "Closed", count: stats?.closed },
       ]
     },
     {

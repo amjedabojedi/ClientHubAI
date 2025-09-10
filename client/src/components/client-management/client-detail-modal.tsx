@@ -194,9 +194,10 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
-                          <SelectItem value="assessment">Assessment</SelectItem>
                           <SelectItem value="intake">Intake</SelectItem>
+                          <SelectItem value="assessment">Assessment</SelectItem>
+                          <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
