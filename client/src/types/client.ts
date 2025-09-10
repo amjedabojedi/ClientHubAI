@@ -34,7 +34,7 @@ export interface Client {
   
   // Status and assignment
   status?: 'active' | 'inactive' | 'pending' | null;
-  stage?: 'intake' | 'assessment' | 'psychotherapy' | null;
+  stage?: 'intake' | 'assessment' | 'psychotherapy' | 'closed' | null;
   clientType?: string | null;
   assignedTherapistId?: number | null;
   
