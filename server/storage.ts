@@ -2696,6 +2696,9 @@ export class DatabaseStorage implements IStorage {
 
   // Save or update assessment response
   async saveAssessmentResponse(responseData: any): Promise<AssessmentResponse> {
+    // Calculate score value for this response
+    const scoreValue = await this.calculateResponseScore(responseData);
+
     // Check if response already exists
     const [existingResponse] = await db
       .select()
@@ -2708,6 +2711,8 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
+    let savedResponse: AssessmentResponse;
+
     if (existingResponse) {
       // Update existing response
       const [updatedResponse] = await db
@@ -2716,11 +2721,12 @@ export class DatabaseStorage implements IStorage {
           responseText: responseData.responseText,
           selectedOptions: responseData.selectedOptions,
           ratingValue: responseData.ratingValue,
+          scoreValue: scoreValue,
           updatedAt: new Date()
         })
         .where(eq(assessmentResponses.id, existingResponse.id))
         .returning();
-      return updatedResponse;
+      savedResponse = updatedResponse;
     } else {
       // Create new response
       const [newResponse] = await db
@@ -2732,12 +2738,94 @@ export class DatabaseStorage implements IStorage {
           responseText: responseData.responseText,
           selectedOptions: responseData.selectedOptions,
           ratingValue: responseData.ratingValue,
+          scoreValue: scoreValue,
           createdAt: new Date(),
           updatedAt: new Date()
         })
         .returning();
-      return newResponse;
+      savedResponse = newResponse;
     }
+
+    // Update the overall assessment total score
+    await this.updateAssessmentTotalScore(responseData.assignmentId);
+
+    return savedResponse;
+  }
+
+  // Calculate score value for an individual response
+  async calculateResponseScore(responseData: any): Promise<number | null> {
+    // Get the question to check if it contributes to scoring
+    const [question] = await db
+      .select()
+      .from(assessmentQuestions)
+      .where(eq(assessmentQuestions.id, responseData.questionId));
+
+    if (!question || !question.contributesToScore) {
+      return null; // This question doesn't contribute to scoring
+    }
+
+    // For multiple choice/checkbox questions - use option values
+    if (responseData.selectedOptions && responseData.selectedOptions.length > 0) {
+      // Get the option values for selected options
+      const options = await db
+        .select()
+        .from(assessmentQuestionOptions)
+        .where(
+          and(
+            eq(assessmentQuestionOptions.questionId, responseData.questionId),
+            inArray(assessmentQuestionOptions.id, responseData.selectedOptions)
+          )
+        );
+
+      // Sum up the option values
+      return options.reduce((total, option) => {
+        return total + (Number(option.optionValue) || 0);
+      }, 0);
+    }
+
+    // For rating scale questions - use the rating value directly
+    if (responseData.ratingValue !== null && responseData.ratingValue !== undefined) {
+      return Number(responseData.ratingValue);
+    }
+
+    // For other question types that don't have numeric scoring
+    return null;
+  }
+
+  // Update the total score for an assessment assignment
+  async updateAssessmentTotalScore(assignmentId: number): Promise<void> {
+    // Get all responses for this assignment that have score values
+    const scoredResponses = await db
+      .select({
+        scoreValue: assessmentResponses.scoreValue,
+        questionId: assessmentResponses.questionId,
+        sectionId: assessmentQuestions.sectionId,
+        isScoring: assessmentSections.isScoring
+      })
+      .from(assessmentResponses)
+      .leftJoin(assessmentQuestions, eq(assessmentResponses.questionId, assessmentQuestions.id))
+      .leftJoin(assessmentSections, eq(assessmentQuestions.sectionId, assessmentSections.id))
+      .where(
+        and(
+          eq(assessmentResponses.assignmentId, assignmentId),
+          isNotNull(assessmentResponses.scoreValue),
+          eq(assessmentSections.isScoring, true) // Only include responses from scoring sections
+        )
+      );
+
+    // Calculate total score
+    const totalScore = scoredResponses.reduce((total, response) => {
+      return total + (Number(response.scoreValue) || 0);
+    }, 0);
+
+    // Update the assessment assignment with the new total score
+    await db
+      .update(assessmentAssignments)
+      .set({
+        totalScore: totalScore.toString(),
+        updatedAt: new Date()
+      })
+      .where(eq(assessmentAssignments.id, assignmentId));
   }
 
   // Assessment Responses Management
