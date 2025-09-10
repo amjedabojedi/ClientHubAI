@@ -217,6 +217,7 @@ export default function BillingDashboard() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
+  const [selectedClientType, setSelectedClientType] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
   const [debouncedClientSearch, setDebouncedClientSearch] = useState<string>('');
   
@@ -238,7 +239,7 @@ export default function BillingDashboard() {
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading } = useQuery({
-    queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, debouncedClientSearch],
+    queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType, debouncedClientSearch],
     queryFn: async () => {
       let url = '/api/billing/reports';
       const params = new URLSearchParams();
@@ -248,6 +249,7 @@ export default function BillingDashboard() {
       if (endDate) params.append('endDate', endDate);
       if (selectedStatus !== 'all') params.append('status', selectedStatus);
       if (selectedService !== 'all') params.append('serviceCode', selectedService);
+      if (selectedClientType !== 'all') params.append('clientType', selectedClientType);
       if (debouncedClientSearch.trim()) params.append('clientSearch', debouncedClientSearch.trim());
       
       // Role-based therapist filtering
@@ -288,6 +290,28 @@ export default function BillingDashboard() {
     queryFn: async () => {
       const response = await fetch('/api/services');
       if (!response.ok) throw new Error('Failed to fetch services');
+      return response.json();
+    }
+  });
+
+  // Fetch system categories for client type filter
+  const { data: systemCategories = [] } = useQuery({
+    queryKey: ['/api/system-options/categories'],
+    queryFn: async () => {
+      const response = await fetch('/api/system-options/categories');
+      if (!response.ok) throw new Error('Failed to fetch system categories');
+      return response.json();
+    }
+  });
+
+  // Find client type category and fetch its options
+  const clientTypeCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_type");
+  const { data: clientTypeOptions = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
+    enabled: !!clientTypeCategory?.id,
+    queryFn: async () => {
+      const response = await fetch(`/api/system-options/categories/${clientTypeCategory.id}`);
+      if (!response.ok) throw new Error('Failed to fetch client type options');
       return response.json();
     }
   });
@@ -510,7 +534,7 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'admin' || user?.role === 'administrator' ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-2'}`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'admin' || user?.role === 'administrator' ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-3'}`}>
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -566,6 +590,25 @@ export default function BillingDashboard() {
                   {services?.map((service: any) => (
                     <SelectItem key={service.serviceCode} value={service.serviceCode}>
                       {service.serviceCode} - {service.serviceName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="client-type-filter">Client Type</Label>
+              <Select value={selectedClientType} onValueChange={setSelectedClientType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Client Types</SelectItem>
+                  {clientTypeOptions.options?.filter((option: any) => 
+                    (option.optionKey || option.optionkey) && 
+                    (option.optionKey || option.optionkey).trim() !== ''
+                  ).map((option: any) => (
+                    <SelectItem key={option.id} value={option.optionKey || option.optionkey}>
+                      {option.optionLabel || option.optionlabel}
                     </SelectItem>
                   ))}
                 </SelectContent>
