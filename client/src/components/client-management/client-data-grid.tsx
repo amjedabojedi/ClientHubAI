@@ -17,7 +17,7 @@ interface ClientDataGridProps {
   activeTab: string;
   searchQuery: string;
   filters: {
-    status: string;
+    stage: string;
     therapistId: string;
     clientType: string;
     hasPortalAccess?: boolean;
@@ -55,15 +55,14 @@ export default function ClientDataGrid({
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Map activeTab to status filter
-  const statusFromTab = useMemo(() => {
+  // Map activeTab to stage filter
+  const stageFromTab = useMemo(() => {
     switch (activeTab) {
-      case "active": return "active";
-      case "inactive": return "inactive";
-      case "pending": return "pending";
-      case "intakes": return { stage: "intake" };
-      case "assessment": return { stage: "assessment" };
-      case "psychotherapy": return { stage: "psychotherapy" };
+      case "intake":
+      case "intakes": return "intake";
+      case "assessment": return "assessment";
+      case "psychotherapy": return "psychotherapy";
+      case "closed": return "closed";
       case "no-sessions": return { hasNoSessions: true };
       case "follow-up": return { needsFollowUp: true };
       case "unassigned": return { unassigned: true };
@@ -76,15 +75,14 @@ export default function ClientDataGrid({
       page,
       pageSize,
       search: debouncedSearch,
-      status: typeof statusFromTab === "string" ? statusFromTab : filters.status,
-      stage: typeof statusFromTab === "object" && statusFromTab.stage ? statusFromTab.stage : undefined,
+      stage: typeof stageFromTab === "string" ? stageFromTab : filters.stage,
       therapistId: filters.therapistId,
       clientType: filters.clientType,
       hasPortalAccess: filters.hasPortalAccess,
       hasPendingTasks: filters.hasPendingTasks,
-      hasNoSessions: typeof statusFromTab === "object" && statusFromTab.hasNoSessions ? true : filters.hasNoSessions,
-      needsFollowUp: typeof statusFromTab === "object" && statusFromTab.needsFollowUp ? true : undefined,
-      unassigned: typeof statusFromTab === "object" && statusFromTab.unassigned ? true : undefined,
+      hasNoSessions: typeof stageFromTab === "object" && stageFromTab.hasNoSessions ? true : filters.hasNoSessions,
+      needsFollowUp: typeof stageFromTab === "object" && stageFromTab.needsFollowUp ? true : undefined,
+      unassigned: typeof stageFromTab === "object" && stageFromTab.unassigned ? true : undefined,
       checklistTemplateId: filters.checklistTemplateId,
       checklistItemId: filters.checklistItemId,
       sortBy,
@@ -93,7 +91,7 @@ export default function ClientDataGrid({
       currentUserRole: user?.user?.role || user?.role,
     };
     return params;
-  }, [page, pageSize, debouncedSearch, statusFromTab, filters, sortBy, sortOrder, user]);
+  }, [page, pageSize, debouncedSearch, stageFromTab, filters, sortBy, sortOrder, user]);
 
   const { data, isLoading, error } = useQuery<ClientsQueryResult>({
     queryKey: ["/api/clients", queryParams],
@@ -126,15 +124,22 @@ export default function ClientDataGrid({
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStageBadge = (stage: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      active: "default",
-      inactive: "secondary",
-      pending: "outline",
+      intake: "outline",
+      assessment: "secondary", 
+      psychotherapy: "default",
+      closed: "destructive",
+    };
+    const colors = {
+      intake: "bg-blue-100 text-blue-800",
+      assessment: "bg-purple-100 text-purple-800",
+      psychotherapy: "bg-green-100 text-green-800",
+      closed: "bg-gray-100 text-gray-800",
     };
     return (
-      <Badge variant={variants[status] || "default"}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <Badge variant={variants[stage] || "default"} className={colors[stage] || ""}>
+        {stage.charAt(0).toUpperCase() + stage.slice(1)}
       </Badge>
     );
   };
@@ -275,7 +280,7 @@ export default function ClientDataGrid({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {getStatusBadge(client.status)}
+                      {getStageBadge(client.stage)}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
