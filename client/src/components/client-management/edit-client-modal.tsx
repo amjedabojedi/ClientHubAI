@@ -797,30 +797,6 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="stage"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Stage</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            value={field.value || ""}
-                            onValueChange={field.onChange}
-                            options={[
-                              { value: "intake", label: "Intake" },
-                              { value: "assessment", label: "Assessment" },
-                              { value: "psychotherapy", label: "Psychotherapy" }
-                            ]}
-                            placeholder="Select stage"
-                            searchPlaceholder="Search stage options..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
                     name="assignedTherapistId"
                     render={({ field }) => (
                       <FormItem>
