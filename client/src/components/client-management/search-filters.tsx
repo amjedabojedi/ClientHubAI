@@ -13,7 +13,7 @@ interface SearchFiltersProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   filters: {
-    status: string;
+    stage: string;
     therapistId: string;
     clientType: string;
     hasPortalAccess?: boolean;
@@ -57,6 +57,14 @@ export default function SearchFilters({
   const { data: clientTypeData = { options: [] } } = useQuery<{ options: any[] }>({
     queryKey: [`/api/system-options/categories/${clientTypeCategory?.id}`],
     enabled: !!clientTypeCategory?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Get client stage category and options
+  const clientStageCategory = systemCategories.find((cat: any) => cat.categoryKey === "client_stage");
+  const { data: clientStageData = { options: [] } } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${clientStageCategory?.id}`],
+    enabled: !!clientStageCategory?.id,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -133,16 +141,18 @@ export default function SearchFilters({
           <div className="border-t border-slate-200 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Client Status</label>
-                <Select value={filters.status || "all"} onValueChange={(value) => handleFilterChange('status', value)}>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Client Stage</label>
+                <Select value={filters.stage || "all"} onValueChange={(value) => handleFilterChange('stage', value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Statuses" />
+                    <SelectValue placeholder="All Stages" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="all">All Stages</SelectItem>
+                    {clientStageData?.options?.map((option: any) => (
+                      <SelectItem key={option.optionKey || option.optionkey} value={option.optionKey || option.optionkey}>
+                        {option.optionLabel || option.optionlabel}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
