@@ -3195,6 +3195,18 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Recalculate scores for an assessment (useful for fixing existing assessments)
+  app.post("/api/assessments/:assignmentId/recalculate-scores", async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      await storage.recalculateAssessmentScores(assignmentId);
+      res.status(200).json({ message: "Scores recalculated successfully" });
+    } catch (error) {
+      console.error('Error recalculating assessment scores:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
 
   app.post("/api/assessments/sections", async (req, res) => {
     try {

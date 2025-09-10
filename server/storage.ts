@@ -1,6 +1,6 @@
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray, isNull } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray, isNull, isNotNull } from "drizzle-orm";
 
 // Database Schema - Tables
 import { 
@@ -2721,7 +2721,7 @@ export class DatabaseStorage implements IStorage {
           responseText: responseData.responseText,
           selectedOptions: responseData.selectedOptions,
           ratingValue: responseData.ratingValue,
-          scoreValue: scoreValue,
+          scoreValue: scoreValue !== null ? scoreValue.toString() : null,
           updatedAt: new Date()
         })
         .where(eq(assessmentResponses.id, existingResponse.id))
@@ -2738,7 +2738,7 @@ export class DatabaseStorage implements IStorage {
           responseText: responseData.responseText,
           selectedOptions: responseData.selectedOptions,
           ratingValue: responseData.ratingValue,
-          scoreValue: scoreValue,
+          scoreValue: scoreValue !== null ? scoreValue.toString() : null,
           createdAt: new Date(),
           updatedAt: new Date()
         })
@@ -2826,6 +2826,38 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(assessmentAssignments.id, assignmentId));
+  }
+
+  // Recalculate scores for all responses in an assessment (useful for fixing existing data)
+  async recalculateAssessmentScores(assignmentId: number): Promise<void> {
+    // Get all responses for this assignment
+    const responses = await db
+      .select()
+      .from(assessmentResponses)
+      .where(eq(assessmentResponses.assignmentId, assignmentId));
+
+    // Recalculate score for each response
+    for (const response of responses) {
+      const scoreValue = await this.calculateResponseScore({
+        assignmentId: response.assignmentId,
+        questionId: response.questionId,
+        responseText: response.responseText,
+        selectedOptions: response.selectedOptions,
+        ratingValue: response.ratingValue
+      });
+
+      // Update the response with new score
+      await db
+        .update(assessmentResponses)
+        .set({
+          scoreValue: scoreValue !== null ? scoreValue.toString() : null,
+          updatedAt: new Date()
+        })
+        .where(eq(assessmentResponses.id, response.id));
+    }
+
+    // Recalculate the total assessment score
+    await this.updateAssessmentTotalScore(assignmentId);
   }
 
   // Assessment Responses Management
