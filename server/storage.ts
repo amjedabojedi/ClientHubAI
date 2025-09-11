@@ -1254,6 +1254,32 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getOverdueTasks(): Promise<(Task & { assignedTo: User; client: Client })[]> {
+    const results = await db
+      .select({
+        task: tasks,
+        assignedTo: users,
+        client: clients
+      })
+      .from(tasks)
+      .innerJoin(users, eq(tasks.assignedToId, users.id))
+      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .where(
+        and(
+          sql`${tasks.dueDate} < NOW()`,
+          sql`${tasks.status} NOT IN ('completed')`,
+          isNotNull(tasks.dueDate)
+        )
+      )
+      .orderBy(asc(tasks.dueDate));
+
+    return results.map(r => ({ 
+      ...r.task, 
+      assignedTo: r.assignedTo, 
+      client: r.client 
+    }));
+  }
+
   // ===== SESSION CONFLICT DETECTION IMPLEMENTATION =====
   async checkSessionConflicts(clientId: number, sessionDate: string, serviceCode?: string, excludeSessionId?: number): Promise<{
     exactDuplicates: (Session & { therapist: User; service: any })[];

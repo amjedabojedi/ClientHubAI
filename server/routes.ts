@@ -1562,6 +1562,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check for overdue tasks and trigger notifications
+  app.post("/api/tasks/check-overdue", async (req, res) => {
+    try {
+      console.log('Overdue tasks check started');
+      const limit = Number(req.body?.limit ?? 10);
+      
+      // Start background processing immediately
+      setImmediate(async () => {
+        try {
+          console.log(`Processing overdue tasks with limit ${limit}`);
+          const overdueTasks = await storage.getOverdueTasks();
+          const tasksToProcess = overdueTasks.slice(0, limit);
+          
+          let processed = 0;
+          for (const task of tasksToProcess) {
+            try {
+              await notificationService.processEvent('task_overdue', {
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                clientId: task.clientId,
+                clientName: task.client.fullName,
+                assignedToId: task.assignedToId,
+                assignedToName: task.assignedTo.fullName,
+                dueDate: task.dueDate,
+                status: task.status,
+                priority: task.priority,
+                overdueBy: Math.floor((Date.now() - new Date(task.dueDate!).getTime()) / (1000 * 60 * 60 * 24))
+              });
+              processed++;
+            } catch (notificationError) {
+              console.error(`Error processing overdue task notification ${task.id}:`, notificationError);
+            }
+          }
+          console.log(`Completed processing ${processed} overdue tasks`);
+        } catch (error) {
+          console.error('Background task processing error:', error);
+        }
+      });
+      
+      // Return immediate response
+      return res.status(202).json({
+        message: "Overdue task notifications processing started",
+        limit,
+        status: "accepted"
+      });
+    } catch (error) {
+      console.error('Error starting overdue tasks check:', error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Tasks routes
   app.get("/api/clients/:clientId/tasks", async (req, res) => {
     try {
