@@ -287,7 +287,7 @@ export default function DashboardPage() {
   }>({
     queryKey: ["/api/sessions", { 
       limit: 100,
-      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
+      startDate: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
       endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0],
       currentUserId: user?.user?.id || user?.id,
       currentUserRole: user?.user?.role || user?.role,
@@ -297,7 +297,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const userId = user?.user?.id || user?.id;
       const userRole = (user?.user?.role || user?.role || '').toLowerCase();
-      const startDate = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
+      const startDate = new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0];
       const endDate = new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0];
       
       const params = new URLSearchParams();
