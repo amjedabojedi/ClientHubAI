@@ -13,7 +13,7 @@ import { execSync } from "child_process";
 import { z } from "zod";
 
 // Internal Services
-import { storage } from "./storage";
+import { storage, type TaskQueryParams } from "./storage";
 // Auth will be implemented later, for now removing to test audit logging
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
@@ -1698,7 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const params = {
+      const params: TaskQueryParams = {
         page: parseInt(page as string),
         pageSize: parseInt(pageSize as string),
         search: search as string,
@@ -1711,26 +1711,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         includeCompleted: includeCompleted === "true"
       };
 
-      let result = await storage.getAllTasks(params);
-      
-      // Apply therapist filtering to results  
+      // Add role-based parameters to params
       if (currentUserRole === "therapist" && currentUserId) {
-        const therapistId = parseInt(currentUserId as string);
-        
-        // Get therapist's assigned clients
-        const therapistClientsResult = await storage.getClients({ therapistId, page: 1, pageSize: 1000 });
-        const clientIds = therapistClientsResult.clients.map(client => client.id);
-        
-        // Filter: task assigned TO therapist OR task for therapist's client
-        result.tasks = result.tasks.filter(task => 
-          task.assignedToId === therapistId || (task.clientId && clientIds.includes(task.clientId))
-        );
-        
-        // Update total and totalPages based on filtered results
-        result.total = result.tasks.length;
-        result.totalPages = Math.ceil(result.total / parseInt(pageSize as string));
+        params.therapistId = parseInt(currentUserId as string);
+      } else if (currentUserRole === "supervisor" && currentUserId) {
+        const supervisorId = parseInt(currentUserId as string);
+        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        params.supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
+      // Storage method now handles role-based filtering
+      const result = await storage.getAllTasks(params);
       res.json(result);
     } catch (error) {
 
@@ -1769,39 +1760,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { currentUserId, currentUserRole } = req.query;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       
-      let recentTasks = await storage.getRecentTasks(limit);
-      
-      // Normalize role casing and apply role-based filtering
+      // Normalize role casing and determine role-based parameters
       const role = String(currentUserRole || '').toLowerCase();
       const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
-      // Therapists see tasks assigned TO them OR for their assigned clients  
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
       if (role === "therapist" && uid) {
-        // Get therapist's assigned clients
-        const therapistClientsResult = await storage.getClients({ therapistId: uid, page: 1, pageSize: 1000 });
-        const clientIds = therapistClientsResult.clients.map(client => client.id);
-        
-        // Filter: task assigned TO therapist OR task for therapist's client
-        recentTasks = recentTasks.filter(task => 
-          task.assignedToId === uid || (task.clientId && clientIds.includes(task.clientId))
-        );
+        therapistId = uid;
       } else if (role === "supervisor" && uid) {
         const supervisorAssignments = await storage.getSupervisorAssignments(uid);
-        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
-        
-        // Get all clients for supervised therapists using existing getClients method
-        const allSupervisedClientIds: number[] = [];
-        for (const therapistId of supervisedTherapistIds) {
-          const therapistClientsResult = await storage.getClients({ therapistId, page: 1, pageSize: 1000 });
-          allSupervisedClientIds.push(...therapistClientsResult.clients.map(client => client.id));
-        }
-        
-        // Filter tasks to only those for supervised clients
-        recentTasks = recentTasks.filter(task => 
-          task.clientId && allSupervisedClientIds.includes(task.clientId)
-        );
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
-      // Admin sees all tasks (no filtering)
+      
+      // Call storage method with role-based parameters - storage handles filtering
+      const recentTasks = await storage.getRecentTasks(limit, therapistId, supervisedTherapistIds);
       
       res.json(recentTasks);
     } catch (error) {
@@ -1815,39 +1789,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { currentUserId, currentUserRole } = req.query;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       
-      let upcomingTasks = await storage.getUpcomingTasks(limit);
-      
-      // Normalize role casing and apply role-based filtering
+      // Normalize role casing and determine role-based parameters
       const role = String(currentUserRole || '').toLowerCase();
       const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
-      // Therapists see tasks assigned TO them OR for their assigned clients
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
       if (role === "therapist" && uid) {
-        // Get therapist's assigned clients
-        const therapistClientsResult = await storage.getClients({ therapistId: uid, page: 1, pageSize: 1000 });
-        const clientIds = therapistClientsResult.clients.map(client => client.id);
-        
-        // Filter: task assigned TO therapist OR task for therapist's client
-        upcomingTasks = upcomingTasks.filter(task => 
-          task.assignedToId === uid || (task.clientId && clientIds.includes(task.clientId))
-        );
+        therapistId = uid;
       } else if (role === "supervisor" && uid) {
         const supervisorAssignments = await storage.getSupervisorAssignments(uid);
-        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
-        
-        // Get all clients for supervised therapists using existing getClients method
-        const allSupervisedClientIds: number[] = [];
-        for (const therapistId of supervisedTherapistIds) {
-          const therapistClientsResult = await storage.getClients({ therapistId, page: 1, pageSize: 1000 });
-          allSupervisedClientIds.push(...therapistClientsResult.clients.map(client => client.id));
-        }
-        
-        // Filter tasks to only those for supervised clients
-        upcomingTasks = upcomingTasks.filter(task => 
-          task.clientId && allSupervisedClientIds.includes(task.clientId)
-        );
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
-      // Admin sees all tasks (no filtering)
+      
+      // Call storage method with role-based parameters - storage handles filtering
+      const upcomingTasks = await storage.getUpcomingTasks(limit, therapistId, supervisedTherapistIds);
       
       res.json(upcomingTasks);
     } catch (error) {

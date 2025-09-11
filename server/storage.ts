@@ -152,6 +152,22 @@ export interface ClientsQueryResult {
 
 // ===== STORAGE INTERFACE DEFINITION =====
 // Defines all data operations for the application
+// Task query parameters type for consistent filtering
+export type TaskQueryParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  priority?: string;
+  assignedToId?: number;
+  clientId?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  includeCompleted?: boolean;
+  therapistId?: number;
+  supervisedTherapistIds?: number[];
+};
+
 export interface IStorage {
   
   // ===== USER MANAGEMENT =====
@@ -245,18 +261,7 @@ export interface IStorage {
   getRoomByNumber(roomNumber: string): Promise<any>;
 
   // ===== TASK MANAGEMENT =====
-  getAllTasks(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    status?: string;
-    priority?: string;
-    assignedToId?: number;
-    clientId?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    includeCompleted?: boolean;
-  }): Promise<{
+  getAllTasks(params?: TaskQueryParams): Promise<{
     tasks: (Task & { assignedTo?: User; client: Client })[];
     total: number;
     totalPages: number;
@@ -277,8 +282,8 @@ export interface IStorage {
     urgentTasks: number;
   }>;
   getPendingTasksCount(): Promise<number>;
-  getRecentTasks(limit?: number): Promise<(Task & { assignedTo?: User; client: Client })[]>;
-  getUpcomingTasks(limit?: number): Promise<(Task & { assignedTo?: User; client: Client })[]>;
+  getRecentTasks(limit?: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Task & { assignedTo?: User; client: Client })[]>;
+  getUpcomingTasks(limit?: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Task & { assignedTo?: User; client: Client })[]>;
 
   // ===== Task Comments Management =====
   // Create a new task comment for progress tracking
