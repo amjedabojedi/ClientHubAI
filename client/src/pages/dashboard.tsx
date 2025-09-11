@@ -685,16 +685,17 @@ export default function DashboardPage() {
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
-                                className="h-8 w-8 p-0"
+                                className="h-8 w-8 p-0 relative z-10 hover:bg-slate-100 focus:bg-slate-100"
                                 data-testid={`button-actions-session-${session.id}`}
                               >
-                                <MoreVertical className="h-4 w-4" />
+                                <MoreVertical className="h-4 w-4 text-slate-600" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="z-[9999] min-w-[200px]">
                               <DropdownMenuItem 
                                 onClick={() => handleCompleteSession(session.id)}
                                 data-testid={`button-complete-session-${session.id}`}
+                                className="cursor-pointer"
                               >
                                 <Check className="mr-2 h-4 w-4 text-green-600" />
                                 Mark Completed
@@ -702,6 +703,7 @@ export default function DashboardPage() {
                               <DropdownMenuItem 
                                 onClick={() => handleNoShowSession(session.id)}
                                 data-testid={`button-noshow-session-${session.id}`}
+                                className="cursor-pointer"
                               >
                                 <UserX className="mr-2 h-4 w-4 text-orange-600" />
                                 No-Show (Cancel)
@@ -709,6 +711,7 @@ export default function DashboardPage() {
                               <DropdownMenuItem 
                                 onClick={() => handleCancelSession(session.id)}
                                 data-testid={`button-cancel-session-${session.id}`}
+                                className="cursor-pointer"
                               >
                                 <X className="mr-2 h-4 w-4 text-red-600" />
                                 Cancel Session
@@ -716,6 +719,7 @@ export default function DashboardPage() {
                               <DropdownMenuItem 
                                 onClick={() => setLocation("/scheduling")}
                                 data-testid={`button-reschedule-session-${session.id}`}
+                                className="cursor-pointer"
                               >
                                 <Edit3 className="mr-2 h-4 w-4 text-blue-600" />
                                 Reschedule
