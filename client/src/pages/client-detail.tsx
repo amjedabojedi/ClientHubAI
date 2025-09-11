@@ -259,7 +259,6 @@ function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
 // Checklist Items Display Component
 function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientChecklistId: number; templateId: number }) {
   const [showItems, setShowItems] = useState(false);
-  const [itemNotes, setItemNotes] = useState<{ [key: number]: string }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -284,8 +283,8 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
     },
   });
 
-  const handleItemToggle = (itemId: number, isCompleted: boolean, notes?: string) => {
-    updateItemMutation.mutate({ itemId, isCompleted, notes });
+  const handleItemToggle = (itemId: number, isCompleted: boolean) => {
+    updateItemMutation.mutate({ itemId, isCompleted });
   };
 
   if (!showItems) {
@@ -332,11 +331,10 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
               <Checkbox
                 checked={isCompleted}
                 onCheckedChange={(checked) => {
-                  const notes = itemNotes[itemId] || clientItem.notes || "";
-                  handleItemToggle(itemId, checked as boolean, notes);
+                  handleItemToggle(itemId, checked as boolean);
                 }}
               />
-              <div className="flex-1 space-y-2">
+              <div className="flex-1">
                 <div>
                   <h6 className="font-medium text-sm">{templateItem?.title || 'Unknown Item'}</h6>
                   {templateItem?.description && (
@@ -346,32 +344,9 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
                     <Badge variant="destructive" className="text-xs">Required</Badge>
                   )}
                 </div>
-                
-                <div>
-                  <Label htmlFor={`notes-${itemId}`} className="text-xs">Notes/Comments:</Label>
-                  <Textarea
-                    id={`notes-${itemId}`}
-                    placeholder="Add notes or comments for this item..."
-                    value={itemNotes[itemId] || clientItem.notes || ""}
-                    onChange={(e) => setItemNotes(prev => ({ ...prev, [itemId]: e.target.value }))}
-                    className="text-xs h-16"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 text-xs"
-                    onClick={() => {
-                      const notes = itemNotes[itemId] || "";
-                      handleItemToggle(itemId, isCompleted, notes);
-                    }}
-                    disabled={updateItemMutation.isPending}
-                  >
-                    {updateItemMutation.isPending ? "Saving..." : "Save Notes"}
-                  </Button>
-                </div>
 
                 {clientItem.completedAt && (
-                  <p className="text-xs text-green-600">
+                  <p className="text-xs text-green-600 mt-2">
                     Completed: {new Date(clientItem.completedAt).toLocaleDateString()}
                   </p>
                 )}
