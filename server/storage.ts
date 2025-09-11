@@ -1266,31 +1266,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sessions).where(eq(sessions.id, id));
   }
 
-  async getOverdueSessions(): Promise<(Session & { therapist: User; client: Client })[]> {
-    const results = await db
-      .select({
-        session: sessions,
-        therapist: users,
-        client: clients
-      })
-      .from(sessions)
-      .innerJoin(users, eq(sessions.therapistId, users.id))
-      .innerJoin(clients, eq(sessions.clientId, clients.id))
-      .where(
-        and(
-          sql`${sessions.sessionDate} < NOW()`,
-          sql`${sessions.status} IN ('scheduled', 'confirmed')`
-        )
-      )
-      .orderBy(asc(sessions.sessionDate));
-
-    return results.map(r => ({ 
-      ...r.session, 
-      therapist: r.therapist, 
-      client: r.client 
-    }));
-  }
-
   async getOverdueTasks(): Promise<(Task & { assignedTo: User; client: Client })[]> {
     const results = await db
       .select({

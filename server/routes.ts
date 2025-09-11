@@ -1512,6 +1512,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get overdue sessions for dashboard
+  app.get("/api/sessions/overdue", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const { currentUserId, currentUserRole } = req.query;
+      
+      let overdueSessions = await storage.getOverdueSessions(limit);
+      
+      // Role-based filtering
+      if (currentUserRole === "therapist" && currentUserId) {
+        const therapistId = parseInt(currentUserId as string);
+        overdueSessions = overdueSessions.filter(session => session.therapistId === therapistId);
+      } else if (currentUserRole === "supervisor" && currentUserId) {
+        const supervisorId = parseInt(currentUserId as string);
+        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        
+        if (supervisorAssignments.length === 0) {
+          return res.json([]);
+        }
+        
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        overdueSessions = overdueSessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
+      }
+      
+      res.json(overdueSessions);
+    } catch (error) {
+      console.error("Error fetching overdue sessions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Check for overdue sessions and trigger notifications
   app.post("/api/sessions/check-overdue", async (req, res) => {
     try {
