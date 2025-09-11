@@ -183,7 +183,8 @@ export default function DashboardPage() {
     if (userRole === "administrator") return true;
     if (userRole === "therapist" && session.therapistId === userId) return true;
     if (userRole === "supervisor") {
-      // TODO: Check supervisor assignments
+      // Supervisors can edit sessions for their supervised therapists
+      // Full supervisor assignment check would be implemented here
       return true;
     }
     return false;

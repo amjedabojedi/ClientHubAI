@@ -1546,13 +1546,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check for overdue sessions and trigger notifications
   app.post("/api/sessions/check-overdue", async (req, res) => {
     try {
-      console.log('Overdue sessions check started');
       const limit = Number(req.body?.limit ?? 10);
       
       // Start background processing immediately
       setImmediate(async () => {
         try {
-          console.log(`Processing overdue sessions with limit ${limit}`);
           const overdueSessions = await storage.getOverdueSessions();
           const sessionsToProcess = overdueSessions.slice(0, limit);
           
@@ -1575,7 +1573,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error(`Error processing overdue session notification ${session.id}:`, notificationError);
             }
           }
-          console.log(`Completed processing ${processed} overdue sessions`);
         } catch (error) {
           console.error('Background processing error:', error);
         }
@@ -1596,13 +1593,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check for overdue tasks and trigger notifications
   app.post("/api/tasks/check-overdue", async (req, res) => {
     try {
-      console.log('Overdue tasks check started');
       const limit = Number(req.body?.limit ?? 10);
       
       // Start background processing immediately
       setImmediate(async () => {
         try {
-          console.log(`Processing overdue tasks with limit ${limit}`);
           const overdueTasks = await storage.getOverdueTasks();
           const tasksToProcess = overdueTasks.slice(0, limit);
           
@@ -1627,7 +1622,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error(`Error processing overdue task notification ${task.id}:`, notificationError);
             }
           }
-          console.log(`Completed processing ${processed} overdue tasks`);
         } catch (error) {
           console.error('Background task processing error:', error);
         }
