@@ -1520,12 +1520,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let overdueSessions = await storage.getOverdueSessions(limit);
       
-      // Role-based filtering - therapists only see their own assigned sessions
-      if (currentUserRole === "therapist" && currentUserId) {
-        const therapistId = parseInt(currentUserId as string);
-        overdueSessions = overdueSessions.filter(session => session.therapistId === therapistId);
-      } else if (currentUserRole === "supervisor" && currentUserId) {
-        const supervisorId = parseInt(currentUserId as string);
+      // Normalize role casing and apply role-based filtering
+      const role = String(currentUserRole || '').toLowerCase();
+      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
+      
+      // Therapists only see their own assigned sessions
+      if (role === "therapist" && uid) {
+        overdueSessions = overdueSessions.filter(session => session.therapistId === uid);
+      } else if (role === "supervisor" && uid) {
+        const supervisorId = uid;
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
         
         if (supervisorAssignments.length === 0) {

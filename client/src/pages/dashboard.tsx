@@ -204,7 +204,7 @@ export default function DashboardPage() {
     enabled: !!user && !!(user?.user?.id || user?.id),
     queryFn: async () => {
       const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
+      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
@@ -232,7 +232,7 @@ export default function DashboardPage() {
     enabled: !!user && !!(user?.user?.id || user?.id),
     queryFn: async () => {
       const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
+      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
       const params = new URLSearchParams();
       params.append('limit', '5');
       if (userId) params.append('currentUserId', userId.toString());
@@ -260,7 +260,7 @@ export default function DashboardPage() {
     staleTime: 0, // Always fetch fresh data
     queryFn: async () => {
       const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
+      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
       const startDate = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
       const endDate = new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0];
       
