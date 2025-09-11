@@ -1512,6 +1512,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check for overdue sessions and trigger notifications
+  app.post("/api/sessions/check-overdue", async (req, res) => {
+    try {
+      console.log('Overdue sessions check started');
+      const limit = Number(req.body?.limit ?? 10);
+      
+      // Start background processing immediately
+      setImmediate(async () => {
+        try {
+          console.log(`Processing overdue sessions with limit ${limit}`);
+          const overdueSessions = await storage.getOverdueSessions();
+          const sessionsToProcess = overdueSessions.slice(0, limit);
+          
+          let processed = 0;
+          for (const session of sessionsToProcess) {
+            try {
+              await notificationService.processEvent('session_overdue', {
+                id: session.id,
+                clientId: session.clientId,
+                clientName: session.client.fullName,
+                therapistId: session.therapistId,
+                therapistName: session.therapist.fullName,
+                sessionDate: session.sessionDate,
+                status: session.status,
+                sessionType: session.sessionType,
+                overdueBy: Math.floor((Date.now() - new Date(session.sessionDate).getTime()) / (1000 * 60 * 60 * 24))
+              });
+              processed++;
+            } catch (notificationError) {
+              console.error(`Error processing overdue session notification ${session.id}:`, notificationError);
+            }
+          }
+          console.log(`Completed processing ${processed} overdue sessions`);
+        } catch (error) {
+          console.error('Background processing error:', error);
+        }
+      });
+      
+      // Return immediate response
+      return res.status(202).json({
+        message: "Overdue session notifications processing started",
+        limit,
+        status: "accepted"
+      });
+    } catch (error) {
+      console.error('Error starting overdue sessions check:', error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Tasks routes
   app.get("/api/clients/:clientId/tasks", async (req, res) => {
     try {
