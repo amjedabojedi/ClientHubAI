@@ -358,143 +358,146 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Sessions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5" />
-                Recent Sessions
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setLocation("/scheduling")}
-              >
-                View All Sessions
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sessionsLoading ? (
-              <div className="text-center py-6 text-slate-500">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300 mx-auto mb-2"></div>
-                <p>Loading sessions...</p>
-              </div>
-            ) : sessionsError ? (
-              <div className="text-center py-6 text-red-500">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-red-300" />
-                <p>Error loading sessions</p>
-              </div>
-            ) : recentSessions.length === 0 ? (
-              <div className="text-center py-6 text-slate-500">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p>No recent completed sessions</p>
-                <p className="text-xs text-slate-400 mt-1">Completed sessions will appear here</p>
+        {/* Sessions Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Sessions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5" />
+                  Recent Sessions
+                </div>
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
-                  className="mt-2"
-                  onClick={() => setShowScheduleModal(true)}
+                  onClick={() => setLocation("/scheduling")}
                 >
-                  Schedule Session
+                  View All
                 </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentSessions.slice(0, 5).map((session) => (
-                  <div 
-                    key={session.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
-                    onClick={() => setLocation("/scheduling")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sessionsLoading ? (
+                <div className="text-center py-6 text-slate-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300 mx-auto mb-2"></div>
+                  <p>Loading sessions...</p>
+                </div>
+              ) : sessionsError ? (
+                <div className="text-center py-6 text-red-500">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-red-300" />
+                  <p>Error loading sessions</p>
+                </div>
+              ) : recentSessions.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p>No recent completed sessions</p>
+                  <p className="text-xs text-slate-400 mt-1">Completed sessions will appear here</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setShowScheduleModal(true)}
                   >
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span className="text-xs text-slate-600">
-                          {formatDate(session.sessionDate)}
-                        </span>
+                    Schedule Session
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentSessions.slice(0, 5).map((session) => (
+                    <div 
+                      key={session.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                      onClick={() => setLocation("/scheduling")}
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span className="text-xs text-slate-600">
+                            {formatDate(session.sessionDate)}
+                          </span>
+                        </div>
                       </div>
+                      <Badge className={cn("text-xs", getStatusColor(session.status))}>
+                        {session.status.replace('_', ' ')}
+                      </Badge>
                     </div>
-                    <Badge className={cn("text-xs", getStatusColor(session.status))}>
-                      {session.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Upcoming Sessions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-blue-500" />
-                Upcoming Sessions
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setLocation("/scheduling")}
-              >
-                View Schedule
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sessionsLoading ? (
-              <div className="text-center py-6 text-slate-500">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300 mx-auto mb-2"></div>
-                <p>Loading sessions...</p>
-              </div>
-            ) : sessionsError ? (
-              <div className="text-center py-6 text-red-500">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-red-300" />
-                <p>Error loading sessions</p>
-              </div>
-            ) : upcomingSessions.length === 0 ? (
-              <div className="text-center py-6 text-slate-500">
-                <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p>No upcoming sessions</p>
-                <p className="text-xs text-slate-400 mt-1">Schedule new sessions to see them here</p>
+          {/* Upcoming Sessions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-blue-500" />
+                  Upcoming Sessions
+                </div>
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
-                  className="mt-2"
-                  onClick={() => setShowScheduleModal(true)}
+                  onClick={() => setLocation("/scheduling")}
                 >
-                  Schedule Session
+                  View Schedule
                 </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {upcomingSessions.map((session) => (
-                  <div 
-                    key={session.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer"
-                    onClick={() => setLocation("/scheduling")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sessionsLoading ? (
+                <div className="text-center py-6 text-slate-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300 mx-auto mb-2"></div>
+                  <p>Loading sessions...</p>
+                </div>
+              ) : sessionsError ? (
+                <div className="text-center py-6 text-red-500">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-red-300" />
+                  <p>Error loading sessions</p>
+                </div>
+              ) : upcomingSessions.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p>No upcoming sessions</p>
+                  <p className="text-xs text-slate-400 mt-1">Schedule new sessions to see them here</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setShowScheduleModal(true)}
                   >
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span className="text-xs text-slate-600">
-                          {formatDate(session.sessionDate)}
-                        </span>
+                    Schedule Session
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingSessions.map((session) => (
+                    <div 
+                      key={session.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer"
+                      onClick={() => setLocation("/scheduling")}
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span className="text-xs text-slate-600">
+                            {formatDate(session.sessionDate)}
+                          </span>
+                        </div>
                       </div>
+                      <Badge className={cn("text-xs", getStatusColor(session.status))}>
+                        {session.status.replace('_', ' ')}
+                      </Badge>
                     </div>
-                    <Badge className={cn("text-xs", getStatusColor(session.status))}>
-                      {session.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Upcoming Deadlines */}
