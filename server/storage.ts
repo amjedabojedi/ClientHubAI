@@ -1719,6 +1719,8 @@ export class DatabaseStorage implements IStorage {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     includeCompleted?: boolean;
+    therapistId?: number;
+    supervisedTherapistIds?: number[];
   }): Promise<{
     tasks: (Task & { assignedTo?: User; client: Client })[];
     total: number;
@@ -1763,6 +1765,12 @@ export class DatabaseStorage implements IStorage {
         eq(tasks.status, 'in_progress'),
         eq(tasks.status, 'overdue')
       ));
+    }
+
+    // Apply consistent role-based filtering using centralized helper
+    const visibilityFilter = this.getTherapistTaskVisibility(params?.therapistId, params?.supervisedTherapistIds);
+    if (visibilityFilter) {
+      conditions.push(visibilityFilter);
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -1939,52 +1947,68 @@ export class DatabaseStorage implements IStorage {
     return pendingCount;
   }
 
-  async getRecentTasks(limit: number = 10): Promise<(Task & { assignedTo?: User; client: Client })[]> {
-    const results = await db
+  async getRecentTasks(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Task & { assignedTo?: User; client: Client })[]> {
+    let query = db
       .select({
         task: tasks,
         assignedTo: users,
         client: clients
       })
       .from(tasks)
-      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .leftJoin(clients, eq(tasks.clientId, clients.id))
       .leftJoin(users, eq(tasks.assignedToId, users.id))
+      .$dynamic();
+
+    // Apply consistent role-based filtering using centralized helper
+    const visibilityFilter = this.getTherapistTaskVisibility(therapistId, supervisedTherapistIds);
+    if (visibilityFilter) {
+      query = query.where(visibilityFilter);
+    }
+
+    const results = await query
       .orderBy(desc(tasks.createdAt))
       .limit(limit);
 
     return results.map(r => ({ 
       ...r.task, 
       assignedTo: r.assignedTo || undefined,
-      client: r.client
+      client: r.client!
     }));
   }
 
-  async getUpcomingTasks(limit: number = 10): Promise<(Task & { assignedTo?: User; client: Client })[]> {
+  async getUpcomingTasks(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Task & { assignedTo?: User; client: Client })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const results = await db
+    let query = db
       .select({
         task: tasks,
         assignedTo: users,
         client: clients
       })
       .from(tasks)
-      .innerJoin(clients, eq(tasks.clientId, clients.id))
+      .leftJoin(clients, eq(tasks.clientId, clients.id))
       .leftJoin(users, eq(tasks.assignedToId, users.id))
-      .where(
-        and(
-          or(eq(tasks.status, 'pending'), eq(tasks.status, 'in_progress')),
-          sql`${tasks.dueDate} >= ${today.toISOString()}`
-        )
-      )
+      .$dynamic();
+
+    // Apply consistent role-based filtering using centralized helper
+    const visibilityFilter = this.getTherapistTaskVisibility(therapistId, supervisedTherapistIds);
+    const dateFilter = and(
+      or(eq(tasks.status, 'pending'), eq(tasks.status, 'in_progress')),
+      sql`${tasks.dueDate} >= ${today.toISOString()}`
+    );
+    
+    const whereCondition = visibilityFilter ? and(visibilityFilter, dateFilter) : dateFilter;
+    
+    const results = await query
+      .where(whereCondition)
       .orderBy(asc(tasks.dueDate))
       .limit(limit);
 
     return results.map(r => ({ 
       ...r.task, 
       assignedTo: r.assignedTo || undefined,
-      client: r.client
+      client: r.client!
     }));
   }
 
