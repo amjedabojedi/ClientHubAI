@@ -39,6 +39,7 @@ import {
   Phone,
   Plus, 
   Printer,
+  RotateCw,
   Search, 
   Trash2,
   Upload, 
@@ -1865,6 +1866,7 @@ export default function ClientDetailPage() {
                                     session.status === 'completed' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
                                     session.status === 'scheduled' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
                                     session.status === 'cancelled' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
+                                    session.status === 'rescheduled' ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' :
                                     'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                                   }`}
                                 >
@@ -1895,11 +1897,11 @@ export default function ClientDetailPage() {
                                   Mark Cancelled
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => updateSessionStatus(session.id, 'no_show')}
+                                  onClick={() => updateSessionStatus(session.id, 'rescheduled')}
                                   className="cursor-pointer"
                                 >
-                                  <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                                  Mark No-Show
+                                  <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                                  Mark Rescheduled
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
