@@ -1867,7 +1867,8 @@ export default function ClientDetailPage() {
                                     session.status === 'scheduled' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
                                     session.status === 'cancelled' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
                                     session.status === 'rescheduled' ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' :
-                                    'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                    session.status === 'no_show' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' :
+                                    'bg-gray-100 text-gray-800 hover:bg-gray-200'
                                   }`}
                                 >
                                   {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
@@ -1902,6 +1903,13 @@ export default function ClientDetailPage() {
                                 >
                                   <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
                                   Mark Rescheduled
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => updateSessionStatus(session.id, 'no_show')}
+                                  className="cursor-pointer"
+                                >
+                                  <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                  Mark No-Show
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
