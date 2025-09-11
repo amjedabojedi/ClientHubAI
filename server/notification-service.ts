@@ -6,7 +6,8 @@ import {
   notificationPreferences, 
   notificationTemplates,
   users,
-  clients
+  clients,
+  supervisorAssignments
 } from "@shared/schema";
 import type { 
   InsertNotification, 
@@ -267,6 +268,22 @@ export class NotificationService {
             eq(users.isActive, true)
           ));
         if (therapist[0]) recipients.push(therapist[0]);
+      }
+
+      // Get supervisor of assigned therapist (for document review notifications)
+      if (recipientRules.supervisorOfTherapist && entityData.assignedTherapistId) {
+        const supervisorAssignment = await db
+          .select()
+          .from(supervisorAssignments)
+          .innerJoin(users, eq(supervisorAssignments.supervisorId, users.id))
+          .where(and(
+            eq(supervisorAssignments.therapistId, entityData.assignedTherapistId),
+            eq(supervisorAssignments.isActive, true),
+            eq(users.isActive, true)
+          ));
+        if (supervisorAssignment[0]) {
+          recipients.push(supervisorAssignment[0].users);
+        }
       }
 
       // Remove duplicates
