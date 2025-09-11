@@ -177,10 +177,11 @@ export default function DashboardPage() {
 
   // Check if user can edit this session (role-based)
   const canEditSession = (session: OverdueSessionWithDetails) => {
-    const userRole = user?.user?.role || user?.role;
+    const userRole = (user?.user?.role || user?.role || '').toLowerCase();
     const userId = user?.user?.id || user?.id;
     
-    if (userRole === "administrator") return true;
+    // Accept both "admin" and "administrator" role names
+    if (userRole === "admin" || userRole === "administrator") return true;
     if (userRole === "therapist" && session.therapistId === userId) return true;
     if (userRole === "supervisor") {
       // Supervisors can edit sessions for their supervised therapists
