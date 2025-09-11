@@ -220,11 +220,35 @@ export default function DashboardPage() {
   });
 
   const { data: recentTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/recent"],
+    queryKey: ["/api/tasks/recent", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
+      const params = new URLSearchParams();
+      if (userId) params.append('currentUserId', userId.toString());
+      if (userRole) params.append('currentUserRole', userRole);
+      
+      const response = await fetch(`/api/tasks/recent?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch recent tasks');
+      return response.json();
+    },
   });
 
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/upcoming"],
+    queryKey: ["/api/tasks/upcoming", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
+      const params = new URLSearchParams();
+      if (userId) params.append('currentUserId', userId.toString());
+      if (userRole) params.append('currentUserRole', userRole);
+      
+      const response = await fetch(`/api/tasks/upcoming?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch upcoming tasks');
+      return response.json();
+    },
   });
 
   const { data: overdueSessions = [] } = useQuery<OverdueSessionWithDetails[]>({

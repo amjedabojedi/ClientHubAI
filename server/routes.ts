@@ -1731,8 +1731,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tasks/recent", async (req, res) => {
     try {
+      const { currentUserId, currentUserRole } = req.query;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const recentTasks = await storage.getRecentTasks(limit);
+      
+      let recentTasks = await storage.getRecentTasks(limit);
+      
+      // Normalize role casing and apply role-based filtering
+      const role = String(currentUserRole || '').toLowerCase();
+      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
+      
+      // Therapists only see tasks related to their clients
+      if (role === "therapist" && uid) {
+        // Get therapist's assigned clients using existing getClients method
+        const therapistClientsResult = await storage.getClients({ therapistId: uid, page: 1, pageSize: 1000 });
+        const clientIds = therapistClientsResult.clients.map(client => client.id);
+        
+        // Filter tasks to only those for therapist's clients
+        recentTasks = recentTasks.filter(task => 
+          task.clientId && clientIds.includes(task.clientId)
+        );
+      } else if (role === "supervisor" && uid) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        
+        // Get all clients for supervised therapists using existing getClients method
+        const allSupervisedClientIds: number[] = [];
+        for (const therapistId of supervisedTherapistIds) {
+          const therapistClientsResult = await storage.getClients({ therapistId, page: 1, pageSize: 1000 });
+          allSupervisedClientIds.push(...therapistClientsResult.clients.map(client => client.id));
+        }
+        
+        // Filter tasks to only those for supervised clients
+        recentTasks = recentTasks.filter(task => 
+          task.clientId && allSupervisedClientIds.includes(task.clientId)
+        );
+      }
+      // Admin sees all tasks (no filtering)
+      
       res.json(recentTasks);
     } catch (error) {
       // Error logged
@@ -1742,8 +1777,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tasks/upcoming", async (req, res) => {
     try {
+      const { currentUserId, currentUserRole } = req.query;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const upcomingTasks = await storage.getUpcomingTasks(limit);
+      
+      let upcomingTasks = await storage.getUpcomingTasks(limit);
+      
+      // Normalize role casing and apply role-based filtering
+      const role = String(currentUserRole || '').toLowerCase();
+      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
+      
+      // Therapists only see tasks related to their clients
+      if (role === "therapist" && uid) {
+        // Get therapist's assigned clients using existing getClients method
+        const therapistClientsResult = await storage.getClients({ therapistId: uid, page: 1, pageSize: 1000 });
+        const clientIds = therapistClientsResult.clients.map(client => client.id);
+        
+        // Filter tasks to only those for therapist's clients
+        upcomingTasks = upcomingTasks.filter(task => 
+          task.clientId && clientIds.includes(task.clientId)
+        );
+      } else if (role === "supervisor" && uid) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+        
+        // Get all clients for supervised therapists using existing getClients method
+        const allSupervisedClientIds: number[] = [];
+        for (const therapistId of supervisedTherapistIds) {
+          const therapistClientsResult = await storage.getClients({ therapistId, page: 1, pageSize: 1000 });
+          allSupervisedClientIds.push(...therapistClientsResult.clients.map(client => client.id));
+        }
+        
+        // Filter tasks to only those for supervised clients
+        upcomingTasks = upcomingTasks.filter(task => 
+          task.clientId && allSupervisedClientIds.includes(task.clientId)
+        );
+      }
+      // Admin sees all tasks (no filtering)
+      
       res.json(upcomingTasks);
     } catch (error) {
       // Error logged
