@@ -390,6 +390,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertClientSchema.parse(clientData);
       
       const client = await storage.createClient(validatedData);
+      
+      // Trigger client created notification
+      try {
+        await notificationService.processEvent('client_created', {
+          id: client.id,
+          fullName: client.fullName,
+          assignedTherapistId: client.assignedTherapistId,
+          referenceNumber: client.referenceNumber,
+          stage: client.stage || 'initial',
+          createdAt: client.createdAt
+        });
+      } catch (notificationError) {
+        console.error('Client created notification failed:', notificationError);
+      }
+      
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -403,6 +418,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       
+      // Get original client data to check for therapist assignment changes
+      const originalClient = await storage.getClient(id);
+      if (!originalClient) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
       const clientData = { ...req.body };
       // Clean up empty strings to undefined to prevent PostgreSQL date errors
       Object.keys(clientData).forEach(key => {
@@ -413,6 +434,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertClientSchema.partial().parse(clientData);
       const client = await storage.updateClient(id, validatedData);
+      
+      // Check if therapist assignment changed
+      if (validatedData.assignedTherapistId && 
+          validatedData.assignedTherapistId !== originalClient.assignedTherapistId) {
+        // Trigger client assigned notification
+        try {
+          await notificationService.processEvent('client_assigned', {
+            id: client.id,
+            fullName: client.fullName,
+            assignedTherapistId: client.assignedTherapistId,
+            referenceNumber: client.referenceNumber,
+            assignmentDate: new Date(),
+            previousTherapistId: originalClient.assignedTherapistId
+          });
+        } catch (notificationError) {
+          console.error('Client assigned notification failed:', notificationError);
+        }
+      }
+      
       res.json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1281,6 +1321,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { session_date: session.sessionDate, session_type: session.sessionType, is_historical: sessionDate < today }
       );
       
+      // Trigger session scheduled notification
+      try {
+        await notificationService.processEvent('session_scheduled', {
+          id: session.id,
+          clientId: session.clientId,
+          therapistId: session.therapistId,
+          sessionDate: session.sessionDate,
+          sessionType: session.sessionType,
+          roomId: session.roomId,
+          duration: 60, // Default session duration
+          createdAt: session.createdAt
+        });
+      } catch (notificationError) {
+        console.error('Session scheduled notification failed:', notificationError);
+      }
+      
       res.status(201).json(session);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1605,6 +1661,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const validatedData = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(validatedData);
+      
+      // Trigger task assigned notification if task has an assignee
+      if (task.assignedToId) {
+        try {
+          await notificationService.processEvent('task_assigned', {
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            clientId: task.clientId,
+            assignedToId: task.assignedToId,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            createdAt: task.createdAt
+          });
+        } catch (notificationError) {
+          console.error('Task assigned notification failed:', notificationError);
+        }
+      }
+      
       res.status(201).json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3183,6 +3258,23 @@ This happens because only the file metadata was stored, not the actual file cont
 
       const assignmentData = req.body;
       const assignment = await storage.updateAssessmentAssignment(id, assignmentData);
+      
+      // Trigger assessment completed notification if status changed to completed
+      if (assignmentData.status === 'completed') {
+        try {
+          await notificationService.processEvent('assessment_completed', {
+            id: assignment.id,
+            clientId: assignment.clientId,
+            templateId: assignment.templateId,
+            completionDate: new Date(),
+            assignedById: assignment.assignedById,
+            completedAt: assignment.completedAt
+          });
+        } catch (notificationError) {
+          console.error('Assessment completed notification failed:', notificationError);
+        }
+      }
+      
       res.json(assignment);
     } catch (error) {
       // Error logged
