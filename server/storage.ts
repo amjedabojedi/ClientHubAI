@@ -1069,8 +1069,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session methods
-  async getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]> {
-    const results = await db
+  async getAllSessions(therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client })[]> {
+    let query = db
       .select({
         session: sessions,
         therapist: users,
@@ -1079,7 +1079,18 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
-      .orderBy(desc(sessions.sessionDate));
+      .$dynamic();
+
+    // Apply role-based filtering at database level
+    if (therapistId) {
+      // Therapist sees only their own sessions
+      query = query.where(eq(sessions.therapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees sessions for supervised therapists
+      query = query.where(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+
+    const results = await query.orderBy(desc(sessions.sessionDate));
 
     return results.map(r => ({ 
       ...r.session, 

@@ -965,18 +965,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: parseInt(limit as string)
       };
       
-      let sessions = await storage.getAllSessions();
-      
-      // Apply date filter (always applied for performance)
-      sessions = sessions.filter(session => {
-        const sessionDate = new Date(session.sessionDate);
-        return sessionDate >= filters.startDate && sessionDate <= filters.endDate;
-      });
-      
-      // Role-based filtering
+      // Apply systematic role-based filtering at database level
+      let therapistIdFilter: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+
       if (currentUserRole === "therapist" && currentUserId) {
-        const therapistIdFilter = parseInt(currentUserId as string);
-        sessions = sessions.filter(session => session.therapistId === therapistIdFilter);
+        therapistIdFilter = parseInt(currentUserId as string);
       } else if (currentUserRole === "supervisor" && currentUserId) {
         const supervisorId = parseInt(currentUserId as string);
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
@@ -985,9 +979,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json({ sessions: [], total: 0, totalPages: 0, currentPage: 1 });
         }
         
-        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
-        sessions = sessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
+
+      let sessions = await storage.getAllSessions(therapistIdFilter, supervisedTherapistIds);
+      
+      // Apply date filter (always applied for performance)
+      sessions = sessions.filter(session => {
+        const sessionDate = new Date(session.sessionDate);
+        return sessionDate >= filters.startDate && sessionDate <= filters.endDate;
+      });
       
       // Apply additional filters
       if (filters.therapistId && therapistId !== 'all') {
