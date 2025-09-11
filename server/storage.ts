@@ -1881,6 +1881,21 @@ export class DatabaseStorage implements IStorage {
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
+  // Helper function for consistent therapist task visibility across all methods
+  private getTherapistTaskVisibility(therapistId?: number, supervisedTherapistIds?: number[]) {
+    if (therapistId) {
+      // Therapist sees tasks assigned TO them OR for their assigned clients
+      return or(
+        eq(tasks.assignedToId, therapistId),
+        eq(clients.assignedTherapistId, therapistId)
+      );
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees tasks for clients of their supervised therapists
+      return inArray(clients.assignedTherapistId, supervisedTherapistIds);
+    }
+    return undefined; // Admin sees all
+  }
+
   async getTaskStats(therapistId?: number, supervisedTherapistIds?: number[]): Promise<{
     totalTasks: number;
     pendingTasks: number;
@@ -1903,22 +1918,12 @@ export class DatabaseStorage implements IStorage {
       .from(tasks)
       .$dynamic();
 
-    // Apply role-based filtering
-    if (therapistId) {
-      // Therapist can see tasks assigned TO them OR for their assigned clients
+    // Apply consistent role-based filtering using centralized helper
+    const visibilityFilter = this.getTherapistTaskVisibility(therapistId, supervisedTherapistIds);
+    if (visibilityFilter) {
       query = query
         .leftJoin(clients, eq(tasks.clientId, clients.id))
-        .where(
-          or(
-            eq(tasks.assignedToId, therapistId),
-            eq(clients.assignedTherapistId, therapistId)
-          )
-        );
-    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
-      // Supervisor can see tasks for clients of their supervised therapists
-      query = query
-        .innerJoin(clients, eq(tasks.clientId, clients.id))
-        .where(inArray(clients.assignedTherapistId, supervisedTherapistIds));
+        .where(visibilityFilter);
     }
 
     const [stats] = await query;
