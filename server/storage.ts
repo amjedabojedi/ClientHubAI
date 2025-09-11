@@ -1913,7 +1913,7 @@ export class DatabaseStorage implements IStorage {
       // Supervisor can see tasks for clients of their supervised therapists
       query = query
         .innerJoin(clients, eq(tasks.clientId, clients.id))
-        .where(inArray(clients.assignedTherapistIds, supervisedTherapistIds));
+        .where(inArray(clients.assignedTherapistId, supervisedTherapistIds));
     }
 
     const [stats] = await query;
