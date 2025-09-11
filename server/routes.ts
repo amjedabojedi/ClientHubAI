@@ -17,6 +17,7 @@ import { storage } from "./storage";
 // Auth will be implemented later, for now removing to test audit logging
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
+import { NotificationService } from "./notification-service";
 import { db } from "./db";
 import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -70,6 +71,9 @@ async function generateClientId(): Promise<string> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize notification service
+  const notificationService = new NotificationService();
+  
   // User profile routes - working version
   app.get("/api/users/me", async (req, res) => {
     try {
@@ -1811,6 +1815,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw new Error(`Object storage upload failed: ${uploadResult.error}`);
         }
         
+      }
+
+      // Get client data for notification
+      const client = await storage.getClient(clientId);
+      if (client) {
+        // Trigger document upload notification
+        const notificationData = {
+          id: document.id,
+          clientId: client.id,
+          clientName: client.fullName,
+          documentType: document.category || 'Document',
+          documentId: document.id,
+          assignedTherapistId: client.assignedTherapistId,
+          uploadedBy: document.uploadedById,
+          fileName: document.fileName
+        };
+
+        await notificationService.processEvent('document_uploaded', notificationData);
       }
       
       res.status(201).json(document);
