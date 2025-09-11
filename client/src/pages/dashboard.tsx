@@ -23,7 +23,8 @@ import {
   User,
   CalendarDays,
   Target,
-  Activity
+  Activity,
+  AlertCircle
 } from "lucide-react";
 
 // Utils & Types
@@ -63,6 +64,16 @@ interface SessionWithDetails {
   status: string;
   client: Client;
   therapist?: UserType;
+}
+
+interface OverdueSessionWithDetails {
+  id: number;
+  clientId: number;
+  sessionDate: string;
+  status: string;
+  client: Client;
+  therapist: UserType;
+  daysOverdue: number;
 }
 
 // Utils & Shared Functions
@@ -105,6 +116,10 @@ export default function DashboardPage() {
 
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/tasks/upcoming"],
+  });
+
+  const { data: overdueSessions = [] } = useQuery<OverdueSessionWithDetails[]>({
+    queryKey: ["/api/sessions/overdue"],
   });
 
   // Get all sessions for dashboard (using a 3-month range for performance)
@@ -497,6 +512,59 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Overdue Sessions */}
+        {overdueSessions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  Overdue Sessions
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setLocation("/scheduling")}
+                >
+                  View All
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {overdueSessions.slice(0, 5).map((session) => (
+                  <div 
+                    key={session.id} 
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-red-50 cursor-pointer border-red-200"
+                    onClick={() => setLocation("/scheduling")}
+                  >
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-600">
+                          with {session.therapist?.fullName}
+                        </span>
+                        <span className="text-xs text-red-600 font-medium">
+                          • {session.daysOverdue} days overdue
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span className="text-xs text-slate-600">
+                          {formatDate(session.sessionDate)}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge className="text-xs bg-red-100 text-red-800 border-red-200">
+                      {session.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Upcoming Deadlines */}
       {upcomingTasks.length > 0 && (
