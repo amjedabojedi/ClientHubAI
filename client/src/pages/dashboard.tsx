@@ -183,12 +183,8 @@ export default function DashboardPage() {
     // Accept both "admin" and "administrator" role names
     if (userRole === "admin" || userRole === "administrator") return true;
     
-    // Fix production deployment issue: coerce both IDs to numbers for comparison
-    if (userRole === "therapist") {
-      const uid = userId != null ? Number(userId) : undefined;
-      const tid = session.therapistId != null ? Number(session.therapistId) : undefined;
-      if (uid != null && tid != null && uid === tid) return true;
-    }
+    // Therapists can now edit ALL overdue sessions (not just their own)
+    if (userRole === "therapist") return true;
     
     if (userRole === "supervisor") {
       // Supervisors can edit sessions for their supervised therapists
