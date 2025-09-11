@@ -149,11 +149,11 @@ export default function DashboardPage() {
     setConfirmDialog({
       isOpen: true,
       title: "Mark Session as No-Show",
-      description: "Are you sure you want to mark this session as no-show?",
+      description: "Are you sure you want to mark this session as cancelled due to no-show?",
       onConfirm: () => {
         updateSessionMutation.mutate({
           sessionId,
-          data: { status: "no_show" }
+          data: { status: "cancelled", notes: "No-show" }
         });
         setConfirmDialog({ ...confirmDialog, isOpen: false });
       }
@@ -701,7 +701,7 @@ export default function DashboardPage() {
                               data-testid={`button-noshow-session-${session.id}`}
                             >
                               <UserX className="mr-2 h-4 w-4 text-orange-600" />
-                              Mark No-Show
+                              No-Show (Cancel)
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => handleCancelSession(session.id)}
