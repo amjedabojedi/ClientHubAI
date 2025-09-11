@@ -267,7 +267,7 @@ export interface IStorage {
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task>;
   deleteTask(id: number): Promise<void>;
-  getTaskStats(): Promise<{
+  getTaskStats(therapistId?: number, supervisedTherapistIds?: number[]): Promise<{
     totalTasks: number;
     pendingTasks: number;
     inProgressTasks: number;
@@ -1881,7 +1881,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
-  async getTaskStats(): Promise<{
+  async getTaskStats(therapistId?: number, supervisedTherapistIds?: number[]): Promise<{
     totalTasks: number;
     pendingTasks: number;
     inProgressTasks: number;
@@ -1890,18 +1890,33 @@ export class DatabaseStorage implements IStorage {
     highPriorityTasks: number;
     urgentTasks: number;
   }> {
-    const [stats] = await db
+    let query = db
       .select({
         totalTasks: count(),
-        pendingTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'pending')`,
-        inProgressTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'in_progress')`,
-        completedTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'completed')`,
-        overdueTasks: sql<number>`COUNT(*) FILTER (WHERE status = 'overdue')`,
-        highPriorityTasks: sql<number>`COUNT(*) FILTER (WHERE priority = 'high')`,
-        urgentTasks: sql<number>`COUNT(*) FILTER (WHERE priority = 'urgent')`
+        pendingTasks: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'pending')`,
+        inProgressTasks: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'in_progress')`,
+        completedTasks: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'completed')`,
+        overdueTasks: sql<number>`COUNT(*) FILTER (WHERE ${tasks.status} = 'overdue')`,
+        highPriorityTasks: sql<number>`COUNT(*) FILTER (WHERE ${tasks.priority} = 'high')`,
+        urgentTasks: sql<number>`COUNT(*) FILTER (WHERE ${tasks.priority} = 'urgent')`
       })
-      .from(tasks);
+      .from(tasks)
+      .$dynamic();
 
+    // Apply role-based filtering
+    if (therapistId) {
+      // Therapist can only see tasks for their assigned clients
+      query = query
+        .innerJoin(clients, eq(tasks.clientId, clients.id))
+        .where(eq(clients.assignedTherapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor can see tasks for clients of their supervised therapists
+      query = query
+        .innerJoin(clients, eq(tasks.clientId, clients.id))
+        .where(inArray(clients.assignedTherapistIds, supervisedTherapistIds));
+    }
+
+    const [stats] = await query;
     return stats;
   }
 

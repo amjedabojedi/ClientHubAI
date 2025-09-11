@@ -1721,7 +1721,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tasks/stats", async (req, res) => {
     try {
-      const stats = await storage.getTaskStats();
+      const { currentUserId, currentUserRole } = req.query;
+      
+      // Role-based filtering for task stats
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
+      const role = String(currentUserRole || '').toLowerCase();
+      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
+      
+      if (role === "therapist" && uid) {
+        therapistId = uid;
+      } else if (role === "supervisor" && uid) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+      }
+      
+      const stats = await storage.getTaskStats(therapistId, supervisedTherapistIds);
       res.json(stats);
     } catch (error) {
       // Error logged
