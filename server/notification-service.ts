@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, or, sql, desc, asc } from "drizzle-orm";
+import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
 import { 
   notifications, 
   notificationTriggers, 
@@ -156,12 +156,12 @@ export class NotificationService {
             await this.createNotificationsFromTrigger(trigger, entityData, recipients);
           }
         } catch (error) {
-
+          console.error(`Error processing notification trigger ${trigger.id}:`, error);
           // Continue with other triggers even if one fails
         }
       }
     } catch (error) {
-
+      console.error(`Error in notification processEvent:`, error);
       throw error;
     }
   }
@@ -240,7 +240,7 @@ export class NotificationService {
           .select()
           .from(users)
           .where(and(
-            sql`${users.role} = ANY(${recipientRules.roles})`,
+            inArray(users.role, recipientRules.roles),
             eq(users.isActive, true)
           ));
         recipients.push(...roleUsers);
@@ -258,13 +258,13 @@ export class NotificationService {
         recipients.push(...specificUsers);
       }
 
-      // Get assigned therapist (for client-related events)
-      if (recipientRules.assignedTherapist && entityData.assignedTherapistId) {
+      // Get assigned therapist (for client-related events)  
+      if (recipientRules.assignedTherapist && entityData.assignedToId) {
         const therapist = await db
           .select()
           .from(users)
           .where(and(
-            eq(users.id, entityData.assignedTherapistId),
+            eq(users.id, entityData.assignedToId),
             eq(users.isActive, true)
           ));
         if (therapist[0]) recipients.push(therapist[0]);
@@ -340,8 +340,9 @@ export class NotificationService {
 
       // Batch create notifications
       await this.createNotificationsBatch(notificationsData);
+      
     } catch (error) {
-
+      console.error(`Error creating notifications from trigger:`, error);
       throw error;
     }
   }
