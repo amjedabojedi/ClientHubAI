@@ -498,6 +498,49 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Tasks */}
+        {recentTasks.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-green-500" />
+                  Recent Tasks
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setLocation("/tasks")}
+                >
+                  View All Tasks
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {recentTasks.slice(0, 6).map((task) => (
+                  <div 
+                    key={task.id} 
+                    className="p-4 border rounded-lg hover:bg-green-50 cursor-pointer"
+                    onClick={() => setEditingTask(task)}
+                  >
+                    <h4 className="font-medium text-sm mb-1">{task.title}</h4>
+                    <p className="text-xs text-slate-600 mb-2">{task.client?.fullName || 'No client'}</p>
+                    <div className="flex items-center justify-between">
+                      <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
+                        {task.priority}
+                      </Badge>
+                      <span className="text-xs text-slate-500">
+                        {task.completedAt ? formatDate(task.completedAt) : 'Recently completed'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Upcoming Deadlines */}
