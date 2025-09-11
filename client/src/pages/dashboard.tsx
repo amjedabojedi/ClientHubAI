@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Icons
 import { 
@@ -24,12 +26,20 @@ import {
   CalendarDays,
   Target,
   Activity,
-  AlertCircle
+  AlertCircle,
+  MoreVertical,
+  Check,
+  X,
+  UserX,
+  Edit3
 } from "lucide-react";
 
 // Utils & Types
 import { cn } from "@/lib/utils";
 import type { Client, Task, User as UserType } from "@shared/schema";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // Components
 import AddClientModal from "@/components/client-management/add-client-modal";
@@ -69,6 +79,7 @@ interface SessionWithDetails {
 interface OverdueSessionWithDetails {
   id: number;
   clientId: number;
+  therapistId: number;
   sessionDate: string;
   status: string;
   client: Client;
@@ -86,8 +97,97 @@ export default function DashboardPage() {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: "", description: "", onConfirm: () => {} });
   
   const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Session action mutations
+  const updateSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, data }: { sessionId: number; data: any }) => {
+      return apiRequest(`/api/sessions/${sessionId}`, "PUT", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions/overdue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      toast({
+        title: "Session updated",
+        description: "Session status has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update session. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Action handlers
+  const handleCompleteSession = (sessionId: number) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Mark Session as Completed",
+      description: "Are you sure you want to mark this session as completed?",
+      onConfirm: () => {
+        updateSessionMutation.mutate({
+          sessionId,
+          data: { status: "completed" }
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
+  };
+
+  const handleNoShowSession = (sessionId: number) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Mark Session as No-Show",
+      description: "Are you sure you want to mark this session as no-show?",
+      onConfirm: () => {
+        updateSessionMutation.mutate({
+          sessionId,
+          data: { status: "no_show" }
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
+  };
+
+  const handleCancelSession = (sessionId: number) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Cancel Session",
+      description: "Are you sure you want to cancel this session?",
+      onConfirm: () => {
+        updateSessionMutation.mutate({
+          sessionId,
+          data: { status: "cancelled" }
+        });
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      }
+    });
+  };
+
+  // Check if user can edit this session (role-based)
+  const canEditSession = (session: OverdueSessionWithDetails) => {
+    const userRole = user?.user?.role || user?.role;
+    const userId = user?.user?.id || user?.id;
+    
+    if (userRole === "administrator") return true;
+    if (userRole === "therapist" && session.therapistId === userId) return true;
+    if (userRole === "supervisor") {
+      // TODO: Check supervisor assignments
+      return true;
+    }
+    return false;
+  };
 
   // Data Fetching
   const { data: clientStats } = useQuery<DashboardStats>({
@@ -549,10 +649,12 @@ export default function DashboardPage() {
                 {overdueSessions.slice(0, 5).map((session) => (
                   <div 
                     key={session.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-red-50 cursor-pointer border-red-200"
-                    onClick={() => setLocation("/scheduling")}
+                    className="flex items-center justify-between p-3 border rounded-lg border-red-200 hover:bg-red-50"
                   >
-                    <div className="flex-1">
+                    <div 
+                      className="flex-1 cursor-pointer"
+                      onClick={() => setLocation("/scheduling")}
+                    >
                       <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-slate-600">
@@ -569,9 +671,56 @@ export default function DashboardPage() {
                         </span>
                       </div>
                     </div>
-                    <Badge className="text-xs bg-red-100 text-red-800 border-red-200">
-                      {session.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="text-xs bg-red-100 text-red-800 border-red-200">
+                        {session.status}
+                      </Badge>
+                      
+                      {canEditSession(session) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              data-testid={`button-actions-session-${session.id}`}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={() => handleCompleteSession(session.id)}
+                              data-testid={`button-complete-session-${session.id}`}
+                            >
+                              <Check className="mr-2 h-4 w-4 text-green-600" />
+                              Mark Completed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleNoShowSession(session.id)}
+                              data-testid={`button-noshow-session-${session.id}`}
+                            >
+                              <UserX className="mr-2 h-4 w-4 text-orange-600" />
+                              Mark No-Show
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleCancelSession(session.id)}
+                              data-testid={`button-cancel-session-${session.id}`}
+                            >
+                              <X className="mr-2 h-4 w-4 text-red-600" />
+                              Cancel Session
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => setLocation("/scheduling")}
+                              data-testid={`button-reschedule-session-${session.id}`}
+                            >
+                              <Edit3 className="mr-2 h-4 w-4 text-blue-600" />
+                              Reschedule
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -705,6 +854,22 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, isOpen: open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDialog.onConfirm}>
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
