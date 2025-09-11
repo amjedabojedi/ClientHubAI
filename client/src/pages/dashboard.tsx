@@ -119,7 +119,20 @@ export default function DashboardPage() {
   });
 
   const { data: overdueSessions = [] } = useQuery<OverdueSessionWithDetails[]>({
-    queryKey: ["/api/sessions/overdue"],
+    queryKey: ["/api/sessions/overdue", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = user?.user?.role || user?.role;
+      const params = new URLSearchParams();
+      params.append('limit', '5');
+      if (userId) params.append('currentUserId', userId.toString());
+      if (userRole) params.append('currentUserRole', userRole);
+      
+      const response = await fetch(`/api/sessions/overdue?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch overdue sessions');
+      return response.json();
+    },
   });
 
   // Get all sessions for dashboard (using a 3-month range for performance)
