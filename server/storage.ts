@@ -1178,11 +1178,11 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]> {
+  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client })[]> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
-    const results = await db
+    let query = db
       .select({
         session: sessions,
         therapist: users,
@@ -1191,12 +1191,27 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
-      .where(
-        and(
-          sql`DATE(${sessions.sessionDate}) >= ${startDate.toISOString().split('T')[0]}`,
-          sql`DATE(${sessions.sessionDate}) <= ${endDate.toISOString().split('T')[0]}`
-        )
-      )
+      .$dynamic();
+
+    // Apply role-based filtering at database level with optimized date filtering
+    const nextDay = new Date(endDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    const conditions = [
+      gte(sessions.sessionDate, startDate),
+      lte(sessions.sessionDate, nextDay)
+    ];
+
+    if (therapistId) {
+      // Therapist sees only their own sessions
+      conditions.push(eq(sessions.therapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees sessions for supervised therapists
+      conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+
+    const results = await query
+      .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
 
     return results.map(r => ({ 

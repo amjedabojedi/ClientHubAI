@@ -1488,12 +1488,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid year or month" });
       }
       
-      let sessions = await storage.getSessionsByMonth(year, month);
-      
-      // Role-based filtering
+      // Apply systematic role-based filtering at database level
+      let therapistIdFilter: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+
       if (currentUserRole === "therapist" && currentUserId) {
-        const therapistId = parseInt(currentUserId as string);
-        sessions = sessions.filter(session => session.therapistId === therapistId);
+        therapistIdFilter = parseInt(currentUserId as string);
       } else if (currentUserRole === "supervisor" && currentUserId) {
         const supervisorId = parseInt(currentUserId as string);
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
@@ -1502,9 +1502,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json([]);
         }
         
-        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
-        sessions = sessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
+
+      let sessions = await storage.getSessionsByMonth(year, month, therapistIdFilter, supervisedTherapistIds);
       
       res.json(sessions);
     } catch (error) {
