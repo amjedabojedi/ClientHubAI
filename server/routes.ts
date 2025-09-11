@@ -1711,7 +1711,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         includeCompleted: includeCompleted === "true"
       };
 
-      const result = await storage.getAllTasks(params);
+      let result = await storage.getAllTasks(params);
+      
+      // Apply therapist filtering to results  
+      if (currentUserRole === "therapist" && currentUserId) {
+        const therapistId = parseInt(currentUserId as string);
+        
+        // Get therapist's assigned clients
+        const therapistClientsResult = await storage.getClients({ therapistId, page: 1, pageSize: 1000 });
+        const clientIds = therapistClientsResult.clients.map(client => client.id);
+        
+        // Filter: task assigned TO therapist OR task for therapist's client
+        result.tasks = result.tasks.filter(task => 
+          task.assignedToId === therapistId || (task.clientId && clientIds.includes(task.clientId))
+        );
+        
+        // Update total and totalPages based on filtered results
+        result.total = result.tasks.length;
+        result.totalPages = Math.ceil(result.total / parseInt(pageSize as string));
+      }
+      
       res.json(result);
     } catch (error) {
 
@@ -1756,15 +1775,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const role = String(currentUserRole || '').toLowerCase();
       const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
-      // Therapists only see tasks related to their clients
+      // Therapists see tasks assigned TO them OR for their assigned clients  
       if (role === "therapist" && uid) {
-        // Get therapist's assigned clients using existing getClients method
+        // Get therapist's assigned clients
         const therapistClientsResult = await storage.getClients({ therapistId: uid, page: 1, pageSize: 1000 });
         const clientIds = therapistClientsResult.clients.map(client => client.id);
         
-        // Filter tasks to only those for therapist's clients
+        // Filter: task assigned TO therapist OR task for therapist's client
         recentTasks = recentTasks.filter(task => 
-          task.clientId && clientIds.includes(task.clientId)
+          task.assignedToId === uid || (task.clientId && clientIds.includes(task.clientId))
         );
       } else if (role === "supervisor" && uid) {
         const supervisorAssignments = await storage.getSupervisorAssignments(uid);
@@ -1802,15 +1821,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const role = String(currentUserRole || '').toLowerCase();
       const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
-      // Therapists only see tasks related to their clients
+      // Therapists see tasks assigned TO them OR for their assigned clients
       if (role === "therapist" && uid) {
-        // Get therapist's assigned clients using existing getClients method
+        // Get therapist's assigned clients
         const therapistClientsResult = await storage.getClients({ therapistId: uid, page: 1, pageSize: 1000 });
         const clientIds = therapistClientsResult.clients.map(client => client.id);
         
-        // Filter tasks to only those for therapist's clients
+        // Filter: task assigned TO therapist OR task for therapist's client
         upcomingTasks = upcomingTasks.filter(task => 
-          task.clientId && clientIds.includes(task.clientId)
+          task.assignedToId === uid || (task.clientId && clientIds.includes(task.clientId))
         );
       } else if (role === "supervisor" && uid) {
         const supervisorAssignments = await storage.getSupervisorAssignments(uid);

@@ -1905,10 +1905,15 @@ export class DatabaseStorage implements IStorage {
 
     // Apply role-based filtering
     if (therapistId) {
-      // Therapist can only see tasks for their assigned clients
+      // Therapist can see tasks assigned TO them OR for their assigned clients
       query = query
-        .innerJoin(clients, eq(tasks.clientId, clients.id))
-        .where(eq(clients.assignedTherapistId, therapistId));
+        .leftJoin(clients, eq(tasks.clientId, clients.id))
+        .where(
+          or(
+            eq(tasks.assignedToId, therapistId),
+            eq(clients.assignedTherapistId, therapistId)
+          )
+        );
     } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
       // Supervisor can see tasks for clients of their supervised therapists
       query = query
