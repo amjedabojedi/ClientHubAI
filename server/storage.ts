@@ -220,6 +220,7 @@ export interface IStorage {
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
   getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]>;
+  getOverdueSessions(limit?: number): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]>;
   createSession(session: InsertSession): Promise<Session>;
   createSessionsBulk(sessions: InsertSession[]): Promise<Session[]>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
@@ -1187,6 +1188,42 @@ export class DatabaseStorage implements IStorage {
       therapist: r.therapist, 
       client: r.client 
     }));
+  }
+
+  async getOverdueSessions(limit: number = 10): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const results = await db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .where(
+        and(
+          sql`DATE(${sessions.sessionDate}) < ${today.toISOString().split('T')[0]}`,
+          eq(sessions.status, 'scheduled')
+        )
+      )
+      .orderBy(asc(sessions.sessionDate))
+      .limit(limit);
+
+    return results.map(r => {
+      const sessionDate = new Date(r.session.sessionDate);
+      const timeDiff = today.getTime() - sessionDate.getTime();
+      const daysOverdue = Math.floor(timeDiff / (1000 * 3600 * 24));
+      
+      return { 
+        ...r.session, 
+        therapist: r.therapist, 
+        client: r.client,
+        daysOverdue
+      };
+    });
   }
 
   async createSession(session: InsertSession): Promise<Session> {
