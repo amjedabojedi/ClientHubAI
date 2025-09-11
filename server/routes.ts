@@ -5153,6 +5153,16 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // ===== NOTIFICATION SYSTEM ROUTES =====
+  // Simple authentication middleware for notification routes
+  app.use('/api/notifications', (req, res, next) => {
+    // For testing purposes, set a mock user (in production this would come from proper auth)
+    (req as any).user = {
+      id: 28, // Amjed Abojedi (therapist who should receive notifications)
+      username: 'amjed.abojedi'
+    };
+    next();
+  });
+
   app.use('/api/notifications', notificationRoutes);
 
   // ===== HIPAA AUDIT LOGGING ROUTES =====

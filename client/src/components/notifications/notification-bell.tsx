@@ -31,12 +31,19 @@ export default function NotificationBell({ className }: NotificationBellProps) {
     queryKey: ["/api/notifications"],
     enabled: isOpen, // Only fetch when dropdown is open
     queryFn: async () => {
-      const res = await fetch("/api/notifications?limit=20");
-      if (!res.ok) {
-        return []; // Return empty array for errors
+      try {
+        const res = await fetch("/api/notifications?limit=20", {
+          credentials: "include"
+        });
+        if (!res.ok) {
+          return []; // Return empty array for errors
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+        return [];
       }
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
     },
   });
   
