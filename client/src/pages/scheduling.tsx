@@ -1853,53 +1853,46 @@ export default function SchedulingPage() {
                 {/* Status Change Section */}
                 <div className="pt-4 border-t">
                   <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button 
-                      variant={selectedSession.status === 'completed' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => updateSessionStatus(selectedSession.id, 'completed')}
-                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Completed
-                    </Button>
-                    <Button 
-                      variant={selectedSession.status === 'scheduled' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => updateSessionStatus(selectedSession.id, 'scheduled')}
-                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'scheduled' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                    >
-                      <CalendarDays className="w-4 h-4 mr-2" />
-                      Scheduled
-                    </Button>
-                    <Button 
-                      variant={selectedSession.status === 'cancelled' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => updateSessionStatus(selectedSession.id, 'cancelled')}
-                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'cancelled' ? 'bg-red-600 hover:bg-red-700' : ''}`}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Cancelled
-                    </Button>
-                    <Button 
-                      variant={selectedSession.status === 'rescheduled' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => updateSessionStatus(selectedSession.id, 'rescheduled')}
-                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'rescheduled' ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
-                    >
-                      <RotateCw className="w-4 h-4 mr-2" />
-                      Rescheduled
-                    </Button>
-                    <Button 
-                      variant={selectedSession.status === 'no_show' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => updateSessionStatus(selectedSession.id, 'no_show')}
-                      className={`text-sm px-3 py-2 h-9 ${selectedSession.status === 'no_show' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
-                    >
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      No-Show
-                    </Button>
-                  </div>
+                  <Select 
+                    value={selectedSession.status} 
+                    onValueChange={(value) => updateSessionStatus(selectedSession.id, value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">
+                        <div className="flex items-center">
+                          <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
+                          Scheduled
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="completed">
+                        <div className="flex items-center">
+                          <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                          Completed
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="cancelled">
+                        <div className="flex items-center">
+                          <X className="w-4 h-4 mr-2 text-red-600" />
+                          Cancelled
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="rescheduled">
+                        <div className="flex items-center">
+                          <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                          Rescheduled
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="no_show">
+                        <div className="flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                          No-Show
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="pt-4 border-t">
