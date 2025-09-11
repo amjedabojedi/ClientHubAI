@@ -662,24 +662,30 @@ export default function DashboardPage() {
           </Card>
 
           {/* Overdue Sessions */}
-          {overdueSessions.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                    Overdue Sessions
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setLocation("/scheduling")}
-                  >
-                    View All
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  Overdue Sessions
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setLocation("/scheduling")}
+                >
+                  View All
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {overdueSessions.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p>No overdue sessions</p>
+                  <p className="text-xs text-slate-400 mt-1">Great! All sessions are up to date</p>
+                </div>
+              ) : (
                 <div className="space-y-3">
                   {overdueSessions.slice(0, 5).map((session) => (
                     <div 
@@ -763,9 +769,10 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
+
         </div>
 
       {/* Upcoming Deadlines */}
