@@ -314,7 +314,14 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
         </Button>
       </div>
       
-      {clientItems.map((clientItem) => {
+      {clientItems
+        .sort((a, b) => {
+          // Sort by item order - respect the original sequence
+          const orderA = a.templateItem?.sortOrder || 0;
+          const orderB = b.templateItem?.sortOrder || 0;
+          return orderA - orderB;
+        })
+        .map((clientItem) => {
         const templateItem = clientItem.templateItem;
         const isCompleted = clientItem.isCompleted || false;
         const itemId = clientItem.id;
