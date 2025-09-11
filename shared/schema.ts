@@ -29,7 +29,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'client_created', 'client_assigned', 'client_status_changed', 'client_profile_updated',
   'session_scheduled', 'session_overdue', 'session_completed', 'session_cancelled',
   'task_assigned', 'task_overdue', 'task_completed',
-  'document_uploaded', 'assessment_assigned', 'assessment_completed',
+  'document_uploaded', 'document_needs_review', 'document_reviewed',
+  'assessment_assigned', 'assessment_completed',
   'system_alert', 'custom'
 ]);
 export const notificationPriorityEnum = pgEnum('notification_priority', ['low', 'medium', 'high', 'urgent']);
