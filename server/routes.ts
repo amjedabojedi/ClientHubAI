@@ -5319,6 +5319,19 @@ This happens because only the file metadata was stored, not the actual file cont
     try {
       const clientId = parseInt(req.params.clientId);
       const { templateId, dueDate } = req.body;
+      
+      // Check if client already has this checklist template assigned
+      const existingChecklists = await storage.getClientChecklists(clientId);
+      const hasTemplate = existingChecklists.some((checklist: any) => 
+        checklist.templateId === templateId
+      );
+      
+      if (hasTemplate) {
+        return res.status(400).json({ 
+          error: "This checklist template is already assigned to this client" 
+        });
+      }
+      
       const assignment = await storage.assignChecklistToClient(clientId, templateId, dueDate);
       res.json(assignment);
     } catch (error: any) {
