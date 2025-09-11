@@ -568,165 +568,168 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* Recent Tasks */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-green-500" />
-                Recent Tasks
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setLocation("/tasks")}
-              >
-                View All
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentTasks.length === 0 ? (
-              <div className="text-center py-6 text-slate-500">
-                <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p>No recent tasks</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={() => setLocation("/tasks")}
-                >
-                  Create First Task
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentTasks.slice(0, 5).map((task) => (
-                  <div 
-                    key={task.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
-                    onClick={() => setEditingTask(task)}
-                  >
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{task.title}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-600">{task.client?.fullName || 'No client'}</span>
-                        <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
-                          {task.priority}
-                        </Badge>
-                      </div>
-                    </div>
-                    <Badge className={cn("text-xs", getStatusColor(task.status))}>
-                      {task.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Overdue Sessions */}
-        {overdueSessions.length > 0 && (
+        {/* Tasks and Overdue Sessions Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Recent Tasks */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
-                  Overdue Sessions
+                  <ClipboardList className="w-5 h-5 text-green-500" />
+                  Recent Tasks
                 </div>
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => setLocation("/scheduling")}
+                  onClick={() => setLocation("/tasks")}
                 >
                   View All
                 </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {overdueSessions.slice(0, 5).map((session) => (
-                  <div 
-                    key={session.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg border-red-200 hover:bg-red-50"
+              {recentTasks.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">
+                  <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  <p>No recent tasks</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setLocation("/tasks")}
                   >
+                    Create First Task
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentTasks.slice(0, 5).map((task) => (
                     <div 
-                      className="flex-1 cursor-pointer"
-                      onClick={() => setLocation("/scheduling")}
+                      key={task.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                      onClick={() => setEditingTask(task)}
                     >
-                      <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-600">
-                          with {session.therapist?.fullName}
-                        </span>
-                        <span className="text-xs text-red-600 font-medium">
-                          • {session.daysOverdue} days overdue
-                        </span>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">{task.title}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-slate-600">{task.client?.fullName || 'No client'}</span>
+                          <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
+                            {task.priority}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span className="text-xs text-slate-600">
-                          {formatDate(session.sessionDate)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="text-xs bg-red-100 text-red-800 border-red-200">
-                        {session.status}
+                      <Badge className={cn("text-xs", getStatusColor(task.status))}>
+                        {task.status.replace('_', ' ')}
                       </Badge>
-                      
-                      {canEditSession(session) && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0"
-                              data-testid={`button-actions-session-${session.id}`}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              onClick={() => handleCompleteSession(session.id)}
-                              data-testid={`button-complete-session-${session.id}`}
-                            >
-                              <Check className="mr-2 h-4 w-4 text-green-600" />
-                              Mark Completed
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleNoShowSession(session.id)}
-                              data-testid={`button-noshow-session-${session.id}`}
-                            >
-                              <UserX className="mr-2 h-4 w-4 text-orange-600" />
-                              No-Show (Cancel)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleCancelSession(session.id)}
-                              data-testid={`button-cancel-session-${session.id}`}
-                            >
-                              <X className="mr-2 h-4 w-4 text-red-600" />
-                              Cancel Session
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => setLocation("/scheduling")}
-                              data-testid={`button-reschedule-session-${session.id}`}
-                            >
-                              <Edit3 className="mr-2 h-4 w-4 text-blue-600" />
-                              Reschedule
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
-        )}
+
+          {/* Overdue Sessions */}
+          {overdueSessions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    Overdue Sessions
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setLocation("/scheduling")}
+                  >
+                    View All
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {overdueSessions.slice(0, 5).map((session) => (
+                    <div 
+                      key={session.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg border-red-200 hover:bg-red-50"
+                    >
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setLocation("/scheduling")}
+                      >
+                        <h4 className="font-medium text-sm">{session.client?.fullName}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-slate-600">
+                            with {session.therapist?.fullName}
+                          </span>
+                          <span className="text-xs text-red-600 font-medium">
+                            • {session.daysOverdue} days overdue
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span className="text-xs text-slate-600">
+                            {formatDate(session.sessionDate)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="text-xs bg-red-100 text-red-800 border-red-200">
+                          {session.status}
+                        </Badge>
+                        
+                        {canEditSession(session) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0"
+                                data-testid={`button-actions-session-${session.id}`}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                onClick={() => handleCompleteSession(session.id)}
+                                data-testid={`button-complete-session-${session.id}`}
+                              >
+                                <Check className="mr-2 h-4 w-4 text-green-600" />
+                                Mark Completed
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleNoShowSession(session.id)}
+                                data-testid={`button-noshow-session-${session.id}`}
+                              >
+                                <UserX className="mr-2 h-4 w-4 text-orange-600" />
+                                No-Show (Cancel)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleCancelSession(session.id)}
+                                data-testid={`button-cancel-session-${session.id}`}
+                              >
+                                <X className="mr-2 h-4 w-4 text-red-600" />
+                                Cancel Session
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => setLocation("/scheduling")}
+                                data-testid={`button-reschedule-session-${session.id}`}
+                              >
+                                <Edit3 className="mr-2 h-4 w-4 text-blue-600" />
+                                Reschedule
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
       {/* Upcoming Deadlines */}
       {upcomingTasks.length > 0 && (
