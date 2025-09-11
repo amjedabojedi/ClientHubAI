@@ -18,38 +18,11 @@ import { z } from "zod";
 
 // Enums - Removed unused client/session enums (converted to varchar for flexibility)
 // Keeping only enums that are still actively used in the database
-export const serviceTypeEnum = pgEnum('service_type', ['individual_therapy', 'group_therapy', 'family_therapy', 'assessment', 'consultation']);
-export const billingStatusEnum = pgEnum('billing_status', ['pending', 'billed', 'paid', 'denied', 'refunded']);
-export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', 'completed', 'overdue']);
-export const taskPriorityEnum = pgEnum('task_priority', ['low', 'medium', 'high', 'urgent']);
-export const genderEnum = pgEnum('gender', ['male', 'female', 'non_binary', 'prefer_not_to_say']);
 
 // Notification System Enums
-export const notificationTypeEnum = pgEnum('notification_type', [
-  'client_created', 'client_assigned', 'client_status_changed', 'client_profile_updated',
-  'session_scheduled', 'session_overdue', 'session_completed', 'session_cancelled',
-  'task_assigned', 'task_overdue', 'task_completed',
-  'document_uploaded', 'document_needs_review', 'document_reviewed',
-  'assessment_assigned', 'assessment_completed',
-  'system_alert', 'custom'
-]);
-export const notificationPriorityEnum = pgEnum('notification_priority', ['low', 'medium', 'high', 'urgent']);
-export const notificationDeliveryMethodEnum = pgEnum('notification_delivery_method', ['in_app', 'email', 'sms', 'push']);
-export const notificationTimingEnum = pgEnum('notification_timing', ['immediate', 'hourly_digest', 'daily_digest', 'weekly_digest']);
 
 // HIPAA Audit Logging Enums
-export const auditActionEnum = pgEnum('audit_action', [
-  'login', 'logout', 'login_failed', 'password_changed', 'account_locked',
-  'client_viewed', 'client_created', 'client_updated', 'client_deleted', 'client_search',
-  'session_viewed', 'session_created', 'session_updated', 'session_deleted',
-  'document_viewed', 'document_uploaded', 'document_downloaded', 'document_deleted',
-  'assessment_viewed', 'assessment_created', 'assessment_updated', 'assessment_completed',
-  'notes_viewed', 'notes_created', 'notes_updated', 'notes_deleted',
-  'billing_viewed', 'billing_created', 'billing_updated',
-  'report_generated', 'data_exported', 'system_access', 'unauthorized_access'
-]);
 
-export const auditResultEnum = pgEnum('audit_result', ['success', 'failure', 'blocked', 'warning']);
 // Dynamic roles and permissions system
 export const roles = pgTable("roles", {
   id: serial("id").primaryKey(),
@@ -87,10 +60,6 @@ export const rolePermissions = pgTable("role_permissions", {
 }));
 
 // Keep enum for backwards compatibility but make it more flexible
-export const userRoleEnum = pgEnum('user_role', ['therapist', 'supervisor', 'admin', 'client', 'custom']);
-export const userStatusEnum = pgEnum('user_status', ['active', 'inactive', 'pending', 'suspended']);
-export const licenseStatusEnum = pgEnum('license_status', ['active', 'expired', 'pending', 'suspended']);
-export const availabilityStatusEnum = pgEnum('availability_status', ['available', 'busy', 'away', 'offline']);
 
 // Enhanced Users table with comprehensive authentication and role management
 export const users: any = pgTable("users", {
@@ -99,9 +68,9 @@ export const users: any = pgTable("users", {
   password: text("password").notNull(),
   fullName: text("full_name").notNull(),
   email: text("email").notNull().unique(),
-  role: userRoleEnum("role").notNull().default('therapist'),
+  role: varchar("role", { length: 20 }).notNull().default('therapist'),
   customRoleId: integer("custom_role_id").references(() => roles.id), // For custom roles
-  status: userStatusEnum("status").notNull().default('active'),
+  status: varchar("status", { length: 20 }).notNull().default('active'),
   
   // Authentication & Security
   lastLogin: timestamp("last_login"),
@@ -138,7 +107,7 @@ export const userProfiles = pgTable("user_profiles", {
   licenseType: varchar("license_type", { length: 100 }), // LMFT, LCSW, etc.
   licenseState: varchar("license_state", { length: 50 }),
   licenseExpiry: date("license_expiry"),
-  licenseStatus: licenseStatusEnum("license_status").default('active'),
+  licenseStatus: varchar("license_status", { length: 20 }).default('active'),
   
   // Clinical Specializations
   specializations: text("specializations").array(), // Array of specialty areas
@@ -156,7 +125,7 @@ export const userProfiles = pgTable("user_profiles", {
   workingHours: text("working_hours"), // JSON string of time ranges
   maxClientsPerDay: integer("max_clients_per_day"),
   sessionDuration: integer("session_duration").default(50), // Minutes
-  availabilityStatus: availabilityStatusEnum("availability_status").default('available'),
+  availabilityStatus: varchar("availability_status", { length: 20 }).default('available'),
   
   // Emergency Contact
   emergencyContactName: text("emergency_contact_name"),
@@ -231,7 +200,7 @@ export const clients = pgTable("clients", {
   // Personal Information (Tab 1)
   fullName: text("full_name").notNull(), // Required field for client identification
   dateOfBirth: date("date_of_birth"), // Client's birth date
-  gender: genderEnum("gender"), // Client's gender
+  gender: varchar("gender", { length: 20 }), // Client's gender
   maritalStatus: varchar("marital_status", { length: 50 }), // Single, married, divorced, etc.
   preferredLanguage: varchar("preferred_language", { length: 50 }), // Client's communication preference
   pronouns: varchar("pronouns", { length: 20 }),
@@ -429,7 +398,7 @@ export const sessionBilling = pgTable("session_billing", {
   insuranceCovered: boolean("insurance_covered").notNull().default(false),
   copayAmount: decimal("copay_amount", { precision: 10, scale: 2 }),
   billingDate: date("billing_date"),
-  paymentStatus: billingStatusEnum("payment_status").notNull().default('pending'),
+  paymentStatus: varchar("payment_status", { length: 20 }).notNull().default('pending'),
   // Payment details
   paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
   paymentDate: date("payment_date"),
@@ -456,8 +425,8 @@ export const tasks = pgTable("tasks", {
   assignedToId: integer("assigned_to_id").references(() => users.id),
   title: text("title").notNull(),
   description: text("description"),
-  status: taskStatusEnum("status").notNull().default('pending'),
-  priority: taskPriorityEnum("priority").notNull().default('medium'),
+  status: varchar("status", { length: 20 }).notNull().default('pending'),
+  priority: varchar("priority", { length: 20 }).notNull().default('medium'),
   dueDate: timestamp("due_date"),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -636,7 +605,7 @@ export const libraryEntryConnections = pgTable("library_entry_connections", {
   id: serial("id").primaryKey(),
   fromEntryId: integer("from_entry_id").notNull().references(() => libraryEntries.id, { onDelete: "cascade" }),
   toEntryId: integer("to_entry_id").notNull().references(() => libraryEntries.id, { onDelete: "cascade" }),
-  connectionType: connectionTypeEnum("connection_type").notNull(),
+  connectionType: varchar("connection_type", { length: 20 }).notNull(),
   description: text("description"), // Optional description of the connection
   strength: integer("strength").default(1), // 1-5 scale for connection strength
   isActive: boolean("is_active").default(true),
@@ -664,9 +633,9 @@ export const assessmentSections = pgTable("assessment_sections", {
   templateId: integer("template_id").notNull().references(() => assessmentTemplates.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
-  accessLevel: sectionAccessEnum("access_level").notNull().default('therapist_only'),
+  accessLevel: varchar("access_level", { length: 20 }).notNull().default('therapist_only'),
   isScoring: boolean("is_scoring").default(false), // Whether this section contributes to scoring
-  reportMapping: reportSectionEnum("report_mapping"), // Maps to AI report sections
+  reportMapping: varchar("report_mapping", { length: 50 }), // Maps to AI report sections
   aiReportPrompt: text("ai_report_prompt"), // Optional AI prompt for report generation
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -677,7 +646,7 @@ export const assessmentQuestions = pgTable("assessment_questions", {
   id: serial("id").primaryKey(),
   sectionId: integer("section_id").notNull().references(() => assessmentSections.id, { onDelete: "cascade" }),
   questionText: text("question_text").notNull(),
-  questionType: questionTypeEnum("question_type").notNull(),
+  questionType: varchar("question_type", { length: 30 }).notNull(),
   isRequired: boolean("is_required").default(false),
   sortOrder: integer("sort_order").default(0),
   // For rating scales
@@ -704,7 +673,7 @@ export const assessmentAssignments = pgTable("assessment_assignments", {
   templateId: integer("template_id").notNull().references(() => assessmentTemplates.id),
   clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
   assignedById: integer("assigned_by_id").notNull().references(() => users.id),
-  status: assessmentStatusEnum("status").notNull().default('pending'),
+  status: varchar("status", { length: 30 }).notNull().default('pending'),
   dueDate: date("due_date"),
   completedAt: timestamp("completed_at"),
   finalizedAt: timestamp("finalized_at"),
@@ -747,11 +716,11 @@ export const assessmentReports = pgTable("assessment_reports", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  type: notificationTypeEnum("type").notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   message: text("message").notNull(),
   data: text("data"), // JSON string for additional data
-  priority: notificationPriorityEnum("priority").notNull().default('medium'),
+  priority: varchar("priority", { length: 20 }).notNull().default('medium'),
   isRead: boolean("is_read").notNull().default(false),
   readAt: timestamp("read_at"),
   actionUrl: varchar("action_url", { length: 500 }), // URL to navigate when clicked
@@ -774,12 +743,12 @@ export const notificationTriggers = pgTable("notification_triggers", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull().unique(),
   description: text("description"),
-  eventType: notificationTypeEnum("event_type").notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
   entityType: varchar("entity_type", { length: 50 }).notNull(), // 'client', 'session', 'task'
   conditionRules: text("condition_rules"), // JSON string for flexible conditions
   recipientRules: text("recipient_rules"), // JSON string for who gets notified
   templateId: integer("template_id").references(() => notificationTemplates.id),
-  priority: notificationPriorityEnum("priority").notNull().default('medium'),
+  priority: varchar("priority", { length: 20 }).notNull().default('medium'),
   delayMinutes: integer("delay_minutes").default(0), // Delay before sending
   batchWindowMinutes: integer("batch_window_minutes").default(5), // Grouping window
   maxBatchSize: integer("max_batch_size").default(10),
@@ -796,9 +765,9 @@ export const notificationTriggers = pgTable("notification_triggers", {
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  triggerType: notificationTypeEnum("trigger_type").notNull(),
+  triggerType: varchar("trigger_type", { length: 50 }).notNull(),
   deliveryMethods: text("delivery_methods"), // JSON array: ['in_app', 'email']
-  timing: notificationTimingEnum("timing").notNull().default('immediate'),
+  timing: varchar("timing", { length: 30 }).notNull().default('immediate'),
   enableInApp: boolean("enable_in_app").notNull().default(true),
   enableEmail: boolean("enable_email").notNull().default(false),
   enableSms: boolean("enable_sms").notNull().default(false),
@@ -815,7 +784,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
 export const notificationTemplates = pgTable("notification_templates", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull().unique(),
-  type: notificationTypeEnum("type").notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
   subject: varchar("subject", { length: 255 }).notNull(),
   bodyTemplate: text("body_template").notNull(), // Template with {{variables}}
   actionUrlTemplate: varchar("action_url_template", { length: 500 }),
@@ -836,8 +805,8 @@ export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'set null' }),
   username: varchar("username", { length: 100 }), // Store username for records even if user deleted
-  action: auditActionEnum("action").notNull(),
-  result: auditResultEnum("result").notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
+  result: varchar("result", { length: 20 }).notNull(),
   resourceType: varchar("resource_type", { length: 50 }), // 'client', 'session', 'document', etc.
   resourceId: varchar("resource_id", { length: 50 }), // ID of the resource accessed
   clientId: integer("client_id").references(() => clients.id, { onDelete: 'set null' }), // PHI access tracking
