@@ -1524,16 +1524,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const role = String(currentUserRole || '').toLowerCase();
       const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
-      // DEBUG: Log the filtering parameters
-      console.log('=== OVERDUE SESSIONS DEBUG ===');
-      console.log('Role:', role, 'UID:', uid);
-      console.log('Total sessions before filter:', overdueSessions.length);
-      console.log('Sample session therapistIds:', overdueSessions.slice(0, 3).map(s => ({ id: s.id, therapistId: s.therapistId, therapistName: s.therapist?.fullName })));
-
       // Therapists only see their own assigned sessions
       if (role === "therapist" && uid) {
         overdueSessions = overdueSessions.filter(session => session.therapistId === uid);
-        console.log('After therapist filter:', overdueSessions.length, 'sessions');
       } else if (role === "supervisor" && uid) {
         const supervisorId = uid;
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
