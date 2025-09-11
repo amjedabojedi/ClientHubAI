@@ -236,7 +236,7 @@ export interface IStorage {
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
   getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]>;
-  getOverdueSessions(limit?: number): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]>;
+  getOverdueSessions(limit?: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]>;
   createSession(session: InsertSession): Promise<Session>;
   createSessionsBulk(sessions: InsertSession[]): Promise<Session[]>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
@@ -1195,11 +1195,11 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getOverdueSessions(limit: number = 10): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]> {
+  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const results = await db
+    let query = db
       .select({
         session: sessions,
         therapist: users,
@@ -1208,12 +1208,24 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
-      .where(
-        and(
-          sql`DATE(${sessions.sessionDate}) < ${today.toISOString().split('T')[0]}`,
-          eq(sessions.status, 'scheduled')
-        )
-      )
+      .$dynamic();
+
+    // Apply role-based filtering at database level
+    const conditions = [
+      sql`DATE(${sessions.sessionDate}) < ${today.toISOString().split('T')[0]}`,
+      eq(sessions.status, 'scheduled')
+    ];
+
+    if (therapistId) {
+      // Therapist sees only their own overdue sessions
+      conditions.push(eq(sessions.therapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees overdue sessions for supervised therapists
+      conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+
+    const results = await query
+      .where(and(...conditions))
       .orderBy(asc(sessions.sessionDate))
       .limit(limit);
 

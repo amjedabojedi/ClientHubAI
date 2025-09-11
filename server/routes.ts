@@ -1518,26 +1518,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 10;
       const { currentUserId, currentUserRole } = req.query;
       
-      let overdueSessions = await storage.getOverdueSessions(limit);
-      
-      // Normalize role casing and apply role-based filtering
+      // Normalize role casing and determine role-based parameters
       const role = String(currentUserRole || '').toLowerCase();
       const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
-      // Therapists only see their own assigned sessions
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
       if (role === "therapist" && uid) {
-        overdueSessions = overdueSessions.filter(session => session.therapistId === uid);
+        therapistId = uid;
       } else if (role === "supervisor" && uid) {
-        const supervisorId = uid;
-        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
-        
-        if (supervisorAssignments.length === 0) {
-          return res.json([]);
-        }
-        
-        const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
-        overdueSessions = overdueSessions.filter(session => supervisedTherapistIds.includes(session.therapistId));
+        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
+      
+      // Call storage method with role-based parameters - storage handles filtering
+      const overdueSessions = await storage.getOverdueSessions(limit, therapistId, supervisedTherapistIds);
       
       res.json(overdueSessions);
     } catch (error) {
