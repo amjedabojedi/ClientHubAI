@@ -32,6 +32,7 @@ import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
+import NotificationBell from "@/components/notifications/notification-bell";
 
 
 function Navigation() {
@@ -145,6 +146,8 @@ function Navigation() {
               <span className="text-sm text-gray-600 dark:text-gray-300">
                 Welcome, {user.fullName || user.username}
               </span>
+
+              <NotificationBell />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
