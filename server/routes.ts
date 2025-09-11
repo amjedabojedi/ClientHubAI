@@ -1520,8 +1520,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let overdueSessions = await storage.getOverdueSessions(limit);
       
-      // Role-based filtering - therapists can now see all overdue sessions
-      if (currentUserRole === "supervisor" && currentUserId) {
+      // Role-based filtering - therapists only see their own assigned sessions
+      if (currentUserRole === "therapist" && currentUserId) {
+        const therapistId = parseInt(currentUserId as string);
+        overdueSessions = overdueSessions.filter(session => session.therapistId === therapistId);
+      } else if (currentUserRole === "supervisor" && currentUserId) {
         const supervisorId = parseInt(currentUserId as string);
         const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
         
