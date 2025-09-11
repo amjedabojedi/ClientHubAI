@@ -358,8 +358,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Sessions and Tasks Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sessions Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Sessions */}
           <Card>
             <CardHeader>
@@ -498,65 +498,65 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Recent Tasks */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-green-500" />
-                  Recent Tasks
-                </div>
+        </div>
+
+        {/* Recent Tasks */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-green-500" />
+                Recent Tasks
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setLocation("/tasks")}
+              >
+                View All
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentTasks.length === 0 ? (
+              <div className="text-center py-6 text-slate-500">
+                <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                <p>No recent tasks</p>
                 <Button 
-                  variant="ghost" 
+                  variant="outline" 
                   size="sm" 
+                  className="mt-2"
                   onClick={() => setLocation("/tasks")}
                 >
-                  View All
+                  Create First Task
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentTasks.length === 0 ? (
-                <div className="text-center py-6 text-slate-500">
-                  <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                  <p>No recent tasks</p>
-                  <p className="text-xs text-slate-400 mt-1">Completed tasks will appear here</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-2"
-                    onClick={() => setShowCreateTaskModal(true)}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentTasks.slice(0, 5).map((task) => (
+                  <div 
+                    key={task.id} 
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                    onClick={() => setEditingTask(task)}
                   >
-                    Create Task
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentTasks.slice(0, 5).map((task) => (
-                    <div 
-                      key={task.id} 
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-green-50 cursor-pointer"
-                      onClick={() => setEditingTask(task)}
-                    >
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">{task.title}</h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span className="text-xs text-slate-600">
-                            {task.completedAt ? formatDate(task.completedAt) : 'Recently completed'}
-                          </span>
-                        </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{task.title}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-600">{task.client?.fullName || 'No client'}</span>
+                        <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
+                          {task.priority}
+                        </Badge>
                       </div>
-                      <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
-                        {task.priority}
-                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    <Badge className={cn("text-xs", getStatusColor(task.status))}>
+                      {task.status.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Upcoming Deadlines */}
