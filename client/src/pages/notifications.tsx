@@ -187,8 +187,8 @@ function CreateTriggerForm({ onSubmit, isLoading, templates, trigger }: CreateTr
       templateId: parseInt(formData.templateId)
     };
     // Remove the form-only fields before sending to API
-    delete submitData.event;
-    delete submitData.conditions;
+    delete (submitData as any).event;
+    delete (submitData as any).conditions;
     onSubmit(submitData);
   };
 
