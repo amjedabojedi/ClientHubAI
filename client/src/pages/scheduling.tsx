@@ -479,6 +479,46 @@ export default function SchedulingPage() {
     }));
   };
 
+  // Generate smart time suggestions based on therapist/room availability
+  const generateSmartTimeSuggestions = (selectedDate: string, therapistId?: number, roomId?: number, serviceDuration = 60): string[] => {
+    if (!selectedDate || !therapistId) return [];
+    
+    const suggestions: string[] = [];
+    const slots = getTimeSlots(15); // 15-minute intervals for more flexibility
+    const daySessionsForTherapist = sessions?.filter(s => {
+      const sessionDate = new Date(s.sessionDate);
+      const checkDate = new Date(selectedDate + 'T12:00:00');
+      return sessionDate.toDateString() === checkDate.toDateString() && s.therapistId === therapistId;
+    }) || [];
+    
+    for (const timeSlot of slots) {
+      const proposedDateTime = new Date(selectedDate + 'T' + timeSlot + ':00');
+      const proposedSession = {
+        sessionDate: proposedDateTime.toISOString(),
+        therapistId,
+        roomId,
+        service: { duration: serviceDuration }
+      } as Session;
+      
+      // Check if this time slot has no conflicts
+      const hasTherapistConflict = daySessionsForTherapist.some(existingSession => {
+        const existingTime = new Date(existingSession.sessionDate);
+        const existingDuration = (existingSession.service as any)?.duration || 60;
+        const existingStart = existingTime.getTime();
+        const existingEnd = existingStart + (existingDuration * 60 * 1000);
+        const proposedStart = proposedDateTime.getTime();
+        const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
+        return (proposedStart < existingEnd && proposedEnd > existingStart);
+      });
+      
+      if (!hasTherapistConflict && suggestions.length < 5) {
+        suggestions.push(timeSlot);
+      }
+    }
+    
+    return suggestions;
+  };
+
   const getInitials = (name: string): string => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
@@ -495,11 +535,13 @@ export default function SchedulingPage() {
       // Same day check
       if (sessionTime.toDateString() !== otherTime.toDateString()) return false;
       
-      // Check for time overlap (assuming 60-minute sessions)
+      // Check for time overlap using actual service durations
+      const sessionDuration = (session.service as any)?.duration || 60; // minutes
+      const otherDuration = (otherSession.service as any)?.duration || 60; // minutes
       const sessionStart = sessionTime.getTime();
-      const sessionEnd = sessionStart + (60 * 60 * 1000); // 60 minutes
+      const sessionEnd = sessionStart + (sessionDuration * 60 * 1000);
       const otherStart = otherTime.getTime();
-      const otherEnd = otherStart + (60 * 60 * 1000);
+      const otherEnd = otherStart + (otherDuration * 60 * 1000);
       
       return (sessionStart < otherEnd && sessionEnd > otherStart);
     });
@@ -519,11 +561,13 @@ export default function SchedulingPage() {
       // Same day check
       if (sessionTime.toDateString() !== otherTime.toDateString()) return false;
       
-      // Check for time overlap (assuming 60-minute sessions)
+      // Check for time overlap using actual service durations
+      const sessionDuration = (session.service as any)?.duration || 60; // minutes
+      const otherDuration = (otherSession.service as any)?.duration || 60; // minutes
       const sessionStart = sessionTime.getTime();
-      const sessionEnd = sessionStart + (60 * 60 * 1000); // 60 minutes
+      const sessionEnd = sessionStart + (sessionDuration * 60 * 1000);
       const otherStart = otherTime.getTime();
-      const otherEnd = otherStart + (60 * 60 * 1000);
+      const otherEnd = otherStart + (otherDuration * 60 * 1000);
       
       return (sessionStart < otherEnd && sessionEnd > otherStart);
     });
@@ -848,20 +892,74 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Time</FormLabel>
-                              <Select onValueChange={field.onChange}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select time" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {getTimeSlotsWithLabels().map((timeSlot) => (
-                                    <SelectItem key={timeSlot.value} value={timeSlot.value}>
-                                      {timeSlot.label}
-                                    </SelectItem>
+                              <div className="space-y-2">
+                                <Select onValueChange={field.onChange}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select time" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getTimeSlotsWithLabels().map((timeSlot) => (
+                                      <SelectItem key={timeSlot.value} value={timeSlot.value}>
+                                        {timeSlot.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                
+                                {/* Smart Time Suggestions */}
+                                {form.watch('sessionDate') && form.watch('therapistId') && (
+                                  <div className="space-y-1">
+                                    <span className="text-xs text-slate-600">Suggested times (no conflicts):</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {generateSmartTimeSuggestions(
+                                        form.watch('sessionDate'),
+                                        form.watch('therapistId'),
+                                        form.watch('roomId'),
+                                        (services?.find(s => s.id === form.watch('serviceId')) as any)?.duration || 60
+                                      ).map((timeSlot) => (
+                                        <Button
+                                          key={timeSlot}
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                                          onClick={() => {
+                                            form.setValue('sessionTime', timeSlot);
+                                          }}
+                                        >
+                                          {formatTime(timeSlot)}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Quick Duration Chips */}
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="text-xs text-slate-600 mr-1">Quick:</span>
+                                  {DURATION_PRESETS.map((preset) => (
+                                    <Button
+                                      key={preset.value}
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs px-2 py-1 h-6 text-slate-600 hover:text-blue-600 hover:border-blue-300"
+                                      onClick={() => {
+                                        const currentTime = new Date();
+                                        const hours = currentTime.getHours();
+                                        const minutes = currentTime.getMinutes();
+                                        const nextSlot = Math.ceil(minutes / 30) * 30;
+                                        const timeString = `${hours.toString().padStart(2, '0')}:${nextSlot.toString().padStart(2, '0')}`;
+                                        form.setValue('sessionTime', timeString);
+                                      }}
+                                    >
+                                      {preset.label}
+                                    </Button>
                                   ))}
-                                </SelectContent>
-                              </Select>
+                                </div>
+                              </div>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -1149,9 +1247,7 @@ export default function SchedulingPage() {
                                 {(() => {
                                   // Parse the session date and extract time without timezone conversion
                                   const sessionDate = parseSessionDate(session.sessionDate);
-                                  const hours = sessionDate.getHours().toString().padStart(2, '0');
-                                  const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                                  return `${hours}:${minutes}`;
+                                  return formatTime(sessionDate);
                                 })()} {getDisplayClientName(session)}
                               </div>
                             );
@@ -1498,9 +1594,7 @@ export default function SchedulingPage() {
                             <p className="font-medium text-sm">
                               {(() => {
                                 const sessionDate = parseSessionDate(session.sessionDate);
-                                const hours = sessionDate.getHours().toString().padStart(2, '0');
-                                const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                                return `${hours}:${minutes}`;
+                                return formatTime(sessionDate);
                               })()}
                             </p>
                             <Badge className={`${getStatusColor(session.status)} text-xs`} variant="secondary">
@@ -1661,9 +1755,7 @@ export default function SchedulingPage() {
                                   <p className="font-semibold text-lg">
                                     {(() => {
                                       const sessionDate = parseSessionDate(session.sessionDate);
-                                      const hours = sessionDate.getHours().toString().padStart(2, '0');
-                                      const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                                      return `${hours}:${minutes}`;
+                                      return formatTime(sessionDate);
                                     })()}
                                   </p>
                                   <p className="text-xs text-slate-600">{(session.service as any)?.duration || 60}min</p>
