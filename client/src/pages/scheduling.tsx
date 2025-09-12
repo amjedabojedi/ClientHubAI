@@ -479,66 +479,59 @@ export default function SchedulingPage() {
     }));
   };
 
-  // Generate dynamic available time ranges based on actual conflicts
-  const generateDynamicTimeRanges = (selectedDate: string, therapistId?: number, roomId?: number, serviceDuration = 60): Array<{startTime: string, endTime: string}> => {
+  // Generate available time slots based on therapist and room conflicts
+  const generateAvailableTimeSlots = (selectedDate: string, therapistId?: number, roomId?: number): string[] => {
     if (!selectedDate || !therapistId) return [];
     
-    const ranges: Array<{startTime: string, endTime: string}> = [];
-    const workDayStart = 8; // 8 AM
-    const workDayEnd = 18; // 6 PM
+    const availableSlots: string[] = [];
+    const timeSlots = getTimeSlots(30); // 30-minute intervals
     
-    // Get all sessions for this therapist on this day, sorted by time
+    // Get all sessions for this day
     const daySessionsForTherapist = (sessions || allAvailableSessions || []).filter(s => {
       const sessionDate = new Date(s.sessionDate);
       const checkDate = new Date(selectedDate + 'T12:00:00');
       return sessionDate.toDateString() === checkDate.toDateString() && s.therapistId === therapistId;
-    }).sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime());
+    });
     
-    // Calculate available gaps between sessions
-    let currentTime = workDayStart * 60; // Start at 8 AM in minutes
+    const daySessionsForRoom = roomId ? (sessions || allAvailableSessions || []).filter(s => {
+      const sessionDate = new Date(s.sessionDate);
+      const checkDate = new Date(selectedDate + 'T12:00:00');
+      return sessionDate.toDateString() === checkDate.toDateString() && s.roomId === roomId;
+    }) : [];
     
-    for (const session of daySessionsForTherapist) {
-      const sessionStart = new Date(session.sessionDate);
-      const sessionStartMinutes = sessionStart.getHours() * 60 + sessionStart.getMinutes();
-      const sessionDuration = (session.service as any)?.duration || 60;
-      const sessionEndMinutes = sessionStartMinutes + sessionDuration;
+    // Check each time slot for availability
+    for (const timeSlot of timeSlots) {
+      const proposedDateTime = new Date(selectedDate + 'T' + timeSlot + ':00');
       
-      // Check if there's a gap before this session
-      const gapDuration = sessionStartMinutes - currentTime;
-      if (gapDuration >= serviceDuration) {
-        // Found an available range
-        const startHour = Math.floor(currentTime / 60);
-        const startMin = currentTime % 60;
-        const endTime = currentTime + serviceDuration;
-        const endHour = Math.floor(endTime / 60);
-        const endMin = endTime % 60;
-        
-        ranges.push({
-          startTime: `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`,
-          endTime: `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`
-        });
-      }
-      
-      // Move current time to after this session
-      currentTime = Math.max(currentTime, sessionEndMinutes);
-    }
-    
-    // Check if there's time at the end of the day
-    const endOfDayMinutes = workDayEnd * 60;
-    if (endOfDayMinutes - currentTime >= serviceDuration) {
-      const startHour = Math.floor(currentTime / 60);
-      const startMin = currentTime % 60;
-      const endTime = currentTime + serviceDuration;
-      const endHour = Math.floor(endTime / 60);
-      const endMin = endTime % 60;
-      
-      ranges.push({
-        startTime: `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`,
-        endTime: `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`
+      // Check therapist conflicts
+      const hasTherapistConflict = daySessionsForTherapist.some(existingSession => {
+        const existingTime = new Date(existingSession.sessionDate);
+        const existingDuration = (existingSession.service as any)?.duration || 60;
+        const existingStart = existingTime.getTime();
+        const existingEnd = existingStart + (existingDuration * 60 * 1000);
+        const proposedStart = proposedDateTime.getTime();
+        const proposedEnd = proposedStart + (60 * 60 * 1000); // Assume 1 hour for conflict check
+        return (proposedStart < existingEnd && proposedEnd > existingStart);
       });
+      
+      // Check room conflicts if room is selected
+      const hasRoomConflict = roomId ? daySessionsForRoom.some(existingSession => {
+        const existingTime = new Date(existingSession.sessionDate);
+        const existingDuration = (existingSession.service as any)?.duration || 60;
+        const existingStart = existingTime.getTime();
+        const existingEnd = existingStart + (existingDuration * 60 * 1000);
+        const proposedStart = proposedDateTime.getTime();
+        const proposedEnd = proposedStart + (60 * 60 * 1000); // Assume 1 hour for conflict check
+        return (proposedStart < existingEnd && proposedEnd > existingStart);
+      }) : false;
+      
+      // If no conflicts, add to available slots
+      if (!hasTherapistConflict && !hasRoomConflict && availableSlots.length < 8) {
+        availableSlots.push(timeSlot);
+      }
     }
     
-    return ranges.slice(0, 5); // Limit to 5 suggestions
+    return availableSlots;
   };
 
   const getInitials = (name: string): string => {
@@ -930,38 +923,38 @@ export default function SchedulingPage() {
                                   </SelectContent>
                                 </Select>
                                 
-                                {/* Dynamic Available Time Ranges */}
-                                {form.watch('sessionDate') && form.watch('therapistId') && form.watch('serviceId') && (
+                                {/* Dynamic Available Time Slots */}
+                                {form.watch('sessionDate') && form.watch('therapistId') && (
                                   <div className="space-y-1">
-                                    <span className="text-xs text-slate-600">Available time ranges:</span>
+                                    <span className="text-xs text-slate-600">Available times:</span>
                                     <div className="flex flex-wrap gap-1">
-                                      {generateDynamicTimeRanges(
+                                      {generateAvailableTimeSlots(
                                         form.watch('sessionDate'),
                                         form.watch('therapistId'),
-                                        form.watch('roomId'),
-                                        (services?.find(s => s.id === form.watch('serviceId')) as any)?.duration || 60
-                                      ).map((range) => (
+                                        form.watch('roomId')
+                                      ).map((timeSlot) => (
                                         <Button
-                                          key={range.startTime}
+                                          key={timeSlot}
                                           type="button"
                                           variant="outline"
                                           size="sm"
                                           className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
                                           onClick={() => {
-                                            form.setValue('sessionTime', range.startTime);
+                                            form.setValue('sessionTime', timeSlot);
                                           }}
                                         >
-                                          {formatTime(range.startTime)} - {formatTime(range.endTime)}
+                                          {formatTime(timeSlot)}
                                         </Button>
                                       ))}
                                     </div>
-                                    {generateDynamicTimeRanges(
+                                    {generateAvailableTimeSlots(
                                       form.watch('sessionDate'),
                                       form.watch('therapistId'),
-                                      form.watch('roomId'),
-                                      (services?.find(s => s.id === form.watch('serviceId')) as any)?.duration || 60
+                                      form.watch('roomId')
                                     ).length === 0 && (
-                                      <p className="text-xs text-orange-600">No available time ranges for this therapist on this date</p>
+                                      <p className="text-xs text-orange-600">
+                                        No available times for this therapist{form.watch('roomId') ? ' and room' : ''} on this date
+                                      </p>
                                     )}
                                   </div>
                                 )}
