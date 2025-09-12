@@ -115,7 +115,7 @@ export default function NotificationDropdown({
   };
 
   return (
-    <div className="w-80 max-w-full">
+    <div className="w-96 max-w-full">
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
@@ -169,7 +169,7 @@ export default function NotificationDropdown({
                   !notification.isRead && "bg-blue-50/50"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 w-full">
                   {/* Icon */}
                   <div className={cn(
                     "p-2 rounded-full flex-shrink-0 mt-0.5",
@@ -179,10 +179,10 @@ export default function NotificationDropdown({
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0 w-full">
+                    <div className="flex items-start justify-between gap-3 w-full">
                       <h4 className={cn(
-                        "text-sm font-medium break-words leading-tight pr-2",
+                        "text-sm font-medium break-words leading-tight flex-1 pr-3",
                         !notification.isRead ? "text-slate-900" : "text-slate-700"
                       )}>
                         {notification.title}

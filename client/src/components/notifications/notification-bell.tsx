@@ -97,7 +97,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 max-w-[95vw] p-0">
+      <DropdownMenuContent align="end" className="w-96 max-w-[95vw] p-0">
         <NotificationDropdown
           notifications={notifications}
           isLoading={notificationsLoading}
