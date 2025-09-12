@@ -7,6 +7,18 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Helper function to get CSRF token from cookies
+function getCsrfToken(): string | null {
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'csrfToken') {
+      return decodeURIComponent(value);
+    }
+  }
+  return null;
+}
+
 export async function apiRequest(
   url: string,
   method: string,
@@ -17,10 +29,23 @@ export async function apiRequest(
     credentials: "include",
   };
 
-  // Only add headers and body for non-GET/HEAD requests
-  if (method !== 'GET' && method !== 'HEAD' && data) {
-    options.headers = { "Content-Type": "application/json" };
-    options.body = JSON.stringify(data);
+  // Add headers for non-GET/HEAD requests
+  if (method !== 'GET' && method !== 'HEAD') {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    };
+    
+    // Add CSRF token for non-GET requests
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['x-csrf-token'] = csrfToken;
+    }
+    
+    options.headers = headers;
+    
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
   }
 
   const res = await fetch(url, options);
