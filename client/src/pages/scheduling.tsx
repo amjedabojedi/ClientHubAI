@@ -479,22 +479,21 @@ export default function SchedulingPage() {
     }));
   };
 
-  // Generate available time slots with room availability counts
-  const generateAvailableTimeSlotsWithRoomCounts = (
+  // Generate available time slots for specific room - Room-First workflow
+  const generateAvailableTimeSlotsForSpecificRoom = (
     selectedDate: string, 
     serviceDuration: number,
-    therapistId?: number, 
-    roomId?: number
-  ): Array<{time: string, availableRooms: number, totalRooms: number}> => {
-    // Enforce all required inputs - no suggestions without complete data
-    if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0) return [];
+    therapistId: number, 
+    roomId: number
+  ): Array<{time: string, isAvailable: boolean}> => {
+    // Enforce all required inputs - Room-First workflow requires all parameters
+    if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0 || !roomId) return [];
     
     // Ensure rooms data is loaded before showing suggestions
     if (!rooms || rooms.length === 0) return [];
     
-    const results: Array<{time: string, availableRooms: number, totalRooms: number}> = [];
+    const results: Array<{ time: string, isAvailable: boolean }> = [];
     const timeSlots = getTimeSlots(30); // 30-minute intervals
-    const totalRooms = rooms?.length || 0;
     
     // Get comprehensive session data - prioritize allAvailableSessions for cross-month accuracy
     const allSessionsData = allAvailableSessions && allAvailableSessions.length > 0 ? allAvailableSessions : sessions || [];
@@ -516,6 +515,16 @@ export default function SchedulingPage() {
       );
     });
     
+    const daySessionsForRoom = allSessionsData.filter(s => {
+      const dt = new Date(s.sessionDate);
+      return (
+        (dt.toDateString() === targetDate.toDateString() ||
+         dt.toDateString() === dayBefore.toDateString() ||
+         dt.toDateString() === dayAfter.toDateString()) &&
+        s.roomId === roomId
+      );
+    });
+    
     const allDaySessions = allSessionsData.filter(s => {
       const sessionDate = new Date(s.sessionDate);
       return (
@@ -525,68 +534,27 @@ export default function SchedulingPage() {
       );
     });
     
-    // Check each time slot for availability
+    // Room-First logic: check each time slot for both therapist AND room availability
     for (const timeSlot of timeSlots) {
-      const proposedDateTime = new Date(selectedDate + 'T' + timeSlot + ':00');
-      
-      // Check therapist conflicts
-      const hasTherapistConflict = daySessionsForTherapist.some(existingSession => {
-        const existingTime = new Date(existingSession.sessionDate);
-        const existingDuration = (existingSession.service as any)?.duration || 60;
-        const existingStart = existingTime.getTime();
-        const existingEnd = existingStart + (existingDuration * 60 * 1000);
-        const proposedStart = proposedDateTime.getTime();
-        const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
-        return (proposedStart < existingEnd && proposedEnd > existingStart);
+      const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
+      const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+
+      const therapistBusy = daySessionsForTherapist.some(s => {
+        const sStart = new Date(s.sessionDate).getTime();
+        const sEnd = sStart + ((s.service as any)?.duration || 60) * 60000;
+        return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
       });
-      
-      // Skip if therapist is not available
-      if (hasTherapistConflict) continue;
-      
-      // If specific room is selected, check only that room
-      if (roomId) {
-        const hasRoomConflict = allDaySessions.some(existingSession => {
-          if (existingSession.roomId !== roomId) return false;
-          const existingTime = new Date(existingSession.sessionDate);
-          const existingDuration = (existingSession.service as any)?.duration || 60;
-          const existingStart = existingTime.getTime();
-          const existingEnd = existingStart + (existingDuration * 60 * 1000);
-          const proposedStart = proposedDateTime.getTime();
-          const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
-          return (proposedStart < existingEnd && proposedEnd > existingStart);
-        });
-        
-        if (!hasRoomConflict && results.length < 8) {
-          results.push({
-            time: timeSlot,
-            availableRooms: 1,
-            totalRooms: 1
-          });
-        }
-      } else {
-        // Count available rooms for this time slot
-        const busyRooms = new Set();
-        allDaySessions.forEach(existingSession => {
-          if (!existingSession.roomId) return;
-          const existingTime = new Date(existingSession.sessionDate);
-          const existingDuration = (existingSession.service as any)?.duration || 60;
-          const existingStart = existingTime.getTime();
-          const existingEnd = existingStart + (existingDuration * 60 * 1000);
-          const proposedStart = proposedDateTime.getTime();
-          const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
-          if (proposedStart < existingEnd && proposedEnd > existingStart) {
-            busyRooms.add(existingSession.roomId);
-          }
-        });
-        
-        const availableRooms = totalRooms - busyRooms.size;
-        if (availableRooms > 0 && results.length < 8) {
-          results.push({
-            time: timeSlot,
-            availableRooms,
-            totalRooms
-          });
-        }
+      if (therapistBusy) continue;
+
+      const roomBusy = daySessionsForRoom.some(s => {
+        const sStart = new Date(s.sessionDate).getTime();
+        const sEnd = sStart + ((s.service as any)?.duration || 60) * 60000;
+        return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
+      });
+
+      if (!roomBusy) {
+        results.push({ time: timeSlot, isAvailable: true });
+        if (results.length >= 8) break; // keep prior 8-suggestion cap
       }
     }
     
@@ -989,11 +957,35 @@ export default function SchedulingPage() {
                                   const selectedService = form.watch('serviceId');
                                   const selectedRoom = form.watch('roomId');
                                   
-                                  // Require therapist + service + date before showing suggestions
-                                  if (!selectedDate || !selectedTherapist || !selectedService) {
+                                  // Room-First workflow: require room selection first
+                                  if (!selectedRoom) {
                                     return (
                                       <div className="text-xs text-slate-500 italic">
-                                        Please select therapist, service, and date to see available times
+                                        🏠 Select a room first to see when it's available
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  if (!selectedTherapist) {
+                                    return (
+                                      <div className="text-xs text-slate-500 italic">
+                                        👩‍⚕️ Select therapist to continue
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  if (!selectedService) {
+                                    return (
+                                      <div className="text-xs text-slate-500 italic">
+                                        📋 Select service to continue  
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  if (!selectedDate) {
+                                    return (
+                                      <div className="text-xs text-slate-500 italic">
+                                        📅 Select date to see available times
                                       </div>
                                     );
                                   }
@@ -1010,7 +1002,7 @@ export default function SchedulingPage() {
                                     );
                                   }
                                   
-                                  const availableSlots = generateAvailableTimeSlotsWithRoomCounts(selectedDate, serviceDuration, selectedTherapist, selectedRoom);
+                                  const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, selectedTherapist, selectedRoom);
                                   
                                   // Show loading state if rooms data isn't ready
                                   if (!rooms || rooms.length === 0) {
@@ -1023,40 +1015,46 @@ export default function SchedulingPage() {
                                   
                                   return (
                                     <div className="space-y-1">
-                                      <span className="text-xs text-slate-600">
-                                        Available times{selectedRoom ? ' (filtered by room)' : ' (all rooms)'}:
-                                      </span>
-                                      <div className="flex flex-wrap gap-1">
-                                        {availableSlots.map((slot) => (
-                                          <Button
-                                            key={slot.time}
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 flex items-center gap-1"
-                                            onClick={() => {
-                                              form.setValue('sessionTime', slot.time);
-                                            }}
-                                          >
-                                            {formatTime(slot.time)}
-                                            <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded">
-                                              {slot.availableRooms}/{slot.totalRooms}R
+                                      {(() => {
+                                        const roomName = rooms?.find(r => r.id === selectedRoom)?.roomName || 'Selected Room';
+                                        const freeSlots = availableSlots.filter(slot => slot.isAvailable);
+                                        
+                                        return (
+                                          <div>
+                                            <span className="text-xs text-slate-600">
+                                              Available times for {roomName}:
                                             </span>
-                                          </Button>
-                                        ))}
-                                      </div>
-                                      {availableSlots.length === 0 && (
-                                        <p className="text-xs text-orange-600">
-                                          No available times for this therapist{selectedRoom ? ' and room' : ''} on this date
-                                        </p>
-                                      )}
-                                      
-                                      {/* Room impact message */}
-                                      {selectedRoom && (
-                                        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                                          🏠 Room filter applied - {availableSlots.length > 0 ? 'showing times when both therapist and room are free' : 'no matching availability'}
-                                        </div>
-                                      )}
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {freeSlots.map((slot) => (
+                                                <Button
+                                                  key={slot.time}
+                                                  type="button"
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                                                  onClick={() => {
+                                                    form.setValue('sessionTime', slot.time);
+                                                  }}
+                                                >
+                                                  {formatTime(slot.time)} ✓
+                                                </Button>
+                                              ))}
+                                            </div>
+                                            {freeSlots.length === 0 && (
+                                              <p className="text-xs text-orange-600 mt-1">
+                                                {roomName} is not available for your therapist on this date
+                                              </p>
+                                            )}
+                                            
+                                            {/* Room-specific confirmation message */}
+                                            {freeSlots.length > 0 && (
+                                              <div className="text-xs text-green-600 bg-green-50 p-2 rounded mt-2">
+                                                🏠 {freeSlots.length} time slot{freeSlots.length > 1 ? 's' : ''} available for {roomName}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                   );
                                 })()}
