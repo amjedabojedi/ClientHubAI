@@ -212,6 +212,19 @@ export default function SchedulingPage() {
   // Combine all sessions for cross-month availability
   const allAvailableSessions = [...sessions, ...prevMonthSessions, ...nextMonthSessions];
   
+  // DEBUG: Log actual session data structure
+  React.useEffect(() => {
+    if (sessions.length > 0) {
+      console.debug('[🔍 ROOM DEBUG] Sample sessions:', sessions.slice(0, 3));
+      const roomCounts = sessions.reduce((acc, s) => {
+        const roomId = (s as any).roomId;
+        acc[roomId] = (acc[roomId] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.debug('[🔍 ROOM DEBUG] Room distribution in sessions:', roomCounts);
+    }
+  }, [sessions]);
+  
   // Normalize session data - convert all IDs from strings to numbers for proper filtering
   const normalizedSessions = useMemo(() => 
     allAvailableSessions.map(s => ({
@@ -544,6 +557,15 @@ export default function SchedulingPage() {
          dt.toDateString() === dayAfter.toDateString()) &&
         s.roomId === roomId  // Both are numbers now - fixed!
       );
+    });
+    
+    // DEBUG: Log room filtering results
+    console.debug('[🏠 ROOM FILTER DEBUG] Room filtering:', {
+      targetDate: targetDate.toDateString(),
+      lookingForRoomId: roomId,
+      totalSessions: allSessionsData.length,
+      roomSessionsFound: daySessionsForRoom.length,
+      sampleRoomIds: allSessionsData.slice(0, 5).map(s => ({ sessionId: s.id, roomId: s.roomId, date: new Date(s.sessionDate).toDateString() }))
     });
     
     const allDaySessions = allSessionsData.filter(s => {
@@ -1028,7 +1050,19 @@ export default function SchedulingPage() {
                                   const roomIdNum = Number(selectedRoom || 0);
                                   const therapistIdNum = Number(selectedTherapist || 0);
                                   
+                                  // DEBUG: Log function inputs and execution
+                                  console.debug('[🎯 SUGGESTION DEBUG] Inputs:', {
+                                    selectedDate,
+                                    serviceDuration,
+                                    therapistIdNum,
+                                    roomIdNum,
+                                    selectedService,
+                                    normalizedSessionsCount: normalizedSessions.length
+                                  });
+                                  
                                   const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum);
+                                  
+                                  console.debug('[🎯 SUGGESTION DEBUG] Generated slots:', availableSlots.length, 'total slots');
                                   
                                   // Show loading state if rooms data isn't ready
                                   if (!rooms || rooms.length === 0) {
