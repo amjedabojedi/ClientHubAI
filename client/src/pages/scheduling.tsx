@@ -479,30 +479,51 @@ export default function SchedulingPage() {
     }));
   };
 
-  // Generate available time slots based on therapist and room conflicts
-  const generateAvailableTimeSlots = (selectedDate: string, therapistId?: number, roomId?: number): string[] => {
-    if (!selectedDate || !therapistId) return [];
+  // Generate available time slots with room availability counts
+  const generateAvailableTimeSlotsWithRoomCounts = (
+    selectedDate: string, 
+    serviceDuration: number,
+    therapistId?: number, 
+    roomId?: number
+  ): Array<{time: string, availableRooms: number, totalRooms: number}> => {
+    // Enforce all required inputs - no suggestions without complete data
+    if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0) return [];
     
-    const availableSlots: string[] = [];
+    // Ensure rooms data is loaded before showing suggestions
+    if (!rooms || rooms.length === 0) return [];
+    
+    const results: Array<{time: string, availableRooms: number, totalRooms: number}> = [];
     const timeSlots = getTimeSlots(30); // 30-minute intervals
+    const totalRooms = rooms?.length || 0;
     
-    // Get all sessions for this day
-    const daySessionsForTherapist = (sessions || allAvailableSessions || []).filter(s => {
+    // Get comprehensive session data - prioritize allAvailableSessions for cross-month accuracy
+    const allSessionsData = allAvailableSessions && allAvailableSessions.length > 0 ? allAvailableSessions : sessions || [];
+    
+    // For accurate conflict detection, also include sessions from adjacent date range
+    // This helps catch conflicts near month boundaries
+    const targetDate = new Date(selectedDate + 'T12:00:00');
+    const dayBefore = new Date(targetDate.getTime() - 24 * 60 * 60 * 1000);
+    const dayAfter = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
+    
+    const daySessionsForTherapist = allSessionsData.filter(s => {
       const sessionDate = new Date(s.sessionDate);
-      const checkDate = new Date(selectedDate + 'T12:00:00');
-      return sessionDate.toDateString() === checkDate.toDateString() && s.therapistId === therapistId;
+      // Include sessions from day before, target day, and day after to catch overlapping sessions
+      return (
+        (sessionDate.toDateString() === targetDate.toDateString() ||
+         sessionDate.toDateString() === dayBefore.toDateString() ||
+         sessionDate.toDateString() === dayAfter.toDateString()) &&
+        s.therapistId === therapistId
+      );
     });
     
-    const daySessionsForRoom = roomId ? (sessions || allAvailableSessions || []).filter(s => {
+    const allDaySessions = allSessionsData.filter(s => {
       const sessionDate = new Date(s.sessionDate);
-      const checkDate = new Date(selectedDate + 'T12:00:00');
-      return sessionDate.toDateString() === checkDate.toDateString() && s.roomId === roomId;
-    }) : [];
-    
-    // Debug logging to help see what's happening
-    console.log(`🔍 Checking availability for date: ${selectedDate}, therapist: ${therapistId}, room: ${roomId || 'none'}`);
-    console.log(`📅 Therapist has ${daySessionsForTherapist.length} sessions this day`);
-    console.log(`🏠 Room has ${daySessionsForRoom.length} sessions this day`);
+      return (
+        sessionDate.toDateString() === targetDate.toDateString() ||
+        sessionDate.toDateString() === dayBefore.toDateString() ||
+        sessionDate.toDateString() === dayAfter.toDateString()
+      );
+    });
     
     // Check each time slot for availability
     for (const timeSlot of timeSlots) {
@@ -515,29 +536,61 @@ export default function SchedulingPage() {
         const existingStart = existingTime.getTime();
         const existingEnd = existingStart + (existingDuration * 60 * 1000);
         const proposedStart = proposedDateTime.getTime();
-        const proposedEnd = proposedStart + (60 * 60 * 1000); // Assume 1 hour for conflict check
+        const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
         return (proposedStart < existingEnd && proposedEnd > existingStart);
       });
       
-      // Check room conflicts if room is selected
-      const hasRoomConflict = roomId ? daySessionsForRoom.some(existingSession => {
-        const existingTime = new Date(existingSession.sessionDate);
-        const existingDuration = (existingSession.service as any)?.duration || 60;
-        const existingStart = existingTime.getTime();
-        const existingEnd = existingStart + (existingDuration * 60 * 1000);
-        const proposedStart = proposedDateTime.getTime();
-        const proposedEnd = proposedStart + (60 * 60 * 1000); // Assume 1 hour for conflict check
-        return (proposedStart < existingEnd && proposedEnd > existingStart);
-      }) : false;
+      // Skip if therapist is not available
+      if (hasTherapistConflict) continue;
       
-      // If no conflicts, add to available slots
-      if (!hasTherapistConflict && !hasRoomConflict && availableSlots.length < 8) {
-        availableSlots.push(timeSlot);
+      // If specific room is selected, check only that room
+      if (roomId) {
+        const hasRoomConflict = allDaySessions.some(existingSession => {
+          if (existingSession.roomId !== roomId) return false;
+          const existingTime = new Date(existingSession.sessionDate);
+          const existingDuration = (existingSession.service as any)?.duration || 60;
+          const existingStart = existingTime.getTime();
+          const existingEnd = existingStart + (existingDuration * 60 * 1000);
+          const proposedStart = proposedDateTime.getTime();
+          const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
+          return (proposedStart < existingEnd && proposedEnd > existingStart);
+        });
+        
+        if (!hasRoomConflict && results.length < 8) {
+          results.push({
+            time: timeSlot,
+            availableRooms: 1,
+            totalRooms: 1
+          });
+        }
+      } else {
+        // Count available rooms for this time slot
+        const busyRooms = new Set();
+        allDaySessions.forEach(existingSession => {
+          if (!existingSession.roomId) return;
+          const existingTime = new Date(existingSession.sessionDate);
+          const existingDuration = (existingSession.service as any)?.duration || 60;
+          const existingStart = existingTime.getTime();
+          const existingEnd = existingStart + (existingDuration * 60 * 1000);
+          const proposedStart = proposedDateTime.getTime();
+          const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
+          if (proposedStart < existingEnd && proposedEnd > existingStart) {
+            busyRooms.add(existingSession.roomId);
+          }
+        });
+        
+        const availableRooms = totalRooms - busyRooms.size;
+        if (availableRooms > 0 && results.length < 8) {
+          results.push({
+            time: timeSlot,
+            availableRooms,
+            totalRooms
+          });
+        }
       }
     }
     
-    console.log(`✅ Found ${availableSlots.length} available time slots`);
-    return availableSlots;
+    return results;
   };
 
   const getInitials = (name: string): string => {
@@ -929,34 +982,66 @@ export default function SchedulingPage() {
                                   </SelectContent>
                                 </Select>
                                 
-                                {/* Dynamic Available Time Slots */}
+                                {/* Time Suggestions - Only show when therapist + service + date selected */}
                                 {(() => {
                                   const selectedDate = form.watch('sessionDate');
                                   const selectedTherapist = form.watch('therapistId');
+                                  const selectedService = form.watch('serviceId');
                                   const selectedRoom = form.watch('roomId');
                                   
-                                  if (!selectedDate || !selectedTherapist) return null;
+                                  // Require therapist + service + date before showing suggestions
+                                  if (!selectedDate || !selectedTherapist || !selectedService) {
+                                    return (
+                                      <div className="text-xs text-slate-500 italic">
+                                        Please select therapist, service, and date to see available times
+                                      </div>
+                                    );
+                                  }
                                   
-                                  const availableSlots = generateAvailableTimeSlots(selectedDate, selectedTherapist, selectedRoom);
+                                  // Get service duration - no default, must be explicit
+                                  const selectedServiceData = services?.find(s => s.id === selectedService);
+                                  const serviceDuration = (selectedServiceData as any)?.duration;
+                                  
+                                  if (!serviceDuration || serviceDuration <= 0) {
+                                    return (
+                                      <div className="text-xs text-orange-600">
+                                        Service duration not available - please select a different service
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  const availableSlots = generateAvailableTimeSlotsWithRoomCounts(selectedDate, serviceDuration, selectedTherapist, selectedRoom);
+                                  
+                                  // Show loading state if rooms data isn't ready
+                                  if (!rooms || rooms.length === 0) {
+                                    return (
+                                      <div className="text-xs text-slate-500 italic">
+                                        Loading room availability...
+                                      </div>
+                                    );
+                                  }
                                   
                                   return (
                                     <div className="space-y-1">
                                       <span className="text-xs text-slate-600">
-                                        Available times{selectedRoom ? ' (therapist + room)' : ' (therapist only)'}:
+                                        Available times{selectedRoom ? ' (filtered by room)' : ' (all rooms)'}:
                                       </span>
                                       <div className="flex flex-wrap gap-1">
-                                        {availableSlots.map((timeSlot) => (
+                                        {availableSlots.map((slot) => (
                                           <Button
-                                            key={timeSlot}
+                                            key={slot.time}
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                                            className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 flex items-center gap-1"
                                             onClick={() => {
-                                              form.setValue('sessionTime', timeSlot);
+                                              form.setValue('sessionTime', slot.time);
                                             }}
                                           >
-                                            {formatTime(timeSlot)}
+                                            {formatTime(slot.time)}
+                                            <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded">
+                                              {slot.availableRooms}/{slot.totalRooms}R
+                                            </span>
                                           </Button>
                                         ))}
                                       </div>
@@ -964,6 +1049,13 @@ export default function SchedulingPage() {
                                         <p className="text-xs text-orange-600">
                                           No available times for this therapist{selectedRoom ? ' and room' : ''} on this date
                                         </p>
+                                      )}
+                                      
+                                      {/* Room impact message */}
+                                      {selectedRoom && (
+                                        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                          🏠 Room filter applied - {availableSlots.length > 0 ? 'showing times when both therapist and room are free' : 'no matching availability'}
+                                        </div>
                                       )}
                                     </div>
                                   );
