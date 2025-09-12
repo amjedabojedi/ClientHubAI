@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 
 interface Notification {
@@ -48,24 +49,33 @@ export default function NotificationDropdown({
   isMarkingAllAsRead
 }: NotificationDropdownProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  const userId = user?.id || user?.user?.id;
 
   // Mark single notification as read
   const markAsReadMutation = useMutation({
-    mutationFn: (notificationId: number) => 
-      apiRequest(`/api/notifications/${notificationId}/read`, "PUT"),
+    mutationFn: (notificationId: number) => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      return apiRequest(`/api/notifications/${notificationId}/read?${params.toString()}`, "PUT");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
   });
 
   // Delete notification
   const deleteNotificationMutation = useMutation({
-    mutationFn: (notificationId: number) => 
-      apiRequest(`/api/notifications/${notificationId}`, "DELETE"),
+    mutationFn: (notificationId: number) => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      return apiRequest(`/api/notifications/${notificationId}?${params.toString()}`, "DELETE");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
   });
 

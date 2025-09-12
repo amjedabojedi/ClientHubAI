@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import NotificationDropdown from "./notification-dropdown.tsx";
 
 interface NotificationBellProps {
@@ -19,20 +20,38 @@ interface NotificationBellProps {
 export default function NotificationBell({ className }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  const userId = user?.id || user?.user?.id;
 
   // Get unread notification count
   const { data: unreadData, isLoading: countLoading } = useQuery({
-    queryKey: ["/api/notifications/unread-count"],
+    queryKey: ["/api/notifications/unread-count", userId],
+    enabled: !!userId,
     refetchInterval: 30000, // Refetch every 30 seconds
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      
+      const response = await fetch(`/api/notifications/unread-count?${params.toString()}`, {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error('Failed to fetch unread count');
+      return response.json();
+    },
   });
 
   // Get notifications when dropdown is opened
   const { data: notificationsData, isLoading: notificationsLoading } = useQuery({
-    queryKey: ["/api/notifications"],
-    enabled: isOpen, // Only fetch when dropdown is open
+    queryKey: ["/api/notifications", userId],
+    enabled: isOpen && !!userId, // Only fetch when dropdown is open and user is authenticated
     queryFn: async () => {
       try {
-        const res = await fetch("/api/notifications?limit=20", {
+        const params = new URLSearchParams();
+        if (userId) params.append('userId', userId.toString());
+        params.append('limit', '20');
+        
+        const res = await fetch(`/api/notifications?${params.toString()}`, {
           credentials: "include"
         });
         if (!res.ok) {
@@ -51,10 +70,14 @@ export default function NotificationBell({ className }: NotificationBellProps) {
 
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => apiRequest("/api/notifications/mark-all-read", "PUT"),
+    mutationFn: () => {
+      const params = new URLSearchParams();
+      if (userId) params.append('userId', userId.toString());
+      return apiRequest(`/api/notifications/mark-all-read?${params.toString()}`, "PUT");
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
   });
 
