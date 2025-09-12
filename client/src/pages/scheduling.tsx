@@ -486,6 +486,7 @@ export default function SchedulingPage() {
     therapistId: number, 
     roomId: number
   ): Array<{time: string, isAvailable: boolean}> => {
+    
     // Enforce all required inputs - Room-First workflow requires all parameters
     if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0 || !roomId) return [];
     
@@ -951,11 +952,12 @@ export default function SchedulingPage() {
                                 </Select>
                                 
                                 {/* Time Suggestions - Only show when therapist + service + date selected */}
-                                {(() => {
+                                {React.useMemo(() => {
                                   const selectedDate = form.watch('sessionDate');
                                   const selectedTherapist = form.watch('therapistId');
                                   const selectedService = form.watch('serviceId');
                                   const selectedRoom = form.watch('roomId');
+                                  
                                   
                                   // Room-First workflow: require room selection first
                                   if (!selectedRoom) {
@@ -1057,7 +1059,7 @@ export default function SchedulingPage() {
                                       })()}
                                     </div>
                                   );
-                                })()}
+                                }, [form.watch('roomId'), form.watch('therapistId'), form.watch('serviceId'), form.watch('sessionDate'), rooms, sessions, allAvailableSessions])}
                               </div>
                               <FormMessage />
                             </FormItem>
