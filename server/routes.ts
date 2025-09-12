@@ -422,6 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await notificationService.processEvent('client_created', {
           id: client.id,
+          clientName: client.fullName,
           fullName: client.fullName,
           assignedTherapistId: client.assignedTherapistId,
           referenceNumber: client.referenceNumber,
@@ -467,12 +468,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           validatedData.assignedTherapistId !== originalClient.assignedTherapistId) {
         // Trigger client assigned notification
         try {
+          const assignedTherapist = await storage.getUser(client.assignedTherapistId!);
+          
           await notificationService.processEvent('client_assigned', {
             id: client.id,
+            clientName: client.fullName,
             fullName: client.fullName,
+            clientId: client.id,
+            assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
             referenceNumber: client.referenceNumber,
             assignmentDate: new Date(),
+            priority: 'medium',
             previousTherapistId: originalClient.assignedTherapistId
           });
         } catch (notificationError) {
@@ -1881,11 +1888,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trigger task created notification for ALL new tasks
       try {
+        // Get client details for proper notification rendering
+        const client = await storage.getClient(task.clientId);
+        
         await notificationService.processEvent('task_created', {
           id: task.id,
           title: task.title,
           description: task.description,
           clientId: task.clientId,
+          clientName: client?.fullName || 'Unknown Client',
+          clientReference: client?.referenceNumber || '',
           assignedToId: task.assignedToId,
           priority: task.priority,
           dueDate: task.dueDate,
@@ -1898,12 +1910,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Trigger task assigned notification if task has an assignee
       if (task.assignedToId) {
         try {
+          // Get client details for proper notification rendering
+          const client = await storage.getClient(task.clientId);
+          const assignedUser = await storage.getUser(task.assignedToId);
+          
           await notificationService.processEvent('task_assigned', {
             id: task.id,
             title: task.title,
             description: task.description,
             clientId: task.clientId,
+            clientName: client?.fullName || 'Unknown Client',
+            clientReference: client?.referenceNumber || '',
             assignedToId: task.assignedToId,
+            assignedToName: assignedUser?.fullName || 'Unknown User',
             priority: task.priority,
             dueDate: task.dueDate,
             createdAt: task.createdAt
