@@ -97,12 +97,12 @@ interface RoomData {
 
 // Session form schema
 const sessionFormSchema = z.object({
-  clientId: z.number().min(1, "Client is required"),
-  therapistId: z.number().min(1, "Therapist is required"),
+  clientId: z.coerce.number().int().min(1, "Client is required"),
+  therapistId: z.coerce.number().int().min(1, "Therapist is required"),
   sessionDate: z.string().min(1, "Date is required"),
   sessionTime: z.string().min(1, "Time is required"),
-  serviceId: z.number().min(1, "Service is required"),
-  roomId: z.number().min(1, "Room is required"),
+  serviceId: z.coerce.number().int().min(1, "Service is required"),
+  roomId: z.coerce.number().int().min(1, "Room is required"),
   sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
   notes: z.string().optional(),
 });
@@ -490,6 +490,12 @@ export default function SchedulingPage() {
     // Enforce all required inputs - Room-First workflow requires all parameters
     if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0 || !roomId) return [];
     
+    // Debug type checking
+    if (typeof roomId !== 'number' || typeof therapistId !== 'number') {
+      console.warn('🚨 Type mismatch detected:', { roomId: typeof roomId, therapistId: typeof therapistId, roomIdValue: roomId, therapistIdValue: therapistId });
+      return [];
+    }
+    
     // Ensure rooms data is loaded before showing suggestions
     if (!rooms || rooms.length === 0) return [];
     
@@ -522,7 +528,7 @@ export default function SchedulingPage() {
         (dt.toDateString() === targetDate.toDateString() ||
          dt.toDateString() === dayBefore.toDateString() ||
          dt.toDateString() === dayAfter.toDateString()) &&
-        s.roomId === roomId
+        s.roomId === roomId  // Both should be numbers now
       );
     });
     
@@ -1004,7 +1010,11 @@ export default function SchedulingPage() {
                                     );
                                   }
                                   
-                                  const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, selectedTherapist, selectedRoom);
+                                  // Convert to numbers for proper comparison with database
+                                  const roomIdNum = Number(selectedRoom || 0);
+                                  const therapistIdNum = Number(selectedTherapist || 0);
+                                  
+                                  const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum);
                                   
                                   // Show loading state if rooms data isn't ready
                                   if (!rooms || rooms.length === 0) {
