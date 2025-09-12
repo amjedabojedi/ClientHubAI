@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
 interface Notification {
@@ -539,6 +540,7 @@ function CreateTemplateForm({ onSubmit, isLoading, template }: CreateTemplateFor
 
 export default function NotificationsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -548,6 +550,16 @@ export default function NotificationsPage() {
   const [editingTemplate, setEditingTemplate] = useState<NotificationTemplate | null>(null);
   const [editingTrigger, setEditingTrigger] = useState<NotificationTrigger | null>(null);
   const [deletingTrigger, setDeletingTrigger] = useState<NotificationTrigger | null>(null);
+
+  // Check if user has admin privileges  
+  const isAdmin = user?.role === 'admin' || user?.role === 'supervisor';
+
+  // Ensure therapists can't access admin tabs
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'triggers' || activeTab === 'templates')) {
+      setActiveTab('notifications');
+    }
+  }, [isAdmin, activeTab]);
 
   // Fetch notifications
   const { data: notifications = [], isLoading: notificationsLoading } = useQuery({
@@ -777,10 +789,10 @@ export default function NotificationsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="triggers">Triggers</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
+          {isAdmin && <TabsTrigger value="triggers">Triggers</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="templates">Templates</TabsTrigger>}
         </TabsList>
 
         {/* Notifications Tab */}
