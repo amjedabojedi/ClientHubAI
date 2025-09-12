@@ -1852,6 +1852,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertTaskSchema.parse(taskData);
       const task = await storage.createTask(validatedData);
       
+      // Trigger task created notification for ALL new tasks
+      try {
+        await notificationService.processEvent('task_created', {
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          clientId: task.clientId,
+          assignedToId: task.assignedToId,
+          priority: task.priority,
+          dueDate: task.dueDate,
+          createdAt: task.createdAt
+        });
+      } catch (notificationError) {
+        console.error('Task created notification failed:', notificationError);
+      }
+      
       // Trigger task assigned notification if task has an assignee
       if (task.assignedToId) {
         try {
