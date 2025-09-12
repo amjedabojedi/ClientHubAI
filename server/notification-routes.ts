@@ -86,25 +86,33 @@ router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
 });
 
 /**
- * POST /api/notifications - Create a notification (admin/system use)
+ * POST /api/notifications - Create a notification (admin/supervisor only)
  */
-router.post("/", async (req, res) => {
+router.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check admin/supervisor permissions
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Insufficient permissions - admin/supervisor required" });
     }
 
     // Validate request body
     const validatedData = insertNotificationSchema.parse(req.body);
-    const notification = await storage.createNotification(validatedData);
+    
+    // Server determines the target user - prevent privilege escalation
+    const finalNotificationData = {
+      ...validatedData,
+      // Only administrators can create notifications for other users
+      userId: req.user.role === 'administrator' ? validatedData.userId || req.user.id : req.user.id
+    };
+
+    const notification = await storage.createNotification(finalNotificationData);
     
     res.status(201).json(notification);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid notification data", details: error.errors });
     }
-
+    console.error("Failed to create notification:", error);
     res.status(500).json({ error: "Failed to create notification" });
   }
 });
@@ -114,17 +122,13 @@ router.post("/", async (req, res) => {
 /**
  * GET /api/notifications/preferences - Get user's notification preferences
  */
-router.get("/preferences", async (req, res) => {
+router.get("/preferences", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user.id;
     const preferences = await storage.getUserNotificationPreferences(userId);
     res.json(preferences);
   } catch (error) {
-
+    console.error("Failed to get user preferences:", error);
     res.status(500).json({ error: "Failed to get user preferences" });
   }
 });
@@ -132,13 +136,9 @@ router.get("/preferences", async (req, res) => {
 /**
  * PUT /api/notifications/preferences/:triggerType - Set user notification preference
  */
-router.put("/preferences/:triggerType", async (req, res) => {
+router.put("/preferences/:triggerType", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user.id;
     const triggerType = req.params.triggerType;
     const validatedData = insertNotificationPreferenceSchema.partial().parse(req.body);
     
@@ -148,7 +148,7 @@ router.put("/preferences/:triggerType", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid preference data", details: error.errors });
     }
-
+    console.error("Failed to set user preference:", error);
     res.status(500).json({ error: "Failed to set user preference" });
   }
 });
@@ -156,15 +156,20 @@ router.put("/preferences/:triggerType", async (req, res) => {
 // ===== ADMIN/TRIGGER MANAGEMENT ENDPOINTS =====
 
 /**
- * GET /api/notifications/triggers - Get notification triggers (admin only)
+ * GET /api/notifications/triggers - Get notification triggers (admin/supervisor only)
  */
-router.get("/triggers", async (req, res) => {
+router.get("/triggers", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    // Check admin/supervisor permissions
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
+    }
+
     const eventType = req.query.eventType as string;
     const triggers = await storage.getNotificationTriggers(eventType);
     res.json(triggers);
   } catch (error) {
-
+    console.error("Failed to get triggers:", error);
     res.status(500).json({ error: "Failed to get triggers" });
   }
 });
@@ -172,11 +177,10 @@ router.get("/triggers", async (req, res) => {
 /**
  * POST /api/notifications/triggers - Create notification trigger (admin only)
  */
-router.post("/triggers", async (req, res) => {
+router.post("/triggers", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const validatedData = insertNotificationTriggerSchema.parse(req.body);
@@ -195,11 +199,10 @@ router.post("/triggers", async (req, res) => {
 /**
  * PUT /api/notifications/triggers/:id - Update notification trigger (admin only)
  */
-router.put("/triggers/:id", async (req, res) => {
+router.put("/triggers/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const triggerId = parseInt(req.params.id);
@@ -219,11 +222,10 @@ router.put("/triggers/:id", async (req, res) => {
 /**
  * DELETE /api/notifications/triggers/:id - Delete notification trigger (admin only)
  */
-router.delete("/triggers/:id", async (req, res) => {
+router.delete("/triggers/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const triggerId = parseInt(req.params.id);
@@ -255,11 +257,10 @@ router.get("/templates", async (req, res) => {
 /**
  * POST /api/notifications/templates - Create notification template (admin only)
  */
-router.post("/templates", async (req, res) => {
+router.post("/templates", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const validatedData = insertNotificationTemplateSchema.parse(req.body);
@@ -278,11 +279,10 @@ router.post("/templates", async (req, res) => {
 /**
  * PUT /api/notifications/templates/:id - Update notification template (admin only for now)
  */
-router.put("/templates/:id", async (req, res) => {
+router.put("/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const templateId = parseInt(req.params.id);
@@ -302,11 +302,10 @@ router.put("/templates/:id", async (req, res) => {
 /**
  * DELETE /api/notifications/templates/:id - Delete notification template (admin only)
  */
-router.delete("/templates/:id", async (req, res) => {
+router.delete("/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const templateId = parseInt(req.params.id);
@@ -324,11 +323,10 @@ router.delete("/templates/:id", async (req, res) => {
 /**
  * POST /api/notifications/test-event - Test event processing (admin only)
  */
-router.post("/test-event", async (req, res) => {
+router.post("/test-event", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const { eventType, entityData } = req.body;
@@ -347,11 +345,10 @@ router.post("/test-event", async (req, res) => {
 /**
  * GET /api/notifications/stats - Get notification statistics (admin only)
  */
-router.get("/stats", async (req, res) => {
+router.get("/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     const stats = await storage.getNotificationStats();
@@ -365,11 +362,10 @@ router.get("/stats", async (req, res) => {
 /**
  * POST /api/notifications/cleanup - Cleanup expired notifications (admin only)
  */
-router.post("/cleanup", async (req, res) => {
+router.post("/cleanup", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userRole = (req as any).user?.role;
-    if (!userRole || !['admin', 'supervisor'].includes(userRole)) {
-      return res.status(403).json({ error: "Admin access required" });
+    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+      return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
     await storage.cleanupExpiredNotifications();

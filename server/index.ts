@@ -3,7 +3,7 @@ import { createServer } from "http";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { optionalAuth } from "./auth-middleware";
+import { optionalAuth, csrfProtection } from "./auth-middleware";
 
 const app = express();
 // Increase payload limits for document uploads
@@ -15,6 +15,15 @@ app.use(cookieParser());
 
 // Optional authentication - sets req.user if valid session exists
 app.use(optionalAuth);
+
+// CSRF protection for all API routes except auth endpoints (POST/PUT/DELETE)
+app.use('/api', (req, res, next) => {
+  // Skip CSRF for login endpoint (it creates the CSRF token)
+  if (req.path === '/auth/login' || req.path === '/auth/logout') {
+    return next();
+  }
+  return csrfProtection(req, res, next);
+});
 
 // Simple request logging for production
 app.use((req, res, next) => {
