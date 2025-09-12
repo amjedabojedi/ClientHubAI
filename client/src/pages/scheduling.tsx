@@ -559,12 +559,6 @@ export default function SchedulingPage() {
       );
     });
     
-    // DEBUG: Log room-specific conflict check
-    console.debug('[🏠 ROOM-FIRST] Room', roomId, 'availability check:', {
-      date: targetDate.toDateString(),
-      roomSessions: daySessionsForRoom.length,
-      roomBookedTimes: daySessionsForRoom.map(s => new Date(s.sessionDate).toTimeString().substring(0, 5))
-    });
     
     const allDaySessions = allSessionsData.filter(s => {
       const sessionDate = new Date(s.sessionDate);
@@ -596,12 +590,6 @@ export default function SchedulingPage() {
       });
     }
     
-    console.debug('[🎯 AVAILABILITY] Room', roomId, 'results:', {
-      totalSlots: results.length,
-      availableSlots: results.filter(r => r.isAvailable).length,
-      unavailableSlots: results.filter(r => !r.isAvailable).length,
-      details: results.map(r => ({ time: r.time, available: r.isAvailable }))
-    });
     
     return results;
   };
@@ -1052,19 +1040,7 @@ export default function SchedulingPage() {
                                   const roomIdNum = Number(selectedRoom || 0);
                                   const therapistIdNum = Number(selectedTherapist || 0);
                                   
-                                  // DEBUG: Log function inputs and execution
-                                  console.debug('[🎯 SUGGESTION DEBUG] Inputs:', {
-                                    selectedDate,
-                                    serviceDuration,
-                                    therapistIdNum,
-                                    roomIdNum,
-                                    selectedService,
-                                    normalizedSessionsCount: normalizedSessions.length
-                                  });
-                                  
                                   const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum);
-                                  
-                                  console.debug('[🎯 SUGGESTION DEBUG] Generated slots:', availableSlots.length, 'total slots');
                                   
                                   // Show loading state if rooms data isn't ready
                                   if (!rooms || rooms.length === 0) {
