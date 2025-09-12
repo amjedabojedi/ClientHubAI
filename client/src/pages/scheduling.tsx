@@ -559,13 +559,11 @@ export default function SchedulingPage() {
       );
     });
     
-    // DEBUG: Log conflict check data
-    console.debug('[🔍 CONFLICT CHECK] For Room', roomId, 'Therapist', therapistId, ':', {
+    // DEBUG: Log room-specific conflict check
+    console.debug('[🏠 ROOM-FIRST] Room', roomId, 'availability check:', {
       date: targetDate.toDateString(),
-      therapistSessions: daySessionsForTherapist.length,
       roomSessions: daySessionsForRoom.length,
-      therapistTimes: daySessionsForTherapist.map(s => new Date(s.sessionDate).toTimeString().substring(0, 5)),
-      roomTimes: daySessionsForRoom.map(s => new Date(s.sessionDate).toTimeString().substring(0, 5))
+      roomBookedTimes: daySessionsForRoom.map(s => new Date(s.sessionDate).toTimeString().substring(0, 5))
     });
     
     const allDaySessions = allSessionsData.filter(s => {
@@ -582,22 +580,15 @@ export default function SchedulingPage() {
       const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
       const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
 
-      // Check if therapist is busy during this time slot
-      const therapistBusy = daySessionsForTherapist.some(s => {
-        const sStart = new Date(s.sessionDate).getTime();
-        const sEnd = sStart + (serviceDuration * 60000); // Use same duration for consistency
-        return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
-      });
-
-      // Check if room is busy during this time slot  
+      // ROOM-FIRST LOGIC: Check if room is busy during this time slot  
       const roomBusy = daySessionsForRoom.some(s => {
         const sStart = new Date(s.sessionDate).getTime();
         const sEnd = sStart + (serviceDuration * 60000); // Use same duration for consistency
         return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
       });
 
-      // Available only if BOTH therapist AND room are free
-      const isAvailable = !therapistBusy && !roomBusy;
+      // Available based on ROOM availability only - each room shows its own pattern
+      const isAvailable = !roomBusy;
       
       results.push({ 
         time: timeSlot, 
