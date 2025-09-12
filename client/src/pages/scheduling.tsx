@@ -559,13 +559,13 @@ export default function SchedulingPage() {
       );
     });
     
-    // DEBUG: Log room filtering results
-    console.debug('[🏠 ROOM FILTER DEBUG] Room filtering:', {
-      targetDate: targetDate.toDateString(),
-      lookingForRoomId: roomId,
-      totalSessions: allSessionsData.length,
-      roomSessionsFound: daySessionsForRoom.length,
-      sampleRoomIds: allSessionsData.slice(0, 5).map(s => ({ sessionId: s.id, roomId: s.roomId, date: new Date(s.sessionDate).toDateString() }))
+    // DEBUG: Log conflict check data
+    console.debug('[🔍 CONFLICT CHECK] For Room', roomId, 'Therapist', therapistId, ':', {
+      date: targetDate.toDateString(),
+      therapistSessions: daySessionsForTherapist.length,
+      roomSessions: daySessionsForRoom.length,
+      therapistTimes: daySessionsForTherapist.map(s => new Date(s.sessionDate).toTimeString().substring(0, 5)),
+      roomTimes: daySessionsForRoom.map(s => new Date(s.sessionDate).toTimeString().substring(0, 5))
     });
     
     const allDaySessions = allSessionsData.filter(s => {
@@ -577,29 +577,40 @@ export default function SchedulingPage() {
       );
     });
     
-    // Room-First logic: check each time slot for both therapist AND room availability
+    // Simple Room + Therapist conflict logic: check each time slot
     for (const timeSlot of timeSlots) {
       const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
       const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
 
+      // Check if therapist is busy during this time slot
       const therapistBusy = daySessionsForTherapist.some(s => {
         const sStart = new Date(s.sessionDate).getTime();
-        const sEnd = sStart + ((s.service as any)?.duration || 60) * 60000;
+        const sEnd = sStart + (serviceDuration * 60000); // Use same duration for consistency
         return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
       });
-      if (therapistBusy) continue;
 
+      // Check if room is busy during this time slot  
       const roomBusy = daySessionsForRoom.some(s => {
         const sStart = new Date(s.sessionDate).getTime();
-        const sEnd = sStart + ((s.service as any)?.duration || 60) * 60000;
+        const sEnd = sStart + (serviceDuration * 60000); // Use same duration for consistency
         return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
       });
 
-      if (!roomBusy) {
-        results.push({ time: timeSlot, isAvailable: true });
-        if (results.length >= 8) break; // keep prior 8-suggestion cap
-      }
+      // Available only if BOTH therapist AND room are free
+      const isAvailable = !therapistBusy && !roomBusy;
+      
+      results.push({ 
+        time: timeSlot, 
+        isAvailable 
+      });
     }
+    
+    console.debug('[🎯 AVAILABILITY] Room', roomId, 'results:', {
+      totalSlots: results.length,
+      availableSlots: results.filter(r => r.isAvailable).length,
+      unavailableSlots: results.filter(r => !r.isAvailable).length,
+      details: results.map(r => ({ time: r.time, available: r.isAvailable }))
+    });
     
     return results;
   };
