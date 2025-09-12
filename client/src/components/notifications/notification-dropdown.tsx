@@ -115,7 +115,7 @@ export default function NotificationDropdown({
   };
 
   return (
-    <div className="w-80">
+    <div className="w-72 max-w-full">
       {/* Header */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
@@ -182,7 +182,7 @@ export default function NotificationDropdown({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className={cn(
-                        "text-sm font-medium",
+                        "text-sm font-medium break-words leading-tight",
                         !notification.isRead ? "text-slate-900" : "text-slate-700"
                       )}>
                         {notification.title}
@@ -200,7 +200,7 @@ export default function NotificationDropdown({
                       </div>
                     </div>
                     
-                    <p className="text-xs text-slate-600 mt-1 line-clamp-2">
+                    <p className="text-xs text-slate-600 mt-1 line-clamp-3 break-words">
                       {notification.message}
                     </p>
                     
