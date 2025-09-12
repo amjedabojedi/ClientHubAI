@@ -499,6 +499,11 @@ export default function SchedulingPage() {
       return sessionDate.toDateString() === checkDate.toDateString() && s.roomId === roomId;
     }) : [];
     
+    // Debug logging to help see what's happening
+    console.log(`🔍 Checking availability for date: ${selectedDate}, therapist: ${therapistId}, room: ${roomId || 'none'}`);
+    console.log(`📅 Therapist has ${daySessionsForTherapist.length} sessions this day`);
+    console.log(`🏠 Room has ${daySessionsForRoom.length} sessions this day`);
+    
     // Check each time slot for availability
     for (const timeSlot of timeSlots) {
       const proposedDateTime = new Date(selectedDate + 'T' + timeSlot + ':00');
@@ -531,6 +536,7 @@ export default function SchedulingPage() {
       }
     }
     
+    console.log(`✅ Found ${availableSlots.length} available time slots`);
     return availableSlots;
   };
 
@@ -924,40 +930,44 @@ export default function SchedulingPage() {
                                 </Select>
                                 
                                 {/* Dynamic Available Time Slots */}
-                                {form.watch('sessionDate') && form.watch('therapistId') && (
-                                  <div className="space-y-1">
-                                    <span className="text-xs text-slate-600">Available times:</span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {generateAvailableTimeSlots(
-                                        form.watch('sessionDate'),
-                                        form.watch('therapistId'),
-                                        form.watch('roomId')
-                                      ).map((timeSlot) => (
-                                        <Button
-                                          key={timeSlot}
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
-                                          onClick={() => {
-                                            form.setValue('sessionTime', timeSlot);
-                                          }}
-                                        >
-                                          {formatTime(timeSlot)}
-                                        </Button>
-                                      ))}
+                                {(() => {
+                                  const selectedDate = form.watch('sessionDate');
+                                  const selectedTherapist = form.watch('therapistId');
+                                  const selectedRoom = form.watch('roomId');
+                                  
+                                  if (!selectedDate || !selectedTherapist) return null;
+                                  
+                                  const availableSlots = generateAvailableTimeSlots(selectedDate, selectedTherapist, selectedRoom);
+                                  
+                                  return (
+                                    <div className="space-y-1">
+                                      <span className="text-xs text-slate-600">
+                                        Available times{selectedRoom ? ' (therapist + room)' : ' (therapist only)'}:
+                                      </span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {availableSlots.map((timeSlot) => (
+                                          <Button
+                                            key={timeSlot}
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                                            onClick={() => {
+                                              form.setValue('sessionTime', timeSlot);
+                                            }}
+                                          >
+                                            {formatTime(timeSlot)}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                      {availableSlots.length === 0 && (
+                                        <p className="text-xs text-orange-600">
+                                          No available times for this therapist{selectedRoom ? ' and room' : ''} on this date
+                                        </p>
+                                      )}
                                     </div>
-                                    {generateAvailableTimeSlots(
-                                      form.watch('sessionDate'),
-                                      form.watch('therapistId'),
-                                      form.watch('roomId')
-                                    ).length === 0 && (
-                                      <p className="text-xs text-orange-600">
-                                        No available times for this therapist{form.watch('roomId') ? ' and room' : ''} on this date
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
+                                  );
+                                })()}
                               </div>
                               <FormMessage />
                             </FormItem>
