@@ -50,6 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
+import { formatTime, formatDate, formatDateTime, generateTimeSlots, timeRangesOverlap, getUserTimeFormat, DURATION_PRESETS, durationToMinutes } from "@/lib/datetime";
 
 // Components
 import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
@@ -464,15 +465,18 @@ export default function SchedulingPage() {
     return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
   };
 
-  const getTimeSlots = (): string[] => {
-    const slots: string[] = [];
-    for (let hour = 8; hour <= 18; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        slots.push(time);
-      }
-    }
-    return slots;
+  // Enhanced time slots with flexible intervals
+  const getTimeSlots = (intervalMinutes = 30): string[] => {
+    return generateTimeSlots(8, 18, intervalMinutes);
+  };
+  
+  // Get time slots with labels for display
+  const getTimeSlotsWithLabels = (intervalMinutes = 30): Array<{value: string, label: string}> => {
+    const slots = getTimeSlots(intervalMinutes);
+    return slots.map(time => ({
+      value: time,
+      label: formatTime(time)
+    }));
   };
 
   const getInitials = (name: string): string => {
@@ -851,9 +855,9 @@ export default function SchedulingPage() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {getTimeSlots().map((time) => (
-                                    <SelectItem key={time} value={time}>
-                                      {time}
+                                  {getTimeSlotsWithLabels().map((timeSlot) => (
+                                    <SelectItem key={timeSlot.value} value={timeSlot.value}>
+                                      {timeSlot.label}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -881,12 +885,7 @@ export default function SchedulingPage() {
                                   <ul className="mt-1 space-y-1">
                                     {conflictData.therapistConflicts.map((conflict, index) => (
                                       <li key={index} className="text-xs text-red-700">
-                                        • You have: {conflict.clientName} - {conflict.sessionType} at {(() => {
-                                          const sessionDate = parseSessionDate(conflict.sessionDate);
-                                          const hours = sessionDate.getHours().toString().padStart(2, '0');
-                                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                                          return `${hours}:${minutes}`;
-                                        })()}
+                                        • You have: {conflict.clientName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
                                       </li>
                                     ))}
                                   </ul>
@@ -900,12 +899,7 @@ export default function SchedulingPage() {
                                   <ul className="mt-1 space-y-1">
                                     {conflictData.roomConflicts.map((conflict, index) => (
                                       <li key={index} className="text-xs text-red-700">
-                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {(() => {
-                                          const sessionDate = parseSessionDate(conflict.sessionDate);
-                                          const hours = sessionDate.getHours().toString().padStart(2, '0');
-                                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                                          return `${hours}:${minutes}`;
-                                        })()}
+                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
                                       </li>
                                     ))}
                                   </ul>
@@ -933,12 +927,7 @@ export default function SchedulingPage() {
                                           form.setValue('sessionTime', `${hours}:${minutes}`);
                                         }}
                                       >
-                                        {(() => {
-                                          const timeDate = new Date(time);
-                                          const hours = timeDate.getHours().toString().padStart(2, '0');
-                                          const minutes = timeDate.getMinutes().toString().padStart(2, '0');
-                                          return `${hours}:${minutes}`;
-                                        })()}
+                                        {formatTime(time)}
                                       </Button>
                                     ))}
                                   </div>
@@ -1348,12 +1337,7 @@ export default function SchedulingPage() {
                                   {new Date(session.sessionDate).toLocaleDateString()}
                                 </p>
                                 <p className="text-sm text-slate-600">
-                                  {(() => {
-                                    const sessionDate = parseSessionDate(session.sessionDate);
-                                    const hours = sessionDate.getHours().toString().padStart(2, '0');
-                                    const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                                    return `${hours}:${minutes}`;
-                                  })()}
+                                  {formatTime(session.sessionDate)}
                                 </p>
                               </div>
                               
