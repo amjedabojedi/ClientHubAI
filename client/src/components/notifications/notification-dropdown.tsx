@@ -55,27 +55,21 @@ export default function NotificationDropdown({
 
   // Mark single notification as read
   const markAsReadMutation = useMutation({
-    mutationFn: (notificationId: number) => {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId.toString());
-      return apiRequest(`/api/notifications/${notificationId}/read?${params.toString()}`, "PUT");
-    },
+    mutationFn: (notificationId: number) => 
+      apiRequest(`/api/notifications/${notificationId}/read`, "PUT"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
 
   // Delete notification
   const deleteNotificationMutation = useMutation({
-    mutationFn: (notificationId: number) => {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId.toString());
-      return apiRequest(`/api/notifications/${notificationId}?${params.toString()}`, "DELETE");
-    },
+    mutationFn: (notificationId: number) => 
+      apiRequest(`/api/notifications/${notificationId}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
 

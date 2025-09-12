@@ -1,0 +1,118 @@
+import { Request, Response, NextFunction } from "express";
+import * as crypto from "crypto";
+
+// Server secret for signing tokens (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+
+interface TokenPayload {
+  id: number;
+  username: string;
+  role: string;
+  exp: number;
+}
+
+export interface AuthenticatedRequest extends Request {
+  user?: TokenPayload;
+}
+
+/**
+ * Create a signed session token
+ */
+export function createSessionToken(user: { id: number; username: string; role: string }): string {
+  const payload: TokenPayload = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    exp: Date.now() + TOKEN_EXPIRY
+  };
+  
+  const payloadStr = JSON.stringify(payload);
+  const signature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(payloadStr)
+    .digest('hex');
+  
+  return `${Buffer.from(payloadStr).toString('base64')}.${signature}`;
+}
+
+/**
+ * Verify and decode a session token
+ */
+export function verifySessionToken(token: string): TokenPayload | null {
+  try {
+    const [payloadB64, signature] = token.split('.');
+    if (!payloadB64 || !signature) return null;
+    
+    const payloadStr = Buffer.from(payloadB64, 'base64').toString();
+    const expectedSignature = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(payloadStr)
+      .digest('hex');
+    
+    // Verify signature
+    if (signature !== expectedSignature) return null;
+    
+    const payload: TokenPayload = JSON.parse(payloadStr);
+    
+    // Check expiry
+    if (Date.now() > payload.exp) return null;
+    
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Authentication middleware - verifies session cookie and sets req.user
+ */
+export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const token = req.cookies?.sessionToken;
+  
+  if (!token) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  const user = verifySessionToken(token);
+  if (!user) {
+    return res.status(401).json({ error: "Invalid or expired session" });
+  }
+  
+  req.user = user;
+  next();
+}
+
+/**
+ * Optional authentication middleware - sets req.user if valid session exists
+ */
+export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const token = req.cookies?.sessionToken;
+  
+  if (token) {
+    const user = verifySessionToken(token);
+    if (user) {
+      req.user = user;
+    }
+  }
+  
+  next();
+}
+
+/**
+ * CSRF protection middleware
+ */
+export function csrfProtection(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+  
+  const csrfToken = req.headers['x-csrf-token'] as string;
+  const cookieCsrf = req.cookies?.csrfToken;
+  
+  if (!csrfToken || !cookieCsrf || csrfToken !== cookieCsrf) {
+    return res.status(403).json({ error: "Invalid CSRF token" });
+  }
+  
+  next();
+}

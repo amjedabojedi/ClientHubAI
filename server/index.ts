@@ -1,12 +1,20 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { optionalAuth } from "./auth-middleware";
 
 const app = express();
 // Increase payload limits for document uploads
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+
+// Cookie parsing middleware
+app.use(cookieParser());
+
+// Optional authentication - sets req.user if valid session exists
+app.use(optionalAuth);
 
 // Simple request logging for production
 app.use((req, res, next) => {

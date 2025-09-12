@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { notificationService } from "./notification-service";
 import { z } from "zod";
 import { insertNotificationSchema, insertNotificationTriggerSchema, insertNotificationPreferenceSchema, insertNotificationTemplateSchema } from "@shared/schema";
+import { AuthenticatedRequest, requireAuth } from "./auth-middleware";
 
 const router = Router();
 
@@ -11,13 +12,9 @@ const router = Router();
 /**
  * GET /api/notifications - Get user's notifications
  */
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user!.id;
     const limit = parseInt(req.query.limit as string) || 50;
     const notifications = await storage.getUserNotifications(userId, limit);
     
@@ -31,13 +28,9 @@ router.get("/", async (req, res) => {
 /**
  * GET /api/notifications/unread-count - Get unread notification count
  */
-router.get("/unread-count", async (req, res) => {
+router.get("/unread-count", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user!.id;
     const count = await storage.getUnreadNotificationCount(userId);
     res.json({ count });
   } catch (error) {
@@ -49,13 +42,9 @@ router.get("/unread-count", async (req, res) => {
 /**
  * PUT /api/notifications/:id/read - Mark notification as read
  */
-router.put("/:id/read", async (req, res) => {
+router.put("/:id/read", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user!.id;
     const notificationId = parseInt(req.params.id);
     await storage.markNotificationAsRead(notificationId, userId);
     
@@ -69,13 +58,9 @@ router.put("/:id/read", async (req, res) => {
 /**
  * PUT /api/notifications/mark-all-read - Mark all notifications as read
  */
-router.put("/mark-all-read", async (req, res) => {
+router.put("/mark-all-read", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user!.id;
     await storage.markAllNotificationsAsRead(userId);
     res.json({ success: true });
   } catch (error) {
@@ -87,13 +72,9 @@ router.put("/mark-all-read", async (req, res) => {
 /**
  * DELETE /api/notifications/:id - Delete notification
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
+    const userId = req.user!.id;
     const notificationId = parseInt(req.params.id);
     await storage.deleteNotification(notificationId, userId);
     

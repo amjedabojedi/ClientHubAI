@@ -26,14 +26,10 @@ export default function NotificationBell({ className }: NotificationBellProps) {
 
   // Get unread notification count
   const { data: unreadData, isLoading: countLoading } = useQuery({
-    queryKey: ["/api/notifications/unread-count", userId],
-    enabled: !!userId,
+    queryKey: ["/api/notifications/unread-count"],
     refetchInterval: 30000, // Refetch every 30 seconds
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId.toString());
-      
-      const response = await fetch(`/api/notifications/unread-count?${params.toString()}`, {
+      const response = await fetch(`/api/notifications/unread-count`, {
         credentials: "include"
       });
       if (!response.ok) throw new Error('Failed to fetch unread count');
@@ -43,15 +39,11 @@ export default function NotificationBell({ className }: NotificationBellProps) {
 
   // Get notifications when dropdown is opened
   const { data: notificationsData, isLoading: notificationsLoading } = useQuery({
-    queryKey: ["/api/notifications", userId],
-    enabled: isOpen && !!userId, // Only fetch when dropdown is open and user is authenticated
+    queryKey: ["/api/notifications"],
+    enabled: isOpen, // Only fetch when dropdown is open
     queryFn: async () => {
       try {
-        const params = new URLSearchParams();
-        if (userId) params.append('userId', userId.toString());
-        params.append('limit', '20');
-        
-        const res = await fetch(`/api/notifications?${params.toString()}`, {
+        const res = await fetch(`/api/notifications?limit=20`, {
           credentials: "include"
         });
         if (!res.ok) {
@@ -70,14 +62,10 @@ export default function NotificationBell({ className }: NotificationBellProps) {
 
   // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId.toString());
-      return apiRequest(`/api/notifications/mark-all-read?${params.toString()}`, "PUT");
-    },
+    mutationFn: () => apiRequest("/api/notifications/mark-all-read", "PUT"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
 

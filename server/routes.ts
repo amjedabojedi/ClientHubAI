@@ -178,12 +178,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
       });
 
+      // Create secure session token
+      const { createSessionToken } = await import('./auth-middleware');
+      const sessionToken = createSessionToken({
+        id: user.id,
+        username: user.username,
+        role: user.role
+      });
+
+      // Generate CSRF token
+      const crypto = await import('crypto');
+      const csrfToken = crypto.randomBytes(32).toString('hex');
+
+      // Set secure cookies
+      const isProduction = process.env.NODE_ENV === 'production';
+      res.cookie('sessionToken', sessionToken, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+      res.cookie('csrfToken', csrfToken, {
+        httpOnly: false, // Accessible to JS for header
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+
       // Return user data without password
       const { password: _, ...userWithoutPassword } = user;
 
       res.json(userWithoutPassword);
     } catch (error) {
-      // Error logged
+      console.error("Login error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -5462,6 +5489,10 @@ This happens because only the file metadata was stored, not the actual file cont
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ===== AUTHENTICATION ROUTES =====
+  const { default: authRoutes } = await import('./auth-routes');
+  app.use('/api/auth', authRoutes);
 
   // ===== NOTIFICATION SYSTEM ROUTES =====
   // Notification routes use the authenticated user from session
