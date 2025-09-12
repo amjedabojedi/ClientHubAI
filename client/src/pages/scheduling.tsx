@@ -211,6 +211,18 @@ export default function SchedulingPage() {
 
   // Combine all sessions for cross-month availability
   const allAvailableSessions = [...sessions, ...prevMonthSessions, ...nextMonthSessions];
+  
+  // Normalize session data - convert all IDs from strings to numbers for proper filtering
+  const normalizedSessions = useMemo(() => 
+    allAvailableSessions.map(s => ({
+      ...s,
+      roomId: Number((s as any).roomId ?? 0),
+      therapistId: Number((s as any).therapistId ?? 0), 
+      serviceId: Number((s as any).serviceId ?? 0),
+      clientId: Number((s as any).clientId ?? 0)
+    })), 
+    [allAvailableSessions]
+  );
 
   // State for sessions list filters
   const [sessionsFilters, setSessionsFilters] = useState({
@@ -487,6 +499,8 @@ export default function SchedulingPage() {
     roomId: number
   ): Array<{time: string, isAvailable: boolean}> => {
     
+    // NOTE: Using normalized sessions data further down for proper ID comparison
+    
     // Enforce all required inputs - Room-First workflow requires all parameters
     if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0 || !roomId) return [];
     
@@ -502,8 +516,8 @@ export default function SchedulingPage() {
     const results: Array<{ time: string, isAvailable: boolean }> = [];
     const timeSlots = getTimeSlots(30); // 30-minute intervals
     
-    // Get comprehensive session data - prioritize allAvailableSessions for cross-month accuracy
-    const allSessionsData = allAvailableSessions && allAvailableSessions.length > 0 ? allAvailableSessions : sessions || [];
+    // Get comprehensive session data - using NORMALIZED sessions for proper ID comparison
+    const allSessionsData = normalizedSessions && normalizedSessions.length > 0 ? normalizedSessions : [];
     
     // For accurate conflict detection, also include sessions from adjacent date range
     // This helps catch conflicts near month boundaries
@@ -528,7 +542,7 @@ export default function SchedulingPage() {
         (dt.toDateString() === targetDate.toDateString() ||
          dt.toDateString() === dayBefore.toDateString() ||
          dt.toDateString() === dayAfter.toDateString()) &&
-        s.roomId === roomId  // Both should be numbers now
+        s.roomId === roomId  // Both are numbers now - fixed!
       );
     });
     
