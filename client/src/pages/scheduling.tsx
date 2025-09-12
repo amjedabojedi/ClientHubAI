@@ -479,44 +479,66 @@ export default function SchedulingPage() {
     }));
   };
 
-  // Generate smart time suggestions based on therapist/room availability
-  const generateSmartTimeSuggestions = (selectedDate: string, therapistId?: number, roomId?: number, serviceDuration = 60): string[] => {
+  // Generate dynamic available time ranges based on actual conflicts
+  const generateDynamicTimeRanges = (selectedDate: string, therapistId?: number, roomId?: number, serviceDuration = 60): Array<{startTime: string, endTime: string}> => {
     if (!selectedDate || !therapistId) return [];
     
-    const suggestions: string[] = [];
-    const slots = getTimeSlots(15); // 15-minute intervals for more flexibility
-    const daySessionsForTherapist = sessions?.filter(s => {
+    const ranges: Array<{startTime: string, endTime: string}> = [];
+    const workDayStart = 8; // 8 AM
+    const workDayEnd = 18; // 6 PM
+    
+    // Get all sessions for this therapist on this day, sorted by time
+    const daySessionsForTherapist = (sessions || allAvailableSessions || []).filter(s => {
       const sessionDate = new Date(s.sessionDate);
       const checkDate = new Date(selectedDate + 'T12:00:00');
       return sessionDate.toDateString() === checkDate.toDateString() && s.therapistId === therapistId;
-    }) || [];
+    }).sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime());
     
-    for (const timeSlot of slots) {
-      const proposedDateTime = new Date(selectedDate + 'T' + timeSlot + ':00');
-      const proposedSession = {
-        sessionDate: proposedDateTime.toISOString(),
-        therapistId,
-        roomId,
-        service: { duration: serviceDuration }
-      } as Session;
+    // Calculate available gaps between sessions
+    let currentTime = workDayStart * 60; // Start at 8 AM in minutes
+    
+    for (const session of daySessionsForTherapist) {
+      const sessionStart = new Date(session.sessionDate);
+      const sessionStartMinutes = sessionStart.getHours() * 60 + sessionStart.getMinutes();
+      const sessionDuration = (session.service as any)?.duration || 60;
+      const sessionEndMinutes = sessionStartMinutes + sessionDuration;
       
-      // Check if this time slot has no conflicts
-      const hasTherapistConflict = daySessionsForTherapist.some(existingSession => {
-        const existingTime = new Date(existingSession.sessionDate);
-        const existingDuration = (existingSession.service as any)?.duration || 60;
-        const existingStart = existingTime.getTime();
-        const existingEnd = existingStart + (existingDuration * 60 * 1000);
-        const proposedStart = proposedDateTime.getTime();
-        const proposedEnd = proposedStart + (serviceDuration * 60 * 1000);
-        return (proposedStart < existingEnd && proposedEnd > existingStart);
-      });
-      
-      if (!hasTherapistConflict && suggestions.length < 5) {
-        suggestions.push(timeSlot);
+      // Check if there's a gap before this session
+      const gapDuration = sessionStartMinutes - currentTime;
+      if (gapDuration >= serviceDuration) {
+        // Found an available range
+        const startHour = Math.floor(currentTime / 60);
+        const startMin = currentTime % 60;
+        const endTime = currentTime + serviceDuration;
+        const endHour = Math.floor(endTime / 60);
+        const endMin = endTime % 60;
+        
+        ranges.push({
+          startTime: `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`,
+          endTime: `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`
+        });
       }
+      
+      // Move current time to after this session
+      currentTime = Math.max(currentTime, sessionEndMinutes);
     }
     
-    return suggestions;
+    // Check if there's time at the end of the day
+    const endOfDayMinutes = workDayEnd * 60;
+    if (endOfDayMinutes - currentTime >= serviceDuration) {
+      const startHour = Math.floor(currentTime / 60);
+      const startMin = currentTime % 60;
+      const endTime = currentTime + serviceDuration;
+      const endHour = Math.floor(endTime / 60);
+      const endMin = endTime % 60;
+      
+      ranges.push({
+        startTime: `${startHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`,
+        endTime: `${endHour.toString().padStart(2, '0')}:${endMin.toString().padStart(2, '0')}`
+      });
+    }
+    
+    return ranges.slice(0, 5); // Limit to 5 suggestions
   };
 
   const getInitials = (name: string): string => {
@@ -908,57 +930,41 @@ export default function SchedulingPage() {
                                   </SelectContent>
                                 </Select>
                                 
-                                {/* Smart Time Suggestions */}
-                                {form.watch('sessionDate') && form.watch('therapistId') && (
+                                {/* Dynamic Available Time Ranges */}
+                                {form.watch('sessionDate') && form.watch('therapistId') && form.watch('serviceId') && (
                                   <div className="space-y-1">
-                                    <span className="text-xs text-slate-600">Suggested times (no conflicts):</span>
+                                    <span className="text-xs text-slate-600">Available time ranges:</span>
                                     <div className="flex flex-wrap gap-1">
-                                      {generateSmartTimeSuggestions(
+                                      {generateDynamicTimeRanges(
                                         form.watch('sessionDate'),
                                         form.watch('therapistId'),
                                         form.watch('roomId'),
                                         (services?.find(s => s.id === form.watch('serviceId')) as any)?.duration || 60
-                                      ).map((timeSlot) => (
+                                      ).map((range) => (
                                         <Button
-                                          key={timeSlot}
+                                          key={range.startTime}
                                           type="button"
                                           variant="outline"
                                           size="sm"
                                           className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
                                           onClick={() => {
-                                            form.setValue('sessionTime', timeSlot);
+                                            form.setValue('sessionTime', range.startTime);
                                           }}
                                         >
-                                          {formatTime(timeSlot)}
+                                          {formatTime(range.startTime)} - {formatTime(range.endTime)}
                                         </Button>
                                       ))}
                                     </div>
+                                    {generateDynamicTimeRanges(
+                                      form.watch('sessionDate'),
+                                      form.watch('therapistId'),
+                                      form.watch('roomId'),
+                                      (services?.find(s => s.id === form.watch('serviceId')) as any)?.duration || 60
+                                    ).length === 0 && (
+                                      <p className="text-xs text-orange-600">No available time ranges for this therapist on this date</p>
+                                    )}
                                   </div>
                                 )}
-                                
-                                {/* Quick Duration Chips */}
-                                <div className="flex flex-wrap gap-1">
-                                  <span className="text-xs text-slate-600 mr-1">Quick:</span>
-                                  {DURATION_PRESETS.map((preset) => (
-                                    <Button
-                                      key={preset.value}
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-xs px-2 py-1 h-6 text-slate-600 hover:text-blue-600 hover:border-blue-300"
-                                      onClick={() => {
-                                        const currentTime = new Date();
-                                        const hours = currentTime.getHours();
-                                        const minutes = currentTime.getMinutes();
-                                        const nextSlot = Math.ceil(minutes / 30) * 30;
-                                        const timeString = `${hours.toString().padStart(2, '0')}:${nextSlot.toString().padStart(2, '0')}`;
-                                        form.setValue('sessionTime', timeString);
-                                      }}
-                                    >
-                                      {preset.label}
-                                    </Button>
-                                  ))}
-                                </div>
                               </div>
                               <FormMessage />
                             </FormItem>
