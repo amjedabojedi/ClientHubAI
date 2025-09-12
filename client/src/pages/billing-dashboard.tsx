@@ -127,11 +127,12 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     }
 
     recordPaymentMutation.mutate({
-      paymentAmount: parseFloat(paymentAmount),
-      paymentMethod,
-      paymentReference,
-      paymentNotes,
-      paymentDate: new Date().toISOString().split('T')[0]
+      status: 'paid',
+      amount: parseFloat(paymentAmount),
+      method: paymentMethod,
+      reference: paymentReference,
+      notes: paymentNotes,
+      date: new Date().toISOString().split('T')[0]
     });
   };
 
