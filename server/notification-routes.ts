@@ -13,7 +13,7 @@ const router = Router();
  */
 router.get("/", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
  */
 router.get("/unread-count", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -51,7 +51,7 @@ router.get("/unread-count", async (req, res) => {
  */
 router.put("/:id/read", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -71,7 +71,7 @@ router.put("/:id/read", async (req, res) => {
  */
 router.put("/mark-all-read", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -89,7 +89,7 @@ router.put("/mark-all-read", async (req, res) => {
  */
 router.delete("/:id", async (req, res) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.query.userId ? parseInt(req.query.userId as string) : (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
