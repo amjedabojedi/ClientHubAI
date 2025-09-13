@@ -538,7 +538,7 @@ export default function SchedulingPage() {
     if (!rooms || rooms.length === 0) return [];
     
     const results: Array<{ time: string, isAvailable: boolean }> = [];
-    const timeSlots = getTimeSlots(30); // 30-minute intervals
+    const timeSlots = getTimeSlots(effectiveDuration); // Duration-based intervals - FIXED!
     
     // Get comprehensive session data - using NORMALIZED sessions for proper ID comparison
     const allSessionsData = normalizedSessions && normalizedSessions.length > 0 ? normalizedSessions : [];
@@ -584,11 +584,15 @@ export default function SchedulingPage() {
     for (const timeSlot of timeSlots) {
       const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
       const slotEnd = new Date(slotStart.getTime() + effectiveDuration * 60000);
+      
+      // Skip slots that would end after business hours (6 PM / 18:00)
+      const businessEnd = new Date(`${selectedDate}T18:00:00`);
+      if (slotEnd > businessEnd) continue;
 
       // ROOM-FIRST LOGIC: Check if room is busy during this time slot  
       const roomBusy = daySessionsForRoom.some(s => {
         const sStart = new Date(s.sessionDate).getTime();
-        const sEnd = sStart + (effectiveDuration * 60000); // Use effective duration
+        const sEnd = sStart + (((s.service as any)?.duration || 60) * 60000); // Use ACTUAL session duration
         return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
       });
 
