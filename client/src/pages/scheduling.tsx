@@ -514,8 +514,16 @@ export default function SchedulingPage() {
     fallbackDuration?: number
   ): Array<{time: string, isAvailable: boolean}> => {
     
-    // Use service duration or fallback to provisional duration
-    const effectiveDuration = serviceDuration || fallbackDuration || provisionalDuration;
+    // PRIORITY: Use provisional duration tags first, then service duration as fallback
+    const effectiveDuration = provisionalDuration || serviceDuration || fallbackDuration || 60;
+    
+    console.debug('[⏱️ DURATION] Duration logic:', {
+      provisionalDuration,
+      serviceDuration, 
+      fallbackDuration,
+      effectiveDuration,
+      roomId
+    });
     
     // Enforce all required inputs - Room-First workflow
     if (!selectedDate || !therapistId || !roomId || !effectiveDuration || effectiveDuration <= 0) return [];
