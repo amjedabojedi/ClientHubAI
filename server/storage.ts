@@ -2002,10 +2002,19 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(tasks.assignedToId, users.id))
       .$dynamic();
 
-    // Apply consistent role-based filtering using centralized helper
-    const visibilityFilter = this.getTherapistTaskVisibility(therapistId, supervisedTherapistIds);
-    if (visibilityFilter) {
-      query = query.where(visibilityFilter);
+    // Apply same simple filtering logic as sessions - therapist sees only their assigned tasks
+    const conditions = [];
+    
+    if (therapistId) {
+      // Therapist sees only tasks assigned to them (same logic as sessions)
+      conditions.push(eq(tasks.assignedToId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees tasks assigned to supervised therapists
+      conditions.push(inArray(tasks.assignedToId, supervisedTherapistIds));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
     }
 
     const results = await query
