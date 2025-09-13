@@ -255,7 +255,7 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         // Status & Progress
         clientType: client.clientType || "",
         status: client.status || "pending",
-        stage: (client.stage && ['intake', 'assessment', 'psychotherapy'].includes(client.stage)) ? client.stage : "intake",
+        stage: (client.stage && ['intake', 'assessment', 'psychotherapy'].includes(client.stage)) ? client.stage as 'intake' | 'assessment' | 'psychotherapy' : "intake",
         assignedTherapistId: client.assignedTherapistId || undefined,
         
         // Insurance
