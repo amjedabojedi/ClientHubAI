@@ -52,6 +52,10 @@ externalPort = 3003
 localPort = 40821
 externalPort = 3002
 
+[[ports]]
+localPort = 41261
+externalPort = 4200
+
 [agent]
 
 [objectStorage]

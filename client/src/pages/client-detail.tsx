@@ -791,16 +791,7 @@ export default function ClientDetailPage() {
         return;
       }
 
-      const response = await fetch(`/api/clients/${clientId}/invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, billingId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to generate invoice');
-      }
+      const response = await apiRequest(`/api/clients/${clientId}/invoice`, 'POST', { action, billingId });
 
       if (action === 'download') {
         const blob = await response.blob();
@@ -917,13 +908,7 @@ export default function ClientDetailPage() {
   // Document delete mutation
   const deleteDocumentMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      const response = await fetch(`/api/clients/${clientId}/documents/${documentId}`, {
-        method: "DELETE"
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to delete document");
-      }
+      await apiRequest(`/api/clients/${clientId}/documents/${documentId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
@@ -958,31 +943,15 @@ export default function ClientDetailPage() {
       description?: string;
       fileContent?: string;
     }) => {
-      try {
-        const response = await fetch(`/api/clients/${clientId}/documents`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            fileName: data.fileName,
-            originalName: data.originalName,
-            mimeType: data.fileType,
-            fileSize: data.fileSize,
-            category: data.category,
-            fileContent: data.fileContent // Include file content for server storage
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        return result;
-      } catch (error) {
-        throw error;
-      }
+      const response = await apiRequest(`/api/clients/${clientId}/documents`, "POST", {
+        fileName: data.fileName,
+        originalName: data.originalName,
+        mimeType: data.fileType,
+        fileSize: data.fileSize,
+        category: data.category,
+        fileContent: data.fileContent // Include file content for server storage
+      });
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
@@ -1004,17 +973,8 @@ export default function ClientDetailPage() {
   // Payment update mutation
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ billingId, paymentData }: { billingId: number; paymentData: any }) => {
-      const response = await fetch(`/api/billing/${billingId}/payment`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(paymentData),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update payment details');
-      }
-      
-      return response.json();
+      const response = await apiRequest(`/api/billing/${billingId}/payment`, 'PUT', paymentData);
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/billing`] });
