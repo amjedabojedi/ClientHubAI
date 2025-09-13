@@ -163,6 +163,7 @@ export default function SchedulingPage() {
   const [showMySessionsOnly, setShowMySessionsOnly] = useState(false);
   const [isSchedulingFromExistingSession, setIsSchedulingFromExistingSession] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [provisionalDuration, setProvisionalDuration] = useState<number>(60); // Quick duration for preview
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -504,18 +505,20 @@ export default function SchedulingPage() {
     }));
   };
 
-  // Generate available time slots for specific room - Room-First workflow
+  // Generate available time slots for specific room - Room-First with provisional duration
   const generateAvailableTimeSlotsForSpecificRoom = (
     selectedDate: string, 
     serviceDuration: number,
     therapistId: number, 
-    roomId: number
+    roomId: number,
+    fallbackDuration?: number
   ): Array<{time: string, isAvailable: boolean}> => {
     
-    // NOTE: Using normalized sessions data further down for proper ID comparison
+    // Use service duration or fallback to provisional duration
+    const effectiveDuration = serviceDuration || fallbackDuration || provisionalDuration;
     
-    // Enforce all required inputs - Room-First workflow requires all parameters
-    if (!selectedDate || !therapistId || !serviceDuration || serviceDuration <= 0 || !roomId) return [];
+    // Enforce all required inputs - Room-First workflow
+    if (!selectedDate || !therapistId || !roomId || !effectiveDuration || effectiveDuration <= 0) return [];
     
     // Debug type checking
     if (typeof roomId !== 'number' || typeof therapistId !== 'number') {
@@ -572,12 +575,12 @@ export default function SchedulingPage() {
     // Simple Room + Therapist conflict logic: check each time slot
     for (const timeSlot of timeSlots) {
       const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
-      const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000);
+      const slotEnd = new Date(slotStart.getTime() + effectiveDuration * 60000);
 
       // ROOM-FIRST LOGIC: Check if room is busy during this time slot  
       const roomBusy = daySessionsForRoom.some(s => {
         const sStart = new Date(s.sessionDate).getTime();
-        const sEnd = sStart + (serviceDuration * 60000); // Use same duration for consistency
+        const sEnd = sStart + (effectiveDuration * 60000); // Use effective duration
         return slotStart.getTime() < sEnd && slotEnd.getTime() > sStart;
       });
 
@@ -857,6 +860,7 @@ export default function SchedulingPage() {
                   // Reset state when modal is closed
                   setIsSchedulingFromExistingSession(false);
                   setEditingSessionId(null);
+                  setProvisionalDuration(60); // Reset to default
                   form.reset();
                 }
                 if (open && clientIdFromUrl) {
@@ -983,7 +987,26 @@ export default function SchedulingPage() {
                                   </SelectContent>
                                 </Select>
                                 
-                                {/* Time Suggestions - Only show when therapist + service + date selected */}
+                                {/* Quick Duration Tags */}
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium text-slate-700">Duration (minutes)</label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {[30, 45, 60, 90, 120].map((minutes) => (
+                                      <Button
+                                        key={minutes}
+                                        type="button"
+                                        variant={provisionalDuration === minutes ? "default" : "outline"}
+                                        size="sm"
+                                        className="h-8 px-3 text-xs"
+                                        onClick={() => setProvisionalDuration(minutes)}
+                                      >
+                                        {minutes}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Time Suggestions - Room-First workflow */}
                                 {React.useMemo(() => {
                                   const selectedDate = form.watch('sessionDate');
                                   const selectedTherapist = form.watch('therapistId');
@@ -1040,7 +1063,7 @@ export default function SchedulingPage() {
                                   const roomIdNum = Number(selectedRoom || 0);
                                   const therapistIdNum = Number(selectedTherapist || 0);
                                   
-                                  const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum);
+                                  const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum, provisionalDuration);
                                   
                                   // Show loading state if rooms data isn't ready
                                   if (!rooms || rooms.length === 0) {
@@ -1095,7 +1118,7 @@ export default function SchedulingPage() {
                                       })()}
                                     </div>
                                   );
-                                }, [form.watch('roomId'), form.watch('therapistId'), form.watch('serviceId'), form.watch('sessionDate'), rooms, sessions, allAvailableSessions])}
+                                }, [form.watch('roomId'), form.watch('therapistId'), form.watch('serviceId'), form.watch('sessionDate'), provisionalDuration, rooms, sessions, allAvailableSessions])}
                               </div>
                               <FormMessage />
                             </FormItem>
