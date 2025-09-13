@@ -2,14 +2,15 @@ import { Request, Response, NextFunction } from "express";
 import * as crypto from "crypto";
 
 // Server secret for signing tokens - REQUIRED environment variable for security
-const JWT_SECRET = process.env.JWT_SECRET;
+let JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
   console.error('WARNING: JWT_SECRET environment variable is missing - using temporary QA secret');
   console.error('CRITICAL: This configuration is ONLY for QA testing - DO NOT DEPLOY TO PRODUCTION');
   console.error('Please set JWT_SECRET to a secure random string before production deployment');
   // Temporary QA fallback - MUST be removed before production
-  process.env.JWT_SECRET = "qa-testing-secret-" + Date.now();
+  JWT_SECRET = "qa-testing-secret-" + Date.now();
+  process.env.JWT_SECRET = JWT_SECRET;
 }
 const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
