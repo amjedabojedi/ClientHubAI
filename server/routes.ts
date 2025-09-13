@@ -94,9 +94,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User profile routes - working version
   app.get("/api/users/me", async (req, res) => {
     try {
-      // Get user ID from query parameter (frontend will send it)
-      const userId = req.query.userId ? parseInt(req.query.userId as string) : 6; // Default to admin
-      const [user] = await db.select().from(users).where(eq(users.id, userId));
+      // Get authenticated user from request
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, authenticatedUser.id));
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -111,8 +115,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/users/me", async (req, res) => {
     try {
-      // Get user ID from query parameter (frontend will send it)
-      const currentUserId = req.query.userId ? parseInt(req.query.userId as string) : 6; // Default to admin
+      // Get authenticated user from request
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const currentUserId = authenticatedUser.id;
       const updateData = {
         fullName: req.body.fullName,
         email: req.body.email,
@@ -2111,7 +2119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assessmentData = {
         clientId,
         templateId,
-        assignedBy: assignedBy || 17, // Default to existing therapist if not provided
+        assignedBy: assignedBy || ((req as any).user?.id || null),
         assignedDate: new Date(),
         status,
         responses: null,
@@ -2132,10 +2140,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.clientId);
       const { fileContent, ...documentData } = req.body;
       
+      // Get authenticated user from request
+      const authenticatedUser = (req as any).user;
+      if (!authenticatedUser?.id) {
+        return res.status(401).json({ message: "Authentication required for document upload" });
+      }
+
       const validatedData = insertDocumentSchema.parse({
         ...documentData,
         clientId,
-        uploadedById: 6 // Default to admin user for now
+        uploadedById: authenticatedUser.id
       });
 
       

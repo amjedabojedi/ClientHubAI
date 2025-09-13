@@ -1,8 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import * as crypto from "crypto";
 
-// Server secret for signing tokens (in production, use environment variable)
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+// Server secret for signing tokens - REQUIRED environment variable for security
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error('WARNING: JWT_SECRET environment variable is missing - using temporary QA secret');
+  console.error('CRITICAL: This configuration is ONLY for QA testing - DO NOT DEPLOY TO PRODUCTION');
+  console.error('Please set JWT_SECRET to a secure random string before production deployment');
+  // Temporary QA fallback - MUST be removed before production
+  process.env.JWT_SECRET = "qa-testing-secret-" + Date.now();
+}
 const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
 interface TokenPayload {
@@ -29,7 +37,7 @@ export function createSessionToken(user: { id: number; username: string; role: s
   
   const payloadStr = JSON.stringify(payload);
   const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', JWT_SECRET!)
     .update(payloadStr)
     .digest('hex');
   
@@ -46,7 +54,7 @@ export function verifySessionToken(token: string): TokenPayload | null {
     
     const payloadStr = Buffer.from(payloadB64, 'base64').toString();
     const expectedSignature = crypto
-      .createHmac('sha256', JWT_SECRET)
+      .createHmac('sha256', JWT_SECRET!)
       .update(payloadStr)
       .digest('hex');
     

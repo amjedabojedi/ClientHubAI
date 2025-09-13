@@ -551,10 +551,8 @@ export default function NotificationsPage() {
   const [editingTrigger, setEditingTrigger] = useState<NotificationTrigger | null>(null);
   const [deletingTrigger, setDeletingTrigger] = useState<NotificationTrigger | null>(null);
 
-  // Check if user has admin privileges - debug role value
-  console.log('Current user role:', user?.role);
+  // Check if user has admin privileges
   const isAdmin = user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'administrator' || user?.role === 'clinical_supervisor';
-  console.log('Is admin:', isAdmin);
 
   // Ensure therapists can't access admin tabs
   useEffect(() => {

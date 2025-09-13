@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuditLogger, getRequestInfo } from './audit-logger';
+import { AuthenticatedRequest } from './auth-middleware';
 
 // Extend Express Request to include user info for audit logging
 declare global {
@@ -22,14 +23,16 @@ export function auditMiddleware(action: string, resourceType: string, options?: 
   extractClientId?: (req: Request) => number | null;
   extractResourceId?: (req: Request) => string;
 }) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // For testing, use a mock user since auth isn't fully implemented
-      // In production, this would come from proper authentication middleware
-      const mockUser = {
-        id: 6, // admin user
-        username: 'admin.user'
-      };
+      // Get authenticated user from request context
+      const authenticatedUser = req.auditUser || req.user;
+      
+      if (!authenticatedUser || !authenticatedUser.id) {
+        console.warn('Audit middleware: No authenticated user found for action:', action);
+        // Continue without audit logging if no user context available
+        return next();
+      }
 
       const { ipAddress, userAgent } = getRequestInfo(req);
       const clientId = options?.extractClientId ? options.extractClientId(req) : null;
@@ -38,8 +41,8 @@ export function auditMiddleware(action: string, resourceType: string, options?: 
 
       // Log the access attempt
       await AuditLogger.logAction({
-        userId: mockUser.id,
-        username: mockUser.username,
+        userId: authenticatedUser.id,
+        username: authenticatedUser.username || 'unknown',
         action: action as any,
         result: 'success',
         resourceType,
@@ -68,13 +71,13 @@ export function auditMiddleware(action: string, resourceType: string, options?: 
 /**
  * Middleware to set audit user context from session
  */
-export function setAuditContext(req: Request, res: Response, next: NextFunction) {
+export function setAuditContext(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   // This would be set by your authentication middleware
   // For now, we'll check if user is authenticated and set context
-  if (req.user && (req.user as any).id) {
+  if (req.user && req.user.id) {
     req.auditUser = {
-      id: (req.user as any).id,
-      username: (req.user as any).username || 'unknown',
+      id: req.user.id,
+      username: req.user.username || 'unknown',
     };
   }
   next();
