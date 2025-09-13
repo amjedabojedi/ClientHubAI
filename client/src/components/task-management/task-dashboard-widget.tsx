@@ -39,24 +39,50 @@ interface TaskStats {
 
 // Utils & Shared Functions
 import { getPriorityColor, getStatusColor, formatDate } from "@/lib/task-utils";
+import { useAuth } from "@/hooks/useAuth";
 
 // ===== TASK DASHBOARD WIDGET =====
 export default function TaskDashboardWidget() {
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
 
   // Fetch task statistics
   const { data: taskStats } = useQuery<TaskStats>({
-    queryKey: ["/api/tasks/stats"],
+    queryKey: ["/api/tasks/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = user?.user?.role || user?.role;
+      
+      return fetch(`/api/tasks/stats?currentUserId=${userId}&currentUserRole=${userRole}`)
+        .then(res => res.json());
+    }
   });
 
   // Fetch recent tasks
   const { data: recentTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/recent"],
+    queryKey: ["/api/tasks/recent", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = user?.user?.role || user?.role;
+      
+      return fetch(`/api/tasks/recent?currentUserId=${userId}&currentUserRole=${userRole}`)
+        .then(res => res.json());
+    }
   });
 
   // Fetch upcoming tasks
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/upcoming"],
+    queryKey: ["/api/tasks/upcoming", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryFn: async () => {
+      const userId = user?.user?.id || user?.id;
+      const userRole = user?.user?.role || user?.role;
+      
+      return fetch(`/api/tasks/upcoming?currentUserId=${userId}&currentUserRole=${userRole}`)
+        .then(res => res.json());
+    }
   });
 
   return (
