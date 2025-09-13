@@ -214,17 +214,7 @@ export default function SchedulingPage() {
   const allAvailableSessions = [...sessions, ...prevMonthSessions, ...nextMonthSessions];
   
   // DEBUG: Log actual session data structure
-  React.useEffect(() => {
-    if (sessions.length > 0) {
-      console.debug('[🔍 ROOM DEBUG] Sample sessions:', sessions.slice(0, 3));
-      const roomCounts = sessions.reduce((acc, s) => {
-        const roomId = (s as any).roomId;
-        acc[roomId] = (acc[roomId] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      console.debug('[🔍 ROOM DEBUG] Room distribution in sessions:', roomCounts);
-    }
-  }, [sessions]);
+  // Session data processing - removed debug logging for security
   
   // Normalize session data - convert all IDs from strings to numbers for proper filtering
   const normalizedSessions = useMemo(() => 
@@ -517,20 +507,12 @@ export default function SchedulingPage() {
     // PRIORITY: Use provisional duration tags first, then service duration as fallback
     const effectiveDuration = provisionalDuration || serviceDuration || fallbackDuration || 60;
     
-    console.debug('[⏱️ DURATION] Duration logic:', {
-      provisionalDuration,
-      serviceDuration, 
-      fallbackDuration,
-      effectiveDuration,
-      roomId
-    });
     
     // Enforce all required inputs - Room-First workflow
     if (!selectedDate || !therapistId || !roomId || !effectiveDuration || effectiveDuration <= 0) return [];
     
     // Debug type checking
     if (typeof roomId !== 'number' || typeof therapistId !== 'number') {
-      console.warn('🚨 Type mismatch detected:', { roomId: typeof roomId, therapistId: typeof therapistId, roomIdValue: roomId, therapistIdValue: therapistId });
       return [];
     }
     

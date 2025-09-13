@@ -70,6 +70,23 @@ async function generateClientId(): Promise<string> {
   return `CL-${year}-${sequentialId}`;
 }
 
+// Security: Safe serializer to exclude sensitive user fields from API responses
+function sanitizeUser(user: any) {
+  const {
+    password: _,
+    passwordResetToken: __,
+    passwordResetExpiry: ___,
+    emailVerificationToken: ____,
+    ...safeUser
+  } = user;
+  return safeUser;
+}
+
+// Security: Safe serializer for arrays of users
+function sanitizeUsers(users: any[]) {
+  return users.map(sanitizeUser);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize notification service
   const notificationService = new NotificationService();
@@ -85,8 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(sanitizeUser(user));
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -112,8 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      const { password: _, ...userWithoutPassword } = updatedUser;
-      res.json(userWithoutPassword);
+      res.json(sanitizeUser(updatedUser));
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -206,9 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Return user data without password
-      const { password: _, ...userWithoutPassword } = user;
-
-      res.json(userWithoutPassword);
+      res.json(sanitizeUser(user));
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -2557,18 +2570,18 @@ This happens because only the file metadata was stored, not the actual file cont
           u.role === 'therapist' && supervisedTherapistIds.includes(u.id)
         );
         
-        return res.json(supervisedTherapists);
+        return res.json(sanitizeUsers(supervisedTherapists));
       } else if (currentUserRole === "therapist" && currentUserId) {
         // Therapists can only see themselves
         const users = await storage.getUsers();
         const therapist = users.find(u => u.id === parseInt(currentUserId as string) && u.role === 'therapist');
-        return res.json(therapist ? [therapist] : []);
+        return res.json(therapist ? [sanitizeUser(therapist)] : []);
       }
       
       // Admins can see all therapists
       const users = await storage.getUsers();
       const therapists = users.filter(u => u.role === 'therapist');
-      res.json(therapists);
+      res.json(sanitizeUsers(therapists));
     } catch (error) {
 
       res.status(500).json({ message: "Internal server error" });
@@ -2579,7 +2592,7 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get("/api/users", async (req, res) => {
     try {
       const users = await storage.getUsers();
-      res.json(users);
+      res.json(sanitizeUsers(users));
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -2593,7 +2606,7 @@ This happens because only the file metadata was stored, not the actual file cont
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -2604,7 +2617,7 @@ This happens because only the file metadata was stored, not the actual file cont
     try {
       const validatedData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(validatedData);
-      res.status(201).json(user);
+      res.status(201).json(sanitizeUser(user));
     } catch (error: any) {
       if (error instanceof z.ZodError) {
 
@@ -2631,7 +2644,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const id = parseInt(req.params.id);
       const validatedData = insertUserSchema.partial().parse(req.body);
       const user = await storage.updateUser(id, validatedData);
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });

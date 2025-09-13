@@ -1522,6 +1522,9 @@ export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+// Safe user type for API responses (excludes sensitive fields)
+export type SafeUser = Omit<User, 'password' | 'passwordResetToken' | 'passwordResetExpiry' | 'emailVerificationToken'>;
+
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 
