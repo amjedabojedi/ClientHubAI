@@ -220,7 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.cookie('sessionToken', sessionToken, {
         httpOnly: true,
         secure: isProduction,
-        sameSite: 'strict',
+        sameSite: 'lax', // Changed from 'strict' to allow cross-site requests
+        path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
       res.cookie('csrfToken', csrfToken, {

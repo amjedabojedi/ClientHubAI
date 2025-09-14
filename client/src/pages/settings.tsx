@@ -200,10 +200,12 @@ export default function SettingsPage() {
   });
 
   // Fetch service codes from Services table - use default queryFn with authentication
-  const { data: serviceCodesRaw = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes } = useQuery({
+  const { data: serviceCodesRaw = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes, error: serviceCodesError } = useQuery({
     queryKey: ["/api/services"],
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
+    retry: false, // Stop infinite retries on auth failure
+    enabled: true, // Start disabled if needed
   });
 
   // Process the raw service codes data
@@ -1411,8 +1413,9 @@ function ServiceVisibilityManager() {
   const queryClient = useQueryClient();
   
   // Fetch all services (admin view - gets all services regardless of visibility)
-  const { data: servicesRaw = [], isLoading, refetch } = useQuery({
+  const { data: servicesRaw = [], isLoading, refetch, error } = useQuery({
     queryKey: ["/api/services"],
+    retry: false, // Stop infinite retries on auth failure
   });
 
   // Ensure services is always an array

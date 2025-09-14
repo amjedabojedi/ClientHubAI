@@ -45,6 +45,7 @@ export function useAuthState(): AuthContextType {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Essential for cookies to be set
         body: JSON.stringify({ username, password }),
       });
 
