@@ -1402,11 +1402,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trigger session scheduled notification
       try {
+        console.log('DEBUG: Starting notification process for session', session.id);
+        
         // Get client and therapist names for notification template
         const client = await storage.getClient(session.clientId);
         const therapist = await storage.getUser(session.therapistId);
         
-        await notificationService.processEvent('session_scheduled', {
+        console.log('DEBUG: Client:', client?.fullName, 'Therapist:', therapist?.fullName);
+        
+        const notificationData = {
           id: session.id,
           clientId: session.clientId,
           therapistId: session.therapistId,
@@ -1417,7 +1421,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           roomId: session.roomId,
           duration: 60, // Default session duration
           createdAt: session.createdAt
-        });
+        };
+        
+        console.log('DEBUG: Notification data:', notificationData);
+        
+        await notificationService.processEvent('session_scheduled', notificationData);
+        console.log('DEBUG: Notification processEvent completed successfully');
       } catch (notificationError) {
         console.error('Session scheduled notification failed:', notificationError);
       }
