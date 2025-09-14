@@ -24,6 +24,7 @@ import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import type { AuthenticatedRequest } from "./auth-middleware";
+import { requireAuth } from "./auth-middleware";
 
 // Database Schemas
 import { 
@@ -4125,7 +4126,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Service Management API (admin-only for full list)
-  app.get("/api/services", async (req: AuthenticatedRequest, res) => {
+  app.get("/api/services", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Admin-only access for full service list
       if (req.user?.role !== 'administrator') {
@@ -4189,7 +4190,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Get filtered services based on user role
-  app.get("/api/services/filtered", async (req: AuthenticatedRequest, res) => {
+  app.get("/api/services/filtered", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const userRole = req.user?.role || 'therapist';
       const services = await storage.getServicesFiltered(userRole);
@@ -4200,10 +4201,10 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Update service visibility (admin only)
-  app.put("/api/services/:id/visibility", async (req: AuthenticatedRequest, res) => {
+  app.put("/api/services/:id/visibility", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Check if user is admin
-      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+      if (req.user?.role !== 'administrator') {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
 
