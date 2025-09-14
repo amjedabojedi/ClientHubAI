@@ -55,7 +55,7 @@ function Navigation() {
     ];
 
     // Only show Administration menu to supervisors and admins
-    if (user?.role === 'admin' || user?.role === 'supervisor') {
+    if (user?.role === 'administrator' || user?.role === 'supervisor') {
       baseItems.push({
         path: "/administration", 
         label: "Administration", 

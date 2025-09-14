@@ -1570,6 +1570,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recent sessions for dashboard
+  app.get("/api/sessions/recent", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      // Use authenticated user context instead of query params
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
+      if (req.user.role === "therapist") {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+      }
+      
+      // Call storage method with role-based parameters - storage handles filtering
+      const recentSessions = await storage.getRecentSessions(limit, therapistId, supervisedTherapistIds);
+      
+      res.json(recentSessions);
+    } catch (error) {
+      console.error("Error fetching recent sessions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get upcoming sessions for dashboard
+  app.get("/api/sessions/upcoming", async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      // Use authenticated user context instead of query params
+      let therapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+      
+      if (req.user.role === "therapist") {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+      }
+      
+      // Call storage method with role-based parameters - storage handles filtering
+      const upcomingSessions = await storage.getUpcomingSessions(limit, therapistId, supervisedTherapistIds);
+      
+      res.json(upcomingSessions);
+    } catch (error) {
+      console.error("Error fetching upcoming sessions:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get overdue sessions for dashboard
   app.get("/api/sessions/overdue", async (req, res) => {
     try {

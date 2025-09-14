@@ -1071,16 +1071,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session methods
-  async getAllSessions(therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client })[]> {
+  async getAllSessions(therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
     let query = db
       .select({
         session: sessions,
         therapist: users,
-        client: clients
+        client: clients,
+        service: services
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .$dynamic();
 
     // Apply role-based filtering at database level
@@ -1097,22 +1099,25 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({ 
       ...r.session, 
       therapist: r.therapist, 
-      client: r.client 
+      client: r.client,
+      service: r.service 
     }));
   }
 
-  async getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]> {
+  async getSessionsByClient(clientId: number): Promise<(Session & { therapist: User; service: any })[]> {
     const results = await db
       .select({
         session: sessions,
-        therapist: users
+        therapist: users,
+        service: services
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .where(eq(sessions.clientId, clientId))
       .orderBy(desc(sessions.sessionDate));
 
-    return results.map(r => ({ ...r.session, therapist: r.therapist }));
+    return results.map(r => ({ ...r.session, therapist: r.therapist, service: r.service }));
   }
 
   async getClientSessionConflicts(clientId: number): Promise<{
@@ -1180,7 +1185,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client })[]> {
+  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
@@ -1188,11 +1193,13 @@ export class DatabaseStorage implements IStorage {
       .select({
         session: sessions,
         therapist: users,
-        client: clients
+        client: clients,
+        service: services
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .$dynamic();
 
     // Apply role-based filtering at database level with optimized date filtering
@@ -1219,11 +1226,102 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => ({ 
       ...r.session, 
       therapist: r.therapist, 
-      client: r.client 
+      client: r.client,
+      service: r.service 
     }));
   }
 
-  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]> {
+  async getRecentSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    let query = db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients,
+        service: services
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .$dynamic();
+
+    // Apply role-based filtering for recent completed sessions
+    const conditions = [
+      sql`DATE(${sessions.sessionDate}) >= ${thirtyDaysAgo.toISOString().split('T')[0]}`,
+      eq(sessions.status, 'completed')
+    ];
+
+    if (therapistId) {
+      // Therapist sees only their own recent sessions
+      conditions.push(eq(sessions.therapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees recent sessions for supervised therapists
+      conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+
+    const results = await query
+      .where(and(...conditions))
+      .orderBy(desc(sessions.sessionDate))
+      .limit(limit);
+
+    return results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client,
+      service: r.service 
+    }));
+  }
+
+  async getUpcomingSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    let query = db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients,
+        service: services
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .$dynamic();
+
+    // Apply role-based filtering for upcoming sessions
+    const conditions = [
+      sql`DATE(${sessions.sessionDate}) >= ${today.toISOString().split('T')[0]}`,
+      sql`DATE(${sessions.sessionDate}) <= ${oneWeekFromNow.toISOString().split('T')[0]}`,
+      eq(sessions.status, 'scheduled')
+    ];
+
+    if (therapistId) {
+      // Therapist sees only their own upcoming sessions
+      conditions.push(eq(sessions.therapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees upcoming sessions for supervised therapists
+      conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+
+    const results = await query
+      .where(and(...conditions))
+      .orderBy(asc(sessions.sessionDate))
+      .limit(limit);
+
+    return results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client,
+      service: r.service 
+    }));
+  }
+
+  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any; daysOverdue: number })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1231,11 +1329,13 @@ export class DatabaseStorage implements IStorage {
       .select({
         session: sessions,
         therapist: users,
-        client: clients
+        client: clients,
+        service: services
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
       .$dynamic();
 
     // Apply role-based filtering at database level
@@ -1266,6 +1366,7 @@ export class DatabaseStorage implements IStorage {
         ...r.session, 
         therapist: r.therapist, 
         client: r.client,
+        service: r.service,
         daysOverdue
       };
     });

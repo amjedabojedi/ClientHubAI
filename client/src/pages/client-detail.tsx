@@ -1808,6 +1808,12 @@ export default function ClientDetailPage() {
                                   const sessionDate = parseSessionDate(session.sessionDate.toString());
                                   return `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
                                 })() : 'Date TBD'}
+                                {/* Display service code if available */}
+                                {(session as any).service?.serviceCode && (
+                                  <span className="text-slate-500 ml-2">
+                                    • <span className="font-mono">{(session as any).service.serviceCode}</span>
+                                  </span>
+                                )}
                                 {hasConflicts && conflictInfo && (
                                   <span className="text-orange-600 ml-2">
                                     • {conflictInfo.sessions.length} sessions on same day

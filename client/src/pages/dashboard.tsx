@@ -74,6 +74,13 @@ interface SessionWithDetails {
   status: string;
   client: Client;
   therapist?: UserType;
+  service?: {
+    id: number;
+    serviceCode: string;
+    serviceName: string;
+    duration: number;
+    baseRate: string;
+  };
 }
 
 interface OverdueSessionWithDetails {
@@ -530,6 +537,14 @@ export default function DashboardPage() {
                           <span className="text-xs text-slate-600">
                             {formatDate(session.sessionDate)}
                           </span>
+                          {session.service?.serviceCode && (
+                            <>
+                              <span className="text-xs text-slate-400">•</span>
+                              <span className="text-xs text-slate-600 font-mono">
+                                {session.service.serviceCode}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <Badge className={cn("text-xs", getStatusColor(session.status))}>
@@ -599,6 +614,14 @@ export default function DashboardPage() {
                           <span className="text-xs text-slate-600">
                             {formatDate(session.sessionDate)}
                           </span>
+                          {session.service?.serviceCode && (
+                            <>
+                              <span className="text-xs text-slate-400">•</span>
+                              <span className="text-xs text-slate-600 font-mono">
+                                {session.service.serviceCode}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <Badge className={cn("text-xs", getStatusColor(session.status))}>
