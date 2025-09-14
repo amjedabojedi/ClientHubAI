@@ -4122,6 +4122,42 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Get filtered services based on user role
+  app.get("/api/services/filtered", async (req, res) => {
+    try {
+      const userRole = req.user?.role || 'therapist';
+      const services = await storage.getServicesFiltered(userRole);
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Update service visibility (admin only)
+  app.put("/api/services/:id/visibility", async (req, res) => {
+    try {
+      // Check if user is admin
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const serviceId = parseInt(req.params.id);
+      if (isNaN(serviceId)) {
+        return res.status(400).json({ message: "Invalid service ID" });
+      }
+
+      const { therapistVisible } = req.body;
+      if (typeof therapistVisible !== 'boolean') {
+        return res.status(400).json({ message: "therapistVisible must be a boolean value" });
+      }
+
+      const service = await storage.updateServiceVisibility(serviceId, therapistVisible);
+      res.json(service);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Room Management API
   app.get("/api/rooms", async (req, res) => {
     try {
