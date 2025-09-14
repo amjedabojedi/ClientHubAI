@@ -199,30 +199,21 @@ export default function SettingsPage() {
     }),
   });
 
-  // Fetch service codes from Services table
-  const { data: serviceCodes = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes } = useQuery({
+  // Fetch service codes from Services table - use default queryFn with authentication
+  const { data: serviceCodesRaw = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: async () => {
-      const response = await fetch("/api/services");
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (!Array.isArray(data)) {
-        console.error('Expected array from /api/services but got:', typeof data);
-        return [];
-      }
-      return data.map((service: any) => ({
-        id: service.id,
-        optionKey: service.service_code,
-        optionLabel: service.service_name,
-        price: service.base_rate || '0.00',
-        therapistVisible: service.therapist_visible || false
-      }));
-    },
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
   });
+
+  // Process the raw service codes data
+  const serviceCodes = Array.isArray(serviceCodesRaw) ? serviceCodesRaw.map((service: any) => ({
+    id: service.id,
+    optionKey: service.service_code,
+    optionLabel: service.service_name,
+    price: service.base_rate || '0.00',
+    therapistVisible: service.therapist_visible || false
+  })) : [];
 
   // Fetch rooms
   const { data: rooms = [], isLoading: roomsLoading } = useQuery({
