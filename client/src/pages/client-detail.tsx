@@ -607,9 +607,10 @@ export default function ClientDetailPage() {
   // Authentication
   const { user } = useAuth();
   
-  // Check URL parameters for tab selection
+  // Check URL parameters for tab selection and session highlighting
   const urlParams = new URLSearchParams(window.location.search);
   const initialTab = urlParams.get('tab') || "overview";
+  const sessionIdFromUrl = urlParams.get('sessionId');
   
   // State
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -626,7 +627,9 @@ export default function ClientDetailPage() {
   });
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
-  const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
+  const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(
+    sessionIdFromUrl ? parseInt(sessionIdFromUrl) : null
+  );
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
@@ -643,6 +646,24 @@ export default function ClientDetailPage() {
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
+
+  // React to URL parameter changes for dynamic navigation
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const newTab = urlParams.get('tab') || "overview";
+    const newSessionId = urlParams.get('sessionId');
+    
+    // Update tab if different
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+    
+    // Update preselected session if different
+    const newSessionIdNum = newSessionId ? parseInt(newSessionId) : null;
+    if (newSessionIdNum !== preSelectedSessionId) {
+      setPreSelectedSessionId(newSessionIdNum);
+    }
+  }, [window.location.search]); // React to URL search parameter changes
 
   // ==================== React Query Setup ====================
   const queryClient = useQueryClient();

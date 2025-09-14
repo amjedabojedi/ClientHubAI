@@ -58,9 +58,10 @@ export default function NotificationDropdown({
     mutationFn: (notificationId: number) => 
       apiRequest(`/api/notifications/${notificationId}/read`, "PUT"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
+    retry: 2, // Retry mutations up to 2 times
   });
 
   // Delete notification
@@ -68,9 +69,10 @@ export default function NotificationDropdown({
     mutationFn: (notificationId: number) => 
       apiRequest(`/api/notifications/${notificationId}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
+    retry: 2, // Retry mutations up to 2 times
   });
 
   const getNotificationIcon = (type: string) => {

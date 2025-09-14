@@ -26,34 +26,54 @@ export default function NotificationBell({ className }: NotificationBellProps) {
 
   // Get unread notification count
   const { data: unreadData, isLoading: countLoading } = useQuery({
-    queryKey: ["/api/notifications/unread-count"],
+    queryKey: ["/api/notifications/unread-count", userId],
     refetchInterval: 30000, // Refetch every 30 seconds
+    retry: (failureCount, error: any) => {
+      // Stop retrying on auth failures
+      if (error?.message?.includes('401') || error?.message?.includes('403')) {
+        return false;
+      }
+      // Retry up to 3 times with exponential backoff
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     queryFn: async () => {
       const response = await fetch(`/api/notifications/unread-count`, {
         credentials: "include"
       });
-      if (!response.ok) throw new Error('Failed to fetch unread count');
+      if (!response.ok) {
+        throw new Error(`${response.status}: Failed to fetch unread count`);
+      }
       return response.json();
     },
   });
 
   // Get notifications when dropdown is opened
   const { data: notificationsData, isLoading: notificationsLoading } = useQuery({
-    queryKey: ["/api/notifications"],
+    queryKey: ["/api/notifications", userId],
     enabled: isOpen, // Only fetch when dropdown is open
+    retry: (failureCount, error: any) => {
+      // Stop retrying on auth failures
+      if (error?.message?.includes('401') || error?.message?.includes('403')) {
+        return false;
+      }
+      // Retry up to 2 times for notifications dropdown
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     queryFn: async () => {
       try {
         const res = await fetch(`/api/notifications?limit=20`, {
           credentials: "include"
         });
         if (!res.ok) {
-          return []; // Return empty array for errors
+          throw new Error(`${res.status}: Failed to fetch notifications`);
         }
         const data = await res.json();
         return Array.isArray(data) ? data : [];
       } catch (error) {
         console.error("Failed to fetch notifications:", error);
-        return [];
+        throw error; // Throw to trigger retry logic
       }
     },
   });
@@ -64,9 +84,10 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   const markAllAsReadMutation = useMutation({
     mutationFn: () => apiRequest("/api/notifications/mark-all-read", "PUT"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
+    retry: 2, // Retry mutations up to 2 times
   });
 
   const unreadCount = (unreadData as { count: number })?.count || 0;
