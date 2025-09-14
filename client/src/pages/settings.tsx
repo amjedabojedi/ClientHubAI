@@ -205,7 +205,7 @@ export default function SettingsPage() {
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
     retry: false, // Stop infinite retries on auth failure
-    enabled: false, // DISABLED - Need fresh login token
+    enabled: true, // RE-ENABLED after fresh login
   });
 
   // Process the raw service codes data
@@ -1416,7 +1416,7 @@ function ServiceVisibilityManager() {
   const { data: servicesRaw = [], isLoading, refetch, error } = useQuery({
     queryKey: ["/api/services"],
     retry: false, // Stop infinite retries on auth failure
-    enabled: false, // DISABLED - Need fresh login token
+    enabled: true, // RE-ENABLED after fresh login
   });
 
   // Ensure services is always an array

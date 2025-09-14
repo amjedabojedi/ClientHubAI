@@ -84,13 +84,26 @@ export function verifySessionToken(token: string): TokenPayload | null {
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const token = req.cookies?.sessionToken;
   
+  // Temporary debugging for service endpoint only
+  if (req.path === '/api/services') {
+    console.log('[DEBUG-SERVICES] Path:', req.path);
+    console.log('[DEBUG-SERVICES] Token present:', !!token);
+    console.log('[DEBUG-SERVICES] Cookies:', Object.keys(req.cookies || {}));
+  }
+  
   if (!token) {
+    if (req.path === '/api/services') console.log('[DEBUG-SERVICES] No token found');
     return res.status(401).json({ error: "Authentication required" });
   }
   
   const user = verifySessionToken(token);
   if (!user) {
+    if (req.path === '/api/services') console.log('[DEBUG-SERVICES] Token verification failed');
     return res.status(401).json({ error: "Invalid or expired session" });
+  }
+  
+  if (req.path === '/api/services') {
+    console.log('[DEBUG-SERVICES] Auth success - User:', user.username, 'Role:', user.role);
   }
   
   req.user = user;
