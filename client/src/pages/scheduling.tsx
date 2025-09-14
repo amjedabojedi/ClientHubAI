@@ -280,9 +280,9 @@ export default function SchedulingPage() {
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes - therapist list rarely changes
   });
 
-  // Fetch services for booking
+  // Fetch services for booking (role-based filtering)
   const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ["/api/services"],
+    queryKey: [user?.role === 'administrator' || user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'clinical_supervisor' ? "/api/services" : "/api/services/filtered", { currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes - services rarely change
   });
