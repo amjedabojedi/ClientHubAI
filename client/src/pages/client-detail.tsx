@@ -628,6 +628,7 @@ export default function ClientDetailPage() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentBillingRecord, setPaymentBillingRecord] = useState<any>(null);
@@ -1767,6 +1768,35 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
+            {/* Session Status Filter */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-slate-700">Filter by Status:</span>
+                <Select 
+                  value={sessionStatusFilter} 
+                  onValueChange={setSessionStatusFilter}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="rescheduled">Rescheduled</SelectItem>
+                    <SelectItem value="no_show">No Show</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-sm text-slate-500">
+                {sessionStatusFilter === "all" ? 
+                  `${sessions.length} sessions` : 
+                  `${sessions.filter((s: Session) => s.status === sessionStatusFilter).length} ${sessionStatusFilter} sessions`
+                }
+              </div>
+            </div>
+
             <Card>
               <CardHeader>
                 <CardTitle>Session History</CardTitle>
@@ -1774,7 +1804,11 @@ export default function ClientDetailPage() {
               <CardContent>
                 {sessions.length > 0 ? (
                   <div className="space-y-3">
-                    {sessions.map((session: Session) => {
+                    {sessions
+                      .filter((session: Session) => 
+                        sessionStatusFilter === "all" || session.status === sessionStatusFilter
+                      )
+                      .map((session: Session) => {
                       // Check if this session's date has conflicts
                       const sessionDate = session.sessionDate ? parseSessionDate(session.sessionDate.toString()).toISOString().split('T')[0] : null;
                       const hasConflicts = sessionDate && sessionConflicts?.conflictDates?.includes(sessionDate);
