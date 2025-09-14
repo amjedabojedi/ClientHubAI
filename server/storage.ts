@@ -254,7 +254,9 @@ export interface IStorage {
   
   // ===== SERVICE AND ROOM LOOKUPS =====
   getServices(): Promise<any[]>;
+  getServicesFiltered(userRole: string): Promise<any[]>; // Returns role-based filtered services
   updateService(id: number, updateData: any): Promise<any>;
+  updateServiceVisibility(id: number, therapistVisible: boolean): Promise<any>;
   deleteService(id: number): Promise<void>;
   getServiceByCode(serviceCode: string): Promise<any>;
   getServiceCodeByKey(serviceCode: string): Promise<any>;
@@ -1555,11 +1557,39 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(services).where(eq(services.isActive, true));
   }
 
+  async getServicesFiltered(userRole: string): Promise<any[]> {
+    // Administrators see all active services
+    if (userRole === 'administrator' || userRole === 'admin') {
+      return await db.select().from(services).where(eq(services.isActive, true));
+    }
+    
+    // Therapists and other roles see only services marked as therapist visible
+    return await db
+      .select()
+      .from(services)
+      .where(and(
+        eq(services.isActive, true),
+        eq(services.therapistVisible, true)
+      ));
+  }
+
   async updateService(id: number, updateData: any): Promise<any> {
     const [service] = await db
       .update(services)
       .set({
         ...updateData,
+        updatedAt: new Date()
+      })
+      .where(eq(services.id, id))
+      .returning();
+    return service;
+  }
+
+  async updateServiceVisibility(id: number, therapistVisible: boolean): Promise<any> {
+    const [service] = await db
+      .update(services)
+      .set({
+        therapistVisible: therapistVisible,
         updatedAt: new Date()
       })
       .where(eq(services.id, id))
