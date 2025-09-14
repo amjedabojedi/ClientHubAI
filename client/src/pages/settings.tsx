@@ -1411,10 +1411,12 @@ function ServiceVisibilityManager() {
   const queryClient = useQueryClient();
   
   // Fetch all services (admin view - gets all services regardless of visibility)
-  const { data: services = [], isLoading, refetch } = useQuery({
+  const { data: servicesRaw = [], isLoading, refetch } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: () => fetch("/api/services").then(res => res.json()),
   });
+
+  // Ensure services is always an array
+  const services = Array.isArray(servicesRaw) ? servicesRaw : [];
 
   // Mutation to update service visibility
   const updateVisibilityMutation = useMutation({
