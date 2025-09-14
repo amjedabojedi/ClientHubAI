@@ -14,11 +14,13 @@ import {
   Trash2,
   ExternalLink,
   Loader2,
-  Bell
+  Bell,
+  RefreshCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 
 interface Notification {
@@ -39,6 +41,10 @@ interface NotificationDropdownProps {
   unreadCount: number;
   onMarkAllAsRead: () => void;
   isMarkingAllAsRead: boolean;
+  error?: any;
+  onRetry?: () => void;
+  countError?: any;
+  onRetryCount?: () => void;
 }
 
 export default function NotificationDropdown({ 
@@ -46,10 +52,15 @@ export default function NotificationDropdown({
   isLoading, 
   unreadCount,
   onMarkAllAsRead,
-  isMarkingAllAsRead
+  isMarkingAllAsRead,
+  error,
+  onRetry,
+  countError,
+  onRetryCount
 }: NotificationDropdownProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast } = useToast();
   
   const userId = user?.id || user?.user?.id;
 
@@ -61,6 +72,14 @@ export default function NotificationDropdown({
       queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
+    onError: (error: any) => {
+      console.error("Failed to mark notification as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark notification as read. Please try again.",
+        variant: "destructive",
+      });
+    },
     retry: 2, // Retry mutations up to 2 times
   });
 
@@ -71,6 +90,18 @@ export default function NotificationDropdown({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
+      toast({
+        title: "Success",
+        description: "Notification deleted",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Failed to delete notification:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete notification. Please try again.",
+        variant: "destructive",
+      });
     },
     retry: 2, // Retry mutations up to 2 times
   });
@@ -148,7 +179,38 @@ export default function NotificationDropdown({
 
       {/* Notifications List */}
       <ScrollArea className="h-96">
-        {isLoading ? (
+        {error || countError ? (
+          <div className="p-4 text-center">
+            <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-500" />
+            <p className="text-sm text-slate-600 mb-3">
+              {error ? "Failed to load notifications" : "Failed to load notification count"}
+            </p>
+            <div className="flex gap-2 justify-center">
+              {error && onRetry && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRetry}
+                  className="text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry
+                </Button>
+              )}
+              {countError && onRetryCount && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRetryCount}
+                  className="text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry Count
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="p-4 text-center">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
             <p className="text-sm text-slate-600">Loading notifications...</p>

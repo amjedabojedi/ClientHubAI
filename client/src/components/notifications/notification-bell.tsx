@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, Loader2, AlertCircle } from "lucide-react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import NotificationDropdown from "./notification-dropdown.tsx";
 
 interface NotificationBellProps {
@@ -21,11 +22,12 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast } = useToast();
   
   const userId = user?.id || user?.user?.id;
 
   // Get unread notification count
-  const { data: unreadData, isLoading: countLoading } = useQuery({
+  const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({
     queryKey: ["/api/notifications/unread-count", userId],
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: (failureCount, error: any) => {
@@ -49,7 +51,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   });
 
   // Get notifications when dropdown is opened
-  const { data: notificationsData, isLoading: notificationsLoading } = useQuery({
+  const { data: notificationsData, isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
     queryKey: ["/api/notifications", userId],
     enabled: isOpen, // Only fetch when dropdown is open
     retry: (failureCount, error: any) => {
@@ -86,6 +88,18 @@ export default function NotificationBell({ className }: NotificationBellProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
+      toast({
+        title: "Success",
+        description: "All notifications marked as read",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Failed to mark all notifications as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark notifications as read. Please try again.",
+        variant: "destructive",
+      });
     },
     retry: 2, // Retry mutations up to 2 times
   });
@@ -125,6 +139,10 @@ export default function NotificationBell({ className }: NotificationBellProps) {
           unreadCount={unreadCount}
           onMarkAllAsRead={() => markAllAsReadMutation.mutate()}
           isMarkingAllAsRead={markAllAsReadMutation.isPending}
+          error={notificationsError}
+          onRetry={() => refetchNotifications()}
+          countError={countError}
+          onRetryCount={() => refetchCount()}
         />
       </DropdownMenuContent>
     </DropdownMenu>
