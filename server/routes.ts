@@ -1402,10 +1402,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trigger session scheduled notification
       try {
+        // Get client and therapist names for notification template
+        const client = await storage.getClient(session.clientId);
+        const therapist = await storage.getUser(session.therapistId);
+        
         await notificationService.processEvent('session_scheduled', {
           id: session.id,
           clientId: session.clientId,
           therapistId: session.therapistId,
+          clientName: client?.fullName || 'Unknown Client',
+          therapistName: therapist?.fullName || 'Unknown Therapist',
           sessionDate: session.sessionDate,
           sessionType: session.sessionType,
           roomId: session.roomId,
