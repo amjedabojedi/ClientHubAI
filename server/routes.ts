@@ -993,12 +993,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sessions routes with pagination and filtering
-  app.get("/api/sessions", async (req, res) => {
+  // Sessions routes with pagination and filtering - SECURE: Uses authenticated user context
+  app.get("/api/sessions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { 
-        currentUserId, 
-        currentUserRole, 
         page = 1, 
         limit = 50,
         startDate,
@@ -1025,15 +1027,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: parseInt(limit as string)
       };
       
-      // Apply systematic role-based filtering at database level
+      // SECURITY: Use authenticated user context instead of query parameters
       let therapistIdFilter: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
+      const userRole = req.user.role;
+      const userId = req.user.id;
 
-      if (currentUserRole === "therapist" && currentUserId) {
-        therapistIdFilter = parseInt(currentUserId as string);
-      } else if (currentUserRole === "supervisor" && currentUserId) {
-        const supervisorId = parseInt(currentUserId as string);
-        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+      if (userRole === "therapist") {
+        therapistIdFilter = userId;
+      } else if (userRole === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(userId);
         
         if (supervisorAssignments.length === 0) {
           return res.json({ sessions: [], total: 0, totalPages: 0, currentPage: 1 });
@@ -1042,49 +1045,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
 
-      let sessions = await storage.getAllSessions(therapistIdFilter, supervisedTherapistIds);
-      
-      // Apply date filter (always applied for performance)
-      sessions = sessions.filter(session => {
-        const sessionDate = new Date(session.sessionDate);
-        return sessionDate >= filters.startDate && sessionDate <= filters.endDate;
+      // PERFORMANCE: Database-level filtering with service visibility
+      const isAdmin = userRole === "administrator" || userRole === "admin";
+      let sessions = await storage.getSessionsWithFiltering({
+        therapistId: therapistIdFilter,
+        supervisedTherapistIds,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        status: filters.status,
+        serviceCode: filters.serviceCode,
+        clientId: filters.clientId,
+        page: filters.page,
+        limit: filters.limit,
+        includeHiddenServices: isAdmin
       });
       
-      // Apply additional filters
-      if (filters.therapistId && therapistId !== 'all') {
-        sessions = sessions.filter(session => session.therapistId === filters.therapistId);
-      }
-      
-      if (filters.status && filters.status !== 'all') {
-        sessions = sessions.filter(session => session.status === filters.status);
-      }
-
-      if (filters.serviceCode && filters.serviceCode !== 'all') {
-        // Get all services to match serviceCode with serviceId
-        const services = await storage.getServices();
-        const matchingService = services.find(service => service.serviceCode === filters.serviceCode);
-        if (matchingService) {
-          sessions = sessions.filter(session => session.serviceId === matchingService.id);
-        }
-      }
-      
-      if (filters.clientId) {
-        sessions = sessions.filter(session => session.clientId === filters.clientId);
-      }
-      
-      // Sort by date (newest first)
-      sessions.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime());
-      
-      // Pagination
-      const total = sessions.length;
-      const totalPages = Math.ceil(total / filters.limit);
-      const startIndex = (filters.page - 1) * filters.limit;
-      const paginatedSessions = sessions.slice(startIndex, startIndex + filters.limit);
-      
+      // Return database-filtered results with pagination already applied
       res.json({
-        sessions: paginatedSessions,
-        total,
-        totalPages,
+        sessions: sessions.sessions,
+        total: sessions.total,
+        totalPages: sessions.totalPages,
         currentPage: filters.page,
         limit: filters.limit,
         appliedFilters: {
@@ -1116,15 +1096,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Enhanced availability checking endpoint with room conflicts
-  app.get("/api/sessions/conflicts/check", async (req, res) => {
+  app.get("/api/sessions/conflicts/check", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { therapistId, sessionDate, duration = 60, excludeSessionId, roomId } = req.query;
       
       if (!therapistId || !sessionDate) {
         return res.status(400).json({ message: "therapistId and sessionDate are required" });
       }
 
-      const allSessions = await storage.getAllSessions();
+      // Use getSessionsWithFiltering with proper service visibility control
+      const includeHiddenServices = req.user.role === 'admin';
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices,
+        startDate: new Date(sessionDate as string),
+        endDate: new Date(sessionDate as string),
+        page: 1,
+        limit: 1000 // Get all sessions for the date
+      });
+      const allSessions = sessionResults.sessions;
       const newSessionDate = new Date(sessionDate as string);
       const sessionDuration = parseInt(duration as string);
       
@@ -1240,15 +1233,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // General availability endpoint (shows busy/free slots without client details)
-  app.get("/api/sessions/availability", async (req, res) => {
+  app.get("/api/sessions/availability", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { date, therapistId, roomId } = req.query;
       
       if (!date) {
         return res.status(400).json({ message: "date is required" });
       }
 
-      const allSessions = await storage.getAllSessions();
+      // Use getSessionsWithFiltering with proper service visibility control
+      const includeHiddenServices = req.user.role === 'admin';
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices,
+        startDate: new Date(date as string),
+        endDate: new Date(date as string),
+        page: 1,
+        limit: 1000 // Get all sessions for the date
+      });
+      const allSessions = sessionResults.sessions;
       const targetDate = new Date(date as string);
       
       // Generate working hours time slots (9 AM - 9 PM, 30-minute slots)
@@ -1307,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sessions", async (req, res) => {
+  app.post("/api/sessions", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -1326,8 +1332,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       today.setHours(0, 0, 0, 0); // Set to start of today
       
 
-      // Check for scheduling conflicts (therapist + room)
-      const allSessions = await storage.getAllSessions();
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Check for scheduling conflicts (therapist + room) with proper service filtering
+      const includeHiddenServices = req.user.role === 'admin';
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices,
+        startDate: sessionDate,
+        endDate: sessionDate,
+        page: 1,
+        limit: 1000 // Get all sessions for the date
+      });
+      const allSessions = sessionResults.sessions;
       
       // Check therapist conflicts
       const therapistConflicts = allSessions.filter(session => {
@@ -1435,7 +1453,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Check for conflicts when updating session time/therapist/room
         if (sessionData.therapistId || sessionData.roomId) {
-          const allSessions = await storage.getAllSessions();
+          // Use proper service filtering for conflict checking
+          const includeHiddenServices = req.user?.role === 'admin';
+          const sessionResults = await storage.getSessionsWithFiltering({
+            includeHiddenServices,
+            startDate: sessionData.sessionDate,
+            endDate: sessionData.sessionDate,
+            page: 1,
+            limit: 1000
+          });
+          const allSessions = sessionResults.sessions;
           
           // Check therapist conflicts
           const therapistConflicts = sessionData.therapistId ? allSessions.filter(session => {
@@ -1514,10 +1541,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:clientId/sessions", async (req, res) => {
+  app.get("/api/clients/:clientId/sessions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const clientId = parseInt(req.params.clientId);
-      const sessions = await storage.getSessionsByClient(clientId);
+      
+      // Only admins can see sessions with hidden services
+      const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
+      
+      const sessions = await storage.getSessionsByClient(clientId, includeHiddenServices);
       res.json(sessions);
     } catch (error) {
       // Error logged
@@ -1526,10 +1561,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session conflicts for a client
-  app.get("/api/clients/:clientId/session-conflicts", async (req, res) => {
+  app.get("/api/clients/:clientId/session-conflicts", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const clientId = parseInt(req.params.clientId);
-      const conflicts = await storage.getClientSessionConflicts(clientId);
+      
+      // Only admins can see session conflicts with hidden services
+      const includeHiddenServices = req.user.role === 'admin';
+      
+      const conflicts = await storage.getClientSessionConflicts(clientId, includeHiddenServices);
       res.json(conflicts);
     } catch (error) {
       // Error logged
@@ -1537,26 +1580,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Monthly sessions route for calendar
-  app.get("/api/sessions/:year/:month/month", async (req, res) => {
+  // Monthly sessions route for calendar - SECURE: Uses authenticated user context
+  app.get("/api/sessions/:year/:month/month", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const year = parseInt(req.params.year);
       const month = parseInt(req.params.month);
-      const { currentUserId, currentUserRole } = req.query;
       
       if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
         return res.status(400).json({ message: "Invalid year or month" });
       }
       
-      // Apply systematic role-based filtering at database level
+      // SECURITY: Use authenticated user context instead of query params
       let therapistIdFilter: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
 
-      if (currentUserRole === "therapist" && currentUserId) {
-        therapistIdFilter = parseInt(currentUserId as string);
-      } else if (currentUserRole === "supervisor" && currentUserId) {
-        const supervisorId = parseInt(currentUserId as string);
-        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+      if (req.user.role === "therapist") {
+        therapistIdFilter = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         
         if (supervisorAssignments.length === 0) {
           return res.json([]);
@@ -1565,7 +1610,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
 
-      let sessions = await storage.getSessionsByMonth(year, month, therapistIdFilter, supervisedTherapistIds);
+      // Only admins can see sessions with hidden services
+      const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
+      
+      let sessions = await storage.getSessionsByMonth(year, month, therapistIdFilter, supervisedTherapistIds, includeHiddenServices);
       
       res.json(sessions);
     } catch (error) {
@@ -1575,7 +1623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get recent sessions for dashboard
-  app.get("/api/sessions/recent", async (req: AuthenticatedRequest, res) => {
+  app.get("/api/sessions/recent", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1594,8 +1642,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
+      // Only admins can see sessions with hidden services
+      const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
+      
       // Call storage method with role-based parameters - storage handles filtering
-      const recentSessions = await storage.getRecentSessions(limit, therapistId, supervisedTherapistIds);
+      const recentSessions = await storage.getRecentSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
       
       res.json(recentSessions);
     } catch (error) {
@@ -1605,7 +1656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get upcoming sessions for dashboard
-  app.get("/api/sessions/upcoming", async (req: AuthenticatedRequest, res) => {
+  app.get("/api/sessions/upcoming", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1624,8 +1675,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
+      // Only admins can see sessions with hidden services
+      const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
+      
       // Call storage method with role-based parameters - storage handles filtering
-      const upcomingSessions = await storage.getUpcomingSessions(limit, therapistId, supervisedTherapistIds);
+      const upcomingSessions = await storage.getUpcomingSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
       
       res.json(upcomingSessions);
     } catch (error) {
@@ -1634,28 +1688,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get overdue sessions for dashboard
-  app.get("/api/sessions/overdue", async (req, res) => {
+  // Get overdue sessions for dashboard - SECURE: Uses authenticated user context
+  app.get("/api/sessions/overdue", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const limit = parseInt(req.query.limit as string) || 10;
-      const { currentUserId, currentUserRole } = req.query;
       
-      // Normalize role casing and determine role-based parameters
-      const role = String(currentUserRole || '').toLowerCase();
-      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
-      
+      // SECURITY: Use authenticated user context instead of query params
       let therapistId: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
       
-      if (role === "therapist" && uid) {
-        therapistId = uid;
-      } else if (role === "supervisor" && uid) {
-        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+      if (req.user.role === "therapist") {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
+      // Only admins can see sessions with hidden services
+      const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
+      
       // Call storage method with role-based parameters - storage handles filtering
-      const overdueSessions = await storage.getOverdueSessions(limit, therapistId, supervisedTherapistIds);
+      const overdueSessions = await storage.getOverdueSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
       
       res.json(overdueSessions);
     } catch (error) {
@@ -1665,14 +1722,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check for overdue sessions and trigger notifications
-  app.post("/api/sessions/check-overdue", async (req, res) => {
+  app.post("/api/sessions/check-overdue", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const limit = Number(req.body?.limit ?? 10);
       
       // Start background processing immediately
       setImmediate(async () => {
         try {
-          const overdueSessions = await storage.getOverdueSessions();
+          // Only admins can trigger checks on sessions with hidden services
+          const includeHiddenServices = req.user.role === 'admin';
+          const overdueSessions = await storage.getOverdueSessions(undefined, undefined, undefined, includeHiddenServices);
           const sessionsToProcess = overdueSessions.slice(0, limit);
           
           let processed = 0;
@@ -2999,9 +3062,27 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Session Notes routes
-  app.get("/api/sessions/:sessionId/notes", async (req, res) => {
+  app.get("/api/sessions/:sessionId/notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const sessionId = parseInt(req.params.sessionId);
+      
+      // First check if user can access this session (via service visibility)
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices: req.user.role === 'admin',
+        page: 1,
+        limit: 1000
+      });
+      
+      // Check if the requested session is in the filtered results
+      const hasAccess = sessionResults.sessions.some(session => session.id === sessionId);
+      if (!hasAccess) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
       const sessionNotes = await storage.getSessionNotesBySession(sessionId);
       res.json(sessionNotes);
     } catch (error) {
@@ -3010,24 +3091,57 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/clients/:clientId/session-notes", async (req, res) => {
+  app.get("/api/clients/:clientId/session-notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const clientId = parseInt(req.params.clientId);
+      
+      // Get session notes but filter out notes from sessions with hidden services
       const sessionNotes = await storage.getSessionNotesByClient(clientId);
-      res.json(sessionNotes);
+      
+      // Filter out session notes where the related session uses a hidden service
+      const includeHiddenServices = req.user.role === 'admin';
+      if (!includeHiddenServices) {
+        // Get all sessions for this client with service visibility filtering
+        const visibleSessions = await storage.getSessionsByClient(clientId, false);
+        const visibleSessionIds = new Set(visibleSessions.map(s => s.id));
+        
+        // Filter session notes to only include those from visible sessions
+        const filteredNotes = sessionNotes.filter(note => visibleSessionIds.has(note.sessionId));
+        res.json(filteredNotes);
+      } else {
+        res.json(sessionNotes);
+      }
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
-  app.get("/api/session-notes/:id", async (req, res) => {
+  app.get("/api/session-notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const id = parseInt(req.params.id);
       const sessionNote = await storage.getSessionNote(id);
       
       if (!sessionNote) {
         return res.status(404).json({ message: "Session note not found" });
+      }
+      
+      // Check if user can access the session related to this note (service visibility check)
+      const includeHiddenServices = req.user.role === 'admin';
+      if (!includeHiddenServices) {
+        const visibleSessions = await storage.getSessionsByClient(sessionNote.clientId, false);
+        const hasAccess = visibleSessions.some(session => session.id === sessionNote.sessionId);
+        if (!hasAccess) {
+          return res.status(404).json({ message: "Session note not found" });
+        }
       }
       
       res.json(sessionNote);
@@ -3037,9 +3151,28 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/session-notes", async (req, res) => {
+  app.post("/api/session-notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const validatedData = insertSessionNoteSchema.parse(req.body);
+      
+      // Check if user can access the session for this note (service visibility check)
+      const includeHiddenServices = req.user.role === 'admin';
+      if (!includeHiddenServices && validatedData.sessionId) {
+        const sessionResults = await storage.getSessionsWithFiltering({
+          includeHiddenServices: false,
+          page: 1,
+          limit: 1000
+        });
+        const hasAccess = sessionResults.sessions.some(session => session.id === validatedData.sessionId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Cannot create notes for this session" });
+        }
+      }
+      
       const sessionNote = await storage.createSessionNote(validatedData);
       
       // Generate AI content if enabled
@@ -3082,9 +3215,30 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.put("/api/session-notes/:id", async (req, res) => {
+  app.put("/api/session-notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const id = parseInt(req.params.id);
+      
+      // Check if user can access this session note first
+      const existingNote = await storage.getSessionNote(id);
+      if (!existingNote) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+      
+      // Check service visibility for the existing note's session
+      const includeHiddenServices = req.user.role === 'admin';
+      if (!includeHiddenServices) {
+        const visibleSessions = await storage.getSessionsByClient(existingNote.clientId, false);
+        const hasAccess = visibleSessions.some(session => session.id === existingNote.sessionId);
+        if (!hasAccess) {
+          return res.status(404).json({ message: "Session note not found" });
+        }
+      }
+      
       const validatedData = insertSessionNoteSchema.partial().parse(req.body);
       const sessionNote = await storage.updateSessionNote(id, validatedData);
       res.json(sessionNote);
@@ -3097,9 +3251,30 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete("/api/session-notes/:id", async (req, res) => {
+  app.delete("/api/session-notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const id = parseInt(req.params.id);
+      
+      // Check if user can access this session note first
+      const existingNote = await storage.getSessionNote(id);
+      if (!existingNote) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+      
+      // Check service visibility for the existing note's session
+      const includeHiddenServices = req.user.role === 'admin';
+      if (!includeHiddenServices) {
+        const visibleSessions = await storage.getSessionsByClient(existingNote.clientId, false);
+        const hasAccess = visibleSessions.some(session => session.id === existingNote.sessionId);
+        if (!hasAccess) {
+          return res.status(404).json({ message: "Session note not found" });
+        }
+      }
+      
       await storage.deleteSessionNote(id);
       res.status(204).send();
     } catch (error) {
@@ -3123,7 +3298,15 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Get client and session data
       const clientData = await storage.getClient(clientId);
-      const sessionData = sessionId ? (await storage.getSessionsByClient(clientId)).find(s => s.id === sessionId) : null;
+      
+      // Apply service visibility filtering when getting session data
+      const includeHiddenServices = req.user?.role === 'admin' || false;
+      const sessionData = sessionId ? (await storage.getSessionsByClient(clientId, includeHiddenServices)).find(s => s.id === sessionId) : null;
+      
+      // If session requested but not found in filtered results, return error
+      if (sessionId && !sessionData) {
+        return res.status(404).json({ error: "Session not found" });
+      }
       
       const { generateAITemplate } = await import("./ai/openai");
       const result = await generateAITemplate(clientData, sessionData, formData, customInstructions);
@@ -4348,12 +4531,30 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Session Billing API
-  app.get("/api/sessions/:id/billing", async (req, res) => {
+  app.get("/api/sessions/:id/billing", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const sessionId = parseInt(req.params.id);
       
       if (isNaN(sessionId)) {
         return res.status(400).json({ message: "Invalid session ID" });
+      }
+      
+      // Check if user can access this session (via service visibility)
+      const includeHiddenServices = req.user.role === 'admin';
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices,
+        page: 1,
+        limit: 1000
+      });
+      
+      // Check if the requested session is in the filtered results
+      const hasAccess = sessionResults.sessions.some(session => session.id === sessionId);
+      if (!hasAccess) {
+        return res.status(404).json({ message: "Session not found" });
       }
       
       const billing = await storage.getSessionBilling(sessionId);
@@ -4364,12 +4565,30 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/sessions/:id/billing", async (req, res) => {
+  app.post("/api/sessions/:id/billing", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const sessionId = parseInt(req.params.id);
       
       if (isNaN(sessionId)) {
         return res.status(400).json({ message: "Invalid session ID" });
+      }
+      
+      // Check if user can access this session (via service visibility)
+      const includeHiddenServices = req.user.role === 'admin';
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices,
+        page: 1,
+        limit: 1000
+      });
+      
+      // Check if the requested session is in the filtered results
+      const hasAccess = sessionResults.sessions.some(session => session.id === sessionId);
+      if (!hasAccess) {
+        return res.status(404).json({ message: "Session not found" });
       }
       
       const billing = await storage.createSessionBilling(sessionId);
@@ -4402,9 +4621,28 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Billing routes
-  app.get("/api/sessions/:sessionId/billing", async (req, res) => {
+  app.get("/api/sessions/:sessionId/billing", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const sessionId = parseInt(req.params.sessionId);
+      
+      // Check if user can access this session (via service visibility)
+      const includeHiddenServices = req.user.role === 'admin';
+      const sessionResults = await storage.getSessionsWithFiltering({
+        includeHiddenServices,
+        page: 1,
+        limit: 1000
+      });
+      
+      // Check if the requested session is in the filtered results
+      const hasAccess = sessionResults.sessions.some(session => session.id === sessionId);
+      if (!hasAccess) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
       const billing = await storage.getBillingRecordsBySession(sessionId);
       res.json(billing);
     } catch (error) {

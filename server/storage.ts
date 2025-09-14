@@ -168,6 +168,26 @@ export type TaskQueryParams = {
   supervisedTherapistIds?: number[];
 };
 
+// Session filtering parameters for secure, database-level filtering
+export type SessionFilterParams = {
+  therapistId?: number;
+  supervisedTherapistIds?: number[];
+  startDate?: Date;
+  endDate?: Date;
+  status?: string;
+  serviceCode?: string;
+  clientId?: number;
+  page?: number;
+  limit?: number;
+  includeHiddenServices?: boolean; // Admin-only flag to see all services
+};
+
+export type SessionQueryResult = {
+  sessions: (Session & { therapist: User; client: Client; service: any })[];
+  total: number;
+  totalPages: number;
+};
+
 export interface IStorage {
   
   // ===== USER MANAGEMENT =====
@@ -234,16 +254,18 @@ export interface IStorage {
 
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
-  getSessionsByClient(clientId: number): Promise<(Session & { therapist: User })[]>;
-  getSessionsByMonth(year: number, month: number): Promise<(Session & { therapist: User; client: Client })[]>;
-  getOverdueSessions(limit?: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]>;
+  // SECURE: Database-level filtered session query with service visibility controls
+  getSessionsWithFiltering(params: SessionFilterParams): Promise<SessionQueryResult>;
+  getSessionsByClient(clientId: number, includeHiddenServices?: boolean): Promise<(Session & { therapist: User })[]>;
+  getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<(Session & { therapist: User; client: Client })[]>;
+  getOverdueSessions(limit?: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]>;
   createSession(session: InsertSession): Promise<Session>;
   createSessionsBulk(sessions: InsertSession[]): Promise<Session[]>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
   deleteSession(id: number): Promise<void>;
   
   // ===== SESSION CONFLICT DETECTION =====
-  getClientSessionConflicts(clientId: number): Promise<{
+  getClientSessionConflicts(clientId: number, includeHiddenServices?: boolean): Promise<{
     conflictDates: string[];
     conflicts: Array<{
       date: string;
@@ -1104,8 +1126,137 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getSessionsByClient(clientId: number): Promise<(Session & { therapist: User; service: any })[]> {
-    const results = await db
+  // SECURE: Database-level session filtering with comprehensive security and performance optimizations
+  async getSessionsWithFiltering(params: SessionFilterParams): Promise<SessionQueryResult> {
+    const {
+      therapistId,
+      supervisedTherapistIds,
+      startDate,
+      endDate,
+      status,
+      serviceCode,
+      clientId,
+      page = 1,
+      limit = 50,
+      includeHiddenServices = false
+    } = params;
+
+    // Build base query with all necessary joins
+    let query = db
+      .select({
+        session: sessions,
+        therapist: users,
+        client: clients,
+        service: services
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .$dynamic();
+
+    // Build WHERE conditions array
+    const whereConditions = [];
+
+    // SECURITY: Role-based access control at database level
+    if (therapistId) {
+      // Therapist sees only their own sessions
+      whereConditions.push(eq(sessions.therapistId, therapistId));
+    } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
+      // Supervisor sees sessions for supervised therapists only
+      whereConditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+    
+    // SECURITY: Service visibility filtering for non-admin users
+    if (!includeHiddenServices) {
+      // Only show sessions with visible services OR sessions without service assigned
+      whereConditions.push(
+        or(
+          and(
+            isNotNull(sessions.serviceId),
+            eq(services.therapistVisible, true),
+            eq(services.isActive, true)
+          ),
+          isNull(sessions.serviceId)
+        )
+      );
+    } else {
+      // Admin sees all active services but still filter out inactive ones
+      whereConditions.push(
+        or(
+          and(
+            isNotNull(sessions.serviceId),
+            eq(services.isActive, true)
+          ),
+          isNull(sessions.serviceId)
+        )
+      );
+    }
+
+    // Date range filtering
+    if (startDate) {
+      whereConditions.push(gte(sessions.sessionDate, startDate));
+    }
+    if (endDate) {
+      whereConditions.push(lte(sessions.sessionDate, endDate));
+    }
+
+    // Status filtering
+    if (status && status !== 'all') {
+      whereConditions.push(eq(sessions.status, status));
+    }
+
+    // Client filtering
+    if (clientId) {
+      whereConditions.push(eq(sessions.clientId, clientId));
+    }
+
+    // Service code filtering
+    if (serviceCode && serviceCode !== 'all') {
+      whereConditions.push(eq(services.serviceCode, serviceCode));
+    }
+
+    // Apply all conditions
+    if (whereConditions.length > 0) {
+      query = query.where(and(...whereConditions));
+    }
+
+    // Get total count for pagination (using same conditions)
+    const countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.therapistId, users.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id));
+    
+    if (whereConditions.length > 0) {
+      countQuery.where(and(...whereConditions));
+    }
+    
+    const [{ count: total }] = await countQuery;
+
+    // Apply ordering and pagination
+    const results = await query
+      .orderBy(desc(sessions.sessionDate))
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    const sessionResults = results.map(r => ({ 
+      ...r.session, 
+      therapist: r.therapist, 
+      client: r.client,
+      service: r.service 
+    }));
+
+    return {
+      sessions: sessionResults,
+      total: Number(total),
+      totalPages: Math.ceil(Number(total) / limit)
+    };
+  }
+
+  async getSessionsByClient(clientId: number, includeHiddenServices = false): Promise<(Session & { therapist: User; service: any })[]> {
+    let query = db
       .select({
         session: sessions,
         therapist: users,
@@ -1114,13 +1265,29 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
-      .where(eq(sessions.clientId, clientId))
+      .$dynamic();
+
+    const conditions = [eq(sessions.clientId, clientId)];
+    
+    // Apply service visibility filtering for non-admins
+    if (!includeHiddenServices) {
+      conditions.push(
+        or(
+          isNull(services.id), // Sessions without services (shouldn't happen but safety check)
+          eq(services.therapistVisible, true),
+          isNull(services.therapistVisible) // Legacy services without visibility setting (show by default)
+        )
+      );
+    }
+
+    const results = await query
+      .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
 
     return results.map(r => ({ ...r.session, therapist: r.therapist, service: r.service }));
   }
 
-  async getClientSessionConflicts(clientId: number): Promise<{
+  async getClientSessionConflicts(clientId: number, includeHiddenServices = false): Promise<{
     conflictDates: string[];
     conflicts: Array<{
       date: string;
@@ -1128,8 +1295,8 @@ export class DatabaseStorage implements IStorage {
       type: 'same_service' | 'different_service';
     }>;
   }> {
-    // Get all sessions for this client
-    const results = await db
+    // Get all sessions for this client with service visibility filtering
+    let query = db
       .select({
         session: sessions,
         therapist: users,
@@ -1138,7 +1305,22 @@ export class DatabaseStorage implements IStorage {
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(services, eq(sessions.serviceId, services.id))
-      .where(eq(sessions.clientId, clientId))
+      .$dynamic();
+
+    const conditions = [eq(sessions.clientId, clientId)];
+    
+    // Apply service visibility filtering for non-admins
+    if (!includeHiddenServices) {
+      conditions.push(
+        or(
+          eq(services.therapistVisible, true),
+          isNull(services.therapistVisible) // Legacy services without visibility setting
+        )
+      );
+    }
+
+    const results = await query
+      .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
 
     // Group sessions by date
@@ -1185,7 +1367,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
@@ -1219,6 +1401,17 @@ export class DatabaseStorage implements IStorage {
       conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
     }
 
+    // Apply service visibility filtering for non-admins
+    if (!includeHiddenServices) {
+      conditions.push(
+        or(
+          isNull(services.id), // Sessions without services
+          eq(services.therapistVisible, true),
+          isNull(services.therapistVisible) // Legacy services without visibility setting
+        )
+      );
+    }
+
     const results = await query
       .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
@@ -1231,7 +1424,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getRecentSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getRecentSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -1262,6 +1455,17 @@ export class DatabaseStorage implements IStorage {
       conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
     }
 
+    // Apply service visibility filtering for non-admins
+    if (!includeHiddenServices) {
+      conditions.push(
+        or(
+          isNull(services.id), // Sessions without services
+          eq(services.therapistVisible, true),
+          isNull(services.therapistVisible) // Legacy services without visibility setting
+        )
+      );
+    }
+
     const results = await query
       .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate))
@@ -1275,7 +1479,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getUpcomingSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getUpcomingSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -1308,6 +1512,17 @@ export class DatabaseStorage implements IStorage {
       conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
     }
 
+    // Apply service visibility filtering for non-admins
+    if (!includeHiddenServices) {
+      conditions.push(
+        or(
+          isNull(services.id), // Sessions without services
+          eq(services.therapistVisible, true),
+          isNull(services.therapistVisible) // Legacy services without visibility setting
+        )
+      );
+    }
+
     const results = await query
       .where(and(...conditions))
       .orderBy(asc(sessions.sessionDate))
@@ -1321,7 +1536,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any; daysOverdue: number })[]> {
+  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any; daysOverdue: number })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1350,6 +1565,17 @@ export class DatabaseStorage implements IStorage {
     } else if (supervisedTherapistIds && supervisedTherapistIds.length > 0) {
       // Supervisor sees overdue sessions for supervised therapists
       conditions.push(inArray(sessions.therapistId, supervisedTherapistIds));
+    }
+
+    // Apply service visibility filtering for non-admins
+    if (!includeHiddenServices) {
+      conditions.push(
+        or(
+          isNull(services.id), // Sessions without services
+          eq(services.therapistVisible, true),
+          isNull(services.therapistVisible) // Legacy services without visibility setting
+        )
+      );
     }
 
     const results = await query
