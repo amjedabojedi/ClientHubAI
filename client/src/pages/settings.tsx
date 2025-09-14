@@ -588,9 +588,10 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="system-options">System Options</TabsTrigger>
           <TabsTrigger value="service-prices">Service Prices</TabsTrigger>
+          <TabsTrigger value="service-visibility">Service Visibility</TabsTrigger>
           <TabsTrigger value="rooms">Rooms</TabsTrigger>
           <TabsTrigger value="administration">Administration</TabsTrigger>
         </TabsList>
@@ -1074,6 +1075,19 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="service-visibility" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Service Code Visibility</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Control which service codes therapists can see and use when booking sessions
+              </p>
+            </div>
+          </div>
+
+          <ServiceVisibilityManager />
+        </TabsContent>
+
         <TabsContent value="rooms" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1387,5 +1401,183 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Service Visibility Manager Component
+function ServiceVisibilityManager() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Fetch all services (admin view - gets all services regardless of visibility)
+  const { data: services = [], isLoading, refetch } = useQuery({
+    queryKey: ["/api/services"],
+    queryFn: () => fetch("/api/services").then(res => res.json()),
+  });
+
+  // Mutation to update service visibility
+  const updateVisibilityMutation = useMutation({
+    mutationFn: async ({ id, therapistVisible }: { id: number; therapistVisible: boolean }) => {
+      return apiRequest(`/api/services/${id}/visibility`, "PUT", { therapistVisible });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services/filtered"] });
+      toast({
+        title: "Success",
+        description: "Service visibility updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update service visibility",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk operations
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async ({ serviceIds, therapistVisible }: { serviceIds: number[]; therapistVisible: boolean }) => {
+      const promises = serviceIds.map(id => 
+        apiRequest(`/api/services/${id}/visibility`, "PUT", { therapistVisible })
+      );
+      await Promise.all(promises);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services/filtered"] });
+      toast({
+        title: "Success", 
+        description: `Updated ${variables.serviceIds.length} services successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to bulk update services",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleToggleVisibility = (service: any) => {
+    updateVisibilityMutation.mutate({
+      id: service.id,
+      therapistVisible: !service.therapistVisible,
+    });
+  };
+
+  const handleShowAll = () => {
+    const hiddenServices = services.filter((s: any) => !s.therapistVisible);
+    if (hiddenServices.length > 0) {
+      bulkUpdateMutation.mutate({
+        serviceIds: hiddenServices.map((s: any) => s.id),
+        therapistVisible: true,
+      });
+    }
+  };
+
+  const handleHideAll = () => {
+    const visibleServices = services.filter((s: any) => s.therapistVisible);
+    if (visibleServices.length > 0) {
+      bulkUpdateMutation.mutate({
+        serviceIds: visibleServices.map((s: any) => s.id),
+        therapistVisible: false,
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading services...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <DollarSign className="w-5 h-5" />
+          Service Code Visibility Control
+        </CardTitle>
+        <CardDescription>
+          Control which service codes therapists can see when booking sessions. Administrators always see all codes.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* Bulk Actions */}
+        <div className="flex gap-2 mb-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleShowAll}
+            disabled={bulkUpdateMutation.isPending || services.every((s: any) => s.therapistVisible)}
+          >
+            Show All to Therapists
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleHideAll}
+            disabled={bulkUpdateMutation.isPending || services.every((s: any) => !s.therapistVisible)}
+          >
+            Hide All from Therapists
+          </Button>
+        </div>
+
+        {/* Services Table */}
+        <div className="border rounded-lg">
+          <div className="grid grid-cols-6 gap-4 p-3 bg-gray-50 dark:bg-gray-800 font-medium text-sm border-b">
+            <div>Service Code</div>
+            <div className="col-span-2">Service Name</div>
+            <div>Duration</div>
+            <div>Rate</div>
+            <div className="text-center">Visible to Therapists</div>
+          </div>
+
+          {services.map((service: any) => (
+            <div key={service.id} className="grid grid-cols-6 gap-4 p-3 border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+              <div className="font-mono text-sm">{service.serviceCode}</div>
+              <div className="col-span-2">{service.serviceName}</div>
+              <div className="text-sm text-gray-600">{service.duration} min</div>
+              <div className="text-sm">${service.baseRate}</div>
+              <div className="flex justify-center">
+                <Switch
+                  checked={service.therapistVisible}
+                  onCheckedChange={() => handleToggleVisibility(service)}
+                  disabled={updateVisibilityMutation.isPending}
+                  data-testid={`switch-service-${service.id}`}
+                />
+              </div>
+            </div>
+          ))}
+
+          {services.length === 0 && (
+            <div className="p-8 text-center text-gray-500">
+              No service codes found. Add service codes in the Service Prices tab.
+            </div>
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="text-sm">
+            <div className="font-medium mb-1">Visibility Rules:</div>
+            <ul className="text-gray-600 dark:text-gray-300 space-y-1">
+              <li>• <strong>Visible:</strong> Therapists can see and use this service code when booking sessions</li>
+              <li>• <strong>Hidden:</strong> Therapists cannot see or select this service code (admins can always see all codes)</li>
+              <li>• <strong>Historical sessions:</strong> Always show the actual service code used, regardless of current visibility settings</li>
+            </ul>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

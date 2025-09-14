@@ -23,6 +23,7 @@ import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
+import type { AuthenticatedRequest } from "./auth-middleware";
 
 // Database Schemas
 import { 
@@ -4063,9 +4064,14 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // Service Management API
-  app.get("/api/services", async (req, res) => {
+  // Service Management API (admin-only for full list)
+  app.get("/api/services", async (req: AuthenticatedRequest, res) => {
     try {
+      // Admin-only access for full service list
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
       const services = await storage.getServices();
       res.json(services);
     } catch (error) {
@@ -4123,7 +4129,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Get filtered services based on user role
-  app.get("/api/services/filtered", async (req, res) => {
+  app.get("/api/services/filtered", async (req: AuthenticatedRequest, res) => {
     try {
       const userRole = req.user?.role || 'therapist';
       const services = await storage.getServicesFiltered(userRole);
@@ -4134,7 +4140,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Update service visibility (admin only)
-  app.put("/api/services/:id/visibility", async (req, res) => {
+  app.put("/api/services/:id/visibility", async (req: AuthenticatedRequest, res) => {
     try {
       // Check if user is admin
       if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
@@ -4146,14 +4152,18 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid service ID" });
       }
 
-      const { therapistVisible } = req.body;
-      if (typeof therapistVisible !== 'boolean') {
-        return res.status(400).json({ message: "therapistVisible must be a boolean value" });
-      }
-
-      const service = await storage.updateServiceVisibility(serviceId, therapistVisible);
+      // Validate request body with Zod
+      const visibilitySchema = z.object({
+        therapistVisible: z.boolean()
+      });
+      
+      const validatedData = visibilitySchema.parse(req.body);
+      const service = await storage.updateServiceVisibility(serviceId, validatedData.therapistVisible);
       res.json(service);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request body", errors: error.errors });
+      }
       res.status(500).json({ message: "Internal server error" });
     }
   });
