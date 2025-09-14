@@ -5,6 +5,16 @@ import { z } from "zod";
 import { insertNotificationSchema, insertNotificationTriggerSchema, insertNotificationPreferenceSchema, insertNotificationTemplateSchema } from "@shared/schema";
 import { AuthenticatedRequest, requireAuth } from "./auth-middleware";
 
+// Type-safe request after authentication - user is guaranteed to exist
+type SafeAuthRequest = AuthenticatedRequest & { 
+  user: { 
+    id: number; 
+    username: string; 
+    role: string; 
+    exp: number; 
+  } 
+};
+
 const router = Router();
 
 // ===== USER NOTIFICATIONS ENDPOINTS =====
@@ -14,13 +24,13 @@ const router = Router();
  */
 router.get("/", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     const limit = parseInt(req.query.limit as string) || 50;
     const notifications = await storage.getUserNotifications(userId, limit);
     
     res.json(notifications);
   } catch (error) {
-
+    console.error("Failed to get notifications:", error);
     res.status(500).json({ error: "Failed to get notifications" });
   }
 });
@@ -30,11 +40,11 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.get("/unread-count", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     const count = await storage.getUnreadNotificationCount(userId);
     res.json({ count });
   } catch (error) {
-
+    console.error("Failed to get unread count:", error);
     res.status(500).json({ error: "Failed to get unread count" });
   }
 });
@@ -44,13 +54,13 @@ router.get("/unread-count", requireAuth, async (req: AuthenticatedRequest, res) 
  */
 router.put("/:id/read", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     const notificationId = parseInt(req.params.id);
     await storage.markNotificationAsRead(notificationId, userId);
     
     res.json({ success: true });
   } catch (error) {
-
+    console.error("Failed to mark notification as read:", error);
     res.status(500).json({ error: "Failed to mark notification as read" });
   }
 });
@@ -60,11 +70,11 @@ router.put("/:id/read", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.put("/mark-all-read", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     await storage.markAllNotificationsAsRead(userId);
     res.json({ success: true });
   } catch (error) {
-
+    console.error("Failed to mark all notifications as read:", error);
     res.status(500).json({ error: "Failed to mark all notifications as read" });
   }
 });
@@ -74,13 +84,13 @@ router.put("/mark-all-read", requireAuth, async (req: AuthenticatedRequest, res)
  */
 router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user!.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     const notificationId = parseInt(req.params.id);
     await storage.deleteNotification(notificationId, userId);
     
     res.json({ success: true });
   } catch (error) {
-
+    console.error("Failed to delete notification:", error);
     res.status(500).json({ error: "Failed to delete notification" });
   }
 });
@@ -90,8 +100,10 @@ router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    const { id: userId, role } = (req as SafeAuthRequest).user;
+    
     // Check admin/supervisor permissions
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Insufficient permissions - admin/supervisor required" });
     }
 
@@ -102,7 +114,7 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
     const finalNotificationData = {
       ...validatedData,
       // Only administrators can create notifications for other users
-      userId: req.user.role === 'administrator' ? validatedData.userId || req.user.id : req.user.id
+      userId: role === 'administrator' ? validatedData.userId || userId : userId
     };
 
     const notification = await storage.createNotification(finalNotificationData);
@@ -124,7 +136,7 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.get("/preferences", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     const preferences = await storage.getUserNotificationPreferences(userId);
     res.json(preferences);
   } catch (error) {
@@ -138,7 +150,7 @@ router.get("/preferences", requireAuth, async (req: AuthenticatedRequest, res) =
  */
 router.put("/preferences/:triggerType", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const userId = req.user.id;
+    const { id: userId } = (req as SafeAuthRequest).user;
     const triggerType = req.params.triggerType;
     const validatedData = insertNotificationPreferenceSchema.partial().parse(req.body);
     
@@ -160,8 +172,10 @@ router.put("/preferences/:triggerType", requireAuth, async (req: AuthenticatedRe
  */
 router.get("/triggers", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    const { role } = (req as SafeAuthRequest).user;
+    
     // Check admin/supervisor permissions
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -179,7 +193,9 @@ router.get("/triggers", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.post("/triggers", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -201,7 +217,9 @@ router.post("/triggers", requireAuth, async (req: AuthenticatedRequest, res) => 
  */
 router.put("/triggers/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -224,7 +242,9 @@ router.put("/triggers/:id", requireAuth, async (req: AuthenticatedRequest, res) 
  */
 router.delete("/triggers/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -259,7 +279,9 @@ router.get("/templates", async (req, res) => {
  */
 router.post("/templates", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -281,7 +303,9 @@ router.post("/templates", requireAuth, async (req: AuthenticatedRequest, res) =>
  */
 router.put("/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -304,7 +328,9 @@ router.put("/templates/:id", requireAuth, async (req: AuthenticatedRequest, res)
  */
 router.delete("/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -325,7 +351,9 @@ router.delete("/templates/:id", requireAuth, async (req: AuthenticatedRequest, r
  */
 router.post("/test-event", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -347,7 +375,9 @@ router.post("/test-event", requireAuth, async (req: AuthenticatedRequest, res) =
  */
 router.get("/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
@@ -364,7 +394,9 @@ router.get("/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.post("/cleanup", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.user.role !== 'administrator' && req.user.role !== 'clinical_supervisor') {
+    const { role } = (req as SafeAuthRequest).user;
+    
+    if (role !== 'administrator' && role !== 'clinical_supervisor') {
       return res.status(403).json({ error: "Admin/supervisor access required" });
     }
 
