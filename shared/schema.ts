@@ -304,6 +304,7 @@ export const services = pgTable("services", {
   baseRate: decimal("base_rate", { precision: 10, scale: 2 }).notNull(),
   category: varchar("category", { length: 100 }),
   isActive: boolean("is_active").notNull().default(true),
+  therapistVisible: boolean("therapist_visible").notNull().default(true), // Controls therapist visibility
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
