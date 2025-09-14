@@ -4128,7 +4128,7 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get("/api/services", async (req: AuthenticatedRequest, res) => {
     try {
       // Admin-only access for full service list
-      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+      if (req.user?.role !== 'administrator') {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
 
