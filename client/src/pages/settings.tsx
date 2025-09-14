@@ -205,7 +205,7 @@ export default function SettingsPage() {
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
     retry: false, // Stop infinite retries on auth failure
-    enabled: true, // Re-enabled with auth fixes
+    enabled: false, // TEMPORARILY DISABLED - user needs to log out/in
   });
 
   // Process the raw service codes data
@@ -1412,11 +1412,11 @@ function ServiceVisibilityManager() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch all services (admin view - gets all services regardless of visibility)
+  // Fetch all services (admin view - gets all services regardless of visibility)  
   const { data: servicesRaw = [], isLoading, refetch, error } = useQuery({
     queryKey: ["/api/services"],
     retry: false, // Stop infinite retries on auth failure
-    enabled: true, // Re-enabled with auth fixes
+    enabled: false, // TEMPORARILY DISABLED - user needs to log out/in
   });
 
   // Ensure services is always an array

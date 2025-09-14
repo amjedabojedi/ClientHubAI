@@ -50,25 +50,45 @@ export function createSessionToken(user: { id: number; username: string; role: s
  */
 export function verifySessionToken(token: string): TokenPayload | null {
   try {
+    if (!JWT_SECRET) {
+      console.error("[auth-debug] JWT_SECRET is required for token verification");
+      return null;
+    }
+    
     const [payloadB64, signature] = token.split('.');
-    if (!payloadB64 || !signature) return null;
+    if (!payloadB64 || !signature) {
+      console.log("[auth-debug] Token format invalid - missing parts, got:", token.split('.').length, "parts");
+      return null;
+    }
     
     const payloadStr = Buffer.from(payloadB64, 'base64').toString();
+    console.log("[auth-debug] Payload decoded:", payloadStr.substring(0, 50) + '...');
+    
     const expectedSignature = crypto
       .createHmac('sha256', JWT_SECRET!)
       .update(payloadStr)
       .digest('hex');
     
     // Verify signature
-    if (signature !== expectedSignature) return null;
+    if (signature !== expectedSignature) {
+      console.log("[auth-debug] Signature verification failed");
+      console.log("[auth-debug] Expected:", expectedSignature.substring(0, 20) + '...');
+      console.log("[auth-debug] Received:", signature.substring(0, 20) + '...');
+      return null;
+    }
     
     const payload: TokenPayload = JSON.parse(payloadStr);
     
     // Check expiry
-    if (Date.now() > payload.exp) return null;
+    if (Date.now() > payload.exp) {
+      console.log("[auth-debug] Token expired - now:", Date.now(), "exp:", payload.exp);
+      return null;
+    }
     
+    console.log("[auth-debug] Token verification successful for user:", payload.username);
     return payload;
   } catch (error) {
+    console.log("[auth-debug] Token verification error:", error);
     return null;
   }
 }
@@ -92,9 +112,11 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   
   const user = verifySessionToken(token);
   if (!user) {
+    console.log('[auth-debug] Token verification failed for token:', token.substring(0, 20) + '...');
     return res.status(401).json({ error: "Invalid or expired session" });
   }
   
+  console.log('[auth-debug] Token verification SUCCESS for user:', user.username);
   req.user = user;
   next();
 }
