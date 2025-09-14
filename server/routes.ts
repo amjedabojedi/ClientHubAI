@@ -215,19 +215,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const crypto = await import('crypto');
       const csrfToken = crypto.randomBytes(32).toString('hex');
 
-      // Set secure cookies
+      // Set secure cookies - disable secure in development for HTTP
       const isProduction = process.env.NODE_ENV === 'production';
+      const useSecure = process.env.USE_SECURE_COOKIES === 'true';
       res.cookie('sessionToken', sessionToken, {
         httpOnly: true,
-        secure: isProduction,
+        secure: useSecure || isProduction, // Allow HTTP in development
         sameSite: 'lax', // Changed from 'strict' to allow cross-site requests
         path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
       res.cookie('csrfToken', csrfToken, {
         httpOnly: false, // Accessible to JS for header
-        secure: isProduction,
-        sameSite: 'strict',
+        secure: useSecure || isProduction, // Allow HTTP in development
+        sameSite: 'lax', // Changed from 'strict' to match sessionToken
+        path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
 

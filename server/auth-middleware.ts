@@ -79,7 +79,14 @@ export function verifySessionToken(token: string): TokenPayload | null {
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const token = req.cookies?.sessionToken;
   
+  // Temporary debugging - remove after fixing auth
+  console.log('[auth-debug] requireAuth called for:', req.path);
+  console.log('[auth-debug] Cookie header:', req.headers.cookie ? 'present' : 'missing');
+  console.log('[auth-debug] Parsed cookies:', req.cookies ? Object.keys(req.cookies) : 'undefined');
+  console.log('[auth-debug] sessionToken:', token ? 'present' : 'missing');
+  
   if (!token) {
+    console.log('[auth-debug] 401 - No session token');
     return res.status(401).json({ error: "Authentication required" });
   }
   
