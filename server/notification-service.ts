@@ -132,6 +132,9 @@ export class NotificationService {
    * Processes an event and creates notifications based on triggers
    */
   async processEvent(eventType: string, entityData: any): Promise<void> {
+    console.log(`DEBUG: NotificationService.processEvent called with eventType: ${eventType}`);
+    console.log(`DEBUG: Entity data:`, JSON.stringify(entityData, null, 2));
+    
     try {
       // Get all active triggers for this event type
       const triggers = await db
@@ -141,6 +144,8 @@ export class NotificationService {
           eq(notificationTriggers.eventType, eventType as any),
           eq(notificationTriggers.isActive, true)
         ));
+        
+      console.log(`DEBUG: Found ${triggers.length} active triggers for ${eventType}`);
 
       // Process each trigger
       for (const trigger of triggers) {
