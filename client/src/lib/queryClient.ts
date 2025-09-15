@@ -48,6 +48,15 @@ export async function apiRequest(
     }
   }
 
+  // Add cache busting for GET requests to prevent 304 responses
+  if (method === 'GET' || method === 'HEAD') {
+    options.cache = "no-store";
+    options.headers = {
+      ...options.headers,
+      "Cache-Control": "no-cache",
+    };
+  }
+
   const res = await fetch(url, options);
   await throwIfResNotOk(res);
   return res;
@@ -85,6 +94,10 @@ export const getQueryFn: <T>(options: {
 
     const res = await fetch(url, {
       credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
