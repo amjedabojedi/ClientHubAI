@@ -262,7 +262,42 @@ function Router() {
           <Route path="/user-profiles" component={UserProfilesPage} />
           <Route path="/role-management" component={RoleManagementPage} />
           <Route path="/notifications" component={NotificationsPage} />
-          <Route path="/settings" component={SettingsPage} />
+          <Route path="/settings" component={() => {
+            const { user } = useAuth();
+            if (isAdminOrSupervisor(user)) {
+              return <SettingsPage />;
+            } else {
+              // Redirect therapists to dashboard with a message
+              return (
+                <div className="max-w-2xl mx-auto mt-8">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <Shield className="h-5 w-5 text-yellow-400" />
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-yellow-800">
+                          Access Restricted
+                        </h3>
+                        <div className="mt-2 text-sm text-yellow-700">
+                          <p>Settings management is restricted to administrators and supervisors.</p>
+                          <p className="mt-2">Please contact your administrator if you need to modify system settings.</p>
+                        </div>
+                        <div className="mt-4">
+                          <Link href="/">
+                            <Button variant="outline" size="sm">
+                              <LayoutDashboard className="h-4 w-4 mr-2" />
+                              Go to Dashboard
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          }} />
           <Route path="/my-profile" component={MyProfilePage} />
           <Route path="/hipaa-audit" component={HIPAAAuditPage} />
           <Route component={NotFound} />
