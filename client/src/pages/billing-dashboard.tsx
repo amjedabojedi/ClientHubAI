@@ -92,12 +92,8 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch(`/api/billing/${billingRecord?.id}/payment`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error('Failed to record payment');
+      const { apiRequest } = await import('@/lib/queryClient');
+      const response = await apiRequest(`/api/billing/${billingRecord?.id}/payment`, 'PUT', data);
       return response.json();
     },
     onSuccess: () => {
