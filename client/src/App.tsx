@@ -35,6 +35,13 @@ import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import NotificationBell from "@/components/notifications/notification-bell";
 
 
+// Helper function to check if user has admin or supervisor privileges
+function isAdminOrSupervisor(user: any): boolean {
+  if (!user?.role) return false;
+  const normalizedRole = user.role.toLowerCase().trim();
+  return ['administrator', 'admin', 'supervisor'].includes(normalizedRole);
+}
+
 function Navigation() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -55,7 +62,7 @@ function Navigation() {
     ];
 
     // Only show Administration menu to supervisors and admins
-    if (user?.role === 'administrator' || user?.role === 'supervisor') {
+    if (isAdminOrSupervisor(user)) {
       baseItems.push({
         path: "/administration", 
         label: "Administration", 
