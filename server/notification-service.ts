@@ -182,15 +182,34 @@ export class NotificationService {
    */
   private async evaluateTriggerConditions(trigger: NotificationTrigger, entityData: any): Promise<boolean> {
     try {
-      if (!trigger.conditionRules) {
-        return true; // No conditions means always trigger
+      if (!trigger.conditionRules || trigger.conditionRules === '{}') {
+        console.log(`DEBUG: Trigger ${trigger.id} has no conditions, returning true`);
+        return true; // No conditions or empty conditions means always trigger
       }
 
-      const conditions: TriggerCondition[] = JSON.parse(trigger.conditionRules);
+      const parsedConditions = JSON.parse(trigger.conditionRules);
+      console.log(`DEBUG: Trigger ${trigger.id} parsed conditions:`, parsedConditions);
+      
+      // Handle both object format like {"sessionType": "intake"} and array format
+      let conditions: TriggerCondition[] = [];
+      
+      if (Array.isArray(parsedConditions)) {
+        conditions = parsedConditions;
+      } else if (typeof parsedConditions === 'object' && parsedConditions !== null) {
+        // Convert object format to condition array
+        conditions = Object.entries(parsedConditions).map(([field, value]) => ({
+          field,
+          operator: 'equals' as const,
+          value
+        }));
+      }
+      
+      console.log(`DEBUG: Trigger ${trigger.id} evaluating ${conditions.length} conditions`);
       
       for (const condition of conditions) {
         const fieldValue = this.getFieldValue(entityData, condition.field);
         const conditionMet = this.evaluateCondition(fieldValue, condition);
+        console.log(`DEBUG: Trigger ${trigger.id} condition ${condition.field} = ${fieldValue}, expected: ${condition.value}, met: ${conditionMet}`);
         
         if (!conditionMet) {
           return false; // All conditions must be met (AND logic for now)
@@ -199,7 +218,7 @@ export class NotificationService {
 
       return true;
     } catch (error) {
-
+      console.error(`DEBUG: Trigger ${trigger.id} condition evaluation error:`, error);
       return false;
     }
   }
