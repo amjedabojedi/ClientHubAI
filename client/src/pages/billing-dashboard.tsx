@@ -272,7 +272,7 @@ export default function BillingDashboard() {
   });
 
   // Fetch therapists for filter
-  const { data: therapists } = useQuery({
+  const { data: therapists = [] } = useQuery({
     queryKey: ['/api/users'],
     queryFn: async () => {
       const response = await fetch('/api/users?role=therapist');
@@ -581,7 +581,7 @@ export default function BillingDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Services</SelectItem>
-                  {services?.map((service: any) => (
+                  {Array.isArray(services) && services.map((service: any) => (
                     <SelectItem key={service.serviceCode} value={service.serviceCode}>
                       {service.serviceCode} - {service.serviceName}
                     </SelectItem>
