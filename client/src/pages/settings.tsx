@@ -346,7 +346,15 @@ export default function SettingsPage() {
   // Service management mutations
   const updateServiceCodeMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => 
-      apiRequest(`/api/services/${id}`, "PUT", data),
+      apiRequest(`/api/services/${id}`, "PUT", {
+        serviceCode: data.optionKey,
+        serviceName: data.optionLabel,
+        baseRate: data.price,
+        duration: data.duration || 60,
+        category: data.category || 'Therapy',
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        therapistVisible: data.therapistVisible
+      }),
     onSuccess: async () => {
       // Force refetch the service codes data
       await queryClient.refetchQueries({ queryKey: ["/api/services"] });
