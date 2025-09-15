@@ -199,10 +199,9 @@ export default function SettingsPage() {
     }),
   });
 
-  // Fetch service codes from Services table - use authenticated apiRequest
+  // Fetch service codes from Services table - use default authenticated query
   const { data: serviceCodesRaw = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes, error: serviceCodesError } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: () => apiRequest("/api/services", "GET"),
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
     retry: false, // Stop infinite retries on auth failure
@@ -217,6 +216,7 @@ export default function SettingsPage() {
     price: service.base_rate || '0.00',
     therapistVisible: service.therapist_visible || false
   })) : [];
+
 
   // Fetch rooms
   const { data: rooms = [], isLoading: roomsLoading } = useQuery({
