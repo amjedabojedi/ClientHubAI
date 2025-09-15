@@ -2073,7 +2073,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePaymentDetails(billingId: number, paymentData: {
-    status: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded';
+    status: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded' | 'follow_up';
     amount?: number;
     date?: string;
     reference?: string;
