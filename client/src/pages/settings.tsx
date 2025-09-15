@@ -186,7 +186,7 @@ export default function SettingsPage() {
   // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/system-options/categories"],
-    queryFn: () => fetch("/api/system-options/categories").then(res => res.json()).then(data => {
+    queryFn: () => apiRequest("/api/system-options/categories", "GET").then(res => res.json()).then(data => {
       return data.map((category: any) => ({
         id: category.id,
         categoryName: category.categoryName,
