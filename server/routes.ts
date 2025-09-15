@@ -4330,7 +4330,7 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get("/api/services", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Admin-only access for full service list
-      if (req.user?.role !== 'administrator') {
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
 
@@ -4405,7 +4405,7 @@ This happens because only the file metadata was stored, not the actual file cont
   app.put("/api/services/:id/visibility", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Check if user is admin
-      if (req.user?.role !== 'administrator') {
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
 
