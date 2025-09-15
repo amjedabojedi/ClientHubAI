@@ -282,7 +282,7 @@ export default function BillingDashboard() {
   });
 
   // Fetch services for filter (role-based filtering)
-  const { data: services } = useQuery({
+  const { data: services = [] } = useQuery({
     queryKey: [user?.role === 'administrator' || user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'clinical_supervisor' ? "/api/services" : "/api/services/filtered", { currentUserRole: user?.role }],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes - services rarely change
