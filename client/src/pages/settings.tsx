@@ -211,11 +211,12 @@ export default function SettingsPage() {
   // Process the raw service codes data
   const serviceCodes = Array.isArray(serviceCodesRaw) ? serviceCodesRaw.map((service: any) => ({
     id: service.id,
-    optionKey: service.service_code,
-    optionLabel: service.service_name,
-    price: service.base_rate || '0.00',
-    therapistVisible: service.therapist_visible || false
+    optionKey: service.serviceCode, // API returns camelCase
+    optionLabel: service.serviceName, // API returns camelCase
+    price: service.baseRate || '0.00', // API returns camelCase
+    therapistVisible: service.therapistVisible || false // API returns camelCase
   })) : [];
+
 
 
   // Fetch rooms
