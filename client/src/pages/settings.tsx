@@ -1424,12 +1424,52 @@ function ServiceVisibilityManager() {
   const queryClient = useQueryClient();
   
   // Fetch all services (admin view - gets all services regardless of visibility)  
-  const { data: servicesRaw = [], isLoading, refetch, error } = useQuery({
+  const { data: servicesRaw = [], isLoading, refetch, error, isFetching } = useQuery({
     queryKey: ["/api/services"],
-    queryFn: () => apiRequest("/api/services", "GET").then(res => res.json()),
+    queryFn: async () => {
+      const reqId = crypto.randomUUID();
+      console.log(`[DEBUG] ServiceVisibility: Starting /api/services request`, { reqId, timestamp: Date.now() });
+      
+      const startTime = Date.now();
+      try {
+        const response = await apiRequest("/api/services", "GET");
+        const data = await response.json();
+        const duration = Date.now() - startTime;
+        
+        console.log(`[DEBUG] ServiceVisibility: /api/services SUCCESS`, { 
+          reqId, 
+          status: response.status, 
+          duration, 
+          dataCount: data?.length || 0,
+          timestamp: Date.now() 
+        });
+        
+        return data;
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        console.error(`[DEBUG] ServiceVisibility: /api/services FAILED`, { 
+          reqId, 
+          error: error instanceof Error ? error.message : String(error), 
+          duration,
+          timestamp: Date.now() 
+        });
+        throw error;
+      }
+    },
     retry: false, // Stop infinite retries on auth failure
     enabled: true, // RE-ENABLED after fresh login
   });
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log(`[DEBUG] ServiceVisibility STATE:`, { 
+      isLoading, 
+      isFetching, 
+      hasError: !!error, 
+      dataCount: servicesRaw?.length || 0,
+      timestamp: Date.now()
+    });
+  }, [isLoading, isFetching, error, servicesRaw]);
 
   // Ensure services is always an array
   const services = Array.isArray(servicesRaw) ? servicesRaw : [];
