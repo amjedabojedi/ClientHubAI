@@ -1426,6 +1426,7 @@ function ServiceVisibilityManager() {
   // Fetch all services (admin view - gets all services regardless of visibility)  
   const { data: servicesRaw = [], isLoading, refetch, error } = useQuery({
     queryKey: ["/api/services"],
+    queryFn: () => apiRequest("/api/services", "GET").then(res => res.json()),
     retry: false, // Stop infinite retries on auth failure
     enabled: true, // RE-ENABLED after fresh login
   });
