@@ -312,12 +312,8 @@ export default function BillingDashboard() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ billingId, status }: { billingId: number; status: string }) => {
-      const response = await fetch(`/api/billing/${billingId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (!response.ok) throw new Error('Failed to update status');
+      const { apiRequest } = await import('@/lib/queryClient');
+      const response = await apiRequest(`/api/billing/${billingId}/status`, 'PATCH', { status });
       return response.json();
     },
     onSuccess: () => {

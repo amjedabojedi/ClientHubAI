@@ -4677,8 +4677,13 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.patch("/api/billing/:billingId/status", async (req, res) => {
+  app.patch("/api/billing/:billingId/status", requireAuth, async (req, res) => {
     try {
+      // Check if user has billing access
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
       const billingId = parseInt(req.params.billingId);
       const { status } = req.body;
       
