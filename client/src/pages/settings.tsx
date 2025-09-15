@@ -199,9 +199,10 @@ export default function SettingsPage() {
     }),
   });
 
-  // Fetch service codes from Services table - use default authenticated query
+  // Fetch service codes from Services table - use authenticated query
   const { data: serviceCodesRaw = [], isLoading: serviceCodesLoading, refetch: refetchServiceCodes, error: serviceCodesError } = useQuery({
     queryKey: ["/api/services"],
+    queryFn: () => apiRequest("/api/services", "GET").then(res => res.json()),
     staleTime: 0, // Always refetch when needed
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
     retry: false, // Stop infinite retries on auth failure
