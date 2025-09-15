@@ -1469,7 +1469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check for conflicts when updating session time/therapist/room
         if (sessionData.therapistId || sessionData.roomId) {
           // Use proper service filtering for conflict checking
-          const includeHiddenServices = req.user?.role === 'admin';
+          const includeHiddenServices = (req as any).user?.role === 'admin';
           const sessionResults = await storage.getSessionsWithFiltering({
             includeHiddenServices,
             startDate: sessionData.sessionDate,
@@ -1749,7 +1749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       setImmediate(async () => {
         try {
           // Only admins can trigger checks on sessions with hidden services
-          const includeHiddenServices = req.user.role === 'admin';
+          const includeHiddenServices = req.user?.role === 'admin';
           const overdueSessions = await storage.getOverdueSessions(undefined, undefined, undefined, includeHiddenServices);
           const sessionsToProcess = overdueSessions.slice(0, limit);
           
@@ -3315,7 +3315,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const clientData = await storage.getClient(clientId);
       
       // Apply service visibility filtering when getting session data
-      const includeHiddenServices = req.user?.role === 'admin' || false;
+      const includeHiddenServices = (req as any).user?.role === 'admin' || false;
       const sessionData = sessionId ? (await storage.getSessionsByClient(clientId, includeHiddenServices)).find(s => s.id === sessionId) : null;
       
       // If session requested but not found in filtered results, return error

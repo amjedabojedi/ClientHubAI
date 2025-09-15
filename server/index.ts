@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { optionalAuth, csrfProtection } from "./auth-middleware";
+import { storage } from "./storage";
 
 const app = express();
 // Increase payload limits for document uploads
@@ -25,6 +26,41 @@ app.use('/api', (req, res, next) => {
   return csrfProtection(req, res, next);
 });
 
+// Health check endpoint - must be before other routes to ensure it's accessible
+app.get('/health', async (req, res) => {
+  try {
+    // Check if server is responsive
+    const healthCheck: any = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      port: 5000
+    };
+
+    // Test database connectivity
+    try {
+      await storage.getUsers();
+      healthCheck.database = 'connected';
+    } catch (dbError) {
+      healthCheck.database = 'error';
+      healthCheck.status = 'degraded';
+      log(`Health check - Database error: ${dbError}`);
+    }
+
+    // Return appropriate status code
+    const statusCode = healthCheck.status === 'ok' ? 200 : 503;
+    res.status(statusCode).json(healthCheck);
+  } catch (error) {
+    log(`Health check failed: ${error}`);
+    res.status(503).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: 'Health check failed'
+    });
+  }
+});
+
 // Simple request logging for production
 app.use((req, res, next) => {
   const start = Date.now();
@@ -37,42 +73,138 @@ app.use((req, res, next) => {
   next();
 });
 
+// Track server instance for graceful shutdown
+let server: any = null;
+
+// Graceful shutdown handler
+function gracefulShutdown(signal: string) {
+  log(`Received ${signal}, starting graceful shutdown...`);
+  
+  if (server) {
+    server.close((err: any) => {
+      if (err) {
+        log(`Error during server shutdown: ${err}`);
+        process.exit(1);
+      }
+      
+      log('Server closed successfully');
+      process.exit(0);
+    });
+    
+    // Force shutdown after 30 seconds
+    setTimeout(() => {
+      log('Forcing shutdown due to timeout');
+      process.exit(1);
+    }, 30000);
+  } else {
+    process.exit(0);
+  }
+}
+
+// Register graceful shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
+
+// Enhanced startup with comprehensive error handling
 (async () => {
-  // Use comprehensive routing system
-  const server = await registerRoutes(app);
+  try {
+    log('Starting application initialization...');
+    
+    // Test critical dependencies first
+    try {
+      log('Testing database connectivity...');
+      await storage.getUsers();
+      log('Database connection verified');
+    } catch (dbError) {
+      log(`Database connection failed: ${dbError}`);
+      throw new Error(`Database initialization failed: ${dbError}`);
+    }
 
-  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    log('Registering routes...');
+    server = await registerRoutes(app);
+    log('Routes registered successfully');
 
-    // Only send response if headers haven't been sent yet
-    if (!res.headersSent) {
-      res.status(status).json({ message });
+    // Enhanced error handler with better logging
+    app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      const timestamp = new Date().toISOString();
+
+      // Only send response if headers haven't been sent yet
+      if (!res.headersSent) {
+        res.status(status).json({ 
+          message,
+          timestamp,
+          path: req.path,
+          method: req.method
+        });
+      }
+      
+      // Enhanced error logging
+      log(`[ERROR] ${timestamp} - ${req.method} ${req.path} - Status: ${status} - ${message}`);
+      if (err.stack) {
+        console.error('Stack trace:', err.stack);
+      }
+      next();
+    });
+
+    // Setup development or production serving
+    log('Setting up application serving...');
+    if (app.get("env") === "development") {
+      log('Configuring development mode with Vite...');
+      await setupVite(app, server);
+      log('Vite development server configured');
+    } else {
+      log('Configuring production mode with static files...');
+      serveStatic(app);
+      log('Static file serving configured');
+    }
+
+    // Start the server with enhanced logging
+    const port = 5000;
+    const host = "0.0.0.0";
+    
+    log(`Starting server on ${host}:${port}...`);
+    
+    server.listen({
+      port,
+      host,
+      reusePort: true,
+    }, () => {
+      const env = process.env.NODE_ENV || 'development';
+      log(`🚀 Server successfully started!`);
+      log(`   Environment: ${env}`);
+      log(`   Address: http://${host}:${port}`);
+      log(`   Health check: http://${host}:${port}/health`);
+      log(`   Process ID: ${process.pid}`);
+      log(`   Uptime: ${process.uptime()}s`);
+      log('Application is ready to accept connections');
+    });
+    
+    // Handle server startup errors
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        log(`Port ${port} is already in use`);
+      } else {
+        log(`Server error: ${error}`);
+      }
+      process.exit(1);
+    });
+    
+  } catch (startupError) {
+    log(`❌ Application startup failed: ${startupError}`);
+    if (startupError instanceof Error && startupError.stack) {
+      console.error('Startup error stack trace:', startupError.stack);
     }
     
-    // Log the error but don't re-throw to prevent runtime error overlay
-    console.error(`Error on ${req.method} ${req.path}:`, err);
-    next();
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Give some time for logs to flush
+    setTimeout(() => {
+      process.exit(1);
+    }, 1000);
   }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-})();
+})().catch((error) => {
+  log(`❌ Unhandled startup error: ${error}`);
+  console.error('Unhandled error stack trace:', error);
+  process.exit(1);
+});
