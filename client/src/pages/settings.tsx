@@ -1519,6 +1519,27 @@ function ServiceVisibilityManager() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">❌ Error loading services</div>
+          <p className="text-gray-600 dark:text-gray-300">
+            {error?.message || 'Authentication failed - please refresh page'}
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => refetch()} 
+            className="mt-4"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>

@@ -221,14 +221,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.cookie('sessionToken', sessionToken, {
         httpOnly: true,
         secure: useSecure || isProduction, // Allow HTTP in development
-        sameSite: 'lax', // Changed from 'strict' to allow cross-site requests
+        sameSite: isProduction ? 'none' : 'lax', // Use 'none' for production cross-origin
         path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
       res.cookie('csrfToken', csrfToken, {
         httpOnly: false, // Accessible to JS for header
         secure: useSecure || isProduction, // Allow HTTP in development
-        sameSite: 'lax', // Changed from 'strict' to match sessionToken
+        sameSite: isProduction ? 'none' : 'lax', // Use 'none' for production cross-origin
         path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
