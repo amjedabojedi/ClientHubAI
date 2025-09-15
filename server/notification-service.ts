@@ -149,16 +149,22 @@ export class NotificationService {
 
       // Process each trigger
       for (const trigger of triggers) {
+        console.log(`DEBUG: Processing trigger ${trigger.id}: "${trigger.name}"`);
         try {
           // Check if trigger conditions are met
           const conditionsMet = await this.evaluateTriggerConditions(trigger, entityData);
+          console.log(`DEBUG: Trigger ${trigger.id} conditions met: ${conditionsMet}`);
           
           if (conditionsMet) {
             // Calculate recipients
             const recipients = await this.calculateRecipients(trigger, entityData);
+            console.log(`DEBUG: Trigger ${trigger.id} found ${recipients.length} recipients:`, recipients.map(r => r.id));
             
             // Create notifications for each recipient
             await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+            console.log(`DEBUG: Trigger ${trigger.id} notifications created successfully`);
+          } else {
+            console.log(`DEBUG: Trigger ${trigger.id} conditions not met, skipping`);
           }
         } catch (error) {
           console.error(`Error processing notification trigger ${trigger.id}:`, error);
