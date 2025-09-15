@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { 
   CreditCard, 
   DollarSign, 
@@ -285,14 +285,11 @@ export default function BillingDashboard() {
     }
   });
 
-  // Fetch services for filter
+  // Fetch services for filter (role-based filtering)
   const { data: services } = useQuery({
-    queryKey: ['/api/services'],
-    queryFn: async () => {
-      const response = await fetch('/api/services');
-      if (!response.ok) throw new Error('Failed to fetch services');
-      return response.json();
-    }
+    queryKey: [user?.role === 'administrator' || user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'clinical_supervisor' ? "/api/services" : "/api/services/filtered", { currentUserRole: user?.role }],
+    queryFn: getQueryFn({ on401: "throw" }),
+    staleTime: 15 * 60 * 1000, // Cache for 15 minutes - services rarely change
   });
 
   // Fetch system categories for client type filter
