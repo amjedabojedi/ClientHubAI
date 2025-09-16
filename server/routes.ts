@@ -2770,8 +2770,13 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", requireAuth, async (req, res) => {
     try {
+      // Check if user has admin privileges to create users
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required to create users." });
+      }
+
       const validatedData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(validatedData);
       res.status(201).json(sanitizeUser(user));
