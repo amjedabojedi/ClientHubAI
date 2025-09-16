@@ -2818,6 +2818,28 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.delete("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      // Check if user has admin privileges to delete users
+      if (req.user?.role !== 'administrator') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required to delete users." });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      // Prevent self-deletion
+      if (req.user.id === id) {
+        return res.status(400).json({ message: "Cannot delete your own user account." });
+      }
+      
+      await storage.deleteUser(id);
+      res.status(204).send();
+    } catch (error) {
+      // Error logged
+      res.status(500).json({ message: "Failed to delete user." });
+    }
+  });
+
 
 
 
