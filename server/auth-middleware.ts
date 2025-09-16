@@ -125,6 +125,14 @@ export function csrfProtection(req: AuthenticatedRequest, res: Response, next: N
   const cookieCsrf = req.cookies?.csrfToken;
   
   if (!csrfToken || !cookieCsrf || csrfToken !== cookieCsrf) {
+    // Debug logging for CSRF failures
+    console.log(`[CSRF DEBUG] Failed validation:`, {
+      hasHeader: !!csrfToken,
+      hasCookie: !!cookieCsrf,
+      headerStart: csrfToken?.substring(0, 8),
+      cookieStart: cookieCsrf?.substring(0, 8),
+      match: csrfToken === cookieCsrf
+    });
     return res.status(403).json({ error: "Invalid CSRF token" });
   }
   

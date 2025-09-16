@@ -215,20 +215,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const crypto = await import('crypto');
       const csrfToken = crypto.randomBytes(32).toString('hex');
 
-      // Set secure cookies - disable secure in development for HTTP
+      // Set secure cookies - Replit requires SameSite=None for embedded contexts
       const isProduction = process.env.NODE_ENV === 'production';
       const useSecure = process.env.USE_SECURE_COOKIES === 'true';
+      const isReplit = process.env.REPLIT_ENVIRONMENT === 'true' || true; // Assume Replit context
+      
       res.cookie('sessionToken', sessionToken, {
         httpOnly: true,
-        secure: useSecure || isProduction, // Allow HTTP in development
-        sameSite: isProduction ? 'none' : 'lax', // Use 'none' for production cross-origin
+        secure: true, // Required for SameSite=None
+        sameSite: 'none', // Required for embedded/iframe contexts
         path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
       res.cookie('csrfToken', csrfToken, {
         httpOnly: false, // Accessible to JS for header
-        secure: useSecure || isProduction, // Allow HTTP in development
-        sameSite: isProduction ? 'none' : 'lax', // Use 'none' for production cross-origin
+        secure: true, // Required for SameSite=None
+        sameSite: 'none', // Required for embedded/iframe contexts
         path: '/',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
