@@ -2821,8 +2821,8 @@ This happens because only the file metadata was stored, not the actual file cont
   app.delete("/api/users/:id", requireAuth, async (req, res) => {
     try {
       // Check if user has admin privileges to delete users
-      if (req.user?.role !== 'administrator') {
-        return res.status(403).json({ message: "Access denied. Administrator privileges required to delete users." });
+      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Admin privileges required to delete users." });
       }
 
       const id = parseInt(req.params.id);
