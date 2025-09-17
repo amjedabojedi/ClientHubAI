@@ -471,7 +471,9 @@ export const documents = pgTable("documents", {
   isSharedInPortal: boolean("is_shared_in_portal").notNull().default(false),
   downloadCount: integer("download_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  clientIdIdx: index("documents_client_id_idx").on(table.clientId),
+}));
 
 // Session Notes table
 export const sessionNotes = pgTable("session_notes", {
