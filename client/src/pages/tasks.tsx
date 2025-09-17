@@ -637,7 +637,7 @@ export default function TasksPage() {
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
-    queryKey: ["/api/tasks/stats"],
+    queryKey: ["/api/tasks/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
   });
 
   const { data: therapists = [] } = useQuery({
