@@ -339,7 +339,6 @@ export default function ClientDataGrid({
                             : 'No sessions'
                           }
                         </p>
-                        <p className="text-slate-500">First session</p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -350,7 +349,6 @@ export default function ClientDataGrid({
                             : 'No sessions'
                           }
                         </p>
-                        <p className="text-slate-500">Most recent</p>
                       </div>
                     </TableCell>
                     <TableCell>
