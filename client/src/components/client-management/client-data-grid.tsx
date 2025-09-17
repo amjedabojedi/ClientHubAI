@@ -4,9 +4,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Eye, Edit, CalendarDays, Plus } from "lucide-react";
+import { Eye, Edit, CalendarDays, Plus, Paperclip } from "lucide-react";
 import Pagination from "./pagination";
 import { Client, ClientsQueryResult } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -271,12 +272,44 @@ export default function ClientDataGrid({
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
-                          <p 
-                            className="font-medium text-slate-900 cursor-pointer hover:text-primary"
-                            onClick={() => onViewClient(client)}
-                          >
-                            {client.fullName}
-                          </p>
+                          <div className="flex items-center space-x-2">
+                            <p 
+                              className="font-medium text-slate-900 cursor-pointer hover:text-primary"
+                              onClick={() => onViewClient(client)}
+                            >
+                              {client.fullName}
+                            </p>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div 
+                                    className="relative inline-flex items-center"
+                                    data-testid={`icon-docs-${client.id}`}
+                                  >
+                                    <Paperclip 
+                                      className={`w-4 h-4 ${
+                                        (client.documentCount || 0) > 0 
+                                          ? 'text-slate-600' 
+                                          : 'text-slate-300'
+                                      }`} 
+                                    />
+                                    {(client.documentCount || 0) > 0 && (
+                                      <Badge 
+                                        variant="secondary" 
+                                        className="ml-1 text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 bg-blue-100 text-blue-800 border-blue-200"
+                                        data-testid={`badge-docs-${client.id}`}
+                                      >
+                                        {client.documentCount}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{(client.documentCount || 0)} document{(client.documentCount || 0) !== 1 ? 's' : ''}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                           <p className="text-sm text-slate-500">Ref: {client.referenceNumber}</p>
                         </div>
                       </div>

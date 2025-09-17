@@ -145,7 +145,7 @@ export interface ClientsQueryParams {
 }
 
 export interface ClientsQueryResult {
-  clients: (Client & { assignedTherapist?: User; sessionCount: number; taskCount: number })[];
+  clients: (Client & { assignedTherapist?: User; sessionCount: number; taskCount: number; documentCount: number })[];
   total: number;
   totalPages: number;
 }
@@ -805,7 +805,11 @@ export class DatabaseStorage implements IStorage {
           SELECT COUNT(*) FROM ${tasks} 
           WHERE ${tasks.clientId} = ${clients.id} 
           AND ${tasks.status} != 'completed'
-        )`.as('taskCount')
+        )`.as('taskCount'),
+        documentCount: sql<number>`(
+          SELECT COUNT(*) FROM ${documents} 
+          WHERE ${documents.clientId} = ${clients.id}
+        )`.as('documentCount')
       })
       .from(clients)
       .leftJoin(users, eq(clients.assignedTherapistId, users.id))
@@ -835,7 +839,8 @@ export class DatabaseStorage implements IStorage {
       sessionCount: r.sessionCount,
       lastSessionDate: r.lastSessionDate,
       firstSessionDate: r.firstSessionDate,
-      taskCount: r.taskCount
+      taskCount: r.taskCount,
+      documentCount: r.documentCount
     }));
 
     return {
@@ -845,7 +850,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getClient(id: number): Promise<(Client & { assignedTherapist?: User; sessionCount?: number }) | undefined> {
+  async getClient(id: number): Promise<(Client & { assignedTherapist?: User; sessionCount?: number; documentCount?: number }) | undefined> {
     const [result] = await db
       .select({
         client: clients,
@@ -853,7 +858,11 @@ export class DatabaseStorage implements IStorage {
         sessionCount: sql<number>`(
           SELECT COUNT(*) FROM ${sessions} 
           WHERE ${sessions.clientId} = ${clients.id}
-        )`.as('sessionCount')
+        )`.as('sessionCount'),
+        documentCount: sql<number>`(
+          SELECT COUNT(*) FROM ${documents} 
+          WHERE ${documents.clientId} = ${clients.id}
+        )`.as('documentCount')
       })
       .from(clients)
       .leftJoin(users, eq(clients.assignedTherapistId, users.id))
@@ -868,7 +877,8 @@ export class DatabaseStorage implements IStorage {
         fullName: result.assignedTherapist.fullName,
         role: result.assignedTherapist.role,
       } : undefined,
-      sessionCount: result.sessionCount
+      sessionCount: result.sessionCount,
+      documentCount: result.documentCount
     };
   }
 

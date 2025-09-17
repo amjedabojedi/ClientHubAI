@@ -934,6 +934,7 @@ export default function ClientDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       toast({
         title: "Success",
         description: "Document deleted successfully",
@@ -977,6 +978,7 @@ export default function ClientDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       toast({
         title: "Success",
         description: "Document uploaded successfully",

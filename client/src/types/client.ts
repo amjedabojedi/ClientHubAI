@@ -90,6 +90,7 @@ export interface Client {
   };
   sessionCount?: number;
   taskCount?: number;
+  documentCount?: number;
 }
 
 export interface ClientStats {
