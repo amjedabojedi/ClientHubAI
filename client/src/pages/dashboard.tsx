@@ -325,9 +325,9 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="flex gap-8">
+    <div className="px-4 py-12 max-w-7xl mx-auto">
       {/* Main Dashboard Content */}
-      <div className="flex-1 min-w-0 px-4 py-12">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900">Practice Dashboard</h1>
@@ -824,6 +824,9 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* Recent Items */}
+      <RecentItemsSidebar className="w-full" />
+
       {/* Modal Dialogs */}
       
       {/* Add Client Modal */}
@@ -933,11 +936,6 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
         
-      </div>
-
-      {/* Recent Items Sidebar */}
-      <div className="w-80 py-12 pr-4 hidden xl:block">
-        <RecentItemsSidebar />
       </div>
     </div>
   );
