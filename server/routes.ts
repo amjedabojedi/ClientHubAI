@@ -413,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id", auditClientAccess('client_viewed'), async (req, res) => {
+  app.get("/api/clients/:id", requireAuth, auditClientAccess('client_viewed'), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -434,7 +434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", auditClientAccess('client_created'), async (req, res) => {
+  app.post("/api/clients", requireAuth, auditClientAccess('client_created'), async (req: AuthenticatedRequest, res) => {
     try {
       const clientData = { ...req.body };
       delete clientData.id; // Remove any id field if present
@@ -474,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:id", auditClientAccess('client_updated'), async (req, res) => {
+  app.put("/api/clients/:id", requireAuth, auditClientAccess('client_updated'), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       
