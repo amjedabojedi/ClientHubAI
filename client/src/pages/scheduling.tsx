@@ -886,7 +886,7 @@ export default function SchedulingPage() {
                     {clientNameFromUrl ? `Schedule for ${decodeURIComponent(clientNameFromUrl)}` : 'New Session'}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingSessionId ? "Edit Session" : "Schedule New Session"}</DialogTitle>
                   </DialogHeader>
@@ -2031,7 +2031,7 @@ export default function SchedulingPage() {
         {/* Edit Session Modal */}
         {selectedSession && (
           <Dialog open={isEditSessionModalOpen} onOpenChange={setIsEditSessionModalOpen}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Session Details & Actions</DialogTitle>
               </DialogHeader>
