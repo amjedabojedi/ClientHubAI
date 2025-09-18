@@ -18,15 +18,25 @@ router.get("/me", requireAuth, (req: AuthenticatedRequest, res) => {
  * POST /api/auth/logout - Clear session cookies
  */
 router.post("/logout", (req, res) => {
+  // Use the same cookie settings as login for proper clearing
+  const isProduction = process.env.NODE_ENV === 'production';
+  const useSecure = process.env.USE_SECURE_COOKIES === 'true';
+  const isReplit = process.env.REPLIT_ENVIRONMENT === 'true';
+  
+  const cookieSecure = isProduction || useSecure;
+  const cookieSameSite = isReplit && isProduction ? 'none' : 'strict';
+  
   res.clearCookie('sessionToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
+    path: '/'
   });
   res.clearCookie('csrfToken', {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production', 
-    sameSite: 'strict'
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
+    path: '/'
   });
   
   res.json({ success: true });
