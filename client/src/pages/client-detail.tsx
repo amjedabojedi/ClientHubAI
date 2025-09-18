@@ -1153,7 +1153,7 @@ export default function ClientDetailPage() {
     if (client && !isLoading) {
       addRecentClient({
         id: client.id,
-        fullName: `${client.firstName} ${client.lastName}`,
+        fullName: client.fullName,
         stage: client.stage || 'active',
       });
     }
