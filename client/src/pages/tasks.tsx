@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Task, Client, User as UserType } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
+import { useRecentItems } from "@/hooks/useRecentItems";
 
 // Components
 import { TaskComments } from "@/components/task-management/task-comments";
@@ -605,6 +606,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
 // ===== MAIN TASKS PAGE COMPONENT =====
 export default function TasksPage() {
   const { user } = useAuth();
+  const { addRecentTask } = useRecentItems();
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -659,6 +661,16 @@ export default function TasksPage() {
 
   // ===== EVENT HANDLERS =====
   const handleEdit = (task: TaskWithDetails) => {
+    // Track task viewing for recent items
+    addRecentTask({
+      id: task.id,
+      title: task.title,
+      clientId: task.clientId || undefined,
+      clientName: task.clientName || undefined,
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate || undefined,
+    });
     setEditingTask(task);
   };
 
@@ -669,6 +681,16 @@ export default function TasksPage() {
   };
 
   const handleViewComments = (task: TaskWithDetails) => {
+    // Track task viewing for recent items
+    addRecentTask({
+      id: task.id,
+      title: task.title,
+      clientId: task.clientId || undefined,
+      clientName: task.clientName || undefined,
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate || undefined,
+    });
     setSelectedTaskForComments(task);
   };
 

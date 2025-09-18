@@ -32,6 +32,7 @@ import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
+import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
 
 
@@ -328,8 +329,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthContext.Provider value={authState}>
-          <Toaster />
-          <Router />
+          <RecentItemsProvider>
+            <Toaster />
+            <Router />
+          </RecentItemsProvider>
         </AuthContext.Provider>
       </TooltipProvider>
     </QueryClientProvider>

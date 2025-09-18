@@ -6,11 +6,11 @@ export default function ClientSidebar() {
   const { user } = useAuth();
   
   const { data: stats } = useQuery({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    enabled: !!user && !!user?.id,
     queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
+      const userId = user?.id;
+      const userRole = user?.role;
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
@@ -21,7 +21,7 @@ export default function ClientSidebar() {
     },
   });
 
-  const { data: pendingTasks } = useQuery({
+  const { data: pendingTasks } = useQuery<{ count: number }>({
     queryKey: ["/api/tasks/pending/count"],
   });
 

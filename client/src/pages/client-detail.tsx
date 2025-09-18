@@ -52,6 +52,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useRecentItems } from "@/hooks/useRecentItems";
 import { getClientStageColor } from "@/lib/task-utils";
 
 // Types
@@ -607,6 +608,9 @@ export default function ClientDetailPage() {
   // Authentication
   const { user } = useAuth();
   
+  // Recent items tracking
+  const { addRecentClient } = useRecentItems();
+  
   // Check URL parameters for tab selection and session highlighting
   const urlParams = new URLSearchParams(window.location.search);
   const initialTab = urlParams.get('tab') || "overview";
@@ -1143,6 +1147,17 @@ export default function ClientDetailPage() {
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
+
+  // Track client viewing for recent items
+  useEffect(() => {
+    if (client && !isLoading) {
+      addRecentClient({
+        id: client.id,
+        fullName: `${client.firstName} ${client.lastName}`,
+        stage: client.stage || 'active',
+      });
+    }
+  }, [client?.id, isLoading]); // Remove addRecentClient from dependencies to prevent infinite loop
 
   // Access Control - Redirect if user doesn't have access to this client
   useEffect(() => {

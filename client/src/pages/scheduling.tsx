@@ -49,6 +49,7 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useRecentItems } from "@/hooks/useRecentItems";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 import { formatTime, formatDate, formatDateTime, generateTimeSlots, timeRangesOverlap, getUserTimeFormat, DURATION_PRESETS, durationToMinutes } from "@/lib/datetime";
 
@@ -166,6 +167,7 @@ export default function SchedulingPage() {
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60); // Quick duration for preview
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { addRecentSession } = useRecentItems();
 
   // URL Parameters for client pre-filling
   const urlParams = new URLSearchParams(window.location.search);
@@ -663,6 +665,18 @@ export default function SchedulingPage() {
     return { style: '', conflictType: 'none' };
   };
 
+
+  // Helper function to track session for recent items
+  const trackSessionViewed = (session: Session) => {
+    addRecentSession({
+      id: session.id,
+      clientId: session.clientId,
+      clientName: session.client?.fullName || 'Unknown Client',
+      sessionDate: session.sessionDate,
+      status: session.status,
+      serviceCode: session.service?.serviceCode,
+    });
+  };
 
   // Session Filtering and Data Processing
   const filteredSessions = useMemo(() => {
@@ -1394,6 +1408,7 @@ export default function SchedulingPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedSession(session);
+                                  trackSessionViewed(session);
                                   setIsEditSessionModalOpen(true);
                                 }}
                               >
@@ -1577,6 +1592,7 @@ export default function SchedulingPage() {
                           className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer"
                           onClick={() => {
                             setSelectedSession(session);
+                            trackSessionViewed(session);
                             setIsEditSessionModalOpen(true);
                           }}
                         >
@@ -1791,6 +1807,7 @@ export default function SchedulingPage() {
                               className="text-xs h-7 px-2"
                               onClick={() => {
                                 setSelectedSession(session);
+                                trackSessionViewed(session);
                                 setIsEditSessionModalOpen(true);
                               }}
                             >
@@ -1967,6 +1984,7 @@ export default function SchedulingPage() {
                                     size="sm"
                                     onClick={() => {
                                       setSelectedSession(session);
+                                      trackSessionViewed(session);
                                       setIsEditSessionModalOpen(true);
                                     }}
                                   >

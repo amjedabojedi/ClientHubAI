@@ -513,6 +513,18 @@ export const sessionNotes = pgTable("session_notes", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Recent Items Table - Server-backed for PHI security compliance
+export const recentItems = pgTable("recent_items", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  entityType: varchar("entity_type", { length: 20 }).notNull(), // 'client', 'task', 'session'
+  entityId: integer("entity_id").notNull(),
+  viewedAt: timestamp("viewed_at").notNull().defaultNow(),
+}, (table) => ({
+  userEntityIdx: index("recent_items_user_entity_idx").on(table.userId, table.entityType),
+  userViewedIdx: index("recent_items_user_viewed_idx").on(table.userId, table.viewedAt),
+}));
+
 // Client Process Checklist System
 export const checklistTemplates = pgTable("checklist_templates", {
   id: serial("id").primaryKey(),
@@ -1638,3 +1650,8 @@ export type InsertNotificationTemplate = z.infer<typeof insertNotificationTempla
 // Practice Configuration Types
 export type PracticeConfiguration = typeof practiceConfiguration.$inferSelect;
 export type InsertPracticeConfiguration = z.infer<typeof insertPracticeConfigurationSchema>;
+
+// Recent Items Types
+export type RecentItem = typeof recentItems.$inferSelect;
+export const insertRecentItemSchema = createInsertSchema(recentItems);
+export type InsertRecentItem = z.infer<typeof insertRecentItemSchema>;

@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 // Components
 import AddClientModal from "@/components/client-management/add-client-modal";
 import EditClientModal from "@/components/client-management/edit-client-modal";
+import RecentItemsSidebar from "@/components/recent-items/recent-items-sidebar";
 
 interface DashboardStats {
   totalClients: number;
@@ -223,7 +224,7 @@ export default function DashboardPage() {
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
-    queryKey: ["/api/tasks/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    queryKey: ["/api/tasks/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
     enabled: !!user && !!user?.id,
     queryFn: async () => {
       const userId = user?.id;
@@ -239,7 +240,7 @@ export default function DashboardPage() {
   });
 
   const { data: recentTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/recent", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    queryKey: ["/api/tasks/recent", { currentUserId: user?.id, currentUserRole: user?.role }],
     enabled: !!user && !!user?.id,
     queryFn: async () => {
       const userId = user?.id;
@@ -255,7 +256,7 @@ export default function DashboardPage() {
   });
 
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/upcoming", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    queryKey: ["/api/tasks/upcoming", { currentUserId: user?.id, currentUserRole: user?.role }],
     enabled: !!user && !!user?.id,
     queryFn: async () => {
       const userId = user?.id;
@@ -324,12 +325,14 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Practice Dashboard</h1>
-        <p className="text-slate-600 mt-1">Overview of your therapy practice management system</p>
-      </div>
+    <div className="flex gap-8">
+      {/* Main Dashboard Content */}
+      <div className="flex-1 min-w-0 px-4 py-12">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900">Practice Dashboard</h1>
+          <p className="text-slate-600 mt-1">Overview of your therapy practice management system</p>
+        </div>
 
       {/* Key Metrics Row */}
       <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 ${
@@ -929,6 +932,13 @@ export default function DashboardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        
+      </div>
+
+      {/* Recent Items Sidebar */}
+      <div className="w-80 py-12 pr-4 hidden xl:block">
+        <RecentItemsSidebar />
+      </div>
     </div>
   );
 }
