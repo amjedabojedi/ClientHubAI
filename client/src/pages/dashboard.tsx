@@ -38,7 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Client, Task, User as UserType } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 // Components
@@ -271,20 +271,13 @@ export default function DashboardPage() {
   });
 
   const { data: overdueSessions = [] } = useQuery<OverdueSessionWithDetails[]>({
-    queryKey: ["/api/sessions/overdue", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
+    queryKey: ["/api/sessions/overdue", { 
+      limit: '5',
+      currentUserId: user?.user?.id || user?.id, 
+      currentUserRole: (user?.user?.role || user?.role || '').toLowerCase()
+    }],
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!(user?.user?.id || user?.id),
-    queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
-      const params = new URLSearchParams();
-      params.append('limit', '5');
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/sessions/overdue?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch overdue sessions');
-      return response.json();
-    },
   });
 
   // Get all sessions for dashboard (using a 3-month range for performance)
@@ -297,27 +290,11 @@ export default function DashboardPage() {
       startDate: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
       endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0],
       currentUserId: user?.user?.id || user?.id,
-      currentUserRole: user?.user?.role || user?.role,
+      currentUserRole: (user?.user?.role || user?.role || '').toLowerCase(),
     }],
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!(user?.user?.id || user?.id),
     staleTime: 0, // Always fetch fresh data
-    queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
-      const startDate = new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0];
-      const endDate = new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0];
-      
-      const params = new URLSearchParams();
-      params.append('limit', '100');
-      params.append('startDate', startDate);
-      params.append('endDate', endDate);
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/sessions?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch sessions');
-      return response.json();
-    },
   });
 
   const allSessions = allSessionsData?.sessions || [];

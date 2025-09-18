@@ -62,7 +62,7 @@ export const rolePermissions = pgTable("role_permissions", {
 // Keep enum for backwards compatibility but make it more flexible
 
 // Enhanced Users table with comprehensive authentication and role management
-export const users: any = pgTable("users", {
+export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
@@ -89,7 +89,7 @@ export const users: any = pgTable("users", {
   // System Administration
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  createdBy: integer("created_by").references(() => users.id),
+  createdBy: integer("created_by"),
   isActive: boolean("is_active").notNull().default(true),
 }, (table) => ({
   emailIdx: index("users_email_idx").on(table.email),
@@ -565,11 +565,11 @@ export const clientChecklistItems = pgTable("client_checklist_items", {
 }));
 
 // Hierarchical Library Tables for Clinical Content
-export const libraryCategories: any = pgTable("library_categories", {
+export const libraryCategories = pgTable("library_categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  parentId: integer("parent_id").references((): any => libraryCategories.id, { onDelete: "cascade" }),
+  parentId: integer("parent_id"),
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),

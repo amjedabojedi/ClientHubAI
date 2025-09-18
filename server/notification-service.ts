@@ -132,8 +132,6 @@ export class NotificationService {
    * Processes an event and creates notifications based on triggers
    */
   async processEvent(eventType: string, entityData: any): Promise<void> {
-    console.log(`DEBUG: NotificationService.processEvent called with eventType: ${eventType}`);
-    console.log(`DEBUG: Entity data:`, JSON.stringify(entityData, null, 2));
     
     try {
       // Get all active triggers for this event type
@@ -145,26 +143,18 @@ export class NotificationService {
           eq(notificationTriggers.isActive, true)
         ));
         
-      console.log(`DEBUG: Found ${triggers.length} active triggers for ${eventType}`);
 
       // Process each trigger
       for (const trigger of triggers) {
-        console.log(`DEBUG: Processing trigger ${trigger.id}: "${trigger.name}"`);
         try {
           // Check if trigger conditions are met
           const conditionsMet = await this.evaluateTriggerConditions(trigger, entityData);
-          console.log(`DEBUG: Trigger ${trigger.id} conditions met: ${conditionsMet}`);
           
           if (conditionsMet) {
             // Calculate recipients
             const recipients = await this.calculateRecipients(trigger, entityData);
-            console.log(`DEBUG: Trigger ${trigger.id} found ${recipients.length} recipients:`, recipients.map(r => r.id));
-            
             // Create notifications for each recipient
             await this.createNotificationsFromTrigger(trigger, entityData, recipients);
-            console.log(`DEBUG: Trigger ${trigger.id} notifications created successfully`);
-          } else {
-            console.log(`DEBUG: Trigger ${trigger.id} conditions not met, skipping`);
           }
         } catch (error) {
           console.error(`Error processing notification trigger ${trigger.id}:`, error);
@@ -183,12 +173,10 @@ export class NotificationService {
   private async evaluateTriggerConditions(trigger: NotificationTrigger, entityData: any): Promise<boolean> {
     try {
       if (!trigger.conditionRules || trigger.conditionRules === '{}') {
-        console.log(`DEBUG: Trigger ${trigger.id} has no conditions, returning true`);
         return true; // No conditions or empty conditions means always trigger
       }
 
       const parsedConditions = JSON.parse(trigger.conditionRules);
-      console.log(`DEBUG: Trigger ${trigger.id} parsed conditions:`, parsedConditions);
       
       // Handle both object format like {"sessionType": "intake"} and array format
       let conditions: TriggerCondition[] = [];
@@ -204,12 +192,10 @@ export class NotificationService {
         }));
       }
       
-      console.log(`DEBUG: Trigger ${trigger.id} evaluating ${conditions.length} conditions`);
       
       for (const condition of conditions) {
         const fieldValue = this.getFieldValue(entityData, condition.field);
         const conditionMet = this.evaluateCondition(fieldValue, condition);
-        console.log(`DEBUG: Trigger ${trigger.id} condition ${condition.field} = ${fieldValue}, expected: ${condition.value}, met: ${conditionMet}`);
         
         if (!conditionMet) {
           return false; // All conditions must be met (AND logic for now)
