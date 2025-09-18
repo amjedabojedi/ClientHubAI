@@ -85,14 +85,19 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   const token = req.cookies?.sessionToken;
   
   if (!token) {
-    return res.status(401).json({ error: "Authentication required" });
+    // Force logout if no session cookie - clear any remaining invalid cookies
+    res.clearCookie('sessionToken', { path: '/', httpOnly: true, secure: false, sameSite: 'strict' });
+    res.clearCookie('csrfToken', { path: '/', httpOnly: false, secure: false, sameSite: 'strict' });
+    return res.status(401).json({ error: "Authentication required - please log in again" });
   }
   
   const user = verifySessionToken(token);
   if (!user) {
+    console.log(`[AUTH DEBUG] Token verification failed for token:`, token?.substring(0, 20) + '...');
     return res.status(401).json({ error: "Invalid or expired session" });
   }
   
+  console.log(`[AUTH DEBUG] Authentication successful for user:`, user.username, user.role);
   req.user = user;
   next();
 }
