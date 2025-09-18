@@ -165,6 +165,7 @@ export default function SchedulingPage() {
   const [isSchedulingFromExistingSession, setIsSchedulingFromExistingSession] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60); // Quick duration for preview
+  const [userConfirmedConflicts, setUserConfirmedConflicts] = useState<boolean>(false); // Track conflict confirmation
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { addRecentSession } = useRecentItems();
@@ -374,7 +375,7 @@ export default function SchedulingPage() {
       const sessionData = {
         ...data,
         sessionDate: localDateTime.toISOString(),
-        ignoreConflicts: true, // User confirmed to proceed despite conflicts
+        ignoreConflicts: userConfirmedConflicts, // Only ignore conflicts if user explicitly confirmed
       };
       
       if (editingSessionId) {
@@ -439,6 +440,17 @@ export default function SchedulingPage() {
 
   // Event Handlers
   const onSubmit = (data: SessionFormData) => {
+    // Check for conflicts before submitting
+    if (conflictData?.hasConflict && !userConfirmedConflicts) {
+      // Show conflict warning and require confirmation
+      toast({
+        title: "Scheduling Conflicts Detected",
+        description: "Please review the conflicts shown above and click 'Proceed Anyway' if you want to continue.",
+        variant: "destructive",
+      });
+      return; // Don't submit the form
+    }
+    
     createSessionMutation.mutate(data);
   };
 
@@ -869,6 +881,7 @@ export default function SchedulingPage() {
                   setIsSchedulingFromExistingSession(false);
                   setEditingSessionId(null);
                   setProvisionalDuration(60); // Reset to default
+                  setUserConfirmedConflicts(false); // Reset conflict confirmation
                   form.reset();
                 }
                 if (open && clientIdFromUrl) {
@@ -1199,6 +1212,24 @@ export default function SchedulingPage() {
                                   </div>
                                 </div>
                               )}
+
+                              {/* Proceed Anyway Button */}
+                              <div className="mt-4 pt-3 border-t border-red-200">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs text-red-700">
+                                    Override conflicts and book anyway?
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant={userConfirmedConflicts ? "default" : "destructive"}
+                                    size="sm"
+                                    className="h-7 px-3 text-xs"
+                                    onClick={() => setUserConfirmedConflicts(!userConfirmedConflicts)}
+                                  >
+                                    {userConfirmedConflicts ? "✓ Will Override" : "Proceed Anyway"}
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
