@@ -59,7 +59,7 @@ export function BasicInfoDialog({ isOpen, onClose, selectedUser, onSubmit, isLoa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Basic Information</DialogTitle>
         </DialogHeader>

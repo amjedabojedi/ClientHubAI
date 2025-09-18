@@ -705,7 +705,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             Library
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Select from Library - {fieldType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</DialogTitle>
             <DialogDescription>
@@ -1647,7 +1647,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
       {/* AI Template Dialog */}
       <Dialog open={isAITemplateOpen} onOpenChange={setIsAITemplateOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{savedTemplate ? 'Edit Template Instructions' : 'Create AI Template'}</DialogTitle>
             <DialogDescription>

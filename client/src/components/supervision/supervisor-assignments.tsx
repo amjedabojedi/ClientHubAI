@@ -149,7 +149,7 @@ export default function SupervisorAssignments() {
               Assign Supervisor
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Supervisor Assignment</DialogTitle>
               <DialogDescription>
