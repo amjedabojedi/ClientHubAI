@@ -184,8 +184,8 @@ export default function DashboardPage() {
 
   // Check if user can edit this session (role-based)
   const canEditSession = (session: OverdueSessionWithDetails) => {
-    const userRole = (user?.user?.role || user?.role || '').toLowerCase();
-    const userId = user?.user?.id || user?.id;
+    const userRole = (user?.role || '').toLowerCase();
+    const userId = user?.id;
     
     // Accept both "admin" and "administrator" role names
     if (userRole === "admin" || userRole === "administrator") return true;
@@ -207,11 +207,11 @@ export default function DashboardPage() {
 
   // Data Fetching
   const { data: clientStats } = useQuery<DashboardStats>({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    enabled: !!user && !!user?.id,
     queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
+      const userId = user?.id;
+      const userRole = (user?.role || '').toLowerCase();
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
@@ -224,10 +224,10 @@ export default function DashboardPage() {
 
   const { data: taskStats } = useQuery<TaskStats>({
     queryKey: ["/api/tasks/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    enabled: !!user && !!user?.id,
     queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
+      const userId = user?.id;
+      const userRole = (user?.role || '').toLowerCase();
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
@@ -240,10 +240,10 @@ export default function DashboardPage() {
 
   const { data: recentTasks = [] } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/tasks/recent", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    enabled: !!user && !!user?.id,
     queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
+      const userId = user?.id;
+      const userRole = (user?.role || '').toLowerCase();
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
@@ -256,10 +256,10 @@ export default function DashboardPage() {
 
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
     queryKey: ["/api/tasks/upcoming", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    enabled: !!user && !!user?.id,
     queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = (user?.user?.role || user?.role || '').toLowerCase();
+      const userId = user?.id;
+      const userRole = (user?.role || '').toLowerCase();
       const params = new URLSearchParams();
       if (userId) params.append('currentUserId', userId.toString());
       if (userRole) params.append('currentUserRole', userRole);
@@ -273,11 +273,11 @@ export default function DashboardPage() {
   const { data: overdueSessions = [] } = useQuery<OverdueSessionWithDetails[]>({
     queryKey: ["/api/sessions/overdue", { 
       limit: '5',
-      currentUserId: user?.user?.id || user?.id, 
-      currentUserRole: (user?.user?.role || user?.role || '').toLowerCase()
+      currentUserId: user?.id, 
+      currentUserRole: (user?.role || '').toLowerCase()
     }],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    enabled: !!user && !!user?.id,
   });
 
   // Get all sessions for dashboard (using a 3-month range for performance)
@@ -289,11 +289,11 @@ export default function DashboardPage() {
       limit: 100,
       startDate: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
       endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0],
-      currentUserId: user?.user?.id || user?.id,
-      currentUserRole: (user?.user?.role || user?.role || '').toLowerCase(),
+      currentUserId: user?.id,
+      currentUserRole: (user?.role || '').toLowerCase(),
     }],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!user && !!(user?.user?.id || user?.id),
+    enabled: !!user && !!user?.id,
     staleTime: 0, // Always fetch fresh data
   });
 
