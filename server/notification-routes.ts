@@ -17,6 +17,12 @@ type SafeAuthRequest = AuthenticatedRequest & {
 
 const router = Router();
 
+// Test endpoint to check if routes are working
+router.get("/test", (req: AuthenticatedRequest, res) => {
+  console.log("[NOTIFICATION DEBUG] Test endpoint reached - req.user:", req.user);
+  res.json({ message: "Notification routes are working", user: req.user });
+});
+
 // ===== USER NOTIFICATIONS ENDPOINTS =====
 
 /**
@@ -26,7 +32,9 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const { id: userId } = (req as SafeAuthRequest).user;
     const limit = parseInt(req.query.limit as string) || 50;
+    console.log(`[NOTIFICATION DEBUG] Getting notifications for user ${userId}, limit: ${limit}`);
     const notifications = await storage.getUserNotifications(userId, limit);
+    console.log(`[NOTIFICATION DEBUG] Found ${notifications.length} notifications for user ${userId}`);
     
     res.json(notifications);
   } catch (error) {
@@ -40,8 +48,16 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res) => {
  */
 router.get("/unread-count", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
+    console.log(`[NOTIFICATION DEBUG] Auth check - req.user:`, req.user);
+    if (!req.user) {
+      console.log(`[NOTIFICATION DEBUG] No user in request, sending 401`);
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
     const { id: userId } = (req as SafeAuthRequest).user;
+    console.log(`[NOTIFICATION DEBUG] Getting unread count for user ${userId}`);
     const count = await storage.getUnreadNotificationCount(userId);
+    console.log(`[NOTIFICATION DEBUG] Unread count for user ${userId}: ${count}`);
     res.json({ count });
   } catch (error) {
     console.error("Failed to get unread count:", error);

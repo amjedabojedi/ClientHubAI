@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import NotificationDropdown from "./notification-dropdown.tsx";
@@ -26,9 +26,15 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   
   const userId = user?.id;
 
+  // Debug logging
+  console.log("[NOTIFICATION DEBUG] NotificationBell user:", user);
+  console.log("[NOTIFICATION DEBUG] userId:", userId);
+  console.log("[NOTIFICATION DEBUG] Query enabled:", !!user && !!userId);
+
   // Get unread notification count
   const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({
-    queryKey: ["/api/notifications/unread-count", userId],
+    queryKey: ["/api/notifications/unread-count"],
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!userId,
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: (failureCount, error: any) => {
@@ -40,20 +46,12 @@ export default function NotificationBell({ className }: NotificationBellProps) {
       return failureCount < 3;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    queryFn: async () => {
-      const response = await fetch(`/api/notifications/unread-count`, {
-        credentials: "include"
-      });
-      if (!response.ok) {
-        throw new Error(`${response.status}: Failed to fetch unread count`);
-      }
-      return response.json();
-    },
   });
 
   // Get notifications when dropdown is opened
   const { data: notificationsData, isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
-    queryKey: ["/api/notifications", userId],
+    queryKey: ["/api/notifications", { limit: 20 }],
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: isOpen && !!user && !!userId, // Only fetch when dropdown is open and user is authenticated
     retry: (failureCount, error: any) => {
       // Stop retrying on auth failures
@@ -64,21 +62,6 @@ export default function NotificationBell({ className }: NotificationBellProps) {
       return failureCount < 2;
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    queryFn: async () => {
-      try {
-        const res = await fetch(`/api/notifications?limit=20`, {
-          credentials: "include"
-        });
-        if (!res.ok) {
-          throw new Error(`${res.status}: Failed to fetch notifications`);
-        }
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-        throw error; // Throw to trigger retry logic
-      }
-    },
   });
   
   const notifications = Array.isArray(notificationsData) ? notificationsData : [];
