@@ -125,8 +125,19 @@ export const getQueryFn: <T>(options: {
       timestamp: Date.now()
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (res.status === 401) {
+      // Handle authentication failures
+      if (unauthorizedBehavior === "returnNull") {
+        return null;
+      }
+      
+      // For throw behavior, trigger logout and redirect to login
+      console.warn("[AUTH] 401 detected - session expired or invalid. Redirecting to login.");
+      
+      // Clear any stored auth state and redirect to login
+      // This handles session expiration gracefully
+      window.location.href = '/login';
+      return;
     }
 
     await throwIfResNotOk(res);

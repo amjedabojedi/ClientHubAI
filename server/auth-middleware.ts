@@ -5,11 +5,11 @@ import * as crypto from "crypto";
 let JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  console.error('WARNING: JWT_SECRET environment variable is missing - using temporary QA secret');
-  console.error('CRITICAL: This configuration is ONLY for QA testing - DO NOT DEPLOY TO PRODUCTION');
+  console.error('WARNING: JWT_SECRET environment variable is missing - using stable dev secret');
+  console.error('CRITICAL: This configuration is ONLY for development - DO NOT DEPLOY TO PRODUCTION');
   console.error('Please set JWT_SECRET to a secure random string before production deployment');
-  // Temporary QA fallback - MUST be removed before production
-  JWT_SECRET = "qa-testing-secret-" + Date.now();
+  // Stable development fallback - prevents session invalidation on restart
+  JWT_SECRET = "qa-testing-secret-stable-dev-key";
   process.env.JWT_SECRET = JWT_SECRET;
 }
 const TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
@@ -82,7 +82,7 @@ export function verifySessionToken(token: string): TokenPayload | null {
  * Authentication middleware - verifies session cookie and sets req.user
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  console.log(`[AUTH DEBUG] requireAuth called for ${req.method} ${req.path}`);
+  console.log(`[AUTH DEBUG] requireAuth called for ${req.method} ${req.originalUrl}`);
   console.log(`[AUTH DEBUG] Cookies available:`, Object.keys(req.cookies || {}));
   
   const token = req.cookies?.sessionToken;
@@ -97,7 +97,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   
   const user = verifySessionToken(token);
   if (!user) {
-    console.log(`[AUTH DEBUG] Token verification failed for token:`, token?.substring(0, 20) + '...');
+    console.log(`[AUTH DEBUG] Token verification failed - invalid or expired session`);
     return res.status(401).json({ error: "Invalid or expired session" });
   }
   
