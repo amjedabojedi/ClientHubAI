@@ -129,9 +129,9 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
       description: task?.description || "",
       clientId: task?.clientId || undefined,
       assignedToId: task?.assignedToId || undefined,
-      priority: task?.priority || "medium",
-      status: task?.status || "pending",
-      dueDate: task?.dueDate ? (typeof task.dueDate === 'string' ? task.dueDate.split('T')[0] : task.dueDate.toISOString().split('T')[0]) : "",
+      priority: (task?.priority as TaskFormData['priority']) || "medium",
+      status: (task?.status as TaskFormData['status']) || "pending",
+      dueDate: task?.dueDate ? String(task.dueDate).split('T')[0] : "",
     },
   });
 
@@ -666,10 +666,10 @@ export default function TasksPage() {
       id: task.id,
       title: task.title,
       clientId: task.clientId || undefined,
-      clientName: task.clientName || undefined,
+      clientName: task.client?.fullName || undefined,
       priority: task.priority,
       status: task.status,
-      dueDate: task.dueDate || undefined,
+      dueDate: task.dueDate ? String(task.dueDate).split('T')[0] : undefined,
     });
     setEditingTask(task);
   };
@@ -686,10 +686,10 @@ export default function TasksPage() {
       id: task.id,
       title: task.title,
       clientId: task.clientId || undefined,
-      clientName: task.clientName || undefined,
+      clientName: task.client?.fullName || undefined,
       priority: task.priority,
       status: task.status,
-      dueDate: task.dueDate || undefined,
+      dueDate: task.dueDate ? String(task.dueDate).split('T')[0] : undefined,
     });
     setSelectedTaskForComments(task);
   };

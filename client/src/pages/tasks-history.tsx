@@ -62,12 +62,12 @@ const getStatusColor = (status: string) => {
 const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';
   // Extract just the date part to avoid timezone conversion
-  return dateString.split('T')[0];
+  return String(dateString).split('T')[0];
 };
 
 const formatDateTime = (dateString: string | null) => {
   if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleString();
+  return new Date(String(dateString)).toLocaleString();
 };
 
 // ===== TASK HISTORY ITEM COMPONENT =====
@@ -115,23 +115,23 @@ function TaskHistoryItem({ task }: { task: TaskWithDetails }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <span className="text-slate-500">Created:</span>
-            <div className="font-medium">{formatDateTime(task.createdAt)}</div>
+            <div className="font-medium">{formatDateTime(task.createdAt ? String(task.createdAt) : null)}</div>
           </div>
           
           <div>
             <span className="text-slate-500">Due Date:</span>
-            <div className="font-medium">{formatDate(task.dueDate)}</div>
+            <div className="font-medium">{formatDate(task.dueDate ? String(task.dueDate) : null)}</div>
           </div>
           
           <div>
             <span className="text-slate-500">Last Updated:</span>
-            <div className="font-medium">{formatDateTime(task.updatedAt)}</div>
+            <div className="font-medium">{formatDateTime(task.updatedAt ? String(task.updatedAt) : null)}</div>
           </div>
           
           {task.completedAt && (
             <div>
               <span className="text-slate-500">Completed:</span>
-              <div className="font-medium text-green-600">{formatDateTime(task.completedAt)}</div>
+              <div className="font-medium text-green-600">{formatDateTime(task.completedAt ? String(task.completedAt) : null)}</div>
             </div>
           )}
         </div>
@@ -162,9 +162,16 @@ export default function TaskHistoryPage() {
         assignedToId: assigneeFilter, 
         includeCompleted: true // Always include completed tasks in history
       }
-    ],
-    queryFn: ({ queryKey }) => {
-      const [url, params] = queryKey;
+    ] as const,
+    queryFn: async ({ queryKey }) => {
+      const [url, params] = queryKey as [string, {
+        page: number;
+        search: string;
+        status: string;
+        priority: string;
+        assignedToId: string;
+        includeCompleted: boolean;
+      }];
       const searchParams = new URLSearchParams();
       
       if (params.page) searchParams.set('page', params.page.toString());
@@ -177,7 +184,8 @@ export default function TaskHistoryPage() {
       searchParams.set('includeCompleted', 'true');
       
       const fullUrl = searchParams.toString() ? `${url}?${searchParams.toString()}` : url;
-      return apiRequest(fullUrl, "GET");
+      const response = await apiRequest(fullUrl, "GET");
+      return response.json() as Promise<TasksQueryResult>;
     },
   });
 
@@ -198,7 +206,7 @@ export default function TaskHistoryPage() {
   const totalPages = tasksData?.totalPages || 1;
 
   // Filter tasks by tab
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = tasks.filter((task: TaskWithDetails) => {
     switch (activeTab) {
       case "completed":
         return task.status === "completed";
@@ -207,7 +215,7 @@ export default function TaskHistoryPage() {
       case "recent":
         const lastWeek = new Date();
         lastWeek.setDate(lastWeek.getDate() - 7);
-        return new Date(task.createdAt) >= lastWeek;
+        return new Date(String(task.createdAt)) >= lastWeek;
       default:
         return true;
     }
@@ -331,7 +339,7 @@ export default function TaskHistoryPage() {
           ) : (
             <>
               <div className="mb-6">
-                {filteredTasks.map((task) => (
+                {filteredTasks.map((task: TaskWithDetails) => (
                   <TaskHistoryItem key={task.id} task={task} />
                 ))}
               </div>
