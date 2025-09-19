@@ -24,7 +24,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const userId = user?.id || user?.user?.id;
+  const userId = user?.id;
 
   // Get unread notification count
   const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({

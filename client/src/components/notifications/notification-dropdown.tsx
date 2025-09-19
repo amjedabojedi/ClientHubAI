@@ -62,7 +62,7 @@ export default function NotificationDropdown({
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const userId = user?.id || user?.user?.id;
+  const userId = user?.id;
 
   // Mark single notification as read
   const markAsReadMutation = useMutation({
