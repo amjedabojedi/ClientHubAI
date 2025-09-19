@@ -1,6 +1,8 @@
 import React from 'react';
 import { useLocation } from 'wouter';
-import { useRecentItems } from '@/hooks/useRecentItems';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { getQueryFn } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,12 +69,61 @@ interface RecentItemsSidebarProps {
 
 export default function RecentItemsSidebar({ className }: RecentItemsSidebarProps) {
   const [, setLocation] = useLocation();
-  const { recentItems, clearRecentItems } = useRecentItems();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Fetch recent tasks with role-based filtering
+  const { data: recentTasksData } = useQuery({
+    queryKey: ['/api/tasks/recent', { limit: 5 }],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  // Fetch recent sessions with role-based filtering  
+  const { data: recentSessionsData } = useQuery({
+    queryKey: ['/api/sessions/recent', { limit: 5 }],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user,
+    refetchInterval: 30000,
+  });
+
+  // Safely transform backend data with null/undefined handling
+  const recentSessions = Array.isArray(recentSessionsData) ? recentSessionsData : [];
+  const recentTasks = Array.isArray(recentTasksData) ? recentTasksData : [];
+  
+  const recentItems = {
+    clients: [], // We'll show recent clients through tasks and sessions
+    sessions: recentSessions.map((session: any) => ({
+      id: session.id,
+      clientId: session.clientId,
+      clientName: session.client?.fullName || 'Unknown Client',
+      sessionDate: session.sessionDate,
+      status: session.status,
+      serviceCode: session.service?.serviceCode,
+      viewedAt: new Date(session.sessionDate) // Use session date as proxy for recent activity
+    })),
+    tasks: recentTasks.map((task: any) => ({
+      id: task.id,
+      title: task.title,
+      clientId: task.clientId,
+      clientName: task.client?.fullName || '',
+      priority: task.priority || 'medium',
+      status: task.status,
+      dueDate: task.dueDate,
+      viewedAt: new Date(task.updatedAt || task.createdAt) // Use update date as proxy for recent activity
+    }))
+  };
 
   const hasAnyItems = 
-    recentItems.clients.length > 0 || 
     recentItems.sessions.length > 0 || 
     recentItems.tasks.length > 0;
+
+  const clearRecentItems = () => {
+    // Invalidate and refetch the recent items queries to refresh the data
+    queryClient.invalidateQueries({ queryKey: ['/api/tasks/recent'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/sessions/recent'] });
+  };
 
   return (
     <Card className={cn("w-80 h-fit", className)}>
@@ -106,46 +157,6 @@ export default function RecentItemsSidebar({ className }: RecentItemsSidebarProp
           <ScrollArea className="h-[500px]">
             <div className="p-4 space-y-4">
               
-              {/* Recent Clients */}
-              {recentItems.clients.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    <h3 className="font-medium text-sm">Recent Clients</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {recentItems.clients.slice(0, 5).map((client) => (
-                      <div
-                        key={client.id}
-                        className="flex items-center gap-3 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => setLocation(`/clients/${client.id}`)}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {client.fullName}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge className={cn("text-xs py-0", getStatusColor(client.stage))}>
-                              {client.stage}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {formatTimeAgo(client.viewedAt)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Separator between sections */}
-              {recentItems.clients.length > 0 && (recentItems.sessions.length > 0 || recentItems.tasks.length > 0) && (
-                <Separator />
-              )}
 
               {/* Recent Sessions */}
               {recentItems.sessions.length > 0 && (

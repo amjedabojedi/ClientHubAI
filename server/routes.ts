@@ -1957,22 +1957,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tasks/recent", async (req, res) => {
+  app.get("/api/tasks/recent", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { currentUserId, currentUserRole } = req.query;
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       
-      // Normalize role casing and determine role-based parameters
-      const role = String(currentUserRole || '').toLowerCase();
-      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
-      
+      // Use authenticated user context instead of query params for security
       let therapistId: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
       
-      if (role === "therapist" && uid) {
-        therapistId = uid;
-      } else if (role === "supervisor" && uid) {
-        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+      if (req.user.role === "therapist") {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor" || req.user.role === "clinical_supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -1981,7 +1981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(recentTasks);
     } catch (error) {
-      // Error logged
+      console.error("Error fetching recent tasks:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
