@@ -31,21 +31,13 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   console.log("[NOTIFICATION DEBUG] userId:", userId);
   console.log("[NOTIFICATION DEBUG] Query enabled:", !!user && !!userId);
 
-  // Get unread notification count
+  // Get unread notification count - disable retry to prevent endless loops on auth failures
   const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!userId,
     refetchInterval: 30000, // Refetch every 30 seconds
-    retry: (failureCount, error: any) => {
-      // Stop retrying on auth failures
-      if (error?.message?.includes('401') || error?.message?.includes('403')) {
-        return false;
-      }
-      // Retry up to 3 times with exponential backoff
-      return failureCount < 3;
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retry: false, // Disable retry to prevent loops on auth failures
   });
 
   // Get notifications when dropdown is opened

@@ -134,9 +134,11 @@ export const getQueryFn: <T>(options: {
       // For throw behavior, trigger logout and redirect to login
       console.warn("[AUTH] 401 detected - session expired or invalid. Redirecting to login.");
       
-      // Clear any stored auth state and redirect to login
-      // This handles session expiration gracefully
-      window.location.href = '/login';
+      // Clear any stored auth state to prevent endless loops
+      localStorage.removeItem('currentUser');
+      
+      // Force a complete page reload to reset all React state and redirect to login
+      window.location.replace('/login');
       return;
     }
 
