@@ -29,6 +29,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   // Get unread notification count
   const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({
     queryKey: ["/api/notifications/unread-count", userId],
+    enabled: !!user && !!userId,
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: (failureCount, error: any) => {
       // Stop retrying on auth failures
@@ -53,7 +54,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   // Get notifications when dropdown is opened
   const { data: notificationsData, isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
     queryKey: ["/api/notifications", userId],
-    enabled: isOpen, // Only fetch when dropdown is open
+    enabled: isOpen && !!user && !!userId, // Only fetch when dropdown is open and user is authenticated
     retry: (failureCount, error: any) => {
       // Stop retrying on auth failures
       if (error?.message?.includes('401') || error?.message?.includes('403')) {
