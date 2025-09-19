@@ -82,9 +82,13 @@ export function verifySessionToken(token: string): TokenPayload | null {
  * Authentication middleware - verifies session cookie and sets req.user
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  console.log(`[AUTH DEBUG] requireAuth called for ${req.method} ${req.path}`);
+  console.log(`[AUTH DEBUG] Cookies available:`, Object.keys(req.cookies || {}));
+  
   const token = req.cookies?.sessionToken;
   
   if (!token) {
+    console.log(`[AUTH DEBUG] No sessionToken cookie found, rejecting request`);
     // Force logout if no session cookie - clear any remaining invalid cookies
     res.clearCookie('sessionToken', { path: '/', httpOnly: true, secure: false, sameSite: 'strict' });
     res.clearCookie('csrfToken', { path: '/', httpOnly: false, secure: false, sameSite: 'strict' });
