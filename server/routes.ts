@@ -1871,7 +1871,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortOrder = "desc",
         includeCompleted = "false",
         currentUserId,
-        currentUserRole
+        currentUserRole,
+        // New date filtering parameters
+        dueDateFrom,
+        dueDateTo,
+        createdDateFrom,
+        createdDateTo
       } = req.query;
 
       let filteredAssignedToId = assignedToId ? parseInt(assignedToId as string) : undefined;
@@ -1910,7 +1915,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientId: clientId ? parseInt(clientId as string) : undefined,
         sortBy: sortBy as string,
         sortOrder: sortOrder as "asc" | "desc",
-        includeCompleted: includeCompleted === "true"
+        includeCompleted: includeCompleted === "true",
+        // Date filtering parameters
+        dueDateFrom: dueDateFrom ? new Date(dueDateFrom as string) : undefined,
+        dueDateTo: dueDateTo ? new Date(dueDateTo as string) : undefined,
+        createdDateFrom: createdDateFrom ? new Date(createdDateFrom as string) : undefined,
+        createdDateTo: createdDateTo ? new Date(createdDateTo as string) : undefined
       };
 
       // Add role-based parameters to params

@@ -166,6 +166,11 @@ export type TaskQueryParams = {
   includeCompleted?: boolean;
   therapistId?: number;
   supervisedTherapistIds?: number[];
+  // Date filtering parameters
+  dueDateFrom?: Date;
+  dueDateTo?: Date;
+  createdDateFrom?: Date;
+  createdDateTo?: Date;
 };
 
 // Session filtering parameters for secure, database-level filtering
@@ -2131,20 +2136,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enhanced Task Management Methods
-  async getAllTasks(params?: {
-    page?: number;
-    pageSize?: number;
-    search?: string;
-    status?: string;
-    priority?: string;
-    assignedToId?: number;
-    clientId?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    includeCompleted?: boolean;
-    therapistId?: number;
-    supervisedTherapistIds?: number[];
-  }): Promise<{
+  async getAllTasks(params?: TaskQueryParams): Promise<{
     tasks: (Task & { assignedTo?: User; client: Client })[];
     total: number;
     totalPages: number;
@@ -2188,6 +2180,27 @@ export class DatabaseStorage implements IStorage {
         eq(tasks.status, 'in_progress'),
         eq(tasks.status, 'overdue')
       ));
+    }
+
+    // Date filtering conditions
+    if (params?.dueDateFrom) {
+      conditions.push(gte(tasks.dueDate, params.dueDateFrom));
+    }
+    
+    if (params?.dueDateTo) {
+      const endOfDay = new Date(params.dueDateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(tasks.dueDate, endOfDay));
+    }
+    
+    if (params?.createdDateFrom) {
+      conditions.push(gte(tasks.createdAt, params.createdDateFrom));
+    }
+    
+    if (params?.createdDateTo) {
+      const endOfDay = new Date(params.createdDateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      conditions.push(lte(tasks.createdAt, endOfDay));
     }
 
     // Apply consistent role-based filtering using centralized helper
