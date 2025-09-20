@@ -1288,13 +1288,14 @@ export class DatabaseStorage implements IStorage {
     
     // Apply service visibility filtering for non-admins
     if (!includeHiddenServices) {
-      conditions.push(
-        or(
-          isNull(services.id), // Sessions without services (shouldn't happen but safety check)
-          eq(services.therapistVisible, true),
-          isNull(services.therapistVisible) // Legacy services without visibility setting (show by default)
-        )
+      const visibilityCondition = or(
+        isNull(services.id), // Sessions without services (shouldn't happen but safety check)
+        eq(services.therapistVisible, true),
+        isNull(services.therapistVisible) // Legacy services without visibility setting (show by default)
       );
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
+      }
     }
 
     const results = await query
@@ -1328,12 +1329,13 @@ export class DatabaseStorage implements IStorage {
     
     // Apply service visibility filtering for non-admins
     if (!includeHiddenServices) {
-      conditions.push(
-        or(
-          eq(services.therapistVisible, true),
-          isNull(services.therapistVisible) // Legacy services without visibility setting
-        )
+      const visibilityCondition = or(
+        eq(services.therapistVisible, true),
+        isNull(services.therapistVisible) // Legacy services without visibility setting
       );
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
+      }
     }
 
     const results = await query
@@ -1420,13 +1422,14 @@ export class DatabaseStorage implements IStorage {
 
     // Apply service visibility filtering for non-admins
     if (!includeHiddenServices) {
-      conditions.push(
-        or(
-          isNull(services.id), // Sessions without services
-          eq(services.therapistVisible, true),
-          isNull(services.therapistVisible) // Legacy services without visibility setting
-        )
+      const visibilityCondition = or(
+        isNull(services.id), // Sessions without services
+        eq(services.therapistVisible, true),
+        isNull(services.therapistVisible) // Legacy services without visibility setting
       );
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
+      }
     }
 
     const results = await query
@@ -1474,13 +1477,14 @@ export class DatabaseStorage implements IStorage {
 
     // Apply service visibility filtering for non-admins
     if (!includeHiddenServices) {
-      conditions.push(
-        or(
-          isNull(services.id), // Sessions without services
-          eq(services.therapistVisible, true),
-          isNull(services.therapistVisible) // Legacy services without visibility setting
-        )
+      const visibilityCondition = or(
+        isNull(services.id), // Sessions without services
+        eq(services.therapistVisible, true),
+        isNull(services.therapistVisible) // Legacy services without visibility setting
       );
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
+      }
     }
 
     const results = await query
@@ -1531,13 +1535,14 @@ export class DatabaseStorage implements IStorage {
 
     // Apply service visibility filtering for non-admins
     if (!includeHiddenServices) {
-      conditions.push(
-        or(
-          isNull(services.id), // Sessions without services
-          eq(services.therapistVisible, true),
-          isNull(services.therapistVisible) // Legacy services without visibility setting
-        )
+      const visibilityCondition = or(
+        isNull(services.id), // Sessions without services
+        eq(services.therapistVisible, true),
+        isNull(services.therapistVisible) // Legacy services without visibility setting
       );
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
+      }
     }
 
     const results = await query
@@ -1586,13 +1591,14 @@ export class DatabaseStorage implements IStorage {
 
     // Apply service visibility filtering for non-admins
     if (!includeHiddenServices) {
-      conditions.push(
-        or(
-          isNull(services.id), // Sessions without services
-          eq(services.therapistVisible, true),
-          isNull(services.therapistVisible) // Legacy services without visibility setting
-        )
+      const visibilityCondition = or(
+        isNull(services.id), // Sessions without services
+        eq(services.therapistVisible, true),
+        isNull(services.therapistVisible) // Legacy services without visibility setting
       );
+      if (visibilityCondition) {
+        conditions.push(visibilityCondition);
+      }
     }
 
     const results = await query
