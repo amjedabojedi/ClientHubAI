@@ -613,6 +613,10 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [page, setPage] = useState(1);
+  // Date filtering state
+  const [dueDateFrom, setDueDateFrom] = useState("");
+  const [dueDateTo, setDueDateTo] = useState("");
+  const [quickDateFilter, setQuickDateFilter] = useState("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<TaskWithDetails | null>(null);
@@ -633,7 +637,10 @@ export default function TasksPage() {
         assignedToId: assigneeFilter !== 'all' ? (assigneeFilter === 'unassigned' ? '' : assigneeFilter) : undefined,
         includeCompleted: activeTab === "all",
         currentUserId: user?.id,
-        currentUserRole: user?.role
+        currentUserRole: user?.role,
+        // Date filtering parameters
+        dueDateFrom: dueDateFrom || undefined,
+        dueDateTo: dueDateTo || undefined
       }
     ],
   });
@@ -699,6 +706,44 @@ export default function TasksPage() {
     setStatusFilter("all");
     setPriorityFilter("all");
     setAssigneeFilter("all");
+    setDueDateFrom("");
+    setDueDateTo("");
+    setQuickDateFilter("all");
+    setPage(1);
+  };
+
+  // Quick date filter functions
+  const setQuickDate = (filter: string) => {
+    setQuickDateFilter(filter);
+    const today = new Date();
+    
+    switch (filter) {
+      case "today":
+        const todayStr = today.toISOString().split('T')[0];
+        setDueDateFrom(todayStr);
+        setDueDateTo(todayStr);
+        break;
+      case "thisWeek":
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        setDueDateFrom(startOfWeek.toISOString().split('T')[0]);
+        setDueDateTo(endOfWeek.toISOString().split('T')[0]);
+        break;
+      case "overdue":
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        setDueDateFrom("2000-01-01"); // Far past date to include all overdue
+        setDueDateTo(yesterday.toISOString().split('T')[0]);
+        setStatusFilter("overdue");
+        break;
+      case "all":
+      default:
+        setDueDateFrom("");
+        setDueDateTo("");
+        break;
+    }
     setPage(1);
   };
 
@@ -791,7 +836,7 @@ export default function TasksPage() {
       {/* Search and Filters */}
       <Card className="mb-6">
         <CardContent className="p-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -804,6 +849,75 @@ export default function TasksPage() {
               </div>
             </div>
             
+            {/* Quick Date Filters */}
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={quickDateFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setQuickDate("all")}
+                data-testid="button-filter-all-dates"
+              >
+                All Dates
+              </Button>
+              <Button
+                variant={quickDateFilter === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setQuickDate("today")}
+                data-testid="button-filter-today"
+              >
+                Due Today
+              </Button>
+              <Button
+                variant={quickDateFilter === "thisWeek" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setQuickDate("thisWeek")}
+                data-testid="button-filter-this-week"
+              >
+                This Week
+              </Button>
+              <Button
+                variant={quickDateFilter === "overdue" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setQuickDate("overdue")}
+                data-testid="button-filter-overdue"
+              >
+                Overdue
+              </Button>
+            </div>
+
+            {/* Date Range Picker */}
+            <div className="flex gap-3 flex-wrap items-center">
+              <div className="flex gap-2 items-center">
+                <label className="text-sm font-medium text-slate-600">Due Date:</label>
+                <Input
+                  type="date"
+                  value={dueDateFrom}
+                  onChange={(e) => {
+                    setDueDateFrom(e.target.value);
+                    setQuickDateFilter("custom");
+                    setPage(1);
+                  }}
+                  className="w-36"
+                  placeholder="From"
+                  data-testid="input-due-date-from"
+                />
+                <span className="text-slate-400">to</span>
+                <Input
+                  type="date"
+                  value={dueDateTo}
+                  onChange={(e) => {
+                    setDueDateTo(e.target.value);
+                    setQuickDateFilter("custom");
+                    setPage(1);
+                  }}
+                  className="w-36"
+                  placeholder="To"
+                  data-testid="input-due-date-to"
+                />
+              </div>
+            </div>
+          
+            {/* Standard Filters */}
             <div className="flex gap-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-32">
@@ -845,8 +959,8 @@ export default function TasksPage() {
                 </SelectContent>
               </Select>
 
-              <Button variant="outline" onClick={clearFilters}>
-                Clear
+              <Button variant="outline" onClick={clearFilters} data-testid="button-clear-filters">
+                Clear All Filters
               </Button>
             </div>
           </div>
