@@ -38,12 +38,21 @@ export type ZoomMeetingRequest = z.infer<typeof zoomMeetingSchema>;
 export type ZoomMeetingResponse = z.infer<typeof zoomMeetingResponseSchema>;
 
 export class ZoomService {
-  private apiToken: string;
+  private accountId: string;
+  private clientId: string;
+  private clientSecret: string;
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
 
   constructor() {
-    this.apiToken = process.env.ZOOM_API_TOKEN || "";
-    if (!this.apiToken) {
-      console.warn("[ZOOM] ZOOM_API_TOKEN not configured - Zoom functionality will be disabled");
+    this.accountId = process.env.ZOOM_ACCOUNT_ID || "";
+    this.clientId = process.env.ZOOM_CLIENT_ID || "";
+    this.clientSecret = process.env.ZOOM_CLIENT_SECRET || "";
+    
+    if (!this.accountId || !this.clientId || !this.clientSecret) {
+      console.warn("[ZOOM] Zoom OAuth credentials not configured - Zoom functionality will be disabled");
+    } else {
+      console.log("[ZOOM] Zoom OAuth credentials configured successfully");
     }
   }
 
@@ -51,15 +60,59 @@ export class ZoomService {
    * Check if Zoom service is properly configured
    */
   isConfigured(): boolean {
-    return !!this.apiToken;
+    return !!(this.accountId && this.clientId && this.clientSecret);
+  }
+
+  /**
+   * Get access token using Server to Server OAuth
+   */
+  private async getAccessToken(): Promise<string> {
+    // Return cached token if still valid
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    try {
+      const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+      
+      const response = await fetch('https://zoom.us/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'account_credentials',
+          account_id: this.accountId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("[ZOOM] Failed to get access token:", response.status, errorData);
+        throw new Error(`Failed to get Zoom access token: ${response.status}`);
+      }
+
+      const tokenData = await response.json();
+      this.accessToken = tokenData.access_token;
+      // Set expiry to 5 minutes before actual expiry for safety
+      this.tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;
+      
+      console.log("[ZOOM] Access token obtained successfully");
+      return this.accessToken;
+    } catch (error) {
+      console.error("[ZOOM] Error getting access token:", error);
+      throw error;
+    }
   }
 
   /**
    * Get headers for Zoom API requests
    */
-  private getHeaders() {
+  private async getHeaders() {
+    const token = await this.getAccessToken();
     return {
-      'Authorization': `Bearer ${this.apiToken}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     };
   }
@@ -74,7 +127,7 @@ export class ZoomService {
     duration?: number;
   }): Promise<ZoomMeetingResponse> {
     if (!this.isConfigured()) {
-      throw new Error("Zoom service not configured - please set ZOOM_API_TOKEN");
+      throw new Error("Zoom service not configured - please set OAuth credentials");
     }
 
     try {
@@ -99,7 +152,7 @@ export class ZoomService {
 
       const response = await fetch(`${ZOOM_API_BASE}/users/me/meetings`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         body: JSON.stringify(meetingData),
       });
 
@@ -129,7 +182,7 @@ export class ZoomService {
    */
   async updateMeeting(meetingId: string, updateData: Partial<ZoomMeetingRequest>): Promise<void> {
     if (!this.isConfigured()) {
-      throw new Error("Zoom service not configured - please set ZOOM_API_TOKEN");
+      throw new Error("Zoom service not configured - please set OAuth credentials");
     }
 
     try {
@@ -137,7 +190,7 @@ export class ZoomService {
 
       const response = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
         method: 'PATCH',
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
         body: JSON.stringify(updateData),
       });
 
@@ -159,7 +212,7 @@ export class ZoomService {
    */
   async deleteMeeting(meetingId: string): Promise<void> {
     if (!this.isConfigured()) {
-      throw new Error("Zoom service not configured - please set ZOOM_API_TOKEN");
+      throw new Error("Zoom service not configured - please set OAuth credentials");
     }
 
     try {
@@ -167,7 +220,7 @@ export class ZoomService {
 
       const response = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
         method: 'DELETE',
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
       });
 
       if (!response.ok) {
@@ -188,13 +241,13 @@ export class ZoomService {
    */
   async getMeeting(meetingId: string): Promise<ZoomMeetingResponse> {
     if (!this.isConfigured()) {
-      throw new Error("Zoom service not configured - please set ZOOM_API_TOKEN");
+      throw new Error("Zoom service not configured - please set OAuth credentials");
     }
 
     try {
       const response = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: await this.getHeaders(),
       });
 
       if (!response.ok) {
