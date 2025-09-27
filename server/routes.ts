@@ -1397,27 +1397,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Auto-detect if Zoom should be enabled based on room type
-      let shouldEnableZoom = false;
-      if (sessionData.roomId && zoomService.isConfigured()) {
-        try {
-          const room = await storage.getRoomById(sessionData.roomId);
-          if (room && room.roomName.toLowerCase().includes('online')) {
-            shouldEnableZoom = true;
-            sessionData.zoomEnabled = true;
-            console.log('DEBUG: Auto-enabling Zoom for online room:', room.roomName);
-          }
-        } catch (roomError) {
-          console.error('Failed to fetch room details:', roomError);
-        }
-      }
-      
       const validatedData = insertSessionSchema.parse(sessionData);
       const session = await storage.createSession(validatedData);
       
-      // Handle Zoom meeting creation for online rooms
+      // Handle Zoom meeting creation if enabled
       let zoomMeetingData = null;
-      if (shouldEnableZoom) {
+      if (sessionData.zoomEnabled && zoomService.isConfigured()) {
         try {
           console.log('DEBUG: Creating Zoom meeting for session', session.id);
           
@@ -1476,7 +1461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           duration: 60, // Default session duration
           createdAt: session.createdAt,
           // Zoom meeting details
-          zoomEnabled: shouldEnableZoom,
+          zoomEnabled: sessionData.zoomEnabled || false,
           zoomMeetingData: zoomMeetingData
         };
         
@@ -1585,36 +1570,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Auto-detect if Zoom should be enabled based on room type (for room changes)
-      if (sessionData.roomId && zoomService.isConfigured()) {
-        try {
-          const room = await storage.getRoomById(sessionData.roomId);
-          if (room && room.roomName.toLowerCase().includes('online')) {
-            sessionData.zoomEnabled = true;
-            console.log('DEBUG: Auto-enabling Zoom for online room:', room.roomName);
-            
-            // If no existing Zoom meeting, we'll need to create one after update
-            const existingSession = await storage.getSession(id);
-            if (!existingSession?.zoomMeetingId) {
-              // Will create Zoom meeting after session update
-            }
-          } else {
-            // Room is not online - disable Zoom and clean up if needed
-            sessionData.zoomEnabled = false;
-            sessionData.zoomMeetingId = null;
-            sessionData.zoomJoinUrl = null;
-            sessionData.zoomPassword = null;
-            console.log('DEBUG: Disabling Zoom for physical room:', room.roomName);
-          }
-        } catch (roomError) {
-          console.error('Failed to fetch room details:', roomError);
-        }
-      }
-      
       const validatedData = insertSessionSchema.partial().parse(sessionData);
       const session = await storage.updateSession(id, validatedData);
       
-      // Handle Zoom meeting creation for newly online sessions
+      // Handle Zoom meeting creation if enabled and no existing meeting
       if (sessionData.zoomEnabled && !session.zoomMeetingId && zoomService.isConfigured()) {
         try {
           console.log('DEBUG: Creating Zoom meeting for updated session', session.id);

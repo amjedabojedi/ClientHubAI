@@ -106,7 +106,7 @@ const sessionFormSchema = z.object({
   roomId: z.coerce.number().int().min(1, "Room is required"),
   sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
   notes: z.string().optional(),
-  // zoomEnabled: automatically determined by room type
+  zoomEnabled: z.boolean().optional().default(false),
 });
 
 type SessionFormData = z.infer<typeof sessionFormSchema>;
@@ -123,7 +123,7 @@ interface Session {
   notes?: string;
   calculatedRate?: number;
   // Zoom integration fields
-  // zoomEnabled?: automatically determined by room type
+  zoomEnabled?: boolean;
   zoomMeetingId?: string;
   zoomJoinUrl?: string;
   zoomPassword?: string;
@@ -315,7 +315,7 @@ export default function SchedulingPage() {
       serviceId: undefined,
       roomId: undefined,
       notes: "",
-      // zoomEnabled: automatically determined by room type
+      zoomEnabled: false,
     },
   });
 
@@ -1329,40 +1329,30 @@ export default function SchedulingPage() {
                         )}
                       />
 
-                      {/* Automatic Zoom Status Display */}
-                      {form.watch('roomId') && (
-                        <div className="rounded-lg border p-4 bg-blue-50 border-blue-200">
-                          <div className="flex items-center justify-between">
+                      {/* Zoom Integration Toggle */}
+                      <FormField
+                        control={form.control}
+                        name="zoomEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                             <div className="space-y-0.5">
-                              <div className="text-base font-medium text-blue-900">
-                                📹 Virtual Meeting Status
-                              </div>
-                              <div className="text-sm text-blue-700">
-                                {(() => {
-                                  const selectedRoom = rooms?.find(room => room.id === form.watch('roomId'));
-                                  const isOnlineRoom = selectedRoom?.roomName.toLowerCase().includes('online');
-                                  
-                                  if (isOnlineRoom) {
-                                    return (
-                                      <div className="flex items-center space-x-2">
-                                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                                        <span>Zoom meeting will be created automatically for "{selectedRoom.roomName}"</span>
-                                      </div>
-                                    );
-                                  } else {
-                                    return (
-                                      <div className="flex items-center space-x-2">
-                                        <span className="inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
-                                        <span>In-person session in "{selectedRoom?.roomName}" - No virtual meeting</span>
-                                      </div>
-                                    );
-                                  }
-                                })()} 
+                              <FormLabel className="text-base">
+                                Enable Virtual Meeting (Zoom)
+                              </FormLabel>
+                              <div className="text-sm text-muted-foreground">
+                                Create a Zoom meeting for this session. Meeting details will be emailed to the client.
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      )}
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="toggle-zoom"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
 
                       <div className="flex justify-end space-x-4 pt-4">
                         <Button type="button" variant="outline" onClick={() => setIsNewSessionModalOpen(false)}>
