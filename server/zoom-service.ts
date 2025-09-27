@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { format, toZonedTime } from 'date-fns-tz';
 
 // Zoom API configuration
 const ZOOM_API_BASE = "https://api.zoom.us/v2";
@@ -90,7 +91,12 @@ export class ZoomService {
       if (!response.ok) {
         const errorData = await response.text();
         console.error("[ZOOM] Failed to get access token:", response.status, errorData);
-        throw new Error(`Failed to get Zoom access token: ${response.status}`);
+        
+        if (response.status === 400) {
+          throw new Error(`Zoom OAuth configuration error: Please check your Server-to-Server OAuth app settings in Zoom Marketplace. Ensure the app is activated and credentials are correct. Details: ${errorData}`);
+        }
+        
+        throw new Error(`Failed to get Zoom access token: ${response.status} - ${errorData}`);
       }
 
       const tokenData = await response.json();
@@ -134,7 +140,7 @@ export class ZoomService {
       const meetingData: ZoomMeetingRequest = {
         topic: `Therapy Session: ${sessionData.clientName} with ${sessionData.therapistName}`,
         type: 2, // Scheduled meeting
-        start_time: sessionData.sessionDate.toISOString(),
+        start_time: format(toZonedTime(sessionData.sessionDate, 'America/New_York'), "yyyy-MM-dd'T'HH:mm:ss"),
         duration: sessionData.duration || 60,
         timezone: "America/New_York",
         password: this.generateMeetingPassword(),

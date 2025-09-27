@@ -10,6 +10,7 @@ import {
   supervisorAssignments
 } from "@shared/schema";
 import SparkPost from "sparkpost";
+import { format, toZonedTime } from 'date-fns-tz';
 import type { 
   InsertNotification, 
   NotificationTrigger,
@@ -466,6 +467,17 @@ Meeting Details:
 Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  }
+
+  /**
+   * Formats a date to EST/EDT timezone for user display
+   */
+  private formatDateEST(date: Date | string): string {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const zonedDate = toZonedTime(dateObj, 'America/New_York');
+    return format(zonedDate, 'EEEE, MMMM d, yyyy \'at\' h:mm a (zzz)', {
+      timeZone: 'America/New_York'
+    });
   }
 
   /**
