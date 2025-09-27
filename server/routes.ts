@@ -23,6 +23,7 @@ import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
+import { zoomService } from "./zoom-service";
 import type { AuthenticatedRequest } from "./auth-middleware";
 import { requireAuth } from "./auth-middleware";
 
@@ -1399,11 +1400,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertSessionSchema.parse(sessionData);
       const session = await storage.createSession(validatedData);
       
+      // Handle Zoom meeting creation if enabled
+      let zoomMeetingData = null;
+      if (sessionData.zoomEnabled && zoomService.isConfigured()) {
+        try {
+          console.log('DEBUG: Creating Zoom meeting for session', session.id);
+          
+          // Get client and therapist names for Zoom meeting
+          const client = await storage.getClient(session.clientId);
+          const therapist = await storage.getUser(session.therapistId);
+          
+          const zoomMeeting = await zoomService.createMeeting({
+            clientName: client?.fullName || 'Unknown Client',
+            therapistName: therapist?.fullName || 'Unknown Therapist',
+            sessionDate: sessionDate,
+            duration: 60 // Default session duration
+          });
+          
+          // Update session with Zoom meeting details
+          const updatedSession = await storage.updateSession(session.id, {
+            zoomMeetingId: zoomMeeting.id.toString(),
+            zoomJoinUrl: zoomMeeting.join_url,
+            zoomPassword: zoomMeeting.password || '',
+          });
+          
+          zoomMeetingData = zoomService.formatMeetingInfo(zoomMeeting);
+          console.log('DEBUG: Zoom meeting created successfully:', zoomMeetingData);
+        } catch (zoomError) {
+          console.error('Zoom meeting creation failed:', zoomError);
+          // Continue with session creation even if Zoom fails
+        }
+      }
+      
       // Log session creation
       await AuditLogger.logSessionAccess(
         6, 'admin.user', session.id, session.clientId,
         'session_created', ipAddress, userAgent,
-        { session_date: session.sessionDate, session_type: session.sessionType, is_historical: sessionDate < today }
+        { session_date: session.sessionDate, session_type: session.sessionType, is_historical: sessionDate < today, zoom_enabled: sessionData.zoomEnabled }
       );
       
       // Trigger session scheduled notification
@@ -1426,7 +1459,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionType: session.sessionType,
           roomId: session.roomId,
           duration: 60, // Default session duration
-          createdAt: session.createdAt
+          createdAt: session.createdAt,
+          // Zoom meeting details
+          zoomEnabled: sessionData.zoomEnabled || false,
+          zoomMeetingData: zoomMeetingData
         };
         
         console.log('DEBUG: Notification data:', notificationData);
