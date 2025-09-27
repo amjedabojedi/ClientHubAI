@@ -1397,12 +1397,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Auto-detect if Zoom should be enabled based on room type
+      let shouldEnableZoom = false;
+      if (sessionData.roomId && zoomService.isConfigured()) {
+        try {
+          const room = await storage.getRoomById(sessionData.roomId);
+          if (room && room.roomName.toLowerCase().includes('online')) {
+            shouldEnableZoom = true;
+            sessionData.zoomEnabled = true;
+            console.log('DEBUG: Auto-enabling Zoom for online room:', room.roomName);
+          }
+        } catch (roomError) {
+          console.error('Failed to fetch room details:', roomError);
+        }
+      }
+      
       const validatedData = insertSessionSchema.parse(sessionData);
       const session = await storage.createSession(validatedData);
       
-      // Handle Zoom meeting creation if enabled
+      // Handle Zoom meeting creation for online rooms
       let zoomMeetingData = null;
-      if (sessionData.zoomEnabled && zoomService.isConfigured()) {
+      if (shouldEnableZoom) {
         try {
           console.log('DEBUG: Creating Zoom meeting for session', session.id);
           
@@ -1461,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           duration: 60, // Default session duration
           createdAt: session.createdAt,
           // Zoom meeting details
-          zoomEnabled: sessionData.zoomEnabled || false,
+          zoomEnabled: shouldEnableZoom,
           zoomMeetingData: zoomMeetingData
         };
         
@@ -1570,9 +1585,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Auto-detect if Zoom should be enabled based on room type (for room changes)
+      if (sessionData.roomId && zoomService.isConfigured()) {
+        try {
+          const room = await storage.getRoomById(sessionData.roomId);
+          if (room && room.roomName.toLowerCase().includes('online')) {
+            sessionData.zoomEnabled = true;
+            console.log('DEBUG: Auto-enabling Zoom for online room:', room.roomName);
+            
+            // If no existing Zoom meeting, we'll need to create one after update
+            const existingSession = await storage.getSession(id);
+            if (!existingSession?.zoomMeetingId) {
+              // Will create Zoom meeting after session update
+            }
+          } else {
+            // Room is not online - disable Zoom and clean up if needed
+            sessionData.zoomEnabled = false;
+            sessionData.zoomMeetingId = null;
+            sessionData.zoomJoinUrl = null;
+            sessionData.zoomPassword = null;
+            console.log('DEBUG: Disabling Zoom for physical room:', room.roomName);
+          }
+        } catch (roomError) {
+          console.error('Failed to fetch room details:', roomError);
+        }
+      }
       
       const validatedData = insertSessionSchema.partial().parse(sessionData);
       const session = await storage.updateSession(id, validatedData);
+      
+      // Handle Zoom meeting creation for newly online sessions
+      if (sessionData.zoomEnabled && !session.zoomMeetingId && zoomService.isConfigured()) {
+        try {
+          console.log('DEBUG: Creating Zoom meeting for updated session', session.id);
+          
+          // Get client and therapist names for Zoom meeting
+          const client = await storage.getClient(session.clientId);
+          const therapist = await storage.getUser(session.therapistId);
+          
+          const zoomMeeting = await zoomService.createMeeting({
+            clientName: client?.fullName || 'Unknown Client',
+            therapistName: therapist?.fullName || 'Unknown Therapist',
+            sessionDate: session.sessionDate,
+            duration: 60 // Default session duration
+          });
+          
+          // Update session with Zoom meeting details
+          await storage.updateSession(session.id, {
+            zoomMeetingId: zoomMeeting.id.toString(),
+            zoomJoinUrl: zoomMeeting.join_url,
+            zoomPassword: zoomMeeting.password || '',
+          });
+          
+          console.log('DEBUG: Zoom meeting created for updated session:', zoomMeeting.id);
+        } catch (zoomError) {
+          console.error('Zoom meeting creation failed for updated session:', zoomError);
+        }
+      }
       
       // Trigger billing when session status changes to completed
       if (sessionData.status === 'completed') {
