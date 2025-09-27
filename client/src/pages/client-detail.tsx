@@ -31,6 +31,7 @@ import {
   Download, 
   Edit, 
   Eye,
+  ExternalLink,
   FileText, 
   FolderOpen, 
   Home,
@@ -44,6 +45,7 @@ import {
   Trash2,
   Upload, 
   User as UserIcon, 
+  Video,
   X
 } from "lucide-react";
 
@@ -1962,6 +1964,19 @@ export default function ClientDetailPage() {
                               <FileText className="w-4 h-4 mr-1" />
                               Add Notes
                             </Button>
+                            {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}
+                                data-testid={`button-zoom-join-${session.id}`}
+                              >
+                                <Video className="w-4 h-4 mr-1" />
+                                Join Zoom
+                                <ExternalLink className="w-3 h-3 ml-1" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                         {(session as any).therapistName && (

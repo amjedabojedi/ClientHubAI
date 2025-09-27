@@ -41,7 +41,9 @@ import {
   CheckCircle,
   X,
   AlertCircle,
-  RotateCw
+  RotateCw,
+  Video,
+  ExternalLink
 } from "lucide-react";
 
 // Utils and Hooks
@@ -2207,7 +2209,7 @@ export default function SchedulingPage() {
                 </div>
 
                 <div className="pt-4 border-t">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className={`grid gap-2 ${(selectedSession as any).zoomEnabled && (selectedSession as any).zoomJoinUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <Button 
                       variant="outline"
                       onClick={() => window.location.href = `/clients/${selectedSession.clientId}`}
@@ -2251,6 +2253,18 @@ export default function SchedulingPage() {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit This Session
                     </Button>
+                    {(selectedSession as any).zoomEnabled && (selectedSession as any).zoomJoinUrl && (
+                      <Button 
+                        variant="outline"
+                        className="text-sm px-3 py-2 h-9 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        onClick={() => window.open((selectedSession as any).zoomJoinUrl, '_blank')}
+                        data-testid={`button-zoom-join-modal-${selectedSession.id}`}
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Join Zoom
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
                     <Button 
                       variant="outline"
                       onClick={() => {
