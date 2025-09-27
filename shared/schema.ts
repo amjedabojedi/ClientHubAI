@@ -378,6 +378,11 @@ export const sessions = pgTable("sessions", {
   calculatedRate: decimal("calculated_rate", { precision: 10, scale: 2 }), // Auto-calculated from service
   insuranceApplicable: boolean("insurance_applicable").notNull().default(false),
   billingNotes: text("billing_notes"),
+  // Zoom integration fields
+  zoomEnabled: boolean("zoom_enabled").notNull().default(false),
+  zoomMeetingId: varchar("zoom_meeting_id", { length: 50 }),
+  zoomJoinUrl: text("zoom_join_url"),
+  zoomPassword: varchar("zoom_password", { length: 50 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
