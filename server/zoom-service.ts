@@ -301,11 +301,18 @@ export class ZoomService {
     password: string;
     startTime: string;
   } {
+    // Convert Zoom's UTC time back to EST for consistent display
+    const utcDate = new Date(meeting.start_time);
+    const estDate = toZonedTime(utcDate, 'America/New_York');
+    const estTimeString = format(estDate, "yyyy-MM-dd'T'HH:mm:ssXXX", {
+      timeZone: 'America/New_York'
+    });
+
     return {
       meetingId: meeting.id.toString(),
       joinUrl: meeting.join_url,
       password: meeting.password || '',
-      startTime: meeting.start_time,
+      startTime: estTimeString,
     };
   }
 }
