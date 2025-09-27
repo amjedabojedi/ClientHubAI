@@ -114,7 +114,7 @@ export class ZoomService {
 
       console.log("[ZOOM] Meeting created successfully:", { 
         id: validatedResult.id, 
-        join_url: validatedResult.join_url 
+        topic: validatedResult.topic
       });
 
       return validatedResult;
