@@ -9,6 +9,7 @@ import {
   clients,
   supervisorAssignments
 } from "@shared/schema";
+import SparkPost from "sparkpost";
 import type { 
   InsertNotification, 
   NotificationTrigger,
@@ -357,10 +358,149 @@ export class NotificationService {
       // Batch create notifications
       await this.createNotificationsBatch(notificationsData);
       
+      // Send emails for recipients who have email notifications enabled
+      await this.sendEmailNotifications(recipients, trigger, template, entityData);
+      
     } catch (error) {
       console.error(`Error creating notifications from trigger:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Sends email notifications using SparkPost
+   */
+  private async sendEmailNotifications(
+    recipients: User[], 
+    trigger: NotificationTrigger, 
+    template: NotificationTemplate | null, 
+    entityData: any
+  ): Promise<void> {
+    // Check if SparkPost is configured
+    if (!process.env.SPARKPOST_API_KEY) {
+      console.log('[NOTIFICATION] SparkPost not configured - skipping email notifications');
+      return;
+    }
+
+    try {
+      const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+      const fromEmail = 'noreply@send.rcrc.ca';
+
+      for (const recipient of recipients) {
+        try {
+          // Check if user has email notifications enabled for this trigger type
+          const preferences = await db
+            .select()
+            .from(notificationPreferences)
+            .where(and(
+              eq(notificationPreferences.userId, recipient.id),
+              eq(notificationPreferences.triggerType, trigger.eventType)
+            ));
+
+          const hasEmailEnabled = preferences.length === 0 || // Default to enabled if no preference set
+            preferences.some(pref => 
+              pref.deliveryMethods && 
+              (pref.deliveryMethods as string[]).includes('email')
+            );
+
+          if (!hasEmailEnabled || !recipient.email) {
+            console.log(`[NOTIFICATION] Skipping email for user ${recipient.id} - email disabled or no email address`);
+            continue;
+          }
+
+          // Prepare email content
+          const subject = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
+          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
+          
+          // Special handling for Zoom meeting notifications
+          if (trigger.eventType === 'session_scheduled' && entityData.zoomEnabled && entityData.zoomMeetingData) {
+            body += this.generateZoomEmailContent(entityData.zoomMeetingData, entityData);
+          }
+
+          // Send email
+          await sp.transmissions.send({
+            content: {
+              from: fromEmail,
+              subject: subject,
+              html: this.formatEmailAsHtml(body, entityData),
+              text: body
+            },
+            recipients: [{ address: recipient.email }]
+          });
+
+          console.log(`[NOTIFICATION] Email sent successfully to ${recipient.email} for ${trigger.eventType}`);
+        } catch (emailError) {
+          console.error(`[NOTIFICATION] Failed to send email to ${recipient.email}:`, emailError);
+          // Continue with other recipients even if one fails
+        }
+      }
+    } catch (error) {
+      console.error('[NOTIFICATION] Error in sendEmailNotifications:', error);
+    }
+  }
+
+  /**
+   * Generates Zoom meeting content for email notifications
+   */
+  private generateZoomEmailContent(zoomMeetingData: any, sessionData: any): string {
+    if (!zoomMeetingData) return '';
+
+    return `
+
+📹 VIRTUAL MEETING DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your therapy session will be conducted via Zoom video conference.
+
+Meeting Details:
+• Join URL: ${zoomMeetingData.joinUrl}
+• Meeting ID: ${zoomMeetingData.meetingId}
+• Password: ${zoomMeetingData.password}
+
+📋 Important Instructions:
+• Please join the meeting 5 minutes before your scheduled time
+• Ensure you have a stable internet connection
+• Test your camera and microphone beforehand
+• Find a quiet, private space for your session
+
+Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  }
+
+  /**
+   * Formats email content as HTML
+   */
+  private formatEmailAsHtml(content: string, entityData: any): string {
+    const htmlContent = content
+      .replace(/\n/g, '<br>')
+      .replace(/━/g, '─')
+      .replace(/📹/g, '🎥')
+      .replace(/📋/g, '📝');
+
+    return `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .header { background-color: #f8f9fa; padding: 20px; text-align: center; }
+          .content { padding: 20px; }
+          .zoom-section { background-color: #e8f4fd; padding: 15px; border-radius: 5px; margin: 15px 0; }
+          .meeting-details { background-color: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>TherapyFlow Notification</h2>
+        </div>
+        <div class="content">
+          ${htmlContent}
+        </div>
+        <div style="margin-top: 30px; padding: 15px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
+          <p>This is an automated message from TherapyFlow. Please do not reply to this email.</p>
+        </div>
+      </body>
+    </html>`;
   }
 
   /**
