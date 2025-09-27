@@ -106,6 +106,7 @@ const sessionFormSchema = z.object({
   roomId: z.coerce.number().int().min(1, "Room is required"),
   sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
   notes: z.string().optional(),
+  zoomEnabled: z.boolean().optional().default(false),
 });
 
 type SessionFormData = z.infer<typeof sessionFormSchema>;
@@ -121,6 +122,11 @@ interface Session {
   roomId: number;
   notes?: string;
   calculatedRate?: number;
+  // Zoom integration fields
+  zoomEnabled?: boolean;
+  zoomMeetingId?: string;
+  zoomJoinUrl?: string;
+  zoomPassword?: string;
   therapist: {
     id: number;
     fullName: string;
@@ -309,6 +315,7 @@ export default function SchedulingPage() {
       serviceId: undefined,
       roomId: undefined,
       notes: "",
+      zoomEnabled: false,
     },
   });
 
@@ -1318,6 +1325,31 @@ export default function SchedulingPage() {
                               <Textarea {...field} placeholder="Session notes or special instructions" />
                             </FormControl>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Zoom Integration Toggle */}
+                      <FormField
+                        control={form.control}
+                        name="zoomEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-base">
+                                Enable Virtual Meeting (Zoom)
+                              </FormLabel>
+                              <div className="text-sm text-muted-foreground">
+                                Create a Zoom meeting for this session. Meeting details will be emailed to the client.
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="toggle-zoom"
+                              />
+                            </FormControl>
                           </FormItem>
                         )}
                       />
