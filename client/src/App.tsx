@@ -223,7 +223,7 @@ function Router() {
           <Route path="/library" component={LibraryPage} />
           <Route path="/assessments" component={() => {
             const { user } = useAuth();
-            if (user?.role === 'admin' || user?.role === 'supervisor') {
+            if (isAdminOrSupervisor(user)) {
               return <AssessmentsPage />;
             } else {
               // Redirect therapists to dashboard with a message
