@@ -65,9 +65,16 @@ export class ZoomService {
   }
 
   /**
-   * Get access token using Server to Server OAuth
+   * Get access token using Server to Server OAuth or fallback token
    */
   private async getAccessToken(): Promise<string> {
+    // TEMPORARY: Use provided token for testing
+    const testToken = "DyonCKcIRvOV3q5l67ilYg";
+    if (testToken) {
+      console.log("[ZOOM] Using provided test token");
+      return testToken;
+    }
+
     // Return cached token if still valid
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
