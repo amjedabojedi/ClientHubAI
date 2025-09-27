@@ -117,6 +117,9 @@ export class ZoomService {
    */
   private async getHeaders() {
     const token = await this.getAccessToken();
+    if (!token) {
+      throw new Error('Failed to obtain Zoom access token');
+    }
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',

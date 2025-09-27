@@ -409,13 +409,17 @@ export class NotificationService {
             continue;
           }
 
-          // Prepare email content
+          // Prepare email content with enhanced session scheduling
           const subject = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
+          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generateSessionEmailBody(entityData);
           
           // Special handling for Zoom meeting notifications
-          if (trigger.eventType === 'session_scheduled' && entityData.zoomEnabled && entityData.zoomMeetingData) {
-            body += this.generateZoomEmailContent(entityData.zoomMeetingData, entityData);
+          if (trigger.eventType === 'session_scheduled' && entityData.zoomEnabled) {
+            if (entityData.zoomMeetingData) {
+              body += this.generateZoomEmailContent(entityData.zoomMeetingData, entityData);
+            } else {
+              body += this.generateZoomFailedContent();
+            }
           }
 
           // Send email
@@ -465,6 +469,30 @@ Meeting Details:
 • Find a quiet, private space for your session
 
 Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  }
+
+  /**
+   * Generates default session email body when no template is available
+   */
+  private generateSessionEmailBody(entityData: any): string {
+    const sessionDate = this.formatDateEST(entityData.sessionDate);
+    return `A ${entityData.sessionType} session has been scheduled for ${entityData.clientName} on ${sessionDate} with ${entityData.therapistName}.`;
+  }
+
+  /**
+   * Generates content when Zoom was requested but failed to create
+   */
+  private generateZoomFailedContent(): string {
+    return `
+
+⚠️ VIRTUAL MEETING SETUP:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A Zoom meeting was requested for this session, but there was an issue setting it up automatically. Your therapist will provide the meeting details separately or may switch to an in-person session.
+
+If you have any questions, please contact your therapist directly.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
   }
