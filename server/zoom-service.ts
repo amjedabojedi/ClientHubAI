@@ -69,7 +69,7 @@ export class ZoomService {
    */
   private async getAccessToken(): Promise<string> {
     // TEMPORARY: Use provided token for testing
-    const testToken = "DyonCKcIRvOV3q5l67ilYg";
+    const testToken = "pCo_ntdcRQWZqLvuyHtKKg";
     if (testToken) {
       console.log("[ZOOM] Using provided test token");
       return testToken;
