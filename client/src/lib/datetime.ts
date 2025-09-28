@@ -9,7 +9,7 @@ export type DurationPreset = '30m' | '45m' | '1h' | '1.5h' | '2h';
 
 // Default user preferences (can be overridden by user settings)
 const DEFAULT_TIME_FORMAT: TimeFormat = '12h';
-const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const DEFAULT_TIMEZONE = 'America/New_York'; // EST/EDT timezone for entire app
 
 /**
  * Get user's preferred time format (12h/24h)
