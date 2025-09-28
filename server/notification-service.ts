@@ -399,10 +399,13 @@ export class NotificationService {
             ));
 
           const hasEmailEnabled = preferences.length === 0 || // Default to enabled if no preference set
-            preferences.some(pref => 
-              pref.deliveryMethods && 
-              (pref.deliveryMethods as string[]).includes('email')
-            );
+            preferences.some(pref => {
+              if (!pref.deliveryMethods) return false;
+              const methods = typeof pref.deliveryMethods === 'string' 
+                ? [pref.deliveryMethods] 
+                : pref.deliveryMethods as string[];
+              return methods.includes('email');
+            });
 
           if (!hasEmailEnabled || !recipient.email) {
             console.log(`[NOTIFICATION] Skipping email for user ${recipient.id} - email disabled or no email address`);
