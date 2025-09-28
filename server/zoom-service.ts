@@ -112,7 +112,7 @@ export class ZoomService {
       this.tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;
       
       console.log("[ZOOM] Access token obtained successfully");
-      return this.accessToken;
+      return this.accessToken!; // Non-null assertion since we just validated and assigned it
     } catch (error) {
       console.error("[ZOOM] Error getting access token:", error);
       throw error;
