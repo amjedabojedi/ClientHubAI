@@ -34,6 +34,7 @@ interface RecipientRules {
   assignedTherapist?: boolean;
   supervisorOfTherapist?: boolean;
   clientTherapist?: boolean;
+  sessionClient?: boolean; // Include client for session notifications
   departmentMembers?: string[];
   customQuery?: string;
 }
@@ -308,6 +309,43 @@ export class NotificationService {
           ));
         if (supervisorAssignment[0]) {
           recipients.push(supervisorAssignment[0].users);
+        }
+      }
+
+      // Get client for session notifications (if emailNotifications enabled)
+      if (recipientRules.sessionClient && entityData.clientId) {
+        const client = await db
+          .select()
+          .from(clients)
+          .where(eq(clients.id, entityData.clientId));
+        
+        if (client[0] && client[0].emailNotifications && client[0].email) {
+          // Convert client to User-like object for notification system
+          const clientAsUser: User = {
+            id: client[0].id,
+            username: client[0].fullName || 'Client',
+            password: '', // Not needed for notifications
+            fullName: client[0].fullName || 'Client',
+            email: client[0].email,
+            role: 'client',
+            isActive: true,
+            createdAt: client[0].createdAt || new Date(),
+            updatedAt: client[0].updatedAt || new Date(),
+            customRoleId: null,
+            status: 'active',
+            lastLogin: null,
+            passwordResetToken: null,
+            passwordResetExpiry: null,
+            emailVerified: false,
+            emailVerificationToken: null,
+            phone: client[0].phone || null,
+            title: null,
+            department: null,
+            bio: null,
+            profilePicture: null,
+            createdBy: null
+          };
+          recipients.push(clientAsUser);
         }
       }
 

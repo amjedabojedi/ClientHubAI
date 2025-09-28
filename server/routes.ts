@@ -2850,7 +2850,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/users", requireAuth, async (req, res) => {
+  app.post("/api/users", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Check if user has admin privileges to create users
       if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
