@@ -457,9 +457,9 @@ export class NotificationService {
             continue;
           }
 
-          // Prepare email content with enhanced session scheduling
+          // Prepare role-specific email content
           const subject = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generateSessionEmailBody(entityData);
+          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generateRoleSpecificEmailBody(entityData, recipient);
           
           // Special handling for Zoom meeting notifications
           if (trigger.eventType === 'session_scheduled' && entityData.zoomEnabled) {
@@ -519,6 +519,60 @@ Meeting Details:
 Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  }
+
+  /**
+   * Generates role-specific email body based on recipient
+   */
+  private generateRoleSpecificEmailBody(entityData: any, recipient: any): string {
+    const sessionDate = this.formatDateEST(entityData.sessionDate);
+    
+    // Determine if this is a client or staff member
+    const isClient = recipient.role === 'client' || recipient.id === entityData.clientId;
+    
+    if (isClient) {
+      // Client-focused email content
+      return `
+Dear ${recipient.fullName},
+
+Your therapy session has been confirmed!
+
+📅 APPOINTMENT DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Session Type: ${entityData.sessionType}
+Date & Time: ${sessionDate}
+Therapist: ${entityData.therapistName}
+Duration: ${entityData.duration || 60} minutes
+
+📋 PREPARATION REMINDERS:
+• Please arrive 5-10 minutes early
+• Bring any questions or topics you'd like to discuss
+• If you need to cancel or reschedule, please give at least 24 hours notice
+
+We look forward to seeing you at your appointment.
+
+Best regards,
+TherapyFlow Team`;
+    } else {
+      // Staff/Administrator-focused email content
+      return `
+Session Scheduled Notification
+
+📊 SESSION DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Client: ${entityData.clientName}
+Session Type: ${entityData.sessionType}
+Date & Time: ${sessionDate}
+Therapist: ${entityData.therapistName}
+Duration: ${entityData.duration || 60} minutes
+
+👥 ADMINISTRATIVE INFO:
+• Session ID: ${entityData.id}
+• Client ID: ${entityData.clientId}
+• Room: ${entityData.roomId ? `Room ${entityData.roomId}` : 'Not assigned'}
+
+This notification was sent because you are listed as an administrator.`;
+    }
   }
 
   /**
