@@ -148,7 +148,7 @@ export class ZoomService {
 
     try {
       const meetingData: ZoomMeetingRequest = {
-        topic: `Therapy Session: ${sessionData.clientName} with ${sessionData.therapistName}`,
+        topic: `Therapy Session with ${sessionData.therapistName}`,
         type: 2, // Scheduled meeting
         start_time: format(toZonedTime(sessionData.sessionDate, 'America/New_York'), "yyyy-MM-dd'T'HH:mm:ss"),
         duration: sessionData.duration || 60,

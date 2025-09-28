@@ -594,7 +594,6 @@ Session Scheduled Notification
 
 📊 SESSION DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-Client: ${entityData.clientName}
 Session Type: ${entityData.sessionType}
 Date & Time: ${sessionDate}
 Therapist: ${entityData.therapistName}
@@ -602,7 +601,6 @@ Duration: ${entityData.duration || 60} minutes
 
 👥 ADMINISTRATIVE INFO:
 • Session ID: ${entityData.id}
-• Client ID: ${entityData.clientId}
 • Room: ${entityData.roomId ? `Room ${entityData.roomId}` : 'Not assigned'}
 
 This notification was sent because you are listed as an administrator.`;
