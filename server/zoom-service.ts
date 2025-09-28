@@ -107,6 +107,11 @@ export class ZoomService {
       }
 
       const tokenData = await response.json();
+      
+      if (!tokenData.access_token) {
+        throw new Error('No access token received from Zoom OAuth');
+      }
+      
       this.accessToken = tokenData.access_token;
       // Set expiry to 5 minutes before actual expiry for safety
       this.tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;
