@@ -237,7 +237,14 @@ export class NotificationService {
    * Gets field value from entity data using dot notation
    */
   private getFieldValue(entityData: any, fieldPath: string): any {
-    return fieldPath.split('.').reduce((obj, key) => obj?.[key], entityData);
+    const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], entityData);
+    
+    // Special handling for date fields to format them in EST timezone
+    if (fieldPath === 'sessionDate' && value) {
+      return this.formatDateEST(value);
+    }
+    
+    return value;
   }
 
   /**
