@@ -457,9 +457,9 @@ export class NotificationService {
             continue;
           }
 
-          // Prepare role-specific email content
+          // Prepare purpose-specific email content based on trigger type
           const subject = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generateRoleSpecificEmailBody(entityData, recipient);
+          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generatePurposeSpecificEmailBody(trigger.eventType, entityData, recipient);
           
           // Special handling for Zoom meeting notifications
           if (trigger.eventType === 'session_scheduled' && entityData.zoomEnabled) {
@@ -522,16 +522,51 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   }
 
   /**
-   * Generates role-specific email body based on recipient
+   * Generates purpose-specific email body based on trigger type and recipient
    */
-  private generateRoleSpecificEmailBody(entityData: any, recipient: any): string {
-    const sessionDate = this.formatDateEST(entityData.sessionDate);
-    
-    // Determine if this is a client or staff member
+  private generatePurposeSpecificEmailBody(eventType: string, entityData: any, recipient: any): string {
     const isClient = recipient.role === 'client' || recipient.id === entityData.clientId;
     
+    switch (eventType) {
+      case 'session_scheduled':
+        return this.generateSessionEmailBody(entityData, recipient, isClient);
+      
+      case 'client_created':
+        return this.generateClientCreatedEmailBody(entityData, recipient, isClient);
+      
+      case 'client_assigned':
+        return this.generateClientAssignedEmailBody(entityData, recipient, isClient);
+      
+      case 'task_assigned':
+        return this.generateTaskAssignedEmailBody(entityData, recipient, isClient);
+      
+      case 'task_overdue':
+        return this.generateTaskOverdueEmailBody(entityData, recipient, isClient);
+      
+      case 'document_needs_review':
+        return this.generateDocumentReviewEmailBody(entityData, recipient, isClient);
+      
+      case 'document_reviewed':
+        return this.generateDocumentReviewedEmailBody(entityData, recipient, isClient);
+      
+      case 'document_uploaded':
+        return this.generateDocumentUploadedEmailBody(entityData, recipient, isClient);
+      
+      case 'session_overdue':
+        return this.generateSessionOverdueEmailBody(entityData, recipient, isClient);
+      
+      default:
+        return this.generateGenericEmailBody(eventType, entityData, recipient, isClient);
+    }
+  }
+
+  /**
+   * Generates session-specific email content
+   */
+  private generateSessionEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    const sessionDate = this.formatDateEST(entityData.sessionDate);
+    
     if (isClient) {
-      // Client-focused email content
       return `
 Dear ${recipient.fullName},
 
@@ -554,7 +589,6 @@ We look forward to seeing you at your appointment.
 Best regards,
 TherapyFlow Team`;
     } else {
-      // Staff/Administrator-focused email content
       return `
 Session Scheduled Notification
 
@@ -576,12 +610,237 @@ This notification was sent because you are listed as an administrator.`;
   }
 
   /**
-   * Generates default session email body when no template is available
+   * Generates client creation email content
    */
-  private generateSessionEmailBody(entityData: any): string {
-    const sessionDate = this.formatDateEST(entityData.sessionDate);
-    return `A ${entityData.sessionType} session has been scheduled for ${entityData.clientName} on ${sessionDate} with ${entityData.therapistName}.`;
+  private generateClientCreatedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    return `
+New Client Added to System
+
+👤 CLIENT DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Name: ${entityData.fullName}
+Client ID: ${entityData.id}
+Email: ${entityData.email || 'Not provided'}
+Phone: ${entityData.phone || 'Not provided'}
+Added: ${this.formatDateEST(entityData.createdAt)}
+
+📋 ACTION REQUIRED:
+A new client has been added to the system. Please review their profile and ensure all intake requirements are met.
+
+• Verify contact information
+• Review insurance details
+• Assign to appropriate therapist
+• Schedule initial assessment
+
+View client profile: [Link to client profile]
+
+This notification was sent because you are responsible for client intake processing.`;
   }
+
+  /**
+   * Generates client assignment email content
+   */
+  private generateClientAssignedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    if (isClient) {
+      return `
+Dear ${recipient.fullName},
+
+Welcome to TherapyFlow!
+
+👋 THERAPIST ASSIGNMENT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+You have been assigned to ${entityData.therapistName} for your therapy services.
+
+Your therapist will contact you soon to schedule your first appointment.
+
+📞 NEXT STEPS:
+• Wait for your therapist to contact you
+• Prepare any questions you'd like to discuss
+• Complete any intake paperwork provided
+
+Best regards,
+TherapyFlow Team`;
+    } else {
+      return `
+Client Assignment Notification
+
+👤 ASSIGNMENT DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Client: ${entityData.clientName}
+Assigned to: ${entityData.therapistName}
+Assignment Date: ${this.formatDateEST(entityData.assignmentDate)}
+
+📋 ACTION REQUIRED:
+You have been assigned a new client. Please review their case and schedule an initial assessment.
+
+• Review client profile and history
+• Contact client to schedule first session
+• Prepare treatment planning documentation
+
+This notification was sent because you are the assigned therapist.`;
+    }
+  }
+
+  /**
+   * Generates task assignment email content
+   */
+  private generateTaskAssignedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    const dueDate = entityData.dueDate ? this.formatDateEST(entityData.dueDate) : 'No due date set';
+    
+    return `
+Task Assignment Notification
+
+📋 TASK DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: ${entityData.title}
+Priority: ${entityData.priority || 'Normal'}
+Due Date: ${dueDate}
+Assigned by: ${entityData.createdByName}
+
+📝 DESCRIPTION:
+${entityData.description || 'No additional details provided.'}
+
+🎯 ACTION REQUIRED:
+A new task has been assigned to you. Please review the details and begin work as appropriate.
+
+This notification was sent because you are responsible for completing this task.`;
+  }
+
+  /**
+   * Generates task overdue email content
+   */
+  private generateTaskOverdueEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    const dueDate = this.formatDateEST(entityData.dueDate);
+    
+    return `
+⚠️ OVERDUE TASK ALERT
+
+📋 OVERDUE TASK:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Title: ${entityData.title}
+Due Date: ${dueDate}
+Priority: ${entityData.priority || 'Normal'}
+
+🚨 IMMEDIATE ACTION REQUIRED:
+This task is past its due date and requires immediate attention.
+
+Please complete this task as soon as possible or update its status if already completed.
+
+This notification was sent because you are responsible for this overdue task.`;
+  }
+
+  /**
+   * Generates document review email content
+   */
+  private generateDocumentReviewEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    return `
+Document Review Required
+
+📄 DOCUMENT DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Document: ${entityData.documentName}
+Client: ${entityData.clientName}
+Uploaded by: ${entityData.uploadedByName}
+Upload Date: ${this.formatDateEST(entityData.uploadDate)}
+
+📋 ACTION REQUIRED:
+A document has been uploaded that requires clinical review and approval.
+
+• Review document content for clinical accuracy
+• Approve or provide feedback for revision
+• Update document status in the system
+
+This notification was sent because you are responsible for clinical document oversight.`;
+  }
+
+  /**
+   * Generates document reviewed email content
+   */
+  private generateDocumentReviewedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    return `
+Document Review Completed
+
+📄 REVIEW DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Document: ${entityData.documentName}
+Client: ${entityData.clientName}
+Reviewed by: ${entityData.reviewedByName}
+Review Date: ${this.formatDateEST(entityData.reviewDate)}
+Status: ${entityData.reviewStatus}
+
+📋 REVIEW OUTCOME:
+Your document has been reviewed and ${entityData.reviewStatus === 'approved' ? 'approved' : 'requires revision'}.
+
+${entityData.reviewComments ? `Reviewer comments: ${entityData.reviewComments}` : ''}
+
+This notification was sent because you submitted the document for review.`;
+  }
+
+  /**
+   * Generates document uploaded email content
+   */
+  private generateDocumentUploadedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    return `
+Document Uploaded Notification
+
+📄 UPLOAD DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Document: ${entityData.documentName}
+Client: ${entityData.clientName}
+Uploaded by: ${entityData.uploadedByName}
+Upload Date: ${this.formatDateEST(entityData.uploadDate)}
+
+📋 INFORMATION:
+A new document has been added to the client's record.
+
+This notification was sent because you are involved in this client's care.`;
+  }
+
+  /**
+   * Generates session overdue email content
+   */
+  private generateSessionOverdueEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    const sessionDate = this.formatDateEST(entityData.sessionDate);
+    
+    return `
+⚠️ SESSION STATUS UPDATE REQUIRED
+
+📅 SESSION DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Client: ${entityData.clientName}
+Session Date: ${sessionDate}
+Session Type: ${entityData.sessionType}
+Days Overdue: ${entityData.daysOverdue}
+
+🚨 ACTION REQUIRED:
+This session is overdue for status update. Please complete the session documentation or update the session status.
+
+• Mark session as completed if conducted
+• Add session notes if applicable
+• Update session status if cancelled or rescheduled
+
+This notification was sent because you are responsible for session documentation.`;
+  }
+
+  /**
+   * Generates generic email content for unknown trigger types
+   */
+  private generateGenericEmailBody(eventType: string, entityData: any, recipient: any, isClient: boolean): string {
+    return `
+${eventType.replace(/_/g, ' ').toUpperCase()} Notification
+
+📋 DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+An event has occurred that requires your attention.
+
+Event Type: ${eventType}
+Date: ${this.formatDateEST(new Date())}
+
+Please log into TherapyFlow to review the details and take any necessary action.
+
+This notification was sent because you are involved in this process.`;
+  }
+
 
   /**
    * Generates content when Zoom was requested but failed to create
