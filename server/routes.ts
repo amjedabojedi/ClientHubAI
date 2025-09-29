@@ -2923,9 +2923,11 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.get("/api/users/me/profile", async (req, res) => {
     try {
-      // For now, simulate getting current user by ID 6 (admin)
-      // In a real app, this would come from session/token
-      const currentUserId = 6;
+      // Get authenticated user from request
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       const profile = await storage.getUserProfile(currentUserId);
       res.json(profile);
     } catch (error) {
@@ -2936,9 +2938,11 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.post("/api/users/me/profile", async (req, res) => {
     try {
-      // For now, simulate creating profile for current user by ID 6 (admin)
-      // In a real app, this would come from session/token
-      const currentUserId = 6;
+      // Get authenticated user from request
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       const validatedData = insertUserProfileSchema.parse({
         ...req.body,
         userId: currentUserId
@@ -2955,9 +2959,11 @@ This happens because only the file metadata was stored, not the actual file cont
 
   app.put("/api/users/me/profile", async (req, res) => {
     try {
-      // For now, simulate updating profile for current user by ID 6 (admin)
-      // In a real app, this would come from session/token
-      const currentUserId = 6;
+      // Get authenticated user from request
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       const validatedData = insertUserProfileSchema.partial().parse(req.body);
       const profile = await storage.updateUserProfile(currentUserId, validatedData);
       res.json(profile);
@@ -2972,9 +2978,11 @@ This happens because only the file metadata was stored, not the actual file cont
   // Password change endpoint
   app.post("/api/users/me/change-password", async (req, res) => {
     try {
-      // For now, simulate updating current user by ID 6 (admin)
-      // In a real app, this would come from session/token
-      const currentUserId = 6;
+      // Get authenticated user from request
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
       const { currentPassword, newPassword } = req.body;
       
