@@ -84,7 +84,7 @@ export default function SettingsPage() {
     queryKey: ["/api/system-options/categories/practice_settings"],
     queryFn: async () => {
       // Try to find practice_settings category by key
-      const categoriesResponse = await fetch("/api/system-options/categories");
+      const categoriesResponse = await apiRequest("/api/system-options/categories", "GET");
       const categoriesData = await categoriesResponse.json();
       const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
       
@@ -101,7 +101,7 @@ export default function SettingsPage() {
         };
       }
       
-      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
+      const response = await apiRequest(`/api/system-options/categories/${practiceCategory.id}`, "GET");
       const data = await response.json();
       const options = data.options || [];
       return {
@@ -128,7 +128,7 @@ export default function SettingsPage() {
   const updatePracticeSettingsMutation = useMutation({
     mutationFn: async (settingsData: any) => {
       // Get current practice settings to find option IDs
-      const categoriesResponse = await fetch("/api/system-options/categories");
+      const categoriesResponse = await apiRequest("/api/system-options/categories", "GET");
       const categoriesData = await categoriesResponse.json();
       const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
       
@@ -136,7 +136,7 @@ export default function SettingsPage() {
         throw new Error('Practice settings category not found');
       }
       
-      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
+      const response = await apiRequest(`/api/system-options/categories/${practiceCategory.id}`, "GET");
       const data = await response.json();
       const options = data.options || [];
 
@@ -155,28 +155,20 @@ export default function SettingsPage() {
         const option = options.find((o: any) => o.optionKey === update.optionKey);
         if (option) {
           // Update existing option
-          const updateResponse = await fetch(`/api/system-options/${option.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ optionLabel: update.optionLabel })
-          });
+          const updateResponse = await apiRequest(`/api/system-options/${option.id}`, "PUT", { optionLabel: update.optionLabel });
           if (!updateResponse.ok) {
             throw new Error(`Failed to update ${update.optionKey}`);
           }
         } else {
           // Create new option if it doesn't exist
-          const createResponse = await fetch(`/api/system-options`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              categoryId: practiceCategory.id,
-              optionKey: update.optionKey,
-              optionLabel: update.optionLabel,
-              sortOrder: 0,
-              isDefault: false,
-              isSystem: false,
-              isActive: true
-            })
+          const createResponse = await apiRequest(`/api/system-options`, "POST", {
+            categoryId: practiceCategory.id,
+            optionKey: update.optionKey,
+            optionLabel: update.optionLabel,
+            sortOrder: 0,
+            isDefault: false,
+            isSystem: false,
+            isActive: true
           });
           if (!createResponse.ok) {
             throw new Error(`Failed to create ${update.optionKey}`);
