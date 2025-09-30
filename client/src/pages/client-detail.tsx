@@ -71,15 +71,7 @@ const PracticeHeader = () => {
       
       if (!practiceCategory) {
         return {
-          options: [
-            { optionKey: 'practice_name', optionLabel: 'Resilience Counseling Research & Consultation' },
-            { optionKey: 'practice_description', optionLabel: 'Professional Mental Health Services' },
-            { optionKey: 'practice_subtitle', optionLabel: 'Psychotherapy Practice' },
-            { optionKey: 'practice_address', optionLabel: '111 Waterloo St Unit 406, London, ON N6B 2M4' },
-            { optionKey: 'practice_phone', optionLabel: '+1 (548)866-0366' },
-            { optionKey: 'practice_email', optionLabel: 'mail@resiliencec.com' },
-            { optionKey: 'practice_website', optionLabel: 'www.resiliencec.com' }
-          ]
+          options: []
         };
       }
       
@@ -89,13 +81,13 @@ const PracticeHeader = () => {
   });
 
   const options = practiceSettings?.options || [];
-  const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Resilience Counseling Research & Consultation";
-  const practiceDescription = options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services";
-  const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Psychotherapy Practice";
-  const practiceAddress = options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "111 Waterloo St Unit 406, London, ON N6B 2M4";
-  const practicePhone = options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "+1 (548)866-0366";
-  const practiceEmail = options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "mail@resiliencec.com";
-  const practiceWebsite = options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.resiliencec.com";
+  const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "";
+  const practiceDescription = options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "";
+  const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "";
+  const practiceAddress = options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "";
+  const practicePhone = options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "";
+  const practiceEmail = options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "";
+  const practiceWebsite = options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "";
 
   return (
     <>
