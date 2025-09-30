@@ -2953,7 +2953,8 @@ This happens because only the file metadata was stored, not the actual file cont
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      res.status(500).json({ message: "Internal server error" });
+      console.error('[PROFILE CREATE ERROR]', error);
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
