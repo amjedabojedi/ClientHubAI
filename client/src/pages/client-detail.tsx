@@ -2919,15 +2919,15 @@ export default function ClientDetailPage() {
             <Button variant="outline" onClick={() => setIsInvoicePreviewOpen(false)}>
               Close
             </Button>
-            <Button onClick={() => handleGenerateInvoice('print')}>
+            <Button onClick={() => handleGenerateInvoice('print', selectedBillingRecord?.id)}>
               <Printer className="w-4 h-4 mr-2" />
               Print
             </Button>
-            <Button onClick={() => handleGenerateInvoice('download')}>
+            <Button onClick={() => handleGenerateInvoice('download', selectedBillingRecord?.id)}>
               <Download className="w-4 h-4 mr-2" />
               Download
             </Button>
-            <Button onClick={() => handleGenerateInvoice('email')}>
+            <Button onClick={() => handleGenerateInvoice('email', selectedBillingRecord?.id)}>
               <Mail className="w-4 h-4 mr-2" />
               Email
             </Button>
