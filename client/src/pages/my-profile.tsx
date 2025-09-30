@@ -196,15 +196,7 @@ export default function MyProfilePage() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async (data: { fullName: string; email: string }) => {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId.toString());
-      const response = await fetch(`/api/users/me?${params.toString()}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Failed to update user');
-      return response.json();
+      return await apiRequest("/api/users/me", "PUT", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/me", { userId }] });
@@ -214,15 +206,7 @@ export default function MyProfilePage() {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Omit<ProfileFormData, 'fullName' | 'email'>) => {
-      const params = new URLSearchParams();
-      if (userId) params.append('userId', userId.toString());
-      const response = await fetch(`/api/users/me/profile?${params.toString()}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Failed to update profile');
-      return response.json();
+      return await apiRequest("/api/users/me/profile", "PUT", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/me/profile", { userId }] });

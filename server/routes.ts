@@ -2921,7 +2921,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
 
 
-  app.get("/api/users/me/profile", async (req, res) => {
+  app.get("/api/users/me/profile", requireAuth, async (req, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -2936,7 +2936,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/users/me/profile", async (req, res) => {
+  app.post("/api/users/me/profile", requireAuth, async (req, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -2957,7 +2957,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.put("/api/users/me/profile", async (req, res) => {
+  app.put("/api/users/me/profile", requireAuth, async (req, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -2976,7 +2976,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Password change endpoint
-  app.post("/api/users/me/change-password", async (req, res) => {
+  app.post("/api/users/me/change-password", requireAuth, async (req, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
