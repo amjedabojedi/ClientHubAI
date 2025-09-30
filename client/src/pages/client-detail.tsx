@@ -2904,13 +2904,6 @@ export default function ClientDetailPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Payment Terms */}
-                  <div className="mt-8 p-4 bg-slate-50 rounded-lg">
-                    <h3 className="font-semibold text-slate-900 mb-2">Payment Terms</h3>
-                    <p className="text-sm text-slate-600">Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
-                    <p className="text-sm text-slate-600 mt-2">Thank you for choosing our mental health services.</p>
-                  </div>
                 </>
               )}
             </div>

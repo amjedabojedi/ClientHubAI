@@ -5154,12 +5154,6 @@ This happens because only the file metadata was stored, not the actual file cont
             </div>
           </div>
           
-          <div class="payment-terms">
-            <h3>Payment Terms</h3>
-            <p>Payment is due within 30 days of invoice date. Late payments may incur additional fees.</p>
-            <p>Thank you for choosing our mental health services.</p>
-          </div>
-          
           <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
             <h4 style="color: #1e293b; margin-bottom: 15px; font-size: 13px;">Provider Information for Insurance Reimbursement</h4>
             <div>
@@ -5379,11 +5373,6 @@ This happens because only the file metadata was stored, not the actual file cont
                         <tr><td style="padding: 5px 0; color: #6b7280;">Amount Due:</td><td style="padding: 5px 0; color: #dc2626; font-weight: bold; font-size: 18px;">$${remainingDue.toFixed(2)}</td></tr>
                       </table>
                     </div>
-                    
-                    <div style="margin: 25px 0; padding: 15px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;">
-                      <p style="margin: 0; color: #92400e; font-size: 14px;"><strong>Payment Information:</strong> Payment is due within 30 days of invoice date. For questions or payment arrangements, please contact our billing department.</p>
-                    </div>
-                    
                     
                     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
                     
