@@ -5328,6 +5328,14 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             }
 
+            console.log('[EMAIL] Attempting to send invoice email:', {
+              to: client.email,
+              from: fromEmail,
+              hasPDF: !!pdfBuffer,
+              clientName: client.fullName,
+              timestamp: new Date().toISOString()
+            });
+
             const result = await sp.transmissions.send({
               options: {
                 sandbox: false  // Set to false for production sending
@@ -5386,6 +5394,16 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             });
             
+            console.log('[EMAIL] Invoice email sent successfully:', {
+              to: client.email,
+              messageId: result.results?.id,
+              transmissionId: result.results?.transmission_id,
+              totalAccepted: result.results?.total_accepted_recipients,
+              totalRejected: result.results?.total_rejected_recipients,
+              hasPDF: !!pdfBuffer,
+              timestamp: new Date().toISOString()
+            });
+
             res.json({ 
               message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,
@@ -5395,6 +5413,14 @@ This happens because only the file metadata was stored, not the actual file cont
           } catch (error) {
             const err = error as any;
             
+            console.error('[EMAIL] Failed to send invoice email:', {
+              to: client.email,
+              error: err.message,
+              errorDetails: err.errors?.[0],
+              stack: err.stack?.split('\n').slice(0, 3),
+              timestamp: new Date().toISOString()
+            });
+
             // Provide helpful error message about domain configuration
             let errorMessage = "Failed to send invoice email";
             if (err.errors?.[0]?.message?.includes('Unconfigured Sending Domain')) {
