@@ -4871,7 +4871,7 @@ This happens because only the file metadata was stored, not the actual file cont
           providerInfo = {
             name: therapist?.fullName || 'Amjed Abojedi',
             credentials: therapistProfile.licenseType || 'CRPO',
-            license: therapistProfile.licenseNumber || '822106',
+            license: therapistProfile.licenseNumber || 'License not set in profile',
             licenseState: therapistProfile.licenseState || 'ON',
             npi: 'Please update NPI in profile',
             experience: therapistProfile.yearsOfExperience || 0,
@@ -4882,7 +4882,7 @@ This happens because only the file metadata was stored, not the actual file cont
           providerInfo = {
             name: therapist.fullName || 'Amjed Abojedi',
             credentials: 'CRPO',
-            license: '822106',
+            license: 'License not set in profile',
             licenseState: 'ON',
             npi: 'Please update NPI in profile',
             experience: 0,
@@ -4897,7 +4897,7 @@ This happens because only the file metadata was stored, not the actual file cont
         providerInfo = {
           name: 'Amjed Abojedi',
           credentials: 'CRPO',
-          license: '822106',
+          license: 'License not set in profile',
           licenseState: 'ON',
           npi: 'Please update NPI in your profile',
           experience: 0,
