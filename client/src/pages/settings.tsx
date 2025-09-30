@@ -76,7 +76,7 @@ export default function SettingsPage() {
     practiceWebsite: "",
     description: "",
     subtitle: "",
-    timezone: "America/New_York"
+    timezone: ""
   });
 
   // Fetch practice settings from system options
@@ -97,7 +97,7 @@ export default function SettingsPage() {
           practiceWebsite: "",
           description: "",
           subtitle: "",
-          timezone: "America/New_York"
+          timezone: ""
         };
       }
       
@@ -112,7 +112,7 @@ export default function SettingsPage() {
         practiceWebsite: options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "",
         description: options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "",
         subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "",
-        timezone: options.find((o: any) => o.optionKey === 'practice_timezone')?.optionLabel || "America/New_York"
+        timezone: options.find((o: any) => o.optionKey === 'practice_timezone')?.optionLabel || ""
       };
     },
   });
@@ -154,6 +154,7 @@ export default function SettingsPage() {
       for (const update of updates) {
         const option = options.find((o: any) => o.optionKey === update.optionKey);
         if (option) {
+          // Update existing option
           const updateResponse = await fetch(`/api/system-options/${option.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -161,6 +162,24 @@ export default function SettingsPage() {
           });
           if (!updateResponse.ok) {
             throw new Error(`Failed to update ${update.optionKey}`);
+          }
+        } else {
+          // Create new option if it doesn't exist
+          const createResponse = await fetch(`/api/system-options`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              categoryId: practiceCategory.id,
+              optionKey: update.optionKey,
+              optionLabel: update.optionLabel,
+              sortOrder: 0,
+              isDefault: false,
+              isSystem: false,
+              isActive: true
+            })
+          });
+          if (!createResponse.ok) {
+            throw new Error(`Failed to create ${update.optionKey}`);
           }
         }
       }
