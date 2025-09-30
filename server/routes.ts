@@ -5046,14 +5046,6 @@ This happens because only the file metadata was stored, not the actual file cont
               color: #000000;
               font-family: 'Times New Roman', Times, serif;
             }
-            .payment-terms { 
-              background-color: #f9f9f9; 
-              padding: 20px; 
-              border: 1px solid #cccccc; 
-              margin-top: 40px;
-              font-size: 9pt;
-              font-family: 'Times New Roman', Times, serif;
-            }
             .invoice-number {
               font-weight: bold;
               font-size: 11pt;
@@ -5065,7 +5057,6 @@ This happens because only the file metadata was stored, not the actual file cont
               .invoice-title { font-size: 22pt; }
               .section-title { font-size: 11pt; }
               .client-info { margin-bottom: 20px; }
-              .payment-terms { page-break-inside: avoid; }
               table { font-size: 9pt; }
               th, td { padding: 8px; }
             }
