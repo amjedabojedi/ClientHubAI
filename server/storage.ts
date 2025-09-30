@@ -3746,13 +3746,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSessionBilling(sessionId: number): Promise<SelectSessionBilling | null> {
-    // Get session and service information
+    // Get session, service, and client information
     const [sessionData] = await db.select({
       session: sessions,
-      service: services
+      service: services,
+      client: clients
     })
     .from(sessions)
     .leftJoin(services, eq(sessions.serviceId, services.id))
+    .leftJoin(clients, eq(sessions.clientId, clients.id))
     .where(eq(sessions.id, sessionId));
     
     if (!sessionData || !sessionData.session) {
@@ -3764,14 +3766,19 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
     
-    // Create billing record
+    // Extract client insurance info
+    const hasInsurance = !!(sessionData.client?.insuranceProvider);
+    const copayAmount = sessionData.client?.copayAmount || null;
+    
+    // Create billing record with client insurance information
     const billingData: InsertSessionBilling = {
       sessionId: sessionId,
       serviceCode: sessionData.service.serviceCode,
       units: 1,
       ratePerUnit: sessionData.service.baseRate,
       totalAmount: sessionData.service.baseRate,
-      insuranceCovered: false,
+      insuranceCovered: hasInsurance,
+      copayAmount: copayAmount,
       paymentStatus: 'pending',
       billingDate: new Date().toISOString().split('T')[0]
     };
