@@ -2943,8 +2943,15 @@ This happens because only the file metadata was stored, not the actual file cont
       if (!currentUserId) {
         return res.status(401).json({ message: "Authentication required" });
       }
+      
+      // Clean up date fields - convert empty strings to undefined
+      const cleanedData = { ...req.body };
+      if (cleanedData.licenseExpiry === '') {
+        cleanedData.licenseExpiry = undefined;
+      }
+      
       const validatedData = insertUserProfileSchema.parse({
-        ...req.body,
+        ...cleanedData,
         userId: currentUserId
       });
       const profile = await storage.createUserProfile(validatedData);
@@ -2965,7 +2972,14 @@ This happens because only the file metadata was stored, not the actual file cont
       if (!currentUserId) {
         return res.status(401).json({ message: "Authentication required" });
       }
-      const validatedData = insertUserProfileSchema.partial().parse(req.body);
+      
+      // Clean up date fields - convert empty strings to undefined
+      const cleanedData = { ...req.body };
+      if (cleanedData.licenseExpiry === '') {
+        cleanedData.licenseExpiry = undefined;
+      }
+      
+      const validatedData = insertUserProfileSchema.partial().parse(cleanedData);
       const profile = await storage.updateUserProfile(currentUserId, validatedData);
       res.json(profile);
     } catch (error) {
