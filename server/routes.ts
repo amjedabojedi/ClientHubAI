@@ -19,7 +19,7 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
-import { users, auditLogs, loginAttempts, clients } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -5428,13 +5428,37 @@ This happens because only the file metadata was stored, not the actual file cont
   // Payment Status Update Route
   app.put("/api/billing/:billingId/payment", requireAuth, async (req, res) => {
     try {
-      // Check if user has billing access
-      if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
-        return res.status(403).json({ message: "Access denied. Admin privileges required." });
-      }
-
       const billingId = parseInt(req.params.billingId);
       const { status, amount, date, reference, method, notes } = req.body;
+      
+      // Get billing record with session and client info for authorization check
+      const billingRecord = await db.query.sessionBilling.findFirst({
+        where: eq(sessionBilling.id, billingId),
+        with: {
+          session: {
+            with: {
+              client: true
+            }
+          }
+        }
+      });
+
+      if (!billingRecord) {
+        return res.status(404).json({ message: "Billing record not found" });
+      }
+
+      // Authorization check: Allow administrators or therapists assigned to the client
+      if (req.user?.role === 'administrator' || req.user?.role === 'admin') {
+        // Admins can record any payment
+      } else if (req.user?.role === 'therapist') {
+        // Therapists can only record payments for their assigned clients
+        const clientId = billingRecord.session?.client?.id;
+        if (!clientId || billingRecord.session?.client?.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only record payments for your assigned clients." });
+        }
+      } else {
+        return res.status(403).json({ message: "Access denied. Insufficient privileges." });
+      }
       
       if (!['pending', 'billed', 'paid', 'denied', 'refunded', 'follow_up'].includes(status)) {
         return res.status(400).json({ message: "Invalid payment status" });
@@ -5451,7 +5475,7 @@ This happens because only the file metadata was stored, not the actual file cont
       
       res.json({ message: "Payment details updated successfully" });
     } catch (error) {
-      // Error logged
+      console.error('[PAYMENT ERROR]', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
