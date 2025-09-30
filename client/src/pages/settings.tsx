@@ -75,7 +75,8 @@ export default function SettingsPage() {
     practiceEmail: "",
     practiceWebsite: "",
     description: "",
-    subtitle: ""
+    subtitle: "",
+    timezone: "America/New_York"
   });
 
   // Fetch practice settings from system options
@@ -89,13 +90,14 @@ export default function SettingsPage() {
       
       if (!practiceCategory) {
         return {
-          practiceName: "Resilience Counseling Research & Consultation",
-          practiceAddress: "111 Waterloo St Unit 406, London, ON N6B 2M4",
-          practicePhone: "+1 (548)866-0366",
-          practiceEmail: "mail@resiliencec.com",
-          practiceWebsite: "www.resiliencec.com",
-          description: "Professional Mental Health Services",
-          subtitle: "Psychotherapy Practice"
+          practiceName: "",
+          practiceAddress: "",
+          practicePhone: "",
+          practiceEmail: "",
+          practiceWebsite: "",
+          description: "",
+          subtitle: "",
+          timezone: "America/New_York"
         };
       }
       
@@ -103,13 +105,14 @@ export default function SettingsPage() {
       const data = await response.json();
       const options = data.options || [];
       return {
-        practiceName: options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "Resilience Counseling Research & Consultation",
-        practiceAddress: options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "111 Waterloo St Unit 406, London, ON N6B 2M4",
-        practicePhone: options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "+1 (548)866-0366",
-        practiceEmail: options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "mail@resiliencec.com",
-        practiceWebsite: options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "www.resiliencec.com",
-        description: options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "Professional Mental Health Services",
-        subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "Psychotherapy Practice"
+        practiceName: options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "",
+        practiceAddress: options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "",
+        practicePhone: options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "",
+        practiceEmail: options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "",
+        practiceWebsite: options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "",
+        description: options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "",
+        subtitle: options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "",
+        timezone: options.find((o: any) => o.optionKey === 'practice_timezone')?.optionLabel || "America/New_York"
       };
     },
   });
@@ -144,7 +147,8 @@ export default function SettingsPage() {
         { optionKey: 'practice_address', optionLabel: settingsData.practiceAddress },
         { optionKey: 'practice_phone', optionLabel: settingsData.practicePhone },
         { optionKey: 'practice_email', optionLabel: settingsData.practiceEmail },
-        { optionKey: 'practice_website', optionLabel: settingsData.practiceWebsite }
+        { optionKey: 'practice_website', optionLabel: settingsData.practiceWebsite },
+        { optionKey: 'practice_timezone', optionLabel: settingsData.timezone }
       ];
 
       for (const update of updates) {
@@ -1262,6 +1266,32 @@ export default function SettingsPage() {
                       onChange={(e) => setPracticeConfig(prev => ({ ...prev, practiceWebsite: e.target.value }))}
                       placeholder="Website URL"
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="practice-timezone">Timezone</Label>
+                    <Select
+                      value={practiceConfig.timezone}
+                      onValueChange={(value) => setPracticeConfig(prev => ({ ...prev, timezone: value }))}
+                    >
+                      <SelectTrigger id="practice-timezone" data-testid="select-practice-timezone">
+                        <SelectValue placeholder="Select timezone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="America/New_York">Eastern Time (EST/EDT)</SelectItem>
+                        <SelectItem value="America/Chicago">Central Time (CST/CDT)</SelectItem>
+                        <SelectItem value="America/Denver">Mountain Time (MST/MDT)</SelectItem>
+                        <SelectItem value="America/Los_Angeles">Pacific Time (PST/PDT)</SelectItem>
+                        <SelectItem value="America/Phoenix">Arizona (MST)</SelectItem>
+                        <SelectItem value="America/Anchorage">Alaska (AKST/AKDT)</SelectItem>
+                        <SelectItem value="Pacific/Honolulu">Hawaii (HST)</SelectItem>
+                        <SelectItem value="America/Toronto">Toronto (EST/EDT)</SelectItem>
+                        <SelectItem value="America/Vancouver">Vancouver (PST/PDT)</SelectItem>
+                        <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                        <SelectItem value="Europe/Paris">Paris (CET/CEST)</SelectItem>
+                        <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                        <SelectItem value="Australia/Sydney">Sydney (AEDT/AEST)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
