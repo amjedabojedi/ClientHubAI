@@ -1347,7 +1347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let sessionDurationMinutes = 60; // Default fallback
       if (sessionData.serviceId) {
         try {
-          const service = await storage.getService(sessionData.serviceId);
+          const service = await storage.getServiceById(sessionData.serviceId);
           if (service && service.duration) {
             sessionDurationMinutes = service.duration;
           }
@@ -1434,22 +1434,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         // Build detailed conflict messages
-        const conflicts = [];
+        const conflicts: string[] = [];
+        
+        // Get room info for conflicts if needed
+        const roomsMap = new Map();
+        if (roomConflicts.length > 0) {
+          try {
+            const rooms = await storage.getRooms();
+            rooms.forEach(room => {
+              roomsMap.set(room.id, room.roomName || room.roomNumber || `Room ${room.id}`);
+            });
+          } catch (error) {
+            console.warn('Could not fetch rooms for conflict messages');
+          }
+        }
         
         if (therapistConflicts.length > 0) {
-          const therapistName = therapistConflicts[0].therapist?.fullName || 'Therapist';
           therapistConflicts.forEach(session => {
             const time = formatSessionTime(new Date(session.sessionDate));
-            conflicts.push(`${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}`);
+            const therapistName = session.therapist?.fullName || 'Therapist';
+            const clientName = session.client?.fullName || 'another client';
+            conflicts.push(`${therapistName} is busy at ${time} with ${clientName}`);
           });
         }
         
         if (roomConflicts.length > 0) {
-          const roomInfo = roomConflicts[0].room?.roomName || roomConflicts[0].room?.roomNumber || `Room ${sessionData.roomId}`;
           roomConflicts.forEach(session => {
             const time = formatSessionTime(new Date(session.sessionDate));
-            const therapist = session.therapist?.fullName || 'a therapist';
-            conflicts.push(`${roomInfo} is occupied at ${time} by ${therapist}`);
+            const therapistName = session.therapist?.fullName || 'a therapist';
+            const roomInfo = roomsMap.get(session.roomId) || `Room ${session.roomId}`;
+            conflicts.push(`${roomInfo} is occupied at ${time} by ${therapistName}`);
           });
         }
         
@@ -1475,7 +1489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sessionTime: formatSessionTime(new Date(session.sessionDate)),
             sessionType: session.sessionType,
             therapistName: session.therapist?.fullName || 'Unknown Therapist',
-            roomName: session.room?.roomName || session.room?.roomNumber || `Room ${session.roomId}`,
+            roomName: roomsMap.get(session.roomId) || `Room ${session.roomId}`,
             roomId: session.roomId,
             type: 'room'
           }))
@@ -1601,7 +1615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let sessionDurationMinutes = 60; // Default fallback
         if (sessionData.serviceId) {
           try {
-            const service = await storage.getService(sessionData.serviceId);
+            const service = await storage.getServiceById(sessionData.serviceId);
             if (service && service.duration) {
               sessionDurationMinutes = service.duration;
             }
@@ -1690,22 +1704,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
             
             // Build detailed conflict messages
-            const conflicts = [];
+            const conflicts: string[] = [];
+            
+            // Get room info for conflicts if needed
+            const roomsMap = new Map();
+            if (roomConflicts.length > 0) {
+              try {
+                const rooms = await storage.getRooms();
+                rooms.forEach(room => {
+                  roomsMap.set(room.id, room.roomName || room.roomNumber || `Room ${room.id}`);
+                });
+              } catch (error) {
+                console.warn('Could not fetch rooms for conflict messages');
+              }
+            }
             
             if (therapistConflicts.length > 0) {
-              const therapistName = therapistConflicts[0].therapist?.fullName || 'Therapist';
               therapistConflicts.forEach(session => {
                 const time = formatSessionTime(new Date(session.sessionDate));
-                conflicts.push(`${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}`);
+                const therapistName = session.therapist?.fullName || 'Therapist';
+                const clientName = session.client?.fullName || 'another client';
+                conflicts.push(`${therapistName} is busy at ${time} with ${clientName}`);
               });
             }
             
             if (roomConflicts.length > 0) {
-              const roomInfo = roomConflicts[0].room?.roomName || roomConflicts[0].room?.roomNumber || `Room ${sessionData.roomId}`;
               roomConflicts.forEach(session => {
                 const time = formatSessionTime(new Date(session.sessionDate));
-                const therapist = session.therapist?.fullName || 'a therapist';
-                conflicts.push(`${roomInfo} is occupied at ${time} by ${therapist}`);
+                const therapistName = session.therapist?.fullName || 'a therapist';
+                const roomInfo = roomsMap.get(session.roomId) || `Room ${session.roomId}`;
+                conflicts.push(`${roomInfo} is occupied at ${time} by ${therapistName}`);
               });
             }
             
@@ -1731,7 +1759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 sessionTime: formatSessionTime(new Date(session.sessionDate)),
                 sessionType: session.sessionType,
                 therapistName: session.therapist?.fullName || 'Unknown Therapist',
-                roomName: session.room?.roomName || session.room?.roomNumber || `Room ${session.roomId}`,
+                roomName: roomsMap.get(session.roomId) || `Room ${session.roomId}`,
                 roomId: session.roomId,
                 type: 'room'
               }))
