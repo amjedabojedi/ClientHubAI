@@ -4,33 +4,23 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    console.log('[ERROR DEBUG] Response not OK:', {
-      status: res.status,
-      textLength: text.length,
-      textPreview: text.substring(0, 200)
-    });
-    
     // Try to parse as JSON and extract clean message
+    let errorMessage = null;
     try {
       const json = JSON.parse(text);
-      console.log('[ERROR DEBUG] Parsed JSON successfully:', {
-        hasMessage: !!json.message,
-        messagePreview: json.message?.substring(0, 100)
-      });
-      
       if (json.message) {
-        console.log('[ERROR DEBUG] Throwing clean message:', json.message);
-        throw new Error(json.message);
+        errorMessage = json.message;
       }
-      
-      console.log('[ERROR DEBUG] No message field found in JSON');
     } catch (parseError) {
-      console.log('[ERROR DEBUG] JSON parse failed:', parseError);
+      // Not valid JSON, will use fallback
     }
     
-    // Fallback to raw text/status
-    console.log('[ERROR DEBUG] Using fallback error format');
-    throw new Error(`${res.status}: ${text}`);
+    // Throw the appropriate error message
+    if (errorMessage) {
+      throw new Error(errorMessage);
+    } else {
+      throw new Error(`${res.status}: ${text}`);
+    }
   }
 }
 
