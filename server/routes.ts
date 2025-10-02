@@ -1434,13 +1434,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         // Build detailed conflict messages
-        let conflictMessage = "Scheduling conflict detected:\n";
+        const conflicts = [];
         
         if (therapistConflicts.length > 0) {
           const therapistName = therapistConflicts[0].therapist?.fullName || 'Therapist';
           therapistConflicts.forEach(session => {
             const time = formatSessionTime(new Date(session.sessionDate));
-            conflictMessage += `• ${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}\n`;
+            conflicts.push(`${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}`);
           });
         }
         
@@ -1449,9 +1449,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           roomConflicts.forEach(session => {
             const time = formatSessionTime(new Date(session.sessionDate));
             const therapist = session.therapist?.fullName || 'a therapist';
-            conflictMessage += `• ${roomInfo} is occupied at ${time} by ${therapist}\n`;
+            conflicts.push(`${roomInfo} is occupied at ${time} by ${therapist}`);
           });
         }
+        
+        const conflictMessage = conflicts.length > 1 
+          ? `Scheduling conflict: ${conflicts.join('; ')}`
+          : `Scheduling conflict: ${conflicts[0]}`;
         
         return res.status(409).json({ 
           message: conflictMessage.trim(),
@@ -1686,13 +1690,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
             
             // Build detailed conflict messages
-            let conflictMessage = "Scheduling conflict detected:\n";
+            const conflicts = [];
             
             if (therapistConflicts.length > 0) {
               const therapistName = therapistConflicts[0].therapist?.fullName || 'Therapist';
               therapistConflicts.forEach(session => {
                 const time = formatSessionTime(new Date(session.sessionDate));
-                conflictMessage += `• ${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}\n`;
+                conflicts.push(`${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}`);
               });
             }
             
@@ -1701,9 +1705,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               roomConflicts.forEach(session => {
                 const time = formatSessionTime(new Date(session.sessionDate));
                 const therapist = session.therapist?.fullName || 'a therapist';
-                conflictMessage += `• ${roomInfo} is occupied at ${time} by ${therapist}\n`;
+                conflicts.push(`${roomInfo} is occupied at ${time} by ${therapist}`);
               });
             }
+            
+            const conflictMessage = conflicts.length > 1 
+              ? `Scheduling conflict: ${conflicts.join('; ')}`
+              : `Scheduling conflict: ${conflicts[0]}`;
             
             return res.status(409).json({ 
               message: conflictMessage.trim(),
