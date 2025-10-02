@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
 import { execSync } from "child_process";
+import { toZonedTime } from "date-fns-tz";
 
 // Validation
 import { z } from "zod";
@@ -1338,6 +1339,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Set to start of today
       
+      // BUSINESS HOURS VALIDATION: Reject sessions after 6 PM (18:00) in practice timezone
+      const PRACTICE_TIMEZONE = 'America/New_York'; // EST/EDT - should match practice settings
+      const BUSINESS_END_HOUR = 18; // 6 PM in 24-hour format
+      
+      // Get actual session duration from service or default to 60 minutes
+      let sessionDurationMinutes = 60; // Default fallback
+      if (sessionData.serviceId) {
+        try {
+          const service = await storage.getService(sessionData.serviceId);
+          if (service && service.duration) {
+            sessionDurationMinutes = service.duration;
+          }
+        } catch (error) {
+          // If service lookup fails, use default duration
+          console.warn('Could not fetch service duration, using default 60 minutes');
+        }
+      }
+      
+      const sessionInPracticeTz = toZonedTime(sessionDate, PRACTICE_TIMEZONE);
+      const sessionHour = sessionInPracticeTz.getHours();
+      const sessionMinute = sessionInPracticeTz.getMinutes();
+      
+      // Calculate session end time
+      const sessionStartMinutes = sessionHour * 60 + sessionMinute;
+      const sessionEndMinutes = sessionStartMinutes + sessionDurationMinutes;
+      const sessionEndHour = Math.floor(sessionEndMinutes / 60);
+      const sessionEndMinute = sessionEndMinutes % 60;
+      const businessEndMinutes = BUSINESS_END_HOUR * 60; // 18:00 = 1080 minutes
+      
+      // Check if session starts at or after 6:00 PM
+      if (sessionStartMinutes >= businessEndMinutes) {
+        return res.status(400).json({ 
+          message: "Session cannot be scheduled after 6:00 PM (18:00). Business hours end at 6:00 PM.",
+          businessHours: "8:00 AM - 6:00 PM"
+        });
+      }
+      
+      // Check if session ends after 6:00 PM
+      if (sessionEndMinutes > businessEndMinutes) {
+        const endTimeFormatted = `${sessionEndHour}:${sessionEndMinute.toString().padStart(2, '0')}`;
+        return res.status(400).json({ 
+          message: `This ${sessionDurationMinutes}-minute session would end at ${endTimeFormatted}, which is past business hours (6:00 PM). Please choose an earlier time.`,
+          businessHours: "8:00 AM - 6:00 PM"
+        });
+      }
 
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1377,21 +1423,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasConflicts = therapistConflicts.length > 0 || roomConflicts.length > 0;
 
       if (hasConflicts && !req.body.ignoreConflicts) {
+        // Format conflict times in EST
+        const formatSessionTime = (date: Date) => {
+          const timeInEst = toZonedTime(date, 'America/New_York');
+          const hours = timeInEst.getHours();
+          const minutes = timeInEst.getMinutes();
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          const displayHours = hours % 12 || 12;
+          return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+        };
+        
+        // Build detailed conflict messages
+        let conflictMessage = "Scheduling conflict detected:\n";
+        
+        if (therapistConflicts.length > 0) {
+          const therapistName = therapistConflicts[0].therapist?.fullName || 'Therapist';
+          therapistConflicts.forEach(session => {
+            const time = formatSessionTime(new Date(session.sessionDate));
+            conflictMessage += `• ${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}\n`;
+          });
+        }
+        
+        if (roomConflicts.length > 0) {
+          const roomInfo = roomConflicts[0].room?.roomName || roomConflicts[0].room?.roomNumber || `Room ${sessionData.roomId}`;
+          roomConflicts.forEach(session => {
+            const time = formatSessionTime(new Date(session.sessionDate));
+            const therapist = session.therapist?.fullName || 'a therapist';
+            conflictMessage += `• ${roomInfo} is occupied at ${time} by ${therapist}\n`;
+          });
+        }
+        
         return res.status(409).json({ 
-          message: "Scheduling conflict detected",
+          message: conflictMessage.trim(),
           therapistConflicts: therapistConflicts.map(session => ({
             id: session.id,
             clientName: session.client?.fullName || 'Unknown Client',
             sessionDate: session.sessionDate,
+            sessionTime: formatSessionTime(new Date(session.sessionDate)),
             sessionType: session.sessionType,
+            therapistName: session.therapist?.fullName || 'Unknown Therapist',
             type: 'therapist'
           })),
           roomConflicts: roomConflicts.map(session => ({
             id: session.id,
             clientName: 'Private Session',
             sessionDate: session.sessionDate,
+            sessionTime: formatSessionTime(new Date(session.sessionDate)),
             sessionType: session.sessionType,
             therapistName: session.therapist?.fullName || 'Unknown Therapist',
+            roomName: session.room?.roomName || session.room?.roomNumber || `Room ${session.roomId}`,
+            roomId: session.roomId,
             type: 'room'
           }))
         });
@@ -1507,6 +1588,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         sessionData.sessionDate = dateValue;
+        
+        // BUSINESS HOURS VALIDATION: Reject sessions after 6 PM (18:00) in practice timezone
+        const PRACTICE_TIMEZONE = 'America/New_York'; // EST/EDT - should match practice settings
+        const BUSINESS_END_HOUR = 18; // 6 PM in 24-hour format
+        
+        // Get actual session duration from service or default to 60 minutes
+        let sessionDurationMinutes = 60; // Default fallback
+        if (sessionData.serviceId) {
+          try {
+            const service = await storage.getService(sessionData.serviceId);
+            if (service && service.duration) {
+              sessionDurationMinutes = service.duration;
+            }
+          } catch (error) {
+            // If service lookup fails, use default duration
+            console.warn('Could not fetch service duration, using default 60 minutes');
+          }
+        }
+        
+        const sessionInPracticeTz = toZonedTime(dateValue, PRACTICE_TIMEZONE);
+        const sessionHour = sessionInPracticeTz.getHours();
+        const sessionMinute = sessionInPracticeTz.getMinutes();
+        
+        // Calculate session end time
+        const sessionStartMinutes = sessionHour * 60 + sessionMinute;
+        const sessionEndMinutes = sessionStartMinutes + sessionDurationMinutes;
+        const sessionEndHour = Math.floor(sessionEndMinutes / 60);
+        const sessionEndMinute = sessionEndMinutes % 60;
+        const businessEndMinutes = BUSINESS_END_HOUR * 60; // 18:00 = 1080 minutes
+        
+        // Check if session starts at or after 6:00 PM
+        if (sessionStartMinutes >= businessEndMinutes) {
+          return res.status(400).json({ 
+            message: "Session cannot be scheduled after 6:00 PM (18:00). Business hours end at 6:00 PM.",
+            businessHours: "8:00 AM - 6:00 PM"
+          });
+        }
+        
+        // Check if session ends after 6:00 PM
+        if (sessionEndMinutes > businessEndMinutes) {
+          const endTimeFormatted = `${sessionEndHour}:${sessionEndMinute.toString().padStart(2, '0')}`;
+          return res.status(400).json({ 
+            message: `This ${sessionDurationMinutes}-minute session would end at ${endTimeFormatted}, which is past business hours (6:00 PM). Please choose an earlier time.`,
+            businessHours: "8:00 AM - 6:00 PM"
+          });
+        }
 
         // Check for conflicts when updating session time/therapist/room
         if (sessionData.therapistId || sessionData.roomId) {
@@ -1548,21 +1675,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const hasConflicts = therapistConflicts.length > 0 || roomConflicts.length > 0;
 
           if (hasConflicts && !req.body.ignoreConflicts) {
+            // Format conflict times in EST
+            const formatSessionTime = (date: Date) => {
+              const timeInEst = toZonedTime(date, 'America/New_York');
+              const hours = timeInEst.getHours();
+              const minutes = timeInEst.getMinutes();
+              const ampm = hours >= 12 ? 'PM' : 'AM';
+              const displayHours = hours % 12 || 12;
+              return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+            };
+            
+            // Build detailed conflict messages
+            let conflictMessage = "Scheduling conflict detected:\n";
+            
+            if (therapistConflicts.length > 0) {
+              const therapistName = therapistConflicts[0].therapist?.fullName || 'Therapist';
+              therapistConflicts.forEach(session => {
+                const time = formatSessionTime(new Date(session.sessionDate));
+                conflictMessage += `• ${therapistName} is busy at ${time} with ${session.client?.fullName || 'another client'}\n`;
+              });
+            }
+            
+            if (roomConflicts.length > 0) {
+              const roomInfo = roomConflicts[0].room?.roomName || roomConflicts[0].room?.roomNumber || `Room ${sessionData.roomId}`;
+              roomConflicts.forEach(session => {
+                const time = formatSessionTime(new Date(session.sessionDate));
+                const therapist = session.therapist?.fullName || 'a therapist';
+                conflictMessage += `• ${roomInfo} is occupied at ${time} by ${therapist}\n`;
+              });
+            }
+            
             return res.status(409).json({ 
-              message: "Scheduling conflict detected",
+              message: conflictMessage.trim(),
               therapistConflicts: therapistConflicts.map(session => ({
                 id: session.id,
                 clientName: session.client?.fullName || 'Unknown Client',
                 sessionDate: session.sessionDate,
+                sessionTime: formatSessionTime(new Date(session.sessionDate)),
                 sessionType: session.sessionType,
+                therapistName: session.therapist?.fullName || 'Unknown Therapist',
                 type: 'therapist'
               })),
               roomConflicts: roomConflicts.map(session => ({
                 id: session.id,
                 clientName: 'Private Session',
                 sessionDate: session.sessionDate,
+                sessionTime: formatSessionTime(new Date(session.sessionDate)),
                 sessionType: session.sessionType,
                 therapistName: session.therapist?.fullName || 'Unknown Therapist',
+                roomName: session.room?.roomName || session.room?.roomNumber || `Room ${session.roomId}`,
+                roomId: session.roomId,
                 type: 'room'
               }))
             });

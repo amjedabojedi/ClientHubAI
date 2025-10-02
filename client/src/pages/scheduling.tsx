@@ -53,7 +53,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
-import { formatTime, formatDate, formatDateTime, generateTimeSlots, timeRangesOverlap, getUserTimeFormat, DURATION_PRESETS, durationToMinutes } from "@/lib/datetime";
+import { formatTime, formatDate, formatDateTime, generateTimeSlots, timeRangesOverlap, getUserTimeFormat, DURATION_PRESETS, durationToMinutes, localToUTC } from "@/lib/datetime";
 
 // Components
 import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
@@ -378,12 +378,13 @@ export default function SchedulingPage() {
 
   const createSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
-      // Create a proper Date object to handle timezone correctly
-      const localDateTime = new Date(`${data.sessionDate}T${data.sessionTime}:00`);
+      // Convert local date/time to UTC using practice timezone (EST)
+      // This ensures all users see consistent times regardless of their browser timezone
+      const utcDateTime = localToUTC(data.sessionDate, data.sessionTime);
       
       const sessionData = {
         ...data,
-        sessionDate: localDateTime.toISOString(),
+        sessionDate: utcDateTime.toISOString(),
         ignoreConflicts: userConfirmedConflicts, // Only ignore conflicts if user explicitly confirmed
       };
       

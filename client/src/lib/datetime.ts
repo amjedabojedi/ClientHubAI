@@ -3,6 +3,8 @@
  * Provides consistent time formatting and manipulation across the application
  */
 
+import { toZonedTime, fromZonedTime, format as tzFormat } from 'date-fns-tz';
+
 // User time format preferences
 export type TimeFormat = '12h' | '24h';
 export type DurationPreset = '30m' | '45m' | '1h' | '1.5h' | '2h';
@@ -28,10 +30,32 @@ export const getUserTimeFormat = (): TimeFormat => {
 };
 
 /**
- * Get user's timezone
+ * Get user's timezone (returns practice timezone)
  */
 export const getUserTimeZone = (): string => {
   return DEFAULT_TIMEZONE;
+};
+
+/**
+ * Convert local date/time string to UTC using practice timezone
+ * Use this when creating sessions to ensure consistent timezone handling
+ */
+export const localToUTC = (dateString: string, timeString: string, timezone?: string): Date => {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  // Build a date-time string: "2025-10-02 15:00:00"
+  const dateTimeString = `${dateString} ${timeString}:00`;
+  // fromZonedTime interprets this string as if it's in the specified timezone
+  // and returns the equivalent UTC Date
+  return fromZonedTime(dateTimeString, tz);
+};
+
+/**
+ * Convert UTC date to local date in practice timezone
+ */
+export const utcToLocal = (date: Date | string, timezone?: string): Date => {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return toZonedTime(dateObj, tz);
 };
 
 /**
