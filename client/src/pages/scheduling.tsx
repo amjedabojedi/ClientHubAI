@@ -2269,8 +2269,8 @@ export default function SchedulingPage() {
                           form.setValue('roomId', selectedSession.roomId);
                           form.setValue('sessionType', selectedSession.sessionType as any);
                           
-                          // Better date/time parsing - preserve timezone
-                          const sessionDate = new Date(selectedSession.sessionDate);
+                          // Parse date/time properly using the timezone-aware parser
+                          const sessionDate = parseSessionDate(selectedSession.sessionDate);
                           const dateOnly = selectedSession.sessionDate.split('T')[0];
                           form.setValue('sessionDate', dateOnly);
                           
