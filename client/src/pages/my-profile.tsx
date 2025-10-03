@@ -83,6 +83,11 @@ const zoomCredentialsSchema = z.object({
 
 type ZoomCredentialsData = z.infer<typeof zoomCredentialsSchema>;
 
+type ZoomStatusResponse = {
+  isConfigured: boolean;
+  accountId?: string;
+};
+
 export default function MyProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -175,7 +180,7 @@ export default function MyProfilePage() {
   });
 
   // Fetch Zoom credentials status
-  const { data: zoomStatus, refetch: refetchZoomStatus } = useQuery({
+  const { data: zoomStatus, refetch: refetchZoomStatus } = useQuery<ZoomStatusResponse>({
     queryKey: ["/api/users/me/zoom-credentials/status"],
     enabled: !!userId,
   });
