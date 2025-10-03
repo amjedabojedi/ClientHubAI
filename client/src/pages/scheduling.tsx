@@ -2285,12 +2285,13 @@ export default function SchedulingPage() {
                           form.setValue('sessionTime', `${hours}:${minutes}`);
                           
                           form.setValue('notes', selectedSession.notes || '');
+                          form.setValue('zoomEnabled', (selectedSession as any).zoomEnabled || false);
                           setEditingSessionId(selectedSession.id);
                           setIsSchedulingFromExistingSession(true);
                           setIsEditSessionModalOpen(false);
                           setIsNewSessionModalOpen(true);
                         } catch (error) {
-
+                          console.error('Error loading session for editing:', error);
                         }
                       }}
                       className="text-sm px-3 py-2 h-9"
