@@ -3372,6 +3372,260 @@ export default function ClientDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Full Edit Session Modal */}
+      <Dialog open={isFullEditModalOpen} onOpenChange={setIsFullEditModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+            <DialogDescription>
+              Update session details and scheduling information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...sessionForm}>
+            <form onSubmit={sessionForm.handleSubmit((data) => updateFullSessionMutation.mutate(data))} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Therapist Field */}
+                <FormField
+                  control={sessionForm.control}
+                  name="therapistId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Therapist *</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-therapist">
+                            <SelectValue placeholder="Select therapist" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {therapists.map((therapist) => (
+                            <SelectItem key={therapist.id} value={therapist.id.toString()}>
+                              {therapist.fullName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Service Field */}
+                <FormField
+                  control={sessionForm.control}
+                  name="serviceId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Service *</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-service">
+                            <SelectValue placeholder="Select service" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {services.map((service) => (
+                            <SelectItem key={service.id} value={service.id.toString()}>
+                              {service.serviceName} ({service.serviceCode})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Date Field */}
+                <FormField
+                  control={sessionForm.control}
+                  name="sessionDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          {...field}
+                          data-testid="input-session-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Time Field */}
+                <FormField
+                  control={sessionForm.control}
+                  name="sessionTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time *</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          {...field}
+                          data-testid="input-session-time"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Room Field */}
+                <FormField
+                  control={sessionForm.control}
+                  name="roomId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Room *</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        value={field.value?.toString()}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-room">
+                            <SelectValue placeholder="Select room" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {rooms.map((room) => (
+                            <SelectItem key={room.id} value={room.id.toString()}>
+                              {room.roomName} {room.roomNumber && `(${room.roomNumber})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Session Type Field */}
+                <FormField
+                  control={sessionForm.control}
+                  name="sessionType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Session Type *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-session-type">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="assessment">Assessment</SelectItem>
+                          <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
+                          <SelectItem value="consultation">Consultation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Notes Field */}
+              <FormField
+                control={sessionForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Session notes..."
+                        {...field}
+                        data-testid="input-session-notes"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Zoom Enabled Field */}
+              <FormField
+                control={sessionForm.control}
+                name="zoomEnabled"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Enable Zoom</FormLabel>
+                      <div className="text-sm text-slate-500">
+                        Create a Zoom meeting link for this session
+                      </div>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        className="h-5 w-5"
+                        data-testid="checkbox-zoom-enabled"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Show conflict warning if exists */}
+              {sessionConflicts && sessionConflicts.conflicts && sessionConflicts.conflicts.length > 0 && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-yellow-900">Scheduling Conflicts Detected</p>
+                      <ul className="mt-1 text-xs text-yellow-800 space-y-1">
+                        {sessionConflicts.conflicts.map((conflict: any, idx: number) => (
+                          <li key={idx}>• {conflict.message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsFullEditModalOpen(false);
+                    setEditingSessionId(null);
+                    sessionForm.reset();
+                  }}
+                  disabled={updateFullSessionMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateFullSessionMutation.isPending}
+                  data-testid="button-save-session"
+                >
+                  {updateFullSessionMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
