@@ -932,12 +932,14 @@ export default function SchedulingPage() {
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
-                  // Reset state when modal is closed
+                  // Reset state when modal is closed (but not when opening for edit)
+                  if (!editingSessionId) {
+                    form.reset();
+                  }
                   setIsSchedulingFromExistingSession(false);
                   setEditingSessionId(null);
                   setProvisionalDuration(60); // Reset to default
                   setUserConfirmedConflicts(false); // Reset conflict confirmation
-                  form.reset();
                 }
                 if (open && clientIdFromUrl) {
                   // Auto-open modal if coming from client page
