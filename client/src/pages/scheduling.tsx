@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formatInTimeZone } from "date-fns-tz";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -2159,13 +2160,7 @@ export default function SchedulingPage() {
                     <p className="text-slate-600">with {selectedSession.therapist.fullName}</p>
                     <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
                       <span>
-                        {new Date(selectedSession.sessionDate).toLocaleDateString()} at{' '}
-                        {(() => {
-                          const sessionDate = parseSessionDate(selectedSession.sessionDate);
-                          const hours = sessionDate.getHours().toString().padStart(2, '0');
-                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                          return `${hours}:${minutes}`;
-                        })()}
+                        {formatInTimeZone(new Date(selectedSession.sessionDate), 'America/New_York', 'MMM d, yyyy \'at\' h:mm a')} EST
                       </span>
                       <Badge className={getSessionTypeColor(selectedSession.sessionType)} variant="secondary">
                         {selectedSession.sessionType}
