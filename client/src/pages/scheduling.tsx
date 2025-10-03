@@ -2269,15 +2269,14 @@ export default function SchedulingPage() {
                           form.setValue('roomId', selectedSession.roomId);
                           form.setValue('sessionType', selectedSession.sessionType as any);
                           
-                          // Parse date/time properly using the timezone-aware parser
-                          const sessionDate = parseSessionDate(selectedSession.sessionDate);
+                          // Extract date in EST timezone
+                          const sessionDateObj = new Date(selectedSession.sessionDate);
                           const dateOnly = selectedSession.sessionDate.split('T')[0];
                           form.setValue('sessionDate', dateOnly);
                           
-                          // Format time properly to HH:MM
-                          const hours = sessionDate.getHours().toString().padStart(2, '0');
-                          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                          form.setValue('sessionTime', `${hours}:${minutes}`);
+                          // Extract time in EST timezone (HH:mm format for the time input)
+                          const timeInEST = formatInTimeZone(sessionDateObj, 'America/New_York', 'HH:mm');
+                          form.setValue('sessionTime', timeInEST);
                           
                           form.setValue('notes', selectedSession.notes || '');
                           form.setValue('zoomEnabled', (selectedSession as any).zoomEnabled || false);
