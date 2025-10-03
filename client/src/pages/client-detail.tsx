@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -1871,9 +1873,16 @@ export default function ClientDetailPage() {
                               </div>
                               <p className="text-sm text-slate-600">
                                 {session.sessionDate ? (() => {
-                                  const sessionDate = parseSessionDate(session.sessionDate.toString());
-                                  return `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
+                                  const sessionDateObj = new Date(session.sessionDate);
+                                  return formatInTimeZone(sessionDateObj, 'America/New_York', 'MMM d, yyyy \'at\' h:mm a');
                                 })() : 'Date TBD'}
+                                <span className="text-slate-400 ml-1">EST</span>
+                                {/* Display room information if available */}
+                                {(session as any).room?.roomName && (
+                                  <span className="text-slate-600 ml-2">
+                                    • <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
+                                  </span>
+                                )}
                                 {/* Display service code if available */}
                                 {(session as any).service?.serviceCode && (
                                   <span className="text-slate-500 ml-2">
@@ -1945,6 +1954,17 @@ export default function ClientDetailPage() {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                window.location.href = `/scheduling?editSessionId=${session.id}`;
+                              }}
+                              data-testid={`button-edit-session-${session.id}`}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
