@@ -2264,6 +2264,10 @@ export default function SchedulingPage() {
                       variant="outline"
                       onClick={() => {
                         // Load session data into form (EXACT SAME CODE AS CLIENT DETAIL PAGE)
+                        console.log('[CALENDAR EDIT] Selected session:', selectedSession);
+                        console.log('[CALENDAR EDIT] Room ID:', selectedSession.roomId);
+                        console.log('[CALENDAR EDIT] Session Date:', selectedSession.sessionDate);
+                        
                         form.setValue('clientId', selectedSession.clientId);
                         form.setValue('therapistId', selectedSession.therapistId);
                         form.setValue('serviceId', selectedSession.serviceId);
@@ -2276,10 +2280,14 @@ export default function SchedulingPage() {
                         
                         const hours = sessionDate.getHours().toString().padStart(2, '0');
                         const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                        form.setValue('sessionTime', `${hours}:${minutes}`);
+                        const timeString = `${hours}:${minutes}`;
+                        console.log('[CALENDAR EDIT] Setting time to:', timeString);
+                        form.setValue('sessionTime', timeString);
                         
                         form.setValue('notes', selectedSession.notes || '');
                         form.setValue('zoomEnabled', (selectedSession as any).zoomEnabled || false);
+                        
+                        console.log('[CALENDAR EDIT] Form values after setting:', form.getValues());
                         
                         setEditingSessionId(selectedSession.id);
                         setIsSchedulingFromExistingSession(true);
