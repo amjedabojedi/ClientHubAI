@@ -3415,6 +3415,26 @@ This happens because only the file metadata was stored, not the actual file cont
         hasZoomClientSecret: users.zoomClientSecret,
       }).from(users).where(eq(users.id, currentUserId));
 
+      // Auto-migrate global credentials if user doesn't have their own
+      if (!user?.zoomAccountId && process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET) {
+        console.log(`[ZOOM] Auto-migrating global credentials to user ${currentUserId}`);
+        await db.update(users)
+          .set({
+            zoomAccountId: process.env.ZOOM_ACCOUNT_ID,
+            zoomClientId: process.env.ZOOM_CLIENT_ID,
+            zoomClientSecret: process.env.ZOOM_CLIENT_SECRET,
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, currentUserId));
+
+        // Return the migrated credentials
+        return res.json({ 
+          isConfigured: true,
+          zoomAccountId: process.env.ZOOM_ACCOUNT_ID,
+          zoomClientId: process.env.ZOOM_CLIENT_ID
+        });
+      }
+
       const isConfigured = !!(user?.zoomAccountId && user?.zoomClientId && user?.hasZoomClientSecret);
 
       res.json({ 
