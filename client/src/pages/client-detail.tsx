@@ -3,6 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -19,6 +22,7 @@ import { SearchableSelect, SearchableSelectOption } from "@/components/ui/search
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 // Icons
 import { 
@@ -597,6 +601,27 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
   );
 }
 
+// Session form schema for editing
+const sessionFormSchema = z.object({
+  clientId: z.coerce.number().int().min(1, "Client is required"),
+  therapistId: z.coerce.number().int().min(1, "Therapist is required"),
+  sessionDate: z.string().min(1, "Date is required"),
+  sessionTime: z.string().min(1, "Time is required"),
+  serviceId: z.coerce.number().int().min(1, "Service is required"),
+  roomId: z.coerce.number().int().min(1, "Room is required"),
+  sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
+  notes: z.string().optional(),
+  zoomEnabled: z.boolean().optional().default(false),
+});
+
+type SessionFormData = z.infer<typeof sessionFormSchema>;
+
+// Utility to convert local date/time to UTC
+const localToUTC = (date: string, time: string): Date => {
+  const localDateTime = new Date(`${date}T${time}:00`);
+  return localDateTime;
+};
+
 export default function ClientDetailPage() {
   // Routing
   const [match, params] = useRoute("/clients/:id");
@@ -650,6 +675,24 @@ export default function ClientDetailPage() {
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
   const [selectedSessionForModal, setSelectedSessionForModal] = useState<Session | null>(null);
+  const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+
+  // Session editing form
+  const sessionForm = useForm<SessionFormData>({
+    resolver: zodResolver(sessionFormSchema),
+    defaultValues: {
+      clientId: clientId || undefined,
+      therapistId: undefined,
+      sessionType: "psychotherapy",
+      sessionDate: "",
+      sessionTime: "",
+      serviceId: undefined,
+      roomId: undefined,
+      notes: "",
+      zoomEnabled: false,
+    },
+  });
 
   // React to URL parameter changes for dynamic navigation
   useEffect(() => {
@@ -1237,6 +1280,51 @@ export default function ClientDetailPage() {
     queryKey: [`/api/clients/${clientId}/assessments`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
+  });
+
+  // Queries for session editing
+  const { data: therapists = [] } = useQuery<User[]>({
+    queryKey: ["/api/therapists"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: services = [] } = useQuery<any[]>({
+    queryKey: ["/api/services", { currentUserRole: user?.role }],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: rooms = [] } = useQuery<any[]>({
+    queryKey: ["/api/rooms"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  // Session update mutation
+  const updateFullSessionMutation = useMutation({
+    mutationFn: (data: SessionFormData) => {
+      const utcDateTime = localToUTC(data.sessionDate, data.sessionTime);
+      const sessionData = {
+        ...data,
+        sessionDate: utcDateTime.toISOString(),
+      };
+      return apiRequest(`/api/sessions/${editingSessionId}`, "PUT", sessionData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/sessions`] });
+      toast({
+        title: "Success",
+        description: "Session updated successfully",
+      });
+      setIsFullEditModalOpen(false);
+      setEditingSessionId(null);
+      sessionForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update session",
+        variant: "destructive",
+      });
+    },
   });
 
   // Checklist assignment mutation
@@ -2161,8 +2249,27 @@ export default function ClientDetailPage() {
                         <Button 
                           variant="outline"
                           onClick={() => {
+                            // Load session data into form
+                            sessionForm.setValue('clientId', selectedSessionForModal.clientId);
+                            sessionForm.setValue('therapistId', (selectedSessionForModal as any).therapistId);
+                            sessionForm.setValue('serviceId', selectedSessionForModal.serviceId);
+                            sessionForm.setValue('roomId', selectedSessionForModal.roomId);
+                            sessionForm.setValue('sessionType', selectedSessionForModal.sessionType as any);
+                            
+                            const sessionDate = new Date(selectedSessionForModal.sessionDate);
+                            const dateOnly = selectedSessionForModal.sessionDate.split('T')[0];
+                            sessionForm.setValue('sessionDate', dateOnly);
+                            
+                            const hours = sessionDate.getHours().toString().padStart(2, '0');
+                            const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                            sessionForm.setValue('sessionTime', `${hours}:${minutes}`);
+                            
+                            sessionForm.setValue('notes', selectedSessionForModal.notes || '');
+                            sessionForm.setValue('zoomEnabled', (selectedSessionForModal as any).zoomEnabled || false);
+                            
+                            setEditingSessionId(selectedSessionForModal.id);
                             setIsEditSessionModalOpen(false);
-                            window.location.href = `/scheduling?editSessionId=${selectedSessionForModal.id}`;
+                            setIsFullEditModalOpen(true);
                           }}
                           className="text-sm px-3 py-2 h-9"
                         >
