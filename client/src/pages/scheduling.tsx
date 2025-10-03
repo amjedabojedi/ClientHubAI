@@ -184,6 +184,7 @@ export default function SchedulingPage() {
   const clientNameFromUrl = urlParams.get('clientName');
   const therapistIdFromUrl = urlParams.get('therapistId');
   const therapistNameFromUrl = urlParams.get('therapistName');
+  const editSessionIdFromUrl = urlParams.get('editSessionId');
   
   // Determine which month to fetch based on selected date and view mode
   const getMonthToFetch = () => {
@@ -354,6 +355,49 @@ export default function SchedulingPage() {
       }
     }
   }, [clientIdFromUrl, clientNameFromUrl, therapistIdFromUrl, form]);
+
+  // Auto-load session for editing when editSessionId is in URL
+  React.useEffect(() => {
+    if (editSessionIdFromUrl && sessions.length > 0) {
+      const sessionToEdit = sessions.find(s => s.id === parseInt(editSessionIdFromUrl));
+      if (sessionToEdit) {
+        try {
+          form.setValue('clientId', sessionToEdit.clientId);
+          form.setValue('therapistId', sessionToEdit.therapistId);
+          form.setValue('serviceId', sessionToEdit.serviceId);
+          form.setValue('roomId', sessionToEdit.roomId);
+          form.setValue('sessionType', sessionToEdit.sessionType as any);
+          
+          // Parse date/time from UTC
+          const sessionDate = new Date(sessionToEdit.sessionDate);
+          const dateOnly = sessionToEdit.sessionDate.split('T')[0];
+          form.setValue('sessionDate', dateOnly);
+          
+          // Format time to HH:MM
+          const hours = sessionDate.getHours().toString().padStart(2, '0');
+          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+          form.setValue('sessionTime', `${hours}:${minutes}`);
+          
+          form.setValue('notes', sessionToEdit.notes || '');
+          form.setValue('zoomEnabled', (sessionToEdit as any).zoomEnabled || false);
+          
+          setEditingSessionId(sessionToEdit.id);
+          setIsSchedulingFromExistingSession(true);
+          setIsNewSessionModalOpen(true);
+          
+          // Clear the URL parameter after loading
+          window.history.replaceState({}, '', '/scheduling');
+        } catch (error) {
+          console.error('Error loading session for editing:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load session data",
+            variant: "destructive"
+          });
+        }
+      }
+    }
+  }, [editSessionIdFromUrl, sessions, form, toast]);
 
   // Watch for date/time changes to update room availability
   const watchedDate = form.watch('sessionDate');
