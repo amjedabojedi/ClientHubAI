@@ -3410,16 +3410,17 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       const [user] = await db.select({
-        hasZoomAccountId: users.zoomAccountId,
-        hasZoomClientId: users.zoomClientId,
+        zoomAccountId: users.zoomAccountId,
+        zoomClientId: users.zoomClientId,
         hasZoomClientSecret: users.zoomClientSecret,
       }).from(users).where(eq(users.id, currentUserId));
 
-      const isConfigured = !!(user?.hasZoomAccountId && user?.hasZoomClientId && user?.hasZoomClientSecret);
+      const isConfigured = !!(user?.zoomAccountId && user?.zoomClientId && user?.hasZoomClientSecret);
 
       res.json({ 
         isConfigured,
-        accountId: user?.hasZoomAccountId ? '***configured***' : null
+        zoomAccountId: user?.zoomAccountId || null,
+        zoomClientId: user?.zoomClientId || null
       });
     } catch (error) {
       console.error("Error checking Zoom credentials status:", error);

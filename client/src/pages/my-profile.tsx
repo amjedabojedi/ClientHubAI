@@ -85,7 +85,8 @@ type ZoomCredentialsData = z.infer<typeof zoomCredentialsSchema>;
 
 type ZoomStatusResponse = {
   isConfigured: boolean;
-  accountId?: string;
+  zoomAccountId?: string | null;
+  zoomClientId?: string | null;
 };
 
 export default function MyProfilePage() {
@@ -222,6 +223,17 @@ export default function MyProfilePage() {
       form.reset(formData);
     }
   }, [user?.fullName, profile?.id]);
+
+  // Update Zoom form when credentials are loaded
+  React.useEffect(() => {
+    if (zoomStatus && zoomStatus.isConfigured) {
+      zoomForm.reset({
+        zoomAccountId: zoomStatus.zoomAccountId || "",
+        zoomClientId: zoomStatus.zoomClientId || "",
+        zoomClientSecret: "", // Don't populate secret for security
+      });
+    }
+  }, [zoomStatus?.isConfigured, zoomStatus?.zoomAccountId, zoomStatus?.zoomClientId]);
 
   // Update user mutation
   const updateUserMutation = useMutation({
