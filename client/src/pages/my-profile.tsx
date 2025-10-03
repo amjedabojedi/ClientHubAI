@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone, Lock } from "lucide-react";
+import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone, Lock, Video, Check, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,6 +73,15 @@ const passwordChangeSchema = z.object({
 });
 
 type PasswordChangeData = z.infer<typeof passwordChangeSchema>;
+
+// Zoom credentials form schema
+const zoomCredentialsSchema = z.object({
+  zoomAccountId: z.string().min(1, "Account ID is required"),
+  zoomClientId: z.string().min(1, "Client ID is required"),
+  zoomClientSecret: z.string().min(1, "Client Secret is required"),
+});
+
+type ZoomCredentialsData = z.infer<typeof zoomCredentialsSchema>;
 
 export default function MyProfilePage() {
   const { toast } = useToast();
@@ -153,6 +162,22 @@ export default function MyProfilePage() {
       newPassword: "",
       confirmPassword: "",
     },
+  });
+
+  // Zoom credentials form setup
+  const zoomForm = useForm<ZoomCredentialsData>({
+    resolver: zodResolver(zoomCredentialsSchema),
+    defaultValues: {
+      zoomAccountId: "",
+      zoomClientId: "",
+      zoomClientSecret: "",
+    },
+  });
+
+  // Fetch Zoom credentials status
+  const { data: zoomStatus, refetch: refetchZoomStatus } = useQuery({
+    queryKey: ["/api/users/me/zoom-credentials/status"],
+    enabled: !!userId,
   });
 
   // Update form when data loads (only once when data actually changes)
@@ -244,6 +269,68 @@ export default function MyProfilePage() {
     },
   });
 
+  // Zoom credentials mutations
+  const saveZoomCredentialsMutation = useMutation({
+    mutationFn: async (data: ZoomCredentialsData) => {
+      return await apiRequest("/api/users/me/zoom-credentials", "PUT", data);
+    },
+    onSuccess: () => {
+      refetchZoomStatus();
+      zoomForm.reset();
+      toast({
+        title: "Success",
+        description: "Zoom credentials saved successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save Zoom credentials",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeZoomCredentialsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/users/me/zoom-credentials", "DELETE");
+    },
+    onSuccess: () => {
+      refetchZoomStatus();
+      zoomForm.reset();
+      toast({
+        title: "Success",
+        description: "Zoom credentials removed successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove Zoom credentials",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testZoomConnectionMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/users/me/zoom-credentials/test", "POST", {});
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Connection Successful",
+        description: data.message || "Zoom credentials verified successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to verify Zoom credentials",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = async (data: ProfileFormData) => {
     try {
       // Update user basic info
@@ -279,6 +366,20 @@ export default function MyProfilePage() {
     await changePasswordMutation.mutateAsync(data);
   };
 
+  const onZoomSubmit = async (data: ZoomCredentialsData) => {
+    await saveZoomCredentialsMutation.mutateAsync(data);
+  };
+
+  const handleRemoveZoomCredentials = async () => {
+    if (confirm("Are you sure you want to remove your Zoom credentials?")) {
+      await removeZoomCredentialsMutation.mutateAsync();
+    }
+  };
+
+  const handleTestZoomConnection = async () => {
+    await testZoomConnectionMutation.mutateAsync();
+  };
+
   if (userLoading || profileLoading) {
     return (
       <div className="container mx-auto px-4 py-12">
@@ -303,18 +404,19 @@ export default function MyProfilePage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="license">License</TabsTrigger>
             <TabsTrigger value="specializations">Specializations</TabsTrigger>
             <TabsTrigger value="background">Background</TabsTrigger>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
+            <TabsTrigger value="zoom">Zoom</TabsTrigger>
             <TabsTrigger value="password">Password</TabsTrigger>
           </TabsList>
 
-          {/* Profile Form - All tabs except password */}
-          {activeTab !== 'password' && (
+          {/* Profile Form - All tabs except password and zoom */}
+          {activeTab !== 'password' && activeTab !== 'zoom' && (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
@@ -693,6 +795,149 @@ export default function MyProfilePage() {
                 </div>
               </form>
             </Form>
+          )}
+
+          {/* Zoom Integration Tab - Separate form */}
+          {activeTab === 'zoom' && (
+            <TabsContent value="zoom" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="w-5 h-5" />
+                    Zoom Integration
+                  </CardTitle>
+                  <CardDescription>
+                    Configure your personal Zoom account for video sessions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Status Badge */}
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {zoomStatus?.isConfigured ? (
+                          <>
+                            <Check className="w-5 h-5 text-green-600" />
+                            <span className="text-sm font-medium text-green-600">Zoom Configured</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-5 h-5 text-orange-500" />
+                            <span className="text-sm font-medium text-orange-500">Not Configured</span>
+                          </>
+                        )}
+                      </div>
+                      {zoomStatus?.isConfigured && (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleTestZoomConnection}
+                            disabled={testZoomConnectionMutation.isPending}
+                            data-testid="button-test-zoom"
+                          >
+                            {testZoomConnectionMutation.isPending ? "Testing..." : "Test Connection"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleRemoveZoomCredentials}
+                            disabled={removeZoomCredentialsMutation.isPending}
+                            data-testid="button-remove-zoom"
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Instructions */}
+                  <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">How to get your Zoom credentials:</h4>
+                    <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 dark:text-blue-200">
+                      <li>Go to <a href="https://marketplace.zoom.us/" target="_blank" rel="noopener noreferrer" className="underline">Zoom Marketplace</a></li>
+                      <li>Click "Develop" → "Build App"</li>
+                      <li>Choose "Server-to-Server OAuth" app type</li>
+                      <li>Fill in app information and create the app</li>
+                      <li>Copy the Account ID, Client ID, and Client Secret from the app credentials page</li>
+                      <li>Paste them below and save</li>
+                    </ol>
+                  </div>
+
+                  <Form {...zoomForm}>
+                    <form onSubmit={zoomForm.handleSubmit(onZoomSubmit)} className="space-y-6">
+                      <FormField
+                        control={zoomForm.control}
+                        name="zoomAccountId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Zoom Account ID</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Enter your Zoom Account ID"
+                                {...field}
+                                data-testid="input-zoom-account-id"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={zoomForm.control}
+                        name="zoomClientId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Zoom Client ID</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Enter your Zoom Client ID"
+                                {...field}
+                                data-testid="input-zoom-client-id"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={zoomForm.control}
+                        name="zoomClientSecret"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Zoom Client Secret</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="Enter your Zoom Client Secret"
+                                {...field}
+                                data-testid="input-zoom-client-secret"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          type="submit"
+                          disabled={saveZoomCredentialsMutation.isPending}
+                          className="flex items-center gap-2"
+                          data-testid="button-save-zoom"
+                        >
+                          <Save className="w-4 h-4" />
+                          {saveZoomCredentialsMutation.isPending ? "Saving..." : "Save Credentials"}
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
           )}
 
           {/* Password Tab - Separate form */}
