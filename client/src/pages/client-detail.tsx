@@ -6,6 +6,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formatTime, generateTimeSlots } from "@/lib/datetime";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -622,6 +623,15 @@ const localToUTC = (date: string, time: string): Date => {
   return localDateTime;
 };
 
+// Get time slots with labels for display
+const getTimeSlotsWithLabels = (intervalMinutes = 30): Array<{value: string, label: string}> => {
+  const slots = generateTimeSlots(8, 18, intervalMinutes);
+  return slots.map(time => ({
+    value: time,
+    label: formatTime(time)
+  }));
+};
+
 export default function ClientDetailPage() {
   // Routing
   const [match, params] = useRoute("/clients/:id");
@@ -677,6 +687,7 @@ export default function ClientDetailPage() {
   const [selectedSessionForModal, setSelectedSessionForModal] = useState<Session | null>(null);
   const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [provisionalDuration, setProvisionalDuration] = useState<number>(60);
 
   // Session editing form
   const sessionForm = useForm<SessionFormData>({
@@ -3474,20 +3485,48 @@ export default function ClientDetailPage() {
                   )}
                 />
 
-                {/* Time Field */}
+                {/* Time Field with Duration Presets */}
                 <FormField
                   control={sessionForm.control}
                   name="sessionTime"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Time *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="time"
-                          {...field}
-                          data-testid="input-session-time"
-                        />
-                      </FormControl>
+                      <div className="space-y-2">
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="input-session-time">
+                              <SelectValue placeholder="Select time" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {getTimeSlotsWithLabels().map((timeSlot) => (
+                              <SelectItem key={timeSlot.value} value={timeSlot.value}>
+                                {timeSlot.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        {/* Quick Duration Tags */}
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700">Duration (minutes)</label>
+                          <div className="flex flex-wrap gap-2">
+                            {[30, 45, 60, 90, 120].map((minutes) => (
+                              <Button
+                                key={minutes}
+                                type="button"
+                                variant={provisionalDuration === minutes ? "default" : "outline"}
+                                size="sm"
+                                className="h-8 px-3 text-xs"
+                                onClick={() => setProvisionalDuration(minutes)}
+                              >
+                                {minutes}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
