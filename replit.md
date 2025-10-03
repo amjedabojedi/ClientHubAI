@@ -38,7 +38,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 
 ### Key Features
 - **Client Management**: Comprehensive profiles, status tracking, search/filtering, bulk operations, direct scheduling.
-- **Scheduling & Calendar**: Multi-view calendar (monthly, day/week), session management, role-based access, visual indicators.
+- **Scheduling & Calendar**: Multi-view calendar (monthly, day/week), session management, role-based access, visual indicators. In-place session editing from client profiles for client-centric workflow (with optional calendar view for full context).
 - **Session Notes**: Comprehensive session note management with mood tracking, goals, interventions, assessments, and AI-assisted generation from templates.
 - **System Options Management**: Dynamic, database-driven configuration for all dropdown options.
 - **Bulk Data Operations**: Bulk client and session upload via Excel with field mapping, robust validation, and error reporting.
