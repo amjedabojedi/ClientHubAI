@@ -2261,32 +2261,28 @@ export default function SchedulingPage() {
                     <Button 
                       variant="outline"
                       onClick={() => {
-                        // Pre-fill the form with current session data for editing
-                        try {
-                          form.setValue('clientId', selectedSession.clientId);
-                          form.setValue('therapistId', selectedSession.therapistId);
-                          form.setValue('serviceId', selectedSession.serviceId);
-                          form.setValue('roomId', selectedSession.roomId);
-                          form.setValue('sessionType', selectedSession.sessionType as any);
-                          
-                          // Extract date in EST timezone
-                          const sessionDateObj = new Date(selectedSession.sessionDate);
-                          const dateOnly = selectedSession.sessionDate.split('T')[0];
-                          form.setValue('sessionDate', dateOnly);
-                          
-                          // Extract time in EST timezone (HH:mm format for the time input)
-                          const timeInEST = formatInTimeZone(sessionDateObj, 'America/New_York', 'HH:mm');
-                          form.setValue('sessionTime', timeInEST);
-                          
-                          form.setValue('notes', selectedSession.notes || '');
-                          form.setValue('zoomEnabled', (selectedSession as any).zoomEnabled || false);
-                          setEditingSessionId(selectedSession.id);
-                          setIsSchedulingFromExistingSession(true);
-                          setIsEditSessionModalOpen(false);
-                          setIsNewSessionModalOpen(true);
-                        } catch (error) {
-                          console.error('Error loading session for editing:', error);
-                        }
+                        // Load session data into form (EXACT SAME CODE AS CLIENT DETAIL PAGE)
+                        form.setValue('clientId', selectedSession.clientId);
+                        form.setValue('therapistId', selectedSession.therapistId);
+                        form.setValue('serviceId', selectedSession.serviceId);
+                        form.setValue('roomId', selectedSession.roomId);
+                        form.setValue('sessionType', selectedSession.sessionType as any);
+                        
+                        const sessionDate = new Date(selectedSession.sessionDate);
+                        const dateOnly = selectedSession.sessionDate.split('T')[0];
+                        form.setValue('sessionDate', dateOnly);
+                        
+                        const hours = sessionDate.getHours().toString().padStart(2, '0');
+                        const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
+                        form.setValue('sessionTime', `${hours}:${minutes}`);
+                        
+                        form.setValue('notes', selectedSession.notes || '');
+                        form.setValue('zoomEnabled', (selectedSession as any).zoomEnabled || false);
+                        
+                        setEditingSessionId(selectedSession.id);
+                        setIsSchedulingFromExistingSession(true);
+                        setIsEditSessionModalOpen(false);
+                        setIsNewSessionModalOpen(true);
                       }}
                       className="text-sm px-3 py-2 h-9"
                     >
