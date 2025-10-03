@@ -86,6 +86,13 @@ export const users = pgTable("users", {
   bio: text("bio"),
   profilePicture: text("profile_picture"),
   
+  // Zoom Integration (per-therapist OAuth credentials)
+  zoomAccountId: varchar("zoom_account_id", { length: 255 }),
+  zoomClientId: varchar("zoom_client_id", { length: 255 }),
+  zoomClientSecret: text("zoom_client_secret"), // Encrypted
+  zoomAccessToken: text("zoom_access_token"), // Cached token
+  zoomTokenExpiry: timestamp("zoom_token_expiry"), // Token expiration time
+  
   // System Administration
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
