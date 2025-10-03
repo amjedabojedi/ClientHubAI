@@ -3229,6 +3229,150 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Zoom Credentials Management Routes
+  app.put("/api/users/me/zoom-credentials", requireAuth, async (req, res) => {
+    try {
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { zoomAccountId, zoomClientId, zoomClientSecret } = req.body;
+
+      if (!zoomAccountId || !zoomClientId || !zoomClientSecret) {
+        return res.status(400).json({ 
+          message: "All Zoom credentials are required (Account ID, Client ID, Client Secret)" 
+        });
+      }
+
+      await db.update(users)
+        .set({
+          zoomAccountId,
+          zoomClientId,
+          zoomClientSecret,
+          zoomAccessToken: null,
+          zoomTokenExpiry: null,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, currentUserId));
+
+      res.json({ message: "Zoom credentials saved successfully" });
+    } catch (error) {
+      console.error("Error saving Zoom credentials:", error);
+      res.status(500).json({ message: "Failed to save Zoom credentials" });
+    }
+  });
+
+  app.delete("/api/users/me/zoom-credentials", requireAuth, async (req, res) => {
+    try {
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      await db.update(users)
+        .set({
+          zoomAccountId: null,
+          zoomClientId: null,
+          zoomClientSecret: null,
+          zoomAccessToken: null,
+          zoomTokenExpiry: null,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, currentUserId));
+
+      res.json({ message: "Zoom credentials removed successfully" });
+    } catch (error) {
+      console.error("Error removing Zoom credentials:", error);
+      res.status(500).json({ message: "Failed to remove Zoom credentials" });
+    }
+  });
+
+  app.post("/api/users/me/zoom-credentials/test", requireAuth, async (req, res) => {
+    try {
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const [user] = await db.select().from(users).where(eq(users.id, currentUserId));
+      if (!user || !user.zoomAccountId || !user.zoomClientId || !user.zoomClientSecret) {
+        return res.status(400).json({ message: "Zoom credentials not configured" });
+      }
+
+      try {
+        const credentials = Buffer.from(`${user.zoomClientId}:${user.zoomClientSecret}`).toString('base64');
+        
+        const response = await fetch('https://zoom.us/oauth/token', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${credentials}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'account_credentials',
+            account_id: user.zoomAccountId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          return res.status(400).json({ 
+            message: "Zoom credentials test failed",
+            error: `Status ${response.status}: ${errorData}` 
+          });
+        }
+
+        const tokenData = await response.json();
+        if (tokenData.access_token) {
+          res.json({ 
+            message: "Zoom credentials verified successfully",
+            success: true 
+          });
+        } else {
+          res.status(400).json({ 
+            message: "Invalid response from Zoom",
+            success: false 
+          });
+        }
+      } catch (error) {
+        console.error("Zoom test error:", error);
+        res.status(400).json({ 
+          message: "Failed to connect to Zoom",
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    } catch (error) {
+      console.error("Error testing Zoom credentials:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/users/me/zoom-credentials/status", requireAuth, async (req, res) => {
+    try {
+      const currentUserId = req.user?.id;
+      if (!currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const [user] = await db.select({
+        hasZoomAccountId: users.zoomAccountId,
+        hasZoomClientId: users.zoomClientId,
+        hasZoomClientSecret: users.zoomClientSecret,
+      }).from(users).where(eq(users.id, currentUserId));
+
+      const isConfigured = !!(user?.hasZoomAccountId && user?.hasZoomClientId && user?.hasZoomClientSecret);
+
+      res.json({ 
+        isConfigured,
+        accountId: user?.hasZoomAccountId ? '***configured***' : null
+      });
+    } catch (error) {
+      console.error("Error checking Zoom credentials status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // User Profile Routes
   app.get("/api/users/:userId/profile", async (req, res) => {
     try {
