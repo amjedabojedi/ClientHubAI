@@ -1501,20 +1501,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle Zoom meeting creation if enabled
       let zoomMeetingData = null;
-      if (sessionData.zoomEnabled && zoomService.isConfigured()) {
+      if (sessionData.zoomEnabled) {
         try {
           console.log('DEBUG: Creating Zoom meeting for session', session.id);
           
-          // Get client and therapist names for Zoom meeting
+          // Get client and therapist for Zoom meeting
           const client = await storage.getClient(session.clientId);
           const therapist = await storage.getUser(session.therapistId);
+          
+          // Get therapist's Zoom credentials
+          const [therapistWithZoom] = await db.select({
+            zoomAccountId: users.zoomAccountId,
+            zoomClientId: users.zoomClientId,
+            zoomClientSecret: users.zoomClientSecret,
+            zoomAccessToken: users.zoomAccessToken,
+            zoomTokenExpiry: users.zoomTokenExpiry,
+          }).from(users).where(eq(users.id, session.therapistId));
+          
+          // Check if therapist has Zoom configured
+          const hasTherapistZoom = therapistWithZoom?.zoomAccountId && 
+                                    therapistWithZoom?.zoomClientId && 
+                                    therapistWithZoom?.zoomClientSecret;
+          
+          if (!hasTherapistZoom && !zoomService.isConfigured()) {
+            throw new Error('Zoom is not configured. Please set up your Zoom credentials in your profile.');
+          }
+          
+          // Use therapist credentials if available, otherwise fall back to global
+          const zoomCredentials = hasTherapistZoom ? {
+            accountId: therapistWithZoom.zoomAccountId!,
+            clientId: therapistWithZoom.zoomClientId!,
+            clientSecret: therapistWithZoom.zoomClientSecret!,
+            accessToken: therapistWithZoom.zoomAccessToken,
+            tokenExpiry: therapistWithZoom.zoomTokenExpiry,
+          } : undefined;
           
           const zoomMeeting = await zoomService.createMeeting({
             clientName: client?.fullName || 'Unknown Client',
             therapistName: therapist?.fullName || 'Unknown Therapist',
             sessionDate: sessionDate,
             duration: 60 // Default session duration
-          });
+          }, zoomCredentials);
           
           // Update session with Zoom meeting details
           const updatedSession = await storage.updateSession(session.id, {
@@ -1772,20 +1799,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const session = await storage.updateSession(id, validatedData);
       
       // Handle Zoom meeting creation if enabled and no existing meeting
-      if (sessionData.zoomEnabled && !session.zoomMeetingId && zoomService.isConfigured()) {
+      if (sessionData.zoomEnabled && !session.zoomMeetingId) {
         try {
           console.log('DEBUG: Creating Zoom meeting for updated session', session.id);
           
-          // Get client and therapist names for Zoom meeting
+          // Get client and therapist for Zoom meeting
           const client = await storage.getClient(session.clientId);
           const therapist = await storage.getUser(session.therapistId);
+          
+          // Get therapist's Zoom credentials
+          const [therapistWithZoom] = await db.select({
+            zoomAccountId: users.zoomAccountId,
+            zoomClientId: users.zoomClientId,
+            zoomClientSecret: users.zoomClientSecret,
+            zoomAccessToken: users.zoomAccessToken,
+            zoomTokenExpiry: users.zoomTokenExpiry,
+          }).from(users).where(eq(users.id, session.therapistId));
+          
+          // Check if therapist has Zoom configured
+          const hasTherapistZoom = therapistWithZoom?.zoomAccountId && 
+                                    therapistWithZoom?.zoomClientId && 
+                                    therapistWithZoom?.zoomClientSecret;
+          
+          if (!hasTherapistZoom && !zoomService.isConfigured()) {
+            throw new Error('Zoom is not configured. Please set up your Zoom credentials in your profile.');
+          }
+          
+          // Use therapist credentials if available, otherwise fall back to global
+          const zoomCredentials = hasTherapistZoom ? {
+            accountId: therapistWithZoom.zoomAccountId!,
+            clientId: therapistWithZoom.zoomClientId!,
+            clientSecret: therapistWithZoom.zoomClientSecret!,
+            accessToken: therapistWithZoom.zoomAccessToken,
+            tokenExpiry: therapistWithZoom.zoomTokenExpiry,
+          } : undefined;
           
           const zoomMeeting = await zoomService.createMeeting({
             clientName: client?.fullName || 'Unknown Client',
             therapistName: therapist?.fullName || 'Unknown Therapist',
             sessionDate: session.sessionDate,
             duration: 60 // Default session duration
-          });
+          }, zoomCredentials);
           
           // Update session with Zoom meeting details
           await storage.updateSession(session.id, {
