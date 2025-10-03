@@ -2019,6 +2019,168 @@ export default function ClientDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Edit Session Modal - Inside Session History Tab */}
+            {selectedSessionForModal && (
+              <Dialog open={isEditSessionModalOpen} onOpenChange={setIsEditSessionModalOpen}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Session Details & Actions</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6">
+                    <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
+                      <Avatar className="w-16 h-16">
+                        <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
+                          {(() => {
+                            const name = client?.fullName || 'UC';
+                            return name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
+                          })()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-blue-600">
+                          {client?.fullName || 'Unknown Client'}
+                        </h3>
+                        <p className="text-slate-600">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
+                        <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
+                          <span>
+                            {formatInTimeZone(new Date(selectedSessionForModal.sessionDate), 'America/New_York', 'MMM dd, yyyy \'at\' h:mm a')} EST
+                          </span>
+                          <Badge className="bg-blue-100 text-blue-800" variant="secondary">
+                            {selectedSessionForModal.sessionType}
+                          </Badge>
+                          <Badge className={
+                            selectedSessionForModal.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            selectedSessionForModal.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            selectedSessionForModal.status === 'no_show' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-blue-100 text-blue-800'
+                          } variant="secondary">
+                            {selectedSessionForModal.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {(selectedSessionForModal as any).serviceName && (
+                        <div>
+                          <label className="text-sm font-medium text-slate-700">Service</label>
+                          <p className="text-sm text-slate-600">
+                            {(selectedSessionForModal as any).serviceName} ({(selectedSessionForModal as any).serviceCode})
+                          </p>
+                        </div>
+                      )}
+                      {(selectedSessionForModal as any).roomName && (
+                        <div>
+                          <label className="text-sm font-medium text-slate-700">Room</label>
+                          <p className="text-sm text-slate-600">
+                            {(selectedSessionForModal as any).roomName}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedSessionForModal.notes && (
+                      <div>
+                        <label className="text-sm font-medium text-slate-700">Session Notes</label>
+                        <div className="mt-1 p-3 bg-slate-50 rounded-md">
+                          <p className="text-sm text-slate-600">{selectedSessionForModal.notes}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status Change Section */}
+                    <div className="pt-4 border-t">
+                      <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
+                      <Select 
+                        value={selectedSessionForModal.status} 
+                        onValueChange={(value) => {
+                          updateSessionMutation.mutate(
+                            { sessionId: selectedSessionForModal.id, status: value },
+                            {
+                              onSuccess: () => {
+                                setSelectedSessionForModal({ ...selectedSessionForModal, status: value });
+                              }
+                            }
+                          );
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scheduled">
+                            <div className="flex items-center">
+                              <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
+                              Scheduled
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="completed">
+                            <div className="flex items-center">
+                              <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                              Completed
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="cancelled">
+                            <div className="flex items-center">
+                              <X className="w-4 h-4 mr-2 text-red-600" />
+                              Cancelled
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="rescheduled">
+                            <div className="flex items-center">
+                              <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                              Rescheduled
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="no_show">
+                            <div className="flex items-center">
+                              <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                              No-Show
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <div className={`grid gap-2 ${(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditSessionModalOpen(false);
+                            window.location.href = `/scheduling?editSessionId=${selectedSessionForModal.id}`;
+                          }}
+                          className="text-sm px-3 py-2 h-9"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit in Calendar
+                        </Button>
+                        {(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl && (
+                          <Button 
+                            variant="outline"
+                            className="text-sm px-3 py-2 h-9 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                            onClick={() => window.open((selectedSessionForModal as any).zoomJoinUrl, '_blank')}
+                            data-testid={`button-zoom-join-modal-${selectedSessionForModal.id}`}
+                          >
+                            <Video className="w-4 h-4 mr-2" />
+                            Join Zoom
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsEditSessionModalOpen(false)}
+                          className="text-sm px-3 py-2 h-9"
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </TabsContent>
 
           {/* Session Notes Tab */}
@@ -3079,168 +3241,6 @@ export default function ClientDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Session Modal - Reused from Scheduling */}
-      {selectedSessionForModal && (
-        <Dialog open={isEditSessionModalOpen} onOpenChange={setIsEditSessionModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Session Details & Actions</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
-                <Avatar className="w-16 h-16">
-                  <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
-                    {(() => {
-                      const name = client?.fullName || 'UC';
-                      return name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
-                    })()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-blue-600">
-                    {client?.fullName || 'Unknown Client'}
-                  </h3>
-                  <p className="text-slate-600">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
-                  <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
-                    <span>
-                      {formatInTimeZone(new Date(selectedSessionForModal.sessionDate), 'America/New_York', 'MMM dd, yyyy \'at\' h:mm a')} EST
-                    </span>
-                    <Badge className="bg-blue-100 text-blue-800" variant="secondary">
-                      {selectedSessionForModal.sessionType}
-                    </Badge>
-                    <Badge className={
-                      selectedSessionForModal.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      selectedSessionForModal.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      selectedSessionForModal.status === 'no_show' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
-                    } variant="secondary">
-                      {selectedSessionForModal.status}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {(selectedSessionForModal as any).serviceName && (
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Service</label>
-                    <p className="text-sm text-slate-600">
-                      {(selectedSessionForModal as any).serviceName} ({(selectedSessionForModal as any).serviceCode})
-                    </p>
-                  </div>
-                )}
-                {(selectedSessionForModal as any).roomName && (
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Room</label>
-                    <p className="text-sm text-slate-600">
-                      {(selectedSessionForModal as any).roomName}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {selectedSessionForModal.notes && (
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Session Notes</label>
-                  <div className="mt-1 p-3 bg-slate-50 rounded-md">
-                    <p className="text-sm text-slate-600">{selectedSessionForModal.notes}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Status Change Section */}
-              <div className="pt-4 border-t">
-                <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
-                <Select 
-                  value={selectedSessionForModal.status} 
-                  onValueChange={(value) => {
-                    updateSessionMutation.mutate(
-                      { sessionId: selectedSessionForModal.id, status: value },
-                      {
-                        onSuccess: () => {
-                          setSelectedSessionForModal({ ...selectedSessionForModal, status: value });
-                        }
-                      }
-                    );
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="scheduled">
-                      <div className="flex items-center">
-                        <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
-                        Scheduled
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="completed">
-                      <div className="flex items-center">
-                        <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                        Completed
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="cancelled">
-                      <div className="flex items-center">
-                        <X className="w-4 h-4 mr-2 text-red-600" />
-                        Cancelled
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="rescheduled">
-                      <div className="flex items-center">
-                        <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
-                        Rescheduled
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="no_show">
-                      <div className="flex items-center">
-                        <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                        No-Show
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="pt-4 border-t">
-                <div className={`grid gap-2 ${(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl ? 'grid-cols-2' : 'grid-cols-2'}`}>
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setIsEditSessionModalOpen(false);
-                      window.location.href = `/scheduling?editSessionId=${selectedSessionForModal.id}`;
-                    }}
-                    className="text-sm px-3 py-2 h-9"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit in Calendar
-                  </Button>
-                  {(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl && (
-                    <Button 
-                      variant="outline"
-                      className="text-sm px-3 py-2 h-9 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                      onClick={() => window.open((selectedSessionForModal as any).zoomJoinUrl, '_blank')}
-                      data-testid={`button-zoom-join-modal-${selectedSessionForModal.id}`}
-                    >
-                      <Video className="w-4 h-4 mr-2" />
-                      Join Zoom
-                      <ExternalLink className="w-3 h-3 ml-1" />
-                    </Button>
-                  )}
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setIsEditSessionModalOpen(false)}
-                    className="text-sm px-3 py-2 h-9"
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
