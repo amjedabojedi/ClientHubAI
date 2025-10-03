@@ -2068,13 +2068,18 @@ export default function ClientDetailPage() {
                           <p className="text-sm text-slate-600">
                             {(selectedSessionForModal as any).serviceName} ({(selectedSessionForModal as any).serviceCode})
                           </p>
+                          {(selectedSessionForModal as any).serviceDuration && (selectedSessionForModal as any).serviceRate && (
+                            <p className="text-xs text-slate-500">
+                              {(selectedSessionForModal as any).serviceDuration} min - ${(selectedSessionForModal as any).serviceRate}
+                            </p>
+                          )}
                         </div>
                       )}
                       {(selectedSessionForModal as any).roomName && (
                         <div>
                           <label className="text-sm font-medium text-slate-700">Room</label>
                           <p className="text-sm text-slate-600">
-                            {(selectedSessionForModal as any).roomName}
+                            {(selectedSessionForModal as any).roomName}{(selectedSessionForModal as any).roomNumber && ` (${(selectedSessionForModal as any).roomNumber})`}
                           </p>
                         </div>
                       )}
@@ -2144,7 +2149,15 @@ export default function ClientDetailPage() {
                     </div>
 
                     <div className="pt-4 border-t">
-                      <div className={`grid gap-2 ${(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                      <div className={`grid gap-2 ${(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                        <Button 
+                          variant="outline"
+                          onClick={() => window.location.href = `/clients/${selectedSessionForModal.clientId}`}
+                          className="text-sm px-3 py-2 h-9"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Client Profile
+                        </Button>
                         <Button 
                           variant="outline"
                           onClick={() => {
@@ -2154,7 +2167,7 @@ export default function ClientDetailPage() {
                           className="text-sm px-3 py-2 h-9"
                         >
                           <Edit className="w-4 h-4 mr-2" />
-                          Edit in Calendar
+                          Edit This Session
                         </Button>
                         {(selectedSessionForModal as any).zoomEnabled && (selectedSessionForModal as any).zoomJoinUrl && (
                           <Button 
@@ -2168,6 +2181,17 @@ export default function ClientDetailPage() {
                             <ExternalLink className="w-3 h-3 ml-1" />
                           </Button>
                         )}
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            setIsEditSessionModalOpen(false);
+                            window.location.href = `/scheduling?clientId=${selectedSessionForModal.clientId}&clientName=${encodeURIComponent(client?.fullName || '')}&therapistId=${(selectedSessionForModal as any).therapistId || ''}&therapistName=${encodeURIComponent((selectedSessionForModal as any).therapistName || '')}`;
+                          }}
+                          className="text-sm px-3 py-2 h-9"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Schedule Another Session
+                        </Button>
                         <Button 
                           variant="outline" 
                           onClick={() => setIsEditSessionModalOpen(false)}
