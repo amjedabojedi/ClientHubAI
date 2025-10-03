@@ -1121,12 +1121,14 @@ export class DatabaseStorage implements IStorage {
         session: sessions,
         therapist: users,
         client: clients,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     // Apply role-based filtering at database level
@@ -1144,7 +1146,8 @@ export class DatabaseStorage implements IStorage {
       ...r.session, 
       therapist: r.therapist, 
       client: r.client,
-      service: r.service 
+      service: r.service,
+      room: r.room
     }));
   }
 
@@ -1169,12 +1172,14 @@ export class DatabaseStorage implements IStorage {
         session: sessions,
         therapist: users,
         client: clients,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     // Build WHERE conditions array
@@ -1267,7 +1272,8 @@ export class DatabaseStorage implements IStorage {
       ...r.session, 
       therapist: r.therapist, 
       client: r.client,
-      service: r.service 
+      service: r.service,
+      room: r.room
     }));
 
     return {
@@ -1282,11 +1288,13 @@ export class DatabaseStorage implements IStorage {
       .select({
         session: sessions,
         therapist: users,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     const conditions = [eq(sessions.clientId, clientId)];
@@ -1307,7 +1315,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
 
-    return results.map(r => ({ ...r.session, therapist: r.therapist, service: r.service }));
+    return results.map(r => ({ ...r.session, therapist: r.therapist, service: r.service, room: r.room }));
   }
 
   async getClientSessionConflicts(clientId: number, includeHiddenServices = false): Promise<{
@@ -1400,12 +1408,14 @@ export class DatabaseStorage implements IStorage {
         session: sessions,
         therapist: users,
         client: clients,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     // Apply role-based filtering at database level with optimized date filtering
@@ -1445,7 +1455,8 @@ export class DatabaseStorage implements IStorage {
       ...r.session, 
       therapist: r.therapist, 
       client: r.client,
-      service: r.service 
+      service: r.service,
+      room: r.room
     }));
   }
 
@@ -1458,12 +1469,14 @@ export class DatabaseStorage implements IStorage {
         session: sessions,
         therapist: users,
         client: clients,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     // Apply role-based filtering for recent completed sessions
@@ -1501,7 +1514,8 @@ export class DatabaseStorage implements IStorage {
       ...r.session, 
       therapist: r.therapist, 
       client: r.client,
-      service: r.service 
+      service: r.service,
+      room: r.room
     }));
   }
 
@@ -1515,12 +1529,14 @@ export class DatabaseStorage implements IStorage {
         session: sessions,
         therapist: users,
         client: clients,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     // Apply role-based filtering for upcoming sessions
@@ -1559,7 +1575,8 @@ export class DatabaseStorage implements IStorage {
       ...r.session, 
       therapist: r.therapist, 
       client: r.client,
-      service: r.service 
+      service: r.service,
+      room: r.room
     }));
   }
 
@@ -1572,12 +1589,14 @@ export class DatabaseStorage implements IStorage {
         session: sessions,
         therapist: users,
         client: clients,
-        service: services
+        service: services,
+        room: rooms
       })
       .from(sessions)
       .innerJoin(users, eq(sessions.therapistId, users.id))
       .innerJoin(clients, eq(sessions.clientId, clients.id))
       .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .$dynamic();
 
     // Apply role-based filtering at database level
@@ -1621,6 +1640,7 @@ export class DatabaseStorage implements IStorage {
         therapist: r.therapist, 
         client: r.client,
         service: r.service,
+        room: r.room,
         daysOverdue
       };
     });
