@@ -932,10 +932,8 @@ export default function SchedulingPage() {
               <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
-                  // Reset state when modal is closed (but not when opening for edit)
-                  if (!editingSessionId) {
-                    form.reset();
-                  }
+                  // Reset form when modal is closed
+                  form.reset();
                   setIsSchedulingFromExistingSession(false);
                   setEditingSessionId(null);
                   setProvisionalDuration(60); // Reset to default
@@ -2263,31 +2261,25 @@ export default function SchedulingPage() {
                     <Button 
                       variant="outline"
                       onClick={() => {
-                        // Load session data into form (EXACT SAME CODE AS CLIENT DETAIL PAGE)
-                        console.log('[CALENDAR EDIT] Selected session:', selectedSession);
-                        console.log('[CALENDAR EDIT] Room ID:', selectedSession.roomId);
-                        console.log('[CALENDAR EDIT] Session Date:', selectedSession.sessionDate);
-                        
-                        form.setValue('clientId', selectedSession.clientId);
-                        form.setValue('therapistId', selectedSession.therapistId);
-                        form.setValue('serviceId', selectedSession.serviceId);
-                        form.setValue('roomId', selectedSession.roomId);
-                        form.setValue('sessionType', selectedSession.sessionType as any);
-                        
+                        // Load session data into form - use reset() to update defaultValues
                         const sessionDate = new Date(selectedSession.sessionDate);
                         const dateOnly = selectedSession.sessionDate.split('T')[0];
-                        form.setValue('sessionDate', dateOnly);
-                        
                         const hours = sessionDate.getHours().toString().padStart(2, '0');
                         const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
                         const timeString = `${hours}:${minutes}`;
-                        console.log('[CALENDAR EDIT] Setting time to:', timeString);
-                        form.setValue('sessionTime', timeString);
                         
-                        form.setValue('notes', selectedSession.notes || '');
-                        form.setValue('zoomEnabled', (selectedSession as any).zoomEnabled || false);
-                        
-                        console.log('[CALENDAR EDIT] Form values after setting:', form.getValues());
+                        // Use reset() instead of setValue() to update all values including defaults
+                        form.reset({
+                          clientId: selectedSession.clientId,
+                          therapistId: selectedSession.therapistId,
+                          serviceId: selectedSession.serviceId,
+                          roomId: selectedSession.roomId,
+                          sessionType: selectedSession.sessionType as any,
+                          sessionDate: dateOnly,
+                          sessionTime: timeString,
+                          notes: selectedSession.notes || '',
+                          zoomEnabled: (selectedSession as any).zoomEnabled || false,
+                        });
                         
                         setEditingSessionId(selectedSession.id);
                         setIsSchedulingFromExistingSession(true);
