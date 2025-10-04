@@ -1048,7 +1048,7 @@ export default function SchedulingPage() {
                             <FormItem>
                               <FormLabel>Time</FormLabel>
                               <div className="space-y-2">
-                                <Select onValueChange={field.onChange}>
+                                <Select value={field.value} onValueChange={field.onChange}>
                                   <FormControl>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select time" />
@@ -1344,7 +1344,7 @@ export default function SchedulingPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Room</FormLabel>
-                            <Select onValueChange={(value) => field.onChange(parseInt(value))}>
+                            <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseInt(value))}>
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select room" />
