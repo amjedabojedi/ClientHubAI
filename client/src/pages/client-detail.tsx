@@ -2253,23 +2253,25 @@ export default function ClientDetailPage() {
                         <Button 
                           variant="outline"
                           onClick={() => {
-                            // Load session data into form
-                            sessionForm.setValue('clientId', selectedSessionForModal.clientId);
-                            sessionForm.setValue('therapistId', (selectedSessionForModal as any).therapistId);
-                            sessionForm.setValue('serviceId', selectedSessionForModal.serviceId);
-                            sessionForm.setValue('roomId', selectedSessionForModal.roomId);
-                            sessionForm.setValue('sessionType', selectedSessionForModal.sessionType as any);
-                            
+                            // Load session data into form - use reset() to properly update Select components
                             const sessionDate = new Date(selectedSessionForModal.sessionDate);
                             const dateOnly = selectedSessionForModal.sessionDate.split('T')[0];
-                            sessionForm.setValue('sessionDate', dateOnly);
-                            
                             const hours = sessionDate.getHours().toString().padStart(2, '0');
                             const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                            sessionForm.setValue('sessionTime', `${hours}:${minutes}`);
+                            const timeString = `${hours}:${minutes}`;
                             
-                            sessionForm.setValue('notes', selectedSessionForModal.notes || '');
-                            sessionForm.setValue('zoomEnabled', (selectedSessionForModal as any).zoomEnabled || false);
+                            // Use reset() instead of individual setValue() calls
+                            sessionForm.reset({
+                              clientId: selectedSessionForModal.clientId,
+                              therapistId: (selectedSessionForModal as any).therapistId,
+                              serviceId: selectedSessionForModal.serviceId,
+                              roomId: selectedSessionForModal.roomId,
+                              sessionType: selectedSessionForModal.sessionType as any,
+                              sessionDate: dateOnly,
+                              sessionTime: timeString,
+                              notes: selectedSessionForModal.notes || '',
+                              zoomEnabled: (selectedSessionForModal as any).zoomEnabled || false,
+                            });
                             
                             setEditingSessionId(selectedSessionForModal.id);
                             setIsEditSessionModalOpen(false);
