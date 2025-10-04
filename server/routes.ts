@@ -1504,7 +1504,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let zoomWarning = null;
       if (sessionData.zoomEnabled) {
         try {
-          console.log('DEBUG: Creating Zoom meeting for session', session.id);
           
           // Get client and therapist for Zoom meeting
           const client = await storage.getClient(session.clientId);
@@ -1552,7 +1551,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           zoomMeetingData = zoomService.formatMeetingInfo(zoomMeeting);
-          console.log('DEBUG: Zoom meeting created successfully:', zoomMeetingData);
         } catch (zoomError) {
           console.error('Zoom meeting creation failed:', zoomError);
           zoomWarning = zoomError instanceof Error ? zoomError.message : 'Failed to create Zoom meeting';
@@ -1569,13 +1567,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trigger session scheduled notification
       try {
-        console.log('DEBUG: Starting notification process for session', session.id);
-        
         // Get client and therapist names for notification template
         const client = await storage.getClient(session.clientId);
         const therapist = await storage.getUser(session.therapistId);
-        
-        console.log('DEBUG: Client:', client?.fullName, 'Therapist:', therapist?.fullName);
         
         const notificationData = {
           id: session.id,
@@ -1593,10 +1587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           zoomMeetingData: zoomMeetingData
         };
         
-        console.log('DEBUG: Notification data:', notificationData);
-        
         await notificationService.processEvent('session_scheduled', notificationData);
-        console.log('DEBUG: Notification processEvent completed successfully');
       } catch (notificationError) {
         console.error('Session scheduled notification failed:', notificationError);
       }
@@ -1807,7 +1798,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let zoomWarning = null;
       if (sessionData.zoomEnabled && !session.zoomMeetingId) {
         try {
-          console.log('DEBUG: Creating Zoom meeting for updated session', session.id);
           
           // Get client and therapist for Zoom meeting
           const client = await storage.getClient(session.clientId);
@@ -1853,8 +1843,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             zoomJoinUrl: zoomMeeting.join_url,
             zoomPassword: zoomMeeting.password || '',
           });
-          
-          console.log('DEBUG: Zoom meeting created for updated session:', zoomMeeting.id);
         } catch (zoomError) {
           console.error('Zoom meeting creation failed for updated session:', zoomError);
           zoomWarning = zoomError instanceof Error ? zoomError.message : 'Failed to create Zoom meeting';

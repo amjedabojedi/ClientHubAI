@@ -207,7 +207,7 @@ export class NotificationService {
 
       return true;
     } catch (error) {
-      console.error(`DEBUG: Trigger ${trigger.id} condition evaluation error:`, error);
+      console.error(`Trigger ${trigger.id} condition evaluation error:`, error);
       return false;
     }
   }
@@ -380,7 +380,6 @@ export class NotificationService {
         template = templateResult[0] || null;
       }
 
-      // DEBUG: Log all recipients
       console.log(`[NOTIFICATION] Total recipients: ${recipients.length}`);
       recipients.forEach(r => console.log(`[NOTIFICATION] Recipient: id=${r.id}, role=${r.role}, email=${r.email}`));
 
