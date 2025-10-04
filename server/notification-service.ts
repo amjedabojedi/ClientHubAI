@@ -380,32 +380,41 @@ export class NotificationService {
         template = templateResult[0] || null;
       }
 
-      // Create notifications for each recipient
-      const notificationsData: InsertNotification[] = recipients.map(recipient => {
-        const title = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-        const message = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
-        const actionUrl = template?.actionUrlTemplate ? this.renderTemplate(template.actionUrlTemplate, entityData) : null;
+      // Separate recipients into actual users (in users table) and clients (fake user objects)
+      // Clients have isActive=undefined because they're converted from client records
+      const actualUsers = recipients.filter(r => r.isActive !== undefined);
+      const allRecipients = recipients; // Keep all for email sending
 
-        return {
-          userId: recipient.id,
-          type: trigger.eventType,
-          title,
-          message,
-          data: JSON.stringify(entityData),
-          priority: trigger.priority,
-          actionUrl,
-          actionLabel: template?.actionLabel || null,
-          groupingKey: `${trigger.eventType}_${entityData.id}`,
-          relatedEntityType: trigger.entityType,
-          relatedEntityId: entityData.id
-        };
-      });
+      // Create in-app notifications ONLY for actual users (not clients)
+      // Clients don't have user accounts, so they can't see in-app notifications
+      if (actualUsers.length > 0) {
+        const notificationsData: InsertNotification[] = actualUsers.map(recipient => {
+          const title = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
+          const message = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
+          const actionUrl = template?.actionUrlTemplate ? this.renderTemplate(template.actionUrlTemplate, entityData) : null;
 
-      // Batch create notifications
-      await this.createNotificationsBatch(notificationsData);
+          return {
+            userId: recipient.id,
+            type: trigger.eventType,
+            title,
+            message,
+            data: JSON.stringify(entityData),
+            priority: trigger.priority,
+            actionUrl,
+            actionLabel: template?.actionLabel || null,
+            groupingKey: `${trigger.eventType}_${entityData.id}`,
+            relatedEntityType: trigger.entityType,
+            relatedEntityId: entityData.id
+          };
+        });
+
+        // Batch create notifications for actual users only
+        await this.createNotificationsBatch(notificationsData);
+      }
       
-      // Send emails for recipients who have email notifications enabled
-      await this.sendEmailNotifications(recipients, trigger, template, entityData);
+      // Send emails to ALL recipients (users and clients)
+      // Emails work for everyone with an email address
+      await this.sendEmailNotifications(allRecipients, trigger, template, entityData);
       
     } catch (error) {
       console.error(`Error creating notifications from trigger:`, error);
