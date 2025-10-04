@@ -1,0 +1,47 @@
+Link is not defined
+at https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/billing-dashboard.tsx?t=1759618308154:1372:19
+at Array.map (<anonymous>)
+at BillingDashboard (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/billing-dashboard.tsx?t=1759618308154:1364:189)
+at renderWithHooks (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:11548:26)
+at updateFunctionComponent (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:14582:28)
+at beginWork (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:15924:22)
+at HTMLUnknownElement.callCallback2 (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3674:22)
+at Object.invokeGuardedCallbackDev (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3699:24)
+at invokeGuardedCallback (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3733:39)
+at beginWork$1 (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:19765:15)
+Global error: 
+ReferenceError {_suppressLogging: true}
+
+at t.value (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Link is not defined
+at https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/billing-dashboard.tsx?t=1759618308154:1372:19
+at Array.map (<anonymous>)
+at BillingDashboard (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/billing-dashboard.tsx?t=1759618308154:1364:189)
+at renderWithHooks (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:11548:26)
+at updateFunctionComponent (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:14582:28)
+at beginWork (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:15924:22)
+at HTMLUnknownElement.callCallback2 (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3674:22)
+at Object.invokeGuardedCallbackDev (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3699:24)
+at invokeGuardedCallback (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3733:39)
+at beginWork$1 (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:19765:15)
+Global error: 
+ReferenceError {_suppressLogging: true}
+_suppressLogging: true
+message: "Link is not defined"
+stack: "ReferenceError: Link is not defined↵ at https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/billing-dashboard.tsx?t=1759618308154:1372:19↵ at Array.map (<anonymous>)↵ at BillingDashboard (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/src/pages/billing-dashboard.tsx?t=1759618308154:1364:189)↵ at renderWithHooks (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:11548:26)↵ at updateFunctionComponent (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:14582:28)↵ at beginWork (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:15924:22)↵ at HTMLUnknownElement.callCallback2 (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3674:22)↵ at Object.invokeGuardedCallbackDev (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3699:24)↵ at invokeGuardedCallback (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:3733:39)↵ at beginWork$1 (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-RPCDYKBN.js?v=92f8ec5e:19765:15)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: Object
+
+React Error Boundary caught an error: 
+ReferenceError {_suppressLogging: true}
+ 
+Object {componentStack: "↵    at BillingDashboard…"}
+
+at t.value (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://aa321235-bf82-4dc2-9a2e-070c8f29ade1-00-2zn2i027tt5xx.picard.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
