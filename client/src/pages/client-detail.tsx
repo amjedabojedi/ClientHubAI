@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { format } from "date-fns";
@@ -3465,19 +3465,32 @@ export default function ClientDetailPage() {
                 <FormField
                   control={sessionForm.control}
                   name="sessionDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                          data-testid="input-session-date"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const todayDate = new Date();
+                    const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+                    const currentValue = field.value;
+                    const isPastDate = currentValue && currentValue < today;
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel>Date *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="date"
+                            className={isPastDate ? "border-orange-300 bg-orange-50" : ""}
+                            data-testid="input-session-date"
+                          />
+                        </FormControl>
+                        {isPastDate && (
+                          <p className="text-orange-600 text-xs mt-1">
+                            📅 This session is scheduled in the past
+                          </p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {/* Time Field with Duration Presets */}
@@ -3488,7 +3501,7 @@ export default function ClientDetailPage() {
                     <FormItem>
                       <FormLabel>Time *</FormLabel>
                       <div className="space-y-2">
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select value={field.value} onValueChange={field.onChange}>
                           <FormControl>
                             <SelectTrigger data-testid="input-session-time">
                               <SelectValue placeholder="Select time" />
@@ -3521,6 +3534,7 @@ export default function ClientDetailPage() {
                             ))}
                           </div>
                         </div>
+
                       </div>
                       <FormMessage />
                     </FormItem>
