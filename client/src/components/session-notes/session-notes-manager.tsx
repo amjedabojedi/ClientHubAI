@@ -547,10 +547,16 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Handle form submission
   const onSubmit = (data: SessionNoteFormData) => {
+    // Ensure date is set (required by schema)
+    const submissionData = {
+      ...data,
+      date: data.date || new Date(),
+    };
+    
     if (editingNote) {
-      updateSessionNoteMutation.mutate({ id: editingNote.id, data });
+      updateSessionNoteMutation.mutate({ id: editingNote.id, data: submissionData });
     } else {
-      createSessionNoteMutation.mutate(data);
+      createSessionNoteMutation.mutate(submissionData);
     }
   };
 
@@ -907,34 +913,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {note.recommendations}
                     </p>
-                  </div>
-                )}
-
-                {/* Additional Clinical Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {note.assessments && (
-                    <div>
-                      <h4 className="font-medium mb-1">Clinical Assessments</h4>
-                      <p className="text-sm text-muted-foreground">{note.assessments}</p>
-                    </div>
-                  )}
-                  {note.homework && (
-                    <div>
-                      <h4 className="font-medium mb-1">Homework/Action Items</h4>
-                      <p className="text-sm text-muted-foreground">{note.homework}</p>
-                    </div>
-                  )}
-                </div>
-
-
-
-                {/* Follow-up indicator */}
-                {note.followUpNeeded && (
-                  <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <Target className="h-4 w-4 text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-700 dark:text-yellow-400">
-                      Follow-up needed
-                    </span>
                   </div>
                 )}
               </CardContent>
