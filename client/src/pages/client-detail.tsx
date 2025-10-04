@@ -2078,13 +2078,13 @@ export default function ClientDetailPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid gap-2" style={{ gridTemplateColumns: 'minmax(110px, auto) minmax(90px, 1fr) minmax(110px, 1fr) minmax(120px, auto)' }}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className={`px-3 py-1 text-sm font-medium hover:opacity-80 w-full ${
+                                  className={`px-3 py-1 text-sm font-medium hover:opacity-80 ${
                                     session.status === 'completed' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
                                     session.status === 'scheduled' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
                                     session.status === 'cancelled' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
@@ -2143,7 +2143,6 @@ export default function ClientDetailPage() {
                                 setIsEditSessionModalOpen(true);
                               }}
                               data-testid={`button-edit-session-${session.id}`}
-                              className="w-full"
                             >
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
@@ -2155,7 +2154,6 @@ export default function ClientDetailPage() {
                                 setPreSelectedSessionId(session.id);
                                 setActiveTab('session-notes');
                               }}
-                              className="w-full"
                             >
                               <FileText className="w-4 h-4 mr-1" />
                               Add Notes
@@ -2164,7 +2162,7 @@ export default function ClientDetailPage() {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 w-full"
+                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
                                 onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}
                                 data-testid={`button-zoom-join-${session.id}`}
                               >
@@ -2173,7 +2171,7 @@ export default function ClientDetailPage() {
                                 <ExternalLink className="w-3 h-3 ml-1" />
                               </Button>
                             ) : (
-                              <div></div>
+                              <div className="min-w-[120px]"></div>
                             )}
                           </div>
                         </div>
