@@ -1424,6 +1424,8 @@ export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  date: z.string().transform((val) => new Date(val)),
 });
 
 export const insertLibraryCategorySchema = createInsertSchema(libraryCategories).omit({
