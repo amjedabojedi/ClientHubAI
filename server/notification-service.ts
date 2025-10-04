@@ -381,8 +381,8 @@ export class NotificationService {
       }
 
       // Separate recipients into actual users (in users table) and clients (fake user objects)
-      // Clients have isActive=undefined because they're converted from client records
-      const actualUsers = recipients.filter(r => r.isActive !== undefined);
+      // Clients are marked with role='client' when converted from client records
+      const actualUsers = recipients.filter(r => r.role !== 'client');
       const allRecipients = recipients; // Keep all for email sending
 
       // Create in-app notifications ONLY for actual users (not clients)
