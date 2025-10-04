@@ -1148,8 +1148,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return false;
         }
         
-        // Check time overlap
-        return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, 60);
+        // Check time overlap using actual service duration
+        const existingDuration = (session.service as any)?.duration || 60;
+        return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, existingDuration);
       });
 
       // Check for room conflicts (if roomId provided)
@@ -1173,8 +1174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return false;
           }
           
-          // Check time overlap
-          return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, 60);
+          // Check time overlap using actual service duration
+          const existingDuration = (session.service as any)?.duration || 60;
+          return checkTimeConflict(newSessionDate, sessionDuration, sessionDate, existingDuration);
         });
       }
 
@@ -1189,7 +1191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const hour of workingHours) {
           const suggestedDateTime = new Date(`${dateStr}T${hour.toString().padStart(2, '0')}:00:00`);
           
-          // Check both therapist and room availability for suggestions
+          // Check both therapist and room availability for suggestions using actual durations
           const hasTherapistConflict = allSessions.some(session => {
             if (session.therapistId !== parseInt(therapistId as string)) return false;
             if (excludeSessionId && session.id === parseInt(excludeSessionId as string)) return false;
@@ -1197,7 +1199,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const sessionDate = new Date(session.sessionDate);
             if (sessionDate.toDateString() !== suggestedDateTime.toDateString()) return false;
             
-            return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, 60);
+            const existingDuration = (session.service as any)?.duration || 60;
+            return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, existingDuration);
           });
 
           const hasRoomConflict = roomId ? allSessions.some(session => {
@@ -1207,7 +1210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const sessionDate = new Date(session.sessionDate);
             if (sessionDate.toDateString() !== suggestedDateTime.toDateString()) return false;
             
-            return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, 60);
+            const existingDuration = (session.service as any)?.duration || 60;
+            return checkTimeConflict(suggestedDateTime, sessionDuration, sessionDate, existingDuration);
           }) : false;
           
           if (!hasTherapistConflict && !hasRoomConflict) {

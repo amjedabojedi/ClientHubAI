@@ -64,19 +64,25 @@ export function useRealTimeConflictCheck(
   sessionDate: string | undefined,
   sessionTime: string | undefined,
   excludeSessionId?: number,
-  roomId?: number
+  roomId?: number,
+  duration?: number
 ) {
   const sessionDateTime = sessionDate && sessionTime 
     ? `${sessionDate}T${sessionTime}:00`
     : undefined;
 
+  // Only enable conflict check when service + day + room are all selected
+  // This ensures time suggestions are only shown when meaningful
+  const isEnabled = therapistId && sessionDateTime && roomId && duration;
+
   return useConflictDetection(
-    therapistId && sessionDateTime 
+    isEnabled
       ? { 
           therapistId, 
           sessionDate: sessionDateTime, 
           excludeSessionId,
-          roomId
+          roomId,
+          duration
         }
       : null
   );

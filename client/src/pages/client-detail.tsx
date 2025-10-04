@@ -713,15 +713,7 @@ export default function ClientDetailPage() {
   const watchedTime = sessionForm.watch('sessionTime');
   const watchedTherapistId = sessionForm.watch('therapistId');
   const watchedRoomId = sessionForm.watch('roomId');
-
-  // Real-time conflict detection
-  const { data: conflictData, isLoading: isCheckingConflicts } = useRealTimeConflictCheck(
-    watchedTherapistId,
-    watchedDate,
-    watchedTime,
-    editingSessionId || undefined,
-    watchedRoomId
-  );
+  const watchedServiceId = sessionForm.watch('serviceId');
 
   // React to URL parameter changes for dynamic navigation
   useEffect(() => {
@@ -1326,6 +1318,20 @@ export default function ClientDetailPage() {
     queryKey: ["/api/rooms"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
+
+  // Get service duration for conflict detection
+  const selectedService = services.find(s => s.id === watchedServiceId);
+  const serviceDuration = selectedService?.duration;
+
+  // Real-time conflict detection - only enabled when service + day + room selected
+  const { data: conflictData, isLoading: isCheckingConflicts } = useRealTimeConflictCheck(
+    watchedTherapistId,
+    watchedDate,
+    watchedTime,
+    editingSessionId || undefined,
+    watchedRoomId,
+    serviceDuration
+  );
 
   // Session update mutation
   const updateFullSessionMutation = useMutation({

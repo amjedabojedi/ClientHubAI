@@ -405,6 +405,11 @@ export default function SchedulingPage() {
   const watchedTime = form.watch('sessionTime');
   const watchedTherapistId = form.watch('therapistId');
   const watchedRoomId = form.watch('roomId');
+  const watchedServiceId = form.watch('serviceId');
+  
+  // Get service duration for conflict detection
+  const selectedService = services.find(s => s.id === watchedServiceId);
+  const serviceDuration = selectedService?.duration;
   
   React.useEffect(() => {
     if (watchedDate && watchedTime) {
@@ -412,13 +417,14 @@ export default function SchedulingPage() {
     }
   }, [watchedDate, watchedTime]);
 
-  // Real-time conflict detection
+  // Real-time conflict detection - only enabled when service + day + room selected
   const { data: conflictData, isLoading: isCheckingConflicts } = useRealTimeConflictCheck(
     watchedTherapistId,
     watchedDate,
     watchedTime,
     editingSessionId || undefined,
-    watchedRoomId
+    watchedRoomId,
+    serviceDuration
   );
 
   const createSessionMutation = useMutation({
