@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -760,7 +761,12 @@ export default function BillingDashboard() {
                     <TableRow key={billing.id}>
                       <TableCell className="font-medium">
                         <div>
-                          <div>{client.fullName || 'Unknown Client'}</div>
+                          <Link 
+                            href={`/clients/${client.id}`}
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {client.fullName || 'Unknown Client'}
+                          </Link>
                           <div className="text-xs text-muted-foreground">{client.referenceNumber}</div>
                         </div>
                       </TableCell>
