@@ -1140,12 +1140,11 @@ export default function SchedulingPage() {
                               </div>
 
                               {/* Time Suggestions - Service + Day + Room workflow */}
-                              {React.useMemo(() => {
+                              {(() => {
                                 const selectedDate = form.watch('sessionDate');
                                 const selectedTherapist = form.watch('therapistId');
                                 const selectedService = form.watch('serviceId');
                                 const selectedRoom = form.watch('roomId');
-                                
                                 
                                 // Service + Day + Room workflow
                                 if (!selectedService) {
@@ -1207,51 +1206,43 @@ export default function SchedulingPage() {
                                   );
                                 }
                                 
+                                const roomName = rooms?.find(r => r.id === selectedRoom)?.roomName || 'Selected Room';
+                                const freeSlots = availableSlots.filter(slot => slot.isAvailable);
+                                
                                 return (
                                   <div className="space-y-1">
-                                    {(() => {
-                                      const roomName = rooms?.find(r => r.id === selectedRoom)?.roomName || 'Selected Room';
-                                      const freeSlots = availableSlots.filter(slot => slot.isAvailable);
-                                      
-                                      return (
-                                        <div>
-                                          <span className="text-xs text-slate-600">
-                                            Available times for {roomName}:
-                                          </span>
-                                          <div className="flex flex-wrap gap-1 mt-1">
-                                            {freeSlots.map((slot) => (
-                                              <Button
-                                                key={slot.time}
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
-                                                onClick={() => {
-                                                  form.setValue('sessionTime', slot.time);
-                                                }}
-                                              >
-                                                {formatTime(slot.time)} ✓
-                                              </Button>
-                                            ))}
-                                          </div>
-                                          {freeSlots.length === 0 && (
-                                            <p className="text-xs text-orange-600 mt-1">
-                                              {roomName} is not available for your therapist on this date
-                                            </p>
-                                          )}
-                                          
-                                          {/* Room-specific confirmation message */}
-                                          {freeSlots.length > 0 && (
-                                            <div className="text-xs text-green-600 bg-green-50 p-2 rounded mt-2">
-                                              🏠 {freeSlots.length} time slot{freeSlots.length > 1 ? 's' : ''} available for {roomName}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })()}
+                                    <span className="text-xs text-slate-600">
+                                      Available times for {roomName}:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {freeSlots.map((slot) => (
+                                        <Button
+                                          key={slot.time}
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                                          onClick={() => {
+                                            form.setValue('sessionTime', slot.time);
+                                          }}
+                                        >
+                                          {formatTime(slot.time)} ✓
+                                        </Button>
+                                      ))}
+                                    </div>
+                                    {freeSlots.length === 0 && (
+                                      <p className="text-xs text-orange-600 mt-1">
+                                        {roomName} is not available for your therapist on this date
+                                      </p>
+                                    )}
+                                    {freeSlots.length > 0 && (
+                                      <div className="text-xs text-green-600 bg-green-50 p-2 rounded mt-2">
+                                        🏠 {freeSlots.length} time slot{freeSlots.length > 1 ? 's' : ''} available for {roomName}
+                                      </div>
+                                    )}
                                   </div>
                                 );
-                              }, [form.watch('roomId'), form.watch('therapistId'), form.watch('serviceId'), form.watch('sessionDate'), provisionalDuration, rooms, sessions, allAvailableSessions])}
+                              })()}
                             </div>
                             <FormMessage />
                           </FormItem>
