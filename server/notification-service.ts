@@ -380,10 +380,17 @@ export class NotificationService {
         template = templateResult[0] || null;
       }
 
+      // DEBUG: Log all recipients
+      console.log(`[NOTIFICATION] Total recipients: ${recipients.length}`);
+      recipients.forEach(r => console.log(`[NOTIFICATION] Recipient: id=${r.id}, role=${r.role}, email=${r.email}`));
+
       // Separate recipients into actual users (in users table) and clients (fake user objects)
       // Clients are marked with role='client' when converted from client records
       const actualUsers = recipients.filter(r => r.role !== 'client');
       const allRecipients = recipients; // Keep all for email sending
+
+      console.log(`[NOTIFICATION] Filtered to ${actualUsers.length} actual users for in-app notifications`);
+      actualUsers.forEach(u => console.log(`[NOTIFICATION] ActualUser: id=${u.id}, role=${u.role}`));
 
       // Create in-app notifications ONLY for actual users (not clients)
       // Clients don't have user accounts, so they can't see in-app notifications
@@ -412,9 +419,13 @@ export class NotificationService {
         await this.createNotificationsBatch(notificationsData);
       }
       
+      console.log(`[NOTIFICATION] About to send emails to ${allRecipients.length} recipients`);
+      
       // Send emails to ALL recipients (users and clients)
       // Emails work for everyone with an email address
       await this.sendEmailNotifications(allRecipients, trigger, template, entityData);
+      
+      console.log('[NOTIFICATION] Email sending completed successfully');
       
     } catch (error) {
       console.error(`Error creating notifications from trigger:`, error);
@@ -431,17 +442,22 @@ export class NotificationService {
     template: NotificationTemplate | null, 
     entityData: any
   ): Promise<void> {
+    console.log(`[NOTIFICATION] sendEmailNotifications called with ${recipients.length} recipients`);
+    
     // Check if SparkPost is configured
     if (!process.env.SPARKPOST_API_KEY) {
       console.log('[NOTIFICATION] SparkPost not configured - skipping email notifications');
       return;
     }
 
+    console.log('[NOTIFICATION] SparkPost configured, proceeding with email sending');
+
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = 'noreply@send.rcrc.ca';
 
       for (const recipient of recipients) {
+        console.log(`[NOTIFICATION] Processing email for recipient: id=${recipient.id}, email=${recipient.email}, role=${recipient.role}`);
         try {
           // Check if user has email notifications enabled for this trigger type
           const preferences = await db
