@@ -3721,7 +3721,9 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(401).json({ message: "Authentication required" });
       }
       
+      console.log('[SESSION NOTE API] Received data:', JSON.stringify(req.body, null, 2));
       const validatedData = insertSessionNoteSchema.parse(req.body);
+      console.log('[SESSION NOTE API] Validation successful');
       
       // Check if user can access the session for this note (service visibility check)
       const includeHiddenServices = req.user.role === 'admin';
@@ -3772,8 +3774,10 @@ This happens because only the file metadata was stored, not the actual file cont
       res.status(201).json(sessionNote);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[SESSION NOTE API] Validation failed:', JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid session note data", errors: error.errors });
       }
+      console.error('[SESSION NOTE API] Error:', error);
       // Error logged
       res.status(500).json({ message: "Internal server error" });
     }
