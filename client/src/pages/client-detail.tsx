@@ -2052,30 +2052,32 @@ export default function ClientDetailPage() {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-sm text-slate-600">
-                                {session.sessionDate ? (() => {
-                                  const sessionDateObj = new Date(session.sessionDate);
-                                  return formatInTimeZone(sessionDateObj, 'America/New_York', 'MMM d, yyyy \'at\' h:mm a');
-                                })() : 'Date TBD'}
-                                <span className="text-slate-400 ml-1">EST</span>
-                                {/* Display room information if available */}
-                                {(session as any).room?.roomName && (
-                                  <span className="text-slate-600 ml-2">
-                                    • <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
-                                  </span>
-                                )}
-                                {/* Display service code if available */}
-                                {(session as any).service?.serviceCode && (
-                                  <span className="text-slate-500 ml-2">
-                                    • <span className="font-mono">{(session as any).service.serviceCode}</span>
-                                  </span>
-                                )}
+                              <div className="text-sm">
+                                <p className="text-slate-600">
+                                  {session.sessionDate ? (() => {
+                                    const sessionDateObj = new Date(session.sessionDate);
+                                    return formatInTimeZone(sessionDateObj, 'America/New_York', 'MMM d, yyyy \'at\' h:mm a');
+                                  })() : 'Date TBD'}
+                                  <span className="text-slate-400 ml-1">EST</span>
+                                  {/* Display room information if available */}
+                                  {(session as any).room?.roomName && (
+                                    <span className="text-slate-600 ml-2">
+                                      • <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
+                                    </span>
+                                  )}
+                                  {/* Display service code if available */}
+                                  {(session as any).service?.serviceCode && (
+                                    <span className="text-slate-500 ml-2">
+                                      • <span className="font-mono">{(session as any).service.serviceCode}</span>
+                                    </span>
+                                  )}
+                                </p>
                                 {hasConflicts && conflictInfo && (
-                                  <span className="text-orange-600 ml-2">
+                                  <p className="text-orange-600 mt-1">
                                     • {conflictInfo.sessions.length} sessions on same day
-                                  </span>
+                                  </p>
                                 )}
-                              </p>
+                              </div>
                             </div>
                           </div>
                           <div className="grid gap-2" style={{ gridTemplateColumns: 'minmax(110px, auto) minmax(90px, 1fr) minmax(110px, 1fr) minmax(120px, auto)' }}>
