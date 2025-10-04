@@ -39,7 +39,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 ### Key Features
 - **Client Management**: Comprehensive profiles, status tracking, search/filtering, bulk operations, direct scheduling.
 - **Scheduling & Calendar**: Multi-view calendar (monthly, day/week), session management, role-based access, visual indicators. In-place session editing from client profiles for client-centric workflow (with optional calendar view for full context).
-- **Session Notes**: Comprehensive session note management with mood tracking, goals, interventions, assessments, and AI-assisted generation from templates.
+- **Session Notes**: Comprehensive session note management with mood tracking, goals, interventions, clinical documentation fields, rich text editing capability (react-quill), and AI-assisted generation from templates. Full create/edit/delete functionality with authenticated user tracking.
 - **System Options Management**: Dynamic, database-driven configuration for all dropdown options.
 - **Bulk Data Operations**: Bulk client and session upload via Excel with field mapping, robust validation, and error reporting.
 - **Task Management**: Comprehensive task creation, assignment, tracking, filtering, and commenting system.
@@ -61,6 +61,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **react-hook-form**: Form handling and validation.
 - **zod**: Runtime type validation.
 - **tailwindcss**: Utility-first CSS framework.
+- **react-quill**: Rich text editor for formatted note content.
 
 ### UI & Utilities
 - **@radix-ui/***: Headless UI components.

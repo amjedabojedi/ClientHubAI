@@ -213,7 +213,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Create session note mutation
   const createSessionNoteMutation = useMutation({
     mutationFn: async (data: SessionNoteFormData) => {
+      console.log('[SESSION NOTE] Creating with data:', JSON.stringify(data, null, 2));
       const response = await apiRequest('/api/session-notes', 'POST', data);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[SESSION NOTE] Creation failed:', errorData);
+        throw new Error(JSON.stringify(errorData));
+      }
       return await response.json();
     },
     onSuccess: () => {
@@ -223,8 +229,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       resetFormForNewNote();
       toast({ title: "Session note created successfully" });
     },
-    onError: () => {
-      toast({ title: "Error creating session note", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('[SESSION NOTE] Mutation error:', error);
+      toast({ title: "Error creating session note", description: error.message, variant: "destructive" });
     },
   });
 
@@ -567,10 +574,11 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Handle form submission
   const onSubmit = (data: SessionNoteFormData) => {
-    // Ensure date is set (required by schema)
+    // Ensure required fields are set
     const submissionData = {
       ...data,
       date: data.date || new Date(),
+      therapistId: user?.id || data.therapistId, // Always use authenticated user ID
     };
     
     if (editingNote) {
@@ -1258,7 +1266,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             <ReactQuill
                               theme="snow"
                               value={field.value || ''}
-                              onChange={field.onChange}
+                              onChange={(content) => {
+                                field.onChange(content);
+                              }}
+                              onBlur={field.onBlur}
                               modules={quillModules}
                               formats={quillFormats}
                               placeholder="Future treatment recommendations..."
