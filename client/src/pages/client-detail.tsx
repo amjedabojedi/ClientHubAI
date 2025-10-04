@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -3617,15 +3618,48 @@ export default function ClientDetailPage() {
                           const selectedService = sessionForm.watch('serviceId');
                           const selectedDate = sessionForm.watch('sessionDate');
 
-                          if (!selectedRoom || !selectedTherapist || !selectedService || !selectedDate) {
-                            return null;
+                          // Room-First workflow: require room selection first
+                          if (!selectedRoom) {
+                            return (
+                              <div className="text-xs text-slate-500 italic">
+                                🏠 Select a room first to see when it's available
+                              </div>
+                            );
+                          }
+                          
+                          if (!selectedTherapist) {
+                            return (
+                              <div className="text-xs text-slate-500 italic">
+                                👩‍⚕️ Select therapist to continue
+                              </div>
+                            );
+                          }
+                          
+                          if (!selectedService) {
+                            return (
+                              <div className="text-xs text-slate-500 italic">
+                                📋 Select service to continue  
+                              </div>
+                            );
+                          }
+                          
+                          if (!selectedDate) {
+                            return (
+                              <div className="text-xs text-slate-500 italic">
+                                📅 Select date to see available times
+                              </div>
+                            );
                           }
 
                           const selectedServiceData = services?.find(s => s.id === selectedService);
                           const serviceDuration = (selectedServiceData as any)?.duration;
 
                           if (!serviceDuration || serviceDuration <= 0) {
-                            return null;
+                            return (
+                              <div className="text-xs text-orange-600">
+                                Service duration not available - please select a different service
+                              </div>
+                            );
                           }
 
                           const roomIdNum = Number(selectedRoom);
@@ -3696,7 +3730,7 @@ export default function ClientDetailPage() {
                       <SelectContent>
                         {rooms.map((room) => (
                           <SelectItem key={room.id} value={room.id.toString()}>
-                            {room.roomName} {room.roomNumber && `(${room.roomNumber})`}
+                            Room {room.roomNumber} - {room.roomName}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3736,11 +3770,11 @@ export default function ClientDetailPage() {
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Notes</FormLabel>
+                    <FormLabel>Notes (optional)</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Session notes..."
-                        {...field}
+                      <Textarea 
+                        {...field} 
+                        placeholder="Session notes or special instructions" 
                         data-testid="input-session-notes"
                       />
                     </FormControl>
@@ -3749,25 +3783,25 @@ export default function ClientDetailPage() {
                 )}
               />
 
-              {/* Zoom Enabled Field */}
+              {/* Zoom Integration Toggle */}
               <FormField
                 control={sessionForm.control}
                 name="zoomEnabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Enable Zoom</FormLabel>
-                      <div className="text-sm text-slate-500">
-                        Create a Zoom meeting link for this session
+                      <FormLabel className="text-base">
+                        Enable Virtual Meeting (Zoom)
+                      </FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Create a Zoom meeting for this session. Meeting details will be emailed to the client.
                       </div>
                     </div>
                     <FormControl>
-                      <input
-                        type="checkbox"
+                      <Switch
                         checked={field.value}
-                        onChange={field.onChange}
-                        className="h-5 w-5"
-                        data-testid="checkbox-zoom-enabled"
+                        onCheckedChange={field.onChange}
+                        data-testid="toggle-zoom"
                       />
                     </FormControl>
                   </FormItem>

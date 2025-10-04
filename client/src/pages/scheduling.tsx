@@ -966,7 +966,7 @@ export default function SchedulingPage() {
                           name="clientId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Client</FormLabel>
+                              <FormLabel>Client *</FormLabel>
                               <FormControl>
                                 <SearchableSelect
                                   value={field.value?.toString() || ""}
@@ -990,7 +990,7 @@ export default function SchedulingPage() {
                           name="therapistId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Therapist</FormLabel>
+                              <FormLabel>Therapist *</FormLabel>
                               <FormControl>
                                 <SearchableSelect
                                   value={field.value?.toString() || ""}
@@ -1016,7 +1016,7 @@ export default function SchedulingPage() {
                         name="serviceId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Service</FormLabel>
+                            <FormLabel>Service *</FormLabel>
                             <FormControl>
                               <SearchableSelect
                                 value={field.value?.toString() || ""}
@@ -1046,7 +1046,7 @@ export default function SchedulingPage() {
                             
                             return (
                               <FormItem>
-                                <FormLabel>Date</FormLabel>
+                                <FormLabel>Date *</FormLabel>
                                 <FormControl>
                                   <Input
                                     {...field}
@@ -1070,7 +1070,7 @@ export default function SchedulingPage() {
                           name="sessionTime"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Time</FormLabel>
+                              <FormLabel>Time *</FormLabel>
                               <div className="space-y-2">
                                 <Select value={field.value} onValueChange={field.onChange}>
                                   <FormControl>
@@ -1232,7 +1232,7 @@ export default function SchedulingPage() {
                         name="roomId"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Room</FormLabel>
+                            <FormLabel>Room *</FormLabel>
                             <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseInt(value))}>
                               <FormControl>
                                 <SelectTrigger>
@@ -1258,7 +1258,7 @@ export default function SchedulingPage() {
                         name="sessionType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Session Type</FormLabel>
+                            <FormLabel>Session Type *</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
                                 <SelectTrigger>
