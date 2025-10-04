@@ -2088,13 +2088,13 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="flex items-center justify-end gap-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className={`px-3 py-1 text-sm font-medium hover:opacity-80 ${
+                                  className={`px-3 py-1 text-sm font-medium hover:opacity-80 min-w-[110px] ${
                                     session.status === 'completed' ? 'bg-green-100 text-green-800 hover:bg-green-200' :
                                     session.status === 'scheduled' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
                                     session.status === 'cancelled' ? 'bg-red-100 text-red-800 hover:bg-red-200' :
@@ -2153,6 +2153,7 @@ export default function ClientDetailPage() {
                                 setIsEditSessionModalOpen(true);
                               }}
                               data-testid={`button-edit-session-${session.id}`}
+                              className="min-w-[90px]"
                             >
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
@@ -2164,15 +2165,16 @@ export default function ClientDetailPage() {
                                 setPreSelectedSessionId(session.id);
                                 setActiveTab('session-notes');
                               }}
+                              className="min-w-[120px]"
                             >
                               <FileText className="w-4 h-4 mr-1" />
                               Add Notes
                             </Button>
-                            {(session as any).zoomEnabled && (session as any).zoomJoinUrl ? (
+                            {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 min-w-[130px]"
                                 onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}
                                 data-testid={`button-zoom-join-${session.id}`}
                               >
@@ -2180,8 +2182,6 @@ export default function ClientDetailPage() {
                                 Join Zoom
                                 <ExternalLink className="w-3 h-3 ml-1" />
                               </Button>
-                            ) : (
-                              <div className="min-w-[120px]"></div>
                             )}
                           </div>
                         </div>
