@@ -1010,6 +1010,30 @@ export default function SchedulingPage() {
                         />
                       </div>
 
+                      {/* Service Field - determines duration */}
+                      <FormField
+                        control={form.control}
+                        name="serviceId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Service</FormLabel>
+                            <FormControl>
+                              <SearchableSelect
+                                value={field.value?.toString() || ""}
+                                onValueChange={(value) => field.onChange(parseInt(value))}
+                                options={services?.map((service) => ({
+                                  value: service.id.toString(),
+                                  label: `${service.serviceName} - $${service.baseRate} (${service.duration}min)`
+                                })) || []}
+                                placeholder="Select service"
+                                searchPlaceholder="Search services..."
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -1290,54 +1314,7 @@ export default function SchedulingPage() {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="sessionType"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Session Type</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="assessment">Assessment</SelectItem>
-                                  <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
-                                  <SelectItem value="consultation">Consultation</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="serviceId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Service</FormLabel>
-                              <FormControl>
-                                <SearchableSelect
-                                  value={field.value?.toString() || ""}
-                                  onValueChange={(value) => field.onChange(parseInt(value))}
-                                  options={services?.map((service) => ({
-                                    value: service.id.toString(),
-                                    label: `${service.serviceName} - $${service.baseRate} (${service.duration}min)`
-                                  })) || []}
-                                  placeholder="Select service"
-                                  searchPlaceholder="Search services..."
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
+                      {/* Room Field */}
                       <FormField
                         control={form.control}
                         name="roomId"
@@ -1356,6 +1333,30 @@ export default function SchedulingPage() {
                                     Room {room.roomNumber} - {room.roomName}
                                   </SelectItem>
                                 ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Session Type Field */}
+                      <FormField
+                        control={form.control}
+                        name="sessionType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Session Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="assessment">Assessment</SelectItem>
+                                <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
+                                <SelectItem value="consultation">Consultation</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
