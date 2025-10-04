@@ -2088,7 +2088,7 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center gap-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -2170,7 +2170,7 @@ export default function ClientDetailPage() {
                               <FileText className="w-4 h-4 mr-1" />
                               Add Notes
                             </Button>
-                            {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
+                            {(session as any).zoomEnabled && (session as any).zoomJoinUrl ? (
                               <Button 
                                 variant="outline" 
                                 size="sm"
@@ -2182,6 +2182,8 @@ export default function ClientDetailPage() {
                                 Join Zoom
                                 <ExternalLink className="w-3 h-3 ml-1" />
                               </Button>
+                            ) : (
+                              <div className="min-w-[130px]" />
                             )}
                           </div>
                         </div>
