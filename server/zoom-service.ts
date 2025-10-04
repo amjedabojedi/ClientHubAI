@@ -39,29 +39,8 @@ export type ZoomMeetingRequest = z.infer<typeof zoomMeetingSchema>;
 export type ZoomMeetingResponse = z.infer<typeof zoomMeetingResponseSchema>;
 
 export class ZoomService {
-  private accountId: string;
-  private clientId: string;
-  private clientSecret: string;
-  private accessToken: string | null = null;
-  private tokenExpiry: number = 0;
-
   constructor() {
-    this.accountId = process.env.ZOOM_ACCOUNT_ID || "";
-    this.clientId = process.env.ZOOM_CLIENT_ID || "";
-    this.clientSecret = process.env.ZOOM_CLIENT_SECRET || "";
-    
-    if (!this.accountId || !this.clientId || !this.clientSecret) {
-      console.warn("[ZOOM] Global Zoom OAuth credentials not configured - Therapists must configure individual accounts");
-    } else {
-      console.log("[ZOOM] Global Zoom OAuth credentials configured (fallback)");
-    }
-  }
-
-  /**
-   * Check if Zoom service is properly configured (global fallback)
-   */
-  isConfigured(): boolean {
-    return !!(this.accountId && this.clientId && this.clientSecret);
+    console.log("[ZOOM] Per-therapist Zoom integration initialized - Each therapist must configure their own Zoom account");
   }
 
   /**
@@ -77,34 +56,26 @@ export class ZoomService {
 
   /**
    * Get access token using Server to Server OAuth
-   * Supports both per-therapist credentials and global fallback
+   * REQUIRES per-therapist credentials - no global fallback
    */
-  private async getAccessToken(therapistCredentials?: {
+  private async getAccessToken(therapistCredentials: {
     accountId: string;
     clientId: string;
     clientSecret: string;
     accessToken?: string | null;
     tokenExpiry?: Date | null;
   }): Promise<string> {
-    // Use therapist credentials if provided, otherwise fall back to global
-    const accountId = therapistCredentials?.accountId || this.accountId;
-    const clientId = therapistCredentials?.clientId || this.clientId;
-    const clientSecret = therapistCredentials?.clientSecret || this.clientSecret;
-
-    // Check cached token (for therapist or global)
-    if (therapistCredentials?.accessToken && therapistCredentials?.tokenExpiry) {
+    // Check if therapist has cached token
+    if (therapistCredentials.accessToken && therapistCredentials.tokenExpiry) {
       const expiry = new Date(therapistCredentials.tokenExpiry).getTime();
       if (Date.now() < expiry) {
         console.log("[ZOOM] Using cached therapist access token");
         return therapistCredentials.accessToken;
       }
-    } else if (!therapistCredentials && this.accessToken && Date.now() < this.tokenExpiry) {
-      console.log("[ZOOM] Using cached global access token");
-      return this.accessToken;
     }
 
     try {
-      const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      const credentials = Buffer.from(`${therapistCredentials.clientId}:${therapistCredentials.clientSecret}`).toString('base64');
       
       const response = await fetch('https://zoom.us/oauth/token', {
         method: 'POST',
@@ -114,7 +85,7 @@ export class ZoomService {
         },
         body: new URLSearchParams({
           grant_type: 'account_credentials',
-          account_id: accountId,
+          account_id: therapistCredentials.accountId,
         }),
       });
 
@@ -135,14 +106,7 @@ export class ZoomService {
         throw new Error('No access token received from Zoom OAuth');
       }
       
-      // Cache token (global or return for therapist to cache)
-      if (!therapistCredentials) {
-        this.accessToken = tokenData.access_token;
-        this.tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;
-        console.log("[ZOOM] Global access token obtained successfully");
-      } else {
-        console.log("[ZOOM] Therapist access token obtained successfully");
-      }
+      console.log("[ZOOM] Therapist access token obtained successfully");
       
       return tokenData.access_token;
     } catch (error) {
@@ -153,8 +117,9 @@ export class ZoomService {
 
   /**
    * Get headers for Zoom API requests
+   * REQUIRES therapist credentials
    */
-  private async getHeaders(therapistCredentials?: {
+  private async getHeaders(therapistCredentials: {
     accountId: string;
     clientId: string;
     clientSecret: string;
@@ -173,27 +138,23 @@ export class ZoomService {
 
   /**
    * Create a Zoom meeting for a therapy session
-   * Uses therapist's own Zoom account if credentials provided
+   * REQUIRES therapist's own Zoom credentials - no global fallback
    */
   async createMeeting(sessionData: {
     clientName: string;
     therapistName: string;
     sessionDate: Date;
     duration?: number;
-  }, therapistCredentials?: {
+  }, therapistCredentials: {
     accountId: string;
     clientId: string;
     clientSecret: string;
     accessToken?: string | null;
     tokenExpiry?: Date | null;
   }): Promise<ZoomMeetingResponse> {
-    // Check if either therapist or global credentials are configured
-    const hasCredentials = therapistCredentials 
-      ? this.isTherapistConfigured(therapistCredentials)
-      : this.isConfigured();
-
-    if (!hasCredentials) {
-      throw new Error("Zoom service not configured - please set OAuth credentials in your profile");
+    // Verify therapist has Zoom configured
+    if (!this.isTherapistConfigured(therapistCredentials)) {
+      throw new Error("Therapist must configure their own Zoom OAuth credentials in their profile to create Zoom meetings");
     }
 
     try {
@@ -214,10 +175,9 @@ export class ZoomService {
         },
       };
 
-      console.log("[ZOOM] Creating meeting:", { 
+      console.log("[ZOOM] Creating meeting using therapist's own credentials:", { 
         topic: meetingData.topic, 
-        start_time: meetingData.start_time,
-        using: therapistCredentials ? 'therapist credentials' : 'global credentials'
+        start_time: meetingData.start_time
       });
 
       const response = await fetch(`${ZOOM_API_BASE}/users/me/meetings`, {

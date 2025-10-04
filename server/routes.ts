@@ -1523,18 +1523,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     therapistWithZoom?.zoomClientId && 
                                     therapistWithZoom?.zoomClientSecret;
           
-          if (!hasTherapistZoom && !zoomService.isConfigured()) {
-            throw new Error('Zoom is not configured. Please set up your Zoom credentials in your profile.');
+          if (!hasTherapistZoom) {
+            throw new Error('You must configure your own Zoom OAuth credentials in your profile to create Zoom meetings. Each therapist uses their own Zoom account.');
           }
           
-          // Use therapist credentials if available, otherwise fall back to global
-          const zoomCredentials = hasTherapistZoom ? {
+          // Use therapist's own Zoom credentials (required)
+          const zoomCredentials = {
             accountId: therapistWithZoom.zoomAccountId!,
             clientId: therapistWithZoom.zoomClientId!,
             clientSecret: therapistWithZoom.zoomClientSecret!,
             accessToken: therapistWithZoom.zoomAccessToken,
             tokenExpiry: therapistWithZoom.zoomTokenExpiry,
-          } : undefined;
+          };
           
           const zoomMeeting = await zoomService.createMeeting({
             clientName: client?.fullName || 'Unknown Client',
@@ -1821,18 +1821,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     therapistWithZoom?.zoomClientId && 
                                     therapistWithZoom?.zoomClientSecret;
           
-          if (!hasTherapistZoom && !zoomService.isConfigured()) {
-            throw new Error('Zoom is not configured. Please set up your Zoom credentials in your profile.');
+          if (!hasTherapistZoom) {
+            throw new Error('You must configure your own Zoom OAuth credentials in your profile to create Zoom meetings. Each therapist uses their own Zoom account.');
           }
           
-          // Use therapist credentials if available, otherwise fall back to global
-          const zoomCredentials = hasTherapistZoom ? {
+          // Use therapist's own Zoom credentials (required)
+          const zoomCredentials = {
             accountId: therapistWithZoom.zoomAccountId!,
             clientId: therapistWithZoom.zoomClientId!,
             clientSecret: therapistWithZoom.zoomClientSecret!,
             accessToken: therapistWithZoom.zoomAccessToken,
             tokenExpiry: therapistWithZoom.zoomTokenExpiry,
-          } : undefined;
+          };
           
           const zoomMeeting = await zoomService.createMeeting({
             clientName: client?.fullName || 'Unknown Client',
