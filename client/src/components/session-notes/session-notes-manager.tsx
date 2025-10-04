@@ -14,6 +14,10 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Rich Text Editor
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
 // Icons
 import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit } from "lucide-react";
 
@@ -120,6 +124,22 @@ interface Session {
   sessionType: string;
   status: string;
 }
+
+// Rich Text Editor Configuration
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline'],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    ['clean']
+  ],
+};
+
+const quillFormats = [
+  'header',
+  'bold', 'italic', 'underline',
+  'list', 'bullet'
+];
 
 // Form Schema - content field removed as it doesn't exist in DB
 const sessionNoteFormSchema = insertSessionNoteSchema.extend({
@@ -1232,13 +1252,18 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     name="recommendations"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Recommendations</FormLabel>
+                        <FormLabel>Recommendations (Rich Text Editor)</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Future treatment recommendations..."
-                            {...field}
-                            value={field.value || ''}
-                          />
+                          <div className="bg-white dark:bg-gray-950 rounded-md border">
+                            <ReactQuill
+                              theme="snow"
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              modules={quillModules}
+                              formats={quillFormats}
+                              placeholder="Future treatment recommendations..."
+                            />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
