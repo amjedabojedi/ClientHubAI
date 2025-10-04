@@ -235,7 +235,7 @@ export default function BillingDashboard() {
   const { user } = useAuth();
 
   // Fetch billing data with role-based filtering and default current month range
-  const { data: billingData, isLoading } = useQuery({
+  const { data: billingData, isLoading, isFetching } = useQuery({
     queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType, debouncedClientSearch],
     queryFn: async () => {
       let url = '/api/billing/reports';
@@ -267,7 +267,7 @@ export default function BillingDashboard() {
       return data;
     },
     enabled: !!user, // Only fetch when user is loaded
-    staleTime: 0, // Always fetch fresh data for accurate date filtering
+    staleTime: 30000, // Cache for 30 seconds for better perceived performance
     refetchOnWindowFocus: false // Prevent refetch on window focus
   });
 
@@ -450,7 +450,15 @@ export default function BillingDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Billing Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight">Billing Dashboard</h1>
+          {isFetching && !isLoading && (
+            <Badge variant="outline" className="animate-pulse">
+              <Clock className="h-3 w-3 mr-1" />
+              Updating...
+            </Badge>
+          )}
+        </div>
         {user?.role === 'admin' && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
@@ -717,10 +725,18 @@ export default function BillingDashboard() {
       {/* Billing Records Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Billing Records</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Billing Records</span>
+            {isFetching && !isLoading && (
+              <span className="text-sm font-normal text-muted-foreground">Refreshing...</span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto relative">
+            {isFetching && !isLoading && (
+              <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 pointer-events-none" />
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
