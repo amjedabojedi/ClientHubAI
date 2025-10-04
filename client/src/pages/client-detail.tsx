@@ -2069,12 +2069,12 @@ export default function ClientDetailPage() {
                                   )}
                                   {(session as any).room?.roomName && (
                                     <span className="ml-2">
-                                      • <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
+                                      <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
                                     </span>
                                   )}
                                   {(session as any).service?.serviceCode && (
                                     <span className="text-slate-500 ml-2">
-                                      • <span className="font-mono">{(session as any).service.serviceCode}</span>
+                                      <span className="font-mono">{(session as any).service.serviceCode}</span>
                                     </span>
                                   )}
                                 </p>
@@ -2082,7 +2082,7 @@ export default function ClientDetailPage() {
                                 {/* Line 3: Conflict Warning */}
                                 {hasConflicts && conflictInfo && (
                                   <p className="text-orange-600">
-                                    • {conflictInfo.sessions.length} sessions on same day
+                                    {conflictInfo.sessions.length} sessions on same day
                                   </p>
                                 )}
                               </div>
