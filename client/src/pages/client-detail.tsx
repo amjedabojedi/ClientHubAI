@@ -3487,55 +3487,53 @@ export default function ClientDetailPage() {
           
           <Form {...sessionForm}>
             <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {/* Therapist Field */}
-                <FormField
-                  control={sessionForm.control}
-                  name="therapistId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Therapist *</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          value={field.value?.toString() || ""}
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                          options={therapists.map((therapist) => ({
-                            value: therapist.id.toString(),
-                            label: therapist.fullName
-                          }))}
-                          placeholder="Select therapist"
-                          searchPlaceholder="Search therapists..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Therapist Field - FULL WIDTH */}
+              <FormField
+                control={sessionForm.control}
+                name="therapistId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Therapist *</FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value?.toString() || ""}
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        options={therapists.map((therapist) => ({
+                          value: therapist.id.toString(),
+                          label: therapist.fullName
+                        }))}
+                        placeholder="Select therapist"
+                        searchPlaceholder="Search therapists..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Service Field */}
-                <FormField
-                  control={sessionForm.control}
-                  name="serviceId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Service *</FormLabel>
-                      <FormControl>
-                        <SearchableSelect
-                          value={field.value?.toString() || ""}
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                          options={services.map((service) => ({
-                            value: service.id.toString(),
-                            label: `${service.serviceName} - $${service.baseRate} (${(service as any).duration}min)`
-                          }))}
-                          placeholder="Select service"
-                          searchPlaceholder="Search services..."
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* Service Field - FULL WIDTH */}
+              <FormField
+                control={sessionForm.control}
+                name="serviceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service *</FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        value={field.value?.toString() || ""}
+                        onValueChange={(value) => field.onChange(parseInt(value))}
+                        options={services.map((service) => ({
+                          value: service.id.toString(),
+                          label: `${service.serviceName} - $${service.baseRate} (${(service as any).duration}min)`
+                        }))}
+                        placeholder="Select service"
+                        searchPlaceholder="Search services..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Date Field */}
@@ -3679,60 +3677,58 @@ export default function ClientDetailPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Room Field */}
-                <FormField
-                  control={sessionForm.control}
-                  name="roomId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Room *</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
-                        value={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-room">
-                            <SelectValue placeholder="Select room" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {rooms.map((room) => (
-                            <SelectItem key={room.id} value={room.id.toString()}>
-                              {room.roomName} {room.roomNumber && `(${room.roomNumber})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Room Field - FULL WIDTH */}
+              <FormField
+                control={sessionForm.control}
+                name="roomId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room *</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-room">
+                          <SelectValue placeholder="Select room" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {rooms.map((room) => (
+                          <SelectItem key={room.id} value={room.id.toString()}>
+                            {room.roomName} {room.roomNumber && `(${room.roomNumber})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                {/* Session Type Field */}
-                <FormField
-                  control={sessionForm.control}
-                  name="sessionType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Session Type *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-session-type">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="assessment">Assessment</SelectItem>
-                          <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
-                          <SelectItem value="consultation">Consultation</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* Session Type Field - FULL WIDTH */}
+              <FormField
+                control={sessionForm.control}
+                name="sessionType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Session Type *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-session-type">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="assessment">Assessment</SelectItem>
+                        <SelectItem value="psychotherapy">Psychotherapy</SelectItem>
+                        <SelectItem value="consultation">Consultation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Notes Field */}
               <FormField
