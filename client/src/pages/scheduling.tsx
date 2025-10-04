@@ -1226,94 +1226,6 @@ export default function SchedulingPage() {
                         />
                       </div>
 
-                      {/* Enhanced Conflict Detection Warning */}
-                      {conflictData?.hasConflict && !isCheckingConflicts && (
-                        <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
-                          <div className="flex items-start space-x-3">
-                            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-                            <div className="flex-1">
-                              <h4 className="text-sm font-medium text-red-800">
-                                Scheduling Conflicts Detected
-                              </h4>
-                              
-                              {/* Therapist Conflicts */}
-                              {conflictData.therapistConflicts?.length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-xs text-red-700 font-medium">Therapist Schedule Conflict:</p>
-                                  <ul className="mt-1 space-y-1">
-                                    {conflictData.therapistConflicts.map((conflict, index) => (
-                                      <li key={index} className="text-xs text-red-700">
-                                        • You have: {conflict.clientName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* Room Conflicts */}
-                              {conflictData.roomConflicts?.length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-xs text-red-700 font-medium">Room Booking Conflict:</p>
-                                  <ul className="mt-1 space-y-1">
-                                    {conflictData.roomConflicts.map((conflict, index) => (
-                                      <li key={index} className="text-xs text-red-700">
-                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* Alternative Times */}
-                              {conflictData.suggestedTimes?.length > 0 && (
-                                <div className="mt-3">
-                                  <p className="text-xs text-red-700 font-medium">
-                                    Suggested alternative times (therapist + room available):
-                                  </p>
-                                  <div className="flex gap-2 mt-1">
-                                    {conflictData.suggestedTimes.map((time, index) => (
-                                      <Button
-                                        key={index}
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs px-2 py-1 h-6 border-red-300 text-red-700 hover:bg-red-100"
-                                        onClick={() => {
-                                          const suggestedTime = new Date(time);
-                                          const hours = suggestedTime.getHours().toString().padStart(2, '0');
-                                          const minutes = suggestedTime.getMinutes().toString().padStart(2, '0');
-                                          form.setValue('sessionTime', `${hours}:${minutes}`);
-                                        }}
-                                      >
-                                        {formatTime(time)}
-                                      </Button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Proceed Anyway Button */}
-                              <div className="mt-4 pt-3 border-t border-red-200">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs text-red-700">
-                                    Override conflicts and book anyway?
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    variant={userConfirmedConflicts ? "default" : "destructive"}
-                                    size="sm"
-                                    className="h-7 px-3 text-xs"
-                                    onClick={() => setUserConfirmedConflicts(!userConfirmedConflicts)}
-                                  >
-                                    {userConfirmedConflicts ? "✓ Will Override" : "Proceed Anyway"}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Room Field */}
                       <FormField
                         control={form.control}
@@ -1402,6 +1314,94 @@ export default function SchedulingPage() {
                           </FormItem>
                         )}
                       />
+
+                      {/* Enhanced Conflict Detection Warning */}
+                      {conflictData?.hasConflict && !isCheckingConflicts && (
+                        <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+                          <div className="flex items-start space-x-3">
+                            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="text-sm font-medium text-red-800">
+                                Scheduling Conflicts Detected
+                              </h4>
+                              
+                              {/* Therapist Conflicts */}
+                              {conflictData.therapistConflicts?.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-red-700 font-medium">Therapist Schedule Conflict:</p>
+                                  <ul className="mt-1 space-y-1">
+                                    {conflictData.therapistConflicts.map((conflict, index) => (
+                                      <li key={index} className="text-xs text-red-700">
+                                        • You have: {conflict.clientName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Room Conflicts */}
+                              {conflictData.roomConflicts?.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-red-700 font-medium">Room Booking Conflict:</p>
+                                  <ul className="mt-1 space-y-1">
+                                    {conflictData.roomConflicts.map((conflict, index) => (
+                                      <li key={index} className="text-xs text-red-700">
+                                        • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {/* Alternative Times */}
+                              {conflictData.suggestedTimes?.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-xs text-red-700 font-medium">
+                                    Suggested alternative times (therapist + room available):
+                                  </p>
+                                  <div className="flex gap-2 mt-1 flex-wrap">
+                                    {conflictData.suggestedTimes.map((time, index) => (
+                                      <Button
+                                        key={index}
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs px-2 py-1 h-6 border-red-300 text-red-700 hover:bg-red-100"
+                                        onClick={() => {
+                                          const suggestedTime = new Date(time);
+                                          const hours = suggestedTime.getHours().toString().padStart(2, '0');
+                                          const minutes = suggestedTime.getMinutes().toString().padStart(2, '0');
+                                          form.setValue('sessionTime', `${hours}:${minutes}`);
+                                        }}
+                                      >
+                                        {formatTime(time)}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Proceed Anyway Button */}
+                              <div className="mt-4 pt-3 border-t border-red-200">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs text-red-700">
+                                    Override conflicts and book anyway?
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant={userConfirmedConflicts ? "default" : "destructive"}
+                                    size="sm"
+                                    className="h-7 px-3 text-xs"
+                                    onClick={() => setUserConfirmedConflicts(!userConfirmedConflicts)}
+                                  >
+                                    {userConfirmedConflicts ? "✓ Will Override" : "Proceed Anyway"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex justify-end space-x-4 pt-4">
                         <Button type="button" variant="outline" onClick={() => setIsNewSessionModalOpen(false)}>
