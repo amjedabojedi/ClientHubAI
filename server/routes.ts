@@ -1501,6 +1501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle Zoom meeting creation if enabled
       let zoomMeetingData = null;
+      let zoomWarning = null;
       if (sessionData.zoomEnabled) {
         try {
           console.log('DEBUG: Creating Zoom meeting for session', session.id);
@@ -1524,7 +1525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     therapistWithZoom?.zoomClientSecret;
           
           if (!hasTherapistZoom) {
-            throw new Error('You must configure your own Zoom OAuth credentials in your profile to create Zoom meetings. Each therapist uses their own Zoom account.');
+            throw new Error('ZOOM_NOT_CONFIGURED: Please configure your Zoom OAuth credentials in your profile. The client has been notified that you will send the Zoom link separately.');
           }
           
           // Use therapist's own Zoom credentials (required)
@@ -1554,6 +1555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('DEBUG: Zoom meeting created successfully:', zoomMeetingData);
         } catch (zoomError) {
           console.error('Zoom meeting creation failed:', zoomError);
+          zoomWarning = zoomError instanceof Error ? zoomError.message : 'Failed to create Zoom meeting';
           // Continue with session creation even if Zoom fails
         }
       }
@@ -1599,7 +1601,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Session scheduled notification failed:', notificationError);
       }
       
-      res.status(201).json(session);
+      res.status(201).json({ 
+        ...session, 
+        warning: zoomWarning || undefined 
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
@@ -1799,6 +1804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const session = await storage.updateSession(id, validatedData);
       
       // Handle Zoom meeting creation if enabled and no existing meeting
+      let zoomWarning = null;
       if (sessionData.zoomEnabled && !session.zoomMeetingId) {
         try {
           console.log('DEBUG: Creating Zoom meeting for updated session', session.id);
@@ -1822,7 +1828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     therapistWithZoom?.zoomClientSecret;
           
           if (!hasTherapistZoom) {
-            throw new Error('You must configure your own Zoom OAuth credentials in your profile to create Zoom meetings. Each therapist uses their own Zoom account.');
+            throw new Error('ZOOM_NOT_CONFIGURED: Please configure your Zoom OAuth credentials in your profile. The client has been notified that you will send the Zoom link separately.');
           }
           
           // Use therapist's own Zoom credentials (required)
@@ -1851,6 +1857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log('DEBUG: Zoom meeting created for updated session:', zoomMeeting.id);
         } catch (zoomError) {
           console.error('Zoom meeting creation failed for updated session:', zoomError);
+          zoomWarning = zoomError instanceof Error ? zoomError.message : 'Failed to create Zoom meeting';
         }
       }
       
@@ -1868,7 +1875,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      res.json(session);
+      res.json({ 
+        ...session, 
+        warning: zoomWarning || undefined 
+      });
     } catch (error) {
       console.error(`Error updating session ${req.params.id}:`, error);
       if (error instanceof z.ZodError) {

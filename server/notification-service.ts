@@ -871,12 +871,15 @@ This notification was sent because you are involved in this process.`;
   private generateZoomFailedContent(): string {
     return `
 
-⚠️ VIRTUAL MEETING SETUP:
+📹 VIRTUAL MEETING DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-A Zoom meeting was requested for this session, but there was an issue setting it up automatically. Your therapist will provide the meeting details separately or may switch to an in-person session.
+This session is scheduled as a virtual Zoom meeting.
 
-If you have any questions, please contact your therapist directly.
+📋 IMPORTANT:
+Your therapist will send you the Zoom meeting link separately before your session. Please keep in touch with them to receive the meeting details.
+
+If you have any questions about joining the virtual session, please contact your therapist directly.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
   }
