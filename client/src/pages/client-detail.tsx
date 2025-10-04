@@ -3418,23 +3418,18 @@ export default function ClientDetailPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Therapist *</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
-                        value={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-therapist">
-                            <SelectValue placeholder="Select therapist" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {therapists.map((therapist) => (
-                            <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                              {therapist.fullName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value?.toString() || ""}
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          options={therapists.map((therapist) => ({
+                            value: therapist.id.toString(),
+                            label: therapist.fullName
+                          }))}
+                          placeholder="Select therapist"
+                          searchPlaceholder="Search therapists..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -3447,23 +3442,18 @@ export default function ClientDetailPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Service *</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(parseInt(value))}
-                        value={field.value?.toString()}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-service">
-                            <SelectValue placeholder="Select service" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {services.map((service) => (
-                            <SelectItem key={service.id} value={service.id.toString()}>
-                              {service.serviceName} ({service.serviceCode})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect
+                          value={field.value?.toString() || ""}
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          options={services.map((service) => ({
+                            value: service.id.toString(),
+                            label: `${service.serviceName} - $${service.baseRate} (${(service as any).duration}min)`
+                          }))}
+                          placeholder="Select service"
+                          searchPlaceholder="Search services..."
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
