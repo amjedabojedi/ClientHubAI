@@ -20,6 +20,7 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 // Utils
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 // Hooks and Data
 import { useState, useEffect } from "react";
@@ -65,14 +66,13 @@ interface LibraryEntry {
   };
 }
 
-// Session Note Types
+// Session Note Types - matching database schema
 interface SessionNote {
   id: number;
   sessionId: number;
   clientId: number;
   therapistId: number;
-  noteType: 'progress' | 'assessment' | 'intervention' | 'homework' | 'crisis' | 'general';
-  content: string;
+  date: string;
   
   // Core clinical documentation fields
   sessionFocus?: string | null;
@@ -83,27 +83,22 @@ interface SessionNote {
   remarks?: string | null;
   recommendations?: string | null;
   
-  // Mood tracking fields
+  // Rating & outcome fields
+  clientRating?: number | null;
+  therapistRating?: number | null;
+  progressTowardGoals?: number | null;
   moodBefore?: number | null;
   moodAfter?: number | null;
   
-  // Additional clinical fields
-  assessments?: string | null;
-  homework?: string | null;
-  followUpNeeded?: boolean;
-  riskLevel?: 'low' | 'medium' | 'high';
-  confidentialityLevel: 'standard' | 'restricted' | 'highly_confidential';
-  isPrivate: boolean;
-  
   // AI & content management
-  generatedContent?: string;
-  draftContent?: string;
-  finalContent?: string;
+  generatedContent?: string | null;
+  draftContent?: string | null;
+  finalContent?: string | null;
   isDraft: boolean;
   isFinalized: boolean;
   aiEnabled: boolean;
-  customAiPrompt?: string;
-  aiProcessingStatus?: 'idle' | 'processing' | 'completed' | 'error';
+  customAiPrompt?: string | null;
+  aiProcessingStatus?: string | null;
   
   createdAt: string;
   updatedAt: string;
@@ -126,9 +121,8 @@ interface Session {
   status: string;
 }
 
-// Form Schema
+// Form Schema - content field removed as it doesn't exist in DB
 const sessionNoteFormSchema = insertSessionNoteSchema.extend({
-  content: z.string().min(10, "Note content must be at least 10 characters"),
   aiEnabled: z.boolean().default(false),
   customAiPrompt: z.string().optional(),
 });
@@ -336,34 +330,18 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     },
     onSuccess: (result) => {
       setGeneratedContent(result.generatedContent);
-      form.setValue('content', result.generatedContent);
       setIsGeneratingAI(false);
       setShowPreview(true);
       
-      // Auto-save the generated content as a session note
+      // Auto-populate generated content into the form fields
       const formValues = form.getValues();
-      if (formValues.sessionId) {
-        const sessionNoteData = {
-          sessionId: formValues.sessionId,
-          clientId: clientId,
-          therapistId: 1, // Default therapist ID - should be from session
-          date: new Date(),
-          content: result.generatedContent,
-          aiEnabled: true,
-          customAiPrompt: savedTemplate,
-          sessionFocus: formValues.sessionFocus || '',
-          symptoms: formValues.symptoms || '',
-          shortTermGoals: formValues.shortTermGoals || '',
-          intervention: formValues.intervention || '',
-          progress: formValues.progress || '',
-          remarks: formValues.remarks || '',
-          recommendations: formValues.recommendations || ''
-        };
-        
-        createSessionNoteMutation.mutate(sessionNoteData);
+      if (result.generatedContent) {
+        // Parse generated content and populate relevant fields
+        form.setValue('generatedContent', result.generatedContent);
+        form.setValue('draftContent', result.generatedContent);
       }
       
-      toast({ title: "AI content generated and saved! Review in preview or print." });
+      toast({ title: "AI content generated! Review and save the note." });
     },
     onError: (error: any) => {
 
@@ -504,15 +482,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
 
 
+  // Get authenticated user
+  const { user } = useAuth();
+
   // Form setup
   const form = useForm<SessionNoteFormData>({
     resolver: zodResolver(sessionNoteFormSchema),
     defaultValues: {
       clientId,
-      therapistId: 3, // Mock therapist ID - in real app this would come from auth
+      therapistId: user?.id || 1,
       date: new Date(),
       sessionId: undefined,
-      content: '',
       aiEnabled: false,
     },
   });
@@ -538,9 +518,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     form.reset({
       sessionId: preSelectedSessionId || undefined,
       clientId,
-      therapistId: 3,
+      therapistId: user?.id || 1,
       date: new Date(),
-      content: '',
       aiEnabled: false,
     });
   };
@@ -552,16 +531,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       clientId: note.clientId,
       therapistId: note.therapistId,
       date: new Date(note.createdAt),
-      content: note.content,
-      sessionFocus: note.sessionFocus,
-      symptoms: note.symptoms,
-      shortTermGoals: note.shortTermGoals,
-      intervention: note.intervention,
-      progress: note.progress,
-      remarks: note.remarks,
-      recommendations: note.recommendations,
+      sessionFocus: note.sessionFocus || '',
+      symptoms: note.symptoms || '',
+      shortTermGoals: note.shortTermGoals || '',
+      intervention: note.intervention || '',
+      progress: note.progress || '',
+      remarks: note.remarks || '',
+      recommendations: note.recommendations || '',
+      moodBefore: note.moodBefore || undefined,
+      moodAfter: note.moodAfter || undefined,
       aiEnabled: note.aiEnabled,
-      customAiPrompt: note.customAiPrompt,
+      customAiPrompt: note.customAiPrompt || '',
     });
   };
 
@@ -599,28 +579,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const handleDeleteNote = (id: number) => {
     if (confirm('Are you sure you want to delete this session note?')) {
       deleteSessionNoteMutation.mutate(id);
-    }
-  };
-
-  // Get note type icon
-  const getNoteTypeIcon = (type: string) => {
-    switch (type) {
-      case 'progress': return <Target className="h-4 w-4" />;
-      case 'assessment': return <Brain className="h-4 w-4" />;
-      case 'intervention': return <User className="h-4 w-4" />;
-      case 'homework': return <FileText className="h-4 w-4" />;
-      case 'crisis': return <Shield className="h-4 w-4" />;
-      default: return <FileText className="h-4 w-4" />;
-    }
-  };
-
-  // Get risk level color
-  const getRiskLevelColor = (level?: string) => {
-    switch (level) {
-      case 'high': return 'destructive';
-      case 'medium': return 'default';
-      case 'low': return 'secondary';
-      default: return 'secondary';
     }
   };
 
@@ -829,20 +787,20 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    {getNoteTypeIcon(note.noteType)}
-                    <CardTitle className="text-base capitalize">
-                      {note.noteType} Note
+                    <FileText className="h-4 w-4" />
+                    <CardTitle className="text-base">
+                      Session Note
                     </CardTitle>
-                    <Badge variant={getRiskLevelColor(note.riskLevel)}>
-                      {note.riskLevel} risk
-                    </Badge>
-                    {note.isPrivate && (
+                    {note.isDraft && (
                       <Badge variant="outline">
-                        <Shield className="h-3 w-3 mr-1" />
-                        Private
+                        Draft
                       </Badge>
                     )}
-
+                    {note.isFinalized && (
+                      <Badge variant="default">
+                        Finalized
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
 
@@ -875,13 +833,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Main Content */}
-                <div>
-                  <h4 className="font-medium mb-2">Session Notes</h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {note.content}
-                  </p>
-                </div>
+                {/* Generated/Draft Content Display */}
+                {(note.generatedContent || note.draftContent || note.finalContent) && (
+                  <div>
+                    <h4 className="font-medium mb-2">
+                      {note.isFinalized ? 'Final' : note.isDraft ? 'Draft' : 'Generated'} Content
+                    </h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {note.finalContent || note.draftContent || note.generatedContent}
+                    </p>
+                  </div>
+                )}
 
                 {/* Mood Tracking */}
                 {(note.moodBefore || note.moodAfter) && (
