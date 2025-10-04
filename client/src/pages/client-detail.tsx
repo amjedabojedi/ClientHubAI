@@ -2052,28 +2052,36 @@ export default function ClientDetailPage() {
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-sm">
+                              <div className="text-sm space-y-0.5">
+                                {/* Line 1: Date and Time */}
                                 <p className="text-slate-600">
                                   {session.sessionDate ? (() => {
                                     const sessionDateObj = new Date(session.sessionDate);
                                     return formatInTimeZone(sessionDateObj, 'America/New_York', 'MMM d, yyyy \'at\' h:mm a');
                                   })() : 'Date TBD'}
                                   <span className="text-slate-400 ml-1">EST</span>
-                                  {/* Display room information if available */}
+                                </p>
+                                
+                                {/* Line 2: Therapist, Room, and Service Code */}
+                                <p className="text-slate-600">
+                                  {(session as any).therapistName && (
+                                    <span>{(session as any).therapistName}</span>
+                                  )}
                                   {(session as any).room?.roomName && (
-                                    <span className="text-slate-600 ml-2">
+                                    <span className="ml-2">
                                       • <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
                                     </span>
                                   )}
-                                  {/* Display service code if available */}
                                   {(session as any).service?.serviceCode && (
                                     <span className="text-slate-500 ml-2">
                                       • <span className="font-mono">{(session as any).service.serviceCode}</span>
                                     </span>
                                   )}
                                 </p>
+                                
+                                {/* Line 3: Conflict Warning */}
                                 {hasConflicts && conflictInfo && (
-                                  <p className="text-orange-600 mt-1">
+                                  <p className="text-orange-600">
                                     • {conflictInfo.sessions.length} sessions on same day
                                   </p>
                                 )}
@@ -2177,11 +2185,6 @@ export default function ClientDetailPage() {
                             )}
                           </div>
                         </div>
-                        {(session as any).therapistName && (
-                          <p className="text-sm text-slate-600 mb-2">
-                            <span className="font-medium">Therapist:</span> {(session as any).therapistName}
-                          </p>
-                        )}
                         {session.notes && (
                           <div className="bg-slate-50 p-3 rounded-md mt-2">
                             <p className="text-sm text-slate-700">{session.notes}</p>
