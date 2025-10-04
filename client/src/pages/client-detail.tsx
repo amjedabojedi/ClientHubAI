@@ -2088,7 +2088,7 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="grid gap-2" style={{ gridTemplateColumns: 'minmax(110px, auto) minmax(90px, 1fr) minmax(110px, 1fr) minmax(120px, auto)' }}>
+                          <div className="grid grid-cols-4 gap-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
