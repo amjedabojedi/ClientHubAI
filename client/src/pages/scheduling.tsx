@@ -1073,186 +1073,186 @@ export default function SchedulingPage() {
 
                         <FormField
                           control={form.control}
-                          name="sessionTime"
+                          name="roomId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Time *</FormLabel>
-                              <div className="space-y-2">
-                                <Select value={field.value} onValueChange={field.onChange}>
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select time" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {getTimeSlotsWithLabels().map((timeSlot) => (
-                                      <SelectItem key={timeSlot.value} value={timeSlot.value}>
-                                        {timeSlot.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                
-                                {/* Quick Duration Tags */}
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium text-slate-700">Duration (minutes)</label>
-                                  <div className="flex flex-wrap gap-2">
-                                    {[30, 45, 60, 90, 120].map((minutes) => (
-                                      <Button
-                                        key={minutes}
-                                        type="button"
-                                        variant={provisionalDuration === minutes ? "default" : "outline"}
-                                        size="sm"
-                                        className="h-8 px-3 text-xs"
-                                        onClick={() => setProvisionalDuration(minutes)}
-                                      >
-                                        {minutes}
-                                      </Button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Time Suggestions - Room-First workflow */}
-                                {React.useMemo(() => {
-                                  const selectedDate = form.watch('sessionDate');
-                                  const selectedTherapist = form.watch('therapistId');
-                                  const selectedService = form.watch('serviceId');
-                                  const selectedRoom = form.watch('roomId');
-                                  
-                                  
-                                  // Room-First workflow: require room selection first
-                                  if (!selectedRoom) {
-                                    return (
-                                      <div className="text-xs text-slate-500 italic">
-                                        🏠 Select a room first to see when it's available
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (!selectedTherapist) {
-                                    return (
-                                      <div className="text-xs text-slate-500 italic">
-                                        👩‍⚕️ Select therapist to continue
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (!selectedService) {
-                                    return (
-                                      <div className="text-xs text-slate-500 italic">
-                                        📋 Select service to continue  
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  if (!selectedDate) {
-                                    return (
-                                      <div className="text-xs text-slate-500 italic">
-                                        📅 Select date to see available times
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  // Get service duration - no default, must be explicit
-                                  const selectedServiceData = services?.find(s => s.id === selectedService);
-                                  const serviceDuration = (selectedServiceData as any)?.duration;
-                                  
-                                  if (!serviceDuration || serviceDuration <= 0) {
-                                    return (
-                                      <div className="text-xs text-orange-600">
-                                        Service duration not available - please select a different service
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  // Convert to numbers for proper comparison with database
-                                  const roomIdNum = Number(selectedRoom || 0);
-                                  const therapistIdNum = Number(selectedTherapist || 0);
-                                  
-                                  const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum, provisionalDuration);
-                                  
-                                  // Show loading state if rooms data isn't ready
-                                  if (!rooms || rooms.length === 0) {
-                                    return (
-                                      <div className="text-xs text-slate-500 italic">
-                                        Loading room availability...
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  return (
-                                    <div className="space-y-1">
-                                      {(() => {
-                                        const roomName = rooms?.find(r => r.id === selectedRoom)?.roomName || 'Selected Room';
-                                        const freeSlots = availableSlots.filter(slot => slot.isAvailable);
-                                        
-                                        return (
-                                          <div>
-                                            <span className="text-xs text-slate-600">
-                                              Available times for {roomName}:
-                                            </span>
-                                            <div className="flex flex-wrap gap-1 mt-1">
-                                              {freeSlots.map((slot) => (
-                                                <Button
-                                                  key={slot.time}
-                                                  type="button"
-                                                  variant="outline"
-                                                  size="sm"
-                                                  className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
-                                                  onClick={() => {
-                                                    form.setValue('sessionTime', slot.time);
-                                                  }}
-                                                >
-                                                  {formatTime(slot.time)} ✓
-                                                </Button>
-                                              ))}
-                                            </div>
-                                            {freeSlots.length === 0 && (
-                                              <p className="text-xs text-orange-600 mt-1">
-                                                {roomName} is not available for your therapist on this date
-                                              </p>
-                                            )}
-                                            
-                                            {/* Room-specific confirmation message */}
-                                            {freeSlots.length > 0 && (
-                                              <div className="text-xs text-green-600 bg-green-50 p-2 rounded mt-2">
-                                                🏠 {freeSlots.length} time slot{freeSlots.length > 1 ? 's' : ''} available for {roomName}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-                                  );
-                                }, [form.watch('roomId'), form.watch('therapistId'), form.watch('serviceId'), form.watch('sessionDate'), provisionalDuration, rooms, sessions, allAvailableSessions])}
-                              </div>
+                              <FormLabel>Room *</FormLabel>
+                              <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseInt(value))}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select room" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {rooms?.map((room) => (
+                                    <SelectItem key={room.id} value={room.id.toString()}>
+                                      Room {room.roomNumber} - {room.roomName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
                       </div>
 
-                      {/* Room Field */}
+                      {/* Time Field */}
                       <FormField
                         control={form.control}
-                        name="roomId"
+                        name="sessionTime"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Room *</FormLabel>
-                            <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseInt(value))}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select room" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {rooms?.map((room) => (
-                                  <SelectItem key={room.id} value={room.id.toString()}>
-                                    Room {room.roomNumber} - {room.roomName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <FormLabel>Time *</FormLabel>
+                            <div className="space-y-2">
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select time" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {getTimeSlotsWithLabels().map((timeSlot) => (
+                                    <SelectItem key={timeSlot.value} value={timeSlot.value}>
+                                      {timeSlot.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
+                              {/* Quick Duration Tags */}
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">Duration (minutes)</label>
+                                <div className="flex flex-wrap gap-2">
+                                  {[30, 45, 60, 90, 120].map((minutes) => (
+                                    <Button
+                                      key={minutes}
+                                      type="button"
+                                      variant={provisionalDuration === minutes ? "default" : "outline"}
+                                      size="sm"
+                                      className="h-8 px-3 text-xs"
+                                      onClick={() => setProvisionalDuration(minutes)}
+                                    >
+                                      {minutes}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Time Suggestions - Service + Day + Room workflow */}
+                              {React.useMemo(() => {
+                                const selectedDate = form.watch('sessionDate');
+                                const selectedTherapist = form.watch('therapistId');
+                                const selectedService = form.watch('serviceId');
+                                const selectedRoom = form.watch('roomId');
+                                
+                                
+                                // Service + Day + Room workflow
+                                if (!selectedService) {
+                                  return (
+                                    <div className="text-xs text-slate-500 italic">
+                                      📋 Select service first to see available times
+                                    </div>
+                                  );
+                                }
+                                
+                                if (!selectedDate) {
+                                  return (
+                                    <div className="text-xs text-slate-500 italic">
+                                      📅 Select date to continue
+                                    </div>
+                                  );
+                                }
+                                
+                                if (!selectedRoom) {
+                                  return (
+                                    <div className="text-xs text-slate-500 italic">
+                                      🏠 Select a room to see available times
+                                    </div>
+                                  );
+                                }
+                                
+                                if (!selectedTherapist) {
+                                  return (
+                                    <div className="text-xs text-slate-500 italic">
+                                      👩‍⚕️ Select therapist to continue
+                                    </div>
+                                  );
+                                }
+                                
+                                // Get service duration - no default, must be explicit
+                                const selectedServiceData = services?.find(s => s.id === selectedService);
+                                const serviceDuration = (selectedServiceData as any)?.duration;
+                                
+                                if (!serviceDuration || serviceDuration <= 0) {
+                                  return (
+                                    <div className="text-xs text-orange-600">
+                                      Service duration not available - please select a different service
+                                    </div>
+                                  );
+                                }
+                                
+                                // Convert to numbers for proper comparison with database
+                                const roomIdNum = Number(selectedRoom || 0);
+                                const therapistIdNum = Number(selectedTherapist || 0);
+                                
+                                const availableSlots = generateAvailableTimeSlotsForSpecificRoom(selectedDate, serviceDuration, therapistIdNum, roomIdNum, provisionalDuration);
+                                
+                                // Show loading state if rooms data isn't ready
+                                if (!rooms || rooms.length === 0) {
+                                  return (
+                                    <div className="text-xs text-slate-500 italic">
+                                      Loading room availability...
+                                    </div>
+                                  );
+                                }
+                                
+                                return (
+                                  <div className="space-y-1">
+                                    {(() => {
+                                      const roomName = rooms?.find(r => r.id === selectedRoom)?.roomName || 'Selected Room';
+                                      const freeSlots = availableSlots.filter(slot => slot.isAvailable);
+                                      
+                                      return (
+                                        <div>
+                                          <span className="text-xs text-slate-600">
+                                            Available times for {roomName}:
+                                          </span>
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {freeSlots.map((slot) => (
+                                              <Button
+                                                key={slot.time}
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs px-2 py-1 h-6 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400"
+                                                onClick={() => {
+                                                  form.setValue('sessionTime', slot.time);
+                                                }}
+                                              >
+                                                {formatTime(slot.time)} ✓
+                                              </Button>
+                                            ))}
+                                          </div>
+                                          {freeSlots.length === 0 && (
+                                            <p className="text-xs text-orange-600 mt-1">
+                                              {roomName} is not available for your therapist on this date
+                                            </p>
+                                          )}
+                                          
+                                          {/* Room-specific confirmation message */}
+                                          {freeSlots.length > 0 && (
+                                            <div className="text-xs text-green-600 bg-green-50 p-2 rounded mt-2">
+                                              🏠 {freeSlots.length} time slot{freeSlots.length > 1 ? 's' : ''} available for {roomName}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                );
+                              }, [form.watch('roomId'), form.watch('therapistId'), form.watch('serviceId'), form.watch('sessionDate'), provisionalDuration, rooms, sessions, allAvailableSessions])}
+                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
