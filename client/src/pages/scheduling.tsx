@@ -2268,8 +2268,10 @@ export default function SchedulingPage() {
                         const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
                         const timeString = `${hours}:${minutes}`;
                         
+                        console.log('[CALENDAR EDIT] Time:', timeString, 'Room:', selectedSession.roomId);
+                        
                         // Use reset() instead of setValue() to update all values including defaults
-                        form.reset({
+                        const resetData = {
                           clientId: selectedSession.clientId,
                           therapistId: selectedSession.therapistId,
                           serviceId: selectedSession.serviceId,
@@ -2279,7 +2281,11 @@ export default function SchedulingPage() {
                           sessionTime: timeString,
                           notes: selectedSession.notes || '',
                           zoomEnabled: (selectedSession as any).zoomEnabled || false,
-                        });
+                        };
+                        
+                        console.log('[CALENDAR EDIT] Resetting form with:', resetData);
+                        form.reset(resetData);
+                        console.log('[CALENDAR EDIT] Form values after reset:', form.getValues());
                         
                         setEditingSessionId(selectedSession.id);
                         setIsSchedulingFromExistingSession(true);
