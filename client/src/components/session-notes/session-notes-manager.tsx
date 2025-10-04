@@ -1603,6 +1603,20 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </TabsContent>
               </Tabs>
 
+              {/* Debug: Display Form Errors */}
+              {Object.keys(form.formState.errors).length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                  <h4 className="text-sm font-semibold text-red-800 mb-2">Form Validation Errors:</h4>
+                  <ul className="text-xs text-red-700 space-y-1">
+                    {Object.entries(form.formState.errors).map(([key, error]) => (
+                      <li key={key}>
+                        <strong>{key}:</strong> {error?.message || 'Invalid value'}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <DialogFooter>
                 <Button
                   type="button"
