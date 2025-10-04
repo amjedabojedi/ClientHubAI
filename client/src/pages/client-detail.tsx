@@ -1333,6 +1333,7 @@ export default function ClientDetailPage() {
       const sessionData = {
         ...data,
         sessionDate: utcDateTime.toISOString(),
+        ignoreConflicts: userConfirmedConflicts, // Only ignore conflicts if user explicitly confirmed
       };
       return apiRequest(`/api/sessions/${editingSessionId}`, "PUT", sessionData);
     },
