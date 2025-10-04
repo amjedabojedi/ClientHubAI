@@ -2254,8 +2254,11 @@ export default function ClientDetailPage() {
                           variant="outline"
                           onClick={() => {
                             // Load session data into form - use reset() to properly update Select components
-                            const sessionDate = new Date(selectedSessionForModal.sessionDate);
-                            const dateOnly = selectedSessionForModal.sessionDate.split('T')[0];
+                            const sessionDateStr = typeof selectedSessionForModal.sessionDate === 'string' 
+                              ? selectedSessionForModal.sessionDate 
+                              : selectedSessionForModal.sessionDate.toISOString();
+                            const sessionDate = new Date(sessionDateStr);
+                            const dateOnly = sessionDateStr.split('T')[0];
                             const hours = sessionDate.getHours().toString().padStart(2, '0');
                             const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
                             const timeString = `${hours}:${minutes}`;
@@ -2265,7 +2268,7 @@ export default function ClientDetailPage() {
                               clientId: selectedSessionForModal.clientId,
                               therapistId: (selectedSessionForModal as any).therapistId,
                               serviceId: selectedSessionForModal.serviceId,
-                              roomId: selectedSessionForModal.roomId,
+                              roomId: selectedSessionForModal.roomId || undefined,
                               sessionType: selectedSessionForModal.sessionType as any,
                               sessionDate: dateOnly,
                               sessionTime: timeString,
