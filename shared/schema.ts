@@ -1425,6 +1425,9 @@ export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
+  sessionId: z.coerce.number(),
+  clientId: z.coerce.number(),
+  therapistId: z.coerce.number(),
   date: z.string().transform((val) => new Date(val)),
 });
 
