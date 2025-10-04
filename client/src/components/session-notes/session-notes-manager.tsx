@@ -574,12 +574,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Handle form submission
   const onSubmit = (data: SessionNoteFormData) => {
+    console.log('[SESSION NOTE] Form validation passed, submitting data:', data);
+    console.log('[SESSION NOTE] Form errors:', form.formState.errors);
+    
     // Ensure required fields are set
     const submissionData = {
       ...data,
       date: data.date || new Date(),
       therapistId: user?.id || data.therapistId, // Always use authenticated user ID
     };
+    
+    console.log('[SESSION NOTE] Submission data:', submissionData);
     
     if (editingNote) {
       updateSessionNoteMutation.mutate({ id: editingNote.id, data: submissionData });
