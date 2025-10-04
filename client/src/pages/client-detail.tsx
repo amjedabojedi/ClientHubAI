@@ -64,6 +64,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
+import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 import { getClientStageColor } from "@/lib/task-utils";
 
 // Types
@@ -688,6 +689,7 @@ export default function ClientDetailPage() {
   const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60);
+  const [userConfirmedConflicts, setUserConfirmedConflicts] = useState(false);
 
   // Session editing form
   const sessionForm = useForm<SessionFormData>({
@@ -704,6 +706,21 @@ export default function ClientDetailPage() {
       zoomEnabled: false,
     },
   });
+
+  // Watch form fields for conflict detection
+  const watchedDate = sessionForm.watch('sessionDate');
+  const watchedTime = sessionForm.watch('sessionTime');
+  const watchedTherapistId = sessionForm.watch('therapistId');
+  const watchedRoomId = sessionForm.watch('roomId');
+
+  // Real-time conflict detection
+  const { data: conflictData, isLoading: isCheckingConflicts } = useRealTimeConflictCheck(
+    watchedTherapistId,
+    watchedDate,
+    watchedTime,
+    editingSessionId || undefined,
+    watchedRoomId
+  );
 
   // React to URL parameter changes for dynamic navigation
   useEffect(() => {
@@ -1327,6 +1344,7 @@ export default function ClientDetailPage() {
       });
       setIsFullEditModalOpen(false);
       setEditingSessionId(null);
+      setUserConfirmedConflicts(false);
       sessionForm.reset();
     },
     onError: (error: any) => {
@@ -1337,6 +1355,20 @@ export default function ClientDetailPage() {
       });
     },
   });
+
+  // Handle session form submission with conflict check
+  const handleSessionSubmit = (data: SessionFormData) => {
+    // Check for conflicts before submitting
+    if (conflictData?.hasConflict && !userConfirmedConflicts) {
+      toast({
+        title: "Scheduling Conflict Detected",
+        description: "Please review the conflicts and confirm to proceed.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateFullSessionMutation.mutate(data);
+  };
 
   // Checklist assignment mutation
   const assignChecklistMutation = useMutation({
@@ -3409,7 +3441,7 @@ export default function ClientDetailPage() {
           </DialogHeader>
           
           <Form {...sessionForm}>
-            <form onSubmit={sessionForm.handleSubmit((data) => updateFullSessionMutation.mutate(data))} className="space-y-4">
+            <form onSubmit={sessionForm.handleSubmit(handleSessionSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {/* Therapist Field */}
                 <FormField
@@ -3641,18 +3673,89 @@ export default function ClientDetailPage() {
                 )}
               />
 
-              {/* Show conflict warning if exists */}
-              {sessionConflicts && sessionConflicts.conflicts && sessionConflicts.conflicts.length > 0 && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-start space-x-2">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+              {/* Enhanced Conflict Detection Warning */}
+              {conflictData?.hasConflict && !isCheckingConflicts && (
+                <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-900">Scheduling Conflicts Detected</p>
-                      <ul className="mt-1 text-xs text-yellow-800 space-y-1">
-                        {sessionConflicts.conflicts.map((conflict: any, idx: number) => (
-                          <li key={idx}>• {conflict.message}</li>
-                        ))}
-                      </ul>
+                      <h4 className="text-sm font-medium text-red-800">
+                        Scheduling Conflicts Detected
+                      </h4>
+                      
+                      {/* Therapist Conflicts */}
+                      {conflictData.therapistConflicts?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-red-700 font-medium">Therapist Schedule Conflict:</p>
+                          <ul className="mt-1 space-y-1">
+                            {conflictData.therapistConflicts.map((conflict: any, index: number) => (
+                              <li key={index} className="text-xs text-red-700">
+                                • You have: {conflict.clientName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Room Conflicts */}
+                      {conflictData.roomConflicts?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-red-700 font-medium">Room Booking Conflict:</p>
+                          <ul className="mt-1 space-y-1">
+                            {conflictData.roomConflicts.map((conflict: any, index: number) => (
+                              <li key={index} className="text-xs text-red-700">
+                                • Room occupied by {conflict.therapistName} - {conflict.sessionType} at {formatTime(conflict.sessionDate)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Alternative Times */}
+                      {conflictData.suggestedTimes?.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs text-red-700 font-medium">
+                            Suggested alternative times (therapist + room available):
+                          </p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            {conflictData.suggestedTimes.map((time: string, index: number) => (
+                              <Button
+                                key={index}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs px-2 py-1 h-6 border-red-300 text-red-700 hover:bg-red-100"
+                                onClick={() => {
+                                  const suggestedTime = new Date(time);
+                                  const hours = suggestedTime.getHours().toString().padStart(2, '0');
+                                  const minutes = suggestedTime.getMinutes().toString().padStart(2, '0');
+                                  sessionForm.setValue('sessionTime', `${hours}:${minutes}`);
+                                }}
+                              >
+                                {formatTime(time)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Proceed Anyway Button */}
+                      <div className="mt-4 pt-3 border-t border-red-200">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-red-700">
+                            Override conflicts and book anyway?
+                          </p>
+                          <Button
+                            type="button"
+                            variant={userConfirmedConflicts ? "default" : "destructive"}
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={() => setUserConfirmedConflicts(!userConfirmedConflicts)}
+                          >
+                            {userConfirmedConflicts ? "✓ Will Override" : "Proceed Anyway"}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3665,6 +3768,7 @@ export default function ClientDetailPage() {
                   onClick={() => {
                     setIsFullEditModalOpen(false);
                     setEditingSessionId(null);
+                    setUserConfirmedConflicts(false);
                     sessionForm.reset();
                   }}
                   disabled={updateFullSessionMutation.isPending}
