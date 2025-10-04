@@ -705,6 +705,7 @@ export default function BillingDashboard() {
                 setSelectedStatus('all');
                 setSelectedTherapist('all');
                 setSelectedService('all');
+                setSelectedClientType('all');
               }}
             >
               Reset Filters
