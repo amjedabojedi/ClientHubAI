@@ -338,7 +338,7 @@ export interface IStorage {
 
   // Session Notes Management
   getSessionNotesBySession(sessionId: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session })[]>;
-  getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session })[]>;
+  getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session & { room?: SelectRoom | null } })[]>;
   createSessionNote(sessionNote: InsertSessionNote): Promise<SessionNote>;
   updateSessionNote(id: number, sessionNote: Partial<InsertSessionNote>): Promise<SessionNote>;
   deleteSessionNote(id: number): Promise<void>;
@@ -2609,23 +2609,28 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session })[]> {
+  async getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session & { room?: SelectRoom | null } })[]> {
     const results = await db
       .select({
         sessionNote: sessionNotes,
         therapist: users,
-        session: sessions
+        session: sessions,
+        room: rooms
       })
       .from(sessionNotes)
       .innerJoin(users, eq(sessionNotes.therapistId, users.id))
       .innerJoin(sessions, eq(sessionNotes.sessionId, sessions.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .where(eq(sessionNotes.clientId, clientId))
       .orderBy(desc(sessionNotes.createdAt));
 
     return results.map(r => ({ 
       ...r.sessionNote, 
       therapist: r.therapist, 
-      session: r.session 
+      session: {
+        ...r.session,
+        room: r.room || null
+      }
     }));
   }
 
