@@ -360,15 +360,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       setIsGeneratingAI(false);
       setShowPreview(true);
       
-      // Auto-populate generated content into the form fields
-      const formValues = form.getValues();
+      // Auto-populate generated content into the recommendations field (rich text editor)
       if (result.generatedContent) {
-        // Parse generated content and populate relevant fields
-        form.setValue('generatedContent', result.generatedContent);
-        form.setValue('draftContent', result.generatedContent);
+        form.setValue('recommendations', result.generatedContent);
       }
       
-      toast({ title: "AI content generated! Review and save the note." });
+      toast({ title: "AI content generated! Review and edit in the rich text editor below." });
     },
     onError: (error: any) => {
 
