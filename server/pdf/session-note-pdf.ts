@@ -20,6 +20,7 @@ interface SessionNote {
   finalContent?: string | null;
   isDraft: boolean;
   isFinalized: boolean;
+  finalizedAt?: Date | null;
   therapist: {
     id: number;
     fullName: string;
@@ -41,6 +42,7 @@ export function generateSessionNoteHTML(note: SessionNote): string {
   // Format date
   const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
   const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
+  const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MMMM dd, yyyy h:mm a') : null;
     
     // Get content to display (prioritize final, then generated, then draft)
     const content = note.finalContent || note.generatedContent || note.draftContent || '';
@@ -369,6 +371,12 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             <div class="meta-label">Room</div>
             <div class="meta-value">${note.session.room?.roomName || 'Not specified'}</div>
           </div>
+          ${note.isFinalized && finalizedDate ? `
+          <div class="meta-item">
+            <div class="meta-label">Finalized</div>
+            <div class="meta-value">${finalizedDate}</div>
+          </div>
+          ` : ''}
         </div>
 
 

@@ -3869,7 +3869,8 @@ This happens because only the file metadata was stored, not the actual file cont
       const updatedNote = await storage.updateSessionNote(id, { 
         isFinalized: true,
         isDraft: false,
-        finalContent: note.generatedContent || note.draftContent || ''
+        finalContent: note.generatedContent || note.draftContent || '',
+        finalizedAt: new Date()
       });
       
       res.json(updatedNote);
