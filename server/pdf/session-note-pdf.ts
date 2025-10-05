@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import htmlPdf from 'html-pdf-node';
 import { format } from 'date-fns';
 
 interface SessionNote {
@@ -39,13 +39,7 @@ interface SessionNote {
 }
 
 export async function generateSessionNotePDF(note: SessionNote): Promise<Buffer> {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
   try {
-    const page = await browser.newPage();
     
     // Format date
     const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
@@ -268,9 +262,7 @@ export async function generateSessionNotePDF(note: SessionNote): Promise<Buffer>
       </html>
     `;
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    
-    const pdf = await page.pdf({
+    const options = { 
       format: 'A4',
       printBackground: true,
       margin: {
@@ -279,10 +271,14 @@ export async function generateSessionNotePDF(note: SessionNote): Promise<Buffer>
         bottom: '20px',
         left: '20px'
       }
-    });
+    };
 
-    return Buffer.from(pdf);
-  } finally {
-    await browser.close();
+    const file = { content: html };
+    const pdfBuffer = await htmlPdf.generatePdf(file, options);
+
+    return Buffer.from(pdfBuffer);
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    throw new Error('Failed to generate PDF');
   }
 }

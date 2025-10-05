@@ -1041,6 +1041,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEditNote(note)}
+                      disabled={note.isFinalized}
+                      data-testid={`button-edit-note-${note.id}`}
+                      title={note.isFinalized ? "Cannot edit finalized notes" : "Edit note"}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -1048,6 +1051,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteNote(note.id)}
+                      disabled={note.isFinalized}
+                      data-testid={`button-delete-note-${note.id}`}
+                      title={note.isFinalized ? "Cannot delete finalized notes" : "Delete note"}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
