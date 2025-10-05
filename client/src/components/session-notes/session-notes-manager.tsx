@@ -114,6 +114,7 @@ interface SessionNote {
     id: number;
     sessionDate: string;
     sessionType: string;
+    room?: { roomName: string } | null;
   };
 }
 
@@ -123,6 +124,7 @@ interface Session {
   sessionDate: string;
   sessionType: string;
   status: string;
+  room?: { roomName: string } | null;
 }
 
 // Rich Text Editor Configuration
@@ -970,7 +972,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-
                     <Button
                       variant="ghost"
                       size="sm"
@@ -987,63 +988,34 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     </Button>
                   </div>
                 </div>
-                <CardDescription className="flex items-center gap-4 text-xs">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {format(parseSessionDate(note.session.sessionDate), 'MMM dd, yyyy')}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <User className="h-3 w-3" />
-                    {note.therapist.fullName}
-                  </span>
-                  <span className="capitalize">{note.session.sessionType}</span>
-                </CardDescription>
+                
+                {/* Session Information */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 p-3 bg-muted/50 rounded-md">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Date</p>
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {format(parseSessionDate(note.session.sessionDate), 'MMM dd, yyyy')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Service</p>
+                    <p className="text-sm font-medium capitalize">{note.session.sessionType}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Therapist</p>
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {note.therapist.fullName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Room</p>
+                    <p className="text-sm font-medium">{note.session.room?.roomName || 'Not specified'}</p>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Generated/Draft Content Summary */}
-                {(note.generatedContent || note.draftContent || note.finalContent) && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm flex items-center gap-2">
-                        <Brain className="h-4 w-4 text-blue-600" />
-                        AI Generated Note
-                        {note.isFinalized && <Badge variant="default">Finalized</Badge>}
-                        {note.isDraft && <Badge variant="outline">Draft</Badge>}
-                      </h4>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {(() => {
-                        const content = note.finalContent || note.draftContent || note.generatedContent || '';
-                        const preview = content.substring(0, 150);
-                        return preview + (content.length > 150 ? '...' : '');
-                      })()}
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditNote(note)}
-                      className="text-xs"
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      View & Edit Full Note
-                    </Button>
-                  </div>
-                )}
-
-                {/* Mood Tracking */}
-                {(note.moodBefore || note.moodAfter) && (
-                  <div>
-                    <h4 className="font-medium mb-2">Mood Assessment</h4>
-                    <div className="flex gap-4 text-sm">
-                      {note.moodBefore && (
-                        <span>Before: <strong>{note.moodBefore}/10</strong></span>
-                      )}
-                      {note.moodAfter && (
-                        <span>After: <strong>{note.moodAfter}/10</strong></span>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {/* Core Clinical Documentation */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
