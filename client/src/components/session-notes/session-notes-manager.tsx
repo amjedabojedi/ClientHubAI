@@ -355,8 +355,34 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const convertTextToHTML = (text: string): string => {
     if (!text) return '';
     
-    // Split into lines
-    const lines = text.split('\n');
+    // Common section headers in AI-generated notes
+    const sectionHeaders = [
+      'CLIENT INFORMATION',
+      'SESSION INFORMATION', 
+      'SESSION FOCUS',
+      'SYMPTOMS',
+      'SHORT-TERM GOALS',
+      'INTERVENTION',
+      'PROGRESS',
+      'REMARKS',
+      'RECOMMENDATIONS',
+      'CLINICAL NOTES',
+      'ASSESSMENT',
+      'TREATMENT PLAN',
+      'NEXT STEPS',
+      'HOMEWORK',
+      'FOLLOW-UP'
+    ];
+    
+    // First, add line breaks before section headers if they're missing
+    let formatted = text;
+    sectionHeaders.forEach(header => {
+      const regex = new RegExp(`(${header})`, 'g');
+      formatted = formatted.replace(regex, '\n\n$1\n');
+    });
+    
+    // Split into lines now
+    const lines = formatted.split('\n');
     let html = '';
     let inList = false;
     let currentParagraph = '';
@@ -374,6 +400,21 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           html += '</ul>';
           inList = false;
         }
+        continue;
+      }
+      
+      // Check if this is a section header
+      const isHeader = sectionHeaders.some(h => line.includes(h));
+      if (isHeader) {
+        if (currentParagraph) {
+          html += `<p>${currentParagraph}</p>`;
+          currentParagraph = '';
+        }
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        html += `<h3><strong>${line}</strong></h3>`;
         continue;
       }
       
@@ -399,11 +440,21 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       }
       
       // Regular line - add to current paragraph
-      const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      const contentFormatted = line
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/Name:/g, '<strong>Name:</strong>')
+        .replace(/Client ID:/g, '<strong>Client ID:</strong>')
+        .replace(/Age:/g, '<strong>Age:</strong>')
+        .replace(/Gender:/g, '<strong>Gender:</strong>')
+        .replace(/Date:/g, '<strong>Date:</strong>')
+        .replace(/Type:/g, '<strong>Type:</strong>')
+        .replace(/Duration:/g, '<strong>Duration:</strong>')
+        .replace(/Treatment Stage:/g, '<strong>Treatment Stage:</strong>');
+        
       if (currentParagraph) {
-        currentParagraph += '<br>' + formatted;
+        currentParagraph += '<br>' + contentFormatted;
       } else {
-        currentParagraph = formatted;
+        currentParagraph = contentFormatted;
       }
     }
     
@@ -415,7 +466,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       html += '</ul>';
     }
     
-    return html;
+    return html || '<p>No content generated</p>';
   };
 
   const generateAITemplateMutation = useMutation({
