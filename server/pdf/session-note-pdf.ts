@@ -287,64 +287,6 @@ export function generateSessionNoteHTML(note: SessionNote): string {
           </div>
         </div>
 
-        ${note.moodBefore || note.moodAfter ? `
-          <div class="section">
-            <div class="section-title">Mood Assessment</div>
-            <div style="display: flex; gap: 20px;">
-              ${note.moodBefore ? `<p><strong>Before Session:</strong> ${note.moodBefore}/10</p>` : ''}
-              ${note.moodAfter ? `<p><strong>After Session:</strong> ${note.moodAfter}/10</p>` : ''}
-            </div>
-          </div>
-        ` : ''}
-
-        ${note.sessionFocus ? `
-          <div class="section">
-            <div class="section-title">Session Focus</div>
-            <p>${note.sessionFocus}</p>
-          </div>
-        ` : ''}
-
-        ${note.symptoms ? `
-          <div class="section">
-            <div class="section-title">Symptoms</div>
-            <p>${note.symptoms}</p>
-          </div>
-        ` : ''}
-
-        ${note.shortTermGoals ? `
-          <div class="section">
-            <div class="section-title">Short-term Goals</div>
-            <p>${note.shortTermGoals}</p>
-          </div>
-        ` : ''}
-
-        ${note.intervention ? `
-          <div class="section">
-            <div class="section-title">Intervention</div>
-            <p>${note.intervention}</p>
-          </div>
-        ` : ''}
-
-        ${note.progress ? `
-          <div class="section">
-            <div class="section-title">Progress</div>
-            <p>${note.progress}</p>
-          </div>
-        ` : ''}
-
-        ${note.remarks ? `
-          <div class="section">
-            <div class="section-title">Remarks</div>
-            <p>${note.remarks}</p>
-          </div>
-        ` : ''}
-
-        ${note.recommendations ? `
-          <div class="section">
-            <div class="section-title">Recommendations</div>
-            <p>${note.recommendations}</p>
-          </div>
-        ` : ''}
 
         ${content ? `
           <div class="section">
