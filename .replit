@@ -92,10 +92,6 @@ externalPort = 5000
 localPort = 45569
 externalPort = 8008
 
-[[ports]]
-localPort = 46425
-externalPort = 9000
-
 [agent]
 
 [objectStorage]
