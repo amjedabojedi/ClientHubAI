@@ -351,6 +351,24 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [templateName, setTemplateName] = useState<string>('');
 
+  // Convert plain text to HTML for rich text editor
+  const convertTextToHTML = (text: string): string => {
+    if (!text) return '';
+    
+    // Split by double line breaks to create paragraphs
+    const paragraphs = text.split('\n\n');
+    
+    return paragraphs.map(para => {
+      // Handle single line breaks within paragraphs
+      const formatted = para
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') // Bold
+        .replace(/\*(.+?)\*/g, '<em>$1</em>') // Italic
+        .replace(/\n/g, '<br>'); // Line breaks
+      
+      return `<p>${formatted}</p>`;
+    }).join('');
+  };
+
   const generateAITemplateMutation = useMutation({
     mutationFn: async (data: { clientId: number; sessionId?: number; formData: any; customInstructions: string }) => {
       const response = await apiRequest('/api/ai/generate-template', 'POST', data);
@@ -361,9 +379,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       setIsGeneratingAI(false);
       setShowPreview(true);
       
-      // Auto-populate generated content into the generatedContent field
+      // Auto-populate generated content into the generatedContent field with HTML formatting
       if (result.generatedContent) {
-        form.setValue('generatedContent', result.generatedContent);
+        const htmlContent = convertTextToHTML(result.generatedContent);
+        form.setValue('generatedContent', htmlContent);
       }
       
       toast({ title: "AI content generated! Click 'Create Note' to save, then edit anytime." });
