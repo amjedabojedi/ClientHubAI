@@ -92,34 +92,138 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             color: #1f2937;
           }
           .section {
-            margin: 25px 0;
+            margin: 30px 0;
             page-break-inside: avoid;
+            background-color: #ffffff;
           }
           .section-title {
             font-weight: 700;
             color: #1e40af;
             font-size: 16px;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
             border-bottom: 2px solid #dbeafe;
+            letter-spacing: 0.3px;
+          }
+          .section p {
+            margin: 8px 0;
+            line-height: 1.8;
+            color: #374151;
+            white-space: pre-wrap;
+            word-wrap: break-word;
           }
           .content {
             margin-top: 20px;
             font-size: 14px;
+            line-height: 1.8;
+          }
+          .content h1 {
+            color: #1e40af;
+            font-size: 20px;
+            margin: 25px 0 12px 0;
+            font-weight: 700;
+            border-bottom: 2px solid #dbeafe;
+            padding-bottom: 8px;
           }
           .content h2 {
             color: #1e40af;
             font-size: 18px;
-            margin: 20px 0 10px 0;
+            margin: 22px 0 10px 0;
             font-weight: 700;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 6px;
+          }
+          .content h3 {
+            color: #2563eb;
+            font-size: 16px;
+            margin: 18px 0 8px 0;
+            font-weight: 600;
+          }
+          .content h4 {
+            color: #3b82f6;
+            font-size: 14px;
+            margin: 15px 0 6px 0;
+            font-weight: 600;
           }
           .content p {
-            margin: 8px 0;
-            line-height: 1.6;
+            margin: 10px 0;
+            line-height: 1.8;
+            color: #374151;
           }
           .content strong {
             font-weight: 600;
             color: #1f2937;
+          }
+          .content em {
+            font-style: italic;
+            color: #4b5563;
+          }
+          .content ul, .content ol {
+            margin: 12px 0;
+            padding-left: 30px;
+            line-height: 1.8;
+          }
+          .content ul li, .content ol li {
+            margin: 8px 0;
+            color: #374151;
+          }
+          .content ul {
+            list-style-type: disc;
+          }
+          .content ol {
+            list-style-type: decimal;
+          }
+          .content blockquote {
+            margin: 15px 0;
+            padding: 12px 20px;
+            border-left: 4px solid #3b82f6;
+            background-color: #f3f4f6;
+            font-style: italic;
+            color: #4b5563;
+          }
+          .content code {
+            background-color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #1f2937;
+          }
+          .content pre {
+            background-color: #f3f4f6;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+          }
+          .content pre code {
+            background-color: transparent;
+            padding: 0;
+          }
+          .content hr {
+            border: none;
+            border-top: 1px solid #d1d5db;
+            margin: 20px 0;
+          }
+          .content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+          }
+          .content table th,
+          .content table td {
+            border: 1px solid #d1d5db;
+            padding: 8px 12px;
+            text-align: left;
+          }
+          .content table th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            color: #1f2937;
+          }
+          .content a {
+            color: #2563eb;
+            text-decoration: underline;
           }
           .footer {
             margin-top: 40px;
