@@ -414,7 +414,11 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           html += '</ul>';
           inList = false;
         }
-        html += `<h3><strong>${line}</strong></h3>`;
+        // Add separator before header (except for the first one)
+        if (html) {
+          html += '<hr style="border: none; border-top: 2px solid #e5e7eb; margin: 20px 0;">';
+        }
+        html += `<h2 style="font-weight: bold; font-size: 1.25em; color: #1f2937; margin-top: 10px; margin-bottom: 10px;">${line}</h2>`;
         continue;
       }
       
