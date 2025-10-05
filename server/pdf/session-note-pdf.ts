@@ -259,4 +259,5 @@ export function generateSessionNoteHTML(note: SessionNote): string {
       </html>
     `;
 
-    return html;
+  return html;
+}
