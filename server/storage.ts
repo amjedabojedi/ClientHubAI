@@ -342,7 +342,7 @@ export interface IStorage {
   createSessionNote(sessionNote: InsertSessionNote): Promise<SessionNote>;
   updateSessionNote(id: number, sessionNote: Partial<InsertSessionNote>): Promise<SessionNote>;
   deleteSessionNote(id: number): Promise<void>;
-  getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session }) | undefined>;
+  getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session & { room?: SelectRoom | null } }) | undefined>;
 
   // Hierarchical Library Management
   getLibraryCategories(): Promise<(LibraryCategory & { children?: LibraryCategory[]; entries?: LibraryEntry[] })[]>;
@@ -2650,18 +2650,20 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sessionNotes).where(eq(sessionNotes.id, id));
   }
 
-  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session }) | undefined> {
+  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session & { room?: SelectRoom | null } }) | undefined> {
     const results = await db
       .select({
         sessionNote: sessionNotes,
         therapist: users,
         client: clients,
-        session: sessions
+        session: sessions,
+        room: rooms
       })
       .from(sessionNotes)
       .innerJoin(users, eq(sessionNotes.therapistId, users.id))
       .innerJoin(clients, eq(sessionNotes.clientId, clients.id))
       .innerJoin(sessions, eq(sessionNotes.sessionId, sessions.id))
+      .leftJoin(rooms, eq(sessions.roomId, rooms.id))
       .where(eq(sessionNotes.id, id));
 
     if (results.length === 0) return undefined;
@@ -2671,7 +2673,10 @@ export class DatabaseStorage implements IStorage {
       ...r.sessionNote, 
       therapist: r.therapist, 
       client: r.client, 
-      session: r.session 
+      session: {
+        ...r.session,
+        room: r.room || null
+      }
     };
   }
 
