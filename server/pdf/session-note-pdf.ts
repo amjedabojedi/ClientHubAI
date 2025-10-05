@@ -54,28 +54,28 @@ export function generateSessionNoteHTML(note: SessionNote): string {
         <style>
           body {
             font-family: 'Helvetica', 'Arial', sans-serif;
-            padding: 40px;
-            line-height: 1.6;
+            padding: 20px 30px;
+            line-height: 1.5;
             color: #333;
           }
           .header {
             border-bottom: 3px solid #2563eb;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
           }
           h1 {
             color: #1e40af;
-            margin: 0 0 10px 0;
-            font-size: 28px;
+            margin: 0 0 6px 0;
+            font-size: 26px;
           }
           .meta-info {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-            padding: 20px;
+            gap: 10px;
+            margin: 12px 0 15px 0;
+            padding: 12px 15px;
             background-color: #f3f4f6;
-            border-radius: 8px;
+            border-radius: 6px;
           }
           .meta-item {
             margin: 0;
@@ -92,7 +92,7 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             color: #1f2937;
           }
           .section {
-            margin: 30px 0;
+            margin: 15px 0 0 0;
             page-break-inside: avoid;
             background-color: #ffffff;
           }
@@ -100,54 +100,54 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             font-weight: 700;
             color: #1e40af;
             font-size: 16px;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
             border-bottom: 2px solid #dbeafe;
             letter-spacing: 0.3px;
           }
           .section p {
-            margin: 8px 0;
-            line-height: 1.8;
+            margin: 5px 0;
+            line-height: 1.6;
             color: #374151;
             white-space: pre-wrap;
             word-wrap: break-word;
           }
           .content {
-            margin-top: 20px;
+            margin-top: 8px;
             font-size: 14px;
-            line-height: 1.8;
+            line-height: 1.6;
           }
           .content h1 {
             color: #1e40af;
-            font-size: 20px;
-            margin: 25px 0 12px 0;
+            font-size: 19px;
+            margin: 15px 0 8px 0;
             font-weight: 700;
             border-bottom: 2px solid #dbeafe;
-            padding-bottom: 8px;
+            padding-bottom: 5px;
           }
           .content h2 {
             color: #1e40af;
-            font-size: 18px;
-            margin: 22px 0 10px 0;
+            font-size: 17px;
+            margin: 12px 0 6px 0;
             font-weight: 700;
             border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
           }
           .content h3 {
             color: #2563eb;
-            font-size: 16px;
-            margin: 18px 0 8px 0;
+            font-size: 15px;
+            margin: 10px 0 5px 0;
             font-weight: 600;
           }
           .content h4 {
             color: #3b82f6;
             font-size: 14px;
-            margin: 15px 0 6px 0;
+            margin: 8px 0 4px 0;
             font-weight: 600;
           }
           .content p {
-            margin: 10px 0;
-            line-height: 1.8;
+            margin: 6px 0;
+            line-height: 1.6;
             color: #374151;
           }
           .content strong {
@@ -159,12 +159,12 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             color: #4b5563;
           }
           .content ul, .content ol {
-            margin: 12px 0;
-            padding-left: 30px;
-            line-height: 1.8;
+            margin: 6px 0;
+            padding-left: 25px;
+            line-height: 1.6;
           }
           .content ul li, .content ol li {
-            margin: 8px 0;
+            margin: 4px 0;
             color: #374151;
           }
           .content ul {
@@ -174,8 +174,8 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             list-style-type: decimal;
           }
           .content blockquote {
-            margin: 15px 0;
-            padding: 12px 20px;
+            margin: 8px 0;
+            padding: 8px 15px;
             border-left: 4px solid #3b82f6;
             background-color: #f3f4f6;
             font-style: italic;
@@ -191,10 +191,10 @@ export function generateSessionNoteHTML(note: SessionNote): string {
           }
           .content pre {
             background-color: #f3f4f6;
-            padding: 12px;
+            padding: 8px;
             border-radius: 6px;
             overflow-x: auto;
-            margin: 15px 0;
+            margin: 8px 0;
           }
           .content pre code {
             background-color: transparent;
@@ -203,17 +203,17 @@ export function generateSessionNoteHTML(note: SessionNote): string {
           .content hr {
             border: none;
             border-top: 1px solid #d1d5db;
-            margin: 20px 0;
+            margin: 10px 0;
           }
           .content table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
+            margin: 8px 0;
           }
           .content table th,
           .content table td {
             border: 1px solid #d1d5db;
-            padding: 8px 12px;
+            padding: 6px 10px;
             text-align: left;
           }
           .content table th {
@@ -226,10 +226,10 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             text-decoration: underline;
           }
           .footer {
-            margin-top: 40px;
-            padding-top: 20px;
+            margin-top: 20px;
+            padding-top: 12px;
             border-top: 2px solid #e5e7eb;
-            font-size: 12px;
+            font-size: 11px;
             color: #6b7280;
             text-align: center;
           }
