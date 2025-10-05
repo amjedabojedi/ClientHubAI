@@ -1075,14 +1075,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Room</p>
-                    <p className="text-sm font-medium">{note.session.room?.roomName || 'Not specified'}</p>
+                    <p className="text-sm font-medium">{note.session.room?.roomName || '—'}</p>
                   </div>
                 </div>
               </CardHeader>
               
               {/* Action Buttons */}
               <CardContent className="pt-4 border-t">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2">
                   {!note.isFinalized && (
                     <Button
                       variant="default"
