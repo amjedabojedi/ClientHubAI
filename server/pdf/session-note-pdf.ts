@@ -254,6 +254,90 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             border-top: 1px solid #e5e7eb;
             margin: 20px 0;
           }
+          
+          @media print {
+            body {
+              padding: 15px 20px;
+              line-height: 1.4;
+            }
+            .header {
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+            }
+            h1 {
+              margin: 0 0 4px 0;
+              font-size: 24px;
+            }
+            .meta-info {
+              gap: 8px;
+              margin: 8px 0 10px 0;
+              padding: 10px 12px;
+            }
+            .section {
+              margin: 10px 0 0 0;
+            }
+            .section-title {
+              margin-bottom: 6px;
+              padding-bottom: 4px;
+            }
+            .section p {
+              margin: 4px 0;
+              line-height: 1.5;
+            }
+            .content {
+              margin-top: 6px;
+              line-height: 1.5;
+            }
+            .content h1 {
+              margin: 10px 0 6px 0;
+              padding-bottom: 4px;
+            }
+            .content h2 {
+              margin: 8px 0 4px 0;
+              padding-bottom: 3px;
+            }
+            .content h3 {
+              margin: 6px 0 3px 0;
+            }
+            .content h4 {
+              margin: 5px 0 2px 0;
+            }
+            .content p {
+              margin: 4px 0;
+              line-height: 1.5;
+            }
+            .content ul, .content ol {
+              margin: 4px 0;
+              padding-left: 20px;
+              line-height: 1.5;
+            }
+            .content ul li, .content ol li {
+              margin: 2px 0;
+            }
+            .content blockquote {
+              margin: 6px 0;
+              padding: 6px 12px;
+            }
+            .content pre {
+              padding: 6px;
+              margin: 6px 0;
+            }
+            .content hr {
+              margin: 8px 0;
+            }
+            .content table {
+              margin: 6px 0;
+            }
+            .content table th,
+            .content table td {
+              padding: 4px 8px;
+            }
+            .footer {
+              margin-top: 15px;
+              padding-top: 8px;
+              font-size: 10px;
+            }
+          }
         </style>
       </head>
       <body>
