@@ -1015,58 +1015,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-
-                {/* Core Clinical Documentation */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {note.sessionFocus && (
-                    <div>
-                      <h4 className="font-medium mb-1">Session Focus</h4>
-                      <p className="text-sm text-muted-foreground">{note.sessionFocus}</p>
-                    </div>
-                  )}
-                  {note.symptoms && (
-                    <div>
-                      <h4 className="font-medium mb-1">Symptoms</h4>
-                      <p className="text-sm text-muted-foreground">{note.symptoms}</p>
-                    </div>
-                  )}
-                  {note.shortTermGoals && (
-                    <div>
-                      <h4 className="font-medium mb-1">Short-term Goals</h4>
-                      <p className="text-sm text-muted-foreground">{note.shortTermGoals}</p>
-                    </div>
-                  )}
-                  {note.intervention && (
-                    <div>
-                      <h4 className="font-medium mb-1">Intervention</h4>
-                      <p className="text-sm text-muted-foreground">{note.intervention}</p>
-                    </div>
-                  )}
-                  {note.progress && (
-                    <div>
-                      <h4 className="font-medium mb-1">Progress</h4>
-                      <p className="text-sm text-muted-foreground">{note.progress}</p>
-                    </div>
-                  )}
-                  {note.remarks && (
-                    <div>
-                      <h4 className="font-medium mb-1">Remarks</h4>
-                      <p className="text-sm text-muted-foreground">{note.remarks}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Recommendations */}
-                {note.recommendations && (
-                  <div>
-                    <h4 className="font-medium mb-2">Recommendations</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {note.recommendations}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
             </Card>
           ))
         )}
