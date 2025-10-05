@@ -355,18 +355,67 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const convertTextToHTML = (text: string): string => {
     if (!text) return '';
     
-    // Split by double line breaks to create paragraphs
-    const paragraphs = text.split('\n\n');
+    // Split into lines
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    let currentParagraph = '';
     
-    return paragraphs.map(para => {
-      // Handle single line breaks within paragraphs
-      const formatted = para
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') // Bold
-        .replace(/\*(.+?)\*/g, '<em>$1</em>') // Italic
-        .replace(/\n/g, '<br>'); // Line breaks
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
       
-      return `<p>${formatted}</p>`;
-    }).join('');
+      // Empty line - end current paragraph
+      if (!line) {
+        if (currentParagraph) {
+          html += `<p>${currentParagraph}</p>`;
+          currentParagraph = '';
+        }
+        if (inList) {
+          html += '</ul>';
+          inList = false;
+        }
+        continue;
+      }
+      
+      // Bullet point (starts with - or * or •)
+      if (line.match(/^[-*•]\s+/)) {
+        if (currentParagraph) {
+          html += `<p>${currentParagraph}</p>`;
+          currentParagraph = '';
+        }
+        if (!inList) {
+          html += '<ul>';
+          inList = true;
+        }
+        const content = line.replace(/^[-*•]\s+/, '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html += `<li>${content}</li>`;
+        continue;
+      }
+      
+      // End list if we're in one
+      if (inList && !line.match(/^[-*•]\s+/)) {
+        html += '</ul>';
+        inList = false;
+      }
+      
+      // Regular line - add to current paragraph
+      const formatted = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      if (currentParagraph) {
+        currentParagraph += '<br>' + formatted;
+      } else {
+        currentParagraph = formatted;
+      }
+    }
+    
+    // Close any remaining open elements
+    if (currentParagraph) {
+      html += `<p>${currentParagraph}</p>`;
+    }
+    if (inList) {
+      html += '</ul>';
+    }
+    
+    return html;
   };
 
   const generateAITemplateMutation = useMutation({
@@ -381,11 +430,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       
       // Auto-populate generated content into the generatedContent field with HTML formatting
       if (result.generatedContent) {
+        console.log('[AI GENERATION] Original text:', result.generatedContent);
         const htmlContent = convertTextToHTML(result.generatedContent);
+        console.log('[AI GENERATION] Converted HTML:', htmlContent);
         form.setValue('generatedContent', htmlContent);
+        // Force a re-render of the Quill editor
+        setTimeout(() => {
+          form.trigger('generatedContent');
+        }, 100);
       }
       
-      toast({ title: "AI content generated! Click 'Create Note' to save, then edit anytime." });
+      toast({ title: "AI content generated! Scroll down to see formatted content in the editor." });
     },
     onError: (error: any) => {
 
