@@ -391,7 +391,6 @@ export function generateSessionNoteHTML(note: SessionNote): string {
 
         <div class="footer">
           <p>Generated on ${format(new Date(), 'MMMM dd, yyyy \'at\' hh:mm a')}</p>
-          <p>Session Note ID: ${note.id}</p>
         </div>
       </body>
       </html>
