@@ -3851,6 +3851,60 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Finalize session note
+  app.post("/api/session-notes/:id/finalize", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const note = await storage.getSessionNote(id);
+      
+      if (!note) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+      
+      // Update note to finalized status
+      const updatedNote = await storage.updateSessionNote(id, { 
+        isFinalized: true,
+        isDraft: false,
+        finalContent: note.generatedContent || note.draftContent || ''
+      });
+      
+      res.json(updatedNote);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Generate PDF for session note
+  app.get("/api/session-notes/:id/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const note = await storage.getSessionNote(id);
+      
+      if (!note) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+
+      // Import PDF generation module
+      const { generateSessionNotePDF } = await import("./pdf/session-note-pdf");
+      const pdfBuffer = await generateSessionNotePDF(note);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="session-note-${id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
   // AI-powered routes
   app.post("/api/ai/generate-template", async (req, res) => {
     try {

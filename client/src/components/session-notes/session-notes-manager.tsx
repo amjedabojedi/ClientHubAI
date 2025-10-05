@@ -19,7 +19,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 // Icons
-import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -751,6 +751,71 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
   };
 
+  // Handle finalize note
+  const handleFinalizeNote = async (id: number) => {
+    try {
+      await apiRequest(`/api/session-notes/${id}/finalize`, 'POST');
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
+      toast({ title: "Session note finalized successfully" });
+    } catch (error) {
+      toast({ 
+        title: "Error finalizing note", 
+        description: error instanceof Error ? error.message : "Failed to finalize note",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  // Handle PDF preview
+  const handlePreviewPDF = async (note: SessionNote) => {
+    try {
+      const response = await fetch(`/api/session-notes/${note.id}/pdf`, {
+        method: 'GET',
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (error) {
+      toast({ 
+        title: "Error generating PDF preview", 
+        description: error instanceof Error ? error.message : "Failed to generate PDF",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  // Handle PDF download
+  const handleDownloadPDF = async (note: SessionNote) => {
+    try {
+      const response = await fetch(`/api/session-notes/${note.id}/pdf`, {
+        method: 'GET',
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `session-note-${note.id}-${format(parseSessionDate(note.date), 'yyyy-MM-dd')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({ title: "PDF downloaded successfully" });
+    } catch (error) {
+      toast({ 
+        title: "Error downloading PDF", 
+        description: error instanceof Error ? error.message : "Failed to download PDF",
+        variant: "destructive" 
+      });
+    }
+  };
+
   // Filter notes by selected session - ensure sessionNotes is an array
   const notesArray = Array.isArray(sessionNotes) ? sessionNotes : [];
   const filteredNotes = selectedSession 
@@ -1015,6 +1080,43 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   </div>
                 </div>
               </CardHeader>
+              
+              {/* Action Buttons */}
+              <CardContent className="pt-4 border-t">
+                <div className="flex flex-wrap gap-2">
+                  {!note.isFinalized && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleFinalizeNote(note.id)}
+                      data-testid={`button-finalize-note-${note.id}`}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Finalize & Save Final Copy
+                    </Button>
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePreviewPDF(note)}
+                    data-testid={`button-preview-pdf-${note.id}`}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    PDF Preview
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadPDF(note)}
+                    data-testid={`button-download-pdf-${note.id}`}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           ))
         )}
