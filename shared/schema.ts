@@ -1428,10 +1428,7 @@ export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({
   sessionId: z.coerce.number(),
   clientId: z.coerce.number(),
   therapistId: z.coerce.number(),
-  date: z.union([
-    z.date(),
-    z.string().transform((val) => new Date(val))
-  ]),
+  date: z.coerce.date(),
 });
 
 export const insertLibraryCategorySchema = createInsertSchema(libraryCategories).omit({
