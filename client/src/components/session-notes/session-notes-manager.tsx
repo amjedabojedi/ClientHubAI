@@ -769,14 +769,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Handle PDF preview
   const handlePreviewPDF = async (note: SessionNote) => {
     try {
-      const response = await fetch(`/api/session-notes/${note.id}/pdf`, {
-        method: 'GET',
-      });
-      
-      if (!response.ok) throw new Error('Failed to generate PDF');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = `/api/session-notes/${note.id}/pdf`;
       window.open(url, '_blank');
     } catch (error) {
       toast({ 
@@ -787,26 +780,26 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
   };
 
-  // Handle PDF download
+  // Handle PDF download (opens print dialog)
   const handleDownloadPDF = async (note: SessionNote) => {
     try {
-      const response = await fetch(`/api/session-notes/${note.id}/pdf`, {
-        method: 'GET',
-      });
+      const response = await fetch(`/api/session-notes/${note.id}/pdf`);
       
       if (!response.ok) throw new Error('Failed to generate PDF');
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `session-note-${note.id}-${format(parseSessionDate(note.date), 'yyyy-MM-dd')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const html = await response.text();
       
-      toast({ title: "PDF downloaded successfully" });
+      // Create a new window with the HTML content and auto-trigger print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        
+        // Wait for content to load, then trigger print
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
     } catch (error) {
       toast({ 
         title: "Error downloading PDF", 

@@ -3878,7 +3878,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // Generate PDF for session note
+  // Generate PDF HTML for session note
   app.get("/api/session-notes/:id/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
@@ -3892,13 +3892,12 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Session note not found" });
       }
 
-      // Import PDF generation module
-      const { generateSessionNotePDF } = await import("./pdf/session-note-pdf");
-      const pdfBuffer = await generateSessionNotePDF(note);
+      // Import HTML generation module
+      const { generateSessionNoteHTML } = await import("./pdf/session-note-pdf");
+      const html = generateSessionNoteHTML(note);
       
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="session-note-${id}.pdf"`);
-      res.send(pdfBuffer);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
     } catch (error) {
       console.error('PDF generation error:', error);
       res.status(500).json({ message: "Failed to generate PDF" });

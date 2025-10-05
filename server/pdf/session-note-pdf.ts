@@ -1,4 +1,3 @@
-import htmlPdf from 'html-pdf-node';
 import { format } from 'date-fns';
 
 interface SessionNote {
@@ -38,12 +37,10 @@ interface SessionNote {
   };
 }
 
-export async function generateSessionNotePDF(note: SessionNote): Promise<Buffer> {
-  try {
-    
-    // Format date
-    const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
-    const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
+export function generateSessionNoteHTML(note: SessionNote): string {
+  // Format date
+  const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
+  const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
     
     // Get content to display (prioritize final, then generated, then draft)
     const content = note.finalContent || note.generatedContent || note.draftContent || '';
@@ -262,23 +259,4 @@ export async function generateSessionNotePDF(note: SessionNote): Promise<Buffer>
       </html>
     `;
 
-    const options = { 
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20px',
-        right: '20px',
-        bottom: '20px',
-        left: '20px'
-      }
-    };
-
-    const file = { content: html };
-    const pdfBuffer = await htmlPdf.generatePdf(file, options);
-
-    return Buffer.from(pdfBuffer);
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    throw new Error('Failed to generate PDF');
-  }
-}
+    return html;
