@@ -145,6 +145,7 @@ const quillFormats = [
 const sessionNoteFormSchema = insertSessionNoteSchema.extend({
   aiEnabled: z.boolean().default(false),
   customAiPrompt: z.string().optional(),
+  generatedContent: z.string().optional(),
 });
 
 type SessionNoteFormData = z.infer<typeof sessionNoteFormSchema>;
@@ -360,12 +361,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       setIsGeneratingAI(false);
       setShowPreview(true);
       
-      // Auto-populate generated content into the recommendations field (rich text editor)
+      // Auto-populate generated content into the generatedContent field
       if (result.generatedContent) {
-        form.setValue('recommendations', result.generatedContent);
+        form.setValue('generatedContent', result.generatedContent);
       }
       
-      toast({ title: "AI content generated! Review and edit in the rich text editor below." });
+      toast({ title: "AI content generated! Click 'Create Note' to save, then edit anytime." });
     },
     onError: (error: any) => {
 
@@ -562,6 +563,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       progress: note.progress || '',
       remarks: note.remarks || '',
       recommendations: note.recommendations || '',
+      generatedContent: note.generatedContent || '',
       moodBefore: note.moodBefore || undefined,
       moodAfter: note.moodAfter || undefined,
       aiEnabled: note.aiEnabled,
@@ -869,15 +871,33 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Generated/Draft Content Display */}
+                {/* Generated/Draft Content Summary */}
                 {(note.generatedContent || note.draftContent || note.finalContent) && (
-                  <div>
-                    <h4 className="font-medium mb-2">
-                      {note.isFinalized ? 'Final' : note.isDraft ? 'Draft' : 'Generated'} Content
-                    </h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {note.finalContent || note.draftContent || note.generatedContent}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-blue-600" />
+                        AI Generated Note
+                        {note.isFinalized && <Badge variant="default">Finalized</Badge>}
+                        {note.isDraft && <Badge variant="outline">Draft</Badge>}
+                      </h4>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {(() => {
+                        const content = note.finalContent || note.draftContent || note.generatedContent || '';
+                        const preview = content.substring(0, 150);
+                        return preview + (content.length > 150 ? '...' : '');
+                      })()}
                     </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditNote(note)}
+                      className="text-xs"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      View & Edit Full Note
+                    </Button>
                   </div>
                 )}
 
@@ -1262,9 +1282,32 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     name="recommendations"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Recommendations (Rich Text Editor)</FormLabel>
+                        <FormLabel>Recommendations</FormLabel>
                         <FormControl>
-                          <div className="bg-white dark:bg-gray-950 rounded-md border">
+                          <Textarea 
+                            placeholder="Future treatment recommendations..."
+                            {...field}
+                            value={field.value || ''}
+                            rows={3}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* AI Generated Content - Rich Text Editor */}
+                  <FormField
+                    control={form.control}
+                    name="generatedContent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                          <Brain className="h-4 w-4 text-blue-600" />
+                          AI Generated Session Note (Rich Text Editor)
+                        </FormLabel>
+                        <FormControl>
+                          <div className="bg-white dark:bg-gray-950 rounded-md border min-h-[300px]">
                             <ReactQuill
                               theme="snow"
                               value={field.value || ''}
@@ -1274,10 +1317,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                               onBlur={field.onBlur}
                               modules={quillModules}
                               formats={quillFormats}
-                              placeholder="Future treatment recommendations..."
+                              placeholder="AI-generated content will appear here after you click 'Generate Content'. You can edit it with rich text formatting..."
+                              style={{ minHeight: '250px' }}
                             />
                           </div>
                         </FormControl>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Edit the AI-generated session note with formatting. This will be saved when you click "Create Note" or "Update Note".
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1599,20 +1646,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
                 </TabsContent>
               </Tabs>
-
-              {/* Debug: Display Form Errors */}
-              {Object.keys(form.formState.errors).length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-                  <h4 className="text-sm font-semibold text-red-800 mb-2">Form Validation Errors:</h4>
-                  <ul className="text-xs text-red-700 space-y-1">
-                    {Object.entries(form.formState.errors).map(([key, error]) => (
-                      <li key={key}>
-                        <strong>{key}:</strong> {error?.message || 'Invalid value'}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
 
               <DialogFooter>
                 <Button
