@@ -752,11 +752,24 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   };
 
   // Handle finalize note
-  const handleFinalizeNote = async (id: number) => {
+  // State for finalization modal
+  const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+  const [noteToFinalize, setNoteToFinalize] = useState<number | null>(null);
+
+  const handleFinalizeNote = (id: number) => {
+    setNoteToFinalize(id);
+    setFinalizeModalOpen(true);
+  };
+
+  const confirmFinalize = async () => {
+    if (!noteToFinalize) return;
+    
     try {
-      await apiRequest(`/api/session-notes/${id}/finalize`, 'POST');
+      await apiRequest(`/api/session-notes/${noteToFinalize}/finalize`, 'POST');
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
       toast({ title: "Session note finalized successfully" });
+      setFinalizeModalOpen(false);
+      setNoteToFinalize(null);
     } catch (error) {
       toast({ 
         title: "Error finalizing note", 
@@ -1942,6 +1955,64 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               }}
             >
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finalization Confirmation Dialog */}
+      <Dialog open={finalizeModalOpen} onOpenChange={setFinalizeModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Finalize Session Note</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to finalize this session note?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+                ⚠️ This action is irreversible
+              </p>
+              <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
+                <li>The note will be locked and cannot be edited</li>
+                <li>Finalization timestamp will be recorded</li>
+                <li>Your digital signature will be applied to the PDF</li>
+              </ul>
+            </div>
+
+            {(!user?.title || !user?.signatureImage) && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">
+                  📝 Profile Information
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  {!user?.title && !user?.signatureImage && "Your professional title and signature image are not set. "}
+                  {!user?.title && user?.signatureImage && "Your professional title is not set. "}
+                  {user?.title && !user?.signatureImage && "Your signature image is not set. "}
+                  The PDF will include your name{user?.title ? " and title" : ""} in the signature section.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFinalizeModalOpen(false);
+                setNoteToFinalize(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmFinalize}
+              data-testid="button-confirm-finalize"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Finalize Note
             </Button>
           </DialogFooter>
         </DialogContent>

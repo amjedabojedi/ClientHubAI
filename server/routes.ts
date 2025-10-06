@@ -3877,11 +3877,9 @@ This happens because only the file metadata was stored, not the actual file cont
       // Check if user is a supervisor of the assigned therapist
       let isSupervisor = false;
       if (!isAssignedTherapist && !isAdmin) {
-        const supervisorAssignments = await storage.getSupervisorAssignments();
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         isSupervisor = supervisorAssignments.some(
-          assignment => assignment.supervisorId === req.user!.id && 
-                       assignment.therapistId === note.therapistId &&
-                       assignment.status === 'active'
+          assignment => assignment.therapistId === note.therapistId
         );
       }
       
@@ -3898,7 +3896,7 @@ This happens because only the file metadata was stored, not the actual file cont
       });
       
       // Log audit trail for HIPAA compliance
-      await storage.createAuditLog({
+      await storage.logUserActivity({
         userId: req.user.id,
         action: 'finalize_session_note',
         resourceType: 'session_note',
