@@ -3865,6 +3865,30 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Session note not found" });
       }
       
+      // Check if note is already finalized
+      if (note.isFinalized) {
+        return res.status(400).json({ message: "Session note is already finalized" });
+      }
+      
+      // Permission check: Only assigned therapist, supervisor with rights, or admin can finalize
+      const isAssignedTherapist = note.therapistId === req.user.id;
+      const isAdmin = req.user.role === 'administrator';
+      
+      // Check if user is a supervisor of the assigned therapist
+      let isSupervisor = false;
+      if (!isAssignedTherapist && !isAdmin) {
+        const supervisorAssignments = await storage.getSupervisorAssignments();
+        isSupervisor = supervisorAssignments.some(
+          assignment => assignment.supervisorId === req.user!.id && 
+                       assignment.therapistId === note.therapistId &&
+                       assignment.status === 'active'
+        );
+      }
+      
+      if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
+        return res.status(403).json({ message: "You do not have permission to finalize this session note" });
+      }
+      
       // Update note to finalized status
       const updatedNote = await storage.updateSessionNote(id, { 
         isFinalized: true,
@@ -3873,8 +3897,20 @@ This happens because only the file metadata was stored, not the actual file cont
         finalizedAt: new Date()
       });
       
+      // Log audit trail for HIPAA compliance
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'finalize_session_note',
+        resourceType: 'session_note',
+        resourceId: id,
+        details: `Finalized session note for client ${note.clientId}`,
+        ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+        userAgent: req.get('user-agent') || 'unknown'
+      });
+      
       res.json(updatedNote);
     } catch (error) {
+      console.error('Error finalizing session note:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
