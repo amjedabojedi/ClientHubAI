@@ -46,10 +46,10 @@ export function generateSessionNoteHTML(note: SessionNote): string {
     // Get content to display (prioritize final, then generated, then draft)
     let content = note.finalContent || note.generatedContent || note.draftContent || '';
     
-    // Add visual separators before section labels (bold text ending with colon at start of paragraph)
-    // Pattern: <p><strong>Label:</strong> or <p>Label <strong>followed by text
-    content = content.replace(/<p>([^<]*<strong>[^:]+:<\/strong>)/g, '<p class="section-label">$1');
-    content = content.replace(/<p><strong>([^:]+):<\/strong>/g, '<p class="section-label"><strong>$1:</strong>');
+    // Add visual separators before section labels
+    // Match patterns like: <p>Session Focus:</p>, <p><strong>Name:</strong>..., <p>Client <strong>Name:</strong>...
+    content = content.replace(/<p>([A-Z][^<:]*(?:<strong>[^<:]+<\/strong>[^<:]*)?:)/g, '<p class="section-label">$1');
+    content = content.replace(/<p>([^<]*<strong>[A-Z][^:]+:<\/strong>)/g, '<p class="section-label">$1');
     
     // Create HTML for PDF
     const html = `
