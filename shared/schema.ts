@@ -85,6 +85,7 @@ export const users = pgTable("users", {
   department: varchar("department", { length: 100 }),
   bio: text("bio"),
   profilePicture: text("profile_picture"),
+  signatureImage: text("signature_image"), // Digital signature for session notes
   
   // Zoom Integration (per-therapist OAuth credentials)
   zoomAccountId: varchar("zoom_account_id", { length: 255 }),
