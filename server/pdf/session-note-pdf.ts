@@ -24,6 +24,8 @@ interface SessionNote {
   therapist: {
     id: number;
     fullName: string;
+    title?: string | null;
+    signatureImage?: string | null;
   };
   client?: {
     id: number;
@@ -271,6 +273,41 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             color: #2563eb;
             text-decoration: underline;
           }
+          .signature-section {
+            margin-top: 30px;
+            padding: 15px 20px;
+            border-top: 2px solid #2563eb;
+            background-color: #f9fafb;
+          }
+          .signature-content {
+            display: flex;
+            align-items: flex-end;
+            gap: 20px;
+          }
+          .signature-image {
+            max-width: 200px;
+            max-height: 60px;
+            object-fit: contain;
+          }
+          .signature-details {
+            flex: 1;
+          }
+          .signature-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 15px;
+            margin-bottom: 2px;
+          }
+          .signature-title {
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 4px;
+          }
+          .signature-date {
+            color: #9ca3af;
+            font-size: 12px;
+            font-style: italic;
+          }
           .footer {
             margin-top: 20px;
             padding-top: 12px;
@@ -434,6 +471,28 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             .content table td {
               padding: 2px 5px;
             }
+            .signature-section {
+              margin-top: 15px;
+              padding: 10px 12px;
+              border-top: 2px solid #2563eb;
+              background-color: #f9fafb;
+              page-break-inside: avoid;
+            }
+            .signature-image {
+              max-width: 150px;
+              max-height: 40px;
+            }
+            .signature-name {
+              font-size: 13px;
+              margin-bottom: 1px;
+            }
+            .signature-title {
+              font-size: 11px;
+              margin-bottom: 2px;
+            }
+            .signature-date {
+              font-size: 10px;
+            }
             .footer {
               margin-top: 8px;
               padding-top: 4px;
@@ -486,6 +545,21 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             <div class="section-title">Clinical Documentation</div>
             <div class="content">
               ${content}
+            </div>
+          </div>
+        ` : ''}
+
+        ${note.isFinalized && finalizedDate ? `
+          <div class="signature-section">
+            <div class="signature-content">
+              ${note.therapist.signatureImage ? `
+                <img src="${note.therapist.signatureImage}" alt="Signature" class="signature-image" />
+              ` : ''}
+              <div class="signature-details">
+                <div class="signature-name">${note.therapist.fullName}</div>
+                ${note.therapist.title ? `<div class="signature-title">${note.therapist.title}</div>` : ''}
+                <div class="signature-date">Digitally signed on ${finalizedDate}</div>
+              </div>
             </div>
           </div>
         ` : ''}
