@@ -121,18 +121,32 @@ export function generateSessionNoteHTML(note: SessionNote): string {
           .content h1 {
             color: #1e40af;
             font-size: 19px;
-            margin: 15px 0 8px 0;
+            margin: 20px 0 8px 0;
+            padding-top: 15px;
             font-weight: 700;
+            border-top: 3px solid #2563eb;
             border-bottom: 2px solid #dbeafe;
             padding-bottom: 5px;
+          }
+          .content h1:first-child {
+            margin-top: 10px;
+            padding-top: 0;
+            border-top: none;
           }
           .content h2 {
             color: #1e40af;
             font-size: 17px;
-            margin: 12px 0 6px 0;
+            margin: 15px 0 6px 0;
+            padding-top: 10px;
             font-weight: 700;
+            border-top: 2px solid #e5e7eb;
             border-bottom: 1px solid #e5e7eb;
             padding-bottom: 4px;
+          }
+          .content h2:first-child {
+            margin-top: 8px;
+            padding-top: 0;
+            border-top: none;
           }
           .content h3 {
             color: #2563eb;
@@ -307,16 +321,32 @@ export function generateSessionNoteHTML(note: SessionNote): string {
               line-height: 1.35;
             }
             .content h1 {
-              margin: 6px 0 3px 0;
+              margin: 12px 0 3px 0;
+              padding-top: 10px;
               padding-bottom: 2px;
               font-size: 16px;
+              border-top: 2px solid #2563eb;
+              border-bottom: 1px solid #dbeafe;
               page-break-after: avoid;
             }
+            .content h1:first-child {
+              margin-top: 6px;
+              padding-top: 0;
+              border-top: none;
+            }
             .content h2 {
-              margin: 5px 0 2px 0;
+              margin: 8px 0 2px 0;
+              padding-top: 6px;
               padding-bottom: 2px;
               font-size: 14px;
+              border-top: 1px solid #d1d5db;
+              border-bottom: 1px solid #e5e7eb;
               page-break-after: avoid;
+            }
+            .content h2:first-child {
+              margin-top: 4px;
+              padding-top: 0;
+              border-top: none;
             }
             .content h3 {
               margin: 4px 0 2px 0;
