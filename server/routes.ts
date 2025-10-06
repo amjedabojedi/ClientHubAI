@@ -1619,6 +1619,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid session ID" });
       }
       
+      // Get original session data before update (for rescheduling notification)
+      const originalSession = await storage.getSession(id);
+      if (!originalSession) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
       // Convert sessionDate string to Date object if needed (same as create)
       const sessionData = { ...req.body };
       if (sessionData.sessionDate) {
@@ -1864,6 +1870,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (billingError) {
           console.error(`Error creating billing for session ${id}:`, billingError);
           // Continue with session update even if billing fails
+        }
+      }
+      
+      // Trigger session_rescheduled notification if date/time changed
+      if (sessionData.sessionDate && originalSession.sessionDate) {
+        const originalDate = new Date(originalSession.sessionDate).getTime();
+        const newDate = new Date(session.sessionDate).getTime();
+        
+        if (originalDate !== newDate) {
+          try {
+            const client = await storage.getClient(session.clientId);
+            const therapist = await storage.getUser(session.therapistId);
+            
+            const notificationData = {
+              id: session.id,
+              clientId: session.clientId,
+              therapistId: session.therapistId,
+              clientName: client?.fullName || 'Unknown Client',
+              therapistName: therapist?.fullName || 'Unknown Therapist',
+              sessionType: session.sessionType,
+              oldSessionDate: originalSession.sessionDate,
+              sessionDate: session.sessionDate,
+              roomId: session.roomId,
+              duration: 60,
+              zoomEnabled: session.zoomEnabled || false,
+              zoomJoinUrl: session.zoomJoinUrl || null,
+              zoomMeetingId: session.zoomMeetingId || null,
+              zoomPassword: session.zoomPassword || null
+            };
+            
+            await notificationService.processEvent('session_rescheduled', notificationData);
+          } catch (notificationError) {
+            console.error('Session rescheduled notification failed:', notificationError);
+            // Continue with response even if notification fails
+          }
         }
       }
       

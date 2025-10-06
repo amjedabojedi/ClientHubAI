@@ -561,6 +561,9 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
       case 'session_scheduled':
         return this.generateSessionEmailBody(entityData, recipient, isClient);
       
+      case 'session_rescheduled':
+        return this.generateSessionRescheduledEmailBody(entityData, recipient, isClient);
+      
       case 'client_created':
         return this.generateClientCreatedEmailBody(entityData, recipient, isClient);
       
@@ -634,6 +637,59 @@ Duration: ${entityData.duration || 60} minutes
 • Room: ${entityData.roomId ? `Room ${entityData.roomId}` : 'Not assigned'}
 
 This notification was sent because you are listed as an administrator.`;
+    }
+  }
+
+  /**
+   * Generates session rescheduled email content
+   */
+  private generateSessionRescheduledEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+    const oldSessionDate = this.formatDateEST(entityData.oldSessionDate);
+    const newSessionDate = this.formatDateEST(entityData.sessionDate);
+    
+    if (isClient) {
+      return `
+Dear ${recipient.fullName},
+
+Your therapy session has been rescheduled.
+
+📅 RESCHEDULING DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Previous Date & Time: ${oldSessionDate}
+New Date & Time: ${newSessionDate}
+
+Session Type: ${entityData.sessionType}
+Therapist: ${entityData.therapistName}
+Duration: ${entityData.duration || 60} minutes
+
+📋 IMPORTANT REMINDERS:
+• Please arrive 5-10 minutes early
+• Bring any questions or topics you'd like to discuss
+• If you need to cancel or reschedule again, please give at least 24 hours notice
+
+We look forward to seeing you at your rescheduled appointment.
+
+Best regards,
+TherapyFlow Team`;
+    } else {
+      return `
+Session Rescheduled Notification
+
+📊 RESCHEDULING DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Previous Date & Time: ${oldSessionDate}
+New Date & Time: ${newSessionDate}
+
+Session Type: ${entityData.sessionType}
+Therapist: ${entityData.therapistName}
+Client: ${entityData.clientName}
+Duration: ${entityData.duration || 60} minutes
+
+👥 ADMINISTRATIVE INFO:
+• Session ID: ${entityData.id}
+• Room: ${entityData.roomId ? `Room ${entityData.roomId}` : 'Not assigned'}
+
+This notification was sent because you are listed as an administrator or involved in this session.`;
     }
   }
 
