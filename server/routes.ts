@@ -20,7 +20,7 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
-import { users, auditLogs, loginAttempts, clients, sessionBilling } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -1620,10 +1620,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get original session data before update (for rescheduling notification)
-      const originalSession = await storage.getSession(id);
-      if (!originalSession) {
+      const originalSessionResult = await db.select().from(sessions).where(eq(sessions.id, id));
+      if (!originalSessionResult || originalSessionResult.length === 0) {
         return res.status(404).json({ message: "Session not found" });
       }
+      const originalSession = originalSessionResult[0];
       
       // Convert sessionDate string to Date object if needed (same as create)
       const sessionData = { ...req.body };
