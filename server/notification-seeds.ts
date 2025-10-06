@@ -59,7 +59,7 @@ export const NOTIFICATION_TRIGGER_SEEDS = [
     delayMinutes: 0,
     batchWindowMinutes: null,
     maxBatchSize: null,
-    isActive: true
+    isActive: false  // Disabled - needs scheduled job implementation
   },
   {
     name: "Intake Session Reminder",
@@ -95,7 +95,7 @@ export const NOTIFICATION_TRIGGER_SEEDS = [
     delayMinutes: 0,
     batchWindowMinutes: null,
     maxBatchSize: null,
-    isActive: true
+    isActive: false  // Disabled - needs scheduled job implementation
   }
 ];
 
