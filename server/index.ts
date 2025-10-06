@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { optionalAuth, csrfProtection } from "./auth-middleware";
 import { storage } from "./storage";
+import { syncNotificationTriggers } from "./notification-seeds";
 
 const app = express();
 // Increase payload limits for document uploads
@@ -119,6 +120,16 @@ process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
     } catch (dbError) {
       log(`Database connection failed: ${dbError}`);
       throw new Error(`Database initialization failed: ${dbError}`);
+    }
+
+    // Synchronize notification triggers from code to database
+    try {
+      log('Synchronizing notification triggers...');
+      await syncNotificationTriggers();
+      log('Notification triggers synchronized successfully');
+    } catch (syncError) {
+      log(`Warning: Failed to sync notification triggers: ${syncError}`);
+      // Don't throw - allow app to start even if trigger sync fails
     }
 
     log('Registering routes...');
