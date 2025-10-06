@@ -44,7 +44,12 @@ export function generateSessionNoteHTML(note: SessionNote): string {
   const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MMMM dd, yyyy h:mm a') : null;
     
     // Get content to display (prioritize final, then generated, then draft)
-    const content = note.finalContent || note.generatedContent || note.draftContent || '';
+    let content = note.finalContent || note.generatedContent || note.draftContent || '';
+    
+    // Add visual separators before section labels (bold text ending with colon at start of paragraph)
+    // Pattern: <p><strong>Label:</strong> or <p>Label <strong>followed by text
+    content = content.replace(/<p>([^<]*<strong>[^:]+:<\/strong>)/g, '<p class="section-label">$1');
+    content = content.replace(/<p><strong>([^:]+):<\/strong>/g, '<p class="section-label"><strong>$1:</strong>');
     
     // Create HTML for PDF
     const html = `
@@ -164,6 +169,18 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             margin: 6px 0;
             line-height: 1.6;
             color: #374151;
+          }
+          .content p.section-label {
+            margin-top: 18px;
+            padding-top: 12px;
+            border-top: 2px solid #e5e7eb;
+            font-weight: 600;
+            color: #1e40af;
+          }
+          .content p.section-label:first-child {
+            margin-top: 6px;
+            padding-top: 0;
+            border-top: none;
           }
           .content strong {
             font-weight: 600;
@@ -361,6 +378,18 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             .content p {
               margin: 2px 0;
               line-height: 1.35;
+            }
+            .content p.section-label {
+              margin-top: 10px;
+              padding-top: 8px;
+              border-top: 1px solid #d1d5db;
+              font-weight: 600;
+              color: #1e40af;
+            }
+            .content p.section-label:first-child {
+              margin-top: 2px;
+              padding-top: 0;
+              border-top: none;
             }
             .content ul, .content ol {
               margin: 2px 0;
