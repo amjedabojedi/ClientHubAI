@@ -43,6 +43,13 @@ function isAdminOrSupervisor(user: any): boolean {
   return ['administrator', 'admin', 'supervisor'].includes(normalizedRole);
 }
 
+// Redirect component for old session-notes URL
+function SessionNotesRedirect({ params }: { params: { id: string } }) {
+  const [, setLocation] = useLocation();
+  setLocation(`/clients/${params.id}`);
+  return null;
+}
+
 function Navigation() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -216,6 +223,7 @@ function Router() {
         <Switch key={isAuthenticated ? 'authenticated' : 'unauthenticated'}>
           <Route path="/" component={DashboardPage} />
           <Route path="/clients" component={ClientsPage} />
+          <Route path="/clients/:id/session-notes" component={SessionNotesRedirect} />
           <Route path="/clients/:id" component={ClientDetailPage} />
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/billing" component={BillingDashboard} />
