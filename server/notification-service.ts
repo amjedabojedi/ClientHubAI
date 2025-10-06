@@ -343,6 +343,12 @@ export class NotificationService {
             department: null,
             bio: null,
             profilePicture: null,
+            signatureImage: null,
+            zoomAccountId: null,
+            zoomClientId: null,
+            zoomClientSecret: null,
+            zoomAccessToken: null,
+            zoomTokenExpiry: null,
             createdBy: null
           };
           recipients.push(clientAsUser);
