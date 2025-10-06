@@ -2655,17 +2655,19 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sessionNotes).where(eq(sessionNotes.id, id));
   }
 
-  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session & { room?: SelectRoom | null } }) | undefined> {
+  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User & { profile?: UserProfile | null }; client: Client; session: Session & { room?: SelectRoom | null } }) | undefined> {
     const results = await db
       .select({
         sessionNote: sessionNotes,
         therapist: users,
+        userProfile: userProfiles,
         client: clients,
         session: sessions,
         room: rooms
       })
       .from(sessionNotes)
       .innerJoin(users, eq(sessionNotes.therapistId, users.id))
+      .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
       .innerJoin(clients, eq(sessionNotes.clientId, clients.id))
       .innerJoin(sessions, eq(sessionNotes.sessionId, sessions.id))
       .leftJoin(rooms, eq(sessions.roomId, rooms.id))
@@ -2676,7 +2678,10 @@ export class DatabaseStorage implements IStorage {
     const r = results[0];
     return { 
       ...r.sessionNote, 
-      therapist: r.therapist, 
+      therapist: {
+        ...r.therapist,
+        profile: r.userProfile || null
+      }, 
       client: r.client, 
       session: {
         ...r.session,

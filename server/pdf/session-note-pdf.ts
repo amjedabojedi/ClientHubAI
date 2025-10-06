@@ -26,6 +26,10 @@ interface SessionNote {
     fullName: string;
     title?: string | null;
     signatureImage?: string | null;
+    profile?: {
+      licenseType?: string | null;
+      licenseNumber?: string | null;
+    } | null;
   };
   client?: {
     id: number;
@@ -558,6 +562,7 @@ export function generateSessionNoteHTML(note: SessionNote): string {
               <div class="signature-details">
                 <div class="signature-name">${note.therapist.fullName}</div>
                 ${note.therapist.title ? `<div class="signature-title">${note.therapist.title}</div>` : ''}
+                ${note.therapist.profile?.licenseType ? `<div class="signature-title">${note.therapist.profile.licenseType}${note.therapist.profile.licenseNumber ? ` #${note.therapist.profile.licenseNumber}` : ''}</div>` : ''}
                 <div class="signature-date">Digitally signed on ${finalizedDate}</div>
               </div>
             </div>
