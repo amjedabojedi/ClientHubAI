@@ -291,7 +291,6 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             }
             .section {
               margin: 4px 0 0 0;
-              page-break-inside: avoid;
             }
             .section-title {
               margin-bottom: 3px;
@@ -332,8 +331,6 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             .content p {
               margin: 2px 0;
               line-height: 1.35;
-              orphans: 3;
-              widows: 3;
             }
             .content ul, .content ol {
               margin: 2px 0;
