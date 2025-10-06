@@ -766,11 +766,21 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
   };
 
-  // Handle PDF preview
+  // Handle PDF preview (same format as download)
   const handlePreviewPDF = async (note: SessionNote) => {
     try {
-      const url = `/api/session-notes/${note.id}/pdf`;
-      window.open(url, '_blank');
+      const response = await fetch(`/api/session-notes/${note.id}/pdf`);
+      
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const html = await response.text();
+      
+      // Open in new window with print styles active
+      const previewWindow = window.open('', '_blank');
+      if (previewWindow) {
+        previewWindow.document.write(html);
+        previewWindow.document.close();
+      }
     } catch (error) {
       toast({ 
         title: "Error generating PDF preview", 
