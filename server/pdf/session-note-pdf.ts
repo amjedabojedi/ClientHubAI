@@ -27,8 +27,7 @@ interface SessionNote {
   };
   client?: {
     id: number;
-    firstName: string;
-    lastName: string;
+    fullName: string;
   };
   session: {
     id: number;
@@ -259,85 +258,90 @@ export function generateSessionNoteHTML(note: SessionNote): string {
           
           @media print {
             body {
-              padding: 15px 20px;
+              padding: 10px 15px;
               line-height: 1.4;
             }
             .header {
-              padding-bottom: 8px;
-              margin-bottom: 10px;
+              padding-bottom: 6px;
+              margin-bottom: 6px;
             }
             h1 {
-              margin: 0 0 4px 0;
-              font-size: 24px;
+              margin: 0 0 3px 0;
+              font-size: 22px;
             }
             .meta-info {
-              gap: 8px;
-              margin: 8px 0 10px 0;
-              padding: 10px 12px;
+              gap: 6px;
+              margin: 6px 0 8px 0;
+              padding: 8px 10px;
             }
             .section {
-              margin: 10px 0 0 0;
+              margin: 6px 0 0 0;
             }
             .section-title {
-              margin-bottom: 6px;
-              padding-bottom: 4px;
+              margin-bottom: 4px;
+              padding-bottom: 3px;
+              font-size: 15px;
             }
             .section p {
-              margin: 4px 0;
-              line-height: 1.5;
+              margin: 3px 0;
+              line-height: 1.4;
             }
             .content {
-              margin-top: 6px;
-              line-height: 1.5;
+              margin-top: 4px;
+              line-height: 1.4;
             }
             .content h1 {
-              margin: 10px 0 6px 0;
-              padding-bottom: 4px;
-            }
-            .content h2 {
               margin: 8px 0 4px 0;
               padding-bottom: 3px;
+              font-size: 17px;
+            }
+            .content h2 {
+              margin: 6px 0 3px 0;
+              padding-bottom: 2px;
+              font-size: 15px;
             }
             .content h3 {
-              margin: 6px 0 3px 0;
+              margin: 5px 0 2px 0;
+              font-size: 14px;
             }
             .content h4 {
-              margin: 5px 0 2px 0;
+              margin: 4px 0 2px 0;
+              font-size: 13px;
             }
             .content p {
-              margin: 4px 0;
-              line-height: 1.5;
+              margin: 3px 0;
+              line-height: 1.4;
             }
             .content ul, .content ol {
-              margin: 4px 0;
-              padding-left: 20px;
-              line-height: 1.5;
+              margin: 3px 0;
+              padding-left: 18px;
+              line-height: 1.4;
             }
             .content ul li, .content ol li {
               margin: 2px 0;
             }
             .content blockquote {
-              margin: 6px 0;
-              padding: 6px 12px;
+              margin: 4px 0;
+              padding: 4px 10px;
             }
             .content pre {
-              padding: 6px;
-              margin: 6px 0;
+              padding: 4px;
+              margin: 4px 0;
             }
             .content hr {
-              margin: 8px 0;
+              margin: 6px 0;
             }
             .content table {
-              margin: 6px 0;
+              margin: 4px 0;
             }
             .content table th,
             .content table td {
-              padding: 4px 8px;
+              padding: 3px 6px;
             }
             .footer {
-              margin-top: 15px;
-              padding-top: 8px;
-              font-size: 10px;
+              margin-top: 10px;
+              padding-top: 6px;
+              font-size: 9px;
             }
           }
         </style>
@@ -350,7 +354,7 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             ${note.isDraft ? '<span class="status-badge status-draft">Draft</span>' : ''}
           </h1>
           <p style="margin: 5px 0; color: #6b7280;">
-            ${note.client ? `${note.client.firstName} ${note.client.lastName}` : 'Client'}
+            ${note.client ? note.client.fullName : 'Client'}
           </p>
         </div>
 
