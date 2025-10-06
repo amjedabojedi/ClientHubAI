@@ -192,6 +192,8 @@ function Navigation() {
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  // Wait for authentication to settle before rendering routes
+  // This prevents the 404 page from flashing during page refresh
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -211,7 +213,7 @@ function Router() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
       <main className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Switch>
+        <Switch key={isAuthenticated ? 'authenticated' : 'unauthenticated'}>
           <Route path="/" component={DashboardPage} />
           <Route path="/clients" component={ClientsPage} />
           <Route path="/clients/:id" component={ClientDetailPage} />
