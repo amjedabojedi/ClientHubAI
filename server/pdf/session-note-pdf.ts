@@ -257,91 +257,118 @@ export function generateSessionNoteHTML(note: SessionNote): string {
           }
           
           @media print {
+            @page {
+              margin: 0.4in 0.5in;
+            }
             body {
-              padding: 10px 15px;
-              line-height: 1.4;
+              padding: 0;
+              line-height: 1.35;
+              margin: 0;
             }
             .header {
-              padding-bottom: 6px;
-              margin-bottom: 6px;
+              padding-bottom: 4px;
+              margin-bottom: 4px;
+              page-break-after: avoid;
             }
             h1 {
-              margin: 0 0 3px 0;
-              font-size: 22px;
+              margin: 0 0 2px 0;
+              font-size: 20px;
+              page-break-after: avoid;
             }
             .meta-info {
-              gap: 6px;
-              margin: 6px 0 8px 0;
-              padding: 8px 10px;
+              gap: 4px;
+              margin: 4px 0 6px 0;
+              padding: 6px 8px;
+              page-break-after: avoid;
+              page-break-inside: avoid;
             }
-            .section {
-              margin: 6px 0 0 0;
+            .meta-label {
+              font-size: 11px;
+              margin-bottom: 2px;
             }
-            .section-title {
-              margin-bottom: 4px;
-              padding-bottom: 3px;
-              font-size: 15px;
-            }
-            .section p {
-              margin: 3px 0;
-              line-height: 1.4;
-            }
-            .content {
-              margin-top: 4px;
-              line-height: 1.4;
-            }
-            .content h1 {
-              margin: 8px 0 4px 0;
-              padding-bottom: 3px;
-              font-size: 17px;
-            }
-            .content h2 {
-              margin: 6px 0 3px 0;
-              padding-bottom: 2px;
-              font-size: 15px;
-            }
-            .content h3 {
-              margin: 5px 0 2px 0;
-              font-size: 14px;
-            }
-            .content h4 {
-              margin: 4px 0 2px 0;
+            .meta-value {
               font-size: 13px;
             }
+            .section {
+              margin: 4px 0 0 0;
+              page-break-inside: avoid;
+            }
+            .section-title {
+              margin-bottom: 3px;
+              padding-bottom: 2px;
+              font-size: 14px;
+              page-break-after: avoid;
+            }
+            .section p {
+              margin: 2px 0;
+              line-height: 1.35;
+            }
+            .content {
+              margin-top: 3px;
+              line-height: 1.35;
+            }
+            .content h1 {
+              margin: 6px 0 3px 0;
+              padding-bottom: 2px;
+              font-size: 16px;
+              page-break-after: avoid;
+            }
+            .content h2 {
+              margin: 5px 0 2px 0;
+              padding-bottom: 2px;
+              font-size: 14px;
+              page-break-after: avoid;
+            }
+            .content h3 {
+              margin: 4px 0 2px 0;
+              font-size: 13px;
+              page-break-after: avoid;
+            }
+            .content h4 {
+              margin: 3px 0 1px 0;
+              font-size: 12px;
+              page-break-after: avoid;
+            }
             .content p {
-              margin: 3px 0;
-              line-height: 1.4;
+              margin: 2px 0;
+              line-height: 1.35;
+              orphans: 3;
+              widows: 3;
             }
             .content ul, .content ol {
-              margin: 3px 0;
-              padding-left: 18px;
-              line-height: 1.4;
+              margin: 2px 0;
+              padding-left: 16px;
+              line-height: 1.35;
             }
             .content ul li, .content ol li {
-              margin: 2px 0;
+              margin: 1px 0;
             }
             .content blockquote {
-              margin: 4px 0;
-              padding: 4px 10px;
+              margin: 3px 0;
+              padding: 3px 8px;
+              page-break-inside: avoid;
             }
             .content pre {
-              padding: 4px;
-              margin: 4px 0;
+              padding: 3px;
+              margin: 3px 0;
+              page-break-inside: avoid;
             }
             .content hr {
-              margin: 6px 0;
+              margin: 4px 0;
             }
             .content table {
-              margin: 4px 0;
+              margin: 3px 0;
+              page-break-inside: avoid;
             }
             .content table th,
             .content table td {
-              padding: 3px 6px;
+              padding: 2px 5px;
             }
             .footer {
-              margin-top: 10px;
-              padding-top: 6px;
+              margin-top: 8px;
+              padding-top: 4px;
               font-size: 9px;
+              page-break-before: avoid;
             }
           }
         </style>
