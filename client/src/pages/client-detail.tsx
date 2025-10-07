@@ -187,6 +187,7 @@ import DeleteClientDialog from "@/components/client-management/delete-client-dia
 import SessionNotesManager from "@/components/session-notes/session-notes-manager";
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
+import EmailHistory from "@/components/communications/email-history";
 
 // Client Checklists Display Component
 function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
@@ -1538,7 +1539,7 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-9">
+          <TabsList className="grid w-full grid-cols-10">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <UserIcon className="w-4 h-4" />
               <span>Overview</span>
@@ -1571,6 +1572,10 @@ export default function ClientDetailPage() {
             <TabsTrigger value="checklist" className="flex items-center space-x-2">
               <ClipboardList className="w-4 h-4" />
               <span>Checklists</span>
+            </TabsTrigger>
+            <TabsTrigger value="communications" className="flex items-center space-x-2" data-testid="tab-communications">
+              <Mail className="w-4 h-4" />
+              <span>Communications</span>
             </TabsTrigger>
           </TabsList>
 
@@ -2978,6 +2983,21 @@ export default function ClientDetailPage() {
               </CardHeader>
               <CardContent className="p-6">
                 <ClientChecklistsDisplay clientId={clientId!} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Communications Tab */}
+          <TabsContent value="communications" className="space-y-6">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center space-x-2">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                  <span>Email Communications</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <EmailHistory clientId={clientId!} />
               </CardContent>
             </Card>
           </TabsContent>
