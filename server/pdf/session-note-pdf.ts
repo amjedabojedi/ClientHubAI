@@ -54,10 +54,10 @@ interface PracticeSettings {
 }
 
 export function generateSessionNoteHTML(note: SessionNote, practiceSettings: PracticeSettings): string {
-  // Format date - use consistent MM/dd/yyyy format throughout
-  const formattedDate = format(new Date(note.date), 'MM/dd/yyyy');
-  const sessionDate = format(new Date(note.session.sessionDate), 'MM/dd/yyyy');
-  const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MM/dd/yyyy') : null;
+  // Format date - use Month day, year format across the system
+  const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
+  const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
+  const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MMMM dd, yyyy') : null;
     
     // Get content to display (prioritize final, then generated, then draft)
     let content = note.finalContent || note.generatedContent || note.draftContent || '';
@@ -367,9 +367,13 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
           }
           .footer-center {
             text-align: center;
+            font-weight: 500;
           }
           .footer-right {
             text-align: right;
+          }
+          .page-number::before {
+            content: "Page 1";
           }
           .status-badge {
             display: inline-block;
@@ -401,6 +405,11 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               padding: 0;
               line-height: 1.35;
               margin: 0;
+              counter-reset: page-counter;
+            }
+            .page-number::before {
+              content: "Page " counter(page-counter);
+              counter-increment: page-counter;
             }
             .header {
               padding-bottom: 4px;
@@ -650,10 +659,10 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
             <strong>${note.client?.fullName || 'Client'}</strong>
           </div>
           <div class="footer-center">
-            
+            <span class="page-number"></span>
           </div>
           <div class="footer-right">
-            ${format(new Date(), 'MM/dd/yyyy')}
+            ${format(new Date(), 'MMMM dd, yyyy')}
           </div>
         </div>
       </body>
