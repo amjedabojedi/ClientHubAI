@@ -405,19 +405,11 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               padding: 0;
               line-height: 1.35;
               margin: 0;
-              counter-reset: page;
             }
             .footer {
-              display: flex;
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              right: 0;
-              padding: 10px 0;
-            }
-            .page-number::before {
-              counter-increment: page;
-              content: "Page " counter(page);
+              display: block !important;
+              position: static;
+              margin-top: 20px;
             }
             .header {
               padding-bottom: 4px;
