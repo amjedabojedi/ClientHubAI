@@ -5401,6 +5401,68 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.get("/api/clients/:clientId/communications", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const clientId = parseInt(req.params.clientId);
+      
+      // Get client to verify access
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      // Fetch notifications related to this client
+      // Look for notifications where relatedEntityType='client' OR notifications for sessions of this client
+      const { notifications: notificationsTable } = await import("@shared/schema");
+      
+      const clientNotifications = await db
+        .select()
+        .from(notificationsTable)
+        .where(
+          and(
+            eq(notificationsTable.relatedEntityType, 'client' as any),
+            eq(notificationsTable.relatedEntityId, clientId)
+          )
+        )
+        .orderBy(desc(notificationsTable.createdAt))
+        .limit(100);
+
+      // Also get session-related notifications for this client's sessions
+      const clientSessions = await storage.getSessionsByClient(clientId, true);
+      const sessionIds = clientSessions.map((s: any) => s.id);
+
+      let sessionNotifications: any[] = [];
+      if (sessionIds.length > 0) {
+        const { inArray } = await import("drizzle-orm");
+        sessionNotifications = await db
+          .select()
+          .from(notificationsTable)
+          .where(
+            and(
+              eq(notificationsTable.relatedEntityType, 'session' as any),
+              inArray(notificationsTable.relatedEntityId, sessionIds)
+            )
+          )
+          .orderBy(desc(notificationsTable.createdAt))
+          .limit(100);
+      }
+
+      // Combine and sort all notifications
+      const allNotifications = [...clientNotifications, ...sessionNotifications]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 100); // Limit to 100 most recent
+
+      res.json(allNotifications);
+    } catch (error) {
+      console.error("Error fetching client communications:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.patch("/api/billing/:billingId/status", requireAuth, async (req, res) => {
     try {
       // Check if user has billing access
