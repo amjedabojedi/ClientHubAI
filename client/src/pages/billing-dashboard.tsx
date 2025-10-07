@@ -31,7 +31,8 @@ import {
   Eye,
   Edit,
   Mail,
-  MoreVertical
+  MoreVertical,
+  Printer
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,38 @@ interface BillingRecord {
     };
   };
 }
+
+// Practice Header Component for Invoice Preview
+const PracticeHeader = () => {
+  const { data: practiceSettings } = useQuery({
+    queryKey: ['/api/system-options/categories/practice_settings'],
+    queryFn: async () => {
+      const categoriesResponse = await fetch("/api/system-options/categories");
+      const categoriesData = await categoriesResponse.json();
+      const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
+      
+      if (!practiceCategory) {
+        return { options: [] };
+      }
+      
+      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
+      return response.json();
+    }
+  });
+
+  const getSettingValue = (key: string) => {
+    return practiceSettings?.options?.find((opt: any) => opt.optionKey === key)?.optionValue || '';
+  };
+
+  return (
+    <div className="text-right">
+      <h3 className="text-lg font-bold text-slate-900">{getSettingValue('practice_name') || 'Therapy Practice'}</h3>
+      <p className="text-sm text-slate-600">{getSettingValue('practice_address')}</p>
+      <p className="text-sm text-slate-600">{getSettingValue('practice_phone')}</p>
+      <p className="text-sm text-slate-600">{getSettingValue('practice_email')}</p>
+    </div>
+  );
+};
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -231,6 +264,7 @@ export default function BillingDashboard() {
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<BillingRecord | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -399,7 +433,7 @@ export default function BillingDashboard() {
   };
 
   // Invoice action handlers using apiRequest (includes CSRF tokens automatically)
-  const handleInvoiceAction = async (action: 'preview' | 'download' | 'email', billing: any, client: any) => {
+  const handleInvoiceAction = async (action: 'preview' | 'download' | 'email' | 'print', billing: any, client: any) => {
     try {
       // Check for email if action is email
       if (action === 'email' && !client?.email) {
@@ -411,13 +445,18 @@ export default function BillingDashboard() {
         return;
       }
 
-      // For preview, just open in new window
+      // For preview, open modal dialog (like client-detail page)
       if (action === 'preview') {
-        window.open(`/api/clients/${client.id}/invoice-preview?billingId=${billing.id}`, '_blank');
+        setSelectedBillingRecord({
+          ...billing,
+          serviceDate: billing.billingDate,
+          service: { serviceCode: billing.serviceCode }
+        });
+        setIsInvoicePreviewOpen(true);
         return;
       }
 
-      // For download and email, use apiRequest
+      // For download, email, and print, use apiRequest
       const response = await apiRequest(`/api/clients/${client.id}/invoice`, 'POST', { 
         action, 
         billingId: billing.id 
@@ -444,6 +483,15 @@ export default function BillingDashboard() {
           title: "Email sent successfully!",
           description: result.message || `Invoice has been sent to ${client.email}`,
         });
+      } else if (action === 'print') {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          const htmlContent = await response.text();
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+        }
       }
     } catch (error: any) {
       toast({
@@ -955,6 +1003,148 @@ export default function BillingDashboard() {
           setSelectedBillingRecord(null);
         }}
       />
+
+      {/* Invoice Preview Dialog */}
+      <Dialog open={isInvoicePreviewOpen} onOpenChange={setIsInvoicePreviewOpen}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogDescription>
+              {selectedBillingRecord && `Invoice for Service: ${selectedBillingRecord.serviceCode}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-auto">
+            <div className="p-8 bg-white border rounded-lg">
+              {selectedBillingRecord && filteredBillingRecords.length > 0 && (() => {
+                const record = filteredBillingRecords.find((r: any) => (r.billing?.id || r.id) === selectedBillingRecord.id);
+                const client = record?.client || {};
+                const billing = record?.billing || selectedBillingRecord;
+                const session = record?.session || {};
+
+                return (
+                  <>
+                    {/* Invoice Header */}
+                    <div className="flex justify-between items-start mb-8">
+                      <div>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
+                        <p className="text-slate-600">Invoice #: INV-{client.clientId}-{billing.id}</p>
+                        <p className="text-slate-600">Invoice Date: {billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-slate-600">Service Date: {billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                      <div className="text-right">
+                        <PracticeHeader />
+                      </div>
+                    </div>
+
+                    {/* Client Information */}
+                    <div className="grid grid-cols-2 gap-8 mb-8">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900 mb-2">Bill To:</h3>
+                        <p className="text-slate-600">{client.fullName || 'N/A'}</p>
+                        <p className="text-slate-600">{client.streetAddress1 || ''}</p>
+                        <p className="text-slate-600">{client.phone || 'N/A'}</p>
+                        <p className="text-slate-600">{client.email || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900 mb-2">Insurance Info:</h3>
+                        <p className="text-slate-600">Provider: {client.insuranceProvider || 'N/A'}</p>
+                        <p className="text-slate-600">Policy: {client.policyNumber || 'N/A'}</p>
+                        <p className="text-slate-600">Group: {client.groupNumber || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {/* Services Table */}
+                    <div className="mb-8">
+                      <table className="w-full border-collapse border border-slate-200">
+                        <thead>
+                          <tr className="bg-slate-50">
+                            <th className="border border-slate-200 px-4 py-2 text-left">Service</th>
+                            <th className="border border-slate-200 px-4 py-2 text-left">Service Code</th>
+                            <th className="border border-slate-200 px-4 py-2 text-left">Date</th>
+                            <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="border border-slate-200 px-4 py-2">{session.service?.serviceName || 'Professional Service'}</td>
+                            <td className="border border-slate-200 px-4 py-2">{billing.serviceCode}</td>
+                            <td className="border border-slate-200 px-4 py-2">{billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</td>
+                            <td className="border border-slate-200 px-4 py-2 text-right">${Number(billing.totalAmount).toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Totals */}
+                    <div className="flex justify-end">
+                      <div className="w-64">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-slate-600">Service Amount:</span>
+                          <span className="text-slate-900">${Number(billing.totalAmount).toFixed(2)}</span>
+                        </div>
+                        {billing.insuranceCovered && (
+                          <div className="flex justify-between mb-2">
+                            <span className="text-slate-600">Insurance Coverage:</span>
+                            <span className="text-slate-900">-${(Number(billing.totalAmount) * 0.8).toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between mb-2">
+                          <span className="text-slate-600">Copay Amount:</span>
+                          <span className="text-slate-900">${Number(billing.copayAmount || 0).toFixed(2)}</span>
+                        </div>
+                        {billing.paymentAmount && (
+                          <div className="flex justify-between mb-2">
+                            <span className="text-slate-600">Payment Made:</span>
+                            <span className="text-green-700">-${Number(billing.paymentAmount).toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                          <span>Total Due:</span>
+                          <span className={billing.paymentStatus === 'paid' ? 'text-green-700' : ''}>
+                            ${(() => {
+                              const originalAmount = Number(billing.copayAmount || billing.totalAmount);
+                              const paidAmount = Number(billing.paymentAmount || 0);
+                              const dueAmount = originalAmount - paidAmount;
+                              return Math.max(0, dueAmount).toFixed(2);
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInvoicePreviewOpen(false)}>
+              Close
+            </Button>
+            {selectedBillingRecord && (() => {
+              const record = filteredBillingRecords.find((r: any) => (r.billing?.id || r.id) === selectedBillingRecord.id);
+              const client = record?.client || {};
+              const billing = record?.billing || selectedBillingRecord;
+              
+              return (
+                <>
+                  <Button onClick={() => { setIsInvoicePreviewOpen(false); handleInvoiceAction('print', billing, client); }}>
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button onClick={() => { setIsInvoicePreviewOpen(false); handleInvoiceAction('download', billing, client); }}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button onClick={() => { setIsInvoicePreviewOpen(false); handleInvoiceAction('email', billing, client); }}>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Email
+                  </Button>
+                </>
+              );
+            })()}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
         </div>
       </div>
     </div>
