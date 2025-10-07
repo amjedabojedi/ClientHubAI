@@ -692,6 +692,7 @@ export default function ClientDetailPage() {
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60);
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState(false);
+  const [isSessionNotesDialogOpen, setIsSessionNotesDialogOpen] = useState(false);
 
   // Session editing form
   const sessionForm = useForm<SessionFormData>({
@@ -1576,10 +1577,6 @@ export default function ClientDetailPage() {
               <Calendar className="w-4 h-4" />
               <span>Sessions</span>
             </TabsTrigger>
-            <TabsTrigger value="session-notes" className="flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
-              <span>Session Notes</span>
-            </TabsTrigger>
 
             <TabsTrigger value="assessments" className="flex items-center space-x-2">
               <ClipboardList className="w-4 h-4" />
@@ -2211,7 +2208,7 @@ export default function ClientDetailPage() {
                                     size="sm"
                                     onClick={() => {
                                       setPreSelectedSessionId(session.id);
-                                      setActiveTab('session-notes');
+                                      setIsSessionNotesDialogOpen(true);
                                     }}
                                     className="min-w-[120px]"
                                     data-testid={`button-add-note-${session.id}`}
@@ -2232,7 +2229,7 @@ export default function ClientDetailPage() {
                                       size="sm"
                                       onClick={() => {
                                         setPreSelectedSessionId(session.id);
-                                        setActiveTab('session-notes');
+                                        setIsSessionNotesDialogOpen(true);
                                       }}
                                       data-testid={`button-edit-note-${session.id}`}
                                     >
@@ -2533,17 +2530,6 @@ export default function ClientDetailPage() {
               </Dialog>
             )}
           </TabsContent>
-
-          {/* Session Notes Tab */}
-          <TabsContent value="session-notes" className="space-y-6">
-            <SessionNotesManager 
-              clientId={clientId!} 
-              sessions={sessions} 
-              preSelectedSessionId={preSelectedSessionId}
-              onSessionChange={setPreSelectedSessionId}
-            />
-          </TabsContent>
-
 
           {/* Assessments Tab */}
           <TabsContent value="assessments" className="space-y-6">
@@ -4052,6 +4038,20 @@ export default function ClientDetailPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Session Notes Dialog */}
+      <Dialog open={isSessionNotesDialogOpen} onOpenChange={setIsSessionNotesDialogOpen}>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0">
+          <div className="h-full overflow-hidden flex flex-col">
+            <SessionNotesManager 
+              clientId={clientId!} 
+              sessions={sessions} 
+              preSelectedSessionId={preSelectedSessionId}
+              onSessionChange={setPreSelectedSessionId}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
