@@ -51,6 +51,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Checklist Management**: Comprehensive checklist templates for process workflows.
 - **Dashboard**: Informative homepage with key metrics, quick actions, recent activity, and upcoming deadlines.
 - **HIPAA Compliance Audit System**: Comprehensive activity tracking for healthcare privacy compliance including PHI access, data modifications, and login attempts.
+- **Email Communications History**: Complete audit trail of all client emails (session scheduled, rescheduled, 24hr reminders, intake reminders) with timestamps, email content, and collapsible view. Accessible via dedicated Communications tab in client profiles.
 
 ## External Dependencies
 
