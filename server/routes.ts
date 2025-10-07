@@ -1586,8 +1586,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           roomId: session.roomId,
           duration: 60, // Default session duration
           createdAt: session.createdAt,
-          // Zoom meeting details
-          zoomEnabled: sessionData.zoomEnabled || false,
+          // Zoom meeting details - enabled if we have actual meeting data
+          zoomEnabled: !!zoomMeetingData,
           zoomMeetingData: zoomMeetingData
         };
         
@@ -1895,7 +1895,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sessionDate: session.sessionDate,
               roomId: session.roomId,
               duration: 60,
-              zoomEnabled: session.zoomEnabled || false,
+              // Set zoomEnabled based on actual Zoom data presence, not just the flag
+              zoomEnabled: !!(session.zoomJoinUrl || session.zoomMeetingId),
               zoomJoinUrl: session.zoomJoinUrl || null,
               zoomMeetingId: session.zoomMeetingId || null,
               zoomPassword: session.zoomPassword || null
