@@ -400,6 +400,13 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               font-size: 20px;
               page-break-after: avoid;
             }
+            .confidentiality-banner {
+              padding: 6px 10px;
+              margin: 6px 0;
+              font-size: 10px;
+              page-break-after: avoid;
+              page-break-inside: avoid;
+            }
             .meta-info {
               gap: 4px;
               margin: 4px 0 6px 0;
