@@ -3995,13 +3995,25 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Import HTML generation module
       const { generateSessionNoteHTML } = await import("./pdf/session-note-pdf");
-      const html = generateSessionNoteHTML(note, practiceSettings);
+      
+      // Convert date to string for PDF generation
+      const noteForPDF = {
+        ...note,
+        date: note.date.toISOString(),
+        session: {
+          ...note.session,
+          sessionDate: note.session.sessionDate.toISOString()
+        }
+      };
+      
+      const html = generateSessionNoteHTML(noteForPDF as any, practiceSettings);
       
       // Prevent caching to ensure fresh PDF generation
       res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.removeHeader('ETag');
       res.send(html);
     } catch (error) {
       console.error('PDF generation error:', error);
