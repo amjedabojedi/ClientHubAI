@@ -3192,7 +3192,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete("/api/users/:id", requireAuth, async (req, res) => {
+  app.delete("/api/users/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Check if user has admin privileges to delete users
       if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
@@ -3217,7 +3217,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
 
 
-  app.get("/api/users/me/profile", requireAuth, async (req, res) => {
+  app.get("/api/users/me/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -3232,7 +3232,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/users/me/profile", requireAuth, async (req, res) => {
+  app.post("/api/users/me/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -3261,7 +3261,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.put("/api/users/me/profile", requireAuth, async (req, res) => {
+  app.put("/api/users/me/profile", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -3287,7 +3287,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Password change endpoint
-  app.post("/api/users/me/change-password", requireAuth, async (req, res) => {
+  app.post("/api/users/me/change-password", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get authenticated user from request
       const currentUserId = req.user?.id;
@@ -3328,7 +3328,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Zoom Credentials Management Routes
-  app.put("/api/users/me/zoom-credentials", requireAuth, async (req, res) => {
+  app.put("/api/users/me/zoom-credentials", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const currentUserId = req.user?.id;
       if (!currentUserId) {
@@ -3361,7 +3361,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete("/api/users/me/zoom-credentials", requireAuth, async (req, res) => {
+  app.delete("/api/users/me/zoom-credentials", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const currentUserId = req.user?.id;
       if (!currentUserId) {
@@ -3386,7 +3386,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/users/me/zoom-credentials/test", requireAuth, async (req, res) => {
+  app.post("/api/users/me/zoom-credentials/test", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const currentUserId = req.user?.id;
       if (!currentUserId) {
@@ -3446,7 +3446,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/users/me/zoom-credentials/status", requireAuth, async (req, res) => {
+  app.get("/api/users/me/zoom-credentials/status", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const currentUserId = req.user?.id;
       if (!currentUserId) {
@@ -5460,7 +5460,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.patch("/api/billing/:billingId/status", requireAuth, async (req, res) => {
+  app.patch("/api/billing/:billingId/status", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Check if user has billing access
       if (req.user?.role !== 'administrator' && req.user?.role !== 'admin') {
@@ -6087,7 +6087,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Payment Status Update Route
-  app.put("/api/billing/:billingId/payment", requireAuth, async (req, res) => {
+  app.put("/api/billing/:billingId/payment", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
       const { status, amount, date, reference, method, notes } = req.body;
