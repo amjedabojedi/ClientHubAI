@@ -1025,111 +1025,156 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         ) : (
           filteredNotes.map((note: SessionNote) => (
             <Card key={note.id} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    <CardTitle className="text-base">
-                      Session Note
-                    </CardTitle>
-                    {note.isDraft && (
-                      <Badge variant="outline">
-                        Draft
-                      </Badge>
-                    )}
-                    {note.isFinalized && (
-                      <Badge variant="default">
-                        Finalized
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditNote(note)}
-                      disabled={note.isFinalized}
-                      data-testid={`button-edit-note-${note.id}`}
-                      title={note.isFinalized ? "Cannot edit finalized notes" : "Edit note"}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteNote(note.id)}
-                      disabled={note.isFinalized}
-                      data-testid={`button-delete-note-${note.id}`}
-                      title={note.isFinalized ? "Cannot delete finalized notes" : "Delete note"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Session Information */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 p-3 bg-muted/50 rounded-md">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Date</p>
-                    <p className="text-sm font-medium flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {format(parseSessionDate(note.session.sessionDate), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Service</p>
-                    <p className="text-sm font-medium capitalize">{note.session.sessionType}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Therapist</p>
-                    <p className="text-sm font-medium flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {note.therapist.fullName}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Room</p>
-                    <p className="text-sm font-medium">{note.session.room?.roomName || '—'}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              {/* Action Buttons */}
-              <CardContent className="pt-4 border-t">
-                <div className="flex items-center gap-2">
-                  {!note.isFinalized && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleFinalizeNote(note.id)}
-                      data-testid={`button-finalize-note-${note.id}`}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Finalize & Save Final Copy
-                    </Button>
-                  )}
+              {note.isFinalized ? (
+                // Collapsed view for finalized notes - clean and minimal
+                <>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-green-600" />
+                        <CardTitle className="text-base">
+                          Session Note
+                        </CardTitle>
+                        <Badge variant="default" className="bg-green-600">
+                          Finalized
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* Compact Session Information */}
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {format(parseSessionDate(note.session.sessionDate), 'MMMM dd, yyyy')} • {note.session.sessionType} • {note.therapist.fullName}
+                    </div>
+                  </CardHeader>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePreviewPDF(note)}
-                    data-testid={`button-preview-pdf-${note.id}`}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    PDF Preview
-                  </Button>
+                  {/* Prominent Action Buttons for Finalized Notes */}
+                  <CardContent className="pt-0">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="default"
+                        size="default"
+                        onClick={() => handlePreviewPDF(note)}
+                        data-testid={`button-preview-pdf-${note.id}`}
+                        className="flex-1"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview PDF
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="default"
+                        onClick={() => handleDownloadPDF(note)}
+                        data-testid={`button-download-pdf-${note.id}`}
+                        className="flex-1"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </Button>
+                    </div>
+                  </CardContent>
+                </>
+              ) : (
+                // Full view for draft notes
+                <>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        <CardTitle className="text-base">
+                          Session Note
+                        </CardTitle>
+                        {note.isDraft && (
+                          <Badge variant="outline">
+                            Draft
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditNote(note)}
+                          data-testid={`button-edit-note-${note.id}`}
+                          title="Edit note"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteNote(note.id)}
+                          data-testid={`button-delete-note-${note.id}`}
+                          title="Delete note"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Session Information */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 p-3 bg-muted/50 rounded-md">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Date</p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format(parseSessionDate(note.session.sessionDate), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Service</p>
+                        <p className="text-sm font-medium capitalize">{note.session.sessionType}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Therapist</p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {note.therapist.fullName}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Room</p>
+                        <p className="text-sm font-medium">{note.session.room?.roomName || '—'}</p>
+                      </div>
+                    </div>
+                  </CardHeader>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadPDF(note)}
-                    data-testid={`button-download-pdf-${note.id}`}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-              </CardContent>
+                  {/* Action Buttons for Draft Notes */}
+                  <CardContent className="pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleFinalizeNote(note.id)}
+                        data-testid={`button-finalize-note-${note.id}`}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Finalize & Save Final Copy
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePreviewPDF(note)}
+                        data-testid={`button-preview-pdf-${note.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        PDF Preview
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadPDF(note)}
+                        data-testid={`button-download-pdf-${note.id}`}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </Button>
+                    </div>
+                  </CardContent>
+                </>
+              )}
             </Card>
           ))
         )}
