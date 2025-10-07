@@ -54,10 +54,10 @@ interface PracticeSettings {
 }
 
 export function generateSessionNoteHTML(note: SessionNote, practiceSettings: PracticeSettings): string {
-  // Format date
-  const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
-  const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
-  const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MMMM dd, yyyy h:mm a') : null;
+  // Format date - use consistent MM/dd/yyyy format throughout
+  const formattedDate = format(new Date(note.date), 'MM/dd/yyyy');
+  const sessionDate = format(new Date(note.session.sessionDate), 'MM/dd/yyyy');
+  const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MM/dd/yyyy') : null;
     
     // Get content to display (prioritize final, then generated, then draft)
     let content = note.finalContent || note.generatedContent || note.draftContent || '';
@@ -367,9 +367,13 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
           }
           .footer-center {
             text-align: center;
+            font-weight: 500;
           }
           .footer-right {
             text-align: right;
+          }
+          .page-number {
+            font-weight: 500;
           }
           .status-badge {
             display: inline-block;
@@ -396,26 +400,16 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
           @media print {
             @page {
               margin: 0.4in 0.5in 0.6in 0.5in;
-              @bottom-center {
-                content: "Page " counter(page) " of " counter(pages);
-                font-size: 10px;
-                color: #6b7280;
-              }
-              @bottom-left {
-                content: "${note.client?.fullName || 'Client'} - Session Note";
-                font-size: 10px;
-                color: #6b7280;
-              }
-              @bottom-right {
-                content: "Generated: " "${format(new Date(), 'MM/dd/yyyy')}";
-                font-size: 10px;
-                color: #6b7280;
-              }
             }
             body {
               padding: 0;
               line-height: 1.35;
               margin: 0;
+              counter-reset: page;
+            }
+            .page-number::after {
+              counter-increment: page;
+              content: counter(page);
             }
             .header {
               padding-bottom: 4px;
@@ -662,13 +656,13 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
 
         <div class="footer">
           <div class="footer-left">
-            <strong>${note.client?.fullName || 'Client'}</strong> - Session Note ID: ${note.id}
+            <strong>${note.client?.fullName || 'Client'}</strong> | Session ID: ${note.session.id}
           </div>
           <div class="footer-center">
-            Page <span class="page-number"></span> of <span class="page-total"></span>
+            Page <span class="page-number"></span>
           </div>
           <div class="footer-right">
-            Generated: ${format(new Date(), 'MM/dd/yyyy')}
+            ${format(new Date(), 'MM/dd/yyyy')}
           </div>
         </div>
       </body>
