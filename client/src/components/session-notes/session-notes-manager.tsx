@@ -786,6 +786,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       toast({ title: "Session note finalized successfully" });
       setFinalizeModalOpen(false);
       setNoteToFinalize(null);
+      // Close the main editor dialog after finalization
+      setIsAddNoteOpen(false);
+      setEditingNote(null);
     } catch (error) {
       toast({ 
         title: "Error finalizing note", 
@@ -1903,7 +1906,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </TabsContent>
               </Tabs>
 
-              <DialogFooter>
+              <DialogFooter className="flex items-center justify-between">
                 <Button
                   type="button"
                   variant="outline"
@@ -1911,15 +1914,49 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createSessionNoteMutation.isPending || updateSessionNoteMutation.isPending}
-                >
-                  {createSessionNoteMutation.isPending || updateSessionNoteMutation.isPending 
-                    ? 'Saving...' 
-                    : editingNote ? 'Update Note' : 'Create Note'
-                  }
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    type="submit" 
+                    variant="outline"
+                    disabled={createSessionNoteMutation.isPending || updateSessionNoteMutation.isPending}
+                  >
+                    {createSessionNoteMutation.isPending || updateSessionNoteMutation.isPending 
+                      ? 'Saving...' 
+                      : editingNote ? 'Save Draft' : 'Create Draft'
+                    }
+                  </Button>
+                  {editingNote && (
+                    <Button 
+                      type="button"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => {
+                        // First save the form data
+                        form.handleSubmit((data) => {
+                          const submissionData = {
+                            ...data,
+                            date: data.date || new Date(),
+                            therapistId: user?.id || data.therapistId,
+                          };
+                          // Update the note first
+                          updateSessionNoteMutation.mutate(
+                            { id: editingNote.id, data: submissionData },
+                            {
+                              onSuccess: () => {
+                                // Then finalize it
+                                handleFinalizeNote(editingNote.id);
+                              }
+                            }
+                          );
+                        })();
+                      }}
+                      disabled={createSessionNoteMutation.isPending || updateSessionNoteMutation.isPending}
+                      data-testid="button-save-and-finalize"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Save & Finalize
+                    </Button>
+                  )}
+                </div>
               </DialogFooter>
             </form>
           </Form>
