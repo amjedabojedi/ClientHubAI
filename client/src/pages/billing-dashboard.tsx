@@ -30,7 +30,8 @@ import {
   Download,
   Eye,
   Edit,
-  Mail
+  Mail,
+  MoreVertical
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -787,45 +788,74 @@ export default function BillingDashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          {billing.paymentStatus === 'pending' && (
+                        {/* Simplified action layout: One primary button + One menu */}
+                        <div className="flex items-center gap-2">
+                          {/* Single Primary Action Button - Most important next step */}
+                          {billing.paymentStatus === 'pending' ? (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="default"
+                              className="bg-yellow-600 hover:bg-yellow-700"
                               onClick={() => handleRecordPayment(billing)}
                             >
                               <CreditCard className="h-3 w-3 mr-1" />
                               Pay
                             </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleEmailInvoice(billing, client)}
+                            >
+                              <Mail className="h-3 w-3 mr-1" />
+                              Email
+                            </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEmailInvoice(billing, client)}
-                          >
-                            <Mail className="h-3 w-3 mr-1" />
-                            Email
-                          </Button>
+
+                          {/* Single Menu - All other actions organized */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button size="sm" variant="ghost">
-                                <Edit className="h-3 w-3" />
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                Invoice Actions
+                              </div>
+                              {billing.paymentStatus !== 'pending' && (
+                                <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
+                                  <CreditCard className="h-4 w-4 mr-2" />
+                                  Record Payment
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleEmailInvoice(billing, client)}>
+                                <Mail className="h-4 w-4 mr-2" />
+                                Email Invoice
+                              </DropdownMenuItem>
+                              <div className="border-t my-1"></div>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                Change Status
+                              </div>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'pending' })}>
+                                <Clock className="h-4 w-4 mr-2 text-yellow-600" />
                                 Mark Pending
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'billed' })}>
+                                <FileText className="h-4 w-4 mr-2 text-blue-600" />
                                 Mark Billed
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'paid' })}>
+                                <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
                                 Mark Paid
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'denied' })}>
+                                <AlertTriangle className="h-4 w-4 mr-2 text-red-600" />
                                 Mark Denied
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'follow_up' })}>
+                                <Eye className="h-4 w-4 mr-2 text-orange-600" />
                                 Mark Follow Up
                               </DropdownMenuItem>
                             </DropdownMenuContent>
