@@ -3997,7 +3997,11 @@ This happens because only the file metadata was stored, not the actual file cont
       const { generateSessionNoteHTML } = await import("./pdf/session-note-pdf");
       const html = generateSessionNoteHTML(note, practiceSettings);
       
+      // Prevent caching to ensure fresh PDF generation
       res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.send(html);
     } catch (error) {
       console.error('PDF generation error:', error);
