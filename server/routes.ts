@@ -3955,7 +3955,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // Generate PDF HTML for session note
+  // Generate PDF HTML for session note (for preview only)
   app.get("/api/session-notes/:id/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
@@ -4015,6 +4015,110 @@ This happens because only the file metadata was stored, not the actual file cont
       res.setHeader('Expires', '0');
       res.removeHeader('ETag');
       res.send(html);
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // Generate actual PDF with proper page numbers using Puppeteer
+  app.get("/api/session-notes/:id/download-pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const id = parseInt(req.params.id);
+      const note = await storage.getSessionNote(id);
+      
+      if (!note) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+
+      // Get practice settings
+      let practiceSettings = {
+        name: 'Resilience Counseling Research & Consultation',
+        description: 'Licensed Mental Health Practice', 
+        subtitle: 'Licensed Mental Health Practice',
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'resiliencecrc@gmail.com',
+        website: 'www.resiliencec.com'
+      };
+      
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
+        practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      } catch (error) {
+        // Use defaults if practice settings not found
+      }
+
+      // Import HTML generation module
+      const { generateSessionNoteHTML } = await import("./pdf/session-note-pdf");
+      
+      // Convert date to string for PDF generation
+      const noteForPDF = {
+        ...note,
+        date: note.date.toISOString(),
+        session: {
+          ...note.session,
+          sessionDate: note.session.sessionDate.toISOString()
+        }
+      };
+      
+      const html = generateSessionNoteHTML(noteForPDF as any, practiceSettings);
+
+      // Generate PDF using Puppeteer
+      const puppeteer = await import("puppeteer");
+      const browser = await puppeteer.default.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+
+      const pdf = await page.pdf({
+        format: 'Letter',
+        margin: {
+          top: '0.4in',
+          right: '0.5in',
+          bottom: '0.6in',
+          left: '0.5in'
+        },
+        displayHeaderFooter: true,
+        footerTemplate: `
+          <div style="width: 100%; font-size: 11px; color: #6b7280; display: flex; justify-content: space-between; padding: 0 20px; font-family: 'Helvetica', 'Arial', sans-serif;">
+            <div style="flex: 1; text-align: left; font-weight: 500;">
+              ${note.client?.fullName || 'Client'}
+            </div>
+            <div style="flex: 1; text-align: center; font-weight: 500;">
+              Page <span class="pageNumber"></span> of <span class="totalPages"></span>
+            </div>
+            <div style="flex: 1; text-align: right;">
+              ${format(new Date(), 'MMMM dd, yyyy')}
+            </div>
+          </div>
+        `,
+        headerTemplate: '<div></div>',
+        printBackground: true
+      });
+
+      await browser.close();
+
+      // Set headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="session-note-${note.id}.pdf"`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.send(pdf);
     } catch (error) {
       console.error('PDF generation error:', error);
       res.status(500).json({ message: "Failed to generate PDF" });

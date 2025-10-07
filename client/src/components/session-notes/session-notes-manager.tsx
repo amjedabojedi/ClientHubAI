@@ -803,26 +803,27 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     }
   };
 
-  // Handle PDF download (opens print dialog)
+  // Handle PDF download (server-generated with proper page numbers)
   const handleDownloadPDF = async (note: SessionNote) => {
     try {
-      const response = await fetch(`/api/session-notes/${note.id}/pdf`);
+      const response = await fetch(`/api/session-notes/${note.id}/download-pdf`);
       
       if (!response.ok) throw new Error('Failed to generate PDF');
       
-      const html = await response.text();
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `session-note-${note.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
       
-      // Create a new window with the HTML content and auto-trigger print
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        
-        // Wait for content to load, then trigger print
-        printWindow.onload = () => {
-          printWindow.print();
-        };
-      }
+      toast({ 
+        title: "PDF Downloaded", 
+        description: "Session note PDF has been downloaded successfully",
+      });
     } catch (error) {
       toast({ 
         title: "Error downloading PDF", 
