@@ -672,6 +672,7 @@ export default function ClientDetailPage() {
   );
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
+  const [noteStatusFilter, setNoteStatusFilter] = useState<string>("all");
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<any>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentBillingRecord, setPaymentBillingRecord] = useState<any>(null);
@@ -2021,32 +2022,80 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            {/* Session Status Filter */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-slate-700">Filter by Status:</span>
-                <Select 
-                  value={sessionStatusFilter} 
-                  onValueChange={setSessionStatusFilter}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="scheduled">Scheduled</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="rescheduled">Rescheduled</SelectItem>
-                    <SelectItem value="no_show">No Show</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Filters: Session Status & Note Status */}
+            <div className="mb-4 space-y-3">
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* Session Status Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-700">Status:</span>
+                  <Select 
+                    value={sessionStatusFilter} 
+                    onValueChange={setSessionStatusFilter}
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="rescheduled">Rescheduled</SelectItem>
+                      <SelectItem value="no_show">No Show</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Note Status Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-700">Note:</span>
+                  <Select 
+                    value={noteStatusFilter} 
+                    onValueChange={setNoteStatusFilter}
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="All Notes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sessions</SelectItem>
+                      <SelectItem value="finalized">Has Finalized Note</SelectItem>
+                      <SelectItem value="draft">Has Draft Note</SelectItem>
+                      <SelectItem value="no_note">No Note</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Clear Filters Button */}
+                {(sessionStatusFilter !== "all" || noteStatusFilter !== "all") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSessionStatusFilter("all");
+                      setNoteStatusFilter("all");
+                    }}
+                    className="text-slate-500 hover:text-slate-700"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Clear Filters
+                  </Button>
+                )}
               </div>
+              {/* Results Count */}
               <div className="text-sm text-slate-500">
-                {sessionStatusFilter === "all" ? 
-                  `${sessions.length} sessions` : 
-                  `${sessions.filter((s: Session) => s.status === sessionStatusFilter).length} ${sessionStatusFilter} sessions`
-                }
+                Showing {sessions.filter((s: Session) => {
+                  const matchesStatus = sessionStatusFilter === "all" || s.status === sessionStatusFilter;
+                  const sessionNote = getSessionNote(s.id);
+                  let matchesNote = true;
+                  if (noteStatusFilter === "finalized") {
+                    matchesNote = sessionNote?.isFinalized === true;
+                  } else if (noteStatusFilter === "draft") {
+                    matchesNote = sessionNote?.isDraft === true;
+                  } else if (noteStatusFilter === "no_note") {
+                    matchesNote = !sessionNote;
+                  }
+                  return matchesStatus && matchesNote;
+                }).length} of {sessions.length} sessions
               </div>
             </div>
 
@@ -2058,9 +2107,24 @@ export default function ClientDetailPage() {
                 {sessions.length > 0 ? (
                   <div className="space-y-3">
                     {sessions
-                      .filter((session: Session) => 
-                        sessionStatusFilter === "all" || session.status === sessionStatusFilter
-                      )
+                      .filter((session: Session) => {
+                        // Filter by session status
+                        const matchesStatus = sessionStatusFilter === "all" || session.status === sessionStatusFilter;
+                        
+                        // Filter by note status
+                        const sessionNote = getSessionNote(session.id);
+                        let matchesNote = true;
+                        
+                        if (noteStatusFilter === "finalized") {
+                          matchesNote = sessionNote?.isFinalized === true;
+                        } else if (noteStatusFilter === "draft") {
+                          matchesNote = sessionNote?.isDraft === true;
+                        } else if (noteStatusFilter === "no_note") {
+                          matchesNote = !sessionNote;
+                        }
+                        
+                        return matchesStatus && matchesNote;
+                      })
                       .map((session: Session) => {
                       // Check if this session's date has conflicts
                       const sessionDate = session.sessionDate ? parseSessionDate(session.sessionDate.toString()).toISOString().split('T')[0] : null;
