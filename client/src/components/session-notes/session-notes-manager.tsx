@@ -1518,6 +1518,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <FormControl>
                           <div className="bg-white dark:bg-gray-950 rounded-md border min-h-[300px]">
                             <ReactQuill
+                              key={editingNote?.id || 'new-note'}
                               theme="snow"
                               value={field.value || ''}
                               onChange={(content) => {
