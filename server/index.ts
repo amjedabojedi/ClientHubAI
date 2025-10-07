@@ -6,6 +6,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { optionalAuth, csrfProtection } from "./auth-middleware";
 import { storage } from "./storage";
 import { syncNotificationTriggers } from "./notification-seeds";
+import { notificationService } from "./notification-service";
 
 const app = express();
 // Increase payload limits for document uploads
@@ -130,6 +131,22 @@ process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
     } catch (syncError) {
       log(`Warning: Failed to sync notification triggers: ${syncError}`);
       // Don't throw - allow app to start even if trigger sync fails
+    }
+
+    // Start scheduled notification processor (runs every minute)
+    try {
+      log('Starting scheduled notification processor...');
+      setInterval(async () => {
+        try {
+          await notificationService.processDueNotifications();
+        } catch (error) {
+          console.error('[CRON] Error processing scheduled notifications:', error);
+        }
+      }, 60000); // Run every 60 seconds
+      log('Scheduled notification processor started (runs every 60 seconds)');
+    } catch (cronError) {
+      log(`Warning: Failed to start notification processor: ${cronError}`);
+      // Don't throw - allow app to start even if cron fails
     }
 
     log('Registering routes...');
