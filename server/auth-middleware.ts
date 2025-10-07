@@ -82,13 +82,9 @@ export function verifySessionToken(token: string): TokenPayload | null {
  * Authentication middleware - verifies session cookie and sets req.user
  */
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  console.log(`[AUTH DEBUG] requireAuth called for ${req.method} ${req.originalUrl}`);
-  console.log(`[AUTH DEBUG] Cookies available:`, Object.keys(req.cookies || {}));
-  
   const token = req.cookies?.sessionToken;
   
   if (!token) {
-    console.log(`[AUTH DEBUG] No sessionToken cookie found, rejecting request`);
     // Force logout if no session cookie - clear any remaining invalid cookies
     res.clearCookie('sessionToken', { path: '/', httpOnly: true, secure: false, sameSite: 'strict' });
     res.clearCookie('csrfToken', { path: '/', httpOnly: false, secure: false, sameSite: 'strict' });
@@ -97,11 +93,9 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   
   const user = verifySessionToken(token);
   if (!user) {
-    console.log(`[AUTH DEBUG] Token verification failed - invalid or expired session`);
     return res.status(401).json({ error: "Invalid or expired session" });
   }
   
-  console.log(`[AUTH DEBUG] Authentication successful for user:`, user.username, user.role);
   req.user = user;
   next();
 }
@@ -134,14 +128,6 @@ export function csrfProtection(req: AuthenticatedRequest, res: Response, next: N
   const cookieCsrf = req.cookies?.csrfToken;
   
   if (!csrfToken || !cookieCsrf || csrfToken !== cookieCsrf) {
-    // Debug logging for CSRF failures
-    console.log(`[CSRF DEBUG] Failed validation:`, {
-      hasHeader: !!csrfToken,
-      hasCookie: !!cookieCsrf,
-      headerStart: csrfToken?.substring(0, 8),
-      cookieStart: cookieCsrf?.substring(0, 8),
-      match: csrfToken === cookieCsrf
-    });
     return res.status(403).json({ error: "Invalid CSRF token" });
   }
   

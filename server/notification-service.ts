@@ -168,12 +168,10 @@ export class NotificationService {
                 // Schedule for 24 hours before session
                 const executeAt = new Date(sessionDate.getTime() - (24 * 60 * 60 * 1000));
                 await this.scheduleNotification(trigger, entityData, executeAt);
-                console.log(`[NOTIFICATION] Scheduled 24hr reminder for session ${entityData.id} at ${executeAt}`);
               } else if (hoursUntilSession > 0) {
                 // Less than 24 hours away - send immediately
                 const recipients = await this.calculateRecipients(trigger, entityData);
                 await this.createNotificationsFromTrigger(trigger, entityData, recipients);
-                console.log(`[NOTIFICATION] Sent immediate reminder for session ${entityData.id} (less than 24hrs away)`);
               }
             } else {
               // Immediate notification (non-scheduled triggers)
@@ -244,8 +242,6 @@ export class NotificationService {
         ))
         .limit(100); // Process in batches
 
-      console.log(`[SCHEDULED NOTIFICATIONS] Processing ${dueNotifications.length} due notifications`);
-
       for (const scheduled of dueNotifications) {
         try {
           // Get the trigger
@@ -274,8 +270,6 @@ export class NotificationService {
               processedAt: new Date() 
             })
             .where(eq(scheduledNotifications.id, scheduled.id));
-
-          console.log(`[SCHEDULED NOTIFICATIONS] Sent notification ${scheduled.id} for session ${scheduled.sessionId}`);
         } catch (error) {
           // Mark as failed and increment retry count
           await db
@@ -513,16 +507,10 @@ export class NotificationService {
         template = templateResult[0] || null;
       }
 
-      console.log(`[NOTIFICATION] Total recipients: ${recipients.length}`);
-      recipients.forEach(r => console.log(`[NOTIFICATION] Recipient: id=${r.id}, role=${r.role}, email=${r.email}`));
-
       // Separate recipients into actual users (in users table) and clients (fake user objects)
       // Clients are marked with role='client' when converted from client records
       const actualUsers = recipients.filter(r => r.role !== 'client');
       const allRecipients = recipients; // Keep all for email sending
-
-      console.log(`[NOTIFICATION] Filtered to ${actualUsers.length} actual users for in-app notifications`);
-      actualUsers.forEach(u => console.log(`[NOTIFICATION] ActualUser: id=${u.id}, role=${u.role}`));
 
       // Create in-app notifications ONLY for actual users (not clients)
       // Clients don't have user accounts, so they can't see in-app notifications
@@ -551,13 +539,9 @@ export class NotificationService {
         await this.createNotificationsBatch(notificationsData);
       }
       
-      console.log(`[NOTIFICATION] About to send emails to ${allRecipients.length} recipients`);
-      
       // Send emails to ALL recipients (users and clients)
       // Emails work for everyone with an email address
       await this.sendEmailNotifications(allRecipients, trigger, template, entityData);
-      
-      console.log('[NOTIFICATION] Email sending completed successfully');
       
     } catch (error) {
       console.error(`Error creating notifications from trigger:`, error);
@@ -574,22 +558,16 @@ export class NotificationService {
     template: NotificationTemplate | null, 
     entityData: any
   ): Promise<void> {
-    console.log(`[NOTIFICATION] sendEmailNotifications called with ${recipients.length} recipients`);
-    
     // Check if SparkPost is configured
     if (!process.env.SPARKPOST_API_KEY) {
-      console.log('[NOTIFICATION] SparkPost not configured - skipping email notifications');
       return;
     }
-
-    console.log('[NOTIFICATION] SparkPost configured, proceeding with email sending');
 
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = 'noreply@send.rcrc.ca';
 
       for (const recipient of recipients) {
-        console.log(`[NOTIFICATION] Processing email for recipient: id=${recipient.id}, email=${recipient.email}, role=${recipient.role}`);
         try {
           // Check if user has email notifications enabled for this trigger type
           const preferences = await db
@@ -610,7 +588,6 @@ export class NotificationService {
             });
 
           if (!hasEmailEnabled || !recipient.email) {
-            console.log(`[NOTIFICATION] Skipping email for user ${recipient.id} - email disabled or no email address`);
             continue;
           }
 
@@ -637,8 +614,6 @@ export class NotificationService {
             },
             recipients: [{ address: recipient.email }]
           });
-
-          console.log(`[NOTIFICATION] Email sent successfully to ${recipient.email} for ${trigger.eventType}`);
         } catch (emailError) {
           console.error(`[NOTIFICATION] Failed to send email to ${recipient.email}:`, emailError);
           // Continue with other recipients even if one fails

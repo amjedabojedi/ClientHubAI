@@ -26,12 +26,6 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   
   const userId = user?.id;
 
-  // Debug logging
-  console.log("[NOTIFICATION DEBUG] NotificationBell user:", user);
-  console.log("[NOTIFICATION DEBUG] userId:", userId);
-  console.log("[NOTIFICATION DEBUG] Query enabled:", !!user && !!userId);
-
-  // Get unread notification count - disable retry to prevent endless loops on auth failures
   const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({
     queryKey: ["/api/notifications/unread-count"],
     queryFn: getQueryFn({ on401: "throw" }),

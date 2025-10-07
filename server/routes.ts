@@ -3461,7 +3461,6 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Auto-migrate global credentials if user doesn't have their own
       if (!user?.zoomAccountId && process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET) {
-        console.log(`[ZOOM] Auto-migrating global credentials to user ${currentUserId}`);
         await db.update(users)
           .set({
             zoomAccountId: process.env.ZOOM_ACCOUNT_ID,
@@ -3763,9 +3762,7 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(401).json({ message: "Authentication required" });
       }
       
-      console.log('[SESSION NOTE API] Received data:', JSON.stringify(req.body, null, 2));
       const validatedData = insertSessionNoteSchema.parse(req.body);
-      console.log('[SESSION NOTE API] Validation successful');
       
       // Check if user can access the session for this note (service visibility check)
       const includeHiddenServices = req.user.role === 'admin';
@@ -5984,14 +5981,6 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             }
 
-            console.log('[EMAIL] Attempting to send invoice email:', {
-              to: client.email,
-              from: fromEmail,
-              hasPDF: !!pdfBuffer,
-              clientName: client.fullName,
-              timestamp: new Date().toISOString()
-            });
-
             const result = await sp.transmissions.send({
               options: {
                 sandbox: false  // Set to false for production sending
@@ -6048,16 +6037,6 @@ This happens because only the file metadata was stored, not the actual file cont
                   }]
                 })
               }
-            });
-            
-            console.log('[EMAIL] Invoice email sent successfully:', {
-              to: client.email,
-              messageId: result.results?.id,
-              transmissionId: result.results?.transmission_id,
-              totalAccepted: result.results?.total_accepted_recipients,
-              totalRejected: result.results?.total_rejected_recipients,
-              hasPDF: !!pdfBuffer,
-              timestamp: new Date().toISOString()
             });
 
             res.json({ 

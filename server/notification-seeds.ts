@@ -106,8 +106,6 @@ export const NOTIFICATION_TRIGGER_SEEDS = [
  * Uses UPSERT logic to be idempotent and safe to run multiple times
  */
 export async function syncNotificationTriggers(): Promise<void> {
-  console.log('[NOTIFICATION SEEDS] Starting trigger synchronization...');
-  
   try {
     for (const triggerSeed of NOTIFICATION_TRIGGER_SEEDS) {
       // Check if trigger exists
@@ -134,8 +132,6 @@ export async function syncNotificationTriggers(): Promise<void> {
             updatedAt: new Date()
           })
           .where(eq(notificationTriggers.name, triggerSeed.name));
-        
-        console.log(`[NOTIFICATION SEEDS] Updated trigger: ${triggerSeed.name}`);
       } else {
         // Insert new trigger
         await db
@@ -145,12 +141,8 @@ export async function syncNotificationTriggers(): Promise<void> {
             createdAt: new Date(),
             updatedAt: new Date()
           });
-        
-        console.log(`[NOTIFICATION SEEDS] Created trigger: ${triggerSeed.name}`);
       }
     }
-    
-    console.log('[NOTIFICATION SEEDS] Trigger synchronization completed successfully');
   } catch (error) {
     console.error('[NOTIFICATION SEEDS] Error synchronizing triggers:', error);
     throw error;

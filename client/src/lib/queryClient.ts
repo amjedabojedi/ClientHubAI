@@ -109,37 +109,12 @@ export const getQueryFn: <T>(options: {
       url = queryKey.filter(key => typeof key === 'string').join('/');
     }
 
-    const reqId = crypto.randomUUID();
-    const startTime = Date.now();
-    
-    console.log(`[DEBUG] QueryClient: Starting request`, { 
-      reqId, 
-      url, 
-      timestamp: startTime 
-    });
-
     const res = await fetch(url, {
       credentials: "include",
       cache: "no-store",
       headers: {
         "Cache-Control": "no-cache",
-        "X-Request-ID": reqId,
       },
-    });
-
-    const duration = Date.now() - startTime;
-    console.log(`[DEBUG] QueryClient: Response received`, { 
-      reqId, 
-      url,
-      status: res.status, 
-      ok: res.ok,
-      headers: {
-        'cache-control': res.headers.get('cache-control'),
-        'etag': res.headers.get('etag'),
-        'content-length': res.headers.get('content-length')
-      },
-      duration,
-      timestamp: Date.now()
     });
 
     if (res.status === 401) {
@@ -147,9 +122,6 @@ export const getQueryFn: <T>(options: {
       if (unauthorizedBehavior === "returnNull") {
         return null;
       }
-      
-      // For throw behavior, trigger logout and redirect to login
-      console.warn("[AUTH] 401 detected - session expired or invalid. Redirecting to login.");
       
       // Clear any stored auth state to prevent endless loops
       localStorage.removeItem('currentUser');

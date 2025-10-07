@@ -40,7 +40,7 @@ export type ZoomMeetingResponse = z.infer<typeof zoomMeetingResponseSchema>;
 
 export class ZoomService {
   constructor() {
-    console.log("[ZOOM] Per-therapist Zoom integration initialized - Each therapist must configure their own Zoom account");
+    // Per-therapist Zoom integration initialized
   }
 
   /**
@@ -69,7 +69,6 @@ export class ZoomService {
     if (therapistCredentials.accessToken && therapistCredentials.tokenExpiry) {
       const expiry = new Date(therapistCredentials.tokenExpiry).getTime();
       if (Date.now() < expiry) {
-        console.log("[ZOOM] Using cached therapist access token");
         return therapistCredentials.accessToken;
       }
     }
@@ -105,8 +104,6 @@ export class ZoomService {
       if (!tokenData.access_token) {
         throw new Error('No access token received from Zoom OAuth');
       }
-      
-      console.log("[ZOOM] Therapist access token obtained successfully");
       
       return tokenData.access_token;
     } catch (error) {
@@ -175,11 +172,6 @@ export class ZoomService {
         },
       };
 
-      console.log("[ZOOM] Creating meeting using therapist's own credentials:", { 
-        topic: meetingData.topic, 
-        start_time: meetingData.start_time
-      });
-
       const response = await fetch(`${ZOOM_API_BASE}/users/me/meetings`, {
         method: 'POST',
         headers: await this.getHeaders(therapistCredentials),
@@ -194,11 +186,6 @@ export class ZoomService {
 
       const result = await response.json();
       const validatedResult = zoomMeetingResponseSchema.parse(result);
-
-      console.log("[ZOOM] Meeting created successfully:", { 
-        id: validatedResult.id, 
-        topic: validatedResult.topic
-      });
 
       return validatedResult;
     } catch (error) {
@@ -216,8 +203,6 @@ export class ZoomService {
     }
 
     try {
-      console.log("[ZOOM] Updating meeting:", meetingId);
-
       const response = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
         method: 'PATCH',
         headers: await this.getHeaders(),
@@ -229,8 +214,6 @@ export class ZoomService {
         console.error("[ZOOM] Failed to update meeting:", response.status, errorData);
         throw new Error(`Failed to update Zoom meeting: ${response.status} ${errorData}`);
       }
-
-      console.log("[ZOOM] Meeting updated successfully:", meetingId);
     } catch (error) {
       console.error("[ZOOM] Error updating meeting:", error);
       throw error;
@@ -246,8 +229,6 @@ export class ZoomService {
     }
 
     try {
-      console.log("[ZOOM] Deleting meeting:", meetingId);
-
       const response = await fetch(`${ZOOM_API_BASE}/meetings/${meetingId}`, {
         method: 'DELETE',
         headers: await this.getHeaders(),
@@ -258,8 +239,6 @@ export class ZoomService {
         console.error("[ZOOM] Failed to delete meeting:", response.status, errorData);
         throw new Error(`Failed to delete Zoom meeting: ${response.status} ${errorData}`);
       }
-
-      console.log("[ZOOM] Meeting deleted successfully:", meetingId);
     } catch (error) {
       console.error("[ZOOM] Error deleting meeting:", error);
       throw error;

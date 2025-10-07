@@ -216,7 +216,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Create session note mutation
   const createSessionNoteMutation = useMutation({
     mutationFn: async (data: SessionNoteFormData) => {
-      console.log('[SESSION NOTE] Creating with data:', JSON.stringify(data, null, 2));
       const response = await apiRequest('/api/session-notes', 'POST', data);
       if (!response.ok) {
         const errorData = await response.json();
@@ -233,7 +232,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       toast({ title: "Session note created successfully" });
     },
     onError: (error: any) => {
-      console.error('[SESSION NOTE] Mutation error:', error);
       toast({ title: "Error creating session note", description: error.message, variant: "destructive" });
     },
   });
@@ -487,9 +485,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       
       // Auto-populate generated content into the generatedContent field with HTML formatting
       if (result.generatedContent) {
-        console.log('[AI GENERATION] Original text:', result.generatedContent);
         const htmlContent = convertTextToHTML(result.generatedContent);
-        console.log('[AI GENERATION] Converted HTML:', htmlContent);
         form.setValue('generatedContent', htmlContent);
         // Force a re-render of the Quill editor
         setTimeout(() => {
@@ -704,17 +700,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
   // Handle form submission
   const onSubmit = (data: SessionNoteFormData) => {
-    console.log('[SESSION NOTE] Form validation passed, submitting data:', data);
-    console.log('[SESSION NOTE] Form errors:', form.formState.errors);
-    
     // Ensure required fields are set
     const submissionData = {
       ...data,
       date: data.date || new Date(),
       therapistId: user?.id || data.therapistId, // Always use authenticated user ID
     };
-    
-    console.log('[SESSION NOTE] Submission data:', submissionData);
     
     if (editingNote) {
       updateSessionNoteMutation.mutate({ id: editingNote.id, data: submissionData });
