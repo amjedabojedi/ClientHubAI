@@ -795,7 +795,6 @@ export default function BillingDashboard() {
                             <Button
                               size="sm"
                               variant="default"
-                              className="bg-yellow-600 hover:bg-yellow-700"
                               onClick={() => handleRecordPayment(billing)}
                             >
                               <CreditCard className="h-3 w-3 mr-1" />
@@ -805,7 +804,6 @@ export default function BillingDashboard() {
                             <Button
                               size="sm"
                               variant="default"
-                              className="bg-green-600 hover:bg-green-700"
                               onClick={() => handleEmailInvoice(billing, client)}
                             >
                               <Mail className="h-3 w-3 mr-1" />
@@ -824,16 +822,18 @@ export default function BillingDashboard() {
                               <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
                                 Invoice Actions
                               </div>
-                              {billing.paymentStatus !== 'pending' && (
+                              {billing.paymentStatus === 'pending' && (
+                                <DropdownMenuItem onClick={() => handleEmailInvoice(billing, client)}>
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Email Invoice
+                                </DropdownMenuItem>
+                              )}
+                              {billing.paymentStatus !== 'pending' && billing.paymentStatus !== 'paid' && (
                                 <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
                                   <CreditCard className="h-4 w-4 mr-2" />
                                   Record Payment
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem onClick={() => handleEmailInvoice(billing, client)}>
-                                <Mail className="h-4 w-4 mr-2" />
-                                Email Invoice
-                              </DropdownMenuItem>
                               <div className="border-t my-1"></div>
                               <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
                                 Change Status
