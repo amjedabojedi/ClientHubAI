@@ -2947,41 +2947,56 @@ export default function ClientDetailPage() {
                           </div>
                         )}
                         
-                        <div className="mt-3 flex space-x-2 pt-2 border-t border-slate-200">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleGenerateInvoice('preview', billing.id)}
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            Preview Invoice
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleGenerateInvoice('download', billing.id)}
-                          >
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleGenerateInvoice('email', billing.id)}
-                          >
-                            <Mail className="w-3 h-3 mr-1" />
-                            Email
-                          </Button>
-                          {billing.paymentStatus !== 'paid' && (
+                        {/* Simplified action layout: One primary button + One menu */}
+                        <div className="mt-3 flex items-center gap-2 pt-2 border-t border-slate-200">
+                          {/* Single Primary Action Button - Most important next step */}
+                          {billing.paymentStatus !== 'paid' ? (
                             <Button 
                               size="sm" 
                               variant="default"
+                              className="bg-yellow-600 hover:bg-yellow-700"
                               onClick={() => handleRecordPayment(billing)}
                             >
-                              <CreditCard className="w-3 h-3 mr-1" />
+                              <CreditCard className="w-4 h-4 mr-2" />
                               Record Payment
                             </Button>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              variant="default"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => handleGenerateInvoice('preview', billing.id)}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Invoice
+                            </Button>
                           )}
+
+                          {/* Single Menu - All invoice actions organized */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                Invoice Actions
+                              </div>
+                              <DropdownMenuItem onClick={() => handleGenerateInvoice('preview', billing.id)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Preview Invoice
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleGenerateInvoice('download', billing.id)}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Invoice
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleGenerateInvoice('email', billing.id)}>
+                                <Mail className="w-4 h-4 mr-2" />
+                                Email to Client
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     ))}
