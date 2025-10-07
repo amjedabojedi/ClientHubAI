@@ -2130,17 +2130,9 @@ export default function ClientDetailPage() {
                               'bg-red-500'
                             }`}></div>
                             <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-semibold text-slate-900">
-                                  {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
-                                </h4>
-                                {hasConflicts && (
-                                  <Badge variant="outline" className="text-orange-600 border-orange-300">
-                                    <AlertCircle className="w-3 h-3 mr-1" />
-                                    {conflictInfo?.type === 'same_service' ? 'Duplicate' : 'Multiple Services'}
-                                  </Badge>
-                                )}
-                              </div>
+                              <h4 className="font-semibold text-slate-900">
+                                {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
+                              </h4>
                               <div className="text-sm space-y-0.5">
                                 {/* Line 1: Date and Time */}
                                 <p className="text-slate-600">
@@ -2170,7 +2162,8 @@ export default function ClientDetailPage() {
                                 
                                 {/* Line 3: Conflict Warning */}
                                 {hasConflicts && conflictInfo && (
-                                  <p className="text-orange-600">
+                                  <p className="text-orange-600 font-medium">
+                                    <AlertCircle className="w-3 h-3 inline mr-1" />
                                     {conflictInfo.sessions.length} sessions on same day
                                   </p>
                                 )}
