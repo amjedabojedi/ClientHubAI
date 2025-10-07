@@ -367,13 +367,9 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
           }
           .footer-center {
             text-align: center;
-            font-weight: 500;
           }
           .footer-right {
             text-align: right;
-          }
-          .page-number {
-            font-weight: 500;
           }
           .status-badge {
             display: inline-block;
@@ -405,11 +401,6 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               padding: 0;
               line-height: 1.35;
               margin: 0;
-              counter-reset: page;
-            }
-            .page-number::after {
-              counter-increment: page;
-              content: counter(page);
             }
             .header {
               padding-bottom: 4px;
@@ -656,10 +647,10 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
 
         <div class="footer">
           <div class="footer-left">
-            <strong>${note.client?.fullName || 'Client'}</strong> | Session ID: ${note.session.id}
+            <strong>${note.client?.fullName || 'Client'}</strong>
           </div>
           <div class="footer-center">
-            Page <span class="page-number"></span>
+            
           </div>
           <div class="footer-right">
             ${format(new Date(), 'MM/dd/yyyy')}
