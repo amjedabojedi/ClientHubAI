@@ -2130,9 +2130,25 @@ export default function ClientDetailPage() {
                               'bg-red-500'
                             }`}></div>
                             <div>
-                              <h4 className="font-semibold text-slate-900">
-                                {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
-                              </h4>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-slate-900">
+                                  {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
+                                </h4>
+                                <span className="text-slate-300">•</span>
+                                <Badge 
+                                  variant="outline"
+                                  className={`
+                                    ${session.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    session.status === 'scheduled' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    session.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    session.status === 'rescheduled' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                    session.status === 'no_show' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                    'bg-gray-50 text-gray-700 border-gray-200'}
+                                  `}
+                                >
+                                  {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
+                                </Badge>
+                              </div>
                               <div className="text-sm space-y-0.5">
                                 {/* Line 1: Date and Time */}
                                 <p className="text-slate-600">
@@ -2170,23 +2186,8 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                           </div>
-                          {/* Clean action layout: Status badge + Primary action + Zoom (if available) + Overflow menu */}
+                          {/* Clean action layout: Note action + Zoom (if available) + Overflow menu */}
                           <div className="flex items-center gap-3">
-                            {/* Session Status Badge (Read-only visual indicator) */}
-                            <Badge 
-                              variant="outline"
-                              className={`
-                                ${session.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                                session.status === 'scheduled' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                session.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
-                                session.status === 'rescheduled' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                session.status === 'no_show' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                'bg-gray-50 text-gray-700 border-gray-200'}
-                              `}
-                            >
-                              {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
-                            </Badge>
-
                             {/* Note Status & Primary Action */}
                             {(() => {
                               const sessionNote = getSessionNote(session.id);
