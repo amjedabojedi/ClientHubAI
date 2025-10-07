@@ -19,7 +19,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 // Icons
-import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -158,17 +158,23 @@ interface SessionNotesManagerProps {
   sessions: Session[];
   preSelectedSessionId?: number | null;
   onSessionChange?: (sessionId: number | null) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId, onSessionChange }: SessionNotesManagerProps) {
+export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId, onSessionChange, open, onOpenChange }: SessionNotesManagerProps) {
   // Fetch client data for template generation
-  const { data: clientData } = useQuery({
+  const { data: clientData } = useQuery<{ id: number; fullName: string }>({
     queryKey: [`/api/clients/${clientId}`],
   });
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
-  const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [internalIsAddNoteOpen, setInternalIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
   const [isFromSessionClick, setIsFromSessionClick] = useState(false); // Track if came from session click
+  
+  // Use external open state if provided, otherwise use internal state
+  const isAddNoteOpen = open !== undefined ? open : internalIsAddNoteOpen;
+  const setIsAddNoteOpen = onOpenChange || setInternalIsAddNoteOpen;
   
   // Risk Assessment State
   const [riskFactors, setRiskFactors] = useState({
@@ -1184,12 +1190,32 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       <Dialog open={isAddNoteOpen} onOpenChange={setIsAddNoteOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
               {editingNote ? 'Edit Session Note' : 'Add Session Note'}
             </DialogTitle>
-            <DialogDescription>
-              Document therapy session details, assessments, and progress notes.
-            </DialogDescription>
+            {(() => {
+              const sessionId = form.watch('sessionId');
+              const session = sessions.find(s => s.id === sessionId);
+              if (session) {
+                return (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-100">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium text-blue-900">
+                        Session: {format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy')} - {session.sessionType}
+                      </span>
+                    </div>
+                    {clientData && (
+                      <div className="text-xs text-blue-700 mt-1">
+                        Client: {clientData.fullName}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return <DialogDescription>Document therapy session details, assessments, and progress notes.</DialogDescription>;
+            })()}
           </DialogHeader>
 
           <Form {...form}>

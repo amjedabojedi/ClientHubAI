@@ -4109,19 +4109,15 @@ export default function ClientDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Session Notes Dialog */}
-      <Dialog open={isSessionNotesDialogOpen} onOpenChange={setIsSessionNotesDialogOpen}>
-        <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0">
-          <div className="h-full overflow-hidden flex flex-col">
-            <SessionNotesManager 
-              clientId={clientId!} 
-              sessions={sessions} 
-              preSelectedSessionId={preSelectedSessionId}
-              onSessionChange={setPreSelectedSessionId}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Session Notes Manager - Handles its own dialog */}
+      <SessionNotesManager 
+        clientId={clientId!} 
+        sessions={sessions} 
+        preSelectedSessionId={preSelectedSessionId}
+        onSessionChange={setPreSelectedSessionId}
+        open={isSessionNotesDialogOpen}
+        onOpenChange={setIsSessionNotesDialogOpen}
+      />
     </div>
   );
 }
