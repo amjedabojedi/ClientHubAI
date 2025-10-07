@@ -1900,13 +1900,7 @@ export default function ClientDetailPage() {
 
           {/* Sessions Tab */}
           <TabsContent value="sessions" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Session Management</h2>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Schedule New Session
-              </Button>
-            </div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-6">Session Management</h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
               <Card>
