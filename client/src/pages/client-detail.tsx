@@ -765,6 +765,50 @@ export default function ClientDetailPage() {
     updateSessionMutation.mutate({ sessionId, status });
   };
 
+  // Session Note PDF Handlers
+  const handlePreviewNotePDF = async (noteId: number) => {
+    try {
+      const response = await fetch(`/api/session-notes/${noteId}/pdf`);
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const html = await response.text();
+      const previewWindow = window.open('', '_blank');
+      if (previewWindow) {
+        previewWindow.document.write(html);
+        previewWindow.document.close();
+      }
+    } catch (error) {
+      toast({ 
+        title: "Error generating PDF preview", 
+        description: error instanceof Error ? error.message : "Failed to generate PDF",
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleDownloadNotePDF = async (noteId: number) => {
+    try {
+      const response = await fetch(`/api/session-notes/${noteId}/pdf`);
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      
+      const html = await response.text();
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      }
+    } catch (error) {
+      toast({ 
+        title: "Error downloading PDF", 
+        description: error instanceof Error ? error.message : "Failed to download PDF",
+        variant: "destructive" 
+      });
+    }
+  };
+
   // ==================== Basic Event Handlers ====================
   
   const handleEditClient = () => setIsEditModalOpen(true);
@@ -1241,6 +1285,18 @@ export default function ClientDetailPage() {
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
   });
+
+  // Session Notes query (for inline note management in Session History)
+  const { data: sessionNotes = [] } = useQuery<any[]>({
+    queryKey: [`/api/clients/${clientId}/session-notes`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
+  // Helper function to find note for a session
+  const getSessionNote = (sessionId: number) => {
+    return sessionNotes.find((note: any) => note.sessionId === sessionId);
+  };
 
   // Session conflicts query
   const { data: sessionConflicts } = useQuery<{
@@ -2143,18 +2199,85 @@ export default function ClientDetailPage() {
                               <Edit className="w-4 h-4 mr-1" />
                               Edit
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setPreSelectedSessionId(session.id);
-                                setActiveTab('session-notes');
-                              }}
-                              className="min-w-[120px]"
-                            >
-                              <FileText className="w-4 h-4 mr-1" />
-                              Add Notes
-                            </Button>
+                            {/* Session Note Actions - Smart buttons based on note status */}
+                            {(() => {
+                              const sessionNote = getSessionNote(session.id);
+                              
+                              if (!sessionNote) {
+                                // No note - show Add Note button
+                                return (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setPreSelectedSessionId(session.id);
+                                      setActiveTab('session-notes');
+                                    }}
+                                    className="min-w-[120px]"
+                                    data-testid={`button-add-note-${session.id}`}
+                                  >
+                                    <FileText className="w-4 h-4 mr-1" />
+                                    Add Note
+                                  </Button>
+                                );
+                              } else if (sessionNote.isDraft) {
+                                // Draft note - show Edit + Preview buttons
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                      Draft
+                                    </Badge>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        setPreSelectedSessionId(session.id);
+                                        setActiveTab('session-notes');
+                                      }}
+                                      data-testid={`button-edit-note-${session.id}`}
+                                    >
+                                      <Edit className="w-4 h-4 mr-1" />
+                                      Edit Note
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handlePreviewNotePDF(sessionNote.id)}
+                                      data-testid={`button-preview-note-${session.id}`}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              } else if (sessionNote.isFinalized) {
+                                // Finalized note - show Preview PDF + Download PDF buttons
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="default" className="bg-green-600">
+                                      Finalized
+                                    </Badge>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => handlePreviewNotePDF(sessionNote.id)}
+                                      data-testid={`button-preview-pdf-${session.id}`}
+                                    >
+                                      <Eye className="w-4 h-4 mr-1" />
+                                      Preview PDF
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handleDownloadNotePDF(sessionNote.id)}
+                                      data-testid={`button-download-pdf-${session.id}`}
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
                             {(session as any).zoomEnabled && (session as any).zoomJoinUrl ? (
                               <Button 
                                 variant="outline" 
