@@ -726,8 +726,11 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   private generateSessionEmailBody(entityData: any, recipient: any, isClient: boolean): string {
     const sessionDate = this.formatDateEST(entityData.sessionDate);
     
+    // Check if Zoom is enabled and has meeting details
+    const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
+    
     if (isClient) {
-      return `
+      let emailBody = `
 Dear ${recipient.fullName},
 
 Your therapy session has been confirmed!
@@ -737,17 +740,52 @@ Your therapy session has been confirmed!
 Session Type: ${entityData.sessionType}
 Date & Time: ${sessionDate}
 Therapist: ${entityData.therapistName}
-Duration: ${entityData.duration || 60} minutes
+Duration: ${entityData.duration || 60} minutes`;
 
-📋 PREPARATION REMINDERS:
-• Please arrive 5-10 minutes early
-• Bring any questions or topics you'd like to discuss
+      // Add Zoom details if available
+      if (hasZoomDetails) {
+        emailBody += `
+
+📹 VIRTUAL MEETING DETAILS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your therapy session will be conducted via Zoom video conference.
+
+Meeting Details:
+• Join URL: ${entityData.zoomJoinUrl}
+• Meeting ID: ${entityData.zoomMeetingId}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+
+📋 Important Instructions:
+• Please join the meeting 5 minutes before your scheduled time
+• Ensure you have a stable internet connection
+• Test your camera and microphone beforehand
+• Find a quiet, private space for your session
+
+Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      }
+
+      emailBody += `
+
+📋 IMPORTANT REMINDERS:`;
+
+      // Only show "arrive early" for in-person sessions
+      if (!hasZoomDetails) {
+        emailBody += `
+• Please arrive 5-10 minutes early`;
+      }
+
+      emailBody += `
 • If you need to cancel or reschedule, please give at least 24 hours notice
 
 We look forward to seeing you at your appointment.
 
 Best regards,
 TherapyFlow Team`;
+
+      return emailBody;
     } else {
       return `
 Session Scheduled Notification
