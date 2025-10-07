@@ -398,13 +398,11 @@ export default function BillingDashboard() {
     setPaymentDialogOpen(true);
   };
 
-  // Email invoice function following existing pattern from client-detail.tsx
-  const handleEmailInvoice = async (billing: any, client: any) => {
+  // Invoice action handlers using apiRequest (includes CSRF tokens automatically)
+  const handleInvoiceAction = async (action: 'preview' | 'download' | 'email', billing: any, client: any) => {
     try {
-      console.log('[DEBUG] handleEmailInvoice called with:', { billing, client });
-      
-      if (!client?.email) {
-        console.error('[DEBUG] No client email found:', client);
+      // Check for email if action is email
+      if (action === 'email' && !client?.email) {
         toast({
           title: "No email address",
           description: "Client doesn't have an email address. Please add one in their profile first.",
@@ -413,51 +411,44 @@ export default function BillingDashboard() {
         return;
       }
 
-      if (!client?.id) {
-        console.error('[DEBUG] No client ID found:', client);
-        toast({
-          title: "Invalid client data",
-          description: `Client information is incomplete. Client: ${JSON.stringify(client)}`,
-          variant: "destructive",
-        });
+      // For preview, just open in new window
+      if (action === 'preview') {
+        window.open(`/api/clients/${client.id}/invoice-preview?billingId=${billing.id}`, '_blank');
         return;
       }
 
-      console.log('[DEBUG] Making API request to:', `/api/clients/${client.id}/invoice`);
-      const response = await fetch(`/api/clients/${client.id}/invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'email', billingId: billing.id }),
+      // For download and email, use apiRequest
+      const response = await apiRequest(`/api/clients/${client.id}/invoice`, 'POST', { 
+        action, 
+        billingId: billing.id 
       });
 
-      console.log('[DEBUG] Response status:', response.status);
-      
-      if (!response.ok) {
-        let errorMessage = 'Failed to send invoice email';
-        try {
-          const errorData = await response.json();
-          console.error('[DEBUG] Error response:', errorData);
-          errorMessage = errorData.message || errorMessage;
-          if (errorData.issues) {
-            errorMessage += ': ' + errorData.issues.join(', ');
-          }
-        } catch (e) {
-          errorMessage = `Server error: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
+      if (action === 'download') {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${client.clientId}-${billing.id}-${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        toast({
+          title: "Invoice downloaded",
+          description: "Invoice has been downloaded successfully.",
+        });
+      } else if (action === 'email') {
+        const result = await response.json();
+        toast({
+          title: "Email sent successfully!",
+          description: result.message || `Invoice has been sent to ${client.email}`,
+        });
       }
-
-      const result = await response.json();
-      console.log('[DEBUG] Success response:', result);
-      toast({
-        title: "Email sent successfully!",
-        description: result.message || `Invoice has been sent to ${client.email}`,
-      });
     } catch (error: any) {
-      console.error('[DEBUG] Invoice email error:', error);
       toast({
-        title: "Email Error",
-        description: error.message || "Failed to send invoice email. Please try again.",
+        title: `${action.charAt(0).toUpperCase() + action.slice(1)} Error`,
+        description: error.message || `Failed to ${action} invoice. Please try again.`,
         variant: "destructive",
       });
     }
@@ -823,25 +814,37 @@ export default function BillingDashboard() {
                               size="sm"
                               variant="default"
                               onClick={() => handleRecordPayment(billing)}
+                              data-testid={`button-pay-${billing.id}`}
                             >
                               <CreditCard className="h-3 w-3 mr-1" />
                               Pay
+                            </Button>
+                          ) : billing.paymentStatus === 'paid' ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleInvoiceAction('preview', billing, client)}
+                              data-testid={`button-preview-${billing.id}`}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Preview
                             </Button>
                           ) : (
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => handleEmailInvoice(billing, client)}
+                              onClick={() => handleRecordPayment(billing)}
+                              data-testid={`button-pay-${billing.id}`}
                             >
-                              <Mail className="h-3 w-3 mr-1" />
-                              Email
+                              <CreditCard className="h-3 w-3 mr-1" />
+                              Pay
                             </Button>
                           )}
 
                           {/* Single Menu - All other actions organized */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0" data-testid={`button-menu-${billing.id}`}>
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -850,16 +853,52 @@ export default function BillingDashboard() {
                                 Invoice Actions
                               </div>
                               {billing.paymentStatus === 'pending' && (
-                                <DropdownMenuItem onClick={() => handleEmailInvoice(billing, client)}>
-                                  <Mail className="h-4 w-4 mr-2" />
-                                  Email Invoice
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('email', billing, client)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Email Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('preview', billing, client)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Preview Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('download', billing, client)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {billing.paymentStatus === 'paid' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('download', billing, client)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('email', billing, client)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Email Invoice
+                                  </DropdownMenuItem>
+                                </>
                               )}
                               {billing.paymentStatus !== 'pending' && billing.paymentStatus !== 'paid' && (
-                                <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
-                                  <CreditCard className="h-4 w-4 mr-2" />
-                                  Record Payment
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
+                                    <CreditCard className="h-4 w-4 mr-2" />
+                                    Record Payment
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('email', billing, client)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Email Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('preview', billing, client)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Preview Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleInvoiceAction('download', billing, client)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </DropdownMenuItem>
+                                </>
                               )}
                               <div className="border-t my-1"></div>
                               <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
