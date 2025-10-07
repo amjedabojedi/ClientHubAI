@@ -1505,10 +1505,6 @@ export default function ClientDetailPage() {
               <Separator orientation="vertical" className="h-6" />
             </div>
             <div className="flex items-center space-x-2">
-              <Button onClick={handleEditClient} variant="outline">
-                <Edit className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
               <QuickTaskForm
                 clientId={client.id}
                 clientName={client.fullName}
@@ -1526,10 +1522,6 @@ export default function ClientDetailPage() {
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Schedule Session
-              </Button>
-              <Button variant="outline" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
               </Button>
             </div>
           </div>
@@ -1601,10 +1593,18 @@ export default function ClientDetailPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex items-center space-x-3">
                   <Badge className={`${getStageColor(client.stage || 'intake')} px-3 py-1 text-sm font-medium`}>
                     {client.stage ? client.stage.charAt(0).toUpperCase() + client.stage.slice(1) : 'Intake'}
                   </Badge>
+                  <Button onClick={handleEditClient} variant="outline" size="sm">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
                 </div>
               </div>
             </div>
