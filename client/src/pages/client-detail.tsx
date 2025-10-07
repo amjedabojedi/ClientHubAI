@@ -2177,7 +2177,7 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                           </div>
-                          {/* Clean action layout: Status badge + Primary action + Overflow menu */}
+                          {/* Clean action layout: Status badge + Primary action + Zoom (if available) + Overflow menu */}
                           <div className="flex items-center gap-3">
                             {/* Session Status Badge (Read-only visual indicator) */}
                             <Badge 
@@ -2257,6 +2257,28 @@ export default function ClientDetailPage() {
                               return null;
                             })()}
 
+                            {/* Zoom Button - Keep visible for easy access (only if not finalized) */}
+                            {(() => {
+                              const sessionNote = getSessionNote(session.id);
+                              const isNoteFinalized = sessionNote?.isFinalized;
+                              
+                              if (!isNoteFinalized && (session as any).zoomEnabled && (session as any).zoomJoinUrl) {
+                                return (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                    onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}
+                                    data-testid={`button-zoom-join-${session.id}`}
+                                  >
+                                    <Video className="w-4 h-4 mr-2" />
+                                    Join Zoom
+                                  </Button>
+                                );
+                              }
+                              return null;
+                            })()}
+
                             {/* Overflow Menu - All secondary actions */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -2285,12 +2307,6 @@ export default function ClientDetailPage() {
                                           <Edit className="w-4 h-4 mr-2" />
                                           Edit Session Details
                                         </DropdownMenuItem>
-                                        {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
-                                          <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
-                                            <Video className="w-4 h-4 mr-2 text-blue-600" />
-                                            Join Zoom Meeting
-                                          </DropdownMenuItem>
-                                        )}
                                         <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 border-t mt-1 pt-2">
                                           Change Status
                                         </div>
