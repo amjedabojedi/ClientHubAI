@@ -43,7 +43,17 @@ interface SessionNote {
   };
 }
 
-export function generateSessionNoteHTML(note: SessionNote): string {
+interface PracticeSettings {
+  name: string;
+  description?: string;
+  subtitle?: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+}
+
+export function generateSessionNoteHTML(note: SessionNote, practiceSettings: PracticeSettings): string {
   // Format date
   const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
   const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
@@ -85,9 +95,26 @@ export function generateSessionNoteHTML(note: SessionNote): string {
             color: #333;
           }
           .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             border-bottom: 3px solid #2563eb;
             padding-bottom: 12px;
             margin-bottom: 15px;
+          }
+          .header-left {
+            flex: 1;
+          }
+          .header-right {
+            text-align: right;
+            color: #4b5563;
+            font-size: 13px;
+          }
+          .practice-name {
+            font-weight: 600;
+            color: #1e40af;
+            font-size: 16px;
+            margin-bottom: 8px;
           }
           h1 {
             color: #1e40af;
@@ -508,14 +535,23 @@ export function generateSessionNoteHTML(note: SessionNote): string {
       </head>
       <body>
         <div class="header">
-          <h1>
-            Session Note
-            ${note.isFinalized ? '<span class="status-badge status-finalized">Finalized</span>' : ''}
-            ${note.isDraft ? '<span class="status-badge status-draft">Draft</span>' : ''}
-          </h1>
-          <p style="margin: 5px 0; color: #6b7280;">
-            ${note.client ? note.client.fullName : 'Client'}
-          </p>
+          <div class="header-left">
+            <h1>
+              Session Note
+              ${note.isFinalized ? '<span class="status-badge status-finalized">Finalized</span>' : ''}
+              ${note.isDraft ? '<span class="status-badge status-draft">Draft</span>' : ''}
+            </h1>
+            <p style="margin: 5px 0; color: #6b7280;">
+              ${note.client ? note.client.fullName : 'Client'}
+            </p>
+          </div>
+          <div class="header-right">
+            <div class="practice-name">${practiceSettings.name}</div>
+            <p style="margin: 4px 0;">${practiceSettings.address.replace(/\n/g, '<br>')}</p>
+            <p style="margin: 4px 0;">Phone: ${practiceSettings.phone}</p>
+            <p style="margin: 4px 0;">Email: ${practiceSettings.email}</p>
+            <p style="margin: 4px 0;">Website: ${practiceSettings.website}</p>
+          </div>
         </div>
 
         <div class="meta-info">
