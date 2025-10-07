@@ -357,7 +357,19 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
             border-top: 2px solid #e5e7eb;
             font-size: 11px;
             color: #6b7280;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .footer-left {
+            text-align: left;
+            font-weight: 500;
+          }
+          .footer-center {
             text-align: center;
+          }
+          .footer-right {
+            text-align: right;
           }
           .status-badge {
             display: inline-block;
@@ -383,7 +395,22 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
           
           @media print {
             @page {
-              margin: 0.4in 0.5in;
+              margin: 0.4in 0.5in 0.6in 0.5in;
+              @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 10px;
+                color: #6b7280;
+              }
+              @bottom-left {
+                content: "${note.client?.fullName || 'Client'} - Session Note";
+                font-size: 10px;
+                color: #6b7280;
+              }
+              @bottom-right {
+                content: "Generated: " "${format(new Date(), 'MM/dd/yyyy')}";
+                font-size: 10px;
+                color: #6b7280;
+              }
             }
             body {
               padding: 0;
@@ -548,6 +575,11 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               padding-top: 4px;
               font-size: 9px;
               page-break-before: avoid;
+              display: flex;
+              justify-content: space-between;
+            }
+            .footer-left, .footer-center, .footer-right {
+              font-size: 9px;
             }
           }
         </style>
@@ -629,7 +661,15 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
         ` : ''}
 
         <div class="footer">
-          <p>Generated on ${format(new Date(), 'MMMM dd, yyyy \'at\' hh:mm a')}</p>
+          <div class="footer-left">
+            <strong>${note.client?.fullName || 'Client'}</strong> - Session Note ID: ${note.id}
+          </div>
+          <div class="footer-center">
+            Page <span class="page-number"></span> of <span class="page-total"></span>
+          </div>
+          <div class="footer-right">
+            Generated: ${format(new Date(), 'MM/dd/yyyy')}
+          </div>
         </div>
       </body>
       </html>
