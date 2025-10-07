@@ -401,7 +401,10 @@ export default function BillingDashboard() {
   // Email invoice function following existing pattern from client-detail.tsx
   const handleEmailInvoice = async (billing: any, client: any) => {
     try {
+      console.log('[DEBUG] handleEmailInvoice called with:', { billing, client });
+      
       if (!client?.email) {
+        console.error('[DEBUG] No client email found:', client);
         toast({
           title: "No email address",
           description: "Client doesn't have an email address. Please add one in their profile first.",
@@ -411,24 +414,29 @@ export default function BillingDashboard() {
       }
 
       if (!client?.id) {
+        console.error('[DEBUG] No client ID found:', client);
         toast({
           title: "Invalid client data",
-          description: "Client information is incomplete. Please refresh the page and try again.",
+          description: `Client information is incomplete. Client: ${JSON.stringify(client)}`,
           variant: "destructive",
         });
         return;
       }
 
+      console.log('[DEBUG] Making API request to:', `/api/clients/${client.id}/invoice`);
       const response = await fetch(`/api/clients/${client.id}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'email', billingId: billing.id }),
       });
 
+      console.log('[DEBUG] Response status:', response.status);
+      
       if (!response.ok) {
         let errorMessage = 'Failed to send invoice email';
         try {
           const errorData = await response.json();
+          console.error('[DEBUG] Error response:', errorData);
           errorMessage = errorData.message || errorMessage;
           if (errorData.issues) {
             errorMessage += ': ' + errorData.issues.join(', ');
@@ -440,12 +448,13 @@ export default function BillingDashboard() {
       }
 
       const result = await response.json();
+      console.log('[DEBUG] Success response:', result);
       toast({
         title: "Email sent successfully!",
         description: result.message || `Invoice has been sent to ${client.email}`,
       });
     } catch (error: any) {
-      console.error('Invoice email error:', error);
+      console.error('[DEBUG] Invoice email error:', error);
       toast({
         title: "Email Error",
         description: error.message || "Failed to send invoice email. Please try again.",
