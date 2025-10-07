@@ -6040,6 +6040,18 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             });
 
+            // Log successful send details for debugging delivery issues
+            console.log('[EMAIL SUCCESS] Invoice email sent via SparkPost:', {
+              to: client.email,
+              clientName: client.fullName,
+              transmissionId: result.results?.id,
+              totalAccepted: result.results?.total_accepted_recipients,
+              totalRejected: result.results?.total_rejected_recipients,
+              hasAttachment: !!pdfBuffer,
+              fromDomain: fromEmail.split('@')[1],
+              timestamp: new Date().toISOString()
+            });
+
             res.json({ 
               message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,
