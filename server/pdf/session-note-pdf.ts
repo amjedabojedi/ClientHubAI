@@ -400,16 +400,34 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
           @media print {
             @page {
               margin: 0.4in 0.5in 0.6in 0.5in;
+              @bottom-left {
+                content: "${note.client?.fullName || 'Client'}";
+                font-size: 11px;
+                color: #6b7280;
+                font-family: 'Helvetica', 'Arial', sans-serif;
+                font-weight: 500;
+              }
+              @bottom-center {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 11px;
+                color: #6b7280;
+                font-family: 'Helvetica', 'Arial', sans-serif;
+                font-weight: 500;
+              }
+              @bottom-right {
+                content: "${format(new Date(), 'MMMM dd, yyyy')}";
+                font-size: 11px;
+                color: #6b7280;
+                font-family: 'Helvetica', 'Arial', sans-serif;
+              }
             }
             body {
               padding: 0;
               line-height: 1.35;
               margin: 0;
-              counter-reset: page-counter;
             }
-            .page-number::before {
-              content: "Page " counter(page-counter);
-              counter-increment: page-counter;
+            .footer {
+              display: none;
             }
             .header {
               padding-bottom: 4px;
