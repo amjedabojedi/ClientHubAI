@@ -3969,9 +3969,33 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Session note not found" });
       }
 
+      // Get practice settings
+      let practiceSettings = {
+        name: 'Resilience Counseling Research & Consultation',
+        description: 'Licensed Mental Health Practice', 
+        subtitle: 'Licensed Mental Health Practice',
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'resiliencecrc@gmail.com',
+        website: 'www.resiliencec.com'
+      };
+      
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
+        practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      } catch (error) {
+        // Use defaults if practice settings not found
+      }
+
       // Import HTML generation module
       const { generateSessionNoteHTML } = await import("./pdf/session-note-pdf");
-      const html = generateSessionNoteHTML(note);
+      const html = generateSessionNoteHTML(note, practiceSettings);
       
       res.setHeader('Content-Type', 'text/html');
       res.send(html);
