@@ -121,6 +121,18 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
             margin: 0 0 6px 0;
             font-size: 26px;
           }
+          .confidentiality-banner {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 10px 15px;
+            margin: 12px 0;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #92400e;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          }
           .meta-info {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -552,6 +564,10 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
             <p style="margin: 4px 0;">Email: ${practiceSettings.email}</p>
             <p style="margin: 4px 0;">Website: ${practiceSettings.website}</p>
           </div>
+        </div>
+
+        <div class="confidentiality-banner">
+          ⚠️ PERSONAL AND CONFIDENTIAL – Protected Health Information. Unauthorized use or disclosure is prohibited under HIPAA.
         </div>
 
         <div class="meta-info">
