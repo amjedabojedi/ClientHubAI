@@ -670,6 +670,7 @@ export default function ClientDetailPage() {
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(
     sessionIdFromUrl ? parseInt(sessionIdFromUrl) : null
   );
+  const [preSelectedNoteId, setPreSelectedNoteId] = useState<number | null>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [noteStatusFilter, setNoteStatusFilter] = useState<string>("all");
@@ -2310,7 +2311,7 @@ export default function ClientDetailPage() {
                                       variant="outline" 
                                       size="sm"
                                       onClick={() => {
-                                        setPreSelectedSessionId(session.id);
+                                        setPreSelectedNoteId(sessionNote.id);
                                         setIsSessionNotesDialogOpen(true);
                                       }}
                                       data-testid={`button-edit-note-${session.id}`}
@@ -4114,7 +4115,9 @@ export default function ClientDetailPage() {
         clientId={clientId!} 
         sessions={sessions} 
         preSelectedSessionId={preSelectedSessionId}
+        preSelectedNoteId={preSelectedNoteId}
         onSessionChange={setPreSelectedSessionId}
+        onNoteChange={setPreSelectedNoteId}
         open={isSessionNotesDialogOpen}
         onOpenChange={setIsSessionNotesDialogOpen}
       />

@@ -157,12 +157,14 @@ interface SessionNotesManagerProps {
   clientId: number;
   sessions: Session[];
   preSelectedSessionId?: number | null;
+  preSelectedNoteId?: number | null;
   onSessionChange?: (sessionId: number | null) => void;
+  onNoteChange?: (noteId: number | null) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId, onSessionChange, open, onOpenChange }: SessionNotesManagerProps) {
+export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId, preSelectedNoteId, onSessionChange, onNoteChange, open, onOpenChange }: SessionNotesManagerProps) {
   // Fetch client data for template generation
   const { data: clientData } = useQuery<{ id: number; fullName: string }>({
     queryKey: [`/api/clients/${clientId}`],
@@ -215,7 +217,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const queryClient = useQueryClient();
 
   // Fetch session notes for the client
-  const { data: sessionNotes = [], isLoading } = useQuery({
+  const { data: sessionNotes = [], isLoading } = useQuery<SessionNote[]>({
     queryKey: [`/api/clients/${clientId}/session-notes`],
   });
 
@@ -670,6 +672,23 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       }
     }
   }, [preSelectedSessionId, selectedSession, onSessionChange, form]);
+
+  // Auto-edit note when pre-selected note ID is provided
+  useEffect(() => {
+    if (preSelectedNoteId && sessionNotes && sessionNotes.length > 0) {
+      const noteToEdit = sessionNotes.find((note: SessionNote) => note.id === preSelectedNoteId);
+      if (noteToEdit) {
+        resetFormForEdit(noteToEdit);
+        setEditingNote(noteToEdit);
+        setIsFromSessionClick(true);
+        setIsAddNoteOpen(true);
+        // Clear the pre-selection after processing
+        if (onNoteChange) {
+          onNoteChange(null);
+        }
+      }
+    }
+  }, [preSelectedNoteId, sessionNotes, onNoteChange]);
 
   // Reset form for new note
   const resetFormForNewNote = () => {
