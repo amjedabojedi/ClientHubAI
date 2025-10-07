@@ -410,6 +410,15 @@ export default function BillingDashboard() {
         return;
       }
 
+      if (!client?.id) {
+        toast({
+          title: "Invalid client data",
+          description: "Client information is incomplete. Please refresh the page and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const response = await fetch(`/api/clients/${client.id}/invoice`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -417,8 +426,17 @@ export default function BillingDashboard() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to send invoice email');
+        let errorMessage = 'Failed to send invoice email';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+          if (errorData.issues) {
+            errorMessage += ': ' + errorData.issues.join(', ');
+          }
+        } catch (e) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
