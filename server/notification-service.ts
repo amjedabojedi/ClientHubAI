@@ -819,8 +819,15 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 
       emailBody += `
 
-📋 IMPORTANT REMINDERS:
-• Please arrive 5-10 minutes early
+📋 IMPORTANT REMINDERS:`;
+
+      // Only show "arrive early" for in-person sessions
+      if (!hasZoomDetails) {
+        emailBody += `
+• Please arrive 5-10 minutes early`;
+      }
+
+      emailBody += `
 • If you need to cancel or reschedule again, please give at least 24 hours notice
 
 We look forward to seeing you at your rescheduled appointment.
