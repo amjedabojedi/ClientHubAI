@@ -405,6 +405,7 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               padding: 0;
               line-height: 1.35;
               margin: 0;
+              counter-reset: page;
             }
             .footer {
               display: flex;
@@ -415,7 +416,8 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
               padding: 10px 0;
             }
             .page-number::before {
-              content: "Page";
+              counter-increment: page;
+              content: "Page " counter(page);
             }
             .header {
               padding-bottom: 4px;
