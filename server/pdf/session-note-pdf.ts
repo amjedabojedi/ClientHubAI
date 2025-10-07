@@ -666,7 +666,6 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
             <strong>${note.client?.fullName || 'Client'}</strong>
           </div>
           <div class="footer-center">
-            <span class="page-number"></span>
           </div>
           <div class="footer-right">
             ${format(new Date(), 'MMMM dd, yyyy')}
