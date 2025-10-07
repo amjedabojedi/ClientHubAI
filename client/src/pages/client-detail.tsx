@@ -1796,8 +1796,8 @@ export default function ClientDetailPage() {
                       <div className="bg-purple-100 p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center">
                         <UserIcon className="w-8 h-8 text-purple-600" />
                       </div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{client.assignedTherapist?.fullName || 'Therapist Assigned'}</h4>
-                      <p className="text-slate-600 text-sm">{client.assignedTherapist?.role || ''}</p>
+                      <h4 className="font-semibold text-slate-900 mb-1">{therapists.find(t => t.id === client.assignedTherapistId)?.fullName || 'Therapist Assigned'}</h4>
+                      <p className="text-slate-600 text-sm">{therapists.find(t => t.id === client.assignedTherapistId)?.role || ''}</p>
                     </div>
                   ) : (
                     <div className="text-center py-4">
