@@ -767,6 +767,26 @@ export const notifications = pgTable("notifications", {
   createdAtIdx: index("notifications_created_at_idx").on(table.createdAt),
 }));
 
+// Scheduled notifications - queue for future reminders
+export const scheduledNotifications = pgTable("scheduled_notifications", {
+  id: serial("id").primaryKey(),
+  triggerId: integer("trigger_id").notNull().references(() => notificationTriggers.id, { onDelete: 'cascade' }),
+  sessionId: integer("session_id").references(() => sessions.id, { onDelete: 'cascade' }),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  entityId: integer("entity_id").notNull(),
+  entityData: text("entity_data").notNull(), // JSON payload for notification generation
+  executeAt: timestamp("execute_at").notNull(), // When to send this notification
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending, sent, failed
+  retryCount: integer("retry_count").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  processedAt: timestamp("processed_at"),
+}, (table) => ({
+  executeAtIdx: index("scheduled_notifications_execute_at_idx").on(table.executeAt, table.status),
+  sessionTriggerIdx: index("scheduled_notifications_session_trigger_idx").on(table.sessionId, table.triggerId),
+  statusIdx: index("scheduled_notifications_status_idx").on(table.status),
+}));
+
 // Flexible trigger configuration - defines when notifications are sent
 export const notificationTriggers = pgTable("notification_triggers", {
   id: serial("id").primaryKey(),
@@ -781,6 +801,7 @@ export const notificationTriggers = pgTable("notification_triggers", {
   delayMinutes: integer("delay_minutes").default(0), // Delay before sending
   batchWindowMinutes: integer("batch_window_minutes").default(5), // Grouping window
   maxBatchSize: integer("max_batch_size").default(10),
+  isScheduled: boolean("is_scheduled").notNull().default(false), // True for 24hr reminders that need scheduling
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -1501,6 +1522,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertScheduledNotificationSchema = createInsertSchema(scheduledNotifications).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+});
+
 export const insertNotificationTriggerSchema = createInsertSchema(notificationTriggers).omit({
   id: true,
   createdAt: true,
@@ -1656,6 +1683,9 @@ export type InsertClientChecklistItem = z.infer<typeof insertClientChecklistItem
 // Notification Types
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+export type ScheduledNotification = typeof scheduledNotifications.$inferSelect;
+export type InsertScheduledNotification = z.infer<typeof insertScheduledNotificationSchema>;
 
 export type NotificationTrigger = typeof notificationTriggers.$inferSelect;
 export type InsertNotificationTrigger = z.infer<typeof insertNotificationTriggerSchema>;
