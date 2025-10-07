@@ -5,9 +5,11 @@ import {
   notificationTriggers, 
   notificationPreferences, 
   notificationTemplates,
+  scheduledNotifications,
   users,
   clients,
-  supervisorAssignments
+  supervisorAssignments,
+  sessions
 } from "@shared/schema";
 import SparkPost from "sparkpost";
 import { format, toZonedTime } from 'date-fns-tz';
@@ -16,6 +18,7 @@ import type {
   NotificationTrigger,
   NotificationPreference,
   NotificationTemplate,
+  InsertScheduledNotification,
   User 
 } from "@shared/schema";
 
@@ -154,10 +157,29 @@ export class NotificationService {
           const conditionsMet = await this.evaluateTriggerConditions(trigger, entityData);
           
           if (conditionsMet) {
-            // Calculate recipients
-            const recipients = await this.calculateRecipients(trigger, entityData);
-            // Create notifications for each recipient
-            await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+            // Handle scheduled vs immediate notifications
+            if (trigger.isScheduled && entityData.sessionDate) {
+              // For scheduled triggers (24hr reminders), calculate when to send
+              const sessionDate = new Date(entityData.sessionDate);
+              const now = new Date();
+              const hoursUntilSession = (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+              
+              if (hoursUntilSession > 24) {
+                // Schedule for 24 hours before session
+                const executeAt = new Date(sessionDate.getTime() - (24 * 60 * 60 * 1000));
+                await this.scheduleNotification(trigger, entityData, executeAt);
+                console.log(`[NOTIFICATION] Scheduled 24hr reminder for session ${entityData.id} at ${executeAt}`);
+              } else if (hoursUntilSession > 0) {
+                // Less than 24 hours away - send immediately
+                const recipients = await this.calculateRecipients(trigger, entityData);
+                await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+                console.log(`[NOTIFICATION] Sent immediate reminder for session ${entityData.id} (less than 24hrs away)`);
+              }
+            } else {
+              // Immediate notification (non-scheduled triggers)
+              const recipients = await this.calculateRecipients(trigger, entityData);
+              await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+            }
           }
         } catch (error) {
           console.error(`Error processing notification trigger ${trigger.id}:`, error);
@@ -166,6 +188,111 @@ export class NotificationService {
       }
     } catch (error) {
       console.error(`Error in notification processEvent:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Schedules a notification for future delivery
+   */
+  async scheduleNotification(trigger: NotificationTrigger, entityData: any, executeAt: Date): Promise<void> {
+    try {
+      const scheduledData: InsertScheduledNotification = {
+        triggerId: trigger.id,
+        sessionId: entityData.id || null,
+        entityType: trigger.entityType,
+        entityId: entityData.id,
+        entityData: JSON.stringify(entityData),
+        executeAt,
+        status: 'pending',
+        retryCount: 0
+      };
+
+      // Check for duplicate (idempotent insert)
+      const existing = await db
+        .select()
+        .from(scheduledNotifications)
+        .where(and(
+          eq(scheduledNotifications.sessionId, entityData.id),
+          eq(scheduledNotifications.triggerId, trigger.id),
+          eq(scheduledNotifications.status, 'pending')
+        ));
+
+      if (existing.length === 0) {
+        await db.insert(scheduledNotifications).values(scheduledData);
+      }
+    } catch (error) {
+      console.error(`Error scheduling notification:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Processes all pending scheduled notifications that are due
+   */
+  async processDueNotifications(): Promise<void> {
+    try {
+      const now = new Date();
+      
+      // Get all pending notifications that are due (with row locking)
+      const dueNotifications = await db
+        .select()
+        .from(scheduledNotifications)
+        .where(and(
+          eq(scheduledNotifications.status, 'pending'),
+          sql`${scheduledNotifications.executeAt} <= ${now}`
+        ))
+        .limit(100); // Process in batches
+
+      console.log(`[SCHEDULED NOTIFICATIONS] Processing ${dueNotifications.length} due notifications`);
+
+      for (const scheduled of dueNotifications) {
+        try {
+          // Get the trigger
+          const [trigger] = await db
+            .select()
+            .from(notificationTriggers)
+            .where(eq(notificationTriggers.id, scheduled.triggerId));
+
+          if (!trigger) {
+            console.error(`Trigger ${scheduled.triggerId} not found for scheduled notification ${scheduled.id}`);
+            continue;
+          }
+
+          // Parse entity data
+          const entityData = JSON.parse(scheduled.entityData);
+
+          // Calculate recipients and send notifications
+          const recipients = await this.calculateRecipients(trigger, entityData);
+          await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+
+          // Mark as sent
+          await db
+            .update(scheduledNotifications)
+            .set({ 
+              status: 'sent', 
+              processedAt: new Date() 
+            })
+            .where(eq(scheduledNotifications.id, scheduled.id));
+
+          console.log(`[SCHEDULED NOTIFICATIONS] Sent notification ${scheduled.id} for session ${scheduled.sessionId}`);
+        } catch (error) {
+          // Mark as failed and increment retry count
+          await db
+            .update(scheduledNotifications)
+            .set({ 
+              status: 'failed',
+              retryCount: scheduled.retryCount + 1,
+              lastError: error instanceof Error ? error.message : 'Unknown error',
+              processedAt: new Date()
+            })
+            .where(eq(scheduledNotifications.id, scheduled.id));
+
+          console.error(`Error processing scheduled notification ${scheduled.id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error in processDueNotifications:`, error);
       throw error;
     }
   }
