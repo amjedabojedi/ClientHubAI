@@ -1504,26 +1504,6 @@ export default function ClientDetailPage() {
               </Button>
               <Separator orientation="vertical" className="h-6" />
             </div>
-            <div className="flex items-center space-x-2">
-              <QuickTaskForm
-                clientId={client.id}
-                clientName={client.fullName}
-                defaultAssigneeId={client.assignedTherapistId || undefined}
-                trigger={
-                  <Button variant="outline">
-                    <CheckSquare className="w-4 h-4 mr-2" />
-                    Add Task
-                  </Button>
-                }
-              />
-              <Button 
-                variant="default"
-                onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`}
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                Schedule Session
-              </Button>
-            </div>
           </div>
         </div>
       </div>
