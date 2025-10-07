@@ -821,7 +821,6 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 
 📋 IMPORTANT REMINDERS:
 • Please arrive 5-10 minutes early
-• Bring any questions or topics you'd like to discuss
 • If you need to cancel or reschedule again, please give at least 24 hours notice
 
 We look forward to seeing you at your rescheduled appointment.
