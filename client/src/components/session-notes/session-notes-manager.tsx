@@ -1195,7 +1195,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               {editingNote ? 'Edit Session Note' : 'Add Session Note'}
             </DialogTitle>
             {(() => {
-              const sessionId = form.watch('sessionId');
+              // Get session ID from either editing note or form watch
+              const sessionId = editingNote?.sessionId || form.watch('sessionId');
               const session = sessions.find(s => s.id === sessionId);
               if (session) {
                 return (
