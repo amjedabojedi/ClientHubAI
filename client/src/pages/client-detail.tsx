@@ -2186,14 +2186,13 @@ export default function ClientDetailPage() {
                               </div>
                             </div>
                           </div>
-                          {/* Clean action layout: Note action + Zoom (if available) + Overflow menu */}
-                          <div className="flex items-center gap-3">
-                            {/* Note Status & Primary Action */}
+                          {/* Simplified action layout: One primary button + One menu */}
+                          <div className="flex items-center gap-2">
+                            {/* Single Primary Action Button - Most important next step */}
                             {(() => {
                               const sessionNote = getSessionNote(session.id);
                               
                               if (!sessionNote) {
-                                // No note - Primary action: Add Note
                                 return (
                                   <Button 
                                     variant="default" 
@@ -2209,71 +2208,39 @@ export default function ClientDetailPage() {
                                   </Button>
                                 );
                               } else if (sessionNote.isDraft) {
-                                // Draft note - Primary action: Continue editing
-                                return (
-                                  <>
-                                    <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
-                                      Draft
-                                    </Badge>
-                                    <Button 
-                                      variant="default" 
-                                      size="sm"
-                                      onClick={() => {
-                                        setPreSelectedNoteId(sessionNote.id);
-                                        setIsSessionNotesDialogOpen(true);
-                                      }}
-                                      data-testid={`button-edit-note-${session.id}`}
-                                    >
-                                      <Edit className="w-4 h-4 mr-2" />
-                                      Continue Note
-                                    </Button>
-                                  </>
-                                );
-                              } else if (sessionNote.isFinalized) {
-                                // Finalized note - Primary action: View PDF
-                                return (
-                                  <>
-                                    <Badge variant="default" className="bg-green-600">
-                                      Finalized
-                                    </Badge>
-                                    <Button 
-                                      variant="default" 
-                                      size="sm"
-                                      onClick={() => handlePreviewNotePDF(sessionNote.id)}
-                                      data-testid={`button-preview-pdf-${session.id}`}
-                                    >
-                                      <Eye className="w-4 h-4 mr-2" />
-                                      View PDF
-                                    </Button>
-                                  </>
-                                );
-                              }
-                              return null;
-                            })()}
-
-                            {/* Zoom Button - Keep visible for easy access (only if not finalized) */}
-                            {(() => {
-                              const sessionNote = getSessionNote(session.id);
-                              const isNoteFinalized = sessionNote?.isFinalized;
-                              
-                              if (!isNoteFinalized && (session as any).zoomEnabled && (session as any).zoomJoinUrl) {
                                 return (
                                   <Button 
-                                    variant="outline" 
+                                    variant="default" 
                                     size="sm"
-                                    className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                                    onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}
-                                    data-testid={`button-zoom-join-${session.id}`}
+                                    className="bg-orange-600 hover:bg-orange-700"
+                                    onClick={() => {
+                                      setPreSelectedNoteId(sessionNote.id);
+                                      setIsSessionNotesDialogOpen(true);
+                                    }}
+                                    data-testid={`button-edit-note-${session.id}`}
                                   >
-                                    <Video className="w-4 h-4 mr-2" />
-                                    Join Zoom
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Continue Draft
+                                  </Button>
+                                );
+                              } else if (sessionNote.isFinalized) {
+                                return (
+                                  <Button 
+                                    variant="default" 
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => handlePreviewNotePDF(sessionNote.id)}
+                                    data-testid={`button-preview-pdf-${session.id}`}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View PDF
                                   </Button>
                                 );
                               }
                               return null;
                             })()}
 
-                            {/* Overflow Menu - All secondary actions */}
+                            {/* Single Menu - All other actions organized by category */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
@@ -2281,80 +2248,88 @@ export default function ClientDetailPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-56">
-                                {/* Session Management Section */}
                                 {(() => {
                                   const sessionNote = getSessionNote(session.id);
                                   const isNoteFinalized = sessionNote?.isFinalized;
                                   
-                                  if (!isNoteFinalized) {
-                                    return (
-                                      <>
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
-                                          Session Actions
-                                        </div>
-                                        <DropdownMenuItem
-                                          onClick={() => {
-                                            setSelectedSessionForModal(session);
-                                            setIsEditSessionModalOpen(true);
-                                          }}
-                                        >
-                                          <Edit className="w-4 h-4 mr-2" />
-                                          Edit Session Details
-                                        </DropdownMenuItem>
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 border-t mt-1 pt-2">
-                                          Change Status
-                                        </div>
-                                        <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
-                                          <Clock className="w-4 h-4 mr-2 text-blue-600" />
-                                          Mark Scheduled
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
-                                          <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                                          Mark Completed
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
-                                          <X className="w-4 h-4 mr-2 text-red-600" />
-                                          Mark Cancelled
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
-                                          <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
-                                          Mark Rescheduled
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
-                                          <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                                          Mark No-Show
-                                        </DropdownMenuItem>
-                                      </>
-                                    );
-                                  }
-                                  return null;
-                                })()}
-                                
-                                {/* Note Actions Section */}
-                                {(() => {
-                                  const sessionNote = getSessionNote(session.id);
-                                  if (sessionNote) {
-                                    return (
-                                      <>
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 border-t mt-1 pt-2">
-                                          Note Actions
-                                        </div>
-                                        {sessionNote.isDraft && (
-                                          <DropdownMenuItem onClick={() => handlePreviewNotePDF(sessionNote.id)}>
-                                            <Eye className="w-4 h-4 mr-2" />
-                                            Preview Draft PDF
+                                  return (
+                                    <>
+                                      {/* Zoom Meeting - Top priority in menu */}
+                                      {!isNoteFinalized && (session as any).zoomEnabled && (session as any).zoomJoinUrl && (
+                                        <>
+                                          <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
+                                            <Video className="w-4 h-4 mr-2 text-blue-600" />
+                                            Join Zoom Meeting
                                           </DropdownMenuItem>
-                                        )}
-                                        {sessionNote.isFinalized && (
-                                          <DropdownMenuItem onClick={() => handleDownloadNotePDF(sessionNote.id)}>
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Download PDF
+                                          <div className="border-t my-1"></div>
+                                        </>
+                                      )}
+                                      
+                                      {/* Note Actions */}
+                                      {sessionNote && (
+                                        <>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                            Note Actions
+                                          </div>
+                                          {sessionNote.isDraft && (
+                                            <DropdownMenuItem onClick={() => handlePreviewNotePDF(sessionNote.id)}>
+                                              <Eye className="w-4 h-4 mr-2" />
+                                              Preview Draft PDF
+                                            </DropdownMenuItem>
+                                          )}
+                                          {sessionNote.isFinalized && (
+                                            <DropdownMenuItem onClick={() => handleDownloadNotePDF(sessionNote.id)}>
+                                              <Download className="w-4 h-4 mr-2" />
+                                              Download PDF
+                                            </DropdownMenuItem>
+                                          )}
+                                          <div className="border-t my-1"></div>
+                                        </>
+                                      )}
+                                      
+                                      {/* Session Management */}
+                                      {!isNoteFinalized && (
+                                        <>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                            Session Actions
+                                          </div>
+                                          <DropdownMenuItem
+                                            onClick={() => {
+                                              setSelectedSessionForModal(session);
+                                              setIsEditSessionModalOpen(true);
+                                            }}
+                                          >
+                                            <Edit className="w-4 h-4 mr-2" />
+                                            Edit Session Details
                                           </DropdownMenuItem>
-                                        )}
-                                      </>
-                                    );
-                                  }
-                                  return null;
+                                          <div className="border-t my-1"></div>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                            Change Status
+                                          </div>
+                                          <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
+                                            <Clock className="w-4 h-4 mr-2 text-blue-600" />
+                                            Mark Scheduled
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
+                                            <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                            Mark Completed
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
+                                            <X className="w-4 h-4 mr-2 text-red-600" />
+                                            Mark Cancelled
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
+                                            <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                                            Mark Rescheduled
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
+                                            <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                            Mark No-Show
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </>
+                                  );
                                 })()}
                               </DropdownMenuContent>
                             </DropdownMenu>
