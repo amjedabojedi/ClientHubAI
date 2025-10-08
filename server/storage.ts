@@ -848,33 +848,6 @@ export class DatabaseStorage implements IStorage {
 
     const results = await clientsQuery;
 
-    // Fetch checklist items for all clients in this page
-    const clientIds = results.map(r => r.client.id);
-    const clientChecklistItemsData = clientIds.length > 0 ? await db
-      .select({
-        clientId: clientChecklists.clientId,
-        itemName: checklistItems.name,
-        isCompleted: clientChecklistItems.isCompleted,
-        itemOrder: checklistItems.itemOrder
-      })
-      .from(clientChecklistItems)
-      .innerJoin(clientChecklists, eq(clientChecklistItems.clientChecklistId, clientChecklists.id))
-      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
-      .where(inArray(clientChecklists.clientId, clientIds))
-      .orderBy(checklistItems.itemOrder) : [];
-
-    // Group items by client ID
-    const itemsByClient = new Map<number, Array<{ name: string; completed: boolean }>>();
-    for (const item of clientChecklistItemsData) {
-      if (!itemsByClient.has(item.clientId)) {
-        itemsByClient.set(item.clientId, []);
-      }
-      itemsByClient.get(item.clientId)!.push({
-        name: item.itemName,
-        completed: item.isCompleted
-      });
-    }
-
     const clientsWithCounts = results.map(r => ({
       ...r.client,
       assignedTherapist: r.assignedTherapist || undefined,
@@ -886,7 +859,7 @@ export class DatabaseStorage implements IStorage {
       checklistProgress: r.checklistTotal > 0 ? {
         total: r.checklistTotal,
         completed: r.checklistCompleted,
-        items: itemsByClient.get(r.client.id) || []
+        items: [] // Will be populated separately if needed
       } : null
     }));
 
