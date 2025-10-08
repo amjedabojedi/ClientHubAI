@@ -5601,6 +5601,20 @@ This happens because only the file metadata was stored, not the actual file cont
       const totalPayments = billingRecords.reduce((sum, record) => sum + Number(record.paymentAmount || 0), 0);
       const remainingDue = subtotal - totalPayments;
       
+      // Debug logging to trace the payment status bug
+      console.log('=== INVOICE CALCULATION DEBUG ===');
+      console.log('Billing Records:', JSON.stringify(billingRecords.map(r => ({
+        id: r.id,
+        totalAmount: r.totalAmount,
+        paymentAmount: r.paymentAmount,
+        paymentStatus: r.paymentStatus
+      })), null, 2));
+      console.log('Subtotal:', subtotal);
+      console.log('Total Payments:', totalPayments);
+      console.log('Remaining Due:', remainingDue);
+      console.log('Will show PAID IN FULL?', remainingDue === 0);
+      console.log('================================');
+      
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
       
