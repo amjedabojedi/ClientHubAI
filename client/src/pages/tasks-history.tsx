@@ -62,8 +62,8 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';
-  // Extract just the date part to avoid timezone conversion
-  return String(dateString).split('T')[0];
+  // Format date consistently across the app
+  return format(new Date(String(dateString)), 'MMM dd, yyyy');
 };
 
 const formatDateTime = (dateString: string | null) => {
