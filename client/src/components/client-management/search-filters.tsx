@@ -74,12 +74,12 @@ export default function SearchFilters({
   // Fetch checklist items for selected template
   const { data: checklistItems = [] } = useQuery<any[]>({
     queryKey: ["/api/checklist-items"],
-    enabled: !!filters.checklistTemplateId && filters.checklistTemplateId !== "all",
+    enabled: !!pendingFilters.checklistTemplateId && pendingFilters.checklistTemplateId !== "all",
   });
 
   // Filter items by selected template
   const filteredChecklistItems = checklistItems.filter((item: any) => 
-    !filters.checklistTemplateId || filters.checklistTemplateId === "all" || item.templateId?.toString() === filters.checklistTemplateId
+    !pendingFilters.checklistTemplateId || pendingFilters.checklistTemplateId === "all" || item.templateId?.toString() === pendingFilters.checklistTemplateId
   );
 
   const activeFilterCount = Object.values(pendingFilters).filter(value => 
