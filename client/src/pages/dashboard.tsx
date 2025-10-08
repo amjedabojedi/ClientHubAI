@@ -400,7 +400,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Billing Summary - Admin/Supervisor only */}
-        {(user?.role === 'admin' || user?.role === 'supervisor') ? (
+        {(user?.role === 'admin' || user?.role === 'supervisor') && (
           <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/billing")}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -419,100 +419,8 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/assessments")}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-600">My Assessments</p>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <p className="text-2xl font-bold text-purple-600">
-                      {clientStats?.pendingClients || 0}
-                    </p>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">pending assignments</p>
-                </div>
-                <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         )}
       </div>
-
-      {/* Clients Needing Attention */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-500" />
-              Clients Needing Attention
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setLocation("/clients?tab=follow-up")}
-            >
-              View All
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* No Recent Sessions */}
-            <div 
-              className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-              onClick={() => setLocation("/clients?tab=no-sessions")}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-slate-700">No Recent Sessions</h4>
-                <div className="h-8 w-8 bg-red-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="h-4 w-4 text-red-600" />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-red-600">
-                {clientStats?.inactiveClients || 0}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">clients inactive 30+ days</p>
-            </div>
-
-            {/* Follow-ups Due */}
-            <div 
-              className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-              onClick={() => setLocation("/clients?tab=follow-up")}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-slate-700">Follow-ups Due</h4>
-                <div className="h-8 w-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-orange-600">
-                {clientStats?.pendingClients || 0}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">clients need follow-up</p>
-            </div>
-
-            {/* Overdue Sessions */}
-            <div 
-              className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-              onClick={() => setLocation("/scheduling")}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-slate-700">Overdue Sessions</h4>
-                <div className="h-8 w-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-purple-600" />
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-purple-600">
-                {overdueSessions.length}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">sessions need attention</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Sessions Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
