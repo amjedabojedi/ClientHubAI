@@ -317,7 +317,7 @@ export default function HIPAAAuditPage() {
                       <div>
                         <p className="font-medium text-slate-900">{user.username}</p>
                         <p className="text-sm text-slate-500">
-                          Last activity: {format(new Date(user.lastActivity), 'MMM dd, HH:mm')}
+                          Last activity: {format(new Date(user.lastActivity), 'MMM dd, yyyy HH:mm')}
                         </p>
                       </div>
                     </div>
