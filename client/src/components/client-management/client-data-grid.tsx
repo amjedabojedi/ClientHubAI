@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Eye, Edit, CalendarDays, Plus, Paperclip } from "lucide-react";
+import { Eye, Edit, CalendarDays, Plus, Paperclip, MoreVertical, ClipboardList } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Pagination from "./pagination";
 import { Client, ClientsQueryResult } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -446,42 +447,60 @@ export default function ClientDataGrid({
                           onClick={() => onViewClient(client)}
                           className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50"
                           title="View Client"
+                          data-testid={`button-view-${client.id}`}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => onEditClient(client)}
-                          className="p-2 text-slate-600 hover:text-green-600 hover:bg-green-50"
-                          title="Edit Client"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
-                          className="p-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50"
-                          title="Schedule Session"
-                        >
-                          <CalendarDays className="w-4 h-4" />
-                        </Button>
-                        <QuickTaskForm
-                          clientId={client.id}
-                          clientName={client.fullName}
-                          defaultAssigneeId={client.assignedTherapistId}
-                          trigger={
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50"
-                              title="Add Task"
+                              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                              title="More Actions"
+                              data-testid={`button-more-${client.id}`}
                             >
-                              <Plus className="w-4 h-4" />
+                              <MoreVertical className="w-4 h-4" />
                             </Button>
-                          }
-                        />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem 
+                              onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
+                              data-testid={`action-schedule-${client.id}`}
+                            >
+                              <CalendarDays className="w-4 h-4 mr-2" />
+                              Schedule Session
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => onEditClient(client)}
+                              data-testid={`action-edit-${client.id}`}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit Client
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => onViewClient(client)}
+                              data-testid={`action-checklist-${client.id}`}
+                            >
+                              <ClipboardList className="w-4 h-4 mr-2" />
+                              Manage Checklist
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild data-testid={`action-task-${client.id}`}>
+                              <QuickTaskForm
+                                clientId={client.id}
+                                clientName={client.fullName}
+                                defaultAssigneeId={client.assignedTherapistId}
+                                trigger={
+                                  <div className="flex items-center w-full cursor-pointer">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Create Task
+                                  </div>
+                                }
+                              />
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
