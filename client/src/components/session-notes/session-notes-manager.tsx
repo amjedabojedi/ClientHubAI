@@ -333,7 +333,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 return `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}`;
               })() : 'N/A'}</p>
               <p><strong>Session Type:</strong> ${currentSession?.sessionType || 'N/A'}</p>
-              <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
+              <p><strong>Generated:</strong> ${format(new Date(), 'MMM dd, yyyy')}</p>
             </div>
             <div class="content">
               ${generatedContent.replace(/\n/g, '<br>')}
