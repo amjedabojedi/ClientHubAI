@@ -1807,14 +1807,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update billing if service changed and billing record exists
       if (sessionData.serviceId && sessionData.serviceId !== originalSession.serviceId) {
-        console.log(`[BILLING UPDATE] Service changed from ${originalSession.serviceId} to ${sessionData.serviceId} for session ${id}`);
         try {
           const existingBilling = await storage.getSessionBilling(id);
           if (existingBilling) {
-            console.log(`[BILLING UPDATE] Found existing billing record ${existingBilling.id}, updating...`);
             const newService = await storage.getServiceById(sessionData.serviceId);
             if (newService) {
-              console.log(`[BILLING UPDATE] New service details: ${newService.serviceCode}, rate: ${newService.baseRate}`);
               await db.update(sessionBilling)
                 .set({
                   serviceCode: newService.serviceCode,
@@ -1822,15 +1819,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   totalAmount: newService.baseRate
                 })
                 .where(eq(sessionBilling.sessionId, id));
-              console.log(`[BILLING UPDATE] Successfully updated billing record for session ${id}`);
-            } else {
-              console.log(`[BILLING UPDATE] New service ${sessionData.serviceId} not found`);
             }
-          } else {
-            console.log(`[BILLING UPDATE] No existing billing record found for session ${id}`);
           }
         } catch (billingUpdateError) {
-          console.error(`[BILLING UPDATE ERROR] Failed to update billing for session ${id}:`, billingUpdateError);
+          console.error(`Error updating billing for changed service in session ${id}:`, billingUpdateError);
         }
       }
       
@@ -5629,20 +5621,6 @@ This happens because only the file metadata was stored, not the actual file cont
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
       const totalPayments = billingRecords.reduce((sum, record) => sum + Number(record.paymentAmount || 0), 0);
       const remainingDue = subtotal - totalPayments;
-      
-      // Debug logging to trace the payment status bug
-      console.log('=== INVOICE CALCULATION DEBUG ===');
-      console.log('Billing Records:', JSON.stringify(billingRecords.map(r => ({
-        id: r.id,
-        totalAmount: r.totalAmount,
-        paymentAmount: r.paymentAmount,
-        paymentStatus: r.paymentStatus
-      })), null, 2));
-      console.log('Subtotal:', subtotal);
-      console.log('Total Payments:', totalPayments);
-      console.log('Remaining Due:', remainingDue);
-      console.log('Will show PAID IN FULL?', remainingDue === 0);
-      console.log('================================');
       
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
