@@ -50,7 +50,7 @@ export default function ClientDataGrid({
     if (user) {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
     }
-  }, [user?.user?.id || user?.id, user?.user?.role || user?.role, queryClient]);
+  }, [user?.id, user?.role, queryClient]);
   
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -92,15 +92,15 @@ export default function ClientDataGrid({
       checklistItemId: filters.checklistItemId,
       sortBy,
       sortOrder,
-      currentUserId: user?.user?.id || user?.id,
-      currentUserRole: user?.user?.role || user?.role,
+      currentUserId: user?.id,
+      currentUserRole: user?.role,
     };
     return params;
   }, [page, pageSize, debouncedSearch, stageFromTab, filters, sortBy, sortOrder, user]);
 
   const { data, isLoading, error } = useQuery<ClientsQueryResult>({
     queryKey: ["/api/clients", queryParams],
-    enabled: !!user && !!(user?.user?.id || user?.id), // Only fetch when user is fully loaded
+    enabled: !!user && !!user?.id, // Only fetch when user is fully loaded
     staleTime: 30000, // Cache for 30 seconds for better tab switching performance
   });
 
@@ -425,7 +425,7 @@ export default function ClientDataGrid({
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {client.checklistProgress ? (
+                        {client.checklistProgress && client.checklistProgress.total > 0 ? (
                           <div className="flex items-center space-x-2">
                             <span className="text-slate-900 font-medium">
                               {client.checklistProgress.completed}/{client.checklistProgress.total}
@@ -486,19 +486,17 @@ export default function ClientDataGrid({
                               <ClipboardList className="w-4 h-4 mr-2" />
                               Manage Checklist
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild data-testid={`action-task-${client.id}`}>
-                              <QuickTaskForm
-                                clientId={client.id}
-                                clientName={client.fullName}
-                                defaultAssigneeId={client.assignedTherapistId}
-                                trigger={
-                                  <div className="flex items-center w-full cursor-pointer">
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    Create Task
-                                  </div>
-                                }
-                              />
-                            </DropdownMenuItem>
+                            <QuickTaskForm
+                              clientId={client.id}
+                              clientName={client.fullName}
+                              defaultAssigneeId={client.assignedTherapistId}
+                              trigger={
+                                <DropdownMenuItem data-testid={`action-task-${client.id}`}>
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Create Task
+                                </DropdownMenuItem>
+                              }
+                            />
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
