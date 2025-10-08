@@ -33,6 +33,7 @@ export default function SearchFilters({
 }: SearchFiltersProps) {
   const { user } = useAuth();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [pendingFilters, setPendingFilters] = useState(filters);
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch therapists and checklist templates - simpler separate calls to avoid runtime errors
@@ -81,7 +82,7 @@ export default function SearchFilters({
     !filters.checklistTemplateId || filters.checklistTemplateId === "all" || item.templateId?.toString() === filters.checklistTemplateId
   );
 
-  const activeFilterCount = Object.values(filters).filter(value => 
+  const activeFilterCount = Object.values(pendingFilters).filter(value => 
     value !== "" && value !== undefined
   ).length;
 
@@ -91,15 +92,19 @@ export default function SearchFilters({
     
     // If changing checklist template, clear the selected item
     if (key === 'checklistTemplateId') {
-      onFiltersChange({ ...filters, [key]: processedValue, checklistItemId: "" });
+      setPendingFilters({ ...pendingFilters, [key]: processedValue, checklistItemId: "" });
     } else {
-      onFiltersChange({ ...filters, [key]: processedValue });
+      setPendingFilters({ ...pendingFilters, [key]: processedValue });
     }
   };
 
+  const applyFilters = () => {
+    onFiltersChange(pendingFilters);
+  };
+
   const clearFilters = () => {
-    onFiltersChange({
-      status: "",
+    const clearedFilters = {
+      stage: "",
       therapistId: "",
       clientType: "",
       hasPortalAccess: undefined,
@@ -107,7 +112,9 @@ export default function SearchFilters({
       hasNoSessions: undefined,
       checklistTemplateId: "",
       checklistItemId: "",
-    });
+    };
+    setPendingFilters(clearedFilters);
+    onFiltersChange(clearedFilters);
   };
 
   return (
@@ -142,7 +149,7 @@ export default function SearchFilters({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Client Stage</label>
-                <Select value={filters.stage || "all"} onValueChange={(value) => handleFilterChange('stage', value)}>
+                <Select value={pendingFilters.stage || "all"} onValueChange={(value) => handleFilterChange('stage', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Stages" />
                   </SelectTrigger>
@@ -160,7 +167,7 @@ export default function SearchFilters({
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Therapist</label>
                 <SearchableSelect
-                  value={filters.therapistId || "all"}
+                  value={pendingFilters.therapistId || "all"}
                   onValueChange={(value) => handleFilterChange('therapistId', value)}
                   options={[
                     { value: "all", label: "All Therapists" },
@@ -177,7 +184,7 @@ export default function SearchFilters({
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Client Type</label>
                 <SearchableSelect
-                  value={filters.clientType || "all"}
+                  value={pendingFilters.clientType || "all"}
                   onValueChange={(value) => handleFilterChange('clientType', value)}
                   options={[
                     { value: "all", label: "All Types" },
@@ -194,7 +201,7 @@ export default function SearchFilters({
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Checklist Template</label>
                 <SearchableSelect
-                  value={filters.checklistTemplateId || "all"}
+                  value={pendingFilters.checklistTemplateId || "all"}
                   onValueChange={(value) => handleFilterChange('checklistTemplateId', value)}
                   options={[
                     { value: "all", label: "All Templates" },
@@ -210,12 +217,12 @@ export default function SearchFilters({
             </div>
 
             {/* Second row for checklist items */}
-            {filters.checklistTemplateId && filters.checklistTemplateId !== "all" && (
+            {pendingFilters.checklistTemplateId && pendingFilters.checklistTemplateId !== "all" && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Checklist Item</label>
                   <SearchableSelect
-                    value={filters.checklistItemId || "all"}
+                    value={pendingFilters.checklistItemId || "all"}
                     onValueChange={(value) => handleFilterChange('checklistItemId', value)}
                     options={[
                       { value: "all", label: "All Items" },
@@ -238,7 +245,7 @@ export default function SearchFilters({
               <div className="flex items-center space-x-4">
                 <label className="flex items-center space-x-2">
                   <Checkbox 
-                    checked={filters.hasPortalAccess === true}
+                    checked={pendingFilters.hasPortalAccess === true}
                     onCheckedChange={(checked) => 
                       handleFilterChange('hasPortalAccess', checked ? true : undefined)
                     }
@@ -247,7 +254,7 @@ export default function SearchFilters({
                 </label>
                 <label className="flex items-center space-x-2">
                   <Checkbox 
-                    checked={filters.hasPendingTasks === true}
+                    checked={pendingFilters.hasPendingTasks === true}
                     onCheckedChange={(checked) => 
                       handleFilterChange('hasPendingTasks', checked ? true : undefined)
                     }
@@ -256,7 +263,7 @@ export default function SearchFilters({
                 </label>
                 <label className="flex items-center space-x-2">
                   <Checkbox 
-                    checked={filters.hasNoSessions === true}
+                    checked={pendingFilters.hasNoSessions === true}
                     onCheckedChange={(checked) => 
                       handleFilterChange('hasNoSessions', checked ? true : undefined)
                     }
@@ -268,7 +275,7 @@ export default function SearchFilters({
                 <Button variant="ghost" onClick={clearFilters}>
                   Clear Filters
                 </Button>
-                <Button>Apply Filters</Button>
+                <Button onClick={applyFilters}>Apply Filters</Button>
               </div>
             </div>
           </div>
