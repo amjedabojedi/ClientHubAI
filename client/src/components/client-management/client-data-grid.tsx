@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Eye, Edit, CalendarDays, Plus, Paperclip, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Pagination from "./pagination";
@@ -149,10 +148,6 @@ export default function ClientDataGrid({
     );
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
@@ -255,62 +250,52 @@ export default function ClientDataGrid({
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarFallback className="bg-slate-200 text-slate-600 font-medium text-sm">
-                            {getInitials(client.fullName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <p 
-                              className="font-medium text-slate-900 cursor-pointer hover:text-primary"
-                              onClick={() => onViewClient(client)}
-                            >
-                              {client.fullName}
-                            </p>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div 
-                                    className="relative inline-flex items-center"
-                                    data-testid={`icon-docs-${client.id}`}
-                                  >
-                                    <Paperclip 
-                                      className={`w-4 h-4 ${
-                                        (client.documentCount || 0) > 0 
-                                          ? 'text-slate-600' 
-                                          : 'text-slate-300'
-                                      }`} 
-                                    />
-                                    {(client.documentCount || 0) > 0 && (
-                                      <Badge 
-                                        variant="secondary" 
-                                        className="ml-1 text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 bg-blue-100 text-blue-800 border-blue-200"
-                                        data-testid={`badge-docs-${client.id}`}
-                                      >
-                                        {client.documentCount}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{(client.documentCount || 0)} document{(client.documentCount || 0) !== 1 ? 's' : ''}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                          <p className="text-sm text-slate-500">Ref: {client.referenceNumber}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <p 
+                            className="font-medium text-slate-900 cursor-pointer hover:text-primary"
+                            onClick={() => onViewClient(client)}
+                          >
+                            {client.fullName}
+                          </p>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div 
+                                  className="relative inline-flex items-center"
+                                  data-testid={`icon-docs-${client.id}`}
+                                >
+                                  <Paperclip 
+                                    className={`w-4 h-4 ${
+                                      (client.documentCount || 0) > 0 
+                                        ? 'text-slate-600' 
+                                        : 'text-slate-300'
+                                    }`} 
+                                  />
+                                  {(client.documentCount || 0) > 0 && (
+                                    <Badge 
+                                      variant="secondary" 
+                                      className="ml-1 text-xs px-1.5 py-0.5 min-w-[1.25rem] h-5 bg-blue-100 text-blue-800 border-blue-200"
+                                      data-testid={`badge-docs-${client.id}`}
+                                    >
+                                      {client.documentCount}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{(client.documentCount || 0)} document{(client.documentCount || 0) !== 1 ? 's' : ''}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
+                        <p className="text-sm text-slate-500">Ref: {client.referenceNumber}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
-                        <span className="text-sm text-slate-900">
-                          {client.assignedTherapist?.fullName || 'Unassigned'}
-                        </span>
-                      </div>
+                      <span className="text-sm text-slate-900">
+                        {client.assignedTherapist?.fullName || 'Unassigned'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
