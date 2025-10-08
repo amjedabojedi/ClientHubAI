@@ -5493,75 +5493,67 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid action. Use 'download', 'print', or 'email'" });
       }
       
-      // Get client data
-      const client = await storage.getClient(clientId);
-      if (!client) {
-        return res.status(404).json({ message: "Client not found" });
-      }
-      
-      // Get billing records - either specific one or all for client
+      // Use centralized storage method for invoice data
       let billingRecords;
+      let client;
+      let providerInfo = null;
+      
       if (billingId) {
-        // Get single billing record
-        const allRecords = await storage.getBillingRecordsByClient(clientId);
-        const singleRecord = allRecords.find(r => r.id === billingId);
-        if (!singleRecord) {
+        // Get single billing record with all related data using centralized method
+        const invoiceData = await storage.getBillingForInvoice(clientId, billingId);
+        if (!invoiceData) {
           return res.status(404).json({ message: "Billing record not found" });
         }
-        billingRecords = [singleRecord];
+        
+        billingRecords = [invoiceData.billing];
+        client = invoiceData.client;
+        
+        // Get provider info from the therapist who provided the service
+        if (invoiceData.therapist) {
+          const therapistProfile = await storage.getUserProfile(invoiceData.therapist.id);
+          providerInfo = {
+            name: invoiceData.therapist.fullName || 'Amjed Abojedi',
+            credentials: therapistProfile?.licenseType || 'CRPO',
+            license: therapistProfile?.licenseNumber || 'License not set in profile',
+            licenseState: therapistProfile?.licenseState || 'ON',
+            npi: 'Please update NPI in profile',
+            experience: therapistProfile?.yearsOfExperience || 0,
+            specializations: therapistProfile?.specializations || []
+          };
+        }
       } else {
         // Get all billing records for client
+        client = await storage.getClient(clientId);
+        if (!client) {
+          return res.status(404).json({ message: "Client not found" });
+        }
+        
         billingRecords = await storage.getBillingRecordsByClient(clientId);
         if (billingRecords.length === 0) {
           return res.status(404).json({ message: "No billing records found for this client" });
         }
-      }
-      
-      // Get provider information from the actual therapist who provided the services
-      let providerInfo = null;
-      try {
-        // Find the therapist who provided these services
-        let therapistId = null;
+        
+        // Get provider info from first record's therapist
         if (billingRecords.length > 0 && billingRecords[0].session?.therapistId) {
-          therapistId = billingRecords[0].session.therapistId;
+          const therapistProfile = await storage.getUserProfile(billingRecords[0].session.therapistId);
+          const users = await storage.getUsers();
+          const therapist = users.find((u: any) => u.id === billingRecords[0].session.therapistId);
+          
+          if (therapist) {
+            providerInfo = {
+              name: therapist.fullName || 'Amjed Abojedi',
+              credentials: therapistProfile?.licenseType || 'CRPO',
+              license: therapistProfile?.licenseNumber || 'License not set in profile',
+              licenseState: therapistProfile?.licenseState || 'ON',
+              npi: 'Please update NPI in profile',
+              experience: therapistProfile?.yearsOfExperience || 0,
+              specializations: therapistProfile?.specializations || []
+            };
+          }
         }
-        
-        // If no therapist found, use admin as fallback
-        if (!therapistId) {
-          therapistId = 6; // Default admin
-        }
-        
-        // Get the therapist's profile
-        const therapistProfile = await storage.getUserProfile(therapistId);
-        const users = await storage.getUsers();
-        const therapist = users.find((u: any) => u.id === therapistId);
-        
-        if (therapistProfile) {
-          providerInfo = {
-            name: therapist?.fullName || 'Amjed Abojedi',
-            credentials: therapistProfile.licenseType || 'CRPO',
-            license: therapistProfile.licenseNumber || 'License not set in profile',
-            licenseState: therapistProfile.licenseState || 'ON',
-            npi: 'Please update NPI in profile',
-            experience: therapistProfile.yearsOfExperience || 0,
-            specializations: therapistProfile.specializations || []
-          };
-        } else if (therapist) {
-          // Use therapist basic info even without profile
-          providerInfo = {
-            name: therapist.fullName || 'Amjed Abojedi',
-            credentials: 'CRPO',
-            license: 'License not set in profile',
-            licenseState: 'ON',
-            npi: 'Please update NPI in profile',
-            experience: 0,
-            specializations: []
-          };
-        }
-      } catch (error) {
       }
       
-      // Use your actual information if profile not found
+      // Use default provider info if not found
       if (!providerInfo) {
         providerInfo = {
           name: 'Amjed Abojedi',
