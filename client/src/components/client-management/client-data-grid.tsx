@@ -207,22 +207,10 @@ export default function ClientDataGrid({
                     <i className={`fas fa-sort${sortBy === "name" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
                   </div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("status")}>
-                  <div className="flex items-center space-x-1">
-                    <span>Status</span>
-                    <i className={`fas fa-sort${sortBy === "status" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
-                  </div>
-                </TableHead>
                 <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("therapist")}>
                   <div className="flex items-center space-x-1">
                     <span>Therapist</span>
                     <i className={`fas fa-sort${sortBy === "therapist" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
-                  </div>
-                </TableHead>
-                <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("firstSession")}>
-                  <div className="flex items-center space-x-1">
-                    <span>Start Date</span>
-                    <i className={`fas fa-sort${sortBy === "firstSession" ? (sortOrder === "asc" ? "-up" : "-down") : ""} text-slate-400`}></i>
                   </div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("lastSession")}>
@@ -240,7 +228,7 @@ export default function ClientDataGrid({
               {isLoading ? (
                 Array.from({ length: pageSize }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <div className="flex items-center justify-center space-x-2">
                         <i className="fas fa-spinner fa-spin"></i>
                         <span>Loading clients...</span>
@@ -250,7 +238,7 @@ export default function ClientDataGrid({
                 ))
               ) : data?.clients?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <div className="text-slate-500">
                       <i className="fas fa-users text-2xl mb-2"></i>
                       <p>No clients found matching your criteria.</p>
@@ -317,24 +305,11 @@ export default function ClientDataGrid({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {getStageBadge(client.stage)}
-                    </TableCell>
-                    <TableCell>
                       <div className="flex items-center space-x-2">
                         <div className="w-6 h-6 bg-slate-200 rounded-full"></div>
                         <span className="text-sm text-slate-900">
                           {client.assignedTherapist?.fullName || 'Unassigned'}
                         </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <p className="text-slate-900">
-                          {client.firstSessionDate 
-                            ? format(new Date(client.firstSessionDate), 'MMM dd, yyyy')
-                            : 'No sessions'
-                          }
-                        </p>
                       </div>
                     </TableCell>
                     <TableCell>
