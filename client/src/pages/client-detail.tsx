@@ -1382,6 +1382,7 @@ export default function ClientDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/sessions`] });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
       toast({
         title: "Success",
         description: "Session updated successfully",

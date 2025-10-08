@@ -1807,11 +1807,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update billing if service changed and billing record exists
       if (sessionData.serviceId && sessionData.serviceId !== originalSession.serviceId) {
+        console.log(`[BILLING UPDATE] Service changed from ${originalSession.serviceId} to ${sessionData.serviceId} for session ${id}`);
         try {
           const existingBilling = await storage.getSessionBilling(id);
           if (existingBilling) {
+            console.log(`[BILLING UPDATE] Found existing billing record ${existingBilling.id}, updating...`);
             const newService = await storage.getServiceById(sessionData.serviceId);
             if (newService) {
+              console.log(`[BILLING UPDATE] New service details: ${newService.serviceCode}, rate: ${newService.baseRate}`);
               await db.update(sessionBilling)
                 .set({
                   serviceCode: newService.serviceCode,
@@ -1819,10 +1822,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   totalAmount: newService.baseRate
                 })
                 .where(eq(sessionBilling.sessionId, id));
+              console.log(`[BILLING UPDATE] Successfully updated billing record for session ${id}`);
+            } else {
+              console.log(`[BILLING UPDATE] New service ${sessionData.serviceId} not found`);
             }
+          } else {
+            console.log(`[BILLING UPDATE] No existing billing record found for session ${id}`);
           }
         } catch (billingUpdateError) {
-          console.error(`Error updating billing for changed service in session ${id}:`, billingUpdateError);
+          console.error(`[BILLING UPDATE ERROR] Failed to update billing for session ${id}:`, billingUpdateError);
         }
       }
       
