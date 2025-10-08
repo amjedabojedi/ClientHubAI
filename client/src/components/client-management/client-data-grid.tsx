@@ -426,14 +426,42 @@ export default function ClientDataGrid({
                     <TableCell>
                       <div className="text-sm">
                         {client.checklistProgress && client.checklistProgress.total > 0 ? (
-                          <div className="flex items-center space-x-2">
-                            <span className="text-slate-900 font-medium">
-                              {client.checklistProgress.completed}/{client.checklistProgress.total}
-                            </span>
-                            <span className="text-slate-500">
-                              ({Math.round((client.checklistProgress.completed / client.checklistProgress.total) * 100)}%)
-                            </span>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-auto p-1 hover:bg-slate-100 font-normal"
+                                data-testid={`checklist-dropdown-${client.id}`}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-slate-900 font-medium">
+                                    {client.checklistProgress.completed}/{client.checklistProgress.total}
+                                  </span>
+                                  <span className="text-slate-500">
+                                    ({Math.round((client.checklistProgress.completed / client.checklistProgress.total) * 100)}%)
+                                  </span>
+                                </div>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-72">
+                              <div className="p-2">
+                                <div className="font-semibold text-sm mb-2">Checklist Progress</div>
+                                {client.checklistProgress.items?.map((item: any, index: number) => (
+                                  <div key={index} className="flex items-start space-x-2 py-1.5">
+                                    <Checkbox 
+                                      checked={item.completed} 
+                                      disabled
+                                      className="mt-0.5"
+                                    />
+                                    <span className={`text-sm flex-1 ${item.completed ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                                      {item.name}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         ) : (
                           <span className="text-slate-400">—</span>
                         )}
