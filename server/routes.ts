@@ -5494,7 +5494,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       // Use centralized storage method for invoice data
-      let billingRecords;
+      let billingRecords: any[];
       let client;
       let providerInfo = null;
       
@@ -5505,7 +5505,12 @@ This happens because only the file metadata was stored, not the actual file cont
           return res.status(404).json({ message: "Billing record not found" });
         }
         
-        billingRecords = [invoiceData.billing];
+        // Transform to match expected structure with nested session and service
+        billingRecords = [{
+          ...invoiceData.billing,
+          session: invoiceData.session,
+          service: invoiceData.service
+        }];
         client = invoiceData.client;
         
         // Get provider info from the therapist who provided the service
@@ -6095,21 +6100,17 @@ This happens because only the file metadata was stored, not the actual file cont
   app.put("/api/billing/:billingId/payment", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
-      const { status, amount, date, reference, method, notes } = req.body;
+      const { status, amount, date, reference, method, notes, clientId } = req.body;
       
-      // Get billing record with session and client info for authorization check
-      const billingRecord = await db.query.sessionBilling.findFirst({
-        where: eq(sessionBilling.id, billingId),
-        with: {
-          session: {
-            with: {
-              client: true
-            }
-          }
-        }
-      });
-
-      if (!billingRecord) {
+      // Use centralized storage method to get billing data for authorization
+      // clientId is passed from frontend to use getBillingForInvoice
+      if (!clientId) {
+        return res.status(400).json({ message: "Client ID is required" });
+      }
+      
+      const invoiceData = await storage.getBillingForInvoice(clientId, billingId);
+      
+      if (!invoiceData) {
         return res.status(404).json({ message: "Billing record not found" });
       }
 
@@ -6118,8 +6119,7 @@ This happens because only the file metadata was stored, not the actual file cont
         // Admins can record any payment
       } else if (req.user?.role === 'therapist') {
         // Therapists can only record payments for their assigned clients
-        const clientId = billingRecord.session?.client?.id;
-        if (!clientId || billingRecord.session?.client?.assignedTherapistId !== req.user.id) {
+        if (invoiceData.client.assignedTherapistId !== req.user.id) {
           return res.status(403).json({ message: "Access denied. You can only record payments for your assigned clients." });
         }
       } else {
@@ -6130,7 +6130,8 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid payment status" });
       }
       
-      await storage.updatePaymentDetails(billingId, {
+      // Use centralized recordPayment method
+      await storage.recordPayment(billingId, {
         status,
         amount,
         date,
