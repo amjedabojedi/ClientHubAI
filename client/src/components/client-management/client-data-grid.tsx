@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Eye, Edit, CalendarDays, Plus, Paperclip, MoreVertical, ClipboardList } from "lucide-react";
+import { Eye, Edit, CalendarDays, Plus, Paperclip, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Pagination from "./pagination";
 import { Client, ClientsQueryResult } from "@/types/client";
@@ -478,13 +478,6 @@ export default function ClientDataGrid({
                             >
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Client
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onViewClient(client)}
-                              data-testid={`action-checklist-${client.id}`}
-                            >
-                              <ClipboardList className="w-4 h-4 mr-2" />
-                              Manage Checklist
                             </DropdownMenuItem>
                             <QuickTaskForm
                               clientId={client.id}
