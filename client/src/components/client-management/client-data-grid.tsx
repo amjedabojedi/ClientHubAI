@@ -13,6 +13,7 @@ import { Client, ClientsQueryResult } from "@/types/client";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/hooks/useAuth";
 import QuickTaskForm from "@/components/task-management/quick-task-form";
+import { format } from "date-fns";
 
 interface ClientDataGridProps {
   activeTab: string;
@@ -335,7 +336,7 @@ export default function ClientDataGrid({
                       <div className="text-sm">
                         <p className="text-slate-900">
                           {client.firstSessionDate 
-                            ? new Date(client.firstSessionDate).toLocaleDateString()
+                            ? format(new Date(client.firstSessionDate), 'MMM dd, yyyy')
                             : 'No sessions'
                           }
                         </p>
@@ -345,7 +346,7 @@ export default function ClientDataGrid({
                       <div className="text-sm">
                         <p className="text-slate-900">
                           {client.lastSessionDate 
-                            ? new Date(client.lastSessionDate).toLocaleDateString()
+                            ? format(new Date(client.lastSessionDate), 'MMM dd, yyyy')
                             : 'No sessions'
                           }
                         </p>
@@ -417,7 +418,7 @@ export default function ClientDataGrid({
                                   </Badge>
                                   {client.followUpDate && (
                                     <p className="text-xs text-orange-600">
-                                      Due: {new Date(client.followUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                      Due: {format(new Date(client.followUpDate), 'MMM dd, yyyy')}
                                     </p>
                                   )}
                                 </div>
