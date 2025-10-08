@@ -2155,6 +2155,80 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessionBilling.id, billingId));
   }
 
+  // Centralized billing method for invoice generation
+  async getBillingForInvoice(clientId: number, billingId: number): Promise<{
+    billing: SelectSessionBilling;
+    client: Client;
+    session: Session;
+    service?: any;
+    therapist?: User;
+  } | null> {
+    const result = await db
+      .select({
+        billing: sessionBilling,
+        session: sessions,
+        client: clients,
+        service: services,
+        therapist: users
+      })
+      .from(sessionBilling)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
+      .leftJoin(services, eq(sessions.serviceId, services.id))
+      .leftJoin(users, eq(sessions.therapistId, users.id))
+      .where(and(
+        eq(sessionBilling.id, billingId),
+        eq(clients.id, clientId)
+      ))
+      .limit(1);
+
+    if (!result.length) {
+      return null;
+    }
+
+    const r = result[0];
+    return {
+      billing: r.billing,
+      client: r.client,
+      session: r.session,
+      service: r.service || undefined,
+      therapist: r.therapist || undefined
+    };
+  }
+
+  // Centralized payment recording method
+  async recordPayment(billingId: number, paymentData: {
+    status: 'pending' | 'billed' | 'paid' | 'denied' | 'refunded' | 'follow_up';
+    amount: number;
+    date: string;
+    reference?: string;
+    method: string;
+    notes?: string;
+  }): Promise<SelectSessionBilling> {
+    const updateData: any = {
+      paymentStatus: paymentData.status,
+      paymentAmount: paymentData.amount.toString(),
+      paymentDate: paymentData.date,
+      paymentMethod: paymentData.method,
+      updatedAt: new Date()
+    };
+
+    if (paymentData.reference) {
+      updateData.paymentReference = paymentData.reference;
+    }
+    if (paymentData.notes) {
+      updateData.paymentNotes = paymentData.notes;
+    }
+
+    const [updated] = await db
+      .update(sessionBilling)
+      .set(updateData)
+      .where(eq(sessionBilling.id, billingId))
+      .returning();
+
+    return updated;
+  }
+
   // Enhanced Task Management Methods
   async getAllTasks(params?: TaskQueryParams): Promise<{
     tasks: (Task & { assignedTo?: User; client: Client })[];
