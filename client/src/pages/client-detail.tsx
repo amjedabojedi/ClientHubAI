@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,8 @@ import {
   Plus, 
   Printer,
   RotateCw,
-  Search, 
+  Search,
+  Settings,
   Trash2,
   Upload, 
   User as UserIcon, 
@@ -2969,6 +2970,14 @@ export default function ClientDetailPage() {
                               <DropdownMenuItem onClick={() => handleGenerateInvoice('email', billing.id)}>
                                 <Mail className="w-4 h-4 mr-2" />
                                 Email to Client
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                Billing Status
+                              </div>
+                              <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
+                                <Settings className="w-4 h-4 mr-2" />
+                                Change Billing Status
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
