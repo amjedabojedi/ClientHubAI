@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
-import { Eye, Edit, CalendarDays, Plus, Paperclip, MoreVertical } from "lucide-react";
+import { Eye, Edit, CalendarDays, Plus, Paperclip, MoreVertical, CheckSquare } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Pagination from "./pagination";
 import { Client, ClientsQueryResult } from "@/types/client";
@@ -425,6 +425,13 @@ export default function ClientDataGrid({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem 
+                              onClick={() => window.location.href = `/clients/${client.id}?tab=checklist`}
+                              data-testid={`action-checklist-${client.id}`}
+                            >
+                              <CheckSquare className="w-4 h-4 mr-2" />
+                              Checklist
+                            </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent(client.assignedTherapist?.fullName || '')}`}
                               data-testid={`action-schedule-${client.id}`}
