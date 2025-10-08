@@ -552,7 +552,7 @@ export default function AssessmentReportPage() {
                   <div className="text-sm text-slate-600">Completed</div>
                   <div className="font-semibold">
                     {assignment.completedAt ? 
-                      new Date(assignment.completedAt).toLocaleDateString() : 
+                      format(new Date(assignment.completedAt), 'MMM dd, yyyy') : 
                       'Not completed'
                     }
                   </div>

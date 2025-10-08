@@ -2677,9 +2677,9 @@ export default function ClientDetailPage() {
                             <div>
                               <h4 className="font-semibold text-slate-900">{assessment.template.name}</h4>
                               <p className="text-sm text-slate-600">
-                                Assigned: {new Date(assessment.assignedDate).toLocaleDateString()}
+                                Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}
                                 {assessment.completedDate && (
-                                  <span> • Completed: {new Date(assessment.completedDate).toLocaleDateString()}</span>
+                                  <span> • Completed: {format(new Date(assessment.completedDate), 'MMM dd, yyyy')}</span>
                                 )}
                               </p>
                               {assessment.template.description && (
@@ -2809,7 +2809,7 @@ export default function ClientDetailPage() {
                             <p className="font-medium text-slate-900">{doc.fileName}</p>
                             <p className="text-sm text-slate-500">
                               {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : ''} • 
-                              Uploaded {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date'}
+                              Uploaded {doc.createdAt ? format(new Date(doc.createdAt), 'MMM dd, yyyy') : 'Unknown date'}
                             </p>
                           </div>
                         </div>
@@ -2887,11 +2887,11 @@ export default function ClientDetailPage() {
                                 {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount || '0.00'}
                               </p>
                               <p className="text-sm text-slate-600">
-                                {billing.serviceDate ? new Date(billing.serviceDate).toLocaleDateString() : 'No session date'} • Service: {billing.service?.serviceCode || billing.serviceCode}
+                                {billing.serviceDate ? format(new Date(billing.serviceDate), 'MMM dd, yyyy') : 'No session date'} • Service: {billing.service?.serviceCode || billing.serviceCode}
                               </p>
                               {billing.paymentAmount && billing.paymentDate && (
                                 <p className="text-xs text-green-600 mt-1">
-                                  Payment: ${billing.paymentAmount || '0.00'} on {new Date(billing.paymentDate).toLocaleDateString()}
+                                  Payment: ${billing.paymentAmount || '0.00'} on {format(new Date(billing.paymentDate), 'MMM dd, yyyy')}
                                   {billing.paymentMethod && ` via ${billing.paymentMethod.replace('_', ' ')}`}
                                   {billing.paymentReference && ` (Ref: ${billing.paymentReference})`}
                                 </p>
@@ -3101,9 +3101,9 @@ export default function ClientDetailPage() {
                           )}
                           
                           <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <span>Created: {new Date(task.createdAt).toLocaleDateString()}</span>
+                            <span>Created: {format(new Date(task.createdAt), 'MMM dd, yyyy')}</span>
                             {task.dueDate && (
-                              <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                              <span>Due: {format(new Date(task.dueDate), 'MMM dd, yyyy')}</span>
                             )}
                             {task.assignedToId && (
                               <span>Assigned to: User #{task.assignedToId}</span>
@@ -3451,8 +3451,8 @@ export default function ClientDetailPage() {
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                       <p className="text-slate-600">Invoice #: INV-{client.clientId}-{selectedBillingRecord.id}</p>
-                      <p className="text-slate-600">Invoice Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
-                      <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
+                      <p className="text-slate-600">Invoice Date: {format(new Date(selectedBillingRecord.serviceDate), 'MMM dd, yyyy')}</p>
+                      <p className="text-slate-600">Service Date: {format(new Date(selectedBillingRecord.serviceDate), 'MMM dd, yyyy')}</p>
                     </div>
                     <div className="text-right">
                       <PracticeHeader variant="full" align="right" />
@@ -3491,7 +3491,7 @@ export default function ClientDetailPage() {
                         <tr>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceName || selectedBillingRecord.serviceName || 'Professional Service'}</td>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceCode || selectedBillingRecord.serviceCode}</td>
-                          <td className="border border-slate-200 px-4 py-2">{new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</td>
+                          <td className="border border-slate-200 px-4 py-2">{format(new Date(selectedBillingRecord.serviceDate), 'MMM dd, yyyy')}</td>
                           <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</td>
                         </tr>
                       </tbody>
