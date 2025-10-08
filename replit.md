@@ -19,6 +19,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Form Handling**: React Hook Form with Zod validation
 - **Build Tool**: Vite
 - **Design Principles**: Responsive design (mobile-first), clean visual hierarchy, professional UI components, color-coded indicators.
+- **Date Formatting**: Standardized date display using date-fns `format()` - "MMM dd, yyyy" for dates (e.g., "Oct 08, 2025") and "MMM dd, yyyy HH:mm:ss" for timestamps across all user-facing components.
 
 ### Backend
 - **Runtime**: Node.js with TypeScript
