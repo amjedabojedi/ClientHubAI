@@ -94,6 +94,16 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Reset form when dialog opens or billingRecord changes
+  useEffect(() => {
+    if (isOpen && billingRecord) {
+      setPaymentAmount(billingRecord.totalAmount?.toString() || '');
+      setPaymentMethod('');
+      setPaymentReference('');
+      setPaymentNotes('');
+    }
+  }, [isOpen, billingRecord]);
+
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
       const { apiRequest } = await import('@/lib/queryClient');
