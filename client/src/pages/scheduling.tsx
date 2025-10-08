@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 
 // UI Components
@@ -1431,7 +1432,7 @@ export default function SchedulingPage() {
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
                 <h2 className="text-xl font-semibold">
-                  {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  {format(currentMonth, 'MMMM yyyy')}
                 </h2>
                 <Button variant="outline" size="sm" onClick={() => navigateMonth('next')}>
                   <ChevronRight className="w-4 h-4" />
@@ -1709,7 +1710,7 @@ export default function SchedulingPage() {
                             <div className="flex items-center space-x-4 flex-1">
                               <div className="text-center">
                                 <p className="font-semibold text-lg">
-                                  {new Date(session.sessionDate).toLocaleDateString()}
+                                  {format(new Date(session.sessionDate), 'MMM dd, yyyy')}
                                 </p>
                                 <p className="text-sm text-slate-600">
                                   {formatTime(session.sessionDate)}
@@ -1859,7 +1860,7 @@ export default function SchedulingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Clock className="w-5 h-5" />
-                    <span>{selectedDate.toDateString() === new Date().toDateString() ? "Today's Sessions" : "Sessions for " + selectedDate.toLocaleDateString()}</span>
+                    <span>{selectedDate.toDateString() === new Date().toDateString() ? "Today's Sessions" : "Sessions for " + format(selectedDate, 'MMM dd, yyyy')}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1968,12 +1969,7 @@ export default function SchedulingPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>
-                      {selectedDate.toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      {format(selectedDate, 'EEEE, MMM dd, yyyy')}
                     </CardTitle>
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-2">
