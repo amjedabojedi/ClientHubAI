@@ -415,18 +415,28 @@ export default function BillingDashboard() {
         return;
       }
 
-      // For preview, open modal dialog (like client-detail page)
-      if (action === 'preview') {
-        setSelectedBillingRecord({
-          ...billing,
-          serviceDate: billing.billingDate,
-          service: { serviceCode: billing.serviceCode }
-        });
-        setIsInvoicePreviewOpen(true);
+      // For preview or print, open in new browser tab (direct full page view)
+      if (action === 'preview' || action === 'print') {
+        const previewWindow = window.open('', '_blank');
+        if (previewWindow) {
+          const response = await apiRequest(`/api/clients/${client.id}/invoice`, 'POST', { 
+            action: 'print', // Use print action to get HTML
+            billingId: billing.id 
+          });
+          const htmlContent = await response.text();
+          previewWindow.document.write(htmlContent);
+          previewWindow.document.close();
+          
+          // Only trigger print dialog if action is print
+          if (action === 'print') {
+            previewWindow.focus();
+            previewWindow.print();
+          }
+        }
         return;
       }
 
-      // For download, email, and print, use apiRequest
+      // For download and email, use apiRequest
       const response = await apiRequest(`/api/clients/${client.id}/invoice`, 'POST', { 
         action, 
         billingId: billing.id 

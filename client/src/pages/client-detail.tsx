@@ -877,12 +877,23 @@ export default function ClientDetailPage() {
         return;
       }
 
-      // For preview action, just set the selected billing record and open modal
-      if (action === 'preview') {
-        const record = billingRecords.find(r => r.id === billingId);
-        if (record) {
-          setSelectedBillingRecord(record);
-          setIsInvoicePreviewOpen(true);
+      // For preview or print, open in new browser tab (direct full page view)
+      if (action === 'preview' || action === 'print') {
+        const previewWindow = window.open('', '_blank');
+        if (previewWindow) {
+          const response = await apiRequest(`/api/clients/${clientId}/invoice`, 'POST', { 
+            action: 'print', // Use print action to get HTML
+            billingId 
+          });
+          const htmlContent = await response.text();
+          previewWindow.document.write(htmlContent);
+          previewWindow.document.close();
+          
+          // Only trigger print dialog if action is print
+          if (action === 'print') {
+            previewWindow.focus();
+            previewWindow.print();
+          }
         }
         return;
       }
