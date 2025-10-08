@@ -1,6 +1,8 @@
 // ===== SHARED TASK UTILITY FUNCTIONS =====
 // Consolidated utility functions used across dashboard and task components
 
+import { format } from "date-fns";
+
 export const getPriorityColor = (priority: string) => {
   switch (priority) {
     case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
@@ -26,12 +28,8 @@ export const getStatusColor = (status: string) => {
 
 export const formatDate = (dateString: string | Date | null) => {
   if (!dateString) return 'No due date';
-  if (typeof dateString === 'string') {
-    // For ISO strings, extract just the date part to avoid timezone conversion
-    return dateString.split('T')[0];
-  }
-  // For Date objects, format to YYYY-MM-DD to avoid timezone issues
-  return dateString.toISOString().split('T')[0];
+  // Format date consistently across the app using MMM dd, yyyy format
+  return format(new Date(dateString), 'MMM dd, yyyy');
 };
 
 export const formatTime = (timeString: string) => {
