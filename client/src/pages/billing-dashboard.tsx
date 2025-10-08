@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { PracticeHeader } from "@/components/shared/practice-header";
 
 interface BillingRecord {
   id: number;
@@ -78,38 +79,6 @@ interface BillingRecord {
   };
 }
 
-// Practice Header Component for Invoice Preview
-const PracticeHeader = () => {
-  const { data: practiceSettings } = useQuery({
-    queryKey: ['/api/system-options/categories/practice_settings'],
-    queryFn: async () => {
-      const categoriesResponse = await fetch("/api/system-options/categories");
-      const categoriesData = await categoriesResponse.json();
-      const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
-      
-      if (!practiceCategory) {
-        return { options: [] };
-      }
-      
-      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
-      return response.json();
-    }
-  });
-
-  const getSettingValue = (key: string) => {
-    return practiceSettings?.options?.find((opt: any) => opt.optionKey === key)?.optionValue || '';
-  };
-
-  return (
-    <div className="text-right">
-      <h3 className="text-lg font-bold text-slate-900">{getSettingValue('practice_name') || 'Therapy Practice'}</h3>
-      <p className="text-sm text-slate-600">{getSettingValue('practice_address')}</p>
-      <p className="text-sm text-slate-600">{getSettingValue('practice_phone')}</p>
-      <p className="text-sm text-slate-600">{getSettingValue('practice_email')}</p>
-    </div>
-  );
-};
-
 interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -133,7 +102,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     },
     onSuccess: () => {
       toast({ title: "Payment recorded successfully" });
-      queryClient.invalidateQueries({ queryKey: ['/api/billing/reports'] });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
       onPaymentRecorded();
       onClose();
     },
@@ -163,7 +132,8 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       method: paymentMethod,
       reference: paymentReference,
       notes: paymentNotes,
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      clientId: billingRecord.session?.client?.id
     });
   };
 
@@ -272,7 +242,7 @@ export default function BillingDashboard() {
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading, isFetching } = useQuery({
-    queryKey: ['/api/billing/reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType, debouncedClientSearch],
+    queryKey: ['billing', 'reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType, debouncedClientSearch],
     queryFn: async () => {
       let url = '/api/billing/reports';
       const params = new URLSearchParams();
@@ -354,7 +324,7 @@ export default function BillingDashboard() {
     },
     onSuccess: () => {
       toast({ title: "Status updated successfully" });
-      queryClient.invalidateQueries({ queryKey: ['/api/billing/reports'] });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
     },
     onError: (error: any) => {
       toast({ 
@@ -1032,7 +1002,7 @@ export default function BillingDashboard() {
                         <p className="text-slate-600">Service Date: {billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</p>
                       </div>
                       <div className="text-right">
-                        <PracticeHeader />
+                        <PracticeHeader variant="invoice" align="right" />
                       </div>
                     </div>
 
