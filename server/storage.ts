@@ -814,7 +814,17 @@ export class DatabaseStorage implements IStorage {
         documentCount: sql<number>`(
           SELECT COUNT(*) FROM ${documents} 
           WHERE ${documents.clientId} = ${clients.id}
-        )`.as('documentCount')
+        )`.as('documentCount'),
+        checklistTotal: sql<number>`(
+          SELECT COUNT(*) FROM ${clientChecklistItems} cci
+          JOIN ${clientChecklists} cc ON cc.id = cci.client_checklist_id
+          WHERE cc.client_id = ${clients.id}
+        )`.as('checklistTotal'),
+        checklistCompleted: sql<number>`(
+          SELECT COUNT(*) FROM ${clientChecklistItems} cci
+          JOIN ${clientChecklists} cc ON cc.id = cci.client_checklist_id
+          WHERE cc.client_id = ${clients.id} AND cci.is_completed = true
+        )`.as('checklistCompleted')
       })
       .from(clients)
       .leftJoin(users, eq(clients.assignedTherapistId, users.id))
@@ -838,6 +848,33 @@ export class DatabaseStorage implements IStorage {
 
     const results = await clientsQuery;
 
+    // Fetch checklist items for all clients in this page
+    const clientIds = results.map(r => r.client.id);
+    const clientChecklistItemsData = clientIds.length > 0 ? await db
+      .select({
+        clientId: clientChecklists.clientId,
+        itemName: checklistItems.name,
+        isCompleted: clientChecklistItems.isCompleted,
+        itemOrder: checklistItems.itemOrder
+      })
+      .from(clientChecklistItems)
+      .innerJoin(clientChecklists, eq(clientChecklistItems.clientChecklistId, clientChecklists.id))
+      .innerJoin(checklistItems, eq(clientChecklistItems.checklistItemId, checklistItems.id))
+      .where(inArray(clientChecklists.clientId, clientIds))
+      .orderBy(checklistItems.itemOrder) : [];
+
+    // Group items by client ID
+    const itemsByClient = new Map<number, Array<{ name: string; completed: boolean }>>();
+    for (const item of clientChecklistItemsData) {
+      if (!itemsByClient.has(item.clientId)) {
+        itemsByClient.set(item.clientId, []);
+      }
+      itemsByClient.get(item.clientId)!.push({
+        name: item.itemName,
+        completed: item.isCompleted
+      });
+    }
+
     const clientsWithCounts = results.map(r => ({
       ...r.client,
       assignedTherapist: r.assignedTherapist || undefined,
@@ -845,7 +882,12 @@ export class DatabaseStorage implements IStorage {
       lastSessionDate: r.lastSessionDate,
       firstSessionDate: r.firstSessionDate,
       taskCount: r.taskCount,
-      documentCount: r.documentCount
+      documentCount: r.documentCount,
+      checklistProgress: r.checklistTotal > 0 ? {
+        total: r.checklistTotal,
+        completed: r.checklistCompleted,
+        items: itemsByClient.get(r.client.id) || []
+      } : null
     }));
 
     return {
