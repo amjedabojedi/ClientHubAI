@@ -4147,9 +4147,9 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(503).json({ error: "AI features not available" });
       }
       
-      // Format session date for AI prompt
+      // Format session date with time for AI prompt
       if (sessionNoteData.sessionDate) {
-        sessionNoteData.sessionDate = format(new Date(sessionNoteData.sessionDate), 'MMM dd, yyyy');
+        sessionNoteData.sessionDate = format(new Date(sessionNoteData.sessionDate), "MMM dd, yyyy 'at' h:mm a");
       }
       
       const report = await generateClinicalReport(sessionNoteData);
