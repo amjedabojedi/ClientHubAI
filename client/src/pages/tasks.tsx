@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -108,12 +109,8 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (dateString: string | null | Date) => {
   if (!dateString) return 'No due date';
-  if (typeof dateString === 'string') {
-    // For ISO strings, extract just the date part to avoid timezone conversion
-    return dateString.split('T')[0];
-  }
-  // For Date objects, format to YYYY-MM-DD to avoid timezone issues
-  return dateString.toISOString().split('T')[0];
+  // Format date consistently across the app using MMM dd, yyyy format
+  return format(new Date(dateString), 'MMM dd, yyyy');
 };
 
 // ===== TASK FORM COMPONENT =====
