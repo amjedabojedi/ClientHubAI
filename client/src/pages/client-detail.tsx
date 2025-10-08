@@ -1126,13 +1126,13 @@ export default function ClientDetailPage() {
   };
 
   const handlePaymentSubmit = () => {
-    if (paymentBillingRecord && paymentForm.amount && paymentForm.date) {
+    if (paymentBillingRecord && paymentForm.amount && paymentForm.method) {
       updatePaymentStatusMutation.mutate({
         billingId: paymentBillingRecord.id,
         paymentData: {
-          status: paymentForm.status,
+          status: 'paid',
           amount: parseFloat(paymentForm.amount),
-          date: paymentForm.date,
+          date: new Date().toISOString().split('T')[0],
           reference: paymentForm.reference || null,
           method: paymentForm.method,
           notes: paymentForm.notes || null,
@@ -1142,7 +1142,7 @@ export default function ClientDetailPage() {
     } else {
       toast({
         title: "Missing Information",
-        description: "Please fill in the payment amount and date.",
+        description: "Please fill in the payment amount and method.",
         variant: "destructive",
       });
     }
@@ -3501,140 +3501,97 @@ export default function ClientDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Payment Recording Dialog */}
+      {/* Payment Recording Dialog - Matches Billing Dashboard */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
             <DialogDescription>
-              Record payment details for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
+              Recording payment for {paymentBillingRecord ? `${paymentBillingRecord.service?.serviceName || paymentBillingRecord.serviceCode}` : ''}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-4">
-              {/* Current Status */}
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <span className="text-sm font-medium text-slate-700">Current Status:</span>
-                <Badge className={`${
-                  paymentBillingRecord?.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  paymentBillingRecord?.paymentStatus === 'billed' ? 'bg-blue-100 text-blue-800' :
-                  paymentBillingRecord?.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
-                  paymentBillingRecord?.paymentStatus === 'denied' ? 'bg-red-100 text-red-800' :
-                  paymentBillingRecord?.paymentStatus === 'refunded' ? 'bg-gray-100 text-gray-800' :
-                  paymentBillingRecord?.paymentStatus === 'follow_up' ? 'bg-orange-100 text-orange-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {paymentBillingRecord?.paymentStatus?.charAt(0).toUpperCase() + paymentBillingRecord?.paymentStatus?.slice(1)}
-                </Badge>
-              </div>
-
-              {/* Payment Status */}
-              <div className="space-y-2">
-                <Label htmlFor="payment-status">Payment Status</Label>
-                <Select 
-                  value={paymentForm.status} 
-                  onValueChange={(value) => setPaymentForm({...paymentForm, status: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="billed">Billed</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="denied">Denied</SelectItem>
-                    <SelectItem value="refunded">Refunded</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Payment Amount */}
-              <div className="space-y-2">
-                <Label htmlFor="payment-amount">Payment Amount *</Label>
-                <Input
-                  id="payment-amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
-                />
-              </div>
-
-              {/* Payment Date */}
-              <div className="space-y-2">
-                <Label htmlFor="payment-date">Payment Date *</Label>
-                <Input
-                  id="payment-date"
-                  type="date"
-                  value={paymentForm.date}
-                  onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
-                />
-              </div>
-
-              {/* Payment Method */}
-              <div className="space-y-2">
-                <Label htmlFor="payment-method">Payment Method</Label>
-                <Select 
-                  value={paymentForm.method} 
-                  onValueChange={(value) => setPaymentForm({...paymentForm, method: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="check">Check</SelectItem>
-                    <SelectItem value="credit_card">Credit Card</SelectItem>
-                    <SelectItem value="debit_card">Debit Card</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="insurance">Insurance Payment</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Payment Reference */}
-              <div className="space-y-2">
-                <Label htmlFor="payment-reference">Reference Number</Label>
-                <Input
-                  id="payment-reference"
-                  placeholder="Check number, transaction ID, etc."
-                  value={paymentForm.reference}
-                  onChange={(e) => setPaymentForm({...paymentForm, reference: e.target.value})}
-                />
-              </div>
-
-              {/* Payment Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="payment-notes">Notes</Label>
-                <Input
-                  id="payment-notes"
-                  placeholder="Additional payment notes..."
-                  value={paymentForm.notes}
-                  onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
-                />
-              </div>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (!paymentForm.amount || !paymentForm.method) {
+              toast({ 
+                title: "Please fill in required fields", 
+                description: "Payment amount and method are required",
+                variant: "destructive" 
+              });
+              return;
+            }
+            handlePaymentSubmit();
+          }} className="space-y-4">
+            <div>
+              <Label htmlFor="payment-amount">Payment Amount *</Label>
+              <Input
+                id="payment-amount"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                required
+              />
             </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsPaymentDialogOpen(false);
-                setPaymentBillingRecord(null);
-              }}
-              disabled={updatePaymentStatusMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handlePaymentSubmit}
-              disabled={updatePaymentStatusMutation.isPending || !paymentForm.amount || !paymentForm.date}
-            >
-              {updatePaymentStatusMutation.isPending ? "Recording..." : "Record Payment"}
-            </Button>
-          </DialogFooter>
+            <div>
+              <Label htmlFor="payment-method">Payment Method *</Label>
+              <Select 
+                value={paymentForm.method} 
+                onValueChange={(value) => setPaymentForm({...paymentForm, method: value})}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="debit_card">Debit Card</SelectItem>
+                  <SelectItem value="insurance">Insurance</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  <SelectItem value="online_payment">Online Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="payment-reference">Reference Number</Label>
+              <Input
+                id="payment-reference"
+                placeholder="Check number, transaction ID, etc."
+                value={paymentForm.reference}
+                onChange={(e) => setPaymentForm({...paymentForm, reference: e.target.value})}
+              />
+            </div>
+            <div>
+              <Label htmlFor="payment-notes">Notes</Label>
+              <Textarea
+                id="payment-notes"
+                placeholder="Additional payment notes"
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
+              />
+            </div>
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setIsPaymentDialogOpen(false);
+                  setPaymentBillingRecord(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                disabled={updatePaymentStatusMutation.isPending}
+              >
+                {updatePaymentStatusMutation.isPending ? "Recording..." : "Record Payment"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
