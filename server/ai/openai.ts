@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { format } from "date-fns";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -298,7 +299,7 @@ CLIENT INFORMATION:
 - Treatment Stage: ${clientData?.stage || 'Not specified'}
 
 SESSION INFORMATION:
-- Date: ${sessionData?.sessionDate ? new Date(sessionData.sessionDate).toLocaleDateString() : 'Not specified'}
+- Date: ${sessionData?.sessionDate ? format(new Date(sessionData.sessionDate), 'MMM dd, yyyy') : 'Not specified'}
 - Type: ${sessionData?.sessionType || 'Not specified'}
 - Duration: ${sessionData?.duration || 'Not specified'} minutes
 
@@ -467,15 +468,15 @@ For each section:
   const clientInfo = `
 Client Name: ${assignment.client?.fullName || 'Client Name'}
 Client ID: ${assignment.client?.clientId || 'N/A'}
-Date of Birth: ${assignment.client?.dateOfBirth ? new Date(assignment.client.dateOfBirth).toLocaleDateString() : 'Not provided'}
+Date of Birth: ${assignment.client?.dateOfBirth ? format(new Date(assignment.client.dateOfBirth), 'MMM dd, yyyy') : 'Not provided'}
 Gender: ${assignment.client?.gender || 'Not specified'}
 Phone: ${assignment.client?.phoneNumber || 'Not provided'}
 Email: ${assignment.client?.emailAddress || 'Not provided'}
 Address: ${assignment.client?.address ? `${assignment.client.address}${assignment.client.city ? ', ' + assignment.client.city : ''}${assignment.client.province ? ', ' + assignment.client.province : ''}${assignment.client.postalCode ? ' ' + assignment.client.postalCode : ''}` : 'Not provided'}
 Assessment: ${assignment.template?.name || 'Assessment'}
-Assessment Date: ${assignment.completedAt ? new Date(assignment.completedAt).toLocaleDateString() : 'N/A'}
+Assessment Date: ${assignment.completedAt ? format(new Date(assignment.completedAt), 'MMM dd, yyyy') : 'N/A'}
 Clinician: ${assignment.assignedBy?.fullName || 'Clinician Name'}
-Report Generated: ${new Date().toLocaleDateString()}
+Report Generated: ${format(new Date(), 'MMM dd, yyyy')}
 `;
 
   // Build the user prompt with client information and section data

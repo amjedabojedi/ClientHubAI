@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
 import { execSync } from "child_process";
+import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
 // Validation
@@ -5629,12 +5630,12 @@ This happens because only the file metadata was stored, not the actual file cont
       let serviceDate = null;
       if (billingRecords.length === 1) {
         // Single service - use exact session date
-        serviceDate = new Date(billingRecords[0].session.sessionDate).toLocaleDateString();
+        serviceDate = format(new Date(billingRecords[0].session.sessionDate), 'MMM dd, yyyy');
       } else if (billingRecords.length > 1) {
         // Multiple services - show date range
         const dates = billingRecords.map(r => new Date(r.session.sessionDate)).sort((a, b) => a.getTime() - b.getTime());
-        const startDate = dates[0].toLocaleDateString();
-        const endDate = dates[dates.length - 1].toLocaleDateString();
+        const startDate = format(dates[0], 'MMM dd, yyyy');
+        const endDate = format(dates[dates.length - 1], 'MMM dd, yyyy');
         serviceDate = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
       }
       
@@ -5739,7 +5740,7 @@ This happens because only the file metadata was stored, not the actual file cont
             <div>
               <h1 class="invoice-title">INVOICE</h1>
               <p>Invoice #: ${invoiceNumber}</p>
-              <p>Date: ${new Date().toLocaleDateString()}</p>
+              <p>Date: ${format(new Date(), 'MMM dd, yyyy')}</p>
               ${serviceDate ? `<p>Service Date: ${serviceDate}</p>` : ''}
             </div>
             <div class="company-info">
@@ -5783,7 +5784,7 @@ This happens because only the file metadata was stored, not the actual file cont
                 <tr>
                   <td>${record.service?.serviceName || 'Professional Service'}</td>
                   <td>${record.service?.serviceCode || record.serviceCode}</td>
-                  <td>${new Date(record.session.sessionDate).toLocaleDateString()}</td>
+                  <td>${format(new Date(record.session.sessionDate), 'MMM dd, yyyy')}</td>
                   <td style="text-align: right;">$${Number(record.totalAmount).toFixed(2)}</td>
                 </tr>
               `).join('')}
@@ -6031,7 +6032,7 @@ This happens because only the file metadata was stored, not the actual file cont
                       <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px;">Invoice Details</h3>
                       <table style="width: 100%; border-collapse: collapse;">
                         <tr><td style="padding: 5px 0; color: #6b7280; width: 40%;">Invoice Number:</td><td style="padding: 5px 0; color: #1e293b; font-weight: bold;">INV-${client.clientId}-${billingId}</td></tr>
-                        <tr><td style="padding: 5px 0; color: #6b7280;">Date:</td><td style="padding: 5px 0; color: #1e293b;">${new Date().toLocaleDateString()}</td></tr>
+                        <tr><td style="padding: 5px 0; color: #6b7280;">Date:</td><td style="padding: 5px 0; color: #1e293b;">${format(new Date(), 'MMM dd, yyyy')}</td></tr>
                         <tr><td style="padding: 5px 0; color: #6b7280;">Service:</td><td style="padding: 5px 0; color: #1e293b;">${billingRecords[0].serviceCode}</td></tr>
                         <tr><td style="padding: 5px 0; color: #6b7280;">Amount Due:</td><td style="padding: 5px 0; color: #dc2626; font-weight: bold; font-size: 18px;">$${remainingDue.toFixed(2)}</td></tr>
                       </table>
