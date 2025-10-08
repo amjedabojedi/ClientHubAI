@@ -231,6 +231,7 @@ export default function ClientDataGrid({
                   </div>
                 </TableHead>
                 <TableHead>Since Last Session</TableHead>
+                <TableHead>Checklist</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -238,7 +239,7 @@ export default function ClientDataGrid({
               {isLoading ? (
                 Array.from({ length: pageSize }).map((_, index) => (
                   <TableRow key={index}>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex items-center justify-center space-x-2">
                         <i className="fas fa-spinner fa-spin"></i>
                         <span>Loading clients...</span>
@@ -248,7 +249,7 @@ export default function ClientDataGrid({
                 ))
               ) : data?.clients?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     <div className="text-slate-500">
                       <i className="fas fa-users text-2xl mb-2"></i>
                       <p>No clients found matching your criteria.</p>
@@ -419,6 +420,22 @@ export default function ClientDataGrid({
                             </div>
                           );
                         })()}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {client.checklistProgress ? (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-slate-900 font-medium">
+                              {client.checklistProgress.completed}/{client.checklistProgress.total}
+                            </span>
+                            <span className="text-slate-500">
+                              ({Math.round((client.checklistProgress.completed / client.checklistProgress.total) * 100)}%)
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
