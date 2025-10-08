@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+import { format } from "date-fns";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -595,7 +596,7 @@ export default function AssessmentReportPage() {
                 </div>
                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
                   <div className="text-sm text-slate-600">
-                    <div>Generated on {new Date(existingReport.generatedAt).toLocaleDateString()} at {new Date(existingReport.generatedAt).toLocaleTimeString()}</div>
+                    <div>Generated on {format(new Date(existingReport.generatedAt), "MMM dd, yyyy 'at' h:mm a")}</div>
                     {existingReport.id && <div className="text-xs text-slate-500 mt-1">Report ID: #{existingReport.id}</div>}
                   </div>
                   <div className="flex space-x-2">
