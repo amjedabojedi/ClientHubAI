@@ -1346,7 +1346,7 @@ export default function ClientDetailPage() {
   });
 
   const { data: services = [] } = useQuery<any[]>({
-    queryKey: ["/api/services", { currentUserRole: user?.role }],
+    queryKey: ["/api/services/filtered"],
     queryFn: getQueryFn({ on401: "throw" }),
   });
 
