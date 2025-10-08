@@ -2926,58 +2926,113 @@ export default function ClientDetailPage() {
                         {/* Simplified action layout: One primary button + One menu */}
                         <div className="mt-3 flex items-center gap-2 pt-2 border-t border-slate-200">
                           {/* Single Primary Action Button - Most important next step */}
-                          {billing.paymentStatus !== 'paid' ? (
-                            <Button 
-                              size="sm" 
+                          {billing.paymentStatus === 'pending' ? (
+                            <Button
+                              size="sm"
                               variant="default"
-                              className="bg-yellow-600 hover:bg-yellow-700"
                               onClick={() => handleRecordPayment(billing)}
                             >
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Record Payment
+                              <CreditCard className="h-3 w-3 mr-1" />
+                              Pay
                             </Button>
-                          ) : (
-                            <Button 
-                              size="sm" 
+                          ) : billing.paymentStatus === 'paid' ? (
+                            <Button
+                              size="sm"
                               variant="default"
-                              className="bg-green-600 hover:bg-green-700"
                               onClick={() => handleGenerateInvoice('preview', billing.id)}
                             >
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Invoice
+                              <Eye className="h-3 w-3 mr-1" />
+                              Preview
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleRecordPayment(billing)}
+                            >
+                              <CreditCard className="h-3 w-3 mr-1" />
+                              Pay
                             </Button>
                           )}
 
-                          {/* Single Menu - All invoice actions organized */}
+                          {/* Single Menu - All other actions organized */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuContent align="end" className="w-48">
                               <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
                                 Invoice Actions
                               </div>
-                              <DropdownMenuItem onClick={() => handleGenerateInvoice('preview', billing.id)}>
-                                <Eye className="w-4 h-4 mr-2" />
-                                Preview Invoice
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleGenerateInvoice('download', billing.id)}>
-                                <Download className="w-4 h-4 mr-2" />
-                                Download Invoice
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleGenerateInvoice('email', billing.id)}>
-                                <Mail className="w-4 h-4 mr-2" />
-                                Email to Client
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
+                              {billing.paymentStatus === 'pending' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('email', billing.id)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Email Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('preview', billing.id)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Preview Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('download', billing.id)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {billing.paymentStatus === 'paid' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('download', billing.id)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('email', billing.id)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Email Invoice
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {billing.paymentStatus !== 'pending' && billing.paymentStatus !== 'paid' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
+                                    <CreditCard className="h-4 w-4 mr-2" />
+                                    Record Payment
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('email', billing.id)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Email Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('preview', billing.id)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Preview Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleGenerateInvoice('download', billing.id)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              <div className="border-t my-1"></div>
                               <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
-                                Billing Status
+                                Change Status
                               </div>
-                              <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
-                                <Settings className="w-4 h-4 mr-2" />
-                                Change Billing Status
+                              <DropdownMenuItem onClick={() => updatePaymentStatusMutation.mutate({ billingId: billing.id, paymentData: { status: 'pending', amount: 0, date: new Date().toISOString().split('T')[0], method: 'cash', clientId } })}>
+                                <Clock className="h-4 w-4 mr-2 text-yellow-600" />
+                                Mark Pending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updatePaymentStatusMutation.mutate({ billingId: billing.id, paymentData: { status: 'billed', amount: 0, date: new Date().toISOString().split('T')[0], method: 'cash', clientId } })}>
+                                <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                                Mark Billed
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updatePaymentStatusMutation.mutate({ billingId: billing.id, paymentData: { status: 'paid', amount: Number(billing.totalAmount), date: new Date().toISOString().split('T')[0], method: 'cash', clientId } })}>
+                                <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                Mark Paid
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => updatePaymentStatusMutation.mutate({ billingId: billing.id, paymentData: { status: 'denied', amount: 0, date: new Date().toISOString().split('T')[0], method: 'cash', clientId } })}>
+                                <AlertTriangle className="h-4 w-4 mr-2 text-red-600" />
+                                Mark Denied
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
