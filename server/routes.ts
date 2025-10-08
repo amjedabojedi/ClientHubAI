@@ -1805,6 +1805,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertSessionSchema.partial().parse(sessionData);
       const session = await storage.updateSession(id, validatedData);
       
+      // Update billing if service changed and billing record exists
+      if (sessionData.serviceId && sessionData.serviceId !== originalSession.serviceId) {
+        try {
+          const existingBilling = await storage.getSessionBilling(id);
+          if (existingBilling) {
+            const newService = await storage.getServiceById(sessionData.serviceId);
+            if (newService) {
+              await db.update(sessionBilling)
+                .set({
+                  serviceCode: newService.serviceCode,
+                  ratePerUnit: newService.baseRate,
+                  totalAmount: newService.baseRate
+                })
+                .where(eq(sessionBilling.sessionId, id));
+            }
+          }
+        } catch (billingUpdateError) {
+          console.error(`Error updating billing for changed service in session ${id}:`, billingUpdateError);
+        }
+      }
+      
       // Handle Zoom meeting creation if enabled and no existing meeting
       let zoomWarning = null;
       if (sessionData.zoomEnabled && !session.zoomMeetingId) {
