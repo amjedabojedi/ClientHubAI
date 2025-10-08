@@ -3809,6 +3809,10 @@ This happens because only the file metadata was stored, not the actual file cont
           // Update status to processing
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'processing' });
           
+          // Get session and client details for AI context
+          const session = await storage.getSession(validatedData.sessionId);
+          const client = await storage.getClient(validatedData.clientId);
+          
           const aiContent = await generateSessionNoteSummary({
             sessionFocus: validatedData.sessionFocus || undefined,
             symptoms: validatedData.symptoms || undefined,
@@ -3817,9 +3821,10 @@ This happens because only the file metadata was stored, not the actual file cont
             progress: validatedData.progress || undefined,
             remarks: validatedData.remarks || undefined,
             recommendations: validatedData.recommendations || undefined,
-
             customPrompt: validatedData.customAiPrompt || undefined,
-            sessionType: 'therapy session'
+            sessionType: session?.sessionType || 'therapy session',
+            sessionDate: session?.sessionDate ? format(new Date(session.sessionDate), "MMM dd, yyyy 'at' h:mm a") : undefined,
+            clientName: client?.fullName
           });
           
           // Update with generated content
@@ -4185,7 +4190,9 @@ This happens because only the file metadata was stored, not the actual file cont
         remarks: sessionNote.remarks || undefined,
         recommendations: sessionNote.recommendations || undefined,
         customPrompt: customPrompt || sessionNote.customAiPrompt || undefined,
-        sessionType: sessionNote.session?.sessionType || 'therapy session'
+        sessionType: sessionNote.session?.sessionType || 'therapy session',
+        sessionDate: sessionNote.session?.sessionDate ? format(new Date(sessionNote.session.sessionDate), "MMM dd, yyyy 'at' h:mm a") : undefined,
+        clientName: sessionNote.client?.fullName
       });
       
       // Update with regenerated content
