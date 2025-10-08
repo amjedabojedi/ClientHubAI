@@ -130,7 +130,7 @@ function EmailCard({ notification }: { notification: Notification }) {
                 {notification.title}
               </CardTitle>
               <p className="text-sm text-slate-500 mt-1">
-                {format(new Date(notification.createdAt), "MMMM dd, yyyy 'at' h:mm a")}
+                {format(new Date(notification.createdAt), "MMM dd, yyyy 'at' h:mm a")}
               </p>
             </div>
             <CollapsibleTrigger asChild>
