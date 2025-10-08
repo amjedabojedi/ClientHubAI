@@ -206,9 +206,9 @@ function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
             {checklist.template && checklist.template.description && (
               <p>{checklist.template.description}</p>
             )}
-            <p>Assigned: {new Date(checklist.createdAt).toLocaleDateString()}</p>
+            <p>Assigned: {format(new Date(checklist.createdAt), 'MMM dd, yyyy')}</p>
             {checklist.dueDate && (
-              <p>Due: {new Date(checklist.dueDate).toLocaleDateString()}</p>
+              <p>Due: {format(new Date(checklist.dueDate), 'MMM dd, yyyy')}</p>
             )}
           </div>
           
@@ -315,7 +315,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
 
                 {clientItem.completedAt && (
                   <p className="text-xs text-green-600 mt-2">
-                    Completed: {new Date(clientItem.completedAt).toLocaleDateString()}
+                    Completed: {format(new Date(clientItem.completedAt), 'MMM dd, yyyy')}
                   </p>
                 )}
               </div>
@@ -1679,7 +1679,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center justify-between py-2 border-b border-slate-100">
                       <span className="text-sm font-medium text-slate-600">Date of Birth</span>
                       <span className="text-slate-900 font-medium">
-                        {new Date(client.dateOfBirth).toLocaleDateString()}
+                        {format(new Date(client.dateOfBirth), 'MMM dd, yyyy')}
                       </span>
                     </div>
                   )}
@@ -1889,7 +1889,7 @@ export default function ClientDetailPage() {
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <div className="text-sm font-medium text-blue-800 mb-1">Referral Date</div>
                         <div className="text-blue-700 font-semibold">
-                          {new Date(client.referralDate).toLocaleDateString()}
+                          {format(new Date(client.referralDate), 'MMM dd, yyyy')}
                         </div>
                       </div>
                     )}

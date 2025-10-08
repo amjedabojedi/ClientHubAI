@@ -744,7 +744,7 @@ export default function BillingDashboard() {
                 {/* Display selected range */}
                 {startDate && endDate && (
                   <div className="text-center text-sm text-muted-foreground">
-                    Selected: {format(new Date(startDate), "MMM d, yyyy")} - {format(new Date(endDate), "MMM d, yyyy")}
+                    Selected: {format(new Date(startDate), "MMM dd, yyyy")} - {format(new Date(endDate), "MMM dd, yyyy")}
                   </div>
                 )}
               </div>
@@ -1008,8 +1008,8 @@ export default function BillingDashboard() {
                       <div>
                         <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                         <p className="text-slate-600">Invoice #: INV-{client.clientId}-{billing.id}</p>
-                        <p className="text-slate-600">Invoice Date: {billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</p>
-                        <p className="text-slate-600">Service Date: {billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-slate-600">Invoice Date: {billing.billingDate ? format(new Date(billing.billingDate), 'MMM dd, yyyy') : 'N/A'}</p>
+                        <p className="text-slate-600">Service Date: {billing.billingDate ? format(new Date(billing.billingDate), 'MMM dd, yyyy') : 'N/A'}</p>
                       </div>
                       <div className="text-right">
                         <PracticeHeader variant="invoice" align="right" />
@@ -1048,7 +1048,7 @@ export default function BillingDashboard() {
                           <tr>
                             <td className="border border-slate-200 px-4 py-2">{session.service?.serviceName || 'Professional Service'}</td>
                             <td className="border border-slate-200 px-4 py-2">{billing.serviceCode}</td>
-                            <td className="border border-slate-200 px-4 py-2">{billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A'}</td>
+                            <td className="border border-slate-200 px-4 py-2">{billing.billingDate ? format(new Date(billing.billingDate), 'MMM dd, yyyy') : 'N/A'}</td>
                             <td className="border border-slate-200 px-4 py-2 text-right">${Number(billing.totalAmount).toFixed(2)}</td>
                           </tr>
                         </tbody>
