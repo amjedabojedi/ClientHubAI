@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,7 @@ export default function SupervisorAssignments() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "Not set";
-    return new Date(dateString).toLocaleDateString();
+    return format(new Date(dateString), 'MMM dd, yyyy');
   };
 
   const getFrequencyBadgeColor = (frequency: string) => {

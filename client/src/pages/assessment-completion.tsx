@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+import { format } from "date-fns";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -604,7 +605,7 @@ export default function AssessmentCompletionPage() {
                 <Clock className="w-5 h-5 text-purple-600" />
                 <div>
                   <div className="text-sm text-slate-600">Assigned</div>
-                  <div className="font-semibold">{new Date(assignment.createdAt).toLocaleDateString()}</div>
+                  <div className="font-semibold">{format(new Date(assignment.createdAt), 'MMM dd, yyyy')}</div>
                   <div className="text-sm text-slate-500">by {assignment.assignedBy.fullName}</div>
                 </div>
               </div>

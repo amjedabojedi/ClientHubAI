@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -475,7 +476,7 @@ export default function AssessmentsPage() {
                         </CardDescription>
                         <div className="flex gap-4 text-sm text-muted-foreground">
                           <span>Assigned by: {assignment.assignedBy.fullName}</span>
-                          <span>Due: {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : "No due date"}</span>
+                          <span>Due: {assignment.dueDate ? format(new Date(assignment.dueDate), 'MMM dd, yyyy') : "No due date"}</span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">

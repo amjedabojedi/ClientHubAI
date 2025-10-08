@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { User, Shield, Settings, Edit, Trash2, UserCheck, UserX } from "lucide-react";
+import { format } from "date-fns";
 
 interface UserWithProfile {
   id: number;
@@ -132,7 +133,7 @@ export function UserCard({ user, onEditProfile, onEditBasicInfo, onDeleteUser, o
             <span className="font-medium text-gray-600">Last Login:</span>
             <span className="ml-2">
               {user.lastLogin 
-                ? new Date(user.lastLogin).toLocaleDateString()
+                ? format(new Date(user.lastLogin), 'MMM dd, yyyy')
                 : "Never"
               }
             </span>

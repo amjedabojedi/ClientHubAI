@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, Clock, AlertCircle, User, FileText } from "lucide-react";
 import { useState } from "react";
+import { format } from "date-fns";
 
 interface ChecklistItem {
   id: number;
@@ -209,7 +210,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
                             <div className="flex items-center gap-4 text-xs text-slate-500 mb-2">
                               <span className="flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" />
-                                Completed: {new Date(item.completedAt).toLocaleDateString()}
+                                Completed: {format(new Date(item.completedAt), 'MMM dd, yyyy')}
                               </span>
                               {item.completedByUser && (
                                 <span className="flex items-center gap-1">
@@ -238,7 +239,7 @@ const ProcessChecklistComponent = ({ clientId }: ProcessChecklistProps) => {
                     <div className="flex items-center gap-2 text-blue-800">
                       <Clock className="w-4 h-4" />
                       <span className="text-sm font-medium">
-                        Due Date: {new Date(checklist.dueDate).toLocaleDateString()}
+                        Due Date: {format(new Date(checklist.dueDate), 'MMM dd, yyyy')}
                       </span>
                     </div>
                   </div>
