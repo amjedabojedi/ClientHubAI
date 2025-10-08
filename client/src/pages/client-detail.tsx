@@ -2898,11 +2898,13 @@ export default function ClientDetailPage() {
                           <div className="text-right">
                             <Badge 
                               className={`${
-                                billing.paymentStatus === 'paid' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : billing.paymentStatus === 'pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-red-100 text-red-800'
+                                billing.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                billing.paymentStatus === 'billed' ? 'bg-blue-100 text-blue-800' :
+                                billing.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                                billing.paymentStatus === 'denied' ? 'bg-red-100 text-red-800' :
+                                billing.paymentStatus === 'refunded' ? 'bg-gray-100 text-gray-800' :
+                                billing.paymentStatus === 'follow_up' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
                               } px-3 py-1 text-sm font-medium`}
                             >
                               {billing.paymentStatus ? billing.paymentStatus.charAt(0).toUpperCase() + billing.paymentStatus.slice(1) : 'Unknown'}
@@ -3505,11 +3507,13 @@ export default function ClientDetailPage() {
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <span className="text-sm font-medium text-slate-700">Current Status:</span>
                 <Badge className={`${
-                  paymentBillingRecord?.paymentStatus === 'paid' 
-                    ? 'bg-green-100 text-green-800' 
-                    : paymentBillingRecord?.paymentStatus === 'pending'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-red-100 text-red-800'
+                  paymentBillingRecord?.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  paymentBillingRecord?.paymentStatus === 'billed' ? 'bg-blue-100 text-blue-800' :
+                  paymentBillingRecord?.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                  paymentBillingRecord?.paymentStatus === 'denied' ? 'bg-red-100 text-red-800' :
+                  paymentBillingRecord?.paymentStatus === 'refunded' ? 'bg-gray-100 text-gray-800' :
+                  paymentBillingRecord?.paymentStatus === 'follow_up' ? 'bg-orange-100 text-orange-800' :
+                  'bg-gray-100 text-gray-800'
                 }`}>
                   {paymentBillingRecord?.paymentStatus?.charAt(0).toUpperCase() + paymentBillingRecord?.paymentStatus?.slice(1)}
                 </Badge>
