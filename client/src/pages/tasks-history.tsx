@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,7 @@ const formatDate = (dateString: string | null) => {
 
 const formatDateTime = (dateString: string | null) => {
   if (!dateString) return 'N/A';
-  return new Date(String(dateString)).toLocaleString();
+  return format(new Date(String(dateString)), "MMM dd, yyyy 'at' h:mm a");
 };
 
 // ===== TASK HISTORY ITEM COMPONENT =====
