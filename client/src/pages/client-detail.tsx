@@ -68,52 +68,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 import { getClientStageColor } from "@/lib/task-utils";
+import { PracticeHeader } from "@/components/shared/practice-header";
 
 // Types
-
-// Practice Header Component for Invoice Preview
-const PracticeHeader = () => {
-  const { data: practiceSettings } = useQuery({
-    queryKey: ['/api/system-options/categories/practice_settings'],
-    queryFn: async () => {
-      // Try to find practice_settings category by key
-      const categoriesResponse = await fetch("/api/system-options/categories");
-      const categoriesData = await categoriesResponse.json();
-      const practiceCategory = categoriesData.find((cat: any) => cat.categoryKey === 'practice_settings');
-      
-      if (!practiceCategory) {
-        return {
-          options: []
-        };
-      }
-      
-      const response = await fetch(`/api/system-options/categories/${practiceCategory.id}`);
-      return await response.json();
-    },
-  });
-
-  const options = practiceSettings?.options || [];
-  const practiceName = options.find((o: any) => o.optionKey === 'practice_name')?.optionLabel || "";
-  const practiceDescription = options.find((o: any) => o.optionKey === 'practice_description')?.optionLabel || "";
-  const practiceSubtitle = options.find((o: any) => o.optionKey === 'practice_subtitle')?.optionLabel || "";
-  const practiceAddress = options.find((o: any) => o.optionKey === 'practice_address')?.optionLabel || "";
-  const practicePhone = options.find((o: any) => o.optionKey === 'practice_phone')?.optionLabel || "";
-  const practiceEmail = options.find((o: any) => o.optionKey === 'practice_email')?.optionLabel || "";
-  const practiceWebsite = options.find((o: any) => o.optionKey === 'practice_website')?.optionLabel || "";
-
-  return (
-    <>
-      <h3 className="text-lg font-semibold text-slate-900 mb-2">{practiceName}</h3>
-      <div className="mt-2 text-sm text-slate-600">
-        <p className="whitespace-pre-line">{practiceAddress}</p>
-        <p>Phone: {practicePhone}</p>
-        <p>Email: {practiceEmail}</p>
-        <p>Website: {practiceWebsite}</p>
-      </div>
-    </>
-  );
-};
-
 import type { Client, Task, Document, User, Session } from "@shared/schema";
 
 // Utility function to parse UTC date strings without timezone shift
@@ -1118,7 +1075,7 @@ export default function ClientDetailPage() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/billing`] });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
       toast({
         title: "Payment recorded",
         description: "Payment details have been updated successfully.",
@@ -1166,7 +1123,8 @@ export default function ClientDetailPage() {
           date: paymentForm.date,
           reference: paymentForm.reference || null,
           method: paymentForm.method,
-          notes: paymentForm.notes || null
+          notes: paymentForm.notes || null,
+          clientId: clientId
         }
       });
     } else {
@@ -1335,8 +1293,12 @@ export default function ClientDetailPage() {
   });
 
   const { data: billingRecords = [] } = useQuery<any[]>({
-    queryKey: [`/api/clients/${clientId}/billing`],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryKey: ['billing', 'client', clientId],
+    queryFn: async () => {
+      const response = await fetch(`/api/clients/${clientId}/billing`);
+      if (!response.ok) throw new Error('Failed to fetch billing records');
+      return response.json();
+    },
     enabled: !!clientId,
   });
 
@@ -3414,7 +3376,7 @@ export default function ClientDetailPage() {
                       <p className="text-slate-600">Service Date: {new Date(selectedBillingRecord.serviceDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
-                      <PracticeHeader />
+                      <PracticeHeader variant="full" align="right" />
                     </div>
                   </div>
 
