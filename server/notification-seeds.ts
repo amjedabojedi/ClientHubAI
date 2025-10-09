@@ -61,43 +61,6 @@ export const NOTIFICATION_TRIGGER_SEEDS = [
     maxBatchSize: null,
     isScheduled: true,  // Smart scheduling: immediate if <24hrs, scheduled if >24hrs
     isActive: true
-  },
-  {
-    name: "Intake Session Reminder",
-    description: "Special reminder for intake sessions",
-    eventType: "session_scheduled",
-    entityType: "session",
-    conditionRules: JSON.stringify({ sessionType: "intake" }),
-    recipientRules: JSON.stringify({
-      roles: ["administrator"],
-      assignedTherapist: true,
-      sessionClient: true
-    }),
-    templateId: null,
-    priority: "high",
-    delayMinutes: 0,
-    batchWindowMinutes: null,
-    maxBatchSize: null,
-    isActive: true
-  },
-  {
-    name: "Intake Session 24hr Advance Reminder",
-    description: "24-hour reminder for intake sessions",
-    eventType: "session_scheduled",
-    entityType: "session",
-    conditionRules: JSON.stringify({ sessionType: "intake" }),
-    recipientRules: JSON.stringify({
-      roles: ["administrator"],
-      assignedTherapist: true,
-      sessionClient: true
-    }),
-    templateId: null,
-    priority: "high",
-    delayMinutes: 0,
-    batchWindowMinutes: null,
-    maxBatchSize: null,
-    isScheduled: true,  // Smart scheduling: immediate if <24hrs, scheduled if >24hrs
-    isActive: true
   }
 ];
 
