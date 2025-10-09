@@ -2933,7 +2933,9 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Serve PDF file directly for viewing  
-  app.get("/api/clients/:clientId/documents/:id/file", async (req, res) => {
+  app.get("/api/clients/:clientId/documents/:id/file", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -2954,6 +2956,20 @@ This happens because only the file metadata was stored, not the actual file cont
       // Only serve PDF files through this endpoint
       if (document.mimeType !== 'application/pdf') {
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
+      }
+      
+      // HIPAA Audit Log: Document viewed (PDF file access)
+      if (req.user) {
+        await AuditLogger.logDocumentAccess(
+          req.user.id,
+          req.user.username,
+          id,
+          clientId,
+          'document_viewed',
+          ipAddress,
+          userAgent,
+          { fileName: document.originalName, fileType: document.mimeType, accessType: 'pdf_view' }
+        );
       }
       
       // Use Object Storage with specific bucket ID
