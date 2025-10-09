@@ -2761,6 +2761,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/clients/:clientId/documents/:id/preview", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -2771,6 +2773,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // HIPAA Audit Log: Document viewed
+      if ((req as any).user) {
+        const user = (req as any).user;
+        await AuditLogger.logDocumentAccess(
+          user.id,
+          user.username,
+          id,
+          clientId,
+          'document_viewed',
+          ipAddress,
+          userAgent,
+          { fileName: document.originalName, fileType: document.mimeType }
+        );
       }
       
       // Generate a proper preview based on file type
@@ -3059,6 +3076,8 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   app.get("/api/clients/:clientId/documents/:id/download", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -3079,6 +3098,21 @@ This happens because only the file metadata was stored, not the actual file cont
       const downloadResult = await objectStorage.downloadAsText(objectKey);
       
       if (downloadResult.ok) {
+        // HIPAA Audit Log: Document downloaded
+        if ((req as any).user) {
+          const user = (req as any).user;
+          await AuditLogger.logDocumentAccess(
+            user.id,
+            user.username,
+            id,
+            clientId,
+            'document_downloaded',
+            ipAddress,
+            userAgent,
+            { fileName: document.originalName, fileType: document.mimeType }
+          );
+        }
+        
         const buffer = Buffer.from(downloadResult.value, 'base64');
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
