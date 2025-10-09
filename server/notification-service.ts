@@ -540,31 +540,31 @@ export class NotificationService {
         await this.createNotificationsBatch(notificationsData);
       }
       
-      // Track client email communications separately
-      // Create notification records for tracking in communications history
-      // These won't be shown as in-app notifications, just for email tracking
+      // Track client emails for Communications tab using system user
+      // Clients don't have user accounts, so we use system user (id=6) for tracking
       if (clientRecipients.length > 0) {
-        const clientNotificationsData: InsertNotification[] = clientRecipients.map(client => {
+        const SYSTEM_USER_ID = 6; // System admin user for client email tracking
+        const clientEmailTrackingData: InsertNotification[] = clientRecipients.map(client => {
           const title = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
           const message = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
           
           return {
-            userId: client.id, // This is actually the client ID (from client table)
+            userId: SYSTEM_USER_ID, // Use system user, not client ID
             type: trigger.eventType,
-            title,
-            message,
-            data: JSON.stringify({ ...entityData, isClientEmail: true, clientEmail: client.email }),
+            title: `${title} (sent to ${client.fullName})`,
+            message: `Email sent to ${client.email}: ${message}`,
+            data: JSON.stringify({ ...entityData, isClientEmail: true, clientEmail: client.email, clientId: client.id }),
             priority: trigger.priority,
-            actionUrl: null, // Clients don't have in-app access
+            actionUrl: null,
             actionLabel: null,
             groupingKey: `${trigger.eventType}_client_${client.id}_${entityData.id}`,
-            relatedEntityType: trigger.entityType, // 'session', 'client', etc.
-            relatedEntityId: entityData.id
+            relatedEntityType: 'client',
+            relatedEntityId: client.id // Link to client, not session
           };
         });
 
-        // Save client email tracking records
-        await this.createNotificationsBatch(clientNotificationsData);
+        // Save client email tracking records under system user
+        await this.createNotificationsBatch(clientEmailTrackingData);
       }
       
       // Send emails to ALL recipients (users and clients)
