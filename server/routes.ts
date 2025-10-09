@@ -3803,6 +3803,19 @@ This happens because only the file metadata was stored, not the actual file cont
       
       const sessionNote = await storage.createSessionNote(validatedData);
       
+      // HIPAA Audit Log: Session note created
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      await AuditLogger.logSessionNoteAccess(
+        req.user.id,
+        req.user.username,
+        sessionNote.id,
+        validatedData.clientId,
+        'note_created',
+        ipAddress,
+        userAgent,
+        { sessionId: validatedData.sessionId, aiEnabled: validatedData.aiEnabled }
+      );
+      
       // Generate AI content if enabled
       if (validatedData.aiEnabled && process.env.OPENAI_API_KEY) {
         try {
@@ -3834,6 +3847,18 @@ This happens because only the file metadata was stored, not the actual file cont
             draftContent: aiContent.generatedContent,
             aiProcessingStatus: 'completed'
           });
+          
+          // HIPAA Audit Log: AI content generated
+          await AuditLogger.logSessionNoteAccess(
+            req.user.id,
+            req.user.username,
+            sessionNote.id,
+            validatedData.clientId,
+            'note_ai_generated',
+            ipAddress,
+            userAgent,
+            { sessionId: validatedData.sessionId }
+          );
         } catch (aiError) {
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'error' });
         }
@@ -3877,6 +3902,20 @@ This happens because only the file metadata was stored, not the actual file cont
       
       const validatedData = insertSessionNoteSchema.partial().parse(req.body);
       const sessionNote = await storage.updateSessionNote(id, validatedData);
+      
+      // HIPAA Audit Log: Session note updated
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      await AuditLogger.logSessionNoteAccess(
+        req.user.id,
+        req.user.username,
+        id,
+        existingNote.clientId,
+        'note_updated',
+        ipAddress,
+        userAgent,
+        { sessionId: existingNote.sessionId, fieldsUpdated: Object.keys(validatedData) }
+      );
+      
       res.json(sessionNote);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3912,6 +3951,20 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       await storage.deleteSessionNote(id);
+      
+      // HIPAA Audit Log: Session note deleted
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      await AuditLogger.logSessionNoteAccess(
+        req.user.id,
+        req.user.username,
+        id,
+        existingNote.clientId,
+        'note_deleted',
+        ipAddress,
+        userAgent,
+        { sessionId: existingNote.sessionId }
+      );
+      
       res.status(204).send();
     } catch (error) {
       // Error logged
