@@ -136,9 +136,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       return;
     }
 
-    const clientId = billingRecord.session?.client?.id;
-    console.log('[PAYMENT DEBUG] billingRecord:', billingRecord);
-    console.log('[PAYMENT DEBUG] clientId:', clientId);
+    const clientId = billingRecord.session?.clientId;
     
     if (!clientId) {
       toast({ 
