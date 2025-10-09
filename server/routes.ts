@@ -1932,6 +1932,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // HIPAA Audit Log: Session updated
+      if ((req as any).user) {
+        const user = (req as any).user;
+        await AuditLogger.logSessionAccess(
+          user.id,
+          user.username,
+          id,
+          session.clientId,
+          'session_updated',
+          ipAddress,
+          userAgent,
+          { 
+            fieldsUpdated: Object.keys(validatedData),
+            dateChanged: sessionData.sessionDate && originalSession.sessionDate !== sessionData.sessionDate,
+            statusChanged: sessionData.status && originalSession.status !== sessionData.status
+          }
+        );
+      }
+      
       res.json({ 
         ...session, 
         warning: zoomWarning || undefined 
@@ -5583,7 +5602,36 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "Invalid billing status" });
       }
       
+      // Get billing record to get client ID for audit
+      const { sessionBilling } = await import("@shared/schema");
+      const [billingRecord] = await db.select().from(sessionBilling).where(eq(sessionBilling.id, billingId));
+      
+      if (!billingRecord) {
+        return res.status(404).json({ message: "Billing record not found" });
+      }
+      
+      // Get session to get client ID
+      const { sessions } = await import("@shared/schema");
+      const [session] = await db.select().from(sessions).where(eq(sessions.id, billingRecord.sessionId));
+      
+      const oldStatus = billingRecord.paymentStatus;
       await storage.updateBillingStatus(billingId, status);
+      
+      // HIPAA Audit Log: Billing status changed
+      if (session && req.user) {
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logBillingAccess(
+          req.user.id,
+          req.user.username,
+          billingId,
+          session.clientId,
+          'billing_status_changed',
+          ipAddress,
+          userAgent,
+          { oldStatus, newStatus: status, sessionId: session.id }
+        );
+      }
+      
       res.json({ message: "Billing status updated successfully" });
     } catch (error) {
       // Error logged
