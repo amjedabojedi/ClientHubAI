@@ -58,6 +58,9 @@ interface BillingRecord {
   updatedAt: string;
   session?: {
     id: number;
+    clientId: number;
+    therapistId: number;
+    serviceId: number;
     sessionDate: string;
     sessionType: string;
     status: string;
@@ -136,7 +139,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       return;
     }
 
-    const clientId = billingRecord.session?.clientId;
+    const clientId = billingRecord?.session?.clientId;
     
     if (!clientId) {
       toast({ 
