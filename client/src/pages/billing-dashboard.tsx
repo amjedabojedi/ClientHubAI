@@ -136,6 +136,19 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       return;
     }
 
+    const clientId = billingRecord.session?.client?.id;
+    console.log('[PAYMENT DEBUG] billingRecord:', billingRecord);
+    console.log('[PAYMENT DEBUG] clientId:', clientId);
+    
+    if (!clientId) {
+      toast({ 
+        title: "Error: Missing client information", 
+        description: "Cannot record payment - client data is missing",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     recordPaymentMutation.mutate({
       status: 'paid',
       amount: parseFloat(paymentAmount),
@@ -143,7 +156,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       reference: paymentReference,
       notes: paymentNotes,
       date: new Date().toISOString().split('T')[0],
-      clientId: billingRecord.session?.client?.id
+      clientId: clientId
     });
   };
 
