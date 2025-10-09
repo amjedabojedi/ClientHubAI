@@ -201,6 +201,96 @@ export class AuditLogger {
   }
 
   /**
+   * Log session note operations (high risk - clinical documentation)
+   */
+  static async logSessionNoteAccess(
+    userId: number,
+    username: string,
+    noteId: number,
+    clientId: number,
+    action: 'note_created' | 'note_updated' | 'note_viewed' | 'note_deleted' | 'note_ai_generated',
+    ipAddress: string,
+    userAgent: string,
+    details?: any
+  ) {
+    return this.logAction({
+      userId,
+      username,
+      action,
+      result: 'success',
+      resourceType: 'session_note',
+      resourceId: noteId.toString(),
+      clientId,
+      ipAddress,
+      userAgent,
+      hipaaRelevant: true,
+      riskLevel: 'high', // Clinical notes are high risk
+      details: JSON.stringify(details || {}),
+      accessReason: 'Clinical documentation and care',
+    });
+  }
+
+  /**
+   * Log assessment operations
+   */
+  static async logAssessmentAccess(
+    userId: number,
+    username: string,
+    assessmentId: number,
+    clientId: number,
+    action: 'assessment_assigned' | 'assessment_completed' | 'assessment_viewed' | 'assessment_report_generated',
+    ipAddress: string,
+    userAgent: string,
+    details?: any
+  ) {
+    return this.logAction({
+      userId,
+      username,
+      action,
+      result: 'success',
+      resourceType: 'assessment',
+      resourceId: assessmentId.toString(),
+      clientId,
+      ipAddress,
+      userAgent,
+      hipaaRelevant: true,
+      riskLevel: 'high', // Assessments contain sensitive clinical data
+      details: JSON.stringify(details || {}),
+      accessReason: 'Clinical assessment and evaluation',
+    });
+  }
+
+  /**
+   * Log billing operations (financial PHI)
+   */
+  static async logBillingAccess(
+    userId: number,
+    username: string,
+    billingId: number,
+    clientId: number,
+    action: 'billing_created' | 'billing_updated' | 'billing_status_changed' | 'payment_recorded' | 'invoice_sent',
+    ipAddress: string,
+    userAgent: string,
+    details?: any
+  ) {
+    return this.logAction({
+      userId,
+      username,
+      action,
+      result: 'success',
+      resourceType: 'billing',
+      resourceId: billingId.toString(),
+      clientId,
+      ipAddress,
+      userAgent,
+      hipaaRelevant: true,
+      riskLevel: 'medium', // Financial data is medium risk
+      details: JSON.stringify(details || {}),
+      accessReason: 'Billing and financial services',
+    });
+  }
+
+  /**
    * Record login attempts for security monitoring
    */
   static async recordLoginAttempt(data: InsertLoginAttempt) {
@@ -244,17 +334,11 @@ export class AuditLogger {
       riskLevel?: string;
     }
   ) {
-    let query = db
+    // TODO: Implement date filtering and options
+    return await db
       .select()
       .from(auditLogs)
-      .where(
-        // Add date filtering here when we implement it
-      );
-
-    // Add filters based on options
-    // This would be expanded with actual filtering logic
-
-    return await query.execute();
+      .execute();
   }
 }
 
