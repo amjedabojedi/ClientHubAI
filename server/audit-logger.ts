@@ -20,7 +20,7 @@ export class AuditLogger {
   }
 
   /**
-   * Log client data access (PHI access tracking)
+   * Log client data access (PHI access tracking - expanded)
    */
   static async logClientAccess(
     userId: number,
@@ -31,6 +31,9 @@ export class AuditLogger {
     userAgent: string,
     details?: any
   ) {
+    // Determine risk level based on action
+    const riskLevel = action === 'client_deleted' ? 'high' : 'medium';
+    
     return this.logAction({
       userId,
       username,
@@ -42,14 +45,14 @@ export class AuditLogger {
       ipAddress,
       userAgent,
       hipaaRelevant: true, // Client data is always PHI
-      riskLevel: 'medium',
+      riskLevel,
       details: JSON.stringify(details || {}),
       accessReason: 'Clinical care and treatment',
     });
   }
 
   /**
-   * Log session data access
+   * Log session data access (expanded with all operations)
    */
   static async logSessionAccess(
     userId: number,
@@ -61,6 +64,9 @@ export class AuditLogger {
     userAgent: string,
     details?: any
   ) {
+    // Determine risk level based on action
+    const riskLevel = action === 'session_deleted' ? 'high' : 'medium';
+    
     return this.logAction({
       userId,
       username,
@@ -72,7 +78,7 @@ export class AuditLogger {
       ipAddress,
       userAgent,
       hipaaRelevant: true,
-      riskLevel: 'medium',
+      riskLevel,
       details: JSON.stringify(details || {}),
       accessReason: 'Clinical documentation and care',
     });
