@@ -6107,8 +6107,11 @@ This happens because only the file metadata was stored, not the actual file cont
             // Track invoice email in communications history
             try {
               const { notifications } = await import("@shared/schema");
+              // Use system admin user (id=6) for client email tracking
+              const SYSTEM_USER_ID = 6;
+              
               await db.insert(notifications).values({
-                userId: client.id, // Client ID for tracking
+                userId: SYSTEM_USER_ID, // System user for client email tracking
                 type: 'invoice_sent' as any,
                 title: `Invoice Sent - INV-${client.clientId}-${billingId}`,
                 message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)}${pdfBuffer ? ' with PDF attachment' : ' as HTML email'}`,
@@ -6127,6 +6130,12 @@ This happens because only the file metadata was stored, not the actual file cont
                 groupingKey: `invoice_${billingId}_${client.id}`,
                 relatedEntityType: 'billing' as any,
                 relatedEntityId: billingId
+              });
+              
+              console.log('[EMAIL TRACKING] Invoice email tracked successfully:', {
+                billingId,
+                clientEmail: client.email,
+                amount: remainingDue
               });
             } catch (trackingError) {
               console.error('[EMAIL TRACKING] Failed to track invoice email:', trackingError);
