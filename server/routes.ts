@@ -6083,6 +6083,35 @@ This happens because only the file metadata was stored, not the actual file cont
               timestamp: new Date().toISOString()
             });
 
+            // Track invoice email in communications history
+            try {
+              const { notifications } = await import("@shared/schema");
+              await db.insert(notifications).values({
+                userId: client.id, // Client ID for tracking
+                type: 'invoice_sent' as any,
+                title: `Invoice Sent - INV-${client.clientId}-${billingId}`,
+                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)}${pdfBuffer ? ' with PDF attachment' : ' as HTML email'}`,
+                data: JSON.stringify({
+                  isClientEmail: true,
+                  clientEmail: client.email,
+                  billingId,
+                  invoiceNumber: `INV-${client.clientId}-${billingId}`,
+                  amount: remainingDue,
+                  hasPdfAttachment: !!pdfBuffer,
+                  transmissionId: result.results?.id
+                }),
+                priority: 'medium' as any,
+                actionUrl: null,
+                actionLabel: null,
+                groupingKey: `invoice_${billingId}_${client.id}`,
+                relatedEntityType: 'billing' as any,
+                relatedEntityId: billingId
+              });
+            } catch (trackingError) {
+              console.error('[EMAIL TRACKING] Failed to track invoice email:', trackingError);
+              // Don't fail the request if tracking fails
+            }
+
             res.json({ 
               message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,

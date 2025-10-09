@@ -510,9 +510,10 @@ export class NotificationService {
       // Separate recipients into actual users (in users table) and clients (fake user objects)
       // Clients are marked with role='client' when converted from client records
       const actualUsers = recipients.filter(r => r.role !== 'client');
+      const clientRecipients = recipients.filter(r => r.role === 'client');
       const allRecipients = recipients; // Keep all for email sending
 
-      // Create in-app notifications ONLY for actual users (not clients)
+      // Create in-app notifications for actual users (not clients)
       // Clients don't have user accounts, so they can't see in-app notifications
       if (actualUsers.length > 0) {
         const notificationsData: InsertNotification[] = actualUsers.map(recipient => {
@@ -537,6 +538,33 @@ export class NotificationService {
 
         // Batch create notifications for actual users only
         await this.createNotificationsBatch(notificationsData);
+      }
+      
+      // Track client email communications separately
+      // Create notification records for tracking in communications history
+      // These won't be shown as in-app notifications, just for email tracking
+      if (clientRecipients.length > 0) {
+        const clientNotificationsData: InsertNotification[] = clientRecipients.map(client => {
+          const title = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
+          const message = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
+          
+          return {
+            userId: client.id, // This is actually the client ID (from client table)
+            type: trigger.eventType,
+            title,
+            message,
+            data: JSON.stringify({ ...entityData, isClientEmail: true, clientEmail: client.email }),
+            priority: trigger.priority,
+            actionUrl: null, // Clients don't have in-app access
+            actionLabel: null,
+            groupingKey: `${trigger.eventType}_client_${client.id}_${entityData.id}`,
+            relatedEntityType: trigger.entityType, // 'session', 'client', etc.
+            relatedEntityId: entityData.id
+          };
+        });
+
+        // Save client email tracking records
+        await this.createNotificationsBatch(clientNotificationsData);
       }
       
       // Send emails to ALL recipients (users and clients)
