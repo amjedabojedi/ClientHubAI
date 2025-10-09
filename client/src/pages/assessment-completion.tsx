@@ -304,10 +304,10 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'multiple_choice':
-        // Provide default options when question.options is null
+        // Provide default options when question.options is null or empty
         let questionOptions = question.options;
         
-        if (!questionOptions) {
+        if (!questionOptions || questionOptions.length === 0) {
           // Special handling for session format question
           if (question.questionText.toLowerCase().includes('session format')) {
             questionOptions = ['In-Person', 'Online', 'Phone'];
@@ -435,10 +435,10 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'checkbox':
-        // Use options from database template OR provide defaults when question.options is null
+        // Use options from database template OR provide defaults when question.options is null or empty
         let checkboxOptions = question.options;
         
-        if (!checkboxOptions) {
+        if (!checkboxOptions || checkboxOptions.length === 0) {
           // Provide sensible defaults based on question text
           if (question.questionText.toLowerCase().includes('psychological tools') || question.questionText.toLowerCase().includes('which psychological')) {
             checkboxOptions = ['Clinical Interview', 'Questionnaires', 'Standardized Tests', 'Behavioral Observation', 'Other'];
