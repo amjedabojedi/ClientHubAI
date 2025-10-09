@@ -52,6 +52,9 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Checklist Management**: Comprehensive checklist templates for process workflows.
 - **Dashboard**: Informative homepage with key metrics, quick actions, recent activity, and upcoming deadlines.
 - **HIPAA Compliance Audit System**: Comprehensive activity tracking for healthcare privacy compliance including PHI access, data modifications, and login attempts.
+  - **Audit Coverage**: Session notes (create/update/delete/AI), billing operations (status changes/payments/invoices), session updates (date/status/details), client access/modifications, document operations (upload/download/delete), user authentication (login/logout/failed attempts).
+  - **Audit Data**: Each log captures user identity, client/session identifiers, timestamp, IP address, user agent, action type, and operation-specific metadata.
+  - **Implementation**: Centralized AuditLogger service in `server/audit-logger.ts` with route-level integration in `server/routes.ts`. All PHI-sensitive operations trigger corresponding audit entries.
 - **Email Communications History**: Complete audit trail of all client emails (session scheduled, rescheduled, 24hr reminders, intake reminders) with timestamps, email content, and collapsible view. Accessible via dedicated Communications tab in client profiles.
 
 ## External Dependencies
