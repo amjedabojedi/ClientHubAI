@@ -2760,7 +2760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:clientId/documents/:id/preview", async (req, res) => {
+  app.get("/api/clients/:clientId/documents/:id/preview", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -2776,11 +2776,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // HIPAA Audit Log: Document viewed
-      if ((req as any).user) {
-        const user = (req as any).user;
+      if (req.user) {
         await AuditLogger.logDocumentAccess(
-          user.id,
-          user.username,
+          req.user.id,
+          req.user.username,
           id,
           clientId,
           'document_viewed',
@@ -3075,7 +3074,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/clients/:clientId/documents/:id/download", async (req, res) => {
+  app.get("/api/clients/:clientId/documents/:id/download", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -3099,11 +3098,10 @@ This happens because only the file metadata was stored, not the actual file cont
       
       if (downloadResult.ok) {
         // HIPAA Audit Log: Document downloaded
-        if ((req as any).user) {
-          const user = (req as any).user;
+        if (req.user) {
           await AuditLogger.logDocumentAccess(
-            user.id,
-            user.username,
+            req.user.id,
+            req.user.username,
             id,
             clientId,
             'document_downloaded',
