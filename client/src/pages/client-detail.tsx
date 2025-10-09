@@ -1430,7 +1430,7 @@ export default function ClientDetailPage() {
     if (!rooms || rooms.length === 0) return [];
     
     const results: Array<{ time: string, isAvailable: boolean }> = [];
-    const timeSlots = generateTimeSlots(8, 18, effectiveDuration);
+    const timeSlots = generateTimeSlots(8, 24, effectiveDuration);
     
     const allSessionsData = sessions || [];
     const targetDate = new Date(selectedDate + 'T12:00:00');
@@ -1444,7 +1444,7 @@ export default function ClientDetailPage() {
       const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
       const slotEnd = new Date(slotStart.getTime() + effectiveDuration * 60000);
       
-      const businessEnd = new Date(`${selectedDate}T18:00:00`);
+      const businessEnd = new Date(`${selectedDate}T24:00:00`);
       if (slotEnd > businessEnd) continue;
 
       const roomBusy = daySessionsForRoom.some(s => {

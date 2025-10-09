@@ -196,12 +196,12 @@ export const minutesToDuration = (minutes: number): string => {
  */
 export const generateTimeSlots = (
   startHour = 8,
-  endHour = 18, 
+  endHour = 24, 
   intervalMinutes = 30
 ): string[] => {
   const slots: string[] = [];
   const startMinutes = startHour * 60;
-  const endMinutes = endHour * 60 + 30; // Include 18:30
+  const endMinutes = endHour * 60; // Include up to 24:00 (midnight)
   
   for (let minutes = startMinutes; minutes < endMinutes; minutes += intervalMinutes) {
     slots.push(minutesToHHMM(minutes));

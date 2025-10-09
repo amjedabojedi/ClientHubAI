@@ -559,7 +559,7 @@ export default function SchedulingPage() {
 
   // Enhanced time slots with flexible intervals
   const getTimeSlots = (intervalMinutes = 30): string[] => {
-    return generateTimeSlots(8, 18, intervalMinutes);
+    return generateTimeSlots(8, 24, intervalMinutes);
   };
   
   // Get time slots with labels for display
@@ -643,8 +643,8 @@ export default function SchedulingPage() {
       const slotStart = new Date(`${selectedDate}T${timeSlot}:00`);
       const slotEnd = new Date(slotStart.getTime() + effectiveDuration * 60000);
       
-      // Skip slots that would end after business hours (6 PM / 18:00)
-      const businessEnd = new Date(`${selectedDate}T18:00:00`);
+      // Skip slots that would end after business hours (12 AM / 24:00)
+      const businessEnd = new Date(`${selectedDate}T24:00:00`);
       if (slotEnd > businessEnd) continue;
 
       // ROOM-FIRST LOGIC: Check if room is busy during this time slot  

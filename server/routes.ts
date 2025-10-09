@@ -1344,9 +1344,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Set to start of today
       
-      // BUSINESS HOURS VALIDATION: Reject sessions after 6 PM (18:00) in practice timezone
+      // BUSINESS HOURS VALIDATION: Reject sessions after 12 AM (24:00) in practice timezone
       const PRACTICE_TIMEZONE = 'America/New_York'; // EST/EDT - should match practice settings
-      const BUSINESS_END_HOUR = 18; // 6 PM in 24-hour format
+      const BUSINESS_END_HOUR = 24; // 12 AM (midnight) in 24-hour format
       
       // Get actual session duration from service or default to 60 minutes
       let sessionDurationMinutes = 60; // Default fallback
@@ -1371,22 +1371,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionEndMinutes = sessionStartMinutes + sessionDurationMinutes;
       const sessionEndHour = Math.floor(sessionEndMinutes / 60);
       const sessionEndMinute = sessionEndMinutes % 60;
-      const businessEndMinutes = BUSINESS_END_HOUR * 60; // 18:00 = 1080 minutes
+      const businessEndMinutes = BUSINESS_END_HOUR * 60; // 24:00 = 1440 minutes
       
-      // Check if session starts at or after 6:00 PM
+      // Check if session starts at or after 12:00 AM (midnight)
       if (sessionStartMinutes >= businessEndMinutes) {
         return res.status(400).json({ 
-          message: "Session cannot be scheduled after 6:00 PM (18:00). Business hours end at 6:00 PM.",
-          businessHours: "8:00 AM - 6:00 PM"
+          message: "Session cannot be scheduled after 12:00 AM (midnight). Business hours end at 12:00 AM.",
+          businessHours: "8:00 AM - 12:00 AM"
         });
       }
       
-      // Check if session ends after 6:00 PM
+      // Check if session ends after 12:00 AM (midnight)
       if (sessionEndMinutes > businessEndMinutes) {
         const endTimeFormatted = `${sessionEndHour}:${sessionEndMinute.toString().padStart(2, '0')}`;
         return res.status(400).json({ 
-          message: `This ${sessionDurationMinutes}-minute session would end at ${endTimeFormatted}, which is past business hours (6:00 PM). Please choose an earlier time.`,
-          businessHours: "8:00 AM - 6:00 PM"
+          message: `This ${sessionDurationMinutes}-minute session would end at ${endTimeFormatted}, which is past business hours (12:00 AM). Please choose an earlier time.`,
+          businessHours: "8:00 AM - 12:00 AM"
         });
       }
 
@@ -1642,9 +1642,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         sessionData.sessionDate = dateValue;
         
-        // BUSINESS HOURS VALIDATION: Reject sessions after 6 PM (18:00) in practice timezone
+        // BUSINESS HOURS VALIDATION: Reject sessions after 12 AM (24:00) in practice timezone
         const PRACTICE_TIMEZONE = 'America/New_York'; // EST/EDT - should match practice settings
-        const BUSINESS_END_HOUR = 18; // 6 PM in 24-hour format
+        const BUSINESS_END_HOUR = 24; // 12 AM (midnight) in 24-hour format
         
         // Get actual session duration from service or default to 60 minutes
         let sessionDurationMinutes = 60; // Default fallback
@@ -1669,22 +1669,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const sessionEndMinutes = sessionStartMinutes + sessionDurationMinutes;
         const sessionEndHour = Math.floor(sessionEndMinutes / 60);
         const sessionEndMinute = sessionEndMinutes % 60;
-        const businessEndMinutes = BUSINESS_END_HOUR * 60; // 18:00 = 1080 minutes
+        const businessEndMinutes = BUSINESS_END_HOUR * 60; // 24:00 = 1440 minutes
         
-        // Check if session starts at or after 6:00 PM
+        // Check if session starts at or after 12:00 AM (midnight)
         if (sessionStartMinutes >= businessEndMinutes) {
           return res.status(400).json({ 
-            message: "Session cannot be scheduled after 6:00 PM (18:00). Business hours end at 6:00 PM.",
-            businessHours: "8:00 AM - 6:00 PM"
+            message: "Session cannot be scheduled after 12:00 AM (midnight). Business hours end at 12:00 AM.",
+            businessHours: "8:00 AM - 12:00 AM"
           });
         }
         
-        // Check if session ends after 6:00 PM
+        // Check if session ends after 12:00 AM (midnight)
         if (sessionEndMinutes > businessEndMinutes) {
           const endTimeFormatted = `${sessionEndHour}:${sessionEndMinute.toString().padStart(2, '0')}`;
           return res.status(400).json({ 
-            message: `This ${sessionDurationMinutes}-minute session would end at ${endTimeFormatted}, which is past business hours (6:00 PM). Please choose an earlier time.`,
-            businessHours: "8:00 AM - 6:00 PM"
+            message: `This ${sessionDurationMinutes}-minute session would end at ${endTimeFormatted}, which is past business hours (12:00 AM). Please choose an earlier time.`,
+            businessHours: "8:00 AM - 12:00 AM"
           });
         }
 
