@@ -3810,7 +3810,8 @@ This happens because only the file metadata was stored, not the actual file cont
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'processing' });
           
           // Get session and client details for AI context
-          const session = await storage.getSession(validatedData.sessionId);
+          const { sessions: sessionsTable } = await import("@shared/schema");
+          const [session] = await db.select().from(sessionsTable).where(eq(sessionsTable.id, validatedData.sessionId));
           const client = await storage.getClient(validatedData.clientId);
           
           const aiContent = await generateSessionNoteSummary({
@@ -5483,8 +5484,28 @@ This happens because only the file metadata was stored, not the actual file cont
           .limit(100);
       }
 
+      // Also get billing/invoice-related notifications for this client
+      const billingRecords = await storage.getBillingRecordsByClient(clientId);
+      const billingIds = billingRecords.map((b: any) => b.id);
+
+      let billingNotifications: any[] = [];
+      if (billingIds.length > 0) {
+        const { inArray } = await import("drizzle-orm");
+        billingNotifications = await db
+          .select()
+          .from(notificationsTable)
+          .where(
+            and(
+              eq(notificationsTable.relatedEntityType, 'billing' as any),
+              inArray(notificationsTable.relatedEntityId, billingIds)
+            )
+          )
+          .orderBy(desc(notificationsTable.createdAt))
+          .limit(100);
+      }
+
       // Combine and sort all notifications
-      const allNotifications = [...clientNotifications, ...sessionNotifications]
+      const allNotifications = [...clientNotifications, ...sessionNotifications, ...billingNotifications]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 100); // Limit to 100 most recent
 
