@@ -349,70 +349,124 @@ export default function HIPAAAuditPage() {
                     <TableHead>User</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Client</TableHead>
+                    <TableHead>Details</TableHead>
                     <TableHead>Result</TableHead>
-                    <TableHead>Risk Level</TableHead>
-                    <TableHead>PHI</TableHead>
                     <TableHead>IP Address</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {auditLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
                         No audit log entries found for the selected filters
                       </TableCell>
                     </TableRow>
                   ) : (
-                    auditLogs.map((log: AuditLog) => (
-                      <TableRow key={log.id} className="hover:bg-slate-50">
-                        <TableCell className="font-mono text-sm">
-                          {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm:ss')}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <UserCheck className="w-4 h-4 mr-2 text-gray-500" />
-                            <span className="font-medium">{log.username}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            {getActionIcon(log.action)}
-                            <span className="ml-2 capitalize">{log.action.replace('_', ' ')}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {log.clientName ? (
-                              <div className="font-medium">{log.clientName}</div>
-                            ) : log.resourceType === 'client' && log.clientId ? (
-                              <div className="text-gray-500">Client ID: {log.clientId}</div>
-                            ) : (
-                              <div className="text-gray-400">—</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={log.result === 'success' ? 'default' : 'destructive'}>
-                            {log.result}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getRiskLevelColor(log.riskLevel)}>
-                            {log.riskLevel}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {log.hipaaRelevant ? (
-                            <Badge className="bg-purple-100 text-purple-800">PHI</Badge>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {log.ipAddress}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    auditLogs.map((log: AuditLog) => {
+                      // Parse details JSON to show meaningful information
+                      let detailsText = '—';
+                      try {
+                        const details = JSON.parse(log.details || '{}');
+                        
+                        // Document actions
+                        if (log.action.includes('document')) {
+                          detailsText = details.fileName ? `File: ${details.fileName}` : 'Document accessed';
+                          if (details.fileType) detailsText += ` (${details.fileType})`;
+                        }
+                        // Session note actions
+                        else if (log.action.includes('note')) {
+                          if (log.action === 'note_ai_generated') {
+                            detailsText = 'AI generated session note';
+                          } else if (log.action === 'note_created') {
+                            detailsText = 'Created new session note';
+                          } else if (log.action === 'note_updated') {
+                            detailsText = 'Updated session note';
+                          } else if (log.action === 'note_deleted') {
+                            detailsText = 'Deleted session note';
+                          }
+                        }
+                        // Billing actions
+                        else if (log.action.includes('billing')) {
+                          if (details.oldStatus && details.newStatus) {
+                            detailsText = `Status: ${details.oldStatus} → ${details.newStatus}`;
+                          } else if (details.amount) {
+                            detailsText = `Amount: $${details.amount}`;
+                          } else {
+                            detailsText = 'Billing record updated';
+                          }
+                        }
+                        // Session actions
+                        else if (log.action.includes('session')) {
+                          if (details.session_type) {
+                            detailsText = `Session type: ${details.session_type}`;
+                          } else if (details.fieldsUpdated) {
+                            detailsText = `Updated: ${details.fieldsUpdated.join(', ')}`;
+                          } else if (details.session_date) {
+                            detailsText = `Session scheduled`;
+                          } else {
+                            detailsText = 'Session modified';
+                          }
+                        }
+                        // Client actions
+                        else if (log.action === 'client_viewed') {
+                          detailsText = 'Viewed client profile';
+                        } else if (log.action === 'client_created') {
+                          detailsText = 'Created new client';
+                        } else if (log.action === 'client_updated') {
+                          detailsText = 'Updated client information';
+                        }
+                        // Login/auth actions
+                        else if (log.action.includes('login') || log.action.includes('password')) {
+                          detailsText = log.action.replace('_', ' ');
+                        }
+                      } catch (e) {
+                        detailsText = log.action.replace('_', ' ');
+                      }
+                      
+                      return (
+                        <TableRow key={log.id} className="hover:bg-slate-50">
+                          <TableCell className="font-mono text-sm">
+                            {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              <UserCheck className="w-4 h-4 mr-2 text-gray-500" />
+                              <span className="font-medium">{log.username}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              {getActionIcon(log.action)}
+                              <span className="ml-2 capitalize">{log.action.replace('_', ' ')}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {log.clientName ? (
+                                <div className="font-medium">{log.clientName}</div>
+                              ) : log.resourceType === 'client' && log.clientId ? (
+                                <div className="text-gray-500">Client ID: {log.clientId}</div>
+                              ) : (
+                                <div className="text-gray-400">—</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-slate-600">
+                              {detailsText}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={log.result === 'success' ? 'default' : 'destructive'}>
+                              {log.result}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {log.ipAddress}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
