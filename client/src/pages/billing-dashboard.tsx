@@ -407,8 +407,14 @@ export default function BillingDashboard() {
     totalClients: new Set(statsData.map((r: any) => r.client?.id).filter(Boolean)).size
   };
 
-  const handleRecordPayment = (record: BillingRecord) => {
-    setSelectedBillingRecord(record);
+  const handleRecordPayment = (record: any) => {
+    // Transform the record to match BillingRecord interface
+    const billing = record.billing || record;
+    const billingRecord: BillingRecord = {
+      ...billing,
+      session: record.session
+    };
+    setSelectedBillingRecord(billingRecord);
     setPaymentDialogOpen(true);
   };
 
@@ -851,7 +857,7 @@ export default function BillingDashboard() {
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => handleRecordPayment(billing)}
+                              onClick={() => handleRecordPayment(record)}
                               data-testid={`button-pay-${billing.id}`}
                             >
                               <CreditCard className="h-3 w-3 mr-1" />
@@ -871,7 +877,7 @@ export default function BillingDashboard() {
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => handleRecordPayment(billing)}
+                              onClick={() => handleRecordPayment(record)}
                               data-testid={`button-pay-${billing.id}`}
                             >
                               <CreditCard className="h-3 w-3 mr-1" />
@@ -920,7 +926,7 @@ export default function BillingDashboard() {
                               )}
                               {billing.paymentStatus !== 'pending' && billing.paymentStatus !== 'paid' && (
                                 <>
-                                  <DropdownMenuItem onClick={() => handleRecordPayment(billing)}>
+                                  <DropdownMenuItem onClick={() => handleRecordPayment(record)}>
                                     <CreditCard className="h-4 w-4 mr-2" />
                                     Record Payment
                                   </DropdownMenuItem>
