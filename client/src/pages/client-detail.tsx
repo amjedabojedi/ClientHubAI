@@ -2677,9 +2677,15 @@ export default function ClientDetailPage() {
                             <div>
                               <h4 className="font-semibold text-slate-900">{assessment.template.name}</h4>
                               <p className="text-sm text-slate-600">
-                                Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}
-                                {assessment.completedDate && (
-                                  <span> • Completed: {format(new Date(assessment.completedDate), 'MMM dd, yyyy')}</span>
+                                {assessment.assignedDate ? (
+                                  <>
+                                    Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}
+                                    {assessment.completedDate && (
+                                      <span> • Completed: {format(new Date(assessment.completedDate), 'MMM dd, yyyy')}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span>Not yet assigned</span>
                                 )}
                               </p>
                               {assessment.template.description && (
