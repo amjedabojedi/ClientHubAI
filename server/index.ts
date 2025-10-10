@@ -9,6 +9,7 @@ import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
 
 const app = express();
+const PORT = Number(process.env.PORT) || 5004;
 // Increase payload limits for document uploads
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
@@ -37,7 +38,7 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
-      port: 5000
+      port: PORT
     };
 
     // Test database connectivity
@@ -190,7 +191,7 @@ process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
     }
 
     // Start the server with enhanced logging
-    const port = 5000;
+    const port = PORT;
     const host = "0.0.0.0";
     
     log(`Starting server on ${host}:${port}...`);
