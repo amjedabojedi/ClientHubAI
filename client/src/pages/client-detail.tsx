@@ -2336,6 +2336,7 @@ export default function ClientDetailPage() {
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Session Details & Actions</DialogTitle>
+                    <DialogDescription>View session information and perform actions</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-6">
                     <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
@@ -3362,6 +3363,7 @@ export default function ClientDetailPage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Assign Checklist Template</DialogTitle>
+            <DialogDescription>Choose a checklist template to assign to this client</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
