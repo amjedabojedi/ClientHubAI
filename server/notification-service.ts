@@ -588,12 +588,15 @@ export class NotificationService {
   ): Promise<void> {
     // Check if SparkPost is configured
     if (!process.env.SPARKPOST_API_KEY) {
+      console.log('[EMAIL] SparkPost API key not configured - emails disabled');
       return;
     }
 
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
       const fromEmail = 'noreply@send.rcrc.ca';
+      
+      console.log(`[EMAIL] Processing ${recipients.length} recipients for ${trigger.eventType}`);
 
       for (const recipient of recipients) {
         try {
@@ -615,7 +618,13 @@ export class NotificationService {
               return methods.includes('email');
             });
 
-          if (!hasEmailEnabled || !recipient.email) {
+          if (!hasEmailEnabled) {
+            console.log(`[EMAIL] Skipping ${recipient.email} - email notifications disabled`);
+            continue;
+          }
+          
+          if (!recipient.email) {
+            console.log(`[EMAIL] Skipping recipient ${recipient.id} - no email address`);
             continue;
           }
 
@@ -632,8 +641,10 @@ export class NotificationService {
             }
           }
 
+          console.log(`[EMAIL] Sending ${trigger.eventType} email to ${recipient.email}...`);
+          
           // Send email
-          await sp.transmissions.send({
+          const result = await sp.transmissions.send({
             content: {
               from: fromEmail,
               subject: subject,
@@ -642,13 +653,15 @@ export class NotificationService {
             },
             recipients: [{ address: recipient.email }]
           });
+          
+          console.log(`[EMAIL] ✓ Successfully sent to ${recipient.email} (ID: ${result.results.id})`);
         } catch (emailError) {
-          console.error(`[NOTIFICATION] Failed to send email to ${recipient.email}:`, emailError);
+          console.error(`[EMAIL] ✗ Failed to send email to ${recipient.email}:`, emailError);
           // Continue with other recipients even if one fails
         }
       }
     } catch (error) {
-      console.error('[NOTIFICATION] Error in sendEmailNotifications:', error);
+      console.error('[EMAIL] Error in sendEmailNotifications:', error);
     }
   }
 
