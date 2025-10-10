@@ -71,7 +71,15 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // In production bundle, import.meta.dirname may be undefined.
+  // Resolve dist/public relative to the process working directory first,
+  // then fall back to resolving relative to this module's URL.
+  let distPath = path.resolve(process.cwd(), "dist", "public");
+
+  if (!fs.existsSync(distPath)) {
+    const runtimeDir = path.dirname(new URL(import.meta.url).pathname);
+    distPath = path.resolve(runtimeDir, "public");
+  }
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
