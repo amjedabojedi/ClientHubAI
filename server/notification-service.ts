@@ -140,6 +140,8 @@ export class NotificationService {
   async processEvent(eventType: string, entityData: any): Promise<void> {
     
     try {
+      console.log(`[NOTIFICATION] Processing event: ${eventType}, entityId: ${entityData.id}`);
+      
       // Get all active triggers for this event type
       const triggers = await db
         .select()
@@ -149,12 +151,16 @@ export class NotificationService {
           eq(notificationTriggers.isActive, true)
         ));
         
+      console.log(`[NOTIFICATION] Found ${triggers.length} active triggers for ${eventType}`);
 
       // Process each trigger
       for (const trigger of triggers) {
         try {
+          console.log(`[NOTIFICATION] Processing trigger: ${trigger.name} (scheduled: ${trigger.isScheduled})`);
+          
           // Check if trigger conditions are met
           const conditionsMet = await this.evaluateTriggerConditions(trigger, entityData);
+          console.log(`[NOTIFICATION] Trigger conditions met: ${conditionsMet}`);
           
           if (conditionsMet) {
             // Handle scheduled vs immediate notifications
@@ -164,28 +170,35 @@ export class NotificationService {
               const now = new Date();
               const hoursUntilSession = (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60);
               
+              console.log(`[NOTIFICATION] Scheduled trigger - hours until session: ${hoursUntilSession.toFixed(1)}`);
+              
               if (hoursUntilSession > 24) {
                 // Schedule for 24 hours before session
                 const executeAt = new Date(sessionDate.getTime() - (24 * 60 * 60 * 1000));
+                console.log(`[NOTIFICATION] Scheduling for: ${executeAt.toISOString()}`);
                 await this.scheduleNotification(trigger, entityData, executeAt);
               } else if (hoursUntilSession > 0) {
                 // Less than 24 hours away - send immediately
+                console.log(`[NOTIFICATION] Less than 24hrs - sending immediately`);
                 const recipients = await this.calculateRecipients(trigger, entityData);
+                console.log(`[NOTIFICATION] Calculated ${recipients.length} recipients`);
                 await this.createNotificationsFromTrigger(trigger, entityData, recipients);
               }
             } else {
               // Immediate notification (non-scheduled triggers)
+              console.log(`[NOTIFICATION] Immediate notification - calculating recipients`);
               const recipients = await this.calculateRecipients(trigger, entityData);
+              console.log(`[NOTIFICATION] Calculated ${recipients.length} recipients for immediate send`);
               await this.createNotificationsFromTrigger(trigger, entityData, recipients);
             }
           }
         } catch (error) {
-          console.error(`Error processing notification trigger ${trigger.id}:`, error);
+          console.error(`[NOTIFICATION] Error processing trigger ${trigger.id}:`, error);
           // Continue with other triggers even if one fails
         }
       }
     } catch (error) {
-      console.error(`Error in notification processEvent:`, error);
+      console.error(`[NOTIFICATION] Error in processEvent:`, error);
       throw error;
     }
   }
