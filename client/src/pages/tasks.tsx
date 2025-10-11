@@ -136,7 +136,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   // Fetch all clients to populate the "Assign to Client" dropdown
   // This loads client list when component mounts and caches the result
   const { data: clientsData = { clients: [] }, isLoading: clientsLoading } = useQuery({
-    queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/clients"],
   });
 
   // Fetch all therapists/staff to populate the "Assigned To" dropdown
@@ -633,8 +633,6 @@ export default function TasksPage() {
         priority: priorityFilter !== 'all' ? priorityFilter : undefined,
         assignedToId: assigneeFilter !== 'all' ? (assigneeFilter === 'unassigned' ? '' : assigneeFilter) : undefined,
         includeCompleted: activeTab === "all",
-        currentUserId: user?.id,
-        currentUserRole: user?.role,
         // Date filtering parameters
         dueDateFrom: dueDateFrom || undefined,
         dueDateTo: dueDateTo || undefined
@@ -643,7 +641,7 @@ export default function TasksPage() {
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
-    queryKey: ["/api/tasks/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/tasks/stats"],
   });
 
   const { data: therapists = [] } = useQuery({

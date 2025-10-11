@@ -29,6 +29,9 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Session Management**: Express sessions with PostgreSQL storage
 - **API Design**: RESTful endpoints with comprehensive CRUD operations.
 - **Security**: Role-based access control (Administrator, Clinical Supervisor, Therapist, Intern/Trainee) with 15 granular permissions across 6 categories. Comprehensive data isolation based on roles and supervisor assignments.
+  - **CRITICAL SECURITY PATTERN**: All endpoints use `req.user.id` and `req.user.role` from authenticated session - NEVER use query parameters like `currentUserId`/`currentUserRole` (authorization bypass vulnerability).
+  - **Authentication**: All sensitive endpoints protected with `requireAuth` middleware. Role-based authorization checks verify therapists can only access assigned clients, supervisors can only access supervised therapists' data.
+  - **Authorization Enforcement**: Backend derives ALL access control decisions from `req.user` session context, ignoring any user-supplied role/ID parameters to prevent privilege escalation attacks.
 
 ### Database
 - **Database**: PostgreSQL (configured for Neon serverless)

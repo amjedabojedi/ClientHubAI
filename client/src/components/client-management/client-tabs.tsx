@@ -12,19 +12,8 @@ export default function ClientFilter({ activeFilter, onFilterChange }: ClientFil
   const { user } = useAuth();
   
   const { data: stats = {} } = useQuery({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
-    queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
-      const params = new URLSearchParams();
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/clients/stats?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
-    },
+    queryKey: ["/api/clients/stats"],
+    enabled: !!user,
   });
 
   const filterGroups = [

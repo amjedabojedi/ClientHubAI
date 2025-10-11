@@ -53,7 +53,7 @@ export function AssignAssessmentModal({ open, onOpenChange, template, preSelecte
 
   // Fetch clients for selection
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/clients"],
     select: (data: any) => data.clients?.filter((client: any) => client.status === "active") || [],
   });
 

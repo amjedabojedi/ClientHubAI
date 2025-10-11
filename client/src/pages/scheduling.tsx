@@ -199,7 +199,7 @@ export default function SchedulingPage() {
 
   // Fetch sessions for the appropriate month
   const { data: sessions = [], isLoading } = useQuery<Session[]>({
-    queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 60 * 1000, // Cache for 1 minute - sessions change but not every second
   });
@@ -211,14 +211,14 @@ export default function SchedulingPage() {
   nextMonth.setMonth(monthToFetch.getMonth() + 1);
 
   const { data: prevMonthSessions = [] } = useQuery<Session[]>({
-    queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 60 * 1000,
     enabled: viewMode !== "month" // Only fetch when not in month view
   });
 
   const { data: nextMonthSessions = [] } = useQuery<Session[]>({
-    queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`, { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 60 * 1000,
     enabled: viewMode !== "month" // Only fetch when not in month view
@@ -270,8 +270,6 @@ export default function SchedulingPage() {
     appliedFilters: any;
   }>({
     queryKey: ["/api/sessions", { 
-      currentUserId: user?.id, 
-      currentUserRole: user?.role,
       ...sessionsFilters
     }],
     queryFn: getQueryFn({ on401: "throw" }),
@@ -283,7 +281,7 @@ export default function SchedulingPage() {
 
   // Fetch clients and therapists for dropdowns
   const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
-    queryKey: ["/api/clients", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/clients"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes - clients don't change often
   });
@@ -296,7 +294,7 @@ export default function SchedulingPage() {
 
   // Fetch services for booking (role-based filtering)
   const { data: services = [] } = useQuery<Service[]>({
-    queryKey: [user?.role === 'administrator' || user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'clinical_supervisor' ? "/api/services" : "/api/services/filtered", { currentUserRole: user?.role }],
+    queryKey: [user?.role === 'administrator' || user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'clinical_supervisor' ? "/api/services" : "/api/services/filtered"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes - services rarely change
   });

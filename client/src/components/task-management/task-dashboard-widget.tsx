@@ -48,41 +48,20 @@ export default function TaskDashboardWidget() {
 
   // Fetch task statistics
   const { data: taskStats } = useQuery<TaskStats>({
-    queryKey: ["/api/tasks/stats", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
-    queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
-      
-      return fetch(`/api/tasks/stats?currentUserId=${userId}&currentUserRole=${userRole}`)
-        .then(res => res.json());
-    }
+    queryKey: ["/api/tasks/stats"],
+    enabled: !!user,
   });
 
   // Fetch recent tasks
   const { data: recentTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/recent", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
-    queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
-      
-      return fetch(`/api/tasks/recent?currentUserId=${userId}&currentUserRole=${userRole}`)
-        .then(res => res.json());
-    }
+    queryKey: ["/api/tasks/recent"],
+    enabled: !!user,
   });
 
   // Fetch upcoming tasks
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/upcoming", { currentUserId: user?.user?.id || user?.id, currentUserRole: user?.user?.role || user?.role }],
-    enabled: !!user && !!(user?.user?.id || user?.id),
-    queryFn: async () => {
-      const userId = user?.user?.id || user?.id;
-      const userRole = user?.user?.role || user?.role;
-      
-      return fetch(`/api/tasks/upcoming?currentUserId=${userId}&currentUserRole=${userRole}`)
-        .then(res => res.json());
-    }
+    queryKey: ["/api/tasks/upcoming"],
+    enabled: !!user,
   });
 
   return (

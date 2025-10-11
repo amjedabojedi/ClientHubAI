@@ -6,19 +6,8 @@ export default function ClientSidebar() {
   const { user } = useAuth();
   
   const { data: stats } = useQuery({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/clients/stats"],
     enabled: !!user && !!user?.id,
-    queryFn: async () => {
-      const userId = user?.id;
-      const userRole = user?.role;
-      const params = new URLSearchParams();
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/clients/stats?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
-    },
   });
 
   const { data: pendingTasks } = useQuery<{ count: number }>({

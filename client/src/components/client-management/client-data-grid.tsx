@@ -91,11 +91,9 @@ export default function ClientDataGrid({
       checklistItemId: filters.checklistItemId,
       sortBy,
       sortOrder,
-      currentUserId: user?.id,
-      currentUserRole: user?.role,
     };
     return params;
-  }, [page, pageSize, debouncedSearch, stageFromTab, filters, sortBy, sortOrder, user]);
+  }, [page, pageSize, debouncedSearch, stageFromTab, filters, sortBy, sortOrder]);
 
   const { data, isLoading, error } = useQuery<ClientsQueryResult>({
     queryKey: ["/api/clients", queryParams],

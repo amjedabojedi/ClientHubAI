@@ -259,8 +259,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client routes with role-based access control
-  app.get("/api/clients", async (req, res) => {
+  app.get("/api/clients", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const {
         page = "1",
         pageSize = "25",
@@ -275,9 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         needsFollowUp,
         unassigned,
         sortBy = "createdAt",
-        sortOrder = "desc",
-        currentUserId,
-        currentUserRole
+        sortOrder = "desc"
       } = req.query;
 
       const params = {
@@ -297,11 +299,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortOrder: sortOrder as "asc" | "desc"
       };
 
-      // Role-based access control
-      if (currentUserRole === "supervisor" && currentUserId) {
-        const userId = parseInt(currentUserId as string);
+      // SECURITY: Use authenticated user's role and ID from session, NOT from query params
+      if (req.user.role === "supervisor") {
         // Get therapists supervised by this supervisor
-        const supervisorAssignments = await storage.getSupervisorAssignments(userId);
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         const supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
         
         if (supervisedTherapistIds.length === 0) {
@@ -311,9 +312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Filter clients to only those assigned to supervised therapists
         (params as any).supervisedTherapistIds = supervisedTherapistIds;
-      } else if (currentUserRole === "therapist" && currentUserId) {
+      } else if (req.user.role === "therapist") {
         // Therapists can only see their own clients
-        params.therapistId = parseInt(currentUserId as string);
+        params.therapistId = req.user.id;
       }
       // Admins can see all clients (no filtering needed)
 
@@ -326,21 +327,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client stats - moved before the :id route to avoid conflicts
-  app.get("/api/clients/stats", async (req, res) => {
+  app.get("/api/clients/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { currentUserId, currentUserRole } = req.query;
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
       // Role-based filtering for stats
       let therapistId: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
       
-      if (currentUserRole === "therapist" && currentUserId) {
+      // SECURITY: Use authenticated user's role and ID from session, NOT from query params
+      if (req.user.role === "therapist") {
         // Therapists can only see stats for their own clients
-        therapistId = parseInt(currentUserId as string);
-      } else if (currentUserRole === "supervisor" && currentUserId) {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
         // Supervisors can only see stats for their supervised therapists' clients
-        const userId = parseInt(currentUserId as string);
-        const supervisorAssignments = await storage.getSupervisorAssignments(userId);
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
         
         if (supervisedTherapistIds.length === 0) {
@@ -358,13 +361,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client export endpoint - moved before the :id route to avoid conflicts  
-  app.get("/api/clients/export", async (req, res) => {
+  app.get("/api/clients/export", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
     
     // Log data export (critical HIPAA activity)
     await AuditLogger.logDataExport(
-      6, // admin user
-      'admin.user',
+      req.user.id,
+      req.user.username,
       'client_export',
       [], // No specific clients
       ipAddress,
@@ -437,6 +444,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
+      
+      // Role-based authorization: therapists can only view their assigned clients
+      if (req.user && req.user.role === 'therapist') {
+        if (client.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only view your assigned clients." });
+        }
+      } else if (req.user && req.user.role === 'supervisor') {
+        // Supervisors can only view clients of therapists they supervise
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          return res.status(403).json({ message: "Access denied. You can only view clients of therapists you supervise." });
+        }
+      }
+      // Administrators can view all clients (no restriction)
       
       res.json(client);
     } catch (error) {
@@ -539,13 +561,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id", async (req, res) => {
+  app.delete("/api/clients/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     const clientId = parseInt(req.params.id);
     
+    if (!req.user) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
     // Log client deletion (high risk activity)
     await AuditLogger.logClientAccess(
-      6, 'admin.user', clientId, 'client_deleted',
+      req.user.id, req.user.username, clientId, 'client_deleted',
       ipAddress, userAgent, { deleted_at: new Date() }
     );
     try {
@@ -569,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Session bulk upload endpoint - OPTIMIZED VERSION
-  app.post("/api/sessions/bulk-upload", async (req, res) => {
+  app.post("/api/sessions/bulk-upload", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessions } = req.body;
       
@@ -833,7 +859,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk upload endpoint
-  app.post("/api/clients/bulk-upload", async (req, res) => {
+  app.post("/api/clients/bulk-upload", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { clients } = req.body;
       
@@ -1621,7 +1647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/sessions/:id", async (req, res) => {
+  app.put("/api/sessions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -2226,7 +2252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check for overdue tasks and trigger notifications
-  app.post("/api/tasks/check-overdue", async (req, res) => {
+  app.post("/api/tasks/check-overdue", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const limit = Number(req.body?.limit ?? 10);
       
@@ -2275,7 +2301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tasks routes
-  app.get("/api/clients/:clientId/tasks", async (req, res) => {
+  app.get("/api/clients/:clientId/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const tasks = await storage.getTasksByClient(clientId);
@@ -2287,8 +2313,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced Task Management Routes
-  app.get("/api/tasks", async (req, res) => {
+  app.get("/api/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const {
         page = "1",
         pageSize = "25",
@@ -2300,8 +2330,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortBy = "createdAt",
         sortOrder = "desc",
         includeCompleted = "false",
-        currentUserId,
-        currentUserRole,
         // New date filtering parameters
         dueDateFrom,
         dueDateTo,
@@ -2311,15 +2339,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let filteredAssignedToId = assignedToId ? parseInt(assignedToId as string) : undefined;
 
-      // Role-based filtering
-      if (currentUserRole === "therapist" && currentUserId) {
+      // SECURITY: Use authenticated user's role and ID from session, NOT from query params
+      if (req.user.role === "therapist") {
         // Therapists can only see tasks assigned to them
-        const therapistId = parseInt(currentUserId as string);
-        filteredAssignedToId = therapistId;
-      } else if (currentUserRole === "supervisor" && currentUserId) {
+        filteredAssignedToId = req.user.id;
+      } else if (req.user.role === "supervisor") {
         // Supervisors can only see tasks for their supervised therapists
-        const supervisorId = parseInt(currentUserId as string);
-        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         
         if (supervisorAssignments.length === 0) {
           return res.json({ tasks: [], total: 0, totalPages: 0 });
@@ -2353,12 +2379,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdDateTo: createdDateTo ? new Date(createdDateTo as string) : undefined
       };
 
-      // Add role-based parameters to params
-      if (currentUserRole === "therapist" && currentUserId) {
-        params.therapistId = parseInt(currentUserId as string);
-      } else if (currentUserRole === "supervisor" && currentUserId) {
-        const supervisorId = parseInt(currentUserId as string);
-        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+      // SECURITY: Add role-based parameters to params using authenticated user
+      if (req.user.role === "therapist") {
+        params.therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         params.supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -2371,21 +2396,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tasks/stats", async (req, res) => {
+  app.get("/api/tasks/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { currentUserId, currentUserRole } = req.query;
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
       // Role-based filtering for task stats
       let therapistId: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
       
-      const role = String(currentUserRole || '').toLowerCase();
-      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
-      
-      if (role === "therapist" && uid) {
-        therapistId = uid;
-      } else if (role === "supervisor" && uid) {
-        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+      // SECURITY: Use authenticated user's role and ID from session
+      if (req.user.role === "therapist") {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -2426,22 +2451,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tasks/upcoming", async (req, res) => {
+  app.get("/api/tasks/upcoming", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { currentUserId, currentUserRole } = req.query;
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      
-      // Normalize role casing and determine role-based parameters
-      const role = String(currentUserRole || '').toLowerCase();
-      const uid = currentUserId ? parseInt(String(currentUserId), 10) : undefined;
       
       let therapistId: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
       
-      if (role === "therapist" && uid) {
-        therapistId = uid;
-      } else if (role === "supervisor" && uid) {
-        const supervisorAssignments = await storage.getSupervisorAssignments(uid);
+      // SECURITY: Use authenticated user's role and ID from session
+      if (req.user.role === "therapist") {
+        therapistId = req.user.id;
+      } else if (req.user.role === "supervisor") {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -2455,7 +2480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/tasks/:id", async (req, res) => {
+  app.get("/api/tasks/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const task = await storage.getTask(id);
@@ -2471,7 +2496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tasks", async (req, res) => {
+  app.post("/api/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const taskData = { ...req.body };
       
@@ -2557,7 +2582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/tasks/:id", async (req, res) => {
+  app.put("/api/tasks/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -2580,7 +2605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tasks/:id", async (req, res) => {
+  app.delete("/api/tasks/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteTask(id);
@@ -2593,7 +2618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== TASK COMMENTS API ROUTES =====
   // Get all comments for a specific task
-  app.get("/api/tasks/:taskId/comments", async (req, res) => {
+  app.get("/api/tasks/:taskId/comments", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const taskId = parseInt(req.params.taskId);
       const comments = await storage.getTaskComments(taskId);
@@ -2605,7 +2630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new task comment
-  app.post("/api/tasks/:taskId/comments", async (req, res) => {
+  app.post("/api/tasks/:taskId/comments", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const taskId = parseInt(req.params.taskId);
       const commentData = { ...req.body, taskId };
@@ -2622,7 +2647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a task comment
-  app.put("/api/tasks/:taskId/comments/:commentId", async (req, res) => {
+  app.put("/api/tasks/:taskId/comments/:commentId", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const commentId = parseInt(req.params.commentId);
       const validatedData = insertTaskCommentSchema.partial().parse(req.body);
@@ -2638,7 +2663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a task comment
-  app.delete("/api/tasks/:taskId/comments/:commentId", async (req, res) => {
+  app.delete("/api/tasks/:taskId/comments/:commentId", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const commentId = parseInt(req.params.commentId);
       await storage.deleteTaskComment(commentId);
@@ -2650,7 +2675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notes routes
-  app.get("/api/clients/:clientId/notes", async (req, res) => {
+  app.get("/api/clients/:clientId/notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const notes = await storage.getNotesByClient(clientId);
@@ -2676,7 +2701,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Documents routes
-  app.get("/api/clients/:clientId/documents", async (req, res) => {
+  app.get("/api/clients/:clientId/documents", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const documents = await storage.getDocumentsByClient(clientId);
@@ -2688,7 +2713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client Assessment Assignment routes
-  app.get("/api/clients/:clientId/assessments", async (req, res) => {
+  app.get("/api/clients/:clientId/assessments", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const assessments = await storage.getClientAssessments(clientId);
@@ -2699,7 +2724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:clientId/assessments", async (req, res) => {
+  app.post("/api/clients/:clientId/assessments", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const { templateId, assignedBy, status = 'assigned' } = req.body;
@@ -3024,7 +3049,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // PDF viewer endpoint
-  app.get("/api/clients/:clientId/documents/:id/viewer", async (req, res) => {
+  app.get("/api/clients/:clientId/documents/:id/viewer", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -3065,7 +3090,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Docx viewer endpoint
-  app.get("/api/clients/:clientId/documents/:id/docx-viewer", async (req, res) => {
+  app.get("/api/clients/:clientId/documents/:id/docx-viewer", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -3202,14 +3227,16 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Therapists route
-  app.get("/api/therapists", async (req, res) => {
+  app.get("/api/therapists", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { currentUserId, currentUserRole } = req.query;
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
-      if (currentUserRole === "supervisor" && currentUserId) {
-        const supervisorId = parseInt(currentUserId as string);
+      // SECURITY: Use authenticated user's role and ID from session
+      if (req.user.role === "supervisor") {
         // Get only therapists supervised by this supervisor
-        const supervisorAssignments = await storage.getSupervisorAssignments(supervisorId);
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
         
         if (supervisorAssignments.length === 0) {
           return res.json([]);
@@ -3222,10 +3249,10 @@ This happens because only the file metadata was stored, not the actual file cont
         );
         
         return res.json(sanitizeUsers(supervisedTherapists));
-      } else if (currentUserRole === "therapist" && currentUserId) {
+      } else if (req.user.role === "therapist") {
         // Therapists can only see themselves
         const users = await storage.getUsers();
-        const therapist = users.find(u => u.id === parseInt(currentUserId as string) && u.role === 'therapist');
+        const therapist = users.find(u => u.id === req.user!.id && u.role === 'therapist');
         return res.json(therapist ? [sanitizeUser(therapist)] : []);
       }
       
@@ -3807,7 +3834,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Pending tasks count
-  app.get("/api/tasks/pending/count", async (req, res) => {
+  app.get("/api/tasks/pending/count", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const count = await storage.getPendingTasksCount();
       res.json({ count });
@@ -5451,7 +5478,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Enhanced Session Management with Billing
-  app.put("/api/sessions/:id/status", async (req, res) => {
+  app.put("/api/sessions/:id/status", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const sessionId = parseInt(req.params.id);
       const { status } = req.body;
@@ -5552,7 +5579,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/billing/reports", async (req, res) => {
+  app.get("/api/billing/reports", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { startDate, endDate, therapistId, status, serviceCode, clientSearch, clientType } = req.query;
       
@@ -5604,9 +5631,33 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/clients/:clientId/billing", async (req, res) => {
+  app.get("/api/clients/:clientId/billing", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
+      
+      // Role-based authorization: therapists can only view billing for their assigned clients
+      if (req.user && req.user.role === 'therapist') {
+        const client = await storage.getClient(clientId);
+        if (!client) {
+          return res.status(404).json({ message: "Client not found" });
+        }
+        if (client.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only view billing for your assigned clients." });
+        }
+      } else if (req.user && req.user.role === 'supervisor') {
+        // Supervisors can only view billing for clients of therapists they supervise
+        const client = await storage.getClient(clientId);
+        if (!client) {
+          return res.status(404).json({ message: "Client not found" });
+        }
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          return res.status(403).json({ message: "Access denied. You can only view billing for clients of therapists you supervise." });
+        }
+      }
+      // Administrators can view all billing (no restriction)
+      
       const billing = await storage.getBillingRecordsByClient(clientId);
       res.json(billing);
     } catch (error) {
@@ -5749,7 +5800,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Invoice Generation Routes
-  app.post("/api/clients/:clientId/invoice", async (req, res) => {
+  app.post("/api/clients/:clientId/invoice", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const { action, billingId } = req.body;

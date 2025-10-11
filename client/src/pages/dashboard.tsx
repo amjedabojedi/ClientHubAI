@@ -198,74 +198,28 @@ export default function DashboardPage() {
 
   // Data Fetching
   const { data: clientStats } = useQuery<DashboardStats>({
-    queryKey: ["/api/clients/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/clients/stats"],
     enabled: !!user && !!user?.id,
-    queryFn: async () => {
-      const userId = user?.id;
-      const userRole = (user?.role || '').toLowerCase();
-      const params = new URLSearchParams();
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/clients/stats?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
-    },
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
-    queryKey: ["/api/tasks/stats", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/tasks/stats"],
     enabled: !!user && !!user?.id,
-    queryFn: async () => {
-      const userId = user?.id;
-      const userRole = (user?.role || '').toLowerCase();
-      const params = new URLSearchParams();
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/tasks/stats?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch task stats');
-      return response.json();
-    },
   });
 
   const { data: recentTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/recent", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/tasks/recent"],
     enabled: !!user && !!user?.id,
-    queryFn: async () => {
-      const userId = user?.id;
-      const userRole = (user?.role || '').toLowerCase();
-      const params = new URLSearchParams();
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/tasks/recent?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch recent tasks');
-      return response.json();
-    },
   });
 
   const { data: upcomingTasks = [] } = useQuery<TaskWithDetails[]>({
-    queryKey: ["/api/tasks/upcoming", { currentUserId: user?.id, currentUserRole: user?.role }],
+    queryKey: ["/api/tasks/upcoming"],
     enabled: !!user && !!user?.id,
-    queryFn: async () => {
-      const userId = user?.id;
-      const userRole = (user?.role || '').toLowerCase();
-      const params = new URLSearchParams();
-      if (userId) params.append('currentUserId', userId.toString());
-      if (userRole) params.append('currentUserRole', userRole);
-      
-      const response = await fetch(`/api/tasks/upcoming?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch upcoming tasks');
-      return response.json();
-    },
   });
 
   const { data: overdueSessions = [] } = useQuery<OverdueSessionWithDetails[]>({
     queryKey: ["/api/sessions/overdue", { 
       limit: '5',
-      currentUserId: user?.id, 
-      currentUserRole: (user?.role || '').toLowerCase()
     }],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!user?.id,
@@ -280,8 +234,6 @@ export default function DashboardPage() {
       limit: 100,
       startDate: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0],
       endDate: new Date(new Date().setMonth(new Date().getMonth() + 2)).toISOString().split('T')[0],
-      currentUserId: user?.id,
-      currentUserRole: (user?.role || '').toLowerCase(),
     }],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!user?.id,
