@@ -32,9 +32,6 @@ export default function LoginPage() {
       setError('Please enter both username and password');
       return;
     }
-
-    // Clear error before attempting login
-    setError('');
     
     const result = await login(username, password);
     console.log('🔍 Login result:', result);
@@ -42,13 +39,10 @@ export default function LoginPage() {
     if (result.success) {
       setLocation('/');
     } else {
-      // Use setTimeout to ensure state update happens after current render cycle
+      // Set error immediately without clearing first
       const errorMsg = result.error || 'Login failed. Please try again.';
-      console.log('🔍 Will set error:', errorMsg);
-      setTimeout(() => {
-        setError(errorMsg);
-        console.log('🔍 Error set via setTimeout');
-      }, 0);
+      console.log('🔍 Setting error immediately:', errorMsg);
+      setError(errorMsg);
     }
   };
 
