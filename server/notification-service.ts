@@ -419,12 +419,13 @@ export class NotificationService {
       }
 
       // Get assigned therapist (for client-related events)  
-      if (recipientRules.assignedTherapist && entityData.assignedToId) {
+      if (recipientRules.assignedTherapist && (entityData.therapistId || entityData.assignedToId)) {
+        const therapistId = entityData.therapistId || entityData.assignedToId;
         const therapist = await db
           .select()
           .from(users)
           .where(and(
-            eq(users.id, entityData.assignedToId),
+            eq(users.id, therapistId),
             eq(users.isActive, true)
           ));
         if (therapist[0]) recipients.push(therapist[0]);

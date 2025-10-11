@@ -1,0 +1,140 @@
+2025-10-11 01:40:08.58
+3bf266e5
+User
+[SESSION CREATE] Notification data: {
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"id": 9489,
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"clientId": 3065,
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"therapistId": 28,
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"clientName": "Ayman Afana",
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"therapistName": "Amjed Abojedi",
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"sessionDate": "2025-10-11T16:00:00.000Z",
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"sessionType": "psychotherapy",
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"roomId": 11,
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"duration": 60,
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"createdAt": "2025-10-11T05:40:08.413Z",
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"zoomEnabled": false,
+2025-10-11 01:40:08.58
+3bf266e5
+User
+"zoomMeetingData": null
+2025-10-11 01:40:08.58
+3bf266e5
+User
+}
+2025-10-11 01:40:08.58
+3bf266e5
+User
+[NOTIFICATION] Processing event: session_scheduled, entityId: 9489
+2025-10-11 01:40:08.62
+3bf266e5
+User
+[NOTIFICATION] Found 4 active triggers for session_scheduled
+2025-10-11 01:40:08.62
+3bf266e5
+User
+[NOTIFICATION] Processing trigger: Session Scheduled Notification (scheduled: false)
+2025-10-11 01:40:08.62
+3bf266e5
+User
+[NOTIFICATION] Trigger conditions met: true
+2025-10-11 01:40:08.62
+3bf266e5
+User
+[NOTIFICATION] Immediate notification - calculating recipients
+2025-10-11 01:40:08.71
+3bf266e5
+User
+[NOTIFICATION] Calculated 0 recipients for immediate send
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[EMAIL] Processing 0 recipients for session_scheduled
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Processing trigger: Intake Session Reminder (scheduled: false)
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Trigger conditions met: false
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Processing trigger: Intake Session 24hr Advance Reminder (scheduled: true)
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Trigger conditions met: false
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Processing trigger: Session 24hr Advance Reminder (scheduled: true)
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Trigger conditions met: true
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Scheduled trigger - hours until session: 10.3
+2025-10-11 01:40:08.77
+3bf266e5
+User
+[NOTIFICATION] Less than 24hrs - sending immediately
+2025-10-11 01:40:08.86
+3bf266e5
+User
+[NOTIFICATION] Calculated 0 recipients
+2025-10-11 01:40:08.86
+3bf266e5
+User
+[EMAIL] Processing 0 recipients for session_scheduled
+2025-10-11 01:40:08.86
+3bf266e5
+User
+[SESSION CREATE] Notification processing completed successfully
+2025-10-11 01:40:08.86
+3bf266e5
+User
+5:40:08 AM [express] POST /api/sessions 201 in 613ms
+2025-10-11 01:40:09.10
+3bf266e5
+User
+5:40:09 AM [express] GET /api/sessions/2025/10/month 200 in 186ms
+
+Wrap
+
+Color
