@@ -141,7 +141,7 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
+      staleTime: 5 * 60 * 1000, // 5 minutes - prevents stale credentials from persisting indefinitely
       retry: false,
       // Add small stagger to prevent simultaneous requests
       refetchOnMount: "always",
