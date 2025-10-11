@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Video, Check, X } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const basicInfoSchema = z.object({
   fullName: z.string().min(1, "Full name is required"),
@@ -41,6 +44,18 @@ export function BasicInfoDialog({ isOpen, onClose, selectedUser, onSubmit, isLoa
       fullName: "",
       email: "",
     },
+  });
+
+  // Fetch Zoom credentials status for the selected user
+  const { data: zoomStatus } = useQuery<{ isConfigured: boolean; zoomAccountId?: string | null; zoomClientId?: string | null }>({
+    queryKey: ["/api/users", selectedUser?.id, "zoom-credentials", "status"],
+    queryFn: async () => {
+      if (!selectedUser?.id) throw new Error("No user selected");
+      const response = await fetch(`/api/users/${selectedUser.id}/zoom-credentials/status`);
+      if (!response.ok) throw new Error("Failed to fetch Zoom credentials");
+      return response.json();
+    },
+    enabled: !!selectedUser?.id && isOpen,
   });
 
   // Update form when selectedUser changes
@@ -95,10 +110,65 @@ export function BasicInfoDialog({ isOpen, onClose, selectedUser, onSubmit, isLoa
                 )}
               />
 
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <Label className="text-sm text-gray-600">Username (read-only)</Label>
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                <Label className="text-sm text-gray-600 dark:text-gray-400">Username (read-only)</Label>
                 <div className="mt-1 text-sm font-medium">{selectedUser?.username || "N/A"}</div>
               </div>
+
+              {/* Zoom Credentials Status */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Video className="w-4 h-4" />
+                    Zoom Integration Status
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    View-only: Therapist manages their own Zoom credentials
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        {zoomStatus?.isConfigured ? (
+                          <>
+                            <Check className="w-5 h-5 text-green-600" />
+                            <span className="text-sm font-medium text-green-600">Zoom Configured</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Not Configured</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {zoomStatus?.isConfigured && (
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <Label className="text-xs text-gray-600 dark:text-gray-400">Account ID</Label>
+                          <div className="mt-1 font-mono text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded">
+                            {zoomStatus.zoomAccountId || "N/A"}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-600 dark:text-gray-400">Client ID</Label>
+                          <div className="mt-1 font-mono text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded">
+                            {zoomStatus.zoomClientId || "N/A"}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-600 dark:text-gray-400">Client Secret</Label>
+                          <div className="mt-1 font-mono text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded">
+                            •••••••••••••••
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
