@@ -5,7 +5,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -37,7 +37,7 @@ export function useAuthState(): AuthContextType {
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/auth/login', {
@@ -54,14 +54,24 @@ export function useAuthState(): AuthContextType {
         setUser(userData);
         localStorage.setItem('currentUser', JSON.stringify(userData));
         setIsLoading(false);
-        return true;
+        return { success: true };
       } else {
+        // Extract error message from backend response
+        let errorMessage = 'Login failed. Please try again.';
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // If response body can't be parsed, use default message
+        }
         setIsLoading(false);
-        return false;
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
       setIsLoading(false);
-      return false;
+      return { success: false, error: 'Network error. Please check your connection and try again.' };
     }
   };
 
