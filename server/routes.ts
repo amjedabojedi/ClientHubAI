@@ -5955,7 +5955,7 @@ This happens because only the file metadata was stored, not the actual file cont
             <div>
               <h1 class="invoice-title">INVOICE</h1>
               <p>Invoice #: ${invoiceNumber}</p>
-              <p>Date: ${format(new Date(), 'MMM dd, yyyy')}</p>
+              <p>Date: ${formatInTimeZone(new Date(), 'America/New_York', 'MMM dd, yyyy')}</p>
               ${serviceDate ? `<p>Service Date: ${serviceDate}</p>` : ''}
             </div>
             <div class="company-info">
@@ -6247,7 +6247,7 @@ This happens because only the file metadata was stored, not the actual file cont
                       <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px;">Invoice Details</h3>
                       <table style="width: 100%; border-collapse: collapse;">
                         <tr><td style="padding: 5px 0; color: #6b7280; width: 40%;">Invoice Number:</td><td style="padding: 5px 0; color: #1e293b; font-weight: bold;">INV-${client.clientId}-${billingId}</td></tr>
-                        <tr><td style="padding: 5px 0; color: #6b7280;">Date:</td><td style="padding: 5px 0; color: #1e293b;">${format(new Date(), 'MMM dd, yyyy')}</td></tr>
+                        <tr><td style="padding: 5px 0; color: #6b7280;">Date:</td><td style="padding: 5px 0; color: #1e293b;">${formatInTimeZone(new Date(), 'America/New_York', 'MMM dd, yyyy')}</td></tr>
                         <tr><td style="padding: 5px 0; color: #6b7280;">Service:</td><td style="padding: 5px 0; color: #1e293b;">${billingRecords[0].serviceCode}</td></tr>
                         <tr><td style="padding: 5px 0; color: #6b7280;">Amount Due:</td><td style="padding: 5px 0; color: #dc2626; font-weight: bold; font-size: 18px;">$${remainingDue.toFixed(2)}</td></tr>
                       </table>

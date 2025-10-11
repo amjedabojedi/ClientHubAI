@@ -2,6 +2,7 @@
 // Consolidated utility functions used across dashboard and task components
 
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 export const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -28,8 +29,8 @@ export const getStatusColor = (status: string) => {
 
 export const formatDate = (dateString: string | Date | null) => {
   if (!dateString) return 'No due date';
-  // Format date consistently across the app using MMM dd, yyyy format
-  return format(new Date(dateString), 'MMM dd, yyyy');
+  // Format date consistently across the app using MMM dd, yyyy format in EST timezone
+  return formatInTimeZone(new Date(dateString), 'America/New_York', 'MMM dd, yyyy');
 };
 
 export const formatTime = (timeString: string) => {
