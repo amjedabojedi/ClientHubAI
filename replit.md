@@ -19,7 +19,8 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Form Handling**: React Hook Form with Zod validation
 - **Build Tool**: Vite
 - **Design Principles**: Responsive design (mobile-first), clean visual hierarchy, professional UI components, color-coded indicators.
-- **Date Formatting**: Standardized date display using date-fns `format()` - "MMM dd, yyyy" for dates (e.g., "Oct 08, 2025") and "MMM dd, yyyy HH:mm:ss" for timestamps across all user-facing components.
+- **Date Formatting**: Standardized date display - "MMM dd, yyyy" for dates (e.g., "Oct 08, 2025") and "MMM dd, yyyy HH:mm:ss" for timestamps across all user-facing components.
+- **Timezone Handling**: ALL dates and times MUST use America/New_York (EST/EDT) timezone consistently throughout the application. See Timezone Handling Pattern section below for implementation details.
 
 ### Backend
 - **Runtime**: Node.js with TypeScript
@@ -78,3 +79,145 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **typescript**: Type safety.
 - **vite**: Fast development and build tooling.
 - **tsx**: TypeScript execution for Node.js.
+
+## Timezone Handling Pattern
+
+**CRITICAL**: ALL dates and times in TherapyFlow MUST use the America/New_York (EST/EDT) timezone consistently. This ensures accurate scheduling, notifications, billing, and clinical documentation regardless of server location or user browser timezone.
+
+### Core Principle
+- **Storage**: All dates are stored in UTC in the database
+- **Display**: All dates are displayed in EST/EDT timezone to users
+- **Input**: All user inputs are interpreted as EST/EDT and converted to UTC before storage
+
+### Frontend Implementation
+
+#### Saving Dates (Form Input → Database)
+```typescript
+// Import the helper function
+import { localToUTC } from '@/lib/datetime';
+
+// Convert EST date/time input to UTC before sending to server
+const utcDate = localToUTC(date, time);
+const isoString = utcDate.toISOString();
+```
+
+#### Displaying Dates (Database → User)
+```typescript
+// Import from date-fns-tz
+import { formatInTimeZone } from 'date-fns-tz';
+
+// Always use formatInTimeZone with America/New_York
+const displayDate = formatInTimeZone(
+  new Date(dbDate), 
+  'America/New_York', 
+  'MMM dd, yyyy'
+);
+
+const displayDateTime = formatInTimeZone(
+  new Date(dbDateTime),
+  'America/New_York',
+  "MMM dd, yyyy 'at' h:mm a"
+);
+```
+
+#### Common Frontend Patterns
+```typescript
+// ✅ CORRECT - Use formatInTimeZone
+import { formatInTimeZone } from 'date-fns-tz';
+formatInTimeZone(date, 'America/New_York', 'MMM dd, yyyy');
+
+// ❌ WRONG - Never use plain format()
+import { format } from 'date-fns';
+format(date, 'MMM dd, yyyy'); // This uses browser timezone!
+
+// ❌ WRONG - Never use browser methods
+new Date().getHours(); // This uses browser timezone!
+date.toLocaleString(); // This uses browser timezone!
+```
+
+### Backend Implementation
+
+#### Saving Dates (User Input → Database)
+```typescript
+// Import from date-fns-tz
+import { fromZonedTime } from 'date-fns-tz';
+
+// Convert EST date/time string to UTC Date object
+function convertESTToUTC(dateStr: string, timeStr: string): Date {
+  const dateTime = `${dateStr}T${timeStr}`;
+  return fromZonedTime(dateTime, 'America/New_York');
+}
+
+// Use when processing user input
+const utcDate = convertESTToUTC('2025-10-11', '14:30');
+```
+
+#### Displaying Dates (Database → Output)
+```typescript
+// Import from date-fns-tz
+import { formatInTimeZone } from 'date-fns-tz';
+
+// For API responses, PDFs, emails, etc.
+const formattedDate = formatInTimeZone(
+  dbDate,
+  'America/New_York',
+  'MMM dd, yyyy'
+);
+```
+
+#### Common Backend Patterns
+```typescript
+// ✅ CORRECT - Use formatInTimeZone for display
+formatInTimeZone(date, 'America/New_York', 'MMM dd, yyyy');
+
+// ✅ CORRECT - Use fromZonedTime for input
+fromZonedTime(dateTime, 'America/New_York');
+
+// ✅ CORRECT - Use toZonedTime for timezone conversion
+import { toZonedTime } from 'date-fns-tz';
+const estDate = toZonedTime(utcDate, 'America/New_York');
+
+// ❌ WRONG - Never use plain format()
+format(date, 'MMM dd, yyyy');
+
+// ❌ WRONG - Never append 'Z' to force UTC
+const dateStr = '2025-10-11T14:30Z'; // Wrong!
+```
+
+### Key Files Using Timezone Functions
+
+#### Frontend
+- `client/src/lib/datetime.ts` - Contains `localToUTC()` helper function
+- `client/src/lib/task-utils.ts` - Contains shared `formatDate()` using EST
+- `client/src/pages/scheduling.tsx` - Session creation/editing with timezone conversion
+- `client/src/pages/client-detail.tsx` - Session display and editing with EST
+
+#### Backend
+- `server/routes.ts` - All date formatting for PDFs, emails, billing uses EST
+- `server/pdf/session-note-pdf.ts` - PDF generation with EST dates
+- `server/notification-service.ts` - Email scheduling and display using EST
+
+### Critical Areas Requiring Timezone Handling
+1. **Session Scheduling** - Creating/editing sessions must convert EST→UTC
+2. **Session Display** - Calendar and session lists must show EST times
+3. **Bulk Upload** - Excel date parsing must interpret as EST
+4. **PDF Generation** - Session notes, billing invoices must show EST
+5. **Email Notifications** - All dates in emails must be EST
+6. **AI Context** - Session dates passed to AI must be formatted in EST
+7. **Billing Reports** - Service dates and invoice dates must be EST
+8. **Dashboard Widgets** - All date displays must use EST
+
+### Testing Timezone Correctness
+To verify timezone handling is correct:
+1. Create a session at 2:00 PM EST
+2. Check database - should store as UTC (likely 18:00 or 19:00 depending on DST)
+3. Display session - should show 2:00 PM EST regardless of server/browser timezone
+4. Generate PDF - should show 2:00 PM EST
+5. Send email - should reference 2:00 PM EST
+
+### Common Pitfalls to Avoid
+- ❌ Using `format()` without timezone - always use `formatInTimeZone()`
+- ❌ Using `new Date().getHours()` - always convert to EST first with `toZonedTime()`
+- ❌ Using `.toLocaleString()` - browser-dependent, use `formatInTimeZone()`
+- ❌ Appending 'Z' to date strings - use `fromZonedTime()` instead
+- ❌ Assuming database dates are in EST - they're UTC, must convert for display
