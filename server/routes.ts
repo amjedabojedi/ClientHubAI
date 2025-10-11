@@ -3559,6 +3559,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
       const isConfigured = !!(user?.zoomAccountId && user?.zoomClientId && user?.hasZoomClientSecret);
 
+      console.log(`[ZOOM STATUS] User ${currentUserId}: isConfigured=${isConfigured}, accountId=${user?.zoomAccountId}, clientId=${user?.zoomClientId}`);
+
       res.json({ 
         isConfigured,
         zoomAccountId: user?.zoomAccountId || null,
