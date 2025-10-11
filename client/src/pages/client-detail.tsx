@@ -580,11 +580,8 @@ const sessionFormSchema = z.object({
 
 type SessionFormData = z.infer<typeof sessionFormSchema>;
 
-// Utility to convert local date/time to UTC
-const localToUTC = (date: string, time: string): Date => {
-  const localDateTime = new Date(`${date}T${time}:00`);
-  return localDateTime;
-};
+// Import timezone utility from shared library
+import { localToUTC } from '@/lib/datetime';
 
 // Get time slots with labels for display
 const getTimeSlotsWithLabels = (intervalMinutes = 30): Array<{value: string, label: string}> => {
@@ -1372,10 +1369,10 @@ export default function ClientDetailPage() {
   // Session update mutation
   const updateFullSessionMutation = useMutation({
     mutationFn: (data: SessionFormData) => {
-      const utcDateTime = localToUTC(data.sessionDate, data.sessionTime);
+      const dateTime = localToUTC(data.sessionDate, data.sessionTime);
       const sessionData = {
         ...data,
-        sessionDate: utcDateTime.toISOString(),
+        sessionDate: dateTime.toISOString(),
         ignoreConflicts: userConfirmedConflicts, // Only ignore conflicts if user explicitly confirmed
       };
       return apiRequest(`/api/sessions/${editingSessionId}`, "PUT", sessionData);
@@ -2466,14 +2463,13 @@ export default function ClientDetailPage() {
                           variant="outline"
                           onClick={() => {
                             // Load session data into form - use reset() to properly update Select components
-                            const sessionDateStr = typeof selectedSessionForModal.sessionDate === 'string' 
-                              ? selectedSessionForModal.sessionDate 
-                              : selectedSessionForModal.sessionDate.toISOString();
-                            const sessionDate = new Date(sessionDateStr);
-                            const dateOnly = sessionDateStr.split('T')[0];
-                            const hours = sessionDate.getHours().toString().padStart(2, '0');
-                            const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                            const timeString = `${hours}:${minutes}`;
+                            const sessionDateObj = typeof selectedSessionForModal.sessionDate === 'string' 
+                              ? new Date(selectedSessionForModal.sessionDate)
+                              : selectedSessionForModal.sessionDate;
+                            
+                            // Format date/time in practice timezone (EST) to ensure consistency
+                            const datePart = formatInTimeZone(sessionDateObj, 'America/New_York', 'yyyy-MM-dd');
+                            const timeOnly = formatInTimeZone(sessionDateObj, 'America/New_York', 'HH:mm');
                             
                             // Use reset() instead of individual setValue() calls
                             sessionForm.reset({
@@ -2482,8 +2478,8 @@ export default function ClientDetailPage() {
                               serviceId: selectedSessionForModal.serviceId,
                               roomId: selectedSessionForModal.roomId || undefined,
                               sessionType: selectedSessionForModal.sessionType as any,
-                              sessionDate: dateOnly,
-                              sessionTime: timeString,
+                              sessionDate: datePart,
+                              sessionTime: timeOnly,
                               notes: selectedSessionForModal.notes || '',
                               zoomEnabled: (selectedSessionForModal as any).zoomEnabled || false,
                             });
