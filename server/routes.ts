@@ -9,7 +9,7 @@ import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
 import { execSync } from "child_process";
 import { format } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 // Validation
 import { z } from "zod";
@@ -61,6 +61,14 @@ import {
   insertOptionCategorySchema,
   insertSystemOptionSchema
 } from "@shared/schema";
+
+// Helper function to convert EST date/time to UTC
+function convertESTToUTC(dateStr: string, timeStr: string): Date {
+  const PRACTICE_TIMEZONE = 'America/New_York';
+  const dateTimeString = `${dateStr} ${timeStr}:00`;
+  // fromZonedTime interprets the string as EST and returns equivalent UTC Date
+  return fromZonedTime(dateTimeString, PRACTICE_TIMEZONE);
+}
 
 // Helper function to generate unique client ID
 async function generateClientId(): Promise<string> {
@@ -657,58 +665,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error('Session date is required');
           }
           
-          // Convert Excel serial date to proper date format
+          // Convert Excel serial date to proper date format with EST timezone
           let sessionDateTime;
           const rawDate = sessionData.sessionDate;
+          const timeStr = sessionData.sessionTime && sessionData.sessionTime.trim() !== '' 
+            ? (sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`)
+            : '00:00';
           
           // Check if it's an Excel serial number (typically > 1000 for recent dates)
           if (typeof rawDate === 'number' && rawDate > 1000) {
             // Excel serial date conversion (days since January 1, 1900)
-            // Excel treats 1900 as a leap year (it wasn't), so we adjust
             const excelEpoch = new Date(1899, 11, 30); // December 30, 1899 (Excel day 0)
             const dateFromSerial = new Date(excelEpoch.getTime() + rawDate * 24 * 60 * 60 * 1000);
-            
-            if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
-              // Combine with time
-              const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
-              sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T${timeStr}:00`);
-            } else {
-              // Default to start of day in UTC
-              sessionDateTime = new Date(`${dateFromSerial.toISOString().split('T')[0]}T00:00:00Z`);
-            }
+            const dateStr = dateFromSerial.toISOString().split('T')[0]; // YYYY-MM-DD
+            sessionDateTime = convertESTToUTC(dateStr, timeStr);
           } else if (typeof rawDate === 'string') {
             // Handle string dates
             const cleanDate = rawDate.trim();
+            let dateStr: string;
             
-            // Check if it's already in YYYY-MM-DD format (preferred)
+            // Convert to YYYY-MM-DD format
             if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
-              if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
-                const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
-                sessionDateTime = new Date(`${cleanDate}T${timeStr}:00Z`);
-              } else {
-                // Force UTC to prevent timezone shifts for date-only entries
-                sessionDateTime = new Date(`${cleanDate}T00:00:00Z`);
-              }
-            }
-            // Check if it's MM/DD/YY format and convert to proper format
-            else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cleanDate)) {
+              dateStr = cleanDate;
+            } else if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(cleanDate)) {
+              // MM/DD/YY or MM/DD/YYYY format
               const [month, day, year] = cleanDate.split('/');
               const fullYear = year.length === 2 ? (parseInt(year) < 50 ? `20${year}` : `19${year}`) : year;
-              
-              if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
-                const timeStr = sessionData.sessionTime.includes(':') ? sessionData.sessionTime : `${sessionData.sessionTime}:00`;
-                sessionDateTime = new Date(`${month}/${day}/${fullYear} ${timeStr}`);
-              } else {
-                sessionDateTime = new Date(`${month}/${day}/${fullYear}`);
-              }
+              dateStr = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
             } else {
-              // Try parsing as-is for other formats
-              if (sessionData.sessionTime && sessionData.sessionTime.trim() !== '') {
-                sessionDateTime = new Date(`${cleanDate}T${sessionData.sessionTime}:00`);
-              } else {
-                sessionDateTime = new Date(`${cleanDate}T00:00:00`);
+              // Try parsing and converting to YYYY-MM-DD
+              const parsed = new Date(cleanDate);
+              if (isNaN(parsed.getTime())) {
+                throw new Error(`Invalid date format: ${cleanDate}`);
               }
+              dateStr = parsed.toISOString().split('T')[0];
             }
+            
+            sessionDateTime = convertESTToUTC(dateStr, timeStr);
           } else {
             throw new Error('Invalid session date format');
           }
