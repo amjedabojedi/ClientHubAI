@@ -24,9 +24,9 @@ export default function LoginPage() {
       return;
     }
 
-    const success = await login(username, password);
-    if (!success) {
-      setError('Invalid username or password');
+    const result = await login(username, password);
+    if (!result.success) {
+      setError(result.error || 'Login failed. Please try again.');
     } else {
       setLocation('/');
     }
