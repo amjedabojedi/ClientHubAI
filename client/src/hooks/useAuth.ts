@@ -60,16 +60,19 @@ export function useAuthState(): AuthContextType {
         let errorMessage = 'Login failed. Please try again.';
         try {
           const errorData = await response.json();
+          console.log('🔍 Login error response:', errorData);
           if (errorData.error) {
             errorMessage = errorData.error;
           }
         } catch {
           // If response body can't be parsed, use default message
         }
+        console.log('🔍 Returning error:', errorMessage);
         setIsLoading(false);
         return { success: false, error: errorMessage };
       }
     } catch (error) {
+      console.log('🔍 Network error:', error);
       setIsLoading(false);
       return { success: false, error: 'Network error. Please check your connection and try again.' };
     }

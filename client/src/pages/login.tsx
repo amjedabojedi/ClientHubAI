@@ -35,7 +35,9 @@ export default function LoginPage() {
     }
 
     const result = await login(username, password);
+    console.log('🔍 Login result:', result);
     if (!result.success) {
+      console.log('🔍 Setting error:', result.error);
       setError(result.error || 'Login failed. Please try again.');
     } else {
       setLocation('/');
