@@ -531,8 +531,20 @@ export class NotificationService {
       // Clients don't have user accounts, so they can't see in-app notifications
       if (actualUsers.length > 0) {
         const notificationsData: InsertNotification[] = actualUsers.map(recipient => {
-          const title = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-          const message = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
+          // Use template if available, otherwise generate smart defaults
+          let title: string;
+          let message: string;
+          
+          if (template) {
+            title = this.renderTemplate(template.subject, entityData);
+            message = this.renderTemplate(template.bodyTemplate, entityData);
+          } else {
+            // Generate smart notification based on event type
+            const smartNotification = this.generateSmartBellNotification(trigger.eventType, entityData);
+            title = smartNotification.title;
+            message = smartNotification.message;
+          }
+          
           const actionUrl = template?.actionUrlTemplate ? this.renderTemplate(template.actionUrlTemplate, entityData) : null;
 
           return {
@@ -1290,6 +1302,84 @@ If you have any questions about joining the virtual session, please contact your
         </div>
       </body>
     </html>`;
+  }
+
+  /**
+   * Generates smart bell notification title and message based on event type
+   */
+  private generateSmartBellNotification(eventType: string, entityData: any): { title: string; message: string } {
+    const sessionDate = this.formatDateEST(entityData.sessionDate);
+    
+    switch (eventType) {
+      case 'session_scheduled':
+        return {
+          title: 'New Session Scheduled',
+          message: `Session with ${entityData.clientName} on ${sessionDate}`
+        };
+      
+      case 'session_rescheduled':
+        const oldDate = this.formatDateEST(entityData.oldSessionDate);
+        const newDate = this.formatDateEST(entityData.sessionDate);
+        return {
+          title: 'Session Rescheduled',
+          message: `${entityData.clientName}'s session moved from ${oldDate} to ${newDate}`
+        };
+      
+      case 'session_reminder':
+        return {
+          title: 'Upcoming Session Reminder',
+          message: `Session with ${entityData.clientName} is scheduled for ${sessionDate}`
+        };
+      
+      case 'session_cancelled':
+        return {
+          title: 'Session Cancelled',
+          message: `Session with ${entityData.clientName} on ${sessionDate} has been cancelled`
+        };
+      
+      case 'session_overdue':
+        return {
+          title: 'Overdue Session Documentation',
+          message: `Session with ${entityData.clientName} from ${sessionDate} needs documentation`
+        };
+      
+      case 'client_created':
+        return {
+          title: 'New Client Added',
+          message: `${entityData.fullName} has been added to the system`
+        };
+      
+      case 'client_assigned':
+        return {
+          title: 'Client Assigned',
+          message: `${entityData.clientName} has been assigned to ${entityData.therapistName}`
+        };
+      
+      case 'task_assigned':
+        return {
+          title: 'New Task Assigned',
+          message: `Task: ${entityData.title || 'Untitled'}`
+        };
+      
+      case 'task_due_soon':
+        return {
+          title: 'Task Due Soon',
+          message: `Task "${entityData.title}" is due soon`
+        };
+      
+      case 'task_overdue':
+        return {
+          title: 'Task Overdue',
+          message: `Task "${entityData.title}" is now overdue`
+        };
+      
+      default:
+        // Generic fallback for unknown event types
+        return {
+          title: eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          message: `Event notification: ${eventType}`
+        };
+    }
   }
 
   /**
