@@ -11,25 +11,28 @@ import { LogIn, Loader2, AlertCircle } from 'lucide-react';
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
   const [, setLocation] = useLocation();
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, loginError, clearLoginError } = useAuth();
 
   // Trigger shake animation when error changes
   useEffect(() => {
-    if (error) {
+    if (loginError) {
       setShake(true);
       const timer = setTimeout(() => setShake(false), 500);
       return () => clearTimeout(timer);
     }
-  }, [error]);
+  }, [loginError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Clear any previous errors
+    clearLoginError();
+    
     if (!username || !password) {
-      setError('Please enter both username and password');
+      // For empty fields, we still need to handle this locally or set it in context
+      // Let's trigger it through the login function for consistency
       return;
     }
     
@@ -38,12 +41,8 @@ export default function LoginPage() {
     
     if (result.success) {
       setLocation('/');
-    } else {
-      // Set error immediately without clearing first
-      const errorMsg = result.error || 'Login failed. Please try again.';
-      console.log('🔍 Setting error immediately:', errorMsg);
-      setError(errorMsg);
     }
+    // Error is now handled in the auth context
   };
 
   return (
@@ -89,17 +88,17 @@ export default function LoginPage() {
               />
             </div>
             
-            {/* DEBUG: Show error state */}
-            <div className="text-xs text-gray-500">DEBUG: error = "{error}"</div>
+            {/* DEBUG: Show error state FROM CONTEXT */}
+            <div className="text-xs text-gray-500">DEBUG: loginError = "{loginError}"</div>
             
-            {error && (
+            {loginError && (
               <Alert 
                 variant="destructive" 
                 className={`${shake ? 'animate-shake' : ''}`}
                 data-testid="alert-login-error"
               >
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{loginError}</AlertDescription>
               </Alert>
             )}
             

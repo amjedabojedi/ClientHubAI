@@ -5,8 +5,10 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  loginError: string;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  clearLoginError: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -22,6 +24,7 @@ export function useAuth() {
 export function useAuthState(): AuthContextType {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loginError, setLoginError] = useState<string>('');
 
   useEffect(() => {
     // Check if user is logged in from localStorage
@@ -69,25 +72,35 @@ export function useAuthState(): AuthContextType {
         }
         console.log('🔍 Returning error:', errorMessage);
         setIsLoading(false);
+        setLoginError(errorMessage); // Store error in context
         return { success: false, error: errorMessage };
       }
     } catch (error) {
       console.log('🔍 Network error:', error);
+      const networkError = 'Network error. Please check your connection and try again.';
       setIsLoading(false);
-      return { success: false, error: 'Network error. Please check your connection and try again.' };
+      setLoginError(networkError); // Store error in context
+      return { success: false, error: networkError };
     }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('currentUser');
+    setLoginError(''); // Clear login error on logout
+  };
+
+  const clearLoginError = () => {
+    setLoginError('');
   };
 
   return {
     user,
     isAuthenticated: !!user,
     isLoading,
+    loginError,
     login,
     logout,
+    clearLoginError,
   };
 }
