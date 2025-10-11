@@ -3543,6 +3543,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Get logged-in user's own Zoom credentials
   app.get("/api/users/me/zoom-credentials/status", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const currentUserId = req.user?.id;
@@ -3556,25 +3557,6 @@ This happens because only the file metadata was stored, not the actual file cont
         hasZoomClientSecret: users.zoomClientSecret,
       }).from(users).where(eq(users.id, currentUserId));
 
-      // Auto-migrate global credentials if user doesn't have their own
-      if (!user?.zoomAccountId && process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET) {
-        await db.update(users)
-          .set({
-            zoomAccountId: process.env.ZOOM_ACCOUNT_ID,
-            zoomClientId: process.env.ZOOM_CLIENT_ID,
-            zoomClientSecret: process.env.ZOOM_CLIENT_SECRET,
-            updatedAt: new Date()
-          })
-          .where(eq(users.id, currentUserId));
-
-        // Return the migrated credentials
-        return res.json({ 
-          isConfigured: true,
-          zoomAccountId: process.env.ZOOM_ACCOUNT_ID,
-          zoomClientId: process.env.ZOOM_CLIENT_ID
-        });
-      }
-
       const isConfigured = !!(user?.zoomAccountId && user?.zoomClientId && user?.hasZoomClientSecret);
 
       res.json({ 
@@ -3584,6 +3566,47 @@ This happens because only the file metadata was stored, not the actual file cont
       });
     } catch (error) {
       console.error("Error checking Zoom credentials status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get specific user's Zoom credentials (admin only)
+  app.get("/api/users/:userId/zoom-credentials/status", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const currentUser = req.user;
+      if (!currentUser) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const targetUserId = parseInt(req.params.userId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      // Only allow viewing own credentials or admin viewing others
+      if (currentUser.id !== targetUserId && currentUser.role !== 'administrator') {
+        return res.status(403).json({ message: "Not authorized to view this user's Zoom credentials" });
+      }
+
+      const [user] = await db.select({
+        zoomAccountId: users.zoomAccountId,
+        zoomClientId: users.zoomClientId,
+        hasZoomClientSecret: users.zoomClientSecret,
+      }).from(users).where(eq(users.id, targetUserId));
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const isConfigured = !!(user.zoomAccountId && user.zoomClientId && user.hasZoomClientSecret);
+
+      res.json({ 
+        isConfigured,
+        zoomAccountId: user.zoomAccountId || null,
+        zoomClientId: user.zoomClientId || null
+      });
+    } catch (error) {
+      console.error("Error checking user Zoom credentials status:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
