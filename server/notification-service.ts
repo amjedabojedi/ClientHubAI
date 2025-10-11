@@ -817,26 +817,55 @@ TherapyFlow Team`;
 
       return emailBody;
     } else {
-      // Get room name if available
-      let roomInfo = '';
-      if (entityData.roomName) {
-        roomInfo = `\nLocation: ${entityData.roomName}`;
-      }
-      
-      return `
-Session Scheduled Confirmation
+      // Therapist/Admin email - professional and informative
+      let emailBody = `
+Dear ${recipient.fullName},
+
+A new therapy session has been scheduled.
 
 📅 APPOINTMENT DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 Client: ${entityData.clientName}
 Session Type: ${entityData.sessionType}
 Date & Time: ${sessionDate}
-Duration: ${entityData.duration || 60} minutes${roomInfo}
+Duration: ${entityData.duration || 60} minutes`;
 
-This session has been successfully scheduled and the client has been notified.
+      // Add location for in-person sessions
+      if (entityData.roomName) {
+        emailBody += `\nLocation: ${entityData.roomName}`;
+      }
 
+      // Check if Zoom is enabled and has meeting details
+      const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
+      
+      // Add Zoom details if available
+      if (hasZoomDetails) {
+        emailBody += `
+
+📹 VIRTUAL MEETING DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-TherapyFlow Notification System`;
+
+This session will be conducted via Zoom video conference.
+
+Meeting Details:
+• Join URL: ${entityData.zoomJoinUrl}
+• Meeting ID: ${entityData.zoomMeetingId}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+
+The client will receive these Zoom details in their confirmation email.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      }
+
+      emailBody += `
+
+📋 STATUS:
+The client has been notified via email and the session is now visible on your calendar.
+
+Best regards,
+TherapyFlow Team`;
+
+      return emailBody;
     }
   }
 
@@ -910,14 +939,11 @@ TherapyFlow Team`;
 
       return emailBody;
     } else {
-      // Get room name if available
-      let roomInfo = '';
-      if (entityData.roomName) {
-        roomInfo = `\nLocation: ${entityData.roomName}`;
-      }
-      
-      return `
-Session Rescheduled Confirmation
+      // Therapist/Admin email - professional and informative
+      let emailBody = `
+Dear ${recipient.fullName},
+
+A therapy session has been rescheduled.
 
 📅 RESCHEDULING DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -927,12 +953,44 @@ Session Type: ${entityData.sessionType}
 Previous Date & Time: ${oldSessionDate}
 New Date & Time: ${newSessionDate}
 
-Duration: ${entityData.duration || 60} minutes${roomInfo}
+Duration: ${entityData.duration || 60} minutes`;
 
-The session has been successfully rescheduled and the client has been notified.
+      // Add location for in-person sessions
+      if (entityData.roomName) {
+        emailBody += `\nLocation: ${entityData.roomName}`;
+      }
 
+      // Check if Zoom is enabled and has meeting details
+      const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
+      
+      // Add Zoom details if available
+      if (hasZoomDetails) {
+        emailBody += `
+
+📹 VIRTUAL MEETING DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-TherapyFlow Notification System`;
+
+This session will be conducted via Zoom video conference.
+
+Meeting Details:
+• Join URL: ${entityData.zoomJoinUrl}
+• Meeting ID: ${entityData.zoomMeetingId}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+
+The client will receive these updated Zoom details in their rescheduled notification email.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      }
+
+      emailBody += `
+
+📋 STATUS:
+The client has been notified of the schedule change and the session is updated on your calendar.
+
+Best regards,
+TherapyFlow Team`;
+
+      return emailBody;
     }
   }
 
