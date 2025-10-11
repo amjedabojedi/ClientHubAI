@@ -1701,8 +1701,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           const allSessions = sessionResults.sessions;
           
+          console.log(`[CONFLICT CHECK] Checking conflicts for session ${id}. Found ${allSessions.length} sessions on same day. Current session ID type: ${typeof id}, therapistId: ${sessionData.therapistId}, roomId: ${sessionData.roomId}`);
+          
           // Check therapist conflicts
           const therapistConflicts = sessionData.therapistId ? allSessions.filter(session => {
+            console.log(`[CONFLICT CHECK] Comparing session ${session.id} (type: ${typeof session.id}) with current ${id} (type: ${typeof id}). Equal? ${session.id === id}, Strict equal? ${session.id === id}`);
             if (session.id === id) return false; // Skip current session
             if (session.therapistId !== sessionData.therapistId) return false;
             
