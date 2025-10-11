@@ -1571,6 +1571,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const client = await storage.getClient(session.clientId);
         const therapist = await storage.getUser(session.therapistId);
         
+        // Get room name if room is assigned
+        let roomName = null;
+        if (session.roomId) {
+          try {
+            const rooms = await storage.getRooms();
+            const room = rooms.find(r => r.id === session.roomId);
+            roomName = room?.roomName || room?.roomNumber || `Room ${session.roomId}`;
+          } catch (error) {
+            console.warn('Could not fetch room name for notification');
+            roomName = `Room ${session.roomId}`;
+          }
+        }
+        
         const notificationData = {
           id: session.id,
           clientId: session.clientId,
@@ -1580,6 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionDate: session.sessionDate,
           sessionType: session.sessionType,
           roomId: session.roomId,
+          roomName: roomName,
           duration: 60, // Default session duration
           createdAt: session.createdAt,
           // Zoom meeting details - enabled if we have actual meeting data
@@ -1906,6 +1920,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const client = await storage.getClient(session.clientId);
             const therapist = await storage.getUser(session.therapistId);
             
+            // Get room name if room is assigned
+            let roomName = null;
+            if (session.roomId) {
+              try {
+                const rooms = await storage.getRooms();
+                const room = rooms.find(r => r.id === session.roomId);
+                roomName = room?.roomName || room?.roomNumber || `Room ${session.roomId}`;
+              } catch (error) {
+                console.warn('Could not fetch room name for notification');
+                roomName = `Room ${session.roomId}`;
+              }
+            }
+            
             const notificationData = {
               id: session.id,
               clientId: session.clientId,
@@ -1916,6 +1943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               oldSessionDate: originalSession.sessionDate,
               sessionDate: session.sessionDate,
               roomId: session.roomId,
+              roomName: roomName,
               duration: 60,
               // Set zoomEnabled based on actual Zoom data presence, not just the flag
               zoomEnabled: !!(session.zoomJoinUrl || session.zoomMeetingId),

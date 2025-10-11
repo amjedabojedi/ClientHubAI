@@ -819,8 +819,8 @@ TherapyFlow Team`;
     } else {
       // Get room name if available
       let roomInfo = '';
-      if (entityData.roomId) {
-        roomInfo = `\nLocation: Room ${entityData.roomId}`;
+      if (entityData.roomName) {
+        roomInfo = `\nLocation: ${entityData.roomName}`;
       }
       
       return `
@@ -912,8 +912,8 @@ TherapyFlow Team`;
     } else {
       // Get room name if available
       let roomInfo = '';
-      if (entityData.roomId) {
-        roomInfo = `\nLocation: Room ${entityData.roomId}`;
+      if (entityData.roomName) {
+        roomInfo = `\nLocation: ${entityData.roomName}`;
       }
       
       return `
