@@ -1556,9 +1556,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Log session creation
+      // Log session creation with actual authenticated user
       await AuditLogger.logSessionAccess(
-        6, 'admin.user', session.id, session.clientId,
+        req.user!.id, req.user!.username, session.id, session.clientId,
         'session_created', ipAddress, userAgent,
         { session_date: session.sessionDate, session_type: session.sessionType, is_historical: sessionDate < today, zoom_enabled: sessionData.zoomEnabled }
       );
