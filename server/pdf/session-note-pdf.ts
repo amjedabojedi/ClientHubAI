@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 
 interface SessionNote {
   id: number;
@@ -54,10 +55,11 @@ interface PracticeSettings {
 }
 
 export function generateSessionNoteHTML(note: SessionNote, practiceSettings: PracticeSettings): string {
-  // Format date - use Month day, year format across the system
-  const formattedDate = format(new Date(note.date), 'MMMM dd, yyyy');
-  const sessionDate = format(new Date(note.session.sessionDate), 'MMMM dd, yyyy');
-  const finalizedDate = note.finalizedAt ? format(new Date(note.finalizedAt), 'MMMM dd, yyyy') : null;
+  // Format date - use Month day, year format across the system in EST timezone
+  const PRACTICE_TIMEZONE = 'America/New_York';
+  const formattedDate = formatInTimeZone(new Date(note.date), PRACTICE_TIMEZONE, 'MMMM dd, yyyy');
+  const sessionDate = formatInTimeZone(new Date(note.session.sessionDate), PRACTICE_TIMEZONE, 'MMMM dd, yyyy \'at\' h:mm a');
+  const finalizedDate = note.finalizedAt ? formatInTimeZone(new Date(note.finalizedAt), PRACTICE_TIMEZONE, 'MMMM dd, yyyy') : null;
     
     // Get content to display (prioritize final, then generated, then draft)
     let content = note.finalContent || note.generatedContent || note.draftContent || '';
