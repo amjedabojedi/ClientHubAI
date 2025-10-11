@@ -27,25 +27,28 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     
     if (!username || !password) {
       setError('Please enter both username and password');
       return;
     }
 
+    // Clear error before attempting login
+    setError('');
+    
     const result = await login(username, password);
     console.log('🔍 Login result:', result);
-    if (!result.success) {
-      console.log('🔍 Setting error:', result.error);
-      setError(result.error || 'Login failed. Please try again.');
-      
-      // Force check state after setting
-      setTimeout(() => {
-        console.log('🔍 Error state after set:', error);
-      }, 100);
-    } else {
+    
+    if (result.success) {
       setLocation('/');
+    } else {
+      // Use setTimeout to ensure state update happens after current render cycle
+      const errorMsg = result.error || 'Login failed. Please try again.';
+      console.log('🔍 Will set error:', errorMsg);
+      setTimeout(() => {
+        setError(errorMsg);
+        console.log('🔍 Error set via setTimeout');
+      }, 0);
     }
   };
 
