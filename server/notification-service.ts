@@ -658,14 +658,8 @@ export class NotificationService {
           const subject = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
           let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generatePurposeSpecificEmailBody(trigger.eventType, entityData, recipient);
           
-          // Special handling for Zoom meeting notifications
-          if (trigger.eventType === 'session_scheduled' && entityData.zoomEnabled) {
-            if (entityData.zoomMeetingData) {
-              body += this.generateZoomEmailContent(entityData.zoomMeetingData, entityData);
-            } else {
-              body += this.generateZoomFailedContent();
-            }
-          }
+          // Note: Zoom details are now integrated into generatePurposeSpecificEmailBody
+          // No need to append separately as it was causing duplicate content
 
           console.log(`[EMAIL] Sending ${trigger.eventType} email to ${recipient.email}...`);
           
