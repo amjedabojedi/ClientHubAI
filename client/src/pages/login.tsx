@@ -39,6 +39,11 @@ export default function LoginPage() {
     if (!result.success) {
       console.log('🔍 Setting error:', result.error);
       setError(result.error || 'Login failed. Please try again.');
+      
+      // Force check state after setting
+      setTimeout(() => {
+        console.log('🔍 Error state after set:', error);
+      }, 100);
     } else {
       setLocation('/');
     }
@@ -87,6 +92,9 @@ export default function LoginPage() {
               />
             </div>
             
+            {/* DEBUG: Show error state */}
+            <div className="text-xs text-gray-500">DEBUG: error = "{error}"</div>
+            
             {error && (
               <Alert 
                 variant="destructive" 
@@ -97,6 +105,11 @@ export default function LoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+            
+            {/* FORCED TEST ALERT - Should ALWAYS show */}
+            <Alert variant="destructive">
+              <AlertDescription>TEST: This should always be visible</AlertDescription>
+            </Alert>
 
             <Button 
               type="submit" 
