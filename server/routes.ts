@@ -3559,13 +3559,21 @@ This happens because only the file metadata was stored, not the actual file cont
 
       const isConfigured = !!(user?.zoomAccountId && user?.zoomClientId && user?.hasZoomClientSecret);
 
-      console.log(`[ZOOM STATUS] User ${currentUserId}: isConfigured=${isConfigured}, accountId=${user?.zoomAccountId}, clientId=${user?.zoomClientId}`);
-
-      res.json({ 
+      const response = { 
         isConfigured,
         zoomAccountId: user?.zoomAccountId || null,
         zoomClientId: user?.zoomClientId || null
-      });
+      };
+
+      console.log(`========================================`);
+      console.log(`[ZOOM STATUS API] User ID: ${currentUserId}`);
+      console.log(`[ZOOM STATUS API] isConfigured: ${isConfigured}`);
+      console.log(`[ZOOM STATUS API] zoomAccountId: ${user?.zoomAccountId || 'NULL'}`);
+      console.log(`[ZOOM STATUS API] zoomClientId: ${user?.zoomClientId || 'NULL'}`);
+      console.log(`[ZOOM STATUS API] Returning:`, JSON.stringify(response));
+      console.log(`========================================`);
+
+      res.json(response);
     } catch (error) {
       console.error("Error checking Zoom credentials status:", error);
       res.status(500).json({ message: "Internal server error" });
