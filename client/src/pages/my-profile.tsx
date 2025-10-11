@@ -226,12 +226,22 @@ export default function MyProfilePage() {
 
   // Update Zoom form when credentials are loaded
   React.useEffect(() => {
-    if (zoomStatus && zoomStatus.isConfigured) {
-      zoomForm.reset({
-        zoomAccountId: zoomStatus.zoomAccountId || "",
-        zoomClientId: zoomStatus.zoomClientId || "",
-        zoomClientSecret: "", // Don't populate secret for security
-      });
+    if (zoomStatus) {
+      if (zoomStatus.isConfigured) {
+        // Populate form with existing credentials
+        zoomForm.reset({
+          zoomAccountId: zoomStatus.zoomAccountId || "",
+          zoomClientId: zoomStatus.zoomClientId || "",
+          zoomClientSecret: "", // Don't populate secret for security
+        });
+      } else {
+        // Clear form when no credentials
+        zoomForm.reset({
+          zoomAccountId: "",
+          zoomClientId: "",
+          zoomClientSecret: "",
+        });
+      }
     }
   }, [zoomStatus?.isConfigured, zoomStatus?.zoomAccountId, zoomStatus?.zoomClientId]);
 
