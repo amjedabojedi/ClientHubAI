@@ -9,7 +9,7 @@ import SparkPost from "sparkpost";
 import puppeteer from "puppeteer";
 import { execSync } from "child_process";
 import { format } from "date-fns";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
 
 // Validation
 import { z } from "zod";
@@ -3937,7 +3937,7 @@ This happens because only the file metadata was stored, not the actual file cont
             recommendations: validatedData.recommendations || undefined,
             customPrompt: validatedData.customAiPrompt || undefined,
             sessionType: session?.sessionType || 'therapy session',
-            sessionDate: session?.sessionDate ? format(new Date(session.sessionDate), "MMM dd, yyyy 'at' h:mm a") : undefined,
+            sessionDate: session?.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined,
             clientName: client?.fullName
           });
           
@@ -4306,9 +4306,9 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(503).json({ error: "AI features not available" });
       }
       
-      // Format session date with time for AI prompt
+      // Format session date with time for AI prompt in EST
       if (sessionNoteData.sessionDate) {
-        sessionNoteData.sessionDate = format(new Date(sessionNoteData.sessionDate), "MMM dd, yyyy 'at' h:mm a");
+        sessionNoteData.sessionDate = formatInTimeZone(new Date(sessionNoteData.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a");
       }
       
       const report = await generateClinicalReport(sessionNoteData);
@@ -4345,7 +4345,7 @@ This happens because only the file metadata was stored, not the actual file cont
         recommendations: sessionNote.recommendations || undefined,
         customPrompt: customPrompt || sessionNote.customAiPrompt || undefined,
         sessionType: sessionNote.session?.sessionType || 'therapy session',
-        sessionDate: sessionNote.session?.sessionDate ? format(new Date(sessionNote.session.sessionDate), "MMM dd, yyyy 'at' h:mm a") : undefined,
+        sessionDate: sessionNote.session?.sessionDate ? formatInTimeZone(new Date(sessionNote.session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined,
         clientName: sessionNote.client?.fullName
       });
       
@@ -5845,12 +5845,12 @@ This happens because only the file metadata was stored, not the actual file cont
       let serviceDate = null;
       if (billingRecords.length === 1) {
         // Single service - use exact session date
-        serviceDate = format(new Date(billingRecords[0].session.sessionDate), 'MMM dd, yyyy');
+        serviceDate = formatInTimeZone(new Date(billingRecords[0].session.sessionDate), 'America/New_York', 'MMM dd, yyyy');
       } else if (billingRecords.length > 1) {
         // Multiple services - show date range
         const dates = billingRecords.map(r => new Date(r.session.sessionDate)).sort((a, b) => a.getTime() - b.getTime());
-        const startDate = format(dates[0], 'MMM dd, yyyy');
-        const endDate = format(dates[dates.length - 1], 'MMM dd, yyyy');
+        const startDate = formatInTimeZone(dates[0], 'America/New_York', 'MMM dd, yyyy');
+        const endDate = formatInTimeZone(dates[dates.length - 1], 'America/New_York', 'MMM dd, yyyy');
         serviceDate = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
       }
       
@@ -5999,7 +5999,7 @@ This happens because only the file metadata was stored, not the actual file cont
                 <tr>
                   <td>${record.service?.serviceName || 'Professional Service'}</td>
                   <td>${record.service?.serviceCode || record.serviceCode}</td>
-                  <td>${format(new Date(record.session.sessionDate), 'MMM dd, yyyy')}</td>
+                  <td>${formatInTimeZone(new Date(record.session.sessionDate), 'America/New_York', 'MMM dd, yyyy')}</td>
                   <td style="text-align: right;">$${Number(record.totalAmount).toFixed(2)}</td>
                 </tr>
               `).join('')}
