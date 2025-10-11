@@ -370,15 +370,12 @@ export default function SchedulingPage() {
           form.setValue('roomId', sessionToEdit.roomId);
           form.setValue('sessionType', sessionToEdit.sessionType as any);
           
-          // Parse date/time from UTC
-          const sessionDate = new Date(sessionToEdit.sessionDate);
-          const dateOnly = sessionToEdit.sessionDate.split('T')[0];
+          // Parse date/time from UTC and convert to EST for editing
+          const sessionDateObj = new Date(sessionToEdit.sessionDate);
+          const dateOnly = formatInTimeZone(sessionDateObj, 'America/New_York', 'yyyy-MM-dd');
+          const timeOnly = formatInTimeZone(sessionDateObj, 'America/New_York', 'HH:mm');
           form.setValue('sessionDate', dateOnly);
-          
-          // Format time to HH:MM
-          const hours = sessionDate.getHours().toString().padStart(2, '0');
-          const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-          form.setValue('sessionTime', `${hours}:${minutes}`);
+          form.setValue('sessionTime', timeOnly);
           
           form.setValue('notes', sessionToEdit.notes || '');
           form.setValue('zoomEnabled', (sessionToEdit as any).zoomEnabled || false);
