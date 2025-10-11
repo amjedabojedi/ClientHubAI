@@ -1572,6 +1572,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trigger session scheduled notification
       try {
+        console.log(`[SESSION CREATE] Triggering session_scheduled notification for session ${session.id}`);
+        
         // Get client and therapist names for notification template
         const client = await storage.getClient(session.clientId);
         const therapist = await storage.getUser(session.therapistId);
@@ -1592,9 +1594,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           zoomMeetingData: zoomMeetingData
         };
         
+        console.log(`[SESSION CREATE] Notification data:`, JSON.stringify(notificationData, null, 2));
         await notificationService.processEvent('session_scheduled', notificationData);
+        console.log(`[SESSION CREATE] Notification processing completed successfully`);
       } catch (notificationError) {
-        console.error('Session scheduled notification failed:', notificationError);
+        console.error('[SESSION CREATE] Session scheduled notification failed:', notificationError);
       }
       
       res.status(201).json({ 
