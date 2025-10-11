@@ -57,6 +57,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
   - **Audit Data**: Each log captures user identity, client/session identifiers, timestamp, IP address, user agent, action type, and operation-specific metadata.
   - **Implementation**: Centralized AuditLogger service in `server/audit-logger.ts` with route-level integration in `server/routes.ts`. All PHI-sensitive operations trigger corresponding audit entries.
 - **Email Communications History**: Complete audit trail of all client emails (session scheduled, rescheduled, 24hr reminders, intake reminders) with timestamps, email content, and collapsible view. Accessible via dedicated Communications tab in client profiles.
+- **Login Error Feedback**: Professional login error handling with specific backend error messages (Invalid credentials, Network error, etc.), visual shake animation, and AlertCircle icon. Error state stored in AuthContext to persist across component re-renders.
 
 ## External Dependencies
 

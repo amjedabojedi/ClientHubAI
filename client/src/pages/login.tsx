@@ -37,7 +37,6 @@ export default function LoginPage() {
     }
     
     const result = await login(username, password);
-    console.log('🔍 Login result:', result);
     
     if (result.success) {
       setLocation('/');
@@ -88,9 +87,6 @@ export default function LoginPage() {
               />
             </div>
             
-            {/* DEBUG: Show error state FROM CONTEXT */}
-            <div className="text-xs text-gray-500">DEBUG: loginError = "{loginError}"</div>
-            
             {loginError && (
               <Alert 
                 variant="destructive" 
@@ -101,11 +97,6 @@ export default function LoginPage() {
                 <AlertDescription>{loginError}</AlertDescription>
               </Alert>
             )}
-            
-            {/* FORCED TEST ALERT - Should ALWAYS show */}
-            <Alert variant="destructive">
-              <AlertDescription>TEST: This should always be visible</AlertDescription>
-            </Alert>
 
             <Button 
               type="submit" 
