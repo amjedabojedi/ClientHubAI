@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,14 +6,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
-import { LogIn, Loader2 } from 'lucide-react';
+import { LogIn, Loader2, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
   const [, setLocation] = useLocation();
   const { login, isLoading } = useAuth();
+
+  // Trigger shake animation when error changes
+  useEffect(() => {
+    if (error) {
+      setShake(true);
+      const timer = setTimeout(() => setShake(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +68,7 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
                 required
+                data-testid="input-username"
               />
             </div>
             <div className="space-y-2">
@@ -70,11 +81,17 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
                 required
+                data-testid="input-password"
               />
             </div>
             
             {error && (
-              <Alert variant="destructive">
+              <Alert 
+                variant="destructive" 
+                className={`${shake ? 'animate-shake' : ''}`}
+                data-testid="alert-login-error"
+              >
+                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
@@ -83,6 +100,7 @@ export default function LoginPage() {
               type="submit" 
               className="w-full" 
               disabled={isLoading}
+              data-testid="button-submit-login"
             >
               {isLoading ? (
                 <>
