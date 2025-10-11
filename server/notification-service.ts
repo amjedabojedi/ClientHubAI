@@ -817,21 +817,26 @@ TherapyFlow Team`;
 
       return emailBody;
     } else {
+      // Get room name if available
+      let roomInfo = '';
+      if (entityData.roomId) {
+        roomInfo = `\nLocation: Room ${entityData.roomId}`;
+      }
+      
       return `
-Session Scheduled Notification
+Session Scheduled Confirmation
 
-📊 SESSION DETAILS:
+📅 APPOINTMENT DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+Client: ${entityData.clientName}
 Session Type: ${entityData.sessionType}
 Date & Time: ${sessionDate}
-Therapist: ${entityData.therapistName}
-Duration: ${entityData.duration || 60} minutes
+Duration: ${entityData.duration || 60} minutes${roomInfo}
 
-👥 ADMINISTRATIVE INFO:
-• Session ID: ${entityData.id}
-• Room: ${entityData.roomId ? `Room ${entityData.roomId}` : 'Not assigned'}
+This session has been successfully scheduled and the client has been notified.
 
-This notification was sent because you are listed as an administrator.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+TherapyFlow Notification System`;
     }
   }
 
@@ -905,24 +910,29 @@ TherapyFlow Team`;
 
       return emailBody;
     } else {
+      // Get room name if available
+      let roomInfo = '';
+      if (entityData.roomId) {
+        roomInfo = `\nLocation: Room ${entityData.roomId}`;
+      }
+      
       return `
-Session Rescheduled Notification
+Session Rescheduled Confirmation
 
-📊 RESCHEDULING DETAILS:
+📅 RESCHEDULING DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+Client: ${entityData.clientName}
+Session Type: ${entityData.sessionType}
+
 Previous Date & Time: ${oldSessionDate}
 New Date & Time: ${newSessionDate}
 
-Session Type: ${entityData.sessionType}
-Therapist: ${entityData.therapistName}
-Client: ${entityData.clientName}
-Duration: ${entityData.duration || 60} minutes
+Duration: ${entityData.duration || 60} minutes${roomInfo}
 
-👥 ADMINISTRATIVE INFO:
-• Session ID: ${entityData.id}
-• Room: ${entityData.roomId ? `Room ${entityData.roomId}` : 'Not assigned'}
+The session has been successfully rescheduled and the client has been notified.
 
-This notification was sent because you are listed as an administrator or involved in this session.`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+TherapyFlow Notification System`;
     }
   }
 
