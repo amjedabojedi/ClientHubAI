@@ -509,6 +509,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/clients/:id", requireAuth, auditClientAccess('client_updated'), async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const id = parseInt(req.params.id);
       
       // Get original client data to check for therapist assignment changes
@@ -518,6 +522,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const clientData = { ...req.body };
+      
+      // SECURITY: Only administrators can change therapist assignments
+      // Prevent therapists from stealing/reassigning clients
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        // Remove assignedTherapistId from update data for non-admins
+        delete clientData.assignedTherapistId;
+      }
+      
       // Clean up empty strings to undefined to prevent PostgreSQL date errors
       Object.keys(clientData).forEach(key => {
         if (clientData[key] === "" || clientData[key] === null) {

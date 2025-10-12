@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { insertClientSchema } from "@shared/schema";
 import { Client } from "@/types/client";
@@ -34,7 +35,11 @@ interface EditClientModalProps {
 export default function EditClientModal({ client, isOpen, onClose }: EditClientModalProps) {
   const [activeTab, setActiveTab] = useState("personal");
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Check if current user is an administrator
+  const isAdmin = user?.role === 'administrator' || user?.role === 'admin';
 
   // Fetch therapists and system options - using individual calls for better type safety
   const { data: therapists = [] } = useQuery<any[]>({
@@ -794,33 +799,36 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="assignedTherapistId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assigned Therapist</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            value={field.value ? field.value.toString() : "unassigned"}
-                            onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}
-                            options={[
-                              { value: "unassigned", label: "Unassigned" },
-                              ...(therapists?.map?.((therapist: any) => ({
-                                value: therapist.id.toString(),
-                                label: therapist.fullName || therapist.full_name
-                              })) || [])
-                            ]}
-                            placeholder="Select therapist"
-                            searchPlaceholder="Search therapists..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* SECURITY: Only administrators can change therapist assignments */}
+                {isAdmin && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="assignedTherapistId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned Therapist</FormLabel>
+                          <FormControl>
+                            <SearchableSelect
+                              value={field.value ? field.value.toString() : "unassigned"}
+                              onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}
+                              options={[
+                                { value: "unassigned", label: "Unassigned" },
+                                ...(therapists?.map?.((therapist: any) => ({
+                                  value: therapist.id.toString(),
+                                  label: therapist.fullName || therapist.full_name
+                                })) || [])
+                              ]}
+                              placeholder="Select therapist"
+                              searchPlaceholder="Search therapists..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <div className="border-t pt-4 mt-6">
                   <h4 className="text-md font-medium text-slate-900 mb-4">Follow-up Management</h4>
