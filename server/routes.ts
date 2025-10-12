@@ -6538,6 +6538,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Get assignment details with full relationships
   app.get('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { assignmentId } = req.params;
       const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       
@@ -6586,6 +6590,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Get assignment responses
   app.get('/api/assessments/assignments/:assignmentId/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { assignmentId } = req.params;
       const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       
@@ -6631,6 +6639,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Update assignment status
   app.patch('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { assignmentId } = req.params;
       const existingAssignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       
@@ -6666,6 +6678,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Delete assessment assignment
   app.delete('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { assignmentId } = req.params;
       const existingAssignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       
