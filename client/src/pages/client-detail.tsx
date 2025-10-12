@@ -1578,6 +1578,9 @@ export default function ClientDetailPage() {
                     <h2 className="text-2xl font-bold text-slate-900">{client.fullName}</h2>
                     <p className="text-slate-600 flex items-center space-x-4">
                       <span>ID: {client.clientId}</span>
+                      {client.referenceNumber && (
+                        <span>• Ref: {client.referenceNumber}</span>
+                      )}
                       {client.dateOfBirth && (
                         <span>• Age: {Math.floor((new Date().getTime() - new Date(client.dateOfBirth).getTime()) / (1000 * 3600 * 24 * 365))}</span>
                       )}
