@@ -134,6 +134,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
       const currentUserId = authenticatedUser.id;
+      
+      // Get current user data to check email
+      const [currentUser] = await db.select().from(users).where(eq(users.id, currentUserId));
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // If email is being changed, check if new email already exists
+      if (req.body.email && req.body.email !== currentUser.email) {
+        const [existingUser] = await db.select()
+          .from(users)
+          .where(eq(users.email, req.body.email));
+        
+        if (existingUser) {
+          return res.status(400).json({ 
+            message: "Email address is already in use by another account" 
+          });
+        }
+      }
+      
       const updateData = {
         fullName: req.body.fullName,
         email: req.body.email,

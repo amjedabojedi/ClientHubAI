@@ -1,0 +1,136 @@
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+schema: 'public',
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+table: 'users',
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+column: undefined,
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+dataType: undefined,
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+constraint: 'users_email_unique',
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+file: 'nbtinsert.c',
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+line: '666',
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+routine: '_bt_check_unique'
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+}
+2025-10-12 00:09:12.03
+7d3ea84b
+User
+4:09:12 AM [express] PUT /api/users/me 500 in 190ms
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+Error updating user: error: duplicate key value violates unique constraint "users_email_unique"
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+at async file:///home/runner/workspace/dist/index.js:7704:29 {
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+length: 222,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+severity: 'ERROR',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+code: '23505',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+detail: 'Key (email)=(aabojedi@resiliencec.com) already exists.',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+hint: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+position: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+internalPosition: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+internalQuery: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+where: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+schema: 'public',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+table: 'users',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+column: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+dataType: undefined,
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+constraint: 'users_email_unique',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+file: 'nbtinsert.c',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+line: '666',
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+routine: '_bt_check_unique'
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+}
+2025-10-12 00:09:22.67
+7d3ea84b
+User
+4:09:22 AM [express] PUT /api/users/me 500 in 47ms
