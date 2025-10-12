@@ -2780,14 +2780,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:clientId/documents", async (req, res) => {
+  app.post("/api/clients/:clientId/documents", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
 
       const clientId = parseInt(req.params.clientId);
       const { fileContent, ...documentData } = req.body;
       
       // Get authenticated user from request
-      const authenticatedUser = (req as any).user;
+      const authenticatedUser = req.user;
       if (!authenticatedUser?.id) {
         return res.status(401).json({ message: "Authentication required for document upload" });
       }
