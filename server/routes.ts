@@ -2718,7 +2718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/notes", async (req, res) => {
+  app.post("/api/notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertNoteSchema.parse(req.body);
       const note = await storage.createNote(validatedData);
