@@ -6864,6 +6864,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Get all permissions
   app.get("/api/permissions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can view permissions
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6880,6 +6884,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Get specific permission
   app.get("/api/permissions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can view permissions
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6900,6 +6908,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Create permission
   app.post("/api/permissions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can create permissions
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6920,6 +6932,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Update permission
   app.put("/api/permissions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can update permissions
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6941,6 +6957,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Delete permission
   app.delete("/api/permissions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can delete permissions
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
