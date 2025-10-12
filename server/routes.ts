@@ -6826,7 +6826,7 @@ This happens because only the file metadata was stored, not the actual file cont
   // (Following same pattern as Services/Rooms)
 
   // BATCH API: Get all filter data in one call (optimized for client page)
-  app.get("/api/client-filters/batch", async (req, res) => {
+  app.get("/api/client-filters/batch", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       // Get all data needed for client page filters in parallel
       const [
@@ -6868,7 +6868,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Option Categories Management
-  app.get("/api/system-options/categories", async (req, res) => {
+  app.get("/api/system-options/categories", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const categories = await storage.getOptionCategories();
       res.json(categories);
@@ -6878,7 +6878,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/system-options/categories/:id", async (req, res) => {
+  app.get("/api/system-options/categories/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -6895,7 +6895,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/system-options/categories", async (req, res) => {
+  app.post("/api/system-options/categories", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertOptionCategorySchema.parse(req.body);
       const category = await storage.createOptionCategory(validatedData);
@@ -6909,7 +6909,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.put("/api/system-options/categories/:id", async (req, res) => {
+  app.put("/api/system-options/categories/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -6927,7 +6927,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete("/api/system-options/categories/:id", async (req, res) => {
+  app.delete("/api/system-options/categories/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -6942,7 +6942,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // System Options Management
-  app.get("/api/system-options", async (req, res) => {
+  app.get("/api/system-options", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
       const options = await storage.getSystemOptions(categoryId);
@@ -6953,7 +6953,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/system-options/by-category/:categoryKey", async (req, res) => {
+  app.get("/api/system-options/by-category/:categoryKey", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const categoryKey = req.params.categoryKey;
       const options = await storage.getSystemOptionsByCategory(categoryKey);
@@ -6964,7 +6964,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.get("/api/system-options/:id", async (req, res) => {
+  app.get("/api/system-options/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -6981,7 +6981,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/system-options", async (req, res) => {
+  app.post("/api/system-options", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertSystemOptionSchema.parse(req.body);
       const option = await storage.createSystemOption(validatedData);
@@ -6995,7 +6995,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.put("/api/system-options/:id", async (req, res) => {
+  app.put("/api/system-options/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7017,7 +7017,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete("/api/system-options/:id", async (req, res) => {
+  app.delete("/api/system-options/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
