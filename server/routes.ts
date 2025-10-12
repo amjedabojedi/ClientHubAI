@@ -6540,6 +6540,31 @@ This happens because only the file metadata was stored, not the actual file cont
     try {
       const { assignmentId } = req.params;
       const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
+      
+      if (!assignment) {
+        return res.status(404).json({ message: 'Assessment assignment not found' });
+      }
+      
+      // Role-based authorization: therapists can only view assessments for their assigned clients
+      if (req.user.role === 'therapist') {
+        const client = await storage.getClient(assignment.clientId);
+        if (!client || client.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only view assessments for your assigned clients." });
+        }
+      } else if (req.user.role === 'supervisor') {
+        // Supervisors can only view assessments for clients of therapists they supervise
+        const client = await storage.getClient(assignment.clientId);
+        if (!client) {
+          return res.status(404).json({ message: 'Client not found' });
+        }
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          return res.status(403).json({ message: "Access denied. You can only view assessments for clients of therapists you supervise." });
+        }
+      }
+      // Administrators can view all assessments (no restriction)
+      
       res.json(assignment);
     } catch (error) {
       res.status(500).json({ message: 'Internal server error' });
@@ -6562,6 +6587,30 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get('/api/assessments/assignments/:assignmentId/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
+      const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
+      
+      if (!assignment) {
+        return res.status(404).json({ message: 'Assessment assignment not found' });
+      }
+      
+      // Role-based authorization: therapists can only view responses for their assigned clients
+      if (req.user.role === 'therapist') {
+        const client = await storage.getClient(assignment.clientId);
+        if (!client || client.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only view assessment responses for your assigned clients." });
+        }
+      } else if (req.user.role === 'supervisor') {
+        const client = await storage.getClient(assignment.clientId);
+        if (!client) {
+          return res.status(404).json({ message: 'Client not found' });
+        }
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          return res.status(403).json({ message: "Access denied. You can only view responses for clients of therapists you supervise." });
+        }
+      }
+      
       const responses = await storage.getAssessmentResponses(parseInt(assignmentId));
       res.json(responses);
     } catch (error) {
@@ -6583,6 +6632,30 @@ This happens because only the file metadata was stored, not the actual file cont
   app.patch('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
+      const existingAssignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ message: 'Assessment assignment not found' });
+      }
+      
+      // Role-based authorization: therapists can only update assessments for their assigned clients
+      if (req.user.role === 'therapist') {
+        const client = await storage.getClient(existingAssignment.clientId);
+        if (!client || client.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only update assessments for your assigned clients." });
+        }
+      } else if (req.user.role === 'supervisor') {
+        const client = await storage.getClient(existingAssignment.clientId);
+        if (!client) {
+          return res.status(404).json({ message: 'Client not found' });
+        }
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          return res.status(403).json({ message: "Access denied. You can only update assessments for clients of therapists you supervise." });
+        }
+      }
+      
       const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), req.body);
       res.json(assignment);
     } catch (error) {
@@ -6594,6 +6667,30 @@ This happens because only the file metadata was stored, not the actual file cont
   app.delete('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
+      const existingAssignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
+      
+      if (!existingAssignment) {
+        return res.status(404).json({ message: 'Assessment assignment not found' });
+      }
+      
+      // Role-based authorization: therapists can only delete assessments for their assigned clients
+      if (req.user.role === 'therapist') {
+        const client = await storage.getClient(existingAssignment.clientId);
+        if (!client || client.assignedTherapistId !== req.user.id) {
+          return res.status(403).json({ message: "Access denied. You can only delete assessments for your assigned clients." });
+        }
+      } else if (req.user.role === 'supervisor') {
+        const client = await storage.getClient(existingAssignment.clientId);
+        if (!client) {
+          return res.status(404).json({ message: 'Client not found' });
+        }
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          return res.status(403).json({ message: "Access denied. You can only delete assessments for clients of therapists you supervise." });
+        }
+      }
+      
       await storage.deleteAssessmentAssignment(parseInt(assignmentId));
       res.json({ message: 'Assessment assignment deleted successfully' });
     } catch (error) {
