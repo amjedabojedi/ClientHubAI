@@ -188,7 +188,7 @@ export default function MyProfilePage() {
 
   // Update form when data loads (only once when data actually changes)
   React.useEffect(() => {
-    if (user && user.fullName && !userLoading && !profileLoading) {
+    if (user && !userLoading && !profileLoading) {
       const formData = {
         fullName: user.fullName || "",
         email: user.email || "",
@@ -222,7 +222,7 @@ export default function MyProfilePage() {
       };
       form.reset(formData);
     }
-  }, [user?.fullName, profile?.id]);
+  }, [user?.id, user?.email, user?.fullName, profile?.id]);
 
   // Update Zoom form when credentials are loaded
   React.useEffect(() => {
