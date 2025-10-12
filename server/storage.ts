@@ -50,6 +50,7 @@ import type {
   InsertClient,
   User, 
   InsertUser,
+  BasicUserInfo,
   Session,
   InsertSession,
   Task,
@@ -145,7 +146,7 @@ export interface ClientsQueryParams {
 }
 
 export interface ClientsQueryResult {
-  clients: (Client & { assignedTherapist?: User; sessionCount: number; taskCount: number; documentCount: number })[];
+  clients: (Client & { assignedTherapist?: BasicUserInfo; sessionCount: number; taskCount: number; documentCount: number })[];
   total: number;
   totalPages: number;
 }
@@ -242,7 +243,7 @@ export interface IStorage {
 
   // ===== CLIENT MANAGEMENT =====
   getClients(params: ClientsQueryParams): Promise<ClientsQueryResult>;
-  getClient(id: number): Promise<(Client & { assignedTherapist?: User }) | undefined>;
+  getClient(id: number): Promise<(Client & { assignedTherapist?: BasicUserInfo }) | undefined>;
   getClientByClientId(clientId: string): Promise<Client | undefined>;
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: number, client: Partial<InsertClient>): Promise<Client>;
@@ -367,7 +368,7 @@ export interface IStorage {
   getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; category: LibraryCategory })[]>;
 
   // Assessment Templates Management
-  getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User; sectionsCount: number })[]>;
+  getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User | null; sectionsCount: number })[]>;
   getAssessmentTemplate(id: number): Promise<(AssessmentTemplate & { createdBy: User; sections: (AssessmentSection & { questions: (AssessmentQuestion & { options: AssessmentQuestionOption[] })[] })[] }) | undefined>;
   createAssessmentTemplate(template: InsertAssessmentTemplate): Promise<AssessmentTemplate>;
   updateAssessmentTemplate(id: number, template: Partial<InsertAssessmentTemplate>): Promise<AssessmentTemplate>;
@@ -870,7 +871,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getClient(id: number): Promise<(Client & { assignedTherapist?: User; sessionCount?: number; documentCount?: number }) | undefined> {
+  async getClient(id: number): Promise<(Client & { assignedTherapist?: BasicUserInfo; sessionCount?: number; documentCount?: number }) | undefined> {
     const [result] = await db
       .select({
         client: clients,
@@ -3016,7 +3017,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Assessment Templates Management
-  async getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User; sectionsCount: number })[]> {
+  async getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User | null; sectionsCount: number })[]> {
     const templates = await db
       .select({
         id: assessmentTemplates.id,
