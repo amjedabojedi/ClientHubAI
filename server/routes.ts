@@ -7034,7 +7034,7 @@ This happens because only the file metadata was stored, not the actual file cont
   // ===== CHECKLIST TEMPLATE MANAGEMENT =====
   // Database-backed storage for checklist templates and items
 
-  app.get('/api/checklist-templates', async (req, res) => {
+  app.get('/api/checklist-templates', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const templates = await storage.getChecklistTemplates();
       res.json(templates);
@@ -7043,7 +7043,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post('/api/checklist-templates', async (req, res) => {
+  app.post('/api/checklist-templates', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const template = await storage.createChecklistTemplate(req.body);
       res.json(template);
@@ -7052,7 +7052,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete('/api/checklist-templates/:id', async (req, res) => {
+  app.delete('/api/checklist-templates/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const templateId = parseInt(req.params.id);
       await storage.deleteChecklistTemplate(templateId);
