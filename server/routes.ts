@@ -6604,8 +6604,13 @@ This happens because only the file metadata was stored, not the actual file cont
   // ===== ROLE MANAGEMENT ROUTES =====
   
   // Get all roles
-  app.get("/api/roles", async (req, res) => {
+  app.get("/api/roles", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can view roles
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const roles = await storage.getRoles();
       res.json(roles);
     } catch (error) {
@@ -6615,8 +6620,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Get specific role
-  app.get("/api/roles/:id", async (req, res) => {
+  app.get("/api/roles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can view roles
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const id = parseInt(req.params.id);
       const role = await storage.getRole(id);
       if (!role) {
@@ -6630,8 +6640,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Create role
-  app.post("/api/roles", async (req, res) => {
+  app.post("/api/roles", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can create roles
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const validatedData = insertRoleSchema.parse(req.body);
       const { permissions = [], ...roleData } = validatedData as any;
       
@@ -6656,8 +6671,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Update role
-  app.put("/api/roles/:id", async (req, res) => {
+  app.put("/api/roles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can update roles
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const id = parseInt(req.params.id);
       const validatedData = insertRoleSchema.partial().parse(req.body);
       const { permissions = [], ...roleData } = validatedData as any;
@@ -6683,8 +6703,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Delete role
-  app.delete("/api/roles/:id", async (req, res) => {
+  app.delete("/api/roles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can delete roles
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const id = parseInt(req.params.id);
       
       // Check if role is system role
@@ -6704,8 +6729,13 @@ This happens because only the file metadata was stored, not the actual file cont
   // ===== PERMISSION MANAGEMENT ROUTES =====
   
   // Get all permissions
-  app.get("/api/permissions", async (req, res) => {
+  app.get("/api/permissions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can view permissions
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const permissions = await storage.getPermissions();
       res.json(permissions);
     } catch (error) {
@@ -6715,8 +6745,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Get specific permission
-  app.get("/api/permissions/:id", async (req, res) => {
+  app.get("/api/permissions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can view permissions
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const id = parseInt(req.params.id);
       const permission = await storage.getPermission(id);
       if (!permission) {
@@ -6730,8 +6765,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Create permission
-  app.post("/api/permissions", async (req, res) => {
+  app.post("/api/permissions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can create permissions
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const validatedData = insertPermissionSchema.parse(req.body);
       const permission = await storage.createPermission(validatedData);
       res.status(201).json(permission);
@@ -6745,8 +6785,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Update permission
-  app.put("/api/permissions/:id", async (req, res) => {
+  app.put("/api/permissions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can update permissions
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const id = parseInt(req.params.id);
       const validatedData = insertPermissionSchema.partial().parse(req.body);
       const permission = await storage.updatePermission(id, validatedData);
@@ -6761,8 +6806,13 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Delete permission
-  app.delete("/api/permissions/:id", async (req, res) => {
+  app.delete("/api/permissions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      // Only administrators can delete permissions
+      if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+      }
+      
       const id = parseInt(req.params.id);
       await storage.deletePermission(id);
       res.status(204).send();
