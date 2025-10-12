@@ -1577,12 +1577,8 @@ export default function ClientDetailPage() {
                   <div>
                     <h2 className="text-2xl font-bold text-slate-900">{client.fullName}</h2>
                     <p className="text-slate-600 flex items-center space-x-4">
-                      <span>ID: {client.clientId}</span>
-                      {client.referenceNumber && (
-                        <span>• Ref: {client.referenceNumber}</span>
-                      )}
                       {client.dateOfBirth && (
-                        <span>• Age: {Math.floor((new Date().getTime() - new Date(client.dateOfBirth).getTime()) / (1000 * 3600 * 24 * 365))}</span>
+                        <span>Age: {Math.floor((new Date().getTime() - new Date(client.dateOfBirth).getTime()) / (1000 * 3600 * 24 * 365))}</span>
                       )}
                       {client.clientType && (
                         <span>• {client.clientType.charAt(0).toUpperCase() + client.clientType.slice(1)} Client</span>
@@ -1604,6 +1600,39 @@ export default function ClientDetailPage() {
                   </Button>
                 </div>
               </div>
+            </div>
+
+            {/* Client Identifiers - Quick Reference Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-600 font-medium">Client ID</p>
+                      <p className="text-2xl font-bold text-blue-900">{client.clientId}</p>
+                    </div>
+                    <div className="bg-blue-100 p-3 rounded-full">
+                      <UserIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {client.referenceNumber && (
+                <Card className="bg-purple-50 border-purple-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-purple-600 font-medium">Reference Number</p>
+                        <p className="text-2xl font-bold text-purple-900">{client.referenceNumber}</p>
+                      </div>
+                      <div className="bg-purple-100 p-3 rounded-full">
+                        <FileText className="w-6 h-6 text-purple-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Main Information Grid */}
@@ -1703,12 +1732,6 @@ export default function ClientDetailPage() {
                     <div className="flex items-center justify-between py-2 border-b border-slate-100">
                       <span className="text-sm font-medium text-slate-600">Preferred Language</span>
                       <span className="text-slate-900 font-medium">{client.preferredLanguage}</span>
-                    </div>
-                  )}
-                  {client.referenceNumber && (
-                    <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                      <span className="text-sm font-medium text-slate-600">Reference Number</span>
-                      <span className="text-slate-900 font-medium">{client.referenceNumber}</span>
                     </div>
                   )}
                 </CardContent>
