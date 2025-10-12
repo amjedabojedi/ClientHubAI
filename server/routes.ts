@@ -22,7 +22,7 @@ import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql, ilike } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { zoomService } from "./zoom-service";
@@ -7352,11 +7352,11 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       if (action && action !== 'all') {
-        whereConditions.push(sql`${auditLogs.action} = ${action}`);
+        whereConditions.push(eq(auditLogs.action, action as string));
       }
       
       if (userId && userId !== '') {
-        whereConditions.push(sql`${auditLogs.username} ILIKE ${`%${userId}%`}`);
+        whereConditions.push(ilike(auditLogs.username, `%${userId}%`));
       }
       
       if (hipaaOnly === 'true') {
