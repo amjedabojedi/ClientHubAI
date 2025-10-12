@@ -6536,7 +6536,7 @@ This happens because only the file metadata was stored, not the actual file cont
   // Assessment completion workflow endpoints
   
   // Get assignment details with full relationships
-  app.get('/api/assessments/assignments/:assignmentId', async (req, res) => {
+  app.get('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
       const assignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
@@ -6547,7 +6547,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Get template sections with questions
-  app.get('/api/assessments/templates/:templateId/sections', async (req, res) => {
+  app.get('/api/assessments/templates/:templateId/sections', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { templateId } = req.params;
       const sections = await storage.getAssessmentTemplateSections(parseInt(templateId));
@@ -6559,7 +6559,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Get assignment responses
-  app.get('/api/assessments/assignments/:assignmentId/responses', async (req, res) => {
+  app.get('/api/assessments/assignments/:assignmentId/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
       const responses = await storage.getAssessmentResponses(parseInt(assignmentId));
@@ -6570,7 +6570,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Save assessment response
-  app.post('/api/assessments/responses', async (req, res) => {
+  app.post('/api/assessments/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const response = await storage.saveAssessmentResponse(req.body);
       res.json(response);
@@ -6580,7 +6580,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Update assignment status
-  app.patch('/api/assessments/assignments/:assignmentId', async (req, res) => {
+  app.patch('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
       const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), req.body);
@@ -6591,7 +6591,7 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Delete assessment assignment
-  app.delete('/api/assessments/assignments/:assignmentId', async (req, res) => {
+  app.delete('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { assignmentId } = req.params;
       await storage.deleteAssessmentAssignment(parseInt(assignmentId));
