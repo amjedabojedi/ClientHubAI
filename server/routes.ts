@@ -6719,6 +6719,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Get all roles
   app.get("/api/roles", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can view roles
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6735,6 +6739,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Get specific role
   app.get("/api/roles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can view roles
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6755,6 +6763,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Create role
   app.post("/api/roles", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can create roles
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6786,6 +6798,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Update role
   app.put("/api/roles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can update roles
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
@@ -6818,6 +6834,10 @@ This happens because only the file metadata was stored, not the actual file cont
   // Delete role
   app.delete("/api/roles/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       // Only administrators can delete roles
       if (req.user.role !== 'administrator' && req.user.role !== 'admin') {
         return res.status(403).json({ message: "Access denied. Administrator privileges required." });
