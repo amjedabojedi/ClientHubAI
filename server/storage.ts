@@ -4295,12 +4295,12 @@ export class DatabaseStorage implements IStorage {
       const migration = migrationMap[categoryKey];
       if (migration) {
         
-        // Use raw SQL for the update since we need dynamic table/column names
-        await db.execute(sql.raw(`
-          UPDATE ${migration.table} 
-          SET ${migration.column} = '${newKey}' 
-          WHERE ${migration.column} = '${oldKey}'
-        `));
+        // Use parameterized query with sql.identifier for safe dynamic table/column names
+        await db.execute(sql`
+          UPDATE ${sql.identifier(migration.table)} 
+          SET ${sql.identifier(migration.column)} = ${newKey} 
+          WHERE ${sql.identifier(migration.column)} = ${oldKey}
+        `);
         
       } else {
       }
