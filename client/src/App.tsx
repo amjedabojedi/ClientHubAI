@@ -34,6 +34,7 @@ import BillingDashboard from "@/pages/billing-dashboard";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
+import { PostHogProvider } from "@/lib/posthog";
 
 
 // Helper function to check if user has admin or supervisor privileges
@@ -337,14 +338,16 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthContext.Provider value={authState}>
-          <RecentItemsProvider>
-            <Toaster />
-            <Router />
-          </RecentItemsProvider>
-        </AuthContext.Provider>
-      </TooltipProvider>
+      <PostHogProvider>
+        <TooltipProvider>
+          <AuthContext.Provider value={authState}>
+            <RecentItemsProvider>
+              <Toaster />
+              <Router />
+            </RecentItemsProvider>
+          </AuthContext.Provider>
+        </TooltipProvider>
+      </PostHogProvider>
     </QueryClientProvider>
   );
 }
