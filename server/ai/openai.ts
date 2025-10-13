@@ -445,6 +445,49 @@ async function generateAssessmentReport(
   responses: any[], 
   sections: any[]
 ): Promise<string> {
+  // STRICT CLIENT DATA VALIDATION - Only include approved, sanitized fields
+  // Prevents injection attacks and data leaks
+  
+  // Validate required fields
+  if (!assignment || !assignment.client) {
+    throw new Error("Assessment assignment and client data are required");
+  }
+  
+  // Sanitize helper - strip HTML/scripts and trim whitespace
+  const sanitize = (value: any): string => {
+    if (!value) return 'Not provided';
+    return String(value)
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .trim() || 'Not provided';
+  };
+  
+  // Whitelist only approved client fields with strict sanitization
+  const clientName = sanitize(assignment.client.fullName) || 'Client Name';
+  const clientId = sanitize(assignment.client.clientId) || 'N/A';
+  const dateOfBirth = assignment.client.dateOfBirth 
+    ? format(new Date(assignment.client.dateOfBirth), 'MMM dd, yyyy') 
+    : 'Not provided';
+  const gender = sanitize(assignment.client.gender) || 'Not specified';
+  const phone = sanitize(assignment.client.phoneNumber) || 'Not provided';
+  const email = sanitize(assignment.client.emailAddress) || 'Not provided';
+  
+  // Build address from validated components only
+  const addressParts = [
+    sanitize(assignment.client.address),
+    sanitize(assignment.client.city),
+    sanitize(assignment.client.province),
+    sanitize(assignment.client.postalCode)
+  ].filter(part => part !== 'Not provided');
+  const address = addressParts.length > 0 ? addressParts.join(', ') : 'Not provided';
+  
+  const assessmentName = sanitize(assignment.template?.name) || 'Assessment';
+  const completedDate = assignment.completedAt 
+    ? format(new Date(assignment.completedAt), 'MMM dd, yyyy') 
+    : 'N/A';
+  const clinicianName = sanitize(assignment.assignedBy?.fullName) || 'Clinician Name';
+  const reportDate = format(new Date(), 'MMM dd, yyyy');
+  
   const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts.
 
 Key requirements:
@@ -464,19 +507,19 @@ For each section:
 4. Use appropriate clinical terminology for the section's focus area
 5. Create coherent paragraphs that flow naturally`;
 
-  // Build comprehensive client information header
+  // Build client information header with validated fields only
   const clientInfo = `
-Client Name: ${assignment.client?.fullName || 'Client Name'}
-Client ID: ${assignment.client?.clientId || 'N/A'}
-Date of Birth: ${assignment.client?.dateOfBirth ? format(new Date(assignment.client.dateOfBirth), 'MMM dd, yyyy') : 'Not provided'}
-Gender: ${assignment.client?.gender || 'Not specified'}
-Phone: ${assignment.client?.phoneNumber || 'Not provided'}
-Email: ${assignment.client?.emailAddress || 'Not provided'}
-Address: ${assignment.client?.address ? `${assignment.client.address}${assignment.client.city ? ', ' + assignment.client.city : ''}${assignment.client.province ? ', ' + assignment.client.province : ''}${assignment.client.postalCode ? ' ' + assignment.client.postalCode : ''}` : 'Not provided'}
-Assessment: ${assignment.template?.name || 'Assessment'}
-Assessment Date: ${assignment.completedAt ? format(new Date(assignment.completedAt), 'MMM dd, yyyy') : 'N/A'}
-Clinician: ${assignment.assignedBy?.fullName || 'Clinician Name'}
-Report Generated: ${format(new Date(), 'MMM dd, yyyy')}
+Client Name: ${clientName}
+Client ID: ${clientId}
+Date of Birth: ${dateOfBirth}
+Gender: ${gender}
+Phone: ${phone}
+Email: ${email}
+Address: ${address}
+Assessment: ${assessmentName}
+Assessment Date: ${completedDate}
+Clinician: ${clinicianName}
+Report Generated: ${reportDate}
 `;
 
   // Build the user prompt with client information and section data
