@@ -5075,8 +5075,14 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Generate AI assessment report
-  app.post("/api/assessments/assignments/:assignmentId/generate-report", async (req, res) => {
+  app.post("/api/assessments/assignments/:assignmentId/generate-report", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const assignmentId = parseInt(req.params.assignmentId);
       if (isNaN(assignmentId)) {
         return res.status(400).json({ message: "Invalid assignment ID" });
@@ -5095,16 +5101,34 @@ This happens because only the file metadata was stored, not the actual file cont
       const { generateAssessmentReport } = await import("./ai/openai");
       const generatedContent = await generateAssessmentReport(assignment, responses, sections);
 
-      // Save the generated report
+      // Save the generated report with authenticated user ID
       const reportData = {
         assignmentId,
         generatedContent,
         reportData: JSON.stringify({ responses, sections }),
         generatedAt: new Date(),
-        createdById: 17 // Valid therapist ID
+        createdById: req.user.id
       };
 
       const report = await storage.createAssessmentReport(reportData);
+      
+      // HIPAA Audit: Log AI report generation
+      await AuditLogger.logSessionNoteOperation(
+        req.user.id,
+        req.user.username,
+        null, // No session ID for assessments
+        assignment.clientId,
+        'ai_assessment_report_generated',
+        ipAddress,
+        userAgent,
+        { 
+          assignmentId,
+          templateId: assignment.templateId,
+          reportId: report.id,
+          aiModel: 'gpt-4o'
+        }
+      );
+
       res.status(201).json(report);
     } catch (error) {
       console.error('Error generating assessment report:', error);
