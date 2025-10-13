@@ -22,8 +22,8 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
         capture_performance: true,
         // Privacy-friendly settings
         persistence: 'localStorage',
-        // Disable session recording by default (can be enabled later)
-        disable_session_recording: false,
+        // Disable session recording by default (can be enabled via env var)
+        disable_session_recording: import.meta.env.VITE_POSTHOG_ENABLE_RECORDING !== 'true',
         // Security: Use secure cookies
         secure_cookie: true,
         // Helpful for debugging

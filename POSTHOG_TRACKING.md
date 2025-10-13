@@ -8,7 +8,7 @@ PostHog is now integrated into TherapyFlow to help you understand how the system
 ### User Authentication
 - **Event:** `user_logged_in`
   - Tracks when users successfully log in
-  - Properties: `role`, `username`
+  - Properties: `role` (no PII - user already identified via identifyUser)
   - Location: `client/src/hooks/useAuth.ts`
 
 ### Client Management
@@ -90,10 +90,11 @@ const createSessionMutation = useMutation({
 
 ## Privacy & Security
 
-- PostHog credentials are stored as environment variables (VITE_POSTHOG_API_KEY, VITE_POSTHOG_HOST)
-- The integration only initializes if credentials are present
-- User identification uses user IDs, not sensitive personal information
-- All tracking is HIPAA-compliant when configured properly
+- **Credentials:** PostHog API key and host are stored as environment variables (VITE_POSTHOG_API_KEY, VITE_POSTHOG_HOST)
+- **Graceful degradation:** The integration only initializes if credentials are present
+- **No PII in events:** User identification uses user IDs for linkage; event properties contain only non-sensitive metadata (roles, types, counts)
+- **Session recording disabled:** Session recording is OFF by default. Enable only if needed via VITE_POSTHOG_ENABLE_RECORDING=true
+- **HIPAA compliance:** When configured properly with privacy settings, tracking is HIPAA-compliant
 
 ## Viewing Analytics
 

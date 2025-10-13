@@ -60,15 +60,13 @@ export function useAuthState(): AuthContextType {
         
         // Identify user in PostHog for analytics
         identifyUser(userData.id.toString(), {
-          username: userData.username,
           fullName: userData.fullName,
           role: userData.role,
         });
         
-        // Track successful login
+        // Track successful login (no PII in event properties)
         trackEvent('user_logged_in', {
           role: userData.role,
-          username: userData.username,
         });
         
         setIsLoading(false);
