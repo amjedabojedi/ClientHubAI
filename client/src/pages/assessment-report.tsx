@@ -135,215 +135,24 @@ export default function AssessmentReportPage() {
       return `Rating: ${response.ratingValue}`;
     }
     
-    // Show the exact labels that were used in the completion form when users made their selections
+    // Show selected options using database options
     if (response.selectedOptions && response.selectedOptions.length > 0) {
-      // Use the SAME EXACT logic as completion form to recreate the options the user saw
-      let questionOptions = question.options;
+      // Always use options from database - no hardcoded values
+      const questionOptions = question.options;
       
-      if (!questionOptions) {
-        if (question.questionType === 'multiple_choice') {
-          if (question.questionText?.toLowerCase().includes('session format')) {
-            questionOptions = ['In-Person', 'Online', 'Phone'];
-          } 
-          // BDI-II Item 1: Sadness
-          else if (question.questionText?.toLowerCase().includes('sadness')) {
-            questionOptions = [
-              'I do not feel sad.',
-              'I feel sad much of the time.',
-              'I am sad all the time.',
-              "I am so sad or unhappy that I can't stand it."
-            ];
-          }
-          // BDI-II Item 2: Pessimism
-          else if (question.questionText?.toLowerCase().includes('pessimism')) {
-            questionOptions = [
-              'I am not discouraged about my future.',
-              'I feel more discouraged about my future than I used to be.',
-              'I do not expect things to work out for me.',
-              'I feel my future is hopeless and will only get worse.'
-            ];
-          }
-          // BDI-II Item 3: Past Failure
-          else if (question.questionText?.toLowerCase().includes('past failure')) {
-            questionOptions = [
-              'I do not feel like a failure.',
-              'I have failed more than I should have.',
-              'As I look back, I see a lot of failures.',
-              'I feel I am a total failure as a person.'
-            ];
-          }
-          // BDI-II Item 4: Loss of Pleasure
-          else if (question.questionText?.toLowerCase().includes('loss of pleasure')) {
-            questionOptions = [
-              'I get as much pleasure as I ever did from the things I enjoy.',
-              "I don't enjoy things as much as I used to.",
-              'I get very little pleasure from the things I used to enjoy.',
-              "I can't get any pleasure from the things I used to enjoy."
-            ];
-          }
-          // BDI-II Item 5: Guilty Feelings
-          else if (question.questionText?.toLowerCase().includes('guilty feelings')) {
-            questionOptions = [
-              "I don't feel particularly guilty.",
-              'I feel guilty over many things I have done or should have done.',
-              'I feel quite guilty most of the time.',
-              'I feel guilty all of the time.'
-            ];
-          }
-          // BDI-II Item 6: Punishment Feelings
-          else if (question.questionText?.toLowerCase().includes('punishment feelings')) {
-            questionOptions = [
-              "I don't feel I am being punished.",
-              'I feel I may be punished.',
-              'I expect to be punished.',
-              'I feel I am being punished.'
-            ];
-          }
-          // BDI-II Item 7: Self-Dislike
-          else if (question.questionText?.toLowerCase().includes('self-dislike')) {
-            questionOptions = [
-              'I feel the same about myself as ever.',
-              'I have lost confidence in myself.',
-              'I am disappointed in myself.',
-              'I dislike myself.'
-            ];
-          }
-          // BDI-II Item 8: Self-Criticalness
-          else if (question.questionText?.toLowerCase().includes('self-criticalness')) {
-            questionOptions = [
-              "I don't criticize or blame myself more than usual.",
-              'I am more critical of myself than I used to be.',
-              'I criticize myself for all of my faults.',
-              'I blame myself for everything bad that happens.'
-            ];
-          }
-          // BDI-II Item 9: Suicidal Thoughts or Wishes
-          else if (question.questionText?.toLowerCase().includes('suicidal thoughts')) {
-            questionOptions = [
-              "I don't have any thoughts of killing myself.",
-              'I have thoughts of killing myself, but I would not carry them out.',
-              'I would like to kill myself.',
-              'I would kill myself if I had the chance.'
-            ];
-          }
-          // BDI-II Item 10: Crying
-          else if (question.questionText?.toLowerCase().includes('crying')) {
-            questionOptions = [
-              "I don't cry anymore than I used to.",
-              'I cry more than I used to.',
-              'I cry over every little thing.',
-              "I feel like crying, but I can't."
-            ];
-          }
-          // BDI-II Item 11: Agitation
-          else if (question.questionText?.toLowerCase().includes('agitation')) {
-            questionOptions = [
-              'I am no more restless or wound up than usual.',
-              'I feel more restless or wound up than usual.',
-              "I am so restless or agitated that it's hard to stay still.",
-              'I am so restless or agitated that I have to keep moving or doing something.'
-            ];
-          }
-          // BDI-II Item 12: Loss of Interest
-          else if (question.questionText?.toLowerCase().includes('loss of interest')) {
-            questionOptions = [
-              'I have not lost interest in other people or activities.',
-              'I am less interested in other people or things than before.',
-              'I have lost most of my interest in other people or things.',
-              "It's hard to get interested in anything."
-            ];
-          }
-          // BDI-II Item 13: Indecisiveness
-          else if (question.questionText?.toLowerCase().includes('indecisiveness')) {
-            questionOptions = [
-              'I make decisions about as well as ever.',
-              'I find it more difficult to make decisions than usual.',
-              'I have much greater difficulty in making decisions than I used to.',
-              'I have trouble making any decisions.'
-            ];
-          }
-          // BDI-II Item 14: Worthlessness
-          else if (question.questionText?.toLowerCase().includes('worthlessness')) {
-            questionOptions = [
-              'I do not feel I am worthless.',
-              "I don't consider myself as worthwhile and useful as I used to.",
-              'I feel more worthless as compared to other people.',
-              'I feel utterly worthless.'
-            ];
-          }
-          // BDI-II Item 15: Loss of Energy
-          else if (question.questionText?.toLowerCase().includes('loss of energy')) {
-            questionOptions = [
-              'I have as much energy as ever.',
-              'I have less energy than I used to have.',
-              "I don't have enough energy to do very much.",
-              "I don't have enough energy to do anything."
-            ];
-          }
-          // BDI-II Item 16: Changes in Sleeping Pattern
-          else if (question.questionText?.toLowerCase().includes('changes in sleeping')) {
-            questionOptions = [
-              'I have not experienced any change in my sleeping pattern.',
-              'I sleep somewhat more than usual / I sleep somewhat less than usual.',
-              'I sleep a lot more than usual / I sleep a lot less than usual.',
-              'I sleep most of the day / I wake up 1-2 hours early and can\'t get back to sleep.'
-            ];
-          }
-          // BDI-II Item 17: Irritability
-          else if (question.questionText?.toLowerCase().includes('irritability')) {
-            questionOptions = [
-              'I am no more irritable than usual.',
-              'I am more irritable than usual.',
-              'I am much more irritable than usual.',
-              'I am irritable all the time.'
-            ];
-          }
-          // BDI-II Item 18: Changes in Appetite
-          else if (question.questionText?.toLowerCase().includes('changes in appetite')) {
-            questionOptions = [
-              'I have not experienced any change in my appetite.',
-              'My appetite is somewhat less than usual / My appetite is somewhat greater than usual.',
-              'My appetite is much less than before / My appetite is much greater than usual.',
-              'I have no appetite at all / I crave food all the time.'
-            ];
-          }
-          // BDI-II Item 19: Concentration Difficulty
-          else if (question.questionText?.toLowerCase().includes('concentration')) {
-            questionOptions = [
-              'I can concentrate as well as ever.',
-              "I can't concentrate as well as usual.",
-              "It's hard to keep my mind on anything for very long.",
-              "I find I can't concentrate on anything."
-            ];
-          }
-          // BDI-II Item 20: Tiredness or Fatigue
-          else if (question.questionText?.toLowerCase().includes('tiredness') || question.questionText?.toLowerCase().includes('fatigue')) {
-            questionOptions = [
-              'I am no more tired or fatigued than usual.',
-              'I get more tired or fatigued more easily than usual.',
-              'I am too tired or fatigued to do a lot of the things I used to do.',
-              'I am too tired or fatigued to do most of the things I used to do.'
-            ];
-          }
-          // BDI-II Item 21: Loss of Interest in Sex
-          else if (question.questionText?.toLowerCase().includes('loss of interest in sex')) {
-            questionOptions = [
-              'I have not noticed any recent change in my interest in sex.',
-              'I am less interested in sex than I used to be.',
-              'I am much less interested in sex now.',
-              'I have lost interest in sex completely.'
-            ];
-          }
-          else {
-            questionOptions = ['Yes', 'No'];
-          }
-        }
+      // If no options in database, show error message
+      if (!questionOptions || questionOptions.length === 0) {
+        console.warn(`Question options missing for question: ${question.questionText}`);
+        // Map selected indices to display values
+        return response.selectedOptions.map((idx: number) => `Selected option ${idx}`).join(', ');
       }
       
-      if (question.questionType === 'multiple_choice') {
-        const selectedIndex = response.selectedOptions[0];
-        return questionOptions?.[selectedIndex] || `Option ${selectedIndex}`;
-      }
+      // Map selected indices to actual option text from database
+      const selectedTexts = response.selectedOptions
+        .map((idx: number) => questionOptions[idx])
+        .filter(Boolean);
+      
+      return selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
     }
     
     return 'No response provided';
