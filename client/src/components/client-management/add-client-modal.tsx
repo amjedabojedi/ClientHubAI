@@ -16,6 +16,7 @@ import { insertClientSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { trackEvent } from "@/lib/posthog";
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -179,7 +180,15 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
 
   const createClientMutation = useMutation({
     mutationFn: (data: ClientFormData) => apiRequest("/api/clients", "POST", data),
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
+      // Track client creation event
+      trackEvent('client_created', {
+        clientType: variables.clientType,
+        hasPortalAccess: variables.hasPortalAccess,
+        stage: variables.stage,
+        status: variables.status,
+      });
+      
       toast({
         title: "Success",
         description: "Client created successfully",

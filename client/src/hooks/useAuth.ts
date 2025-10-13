@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User } from '@shared/schema';
+import { identifyUser, trackEvent } from '@/lib/posthog';
 
 interface AuthContextType {
   user: User | null;
@@ -56,6 +57,20 @@ export function useAuthState(): AuthContextType {
         const userData = await response.json();
         setUser(userData);
         localStorage.setItem('currentUser', JSON.stringify(userData));
+        
+        // Identify user in PostHog for analytics
+        identifyUser(userData.id.toString(), {
+          username: userData.username,
+          fullName: userData.fullName,
+          role: userData.role,
+        });
+        
+        // Track successful login
+        trackEvent('user_logged_in', {
+          role: userData.role,
+          username: userData.username,
+        });
+        
         setIsLoading(false);
         return { success: true };
       } else {
