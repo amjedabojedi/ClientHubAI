@@ -5137,8 +5137,14 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Download assessment report as PDF
-  app.get("/api/assessments/assignments/:assignmentId/download/pdf", async (req, res) => {
+  app.get("/api/assessments/assignments/:assignmentId/download/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const assignmentId = parseInt(req.params.assignmentId);
       const report = await storage.getAssessmentReport(assignmentId);
       
@@ -5151,6 +5157,47 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Assessment assignment not found" });
       }
 
+      // Fetch practice settings from system options
+      const practiceOptions = await storage.getSystemOptionsByCategory('practice');
+      let practiceSettings = {
+        name: 'TherapyFlow',
+        description: '',
+        subtitle: '',
+        address: '',
+        phone: '',
+        email: '',
+        website: ''
+      };
+      
+      if (practiceOptions) {
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
+        practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      }
+
+      // Fetch therapist details with signature
+      if (assignment.assignedById) {
+        const therapist = await storage.getUser(assignment.assignedById);
+        const userProfile = await storage.getUserProfile(assignment.assignedById);
+        
+        assignment.assignedBy = {
+          ...therapist,
+          signatureImage: userProfile?.signatureImage,
+          profile: {
+            licenseType: userProfile?.licenseType,
+            licenseNumber: userProfile?.licenseNumber
+          }
+        } as any;
+      }
+
+      // Generate professional HTML using new PDF generator
+      const { generateAssessmentReportHTML } = await import("./pdf/assessment-report-pdf");
+      const html = generateAssessmentReportHTML(assignment, report, practiceSettings);
+
       // Generate PDF using puppeteer
       const puppeteer = await import("puppeteer");
       const browser = await puppeteer.default.launch({
@@ -5159,89 +5206,30 @@ This happens because only the file metadata was stored, not the actual file cont
       });
       
       const page = await browser.newPage();
-      
-      // Convert markdown to HTML with professional formatting
-      let htmlContent = (report.generatedContent || '')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>')
-        .replace(/## ([^<]+)/g, '<h2>$1</h2>')
-        .replace(/# ([^<]+)/g, '<h1>$1</h1>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/^([^<])/gm, '<p>$1')
-        .replace(/([^>])$/gm, '$1</p>');
-      
-      const fullHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Assessment Report - ${assignment.client?.fullName}</title>
-          <style>
-            body { 
-              font-family: 'Times New Roman', serif; 
-              line-height: 1.8; 
-              margin: 1in; 
-              color: #000; 
-              font-size: 12pt;
-              background: white;
-            }
-            h1 { 
-              color: #000; 
-              border-bottom: 2px solid #000; 
-              padding-bottom: 10px; 
-              page-break-after: avoid; 
-              font-size: 18pt;
-              font-weight: bold;
-              text-align: center;
-              margin-bottom: 30px;
-              text-transform: uppercase;
-            }
-            h2 { 
-              color: #000; 
-              margin-top: 25px; 
-              margin-bottom: 15px;
-              page-break-after: avoid; 
-              font-size: 14pt;
-              font-weight: bold;
-              text-decoration: underline;
-            }
-            .client-info { 
-              border: 1px solid #000; 
-              padding: 20px; 
-              margin-bottom: 30px; 
-              background: white;
-            }
-            .section { 
-              margin-bottom: 25px; 
-              page-break-inside: avoid; 
-            }
-            p { 
-              margin-bottom: 12px; 
-              text-align: justify;
-            }
-            strong { font-weight: bold; }
-            @media print { 
-              body { margin: 0.75in; font-size: 11pt; }
-              .no-print { display: none; }
-              h1 { font-size: 16pt; }
-              h2 { font-size: 13pt; }
-            }
-          </style>
-        </head>
-        <body>
-          ${htmlContent}
-        </body>
-        </html>
-      `;
-      
-      await page.setContent(fullHtml);
+      await page.setContent(html);
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }
+        margin: { top: '15mm', right: '15mm', bottom: '15mm', left: '15mm' }
       });
       
       await browser.close();
+      
+      // HIPAA Audit: Log PDF download
+      await AuditLogger.logDocumentAccess(
+        req.user.id,
+        req.user.username,
+        report.id,
+        assignment.clientId,
+        'assessment_report_downloaded',
+        ipAddress,
+        userAgent,
+        { 
+          assignmentId,
+          format: 'pdf',
+          templateName: assignment.template?.name
+        }
+      );
       
       const filename = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
       
@@ -5256,8 +5244,14 @@ This happens because only the file metadata was stored, not the actual file cont
   });
 
   // Download assessment report as Word document
-  app.get("/api/assessments/assignments/:assignmentId/download/docx", async (req, res) => {
+  app.get("/api/assessments/assignments/:assignmentId/download/docx", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
       const assignmentId = parseInt(req.params.assignmentId);
       const report = await storage.getAssessmentReport(assignmentId);
       
@@ -5335,6 +5329,23 @@ This happens because only the file metadata was stored, not the actual file cont
       });
       
       const buffer = await Packer.toBuffer(doc);
+      
+      // HIPAA Audit: Log Word download
+      await AuditLogger.logDocumentAccess(
+        req.user.id,
+        req.user.username,
+        report.id,
+        assignment.clientId,
+        'assessment_report_downloaded',
+        ipAddress,
+        userAgent,
+        { 
+          assignmentId,
+          format: 'docx',
+          templateName: assignment.template?.name
+        }
+      );
+      
       const filename = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
       
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
