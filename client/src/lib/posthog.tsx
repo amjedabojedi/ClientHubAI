@@ -9,11 +9,10 @@ const PostHogContext = createContext<PostHogContextType>({ posthog: null });
 
 export function PostHogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
-    const apiKey = import.meta.env.VITE_POSTHOG_API_KEY;
+    const apiKey = import.meta.env.VITE_POSTHOG_API_KEY || 'phc_gFMtGnO2mkibMq3zQ5vLyNRCSr0jSN8tDNkozQexJ03';
     const host = import.meta.env.VITE_POSTHOG_HOST || 'https://app.posthog.com';
 
-    // Only initialize if API key is provided
-    if (apiKey && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       posthog.init(apiKey, {
         api_host: host,
         // Capture pageviews automatically
@@ -33,15 +32,11 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
           }
         },
       });
-    } else if (import.meta.env.DEV) {
-      console.warn('PostHog not initialized: Missing VITE_POSTHOG_API_KEY');
     }
 
     return () => {
       // Cleanup on unmount
-      if (apiKey) {
-        posthog.reset();
-      }
+      posthog.reset();
     };
   }, []);
 
@@ -62,16 +57,14 @@ export function usePostHog() {
 
 // Helper function to track events safely
 export function trackEvent(eventName: string, properties?: Record<string, any>) {
-  const apiKey = import.meta.env.VITE_POSTHOG_API_KEY;
-  if (apiKey && posthog) {
+  if (posthog) {
     posthog.capture(eventName, properties);
   }
 }
 
 // Helper to identify users
 export function identifyUser(userId: string, properties?: Record<string, any>) {
-  const apiKey = import.meta.env.VITE_POSTHOG_API_KEY;
-  if (apiKey && posthog) {
+  if (posthog) {
     posthog.identify(userId, properties);
   }
 }
