@@ -2704,8 +2704,8 @@ export default function ClientDetailPage() {
                     {assignedAssessments.map((assessment) => (
                       <div key={assessment.id} className="border rounded-lg p-4 hover:bg-slate-50">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className={`p-2 rounded-full ${
+                          <div className="flex items-center space-x-3 max-w-[70%]">
+                            <div className={`p-2 rounded-full flex-shrink-0 ${
                               assessment.status === 'completed' ? 'bg-green-100' :
                               assessment.status === 'in_progress' ? 'bg-yellow-100' :
                               'bg-blue-100'
@@ -2716,8 +2716,8 @@ export default function ClientDetailPage() {
                                 'text-blue-600'
                               }`} />
                             </div>
-                            <div>
-                              <h4 className="font-semibold text-slate-900">{assessment.template.name}</h4>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-slate-900 truncate">{assessment.template.name}</h4>
                               <p className="text-sm text-slate-600">
                                 Status: <span className={`font-medium ${
                                   assessment.status === 'completed' ? 'text-green-600' :
@@ -2734,7 +2734,7 @@ export default function ClientDetailPage() {
                                 )}
                               </p>
                               {assessment.template.description && (
-                                <p className="text-sm text-slate-500 mt-1">{assessment.template.description}</p>
+                                <p className="text-sm text-slate-500 mt-1 line-clamp-2">{assessment.template.description}</p>
                               )}
                             </div>
                           </div>
