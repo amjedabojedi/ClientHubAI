@@ -4788,38 +4788,7 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.patch("/api/assessments/assignments/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid assignment ID" });
-      }
-
-      const assignmentData = req.body;
-      const assignment = await storage.updateAssessmentAssignment(id, assignmentData);
-      
-      // Trigger assessment completed notification if status changed to completed
-      if (assignmentData.status === 'completed') {
-        try {
-          await notificationService.processEvent('assessment_completed', {
-            id: assignment.id,
-            clientId: assignment.clientId,
-            templateId: assignment.templateId,
-            completionDate: new Date(),
-            assignedById: assignment.assignedById,
-            completedAt: assignment.completedAt
-          });
-        } catch (notificationError) {
-          console.error('Assessment completed notification failed:', notificationError);
-        }
-      }
-      
-      res.json(assignment);
-    } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+  // NOTE: PATCH route moved to line 6803 with proper authentication and authorization
 
   // Assessment Response Routes
   app.get("/api/assessments/assignments/:assignmentId/responses", async (req, res) => {
@@ -5118,13 +5087,14 @@ This happens because only the file metadata was stored, not the actual file cont
         req.user.username,
         assignmentId,
         assignment.clientId,
-        'ai_report_generated',
+        'report_generated',
         ipAddress,
         userAgent,
         { 
           templateId: assignment.templateId,
           reportId: report.id,
-          aiModel: 'gpt-4o'
+          aiModel: 'gpt-4o',
+          method: 'ai_generated'
         }
       );
 
@@ -5174,11 +5144,12 @@ This happens because only the file metadata was stored, not the actual file cont
         req.user.username,
         assignmentId,
         existingReport.assignment.clientId,
-        'report_edited',
+        'assessment_updated',
         ipAddress,
         userAgent,
         { 
-          reportId: updatedReport.id
+          reportId: updatedReport.id,
+          operation: 'draft_saved'
         }
       );
 
@@ -5248,11 +5219,12 @@ This happens because only the file metadata was stored, not the actual file cont
         req.user.username,
         assignmentId,
         existingReport.assignment.clientId,
-        'report_finalized',
+        'assessment_completed',
         ipAddress,
         userAgent,
         { 
-          reportId: updatedReport.id
+          reportId: updatedReport.id,
+          operation: 'report_finalized'
         }
       );
 
@@ -6832,8 +6804,26 @@ This happens because only the file metadata was stored, not the actual file cont
       }
       
       const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), req.body);
+      
+      // Trigger assessment completed notification if status changed to completed
+      if (req.body.status === 'completed') {
+        try {
+          await notificationService.processEvent('assessment_completed', {
+            id: assignment.id,
+            clientId: assignment.clientId,
+            templateId: assignment.templateId,
+            completionDate: new Date(),
+            assignedById: assignment.assignedById,
+            completedAt: assignment.completedAt
+          });
+        } catch (notificationError) {
+          console.error('Assessment completed notification failed:', notificationError);
+        }
+      }
+      
       res.json(assignment);
     } catch (error) {
+      console.error('Error updating assessment assignment:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   });
