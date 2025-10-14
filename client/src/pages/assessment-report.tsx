@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
@@ -58,6 +59,7 @@ export default function AssessmentReportPage() {
 
   // State for editor and finalization
   const [editorContent, setEditorContent] = useState('');
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
 
   // Fetch assessment assignment details
@@ -197,9 +199,18 @@ export default function AssessmentReportPage() {
       return response.responseText.trim();
     }
     
-    // Show actual rating values  
+    // Show rating labels instead of numeric values
     if (response.ratingValue !== null && response.ratingValue !== undefined) {
-      return `Rating: ${response.ratingValue}`;
+      // Try to use rating labels if available
+      if (question.ratingLabels && Array.isArray(question.ratingLabels)) {
+        const labelIndex = response.ratingValue - (question.ratingMin || 1);
+        const label = question.ratingLabels[labelIndex];
+        if (label) {
+          return `${label} (${response.ratingValue})`;
+        }
+      }
+      // Fallback to just showing the numeric value
+      return String(response.ratingValue);
     }
     
     // Show selected options using database options
@@ -207,11 +218,10 @@ export default function AssessmentReportPage() {
       // Always use options from database - no hardcoded values
       const questionOptions = question.options;
       
-      // If no options in database, show error message
+      // If no options in database, try to show meaningful text
       if (!questionOptions || questionOptions.length === 0) {
         console.warn(`Question options missing for question: ${question.questionText}`);
-        // Map selected indices to display values
-        return response.selectedOptions.map((idx: number) => `Selected option ${idx}`).join(', ');
+        return response.selectedOptions.map((idx: number) => `Option ${idx + 1}`).join(', ');
       }
       
       // Map selected indices to actual option text from database
@@ -265,7 +275,7 @@ export default function AssessmentReportPage() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => generateReportMutation.mutate()}
+                  onClick={() => setShowRegenerateDialog(true)}
                   disabled={generateReportMutation.isPending}
                   className="border-orange-600 text-orange-600 hover:bg-orange-50"
                 >
@@ -661,6 +671,36 @@ export default function AssessmentReportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Regenerate Report Confirmation */}
+      <AlertDialog open={showRegenerateDialog} onOpenChange={setShowRegenerateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5 text-orange-500" />
+              <span>Regenerate Report?</span>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will generate a new AI report based on the assessment responses. 
+              <span className="font-semibold text-orange-600"> Any unsaved edits to the current report will be lost.</span>
+              <br /><br />
+              Make sure to save any changes you want to keep before regenerating.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowRegenerateDialog(false);
+                generateReportMutation.mutate();
+              }}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Regenerate Report
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

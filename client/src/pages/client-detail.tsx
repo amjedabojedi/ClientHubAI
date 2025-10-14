@@ -1151,10 +1151,13 @@ export default function ClientDetailPage() {
   // Assessment assign mutation
   const assignAssessmentMutation = useMutation({
     mutationFn: async (templateId: number) => {
+      if (!user?.id) {
+        throw new Error("Authentication required to assign assessments");
+      }
       return await apiRequest(`/api/clients/${clientId}/assessments`, "POST", {
         templateId,
         assignedDate: new Date().toISOString(),
-        assignedBy: 17, // Use valid therapist ID - Abi Cherian
+        assignedBy: user.id,
         status: 'pending'
       });
     },

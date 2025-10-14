@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Icons
 import { 
@@ -30,6 +31,7 @@ import {
 // Utils and Types
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AssessmentQuestion {
   id: number;
@@ -88,9 +90,12 @@ export default function AssessmentCompletionPage() {
   const [responses, setResponses] = useState<Record<number, any>>({});
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Fetch assessment assignment details
   const { data: assignment, isLoading: assignmentLoading } = useQuery({
@@ -200,7 +205,7 @@ export default function AssessmentCompletionPage() {
         title: "Assessment completed",
         description: "The assessment has been completed successfully.",
       });
-      setLocation(`/assessments/${assignmentId}/report`);
+      // Don't auto-redirect - let the next steps dialog handle navigation
     },
     onError: (error: any) => {
       toast({
@@ -254,11 +259,21 @@ export default function AssessmentCompletionPage() {
     
     if (!hasData) return; // Don't save empty responses
 
+    // Validate user is authenticated
+    if (!user?.id) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to save responses.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       await saveResponseMutation.mutateAsync({
         assignmentId,
         questionId,
-        responderId: 17, // Valid therapist ID - Abi Cherian
+        responderId: user.id,
         responseText: response.responseText || null,
         selectedOptions: (response.selectedOptions && response.selectedOptions.length > 0) ? response.selectedOptions : null,
         ratingValue: response.ratingValue || null
@@ -268,8 +283,47 @@ export default function AssessmentCompletionPage() {
     }
   };
 
+  // Calculate completion stats
+  const getCompletionStats = () => {
+    const allQuestions = sections.flatMap((s: any) => s.questions || []);
+    const totalQuestions = allQuestions.length;
+    const answeredQuestions = allQuestions.filter((q: any) => {
+      const response = responses[q.id];
+      return response && (
+        response.responseText || 
+        (response.selectedOptions && response.selectedOptions.length > 0) || 
+        response.ratingValue !== null && response.ratingValue !== undefined
+      );
+    }).length;
+    const unansweredRequired = allQuestions.filter((q: any) => {
+      const response = responses[q.id];
+      const hasResponse = response && (
+        response.responseText || 
+        (response.selectedOptions && response.selectedOptions.length > 0) || 
+        response.ratingValue !== null && response.ratingValue !== undefined
+      );
+      return q.isRequired && !hasResponse;
+    });
+    
+    return {
+      total: totalQuestions,
+      answered: answeredQuestions,
+      skipped: totalQuestions - answeredQuestions,
+      unansweredRequired
+    };
+  };
+
   const handleCompleteAssessment = () => {
-    completeAssessmentMutation.mutate();
+    setShowCompletionDialog(true);
+  };
+
+  const confirmComplete = () => {
+    setShowCompletionDialog(false);
+    completeAssessmentMutation.mutate(undefined, {
+      onSuccess: () => {
+        setShowNextStepsDialog(true);
+      }
+    });
   };
 
   const handleGenerateReport = () => {
@@ -728,6 +782,114 @@ export default function AssessmentCompletionPage() {
           </div>
         </div>
       </div>
+
+      {/* Completion Summary Dialog */}
+      <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Assessment</DialogTitle>
+            <DialogDescription>
+              Review your assessment completion summary
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(() => {
+              const stats = getCompletionStats();
+              return (
+                <>
+                  <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Total Questions:</span>
+                      <span className="text-sm font-bold">{stats.total}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-green-600">Answered:</span>
+                      <span className="text-sm font-bold text-green-600">{stats.answered}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-600">Skipped:</span>
+                      <span className="text-sm font-bold text-slate-600">{stats.skipped}</span>
+                    </div>
+                  </div>
+
+                  {stats.unansweredRequired.length > 0 && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <div className="flex items-start space-x-2">
+                        <AlertCircle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-orange-800">
+                            {stats.unansweredRequired.length} Required Question{stats.unansweredRequired.length > 1 ? 's' : ''} Unanswered
+                          </p>
+                          <p className="text-xs text-orange-600 mt-1">
+                            The assessment can still be completed, but these questions are marked as required.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompletionDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmComplete} className="bg-green-600 hover:bg-green-700">
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Confirm Complete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Next Steps Dialog */}
+      <Dialog open={showNextStepsDialog} onOpenChange={setShowNextStepsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+              <span>Assessment Completed!</span>
+            </DialogTitle>
+            <DialogDescription>
+              What would you like to do next?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <Button
+              className="w-full justify-start h-auto py-4"
+              variant="outline"
+              onClick={() => {
+                setShowNextStepsDialog(false);
+                // Stay on current page to edit assessment
+              }}
+            >
+              <div className="flex items-start space-x-3">
+                <Edit className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div className="text-left">
+                  <div className="font-semibold">Edit Assessment</div>
+                  <div className="text-sm text-slate-600">Go back and modify your answers</div>
+                </div>
+              </div>
+            </Button>
+            <Button
+              className="w-full justify-start h-auto py-4 bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                setShowNextStepsDialog(false);
+                setLocation(`/assessments/${assignmentId}/report`);
+              }}
+            >
+              <div className="flex items-start space-x-3">
+                <FileText className="w-5 h-5 mt-0.5 flex-shrink-0 text-white" />
+                <div className="text-left text-white">
+                  <div className="font-semibold">View & Edit Report</div>
+                  <div className="text-sm text-blue-100">Generate AI report and edit content</div>
+                </div>
+              </div>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
