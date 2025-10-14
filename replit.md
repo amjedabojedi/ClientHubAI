@@ -86,48 +86,42 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 
 ## Known Issues & Future Enhancements
 
-### Assessment Report System Issues
-The following issues have been identified in the assessment report workflow and require attention:
+### Assessment Report System - Recent Fixes (October 2025)
+The following issues were identified and **successfully resolved**:
 
-1. **Hardcoded Therapist ID (SECURITY ISSUE)**
-   - **Location**: `client/src/pages/assessment-completion.tsx` line 261, `client/src/pages/client-detail.tsx` line 1157
-   - **Problem**: Uses hardcoded user ID 17 (Abi Cherian, MSW) instead of authenticated user from session context
-   - **Impact**: All assessment responses and assignments incorrectly attributed to Abi Cherian; audit trail is inaccurate
-   - **Fix Required**: Use authenticated user from context (req.user.id) for both `responderId` and `assignedBy`
+1. ✅ **Hardcoded Therapist ID (SECURITY ISSUE) - FIXED**
+   - **Solution**: Now uses authenticated user context (`user.id`) with validation guards
+   - **Impact**: All assessment responses and assignments correctly attributed to the actual logged-in user
+   - **Validation**: Added authentication checks to prevent saving with invalid user IDs
 
-2. **Data Display Inconsistency**
-   - **Location**: `client/src/pages/assessment-report.tsx` lines 192-226 (getResponseDisplay function)
-   - **Problem**: Mixed display formats - some show raw values ("Rating: 3"), some show labels ("Selected option 0"), some show text
-   - **Impact**: Report looks unprofessional; some questions missing options from database (console warnings)
-   - **Fix Required**: Standardize all responses to show readable text from database; ensure all questions have proper options loaded
+2. ✅ **Data Display Inconsistency - FIXED**
+   - **Solution**: Standardized all response formats to show readable text
+   - **Rating Display**: Now shows "Moderate (3)" instead of "Rating: 3"
+   - **Options Display**: Shows "Option 1" instead of "Selected option 0"
+   - **Impact**: Professional, consistent report formatting
 
-3. **Confusing Assessment Workflow & Action Placement**
-   - **Problems**:
-     - After completing assessment, no clear guidance on next steps
-     - Two legitimate actions should be available as **clear bottom action buttons**:
-       a) **Edit Assessment** → Go back and modify questions/answers
-       b) **Edit Report** → Work with the AI-generated report
-     - Currently these actions exist but are poorly organized and hard to find
-     - "Regenerate Report" button has no confirmation dialog (can lose all edits accidentally)
-     - Button placement: Regenerate is at top, far from report content
-   - **Impact**: Users confused about which action to take; unclear workflow; risk of accidental data loss
-   - **Fix Required**: 
-     - After completion, present **clear bottom action buttons** for both "Edit Assessment" and "Edit Report"
-     - Add completion summary with validation showing these options clearly
-     - Add confirmation dialogs for destructive actions (regenerate report)
-     - Improve visual flow showing next steps with proper action placement
+3. ✅ **Confusing Assessment Workflow - FIXED**
+   - **Solution**: Implemented comprehensive completion flow with dialogs
+   - **New Workflow**:
+     1. Click "Complete Assessment"
+     2. View completion summary (questions answered/skipped)
+     3. See validation warnings for required questions
+     4. Confirm completion
+     5. Choose next action via clear dialog buttons:
+        - **Edit Assessment** → Modify questions/answers
+        - **View & Edit Report** → Generate and work with AI report
+   - **Regenerate Protection**: Added confirmation dialog warning about data loss
 
-4. **Missing Completion Summary/Validation**
-   - **Problem**: When completing assessment, no summary shown before generating report:
-     - No count of answered vs skipped questions
-     - No validation warnings for required fields
-     - No preview of responses before finalization
-   - **Impact**: Incomplete assessments can be marked complete; incomplete reports generated
-   - **Fix Required**: Add validation step with summary before allowing completion; warn about unfilled required questions
+4. ✅ **Missing Completion Summary/Validation - FIXED**
+   - **Solution**: Added comprehensive validation dialog showing:
+     - Total questions count
+     - Answered questions count
+     - Skipped questions count
+     - Warnings for unanswered required questions
+   - **Impact**: Users see exactly what they've completed before finalizing
 
-5. **Unfilled Questions Handling**
-   - **Problem**: Questions can be left empty with no validation; system allows completion with missing data
-   - **Impact**: AI generates reports with gaps in clinical data; reduces report quality
-   - **Fix Required**: Add required field validation; show warnings for incomplete sections; optional "skip" confirmation for non-required fields
+5. ✅ **Unfilled Questions Validation - FIXED**
+   - **Solution**: Validation warnings now displayed for incomplete required sections
+   - **Impact**: Users are informed about missing data before completion
 
-**Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation - this is NOT an issue.
+**Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.
