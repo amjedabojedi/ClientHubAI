@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -462,11 +463,14 @@ async function generateAssessmentReport(
       .trim() || 'Not provided';
   };
   
+  // Use EST timezone for all dates
+  const PRACTICE_TIMEZONE = 'America/New_York';
+  
   // Whitelist only approved client fields with strict sanitization
   const clientName = sanitize(assignment.client.fullName) || 'Client Name';
   const clientId = sanitize(assignment.client.clientId) || 'N/A';
   const dateOfBirth = assignment.client.dateOfBirth 
-    ? format(new Date(assignment.client.dateOfBirth), 'MMM dd, yyyy') 
+    ? formatInTimeZone(new Date(assignment.client.dateOfBirth), PRACTICE_TIMEZONE, 'MMM dd, yyyy') 
     : 'Not provided';
   const gender = sanitize(assignment.client.gender) || 'Not specified';
   const phone = sanitize(assignment.client.phoneNumber) || 'Not provided';
@@ -483,10 +487,10 @@ async function generateAssessmentReport(
   
   const assessmentName = sanitize(assignment.template?.name) || 'Assessment';
   const completedDate = assignment.completedAt 
-    ? format(new Date(assignment.completedAt), 'MMM dd, yyyy') 
+    ? formatInTimeZone(new Date(assignment.completedAt), PRACTICE_TIMEZONE, 'MMM dd, yyyy') 
     : 'N/A';
   const clinicianName = sanitize(assignment.assignedBy?.fullName) || 'Clinician Name';
-  const reportDate = format(new Date(), 'MMM dd, yyyy');
+  const reportDate = formatInTimeZone(new Date(), PRACTICE_TIMEZONE, 'MMM dd, yyyy');
   
   const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts.
 
