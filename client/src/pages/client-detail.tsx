@@ -2742,20 +2742,34 @@ export default function ClientDetailPage() {
                             {/* Single Primary Action Button - Same style as Session Notes */}
                             {(() => {
                               if (assessment.status === 'completed') {
-                                // For completed assessments: primary button is View Report (green)
+                                // For finalized assessments: Finalized (green)
                                 return (
                                   <Button
                                     variant="default"
                                     size="sm"
                                     className="bg-green-600 hover:bg-green-700"
                                     onClick={() => handleViewAssessmentReport(assessment.id)}
-                                    data-testid={`button-view-report-${assessment.id}`}
+                                    data-testid={`button-finalized-${assessment.id}`}
                                   >
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    View Report
+                                    <CheckSquare className="w-4 h-4 mr-2" />
+                                    Finalized
                                   </Button>
                                 );
-                              } else if (assessment.status === 'client_in_progress' || assessment.status === 'waiting_for_therapist' || assessment.status === 'therapist_completed') {
+                              } else if (assessment.status === 'waiting_for_therapist') {
+                                // For draft reports: Draft (yellow/orange)
+                                return (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-yellow-600 hover:bg-yellow-700"
+                                    onClick={() => handleViewAssessmentReport(assessment.id)}
+                                    data-testid={`button-draft-${assessment.id}`}
+                                  >
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Draft
+                                  </Button>
+                                );
+                              } else if (assessment.status === 'therapist_completed' || assessment.status === 'client_in_progress') {
                                 // For in-progress: Continue Assessment (orange)
                                 return (
                                   <Button
@@ -2770,7 +2784,7 @@ export default function ClientDetailPage() {
                                   </Button>
                                 );
                               } else {
-                                // For pending: Start Assessment (default blue)
+                                // For pending: Start Assessment (blue)
                                 return (
                                   <Button
                                     variant="default"
