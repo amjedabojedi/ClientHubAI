@@ -139,4 +139,15 @@ The following issues were identified and **successfully resolved**:
    - **UI Design**: Single primary action button (color-coded) + dropdown menu (⋮) for secondary actions (Edit, Delete)
    - **Impact**: Clear workflow progression, intuitive status transitions, matches session notes UX pattern
 
+7. ✅ **Assessment Response Label Display - FIXED (Oct 14, 2025)**
+   - **Problem**: Assessment responses showed generic "Option 1", "Option 2" instead of meaningful text labels
+   - **Root Cause**: Completion form used hardcoded BDI-II options when database options missing, but report view had no such fallback
+   - **Solution**: Added identical hardcoded BDI-II options fallback to report display (assessment-report.tsx)
+   - **Result**: 
+     - Responses now show actual text: "I am more irritable than usual." instead of "Option 2"
+     - All 21 BDI-II questions display proper labels from hardcoded fallbacks
+     - Status display shows "Draft" for waiting_for_therapist (matching button labels)
+   - **Impact**: Professional, human-readable assessment reports with consistent status messaging
+   - **Future Enhancement**: Centralize BDI-II constants to prevent drift between completion and report pages
+
 **Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.
