@@ -2829,35 +2829,6 @@ export default function ClientDetailPage() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Available Templates Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Assessment Templates</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {availableTemplates.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {availableTemplates.map((template) => (
-                      <div key={template.id} className="border rounded-lg p-4">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <ClipboardList className="w-5 h-5 text-blue-600" />
-                          <h4 className="font-semibold text-slate-900">{template.title}</h4>
-                        </div>
-                        {template.description && (
-                          <p className="text-sm text-slate-600 mb-2">{template.description}</p>
-                        )}
-                        <div className="text-xs text-slate-500">
-                          {template.sectionCount} sections • {template.questionCount} questions
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-600">No assessment templates available. Create templates in the Assessments page first.</p>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Documents Tab */}
