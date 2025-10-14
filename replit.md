@@ -150,4 +150,19 @@ The following issues were identified and **successfully resolved**:
    - **Impact**: Professional, human-readable assessment reports with consistent status messaging
    - **Future Enhancement**: Centralize BDI-II constants to prevent drift between completion and report pages
 
+8. ✅ **Assessment Edit Data Persistence & Refresh - FIXED (Oct 14, 2025)**
+   - **Problem**: When editing assessments, changes appeared saved locally but didn't reflect properly or persist
+   - **Root Cause**: 
+     - Query invalidation was disabled to prevent UI flicker (commented out)
+     - Response loading logic only loaded data once when state was empty, preventing fresh data updates
+   - **Solution**: 
+     - Enabled query invalidation after saves to refresh both responses and assignment data
+     - Updated response loading to check for actual data changes and update accordingly
+     - Added safety check to prevent infinite update loops
+   - **Result**:
+     - Assessment edits save to database correctly ✅
+     - UI refreshes automatically after saves to show latest data ✅
+     - Changes persist and display correctly when navigating away and returning ✅
+   - **Impact**: Reliable data persistence with real-time UI updates for assessment editing
+
 **Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.
