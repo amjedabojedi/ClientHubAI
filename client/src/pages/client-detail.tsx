@@ -2719,7 +2719,7 @@ export default function ClientDetailPage() {
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center gap-2">
                             <Badge className={`${
                               assessment.status === 'completed' ? 'bg-green-100 text-green-800' :
                               assessment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
@@ -2728,55 +2728,82 @@ export default function ClientDetailPage() {
                               {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace('_', ' ')}
                             </Badge>
                             
-                            {/* Action buttons based on assessment status and function */}
-                            {assessment.status === 'completed' ? (
-                              <>
-                                {/* For completed assessments: show both View Report and Edit Assessment */}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleViewAssessmentReport(assessment.id)}
-                                  data-testid={`button-view-report-${assessment.id}`}
-                                >
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View Report
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleCompleteAssessment(assessment.id)}
-                                  data-testid={`button-edit-assessment-${assessment.id}`}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Edit Assessment
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                {/* For pending/in_progress: show Complete Assessment */}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleCompleteAssessment(assessment.id)}
-                                  data-testid={`button-complete-assessment-${assessment.id}`}
-                                >
-                                  <CheckSquare className="w-4 h-4 mr-2" />
-                                  Complete Assessment
-                                </Button>
-                              </>
-                            )}
+                            {/* Single Primary Action Button - Same style as Session Notes */}
+                            {(() => {
+                              if (assessment.status === 'completed') {
+                                // For completed assessments: primary button is View Report (green)
+                                return (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => handleViewAssessmentReport(assessment.id)}
+                                    data-testid={`button-view-report-${assessment.id}`}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View Report
+                                  </Button>
+                                );
+                              } else if (assessment.status === 'in_progress') {
+                                // For in-progress: Continue Assessment (orange)
+                                return (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-orange-600 hover:bg-orange-700"
+                                    onClick={() => handleCompleteAssessment(assessment.id)}
+                                    data-testid={`button-continue-assessment-${assessment.id}`}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Continue Assessment
+                                  </Button>
+                                );
+                              } else {
+                                // For pending: Start Assessment (default blue)
+                                return (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleCompleteAssessment(assessment.id)}
+                                    data-testid={`button-start-assessment-${assessment.id}`}
+                                  >
+                                    <CheckSquare className="w-4 h-4 mr-2" />
+                                    Start Assessment
+                                  </Button>
+                                );
+                              }
+                            })()}
                             
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteAssessment(assessment.id)}
-                              disabled={deleteAssessmentMutation.isPending}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              data-testid={`button-delete-assessment-${assessment.id}`}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              {deleteAssessmentMutation.isPending ? "Deleting..." : "Delete"}
-                            </Button>
+                            {/* Dropdown Menu - All other actions */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                {/* Edit Assessment - for completed assessments */}
+                                {assessment.status === 'completed' && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleCompleteAssessment(assessment.id)}>
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Edit Assessment
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                
+                                {/* Delete Assessment */}
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteAssessment(assessment.id)}
+                                  disabled={deleteAssessmentMutation.isPending}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  {deleteAssessmentMutation.isPending ? "Deleting..." : "Delete Assessment"}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       </div>
