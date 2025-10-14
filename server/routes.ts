@@ -5081,6 +5081,11 @@ This happens because only the file metadata was stored, not the actual file cont
 
       const report = await storage.createAssessmentReport(reportData);
       
+      // Update assessment status to waiting_for_therapist (report generated but not finalized)
+      await storage.updateAssessmentAssignment(assignmentId, {
+        status: 'waiting_for_therapist'
+      });
+      
       // HIPAA Audit: Log AI report generation
       await AuditLogger.logAssessmentAccess(
         req.user.id,
@@ -5211,6 +5216,12 @@ This happens because only the file metadata was stored, not the actual file cont
         finalContent,
         finalizedAt: new Date(),
         finalizedById: req.user.id
+      });
+
+      // Update assessment status to completed (report finalized)
+      await storage.updateAssessmentAssignment(assignmentId, {
+        status: 'completed',
+        completedDate: new Date()
       });
 
       // HIPAA Audit: Log report finalization
