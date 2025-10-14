@@ -494,15 +494,17 @@ async function generateAssessmentReport(
   
   const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts.
 
-CRITICAL: Generate the report in HTML format with proper formatting.
+CRITICAL: Generate properly formatted HTML that will display correctly in a rich text editor.
 
 HTML Formatting Requirements:
-- Use <h2> tags for main section headings with style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;"
-- Use <h3> tags for subsections with style="font-weight: 600; font-size: 1.1rem; margin-top: 1rem; margin-bottom: 0.5rem;"
-- Wrap all paragraph content in <p> tags with style="margin-bottom: 1rem; line-height: 1.6;"
+- Use <h2> tags for main section headings (no inline styles)
+- Use <h3> tags for subsections (no inline styles)
+- Wrap all paragraph content in <p> tags
+- Add a blank line (<p><br></p>) between paragraphs for better readability
 - Use <strong> tags for emphasis on key clinical terms
-- Use <br> tags for line breaks where needed
+- Use <ul> and <li> for lists when appropriate
 - Keep all HTML properly formatted and closed
+- DO NOT use inline styles - they will be stripped by the editor
 
 Clinical Content Requirements:
 - Use professional clinical language appropriate for healthcare documentation
@@ -513,14 +515,17 @@ Clinical Content Requirements:
 - Include relevant clinical terminology and evidence-based observations
 - Structure content logically within each section
 - Synthesize information rather than simply listing responses
+- Break content into digestible paragraphs (3-5 sentences each)
 
 For each section:
 1. Start with an <h2> heading for the section title
-2. Follow the specific instructions provided for that section
-3. Transform client responses into professional clinical narrative in <p> tags
-4. Focus on clinically relevant information and observations
-5. Use appropriate clinical terminology for the section's focus area
-6. Create coherent paragraphs that flow naturally`;
+2. Add a blank paragraph (<p><br></p>) after the heading
+3. Follow the specific instructions provided for that section
+4. Transform client responses into professional clinical narrative in <p> tags
+5. Separate paragraphs with blank lines for readability
+6. Focus on clinically relevant information and observations
+7. Use appropriate clinical terminology for the section's focus area
+8. Create coherent paragraphs that flow naturally`;
 
   // Build client information header with validated fields only
   const clientInfo = `
@@ -540,11 +545,12 @@ Report Generated: ${reportDate}
   // Build the user prompt with client information and section data
   let userPrompt = `Generate a comprehensive clinical assessment report with the following structure:
 
-CRITICAL: Output must be in HTML format with proper tags.
+CRITICAL: Output must be properly formatted HTML without inline styles.
 
-CLIENT INFORMATION (Format as HTML):
-<h2 style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">CLIENT INFORMATION</h2>
-<p style="margin-bottom: 1rem; line-height: 1.6;">
+CLIENT INFORMATION (Format exactly as shown):
+<h2>CLIENT INFORMATION</h2>
+<p><br></p>
+<p>
 <strong>Client Name:</strong> ${clientName}<br>
 <strong>Client ID:</strong> ${clientId}<br>
 <strong>Date of Birth:</strong> ${dateOfBirth}<br>
@@ -557,16 +563,19 @@ CLIENT INFORMATION (Format as HTML):
 <strong>Clinician:</strong> ${clinicianName}<br>
 <strong>Report Generated:</strong> ${reportDate}
 </p>
+<p><br></p>
 
 IMPORTANT INSTRUCTIONS:
 1. Start with the CLIENT INFORMATION section exactly as shown above
-2. Then proceed with each assessment section as a separate section with its own <h2> heading
-3. Use the section-specific AI prompt instructions when available
-4. Each section must have a styled <h2> heading: <h2 style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Section Name</h2>
-5. Wrap all narrative content in <p style="margin-bottom: 1rem; line-height: 1.6;"> tags
-6. Transform raw responses into professional clinical narrative format
-7. Use third-person clinical language appropriate for medical documentation
-8. Use <strong> tags to emphasize key clinical terms
+2. Then proceed with each assessment section with an <h2> heading
+3. Add a blank paragraph (<p><br></p>) after each heading for spacing
+4. Use the section-specific AI prompt instructions when available
+5. Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
+6. Wrap all narrative content in <p> tags
+7. Add blank paragraphs (<p><br></p>) between content paragraphs for readability
+8. Transform raw responses into professional clinical narrative format
+9. Use third-person clinical language appropriate for medical documentation
+10. Use <strong> tags to emphasize key clinical terms
 
 ASSESSMENT SECTIONS:
 
@@ -579,7 +588,7 @@ ASSESSMENT SECTIONS:
     );
 
     if (sectionResponses.length > 0) {
-      userPrompt += `\n<h2 style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">${section.title.toUpperCase()}</h2>\n`;
+      userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
       
       if (section.aiReportPrompt) {
         userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
@@ -658,8 +667,8 @@ ASSESSMENT SECTIONS:
 
   // Add general sections with their custom prompts
   generalSections.forEach(section => {
-    userPrompt += `\n<h2 style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">${section.title.toUpperCase()}</h2>\n\n`;
-    userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+    userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
+    userPrompt += `Instructions: ${section.aiReportPrompt}\nWrap content in <p> tags and separate paragraphs with <p><br></p> for readability.\n\n`;
     
     // If section has questions, include them specifically
     if (section.questions && section.questions.length > 0) {
@@ -680,7 +689,8 @@ ASSESSMENT SECTIONS:
   if (generalSections.length === 0) {
     userPrompt += `
 
-<h2 style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">CLINICAL SUMMARY</h2>
+<h2>CLINICAL SUMMARY</h2>
+<p><br></p>
 
 Instructions: Generate a comprehensive clinical summary that synthesizes all assessment findings. Include:
 - Overall clinical presentation and diagnostic impressions
@@ -689,11 +699,12 @@ Instructions: Generate a comprehensive clinical summary that synthesizes all ass
 - Functional impairments and strengths
 - Clinical observations and professional judgment
 Use third-person clinical language suitable for diagnostic and treatment planning purposes.
-Wrap all narrative content in <p style="margin-bottom: 1rem; line-height: 1.6;"> tags.
+Wrap all narrative content in <p> tags. Separate paragraphs with <p><br></p> for better readability.
 
 Client Response Data: Use all the assessment responses provided above to synthesize this summary.
 
-<h2 style="color: #1e40af; font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">INTERVENTION PLAN AND RECOMMENDATIONS</h2>
+<h2>INTERVENTION PLAN AND RECOMMENDATIONS</h2>
+<p><br></p>
 
 Instructions: Generate evidence-based treatment recommendations and intervention planning based on the assessment findings. Include:
 - Recommended treatment modalities and therapeutic approaches
@@ -703,7 +714,7 @@ Instructions: Generate evidence-based treatment recommendations and intervention
 - Timeline and frequency recommendations
 - Client strengths that can support treatment
 Use professional clinical language appropriate for treatment planning documentation.
-Wrap all narrative content in <p style="margin-bottom: 1rem; line-height: 1.6;"> tags.
+Wrap all narrative content in <p> tags. Separate paragraphs with <p><br></p> for better readability.
 
 Client Response Data: Base recommendations on the assessment findings and clinical summary above.
 `;
