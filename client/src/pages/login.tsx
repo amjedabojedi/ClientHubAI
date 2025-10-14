@@ -52,7 +52,7 @@ export default function LoginPage() {
             <LogIn className="h-8 w-8 text-blue-600" />
           </div>
           <CardTitle className="text-2xl text-center">
-            TherapyFlow Pipline Testing
+            TherapyFlow
           </CardTitle>
           <CardDescription className="text-center">
             Sign in to your account to continue
