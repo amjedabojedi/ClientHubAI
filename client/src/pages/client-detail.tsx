@@ -2727,31 +2727,52 @@ export default function ClientDetailPage() {
                             }`}>
                               {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace('_', ' ')}
                             </Badge>
+                            
+                            {/* Action buttons based on assessment status and function */}
                             {assessment.status === 'completed' ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewAssessmentReport(assessment.id)}
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Report
-                              </Button>
+                              <>
+                                {/* For completed assessments: show both View Report and Edit Assessment */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewAssessmentReport(assessment.id)}
+                                  data-testid={`button-view-report-${assessment.id}`}
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Report
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCompleteAssessment(assessment.id)}
+                                  data-testid={`button-edit-assessment-${assessment.id}`}
+                                >
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit Assessment
+                                </Button>
+                              </>
                             ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCompleteAssessment(assessment.id)}
-                              >
-                                <CheckSquare className="w-4 h-4 mr-2" />
-                                Complete
-                              </Button>
+                              <>
+                                {/* For pending/in_progress: show Complete Assessment */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCompleteAssessment(assessment.id)}
+                                  data-testid={`button-complete-assessment-${assessment.id}`}
+                                >
+                                  <CheckSquare className="w-4 h-4 mr-2" />
+                                  Complete Assessment
+                                </Button>
+                              </>
                             )}
+                            
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleDeleteAssessment(assessment.id)}
                               disabled={deleteAssessmentMutation.isPending}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              data-testid={`button-delete-assessment-${assessment.id}`}
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
                               {deleteAssessmentMutation.isPending ? "Deleting..." : "Delete"}
