@@ -5192,6 +5192,19 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Permission check: Only assigned therapist, supervisor, or admin
       const assignment = await storage.getAssessmentAssignment(assignmentId);
+      
+      // Debug logging
+      console.log('[FINALIZE DEBUG]', {
+        assignmentId,
+        currentUserId: req.user.id,
+        currentUserRole: req.user.role,
+        assignmentData: assignment ? {
+          id: assignment.id,
+          assignedById: assignment.assignedById,
+          clientId: assignment.clientId
+        } : null
+      });
+      
       const isAssignedTherapist = assignment?.assignedById === req.user.id;
       const isAdmin = req.user.role === 'administrator';
 
@@ -5203,6 +5216,13 @@ This happens because only the file metadata was stored, not the actual file cont
           sa => sa.therapistId === assignment.assignedById
         );
       }
+
+      console.log('[FINALIZE AUTH]', {
+        isAssignedTherapist,
+        isAdmin,
+        isSupervisor,
+        willAllow: isAssignedTherapist || isAdmin || isSupervisor
+      });
 
       if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
         return res.status(403).json({ message: "You do not have permission to finalize this report" });
