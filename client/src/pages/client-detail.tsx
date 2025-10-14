@@ -1184,7 +1184,23 @@ export default function ClientDetailPage() {
     assignAssessmentMutation.mutate(templateId);
   };
 
-  const handleCompleteAssessment = (assessmentId: number) => {
+  const handleCompleteAssessment = async (assessmentId: number) => {
+    // Find the assessment to check its status
+    const assessment = assignedAssessments.find(a => a.id === assessmentId);
+    
+    // If assessment is pending, update status to in_progress before navigating
+    if (assessment?.status === 'pending') {
+      try {
+        await apiRequest(`/api/assessments/assignments/${assessmentId}`, "PATCH", {
+          status: 'in_progress'
+        });
+        // Invalidate cache to show updated status
+        queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      } catch (error) {
+        console.error('Failed to update assessment status:', error);
+      }
+    }
+    
     // Navigate to assessment completion page
     window.location.href = `/assessments/${assessmentId}/complete`;
   };

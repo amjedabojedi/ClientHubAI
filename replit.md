@@ -124,4 +124,15 @@ The following issues were identified and **successfully resolved**:
    - **Solution**: Validation warnings now displayed for incomplete required sections
    - **Impact**: Users are informed about missing data before completion
 
+6. ✅ **Assessment Action Buttons Redesigned - FIXED (Oct 14, 2025)**
+   - **Solution**: Redesigned to match Session Notes pattern exactly
+   - **New Design**:
+     - Single primary action button (color-coded by status):
+       - PENDING → 🔵 "Start Assessment" (blue) - Auto-updates status to "in_progress"
+       - IN_PROGRESS → 🟠 "Continue Assessment" (orange)
+       - COMPLETED → 🟢 "View Report" (green)
+     - Dropdown menu (⋮) with secondary actions (Edit Assessment, Delete)
+   - **Status Management**: Clicking "Start Assessment" automatically changes status from "pending" to "in_progress"
+   - **Impact**: Consistent UX with Session Notes, clear visual status indicators, organized action hierarchy
+
 **Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.
