@@ -5113,16 +5113,15 @@ This happens because only the file metadata was stored, not the actual file cont
       const report = await storage.createAssessmentReport(reportData);
       
       // HIPAA Audit: Log AI report generation
-      await AuditLogger.logSessionNoteOperation(
+      await AuditLogger.logAssessmentAccess(
         req.user.id,
         req.user.username,
-        null, // No session ID for assessments
+        assignmentId,
         assignment.clientId,
-        'ai_assessment_report_generated',
+        'ai_report_generated',
         ipAddress,
         userAgent,
         { 
-          assignmentId,
           templateId: assignment.templateId,
           reportId: report.id,
           aiModel: 'gpt-4o'
@@ -5133,6 +5132,134 @@ This happens because only the file metadata was stored, not the actual file cont
     } catch (error) {
       console.error('Error generating assessment report:', error);
       res.status(500).json({ message: "Failed to generate assessment report" });
+    }
+  });
+
+  // Update assessment report draft (save edited content)
+  app.put("/api/assessments/assignments/:assignmentId/report", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const assignmentId = parseInt(req.params.assignmentId);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      const { draftContent } = req.body;
+      if (!draftContent) {
+        return res.status(400).json({ message: "Draft content is required" });
+      }
+
+      // Get existing report
+      const existingReport = await storage.getAssessmentReport(assignmentId);
+      if (!existingReport) {
+        return res.status(404).json({ message: "Assessment report not found" });
+      }
+
+      // Check if report is finalized (cannot edit)
+      if (existingReport.isFinalized) {
+        return res.status(400).json({ message: "Cannot edit finalized report" });
+      }
+
+      // Update draft content
+      const updatedReport = await storage.updateAssessmentReportDraft(assignmentId, draftContent);
+
+      // HIPAA Audit: Log report edit
+      await AuditLogger.logAssessmentAccess(
+        req.user.id,
+        req.user.username,
+        assignmentId,
+        existingReport.assignment.clientId,
+        'report_edited',
+        ipAddress,
+        userAgent,
+        { 
+          reportId: updatedReport.id
+        }
+      );
+
+      res.json(updatedReport);
+    } catch (error) {
+      console.error('Error updating assessment report draft:', error);
+      res.status(500).json({ message: "Failed to update assessment report" });
+    }
+  });
+
+  // Finalize assessment report (matching session notes pattern)
+  app.post("/api/assessments/assignments/:assignmentId/report/finalize", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const assignmentId = parseInt(req.params.assignmentId);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      // Get existing report
+      const existingReport = await storage.getAssessmentReport(assignmentId);
+      if (!existingReport) {
+        return res.status(404).json({ message: "Assessment report not found" });
+      }
+
+      // Check if already finalized
+      if (existingReport.isFinalized) {
+        return res.status(400).json({ message: "Report is already finalized" });
+      }
+
+      // Permission check: Only assigned therapist, supervisor, or admin
+      const assignment = await storage.getAssessmentAssignment(assignmentId);
+      const isAssignedTherapist = assignment?.assignedById === req.user.id;
+      const isAdmin = req.user.role === 'administrator';
+
+      // Check if user is a supervisor of the assigned therapist
+      let isSupervisor = false;
+      if (!isAssignedTherapist && !isAdmin && assignment) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        isSupervisor = supervisorAssignments.some(
+          sa => sa.therapistId === assignment.assignedById
+        );
+      }
+
+      if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
+        return res.status(403).json({ message: "You do not have permission to finalize this report" });
+      }
+
+      // Finalize report (copy draft/generated content to final)
+      const finalContent = existingReport.draftContent || existingReport.generatedContent || '';
+      const updatedReport = await storage.updateAssessmentReport(existingReport.id, {
+        isFinalized: true,
+        isDraft: false,
+        finalContent,
+        finalizedAt: new Date(),
+        finalizedById: req.user.id
+      });
+
+      // HIPAA Audit: Log report finalization
+      await AuditLogger.logAssessmentAccess(
+        req.user.id,
+        req.user.username,
+        assignmentId,
+        existingReport.assignment.clientId,
+        'report_finalized',
+        ipAddress,
+        userAgent,
+        { 
+          reportId: updatedReport.id
+        }
+      );
+
+      res.json(updatedReport);
+    } catch (error) {
+      console.error('Error finalizing assessment report:', error);
+      res.status(500).json({ message: "Failed to finalize assessment report" });
     }
   });
 
@@ -5267,8 +5394,9 @@ This happens because only the file metadata was stored, not the actual file cont
       // Generate Word document using docx
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       
-      // Parse the report content into paragraphs with better formatting
-      const lines = (report.generatedContent || '').split('\n');
+      // Parse the report content - prioritize finalContent if finalized (matching session notes pattern)
+      const reportContent = report.finalContent || report.draftContent || report.generatedContent || '';
+      const lines = reportContent.split('\n');
       const paragraphs = [];
       
       for (const line of lines) {

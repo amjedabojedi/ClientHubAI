@@ -730,13 +730,26 @@ export const assessmentResponses = pgTable("assessment_responses", {
 export const assessmentReports = pgTable("assessment_reports", {
   id: serial("id").primaryKey(),
   assignmentId: integer("assignment_id").notNull().references(() => assessmentAssignments.id, { onDelete: 'cascade' }),
-  generatedContent: text("generated_content"), // AI-generated report content
-  editedContent: text("edited_content"), // Therapist-edited version
+  
+  // Content fields (matching session notes pattern)
+  generatedContent: text("generated_content"), // AI-generated report content (read-only)
+  draftContent: text("draft_content"), // Editable draft version
+  finalContent: text("final_content"), // Locked finalized version
   reportData: text("report_data"), // JSON structure of organized data
+  
+  // Status tracking (matching session notes pattern)
+  isDraft: boolean("is_draft").notNull().default(true),
+  isFinalized: boolean("is_finalized").notNull().default(false),
+  
+  // Timestamps (matching session notes pattern)
   generatedAt: timestamp("generated_at"),
   editedAt: timestamp("edited_at"),
+  finalizedAt: timestamp("finalized_at"),
   exportedAt: timestamp("exported_at"),
+  
+  // User tracking
   createdById: integer("created_by_id").notNull().references(() => users.id),
+  finalizedById: integer("finalized_by_id").references(() => users.id),
 });
 
 // ===== NOTIFICATION SYSTEM TABLES =====

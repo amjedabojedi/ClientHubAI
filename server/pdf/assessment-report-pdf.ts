@@ -38,10 +38,14 @@ interface AssessmentAssignment {
 interface AssessmentReport {
   id: number;
   assignmentId: number;
-  generatedContent: string;
+  generatedContent?: string | null;
+  draftContent?: string | null;
+  finalContent?: string | null;
   generatedAt?: Date | null;
+  isDraft?: boolean;
   isFinalized?: boolean;
   finalizedAt?: Date | null;
+  finalizedById?: number | null;
 }
 
 interface PracticeSettings {
@@ -90,24 +94,27 @@ export function generateAssessmentReportHTML(
     clientAddress = parts.join(', ');
   }
 
-  // Process report content - convert markdown to formatted HTML
-  let content = report.generatedContent || '';
+  // Process report content - prioritize finalContent if finalized (matching session notes pattern)
+  let content = report.finalContent || report.draftContent || report.generatedContent || '';
   
-  // Handle markdown formatting
-  content = content
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/## ([^<]+)/g, '<h2 class="section-heading">$1</h2>')
-    .replace(/# ([^<]+)/g, '<h1 class="main-heading">$1</h1>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Rich text HTML is already formatted from ReactQuill, but handle legacy markdown if needed
+  if (content && !content.includes('<')) {
+    // Handle markdown formatting for legacy content
+    content = content
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/## ([^<]+)/g, '<h2 class="section-heading">$1</h2>')
+      .replace(/# ([^<]+)/g, '<h1 class="main-heading">$1</h1>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
 
-  // Wrap content in paragraphs if not already
-  if (!content.startsWith('<')) {
-    content = '<p>' + content;
-  }
-  if (!content.endsWith('>')) {
-    content = content + '</p>';
+    // Wrap content in paragraphs if not already
+    if (!content.startsWith('<')) {
+      content = '<p>' + content;
+    }
+    if (!content.endsWith('>')) {
+      content = content + '</p>';
+    }
   }
 
   const html = `

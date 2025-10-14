@@ -414,6 +414,8 @@ export interface IStorage {
   createAssessmentReport(report: InsertAssessmentReport): Promise<AssessmentReport>;
   updateAssessmentReport(id: number, report: Partial<InsertAssessmentReport>): Promise<AssessmentReport>;
   deleteAssessmentReport(id: number): Promise<void>;
+  updateAssessmentReportDraft(assignmentId: number, draftContent: string): Promise<AssessmentReport>;
+  getAssessmentReportById(id: number): Promise<AssessmentReport | undefined>;
 
   // ===== ROOM MANAGEMENT =====
   getRooms(): Promise<SelectRoom[]>;
@@ -3617,6 +3619,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAssessmentReport(id: number): Promise<void> {
     await db.delete(assessmentReports).where(eq(assessmentReports.id, id));
+  }
+
+  // Update assessment report draft content (matching session notes pattern)
+  async updateAssessmentReportDraft(assignmentId: number, draftContent: string): Promise<AssessmentReport> {
+    const [report] = await db
+      .update(assessmentReports)
+      .set({ 
+        draftContent,
+        editedAt: new Date(),
+        isDraft: true
+      })
+      .where(eq(assessmentReports.assignmentId, assignmentId))
+      .returning();
+    return report;
+  }
+
+  // Get assessment report by ID (for finalization)
+  async getAssessmentReportById(id: number): Promise<AssessmentReport | undefined> {
+    const [report] = await db
+      .select()
+      .from(assessmentReports)
+      .where(eq(assessmentReports.id, id));
+    return report || undefined;
   }
 
   // Assessment Section Methods
