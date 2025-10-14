@@ -191,31 +191,10 @@ export default function AssessmentCompletionPage() {
     }
   });
 
-  // Complete assessment mutation
-  const completeAssessmentMutation = useMutation({
-    mutationFn: async () => {
-      const now = new Date().toISOString();
-      return apiRequest(`/api/assessments/assignments/${assignmentId}`, "PATCH", {
-        status: 'completed',
-        completedAt: now,
-        therapistCompletedAt: now
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Assessment completed",
-        description: "The assessment has been completed successfully.",
-      });
-      // Don't auto-redirect - let the next steps dialog handle navigation
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to complete assessment",
-        variant: "destructive",
-      });
-    }
-  });
+  // Note: Completing questions does NOT finalize the assessment
+  // Status changes only happen when:
+  // 1. Generate Report → changes to 'waiting_for_therapist'
+  // 2. Finalize Report → changes to 'completed'
 
   // Generate AI report mutation
   const generateReportMutation = useMutation({
@@ -320,11 +299,8 @@ export default function AssessmentCompletionPage() {
 
   const confirmComplete = () => {
     setShowCompletionDialog(false);
-    completeAssessmentMutation.mutate(undefined, {
-      onSuccess: () => {
-        setShowNextStepsDialog(true);
-      }
-    });
+    // Just show next steps dialog - status stays as 'therapist_completed'
+    setShowNextStepsDialog(true);
   };
 
   const handleGenerateReport = () => {
@@ -772,7 +748,7 @@ export default function AssessmentCompletionPage() {
                 </Button>
                 <Button
                   onClick={handleCompleteAssessment}
-                  disabled={isSubmitting || completeAssessmentMutation.isPending}
+                  disabled={isSubmitting}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />

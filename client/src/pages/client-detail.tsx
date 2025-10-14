@@ -1188,11 +1188,11 @@ export default function ClientDetailPage() {
     // Find the assessment to check its status
     const assessment = assignedAssessments.find(a => a.id === assessmentId);
     
-    // If assessment is pending, update status to client_in_progress before navigating
+    // If assessment is pending, update status to therapist_completed before navigating
     if (assessment?.status === 'pending') {
       try {
         await apiRequest(`/api/assessments/assignments/${assessmentId}`, "PATCH", {
-          status: 'client_in_progress'
+          status: 'therapist_completed'
         });
         // Invalidate cache to show updated status
         queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
