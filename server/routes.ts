@@ -5221,7 +5221,7 @@ This happens because only the file metadata was stored, not the actual file cont
       // Update assessment status to completed (report finalized)
       await storage.updateAssessmentAssignment(assignmentId, {
         status: 'completed',
-        completedDate: new Date()
+        completedAt: new Date()
       });
 
       // HIPAA Audit: Log report finalization
