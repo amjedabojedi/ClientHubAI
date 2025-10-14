@@ -2719,15 +2719,18 @@ export default function ClientDetailPage() {
                             <div>
                               <h4 className="font-semibold text-slate-900">{assessment.template.name}</h4>
                               <p className="text-sm text-slate-600">
-                                {assessment.assignedDate ? (
-                                  <>
-                                    Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}
-                                    {assessment.completedDate && (
-                                      <span> • Completed: {format(new Date(assessment.completedDate), 'MMM dd, yyyy')}</span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span>Not yet assigned</span>
+                                Status: <span className={`font-medium ${
+                                  assessment.status === 'completed' ? 'text-green-600' :
+                                  assessment.status === 'client_in_progress' || assessment.status === 'waiting_for_therapist' || assessment.status === 'therapist_completed' ? 'text-orange-600' :
+                                  'text-blue-600'
+                                }`}>
+                                  {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace(/_/g, ' ')}
+                                </span>
+                                {assessment.assignedDate && (
+                                  <span> • Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}</span>
+                                )}
+                                {assessment.completedDate && (
+                                  <span> • Completed: {format(new Date(assessment.completedDate), 'MMM dd, yyyy')}</span>
                                 )}
                               </p>
                               {assessment.template.description && (
