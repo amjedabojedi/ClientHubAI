@@ -1201,6 +1201,19 @@ export default function ClientDetailPage() {
       }
     }
     
+    // If assessment is completed (editing finalized assessment), update status to therapist_completed
+    if (assessment?.status === 'completed') {
+      try {
+        await apiRequest(`/api/assessments/assignments/${assessmentId}`, "PATCH", {
+          status: 'therapist_completed'
+        });
+        // Invalidate cache to show updated status
+        queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
+      } catch (error) {
+        console.error('Failed to update assessment status:', error);
+      }
+    }
+    
     // Navigate to assessment completion page
     window.location.href = `/assessments/${assessmentId}/complete`;
   };
