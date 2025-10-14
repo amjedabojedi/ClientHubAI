@@ -2739,14 +2739,6 @@ export default function ClientDetailPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge className={`${
-                              assessment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              assessment.status === 'client_in_progress' || assessment.status === 'waiting_for_therapist' || assessment.status === 'therapist_completed' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-blue-100 text-blue-800'
-                            }`}>
-                              {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace(/_/g, ' ')}
-                            </Badge>
-                            
                             {/* Single Primary Action Button - Same style as Session Notes */}
                             {(() => {
                               if (assessment.status === 'completed') {
