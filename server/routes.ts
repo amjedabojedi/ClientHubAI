@@ -6803,7 +6803,16 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
-      const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), req.body);
+      // Convert ISO string dates to Date objects for database
+      const updateData = { ...req.body };
+      if (updateData.completedAt && typeof updateData.completedAt === 'string') {
+        updateData.completedAt = new Date(updateData.completedAt);
+      }
+      if (updateData.therapistCompletedAt && typeof updateData.therapistCompletedAt === 'string') {
+        updateData.therapistCompletedAt = new Date(updateData.therapistCompletedAt);
+      }
+      
+      const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), updateData);
       
       // Trigger assessment completed notification if status changed to completed
       if (req.body.status === 'completed') {
