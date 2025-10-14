@@ -25,7 +25,8 @@ import {
   ClipboardList,
   User,
   Clock,
-  FileText
+  FileText,
+  Edit
 } from "lucide-react";
 
 // Utils and Types
