@@ -2737,7 +2737,11 @@ export default function ClientDetailPage() {
                                   assessment.status === 'client_in_progress' || assessment.status === 'waiting_for_therapist' || assessment.status === 'therapist_completed' ? 'text-orange-600' :
                                   'text-blue-600'
                                 }`}>
-                                  {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace(/_/g, ' ')}
+                                  {assessment.status === 'waiting_for_therapist' ? 'Draft' : 
+                                   assessment.status === 'completed' ? 'Finalized' :
+                                   assessment.status === 'therapist_completed' ? 'In Progress' :
+                                   assessment.status === 'pending' ? 'Pending' :
+                                   assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace(/_/g, ' ')}
                                 </span>
                                 {assessment.assignedDate && (
                                   <span> • Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}</span>
