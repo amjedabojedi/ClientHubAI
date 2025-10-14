@@ -6765,6 +6765,18 @@ This happens because only the file metadata was stored, not the actual file cont
   app.post('/api/assessments/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const response = await storage.saveAssessmentResponse(req.body);
+      
+      // Automatically update assessment status to 'client_in_progress' if it's currently 'pending'
+      // This ensures the UI shows "Continue Assessment" after saving any data
+      if (req.body.assignmentId) {
+        const assignment = await storage.getAssessmentAssignmentById(req.body.assignmentId);
+        if (assignment && assignment.status === 'pending') {
+          await storage.updateAssessmentAssignment(req.body.assignmentId, {
+            status: 'client_in_progress'
+          });
+        }
+      }
+      
       res.json(response);
     } catch (error) {
       res.status(500).json({ message: 'Internal server error' });

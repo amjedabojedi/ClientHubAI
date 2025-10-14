@@ -1188,11 +1188,11 @@ export default function ClientDetailPage() {
     // Find the assessment to check its status
     const assessment = assignedAssessments.find(a => a.id === assessmentId);
     
-    // If assessment is pending, update status to in_progress before navigating
+    // If assessment is pending, update status to client_in_progress before navigating
     if (assessment?.status === 'pending') {
       try {
         await apiRequest(`/api/assessments/assignments/${assessmentId}`, "PATCH", {
-          status: 'in_progress'
+          status: 'client_in_progress'
         });
         // Invalidate cache to show updated status
         queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/assessments`] });
@@ -2738,10 +2738,10 @@ export default function ClientDetailPage() {
                           <div className="flex items-center gap-2">
                             <Badge className={`${
                               assessment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                              assessment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                              assessment.status === 'client_in_progress' || assessment.status === 'waiting_for_therapist' || assessment.status === 'therapist_completed' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-blue-100 text-blue-800'
                             }`}>
-                              {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace('_', ' ')}
+                              {assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace(/_/g, ' ')}
                             </Badge>
                             
                             {/* Single Primary Action Button - Same style as Session Notes */}
@@ -2760,7 +2760,7 @@ export default function ClientDetailPage() {
                                     View Report
                                   </Button>
                                 );
-                              } else if (assessment.status === 'in_progress') {
+                              } else if (assessment.status === 'client_in_progress' || assessment.status === 'waiting_for_therapist' || assessment.status === 'therapist_completed') {
                                 // For in-progress: Continue Assessment (orange)
                                 return (
                                   <Button
