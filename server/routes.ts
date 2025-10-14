@@ -6803,21 +6803,14 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       }
       
-      // DEBUG: Log the incoming request body to see what's being sent
-      console.log('PATCH /api/assessments/assignments - Request body:', JSON.stringify(req.body, null, 2));
-      
       // Convert ISO string dates to Date objects for database
       const updateData = { ...req.body };
       if (updateData.completedAt && typeof updateData.completedAt === 'string') {
-        console.log('Converting completedAt from string to Date:', updateData.completedAt);
         updateData.completedAt = new Date(updateData.completedAt);
       }
       if (updateData.therapistCompletedAt && typeof updateData.therapistCompletedAt === 'string') {
-        console.log('Converting therapistCompletedAt from string to Date:', updateData.therapistCompletedAt);
         updateData.therapistCompletedAt = new Date(updateData.therapistCompletedAt);
       }
-      
-      console.log('Update data after conversion:', JSON.stringify(updateData, null, 2));
       
       const assignment = await storage.updateAssessmentAssignment(parseInt(assignmentId), updateData);
       
