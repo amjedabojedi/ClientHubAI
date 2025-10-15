@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
@@ -25,7 +26,8 @@ import {
   Calendar,
   CheckCircle,
   AlertCircle,
-  ClipboardList
+  ClipboardList,
+  MoreVertical
 } from "lucide-react";
 
 // Utils
@@ -317,79 +319,12 @@ export default function AssessmentReportPage() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">Assessment Report</h1>
-                <p className="text-slate-600">{assignment.template.name} - {assignment.client.fullName}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Badge className="bg-green-100 text-green-800">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Completed
-              </Badge>
-              {!report ? (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => generateReportMutation.mutate()}
-                  disabled={generateReportMutation.isPending}
-                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
-                </Button>
-              ) : !report.isFinalized ? (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowRegenerateDialog(true)}
-                  disabled={generateReportMutation.isPending}
-                  className="border-orange-600 text-orange-600 hover:bg-orange-50"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate Report'}
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => unfinalizeReportMutation.mutate()}
-                  disabled={unfinalizeReportMutation.isPending}
-                  className="border-purple-600 text-purple-600 hover:bg-purple-50"
-                  data-testid="button-reopen-report"
-                >
-                  <AlertCircle className="w-4 h-4 mr-2" />
-                  {unfinalizeReportMutation.isPending ? 'Reopening...' : 'Reopen Report'}
-                </Button>
-              )}
-              <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    // Open PDF in new tab (browser will handle print-to-PDF)
-                    window.open(`/api/assessments/assignments/${assignmentId}/download/pdf`, '_blank');
-                  }}
-                  className="border-red-600 text-red-600 hover:bg-red-50"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  PDF
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    // Download Word document
-                    const link = document.createElement('a');
-                    link.href = `/api/assessments/assignments/${assignmentId}/download/docx`;
-                    link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
-                    link.click();
-                  }}
-                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Word
-                </Button>
-              </div>
-            </div>
+            <Badge className="bg-green-100 text-green-800">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Completed
+            </Badge>
           </div>
         </div>
       </div>
@@ -399,10 +334,73 @@ export default function AssessmentReportPage() {
         {/* Assessment Summary */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileText className="w-5 h-5 text-blue-600" />
-              <span>Assessment Summary</span>
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                <span>Assessment Summary</span>
+              </CardTitle>
+              
+              {/* Actions Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreVertical className="w-4 h-4 mr-2" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {!report ? (
+                    <DropdownMenuItem 
+                      onClick={() => generateReportMutation.mutate()}
+                      disabled={generateReportMutation.isPending}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
+                    </DropdownMenuItem>
+                  ) : !report.isFinalized ? (
+                    <DropdownMenuItem 
+                      onClick={() => setShowRegenerateDialog(true)}
+                      disabled={generateReportMutation.isPending}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate Report'}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem 
+                      onClick={() => unfinalizeReportMutation.mutate()}
+                      disabled={unfinalizeReportMutation.isPending}
+                      data-testid="button-reopen-report"
+                    >
+                      <AlertCircle className="w-4 h-4 mr-2" />
+                      {unfinalizeReportMutation.isPending ? 'Reopening...' : 'Reopen Report'}
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      window.open(`/api/assessments/assignments/${assignmentId}/download/pdf`, '_blank');
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `/api/assessments/assignments/${assignmentId}/download/docx`;
+                      link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+                      link.click();
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Word
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -457,7 +455,7 @@ export default function AssessmentReportPage() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <FileText className="w-5 h-5 text-green-600" />
-                <span>Assessment Report</span>
+                <span>Professional Report</span>
                 {report.isFinalized && (
                   <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
                     ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
