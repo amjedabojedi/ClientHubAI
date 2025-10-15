@@ -542,14 +542,19 @@ Clinician: ${clinicianName}
 Report Generated: ${reportDate}
 `;
 
-  // Build the user prompt WITHOUT client information header (it's shown separately in UI)
-  let userPrompt = `Generate a comprehensive clinical assessment report.
+  // Build the user prompt WITH client context for personalization
+  let userPrompt = `Generate a comprehensive clinical assessment report for this client.
+
+CLIENT CONTEXT (Use this information to personalize the report, but DO NOT create a CLIENT INFORMATION section):
+${clientInfo}
 
 CRITICAL RULES:
 - Output must be properly formatted HTML without inline styles
-- DO NOT include any CLIENT INFORMATION section or client details header
+- Use the client's actual name (${clientName}) instead of placeholders like "[Client Last Name]"
+- Use appropriate pronouns based on gender: ${gender}
+- DO NOT create a CLIENT INFORMATION section - this data is shown separately in the UI
 - Start IMMEDIATELY with the first assessment section
-- Client information is already displayed elsewhere - DO NOT REPEAT IT
+- Personalize the narrative using the client context above
 
 HTML FORMAT REQUIREMENTS:
 1. Start directly with the first assessment section using <h2>SECTION NAME</h2>
@@ -558,7 +563,7 @@ HTML FORMAT REQUIREMENTS:
 4. Wrap all narrative content in <p> tags
 5. Add blank paragraphs (<p><br></p>) between content paragraphs for readability
 6. Transform raw responses into professional clinical narrative format
-7. Use third-person clinical language appropriate for medical documentation
+7. Use third-person clinical language with the client's name (e.g., "Mr./Ms. ${clientName.split(' ').pop()} reported...")
 8. Use <strong> tags to emphasize key clinical terms
 
 ASSESSMENT SECTIONS TO GENERATE:
