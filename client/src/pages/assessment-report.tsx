@@ -464,7 +464,14 @@ export default function AssessmentReportPage() {
               </CardTitle>
               <div className="text-sm text-slate-600 mt-2 space-y-1">
                 {report.isFinalized ? (
-                  <p>📄 This report is finalized. To make changes, click <strong>Actions → Reopen Report</strong> above.</p>
+                  <>
+                    <p className="font-medium">✅ This report is finalized and locked</p>
+                    <ul className="list-disc ml-5 space-y-1 mt-1">
+                      <li><strong>View:</strong> Click below to view the finalized report content</li>
+                      <li><strong>Download:</strong> Use <strong>Actions → Download PDF/Word</strong> above to export</li>
+                      <li><strong>Make changes:</strong> Click <strong>Actions → Reopen Report</strong> above to unlock and edit</li>
+                    </ul>
+                  </>
                 ) : (
                   <>
                     <p className="font-medium">How to use this report:</p>
