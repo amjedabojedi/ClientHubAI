@@ -731,7 +731,17 @@ Client Response Data: Base recommendations on the assessment findings and clinic
       max_tokens: 4000,
     });
 
-    return response.choices[0].message.content || '';
+    let content = response.choices[0].message.content || '';
+    
+    // Strip markdown code fences if AI wrapped the response in them
+    // Remove opening code fence (```html or ```)
+    content = content.replace(/^```(?:html)?\s*\n/i, '');
+    // Remove closing code fence
+    content = content.replace(/\n```\s*$/i, '');
+    // Remove any stray code fence markers in the middle
+    content = content.replace(/```(?:html)?\s*/gi, '');
+    
+    return content.trim();
   } catch (error) {
     throw new Error(`Assessment report generation failed: ${error.message}`);
   }
