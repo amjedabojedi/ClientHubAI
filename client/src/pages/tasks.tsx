@@ -538,76 +538,82 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="border rounded-lg p-4 hover:bg-slate-50 transition-colors">
-      <div className="flex items-center justify-between">
-        {/* Left side: Task info */}
-        <div className="flex items-start space-x-3 flex-1 min-w-0">
-          {/* Status icon */}
+    <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-3">
+          {/* Status indicator dot */}
           <div className={cn(
-            "p-2 rounded-full flex-shrink-0",
-            task.status === 'completed' ? 'bg-green-100' :
-            task.status === 'in_progress' ? 'bg-blue-100' :
-            task.status === 'overdue' ? 'bg-red-100' :
-            'bg-yellow-100'
-          )}>
-            {task.status === 'completed' ? (
-              <CheckCircle className="w-4 h-4 text-green-600" />
-            ) : task.status === 'in_progress' ? (
-              <Clock className="w-4 h-4 text-blue-600" />
-            ) : task.status === 'overdue' ? (
-              <AlertCircle className="w-4 h-4 text-red-600" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-yellow-600" />
-            )}
-          </div>
-
+            "w-3 h-3 rounded-full",
+            task.status === 'completed' ? 'bg-green-500' :
+            task.status === 'in_progress' ? 'bg-blue-500' :
+            task.status === 'overdue' ? 'bg-red-500' :
+            'bg-yellow-500'
+          )}></div>
+          
           {/* Task details */}
-          <div className="flex-1 min-w-0">
+          <div>
             <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-slate-900 truncate">{task.title}</h4>
-              <Badge className={cn("text-xs flex-shrink-0", getPriorityColor(task.priority))}>
+              <h4 className="font-semibold text-slate-900">
+                {task.title}
+              </h4>
+              <span className="text-slate-300">•</span>
+              <Badge 
+                variant="outline"
+                className={cn(
+                  task.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
+                  task.priority === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                  task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                  'bg-green-50 text-green-700 border-green-200'
+                )}
+              >
                 {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
               </Badge>
-              <Badge className={cn("text-xs flex-shrink-0", getStatusColor(task.status))}>
+              <Badge 
+                variant="outline"
+                className={cn(
+                  task.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                  task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  task.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                  'bg-yellow-50 text-yellow-700 border-yellow-200'
+                )}
+              >
                 {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
               </Badge>
             </div>
             
-            {task.description && (
-              <p className="text-sm text-slate-600 mb-2 line-clamp-2">{task.description}</p>
-            )}
-            
-            <div className="flex items-center gap-4 text-xs text-slate-500">
-              <div className="flex items-center gap-1">
-                <User className="w-3 h-3" />
+            <div className="text-sm space-y-0.5">
+              {task.description && (
+                <p className="text-slate-600 line-clamp-1">{task.description}</p>
+              )}
+              <p className="text-slate-600">
                 <span 
                   className="hover:text-primary cursor-pointer"
                   onClick={() => setLocation(`/clients/${task.client.id}`)}
                 >
                   {task.client.fullName}
                 </span>
-              </div>
-              {task.dueDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  <span>{formatDate(task.dueDate)}</span>
-                </div>
-              )}
-              {task.assignedTo && (
-                <div className="flex items-center gap-1">
-                  <Target className="w-3 h-3" />
-                  <span>{task.assignedTo.fullName}</span>
-                </div>
-              )}
+                {task.dueDate && (
+                  <span className="text-slate-500 ml-2">
+                    <Calendar className="w-3 h-3 inline mr-1" />
+                    {formatDate(task.dueDate)}
+                  </span>
+                )}
+                {task.assignedTo && (
+                  <span className="text-slate-500 ml-2">
+                    <Target className="w-3 h-3 inline mr-1" />
+                    {task.assignedTo.fullName}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         </div>
-
+        
         {/* Right side: Actions */}
-        <div className="flex items-center gap-2 ml-4">
-          {/* Primary action: View Comments */}
+        <div className="flex items-center gap-2">
+          {/* Primary action button */}
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => onViewComments(task)}
             data-testid={`button-comments-${task.id}`}
@@ -616,18 +622,14 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
             Comments
           </Button>
           
-          {/* Secondary actions dropdown */}
+          {/* Dropdown menu for other actions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                data-testid={`button-actions-${task.id}`}
-              >
-                <MoreVertical className="w-4 h-4" />
+              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onClick={() => onEdit(task)} data-testid={`menu-edit-${task.id}`}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Task
