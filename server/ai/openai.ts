@@ -599,7 +599,20 @@ ASSESSMENT SECTIONS TO GENERATE:
       }
       
       if (section.aiReportPrompt) {
-        userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+        // Replace placeholders in the section AI prompt with actual client data
+        let personalizedPrompt = section.aiReportPrompt
+          .replace(/\[Client Last Name\]/g, clientName.split(' ').pop() || clientName)
+          .replace(/Mr\.\/Ms\. \[Client Last Name\]/g, `Mr./Ms. ${clientName.split(' ').pop() || clientName}`)
+          .replace(/\[Referring Professional's Full Name\]/g, 'the referring professional')
+          .replace(/\[Clinic Name\]/g, 'the referring clinic')
+          .replace(/\[Clinic Full Address\]/g, address)
+          .replace(/\[his\/her\/their\]/g, gender === 'Male' ? 'his' : gender === 'Female' ? 'her' : 'their')
+          .replace(/\[He\/She\/They\]/g, gender === 'Male' ? 'He' : gender === 'Female' ? 'She' : 'They')
+          .replace(/he\/she\/they/gi, gender === 'Male' ? 'he' : gender === 'Female' ? 'she' : 'they');
+        
+        userPrompt += `Instructions: ${personalizedPrompt}\n\n`;
+        userPrompt += `IMPORTANT: Use the actual client name "${clientName}" (last name: ${clientName.split(' ').pop()}) throughout the narrative. Do NOT use placeholders.\n\n`;
+        
         // Add section total score for scoring sections
         if (sectionTotal !== null) {
           userPrompt += `SECTION TOTAL SCORE: ${sectionTotal}\n`;
