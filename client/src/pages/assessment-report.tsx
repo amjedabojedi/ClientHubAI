@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
@@ -27,7 +28,8 @@ import {
   CheckCircle,
   AlertCircle,
   ClipboardList,
-  MoreVertical
+  MoreVertical,
+  ChevronDown
 } from "lucide-react";
 
 // Utils
@@ -529,65 +531,83 @@ export default function AssessmentReportPage() {
           </Card>
         )}
 
-        {/* Assessment Responses by Section */}
-        <div className="space-y-6">
-          {sections.map((section, sectionIndex) => {
-            const sectionResponses = responsesBySection[section.id] || [];
-            
-            return (
-              <Card key={section.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
-                      {sectionIndex + 1}
-                    </span>
-                    <span>{section.title}</span>
-                  </CardTitle>
-                  {section.description && (
-                    <p className="text-slate-600 mt-2">{section.description}</p>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {section.questions?.map((question: any, questionIndex: number) => {
-                    const response = sectionResponses.find((r: any) => r.questionId === question.id);
-                    
-                    return (
-                      <div key={question.id} className="space-y-2">
-                        <div className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-xs font-semibold">
-                            {questionIndex + 1}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-slate-900 mb-2">
-                              {question.questionText}
-                              {question.isRequired && <span className="text-red-500 ml-1">*</span>}
-                            </div>
-                            <div className="bg-slate-50 rounded-lg p-3">
-                              {response ? (
-                                <p className="text-slate-700">{getResponseDisplay(response)}</p>
-                              ) : (
-                                <p className="text-slate-500 italic">No response provided</p>
+        {/* Assessment Responses by Section - Collapsible */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <ClipboardList className="w-5 h-5 text-blue-600" />
+              <span>Assessment Responses</span>
+            </CardTitle>
+            <p className="text-sm text-slate-600 mt-1">Click on each section to view detailed responses</p>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="multiple" className="w-full">
+              {sections.map((section, sectionIndex) => {
+                const sectionResponses = responsesBySection[section.id] || [];
+                
+                return (
+                  <AccordionItem key={section.id} value={`section-${section.id}`}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center space-x-3 flex-1">
+                        <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                          {sectionIndex + 1}
+                        </span>
+                        <div className="flex-1 text-left">
+                          <div className="font-semibold text-slate-900">{section.title}</div>
+                          {section.description && (
+                            <p className="text-sm text-slate-600 mt-1">{section.description}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="ml-2">
+                          {section.questions?.length || 0} questions
+                        </Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-6 pt-4">
+                        {section.questions?.map((question: any, questionIndex: number) => {
+                          const response = sectionResponses.find((r: any) => r.questionId === question.id);
+                          
+                          return (
+                            <div key={question.id} className="space-y-2">
+                              <div className="flex items-start space-x-3">
+                                <div className="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center text-xs font-semibold">
+                                  {questionIndex + 1}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="font-medium text-slate-900 mb-2">
+                                    {question.questionText}
+                                    {question.isRequired && <span className="text-red-500 ml-1">*</span>}
+                                  </div>
+                                  <div className="bg-slate-50 rounded-lg p-3">
+                                    {response ? (
+                                      <p className="text-slate-700">{getResponseDisplay(response)}</p>
+                                    ) : (
+                                      <p className="text-slate-500 italic">No response provided</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {questionIndex < (section.questions?.length || 0) - 1 && (
+                                <Separator className="my-4" />
                               )}
                             </div>
-                          </div>
-                        </div>
-                        {questionIndex < (section.questions?.length || 0) - 1 && (
-                          <Separator className="my-4" />
+                          );
+                        })}
+                        
+                        {(!section.questions || section.questions.length === 0) && (
+                          <p className="text-slate-500 text-center py-8">
+                            No questions in this section
+                          </p>
                         )}
                       </div>
-                    );
-                  })}
-                  
-                  {(!section.questions || section.questions.length === 0) && (
-                    <p className="text-slate-500 text-center py-8">
-                      No questions in this section
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </CardContent>
+        </Card>
 
         {/* Summary */}
         <Card className="mt-8">
