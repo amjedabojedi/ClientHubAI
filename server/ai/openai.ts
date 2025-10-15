@@ -547,27 +547,9 @@ Report Generated: ${reportDate}
 
 CRITICAL: Output must be properly formatted HTML without inline styles.
 
-CLIENT INFORMATION (Format exactly as shown):
-<h2>CLIENT INFORMATION</h2>
-<p><br></p>
-<p>
-<strong>Client Name:</strong> ${clientName}<br>
-<strong>Client ID:</strong> ${clientId}<br>
-<strong>Date of Birth:</strong> ${dateOfBirth}<br>
-<strong>Gender:</strong> ${gender}<br>
-<strong>Phone:</strong> ${phone}<br>
-<strong>Email:</strong> ${email}<br>
-<strong>Address:</strong> ${address}<br>
-<strong>Assessment:</strong> ${assessmentName}<br>
-<strong>Assessment Date:</strong> ${completedDate}<br>
-<strong>Clinician:</strong> ${clinicianName}<br>
-<strong>Report Generated:</strong> ${reportDate}
-</p>
-<p><br></p>
-
 IMPORTANT INSTRUCTIONS:
-1. Start with the CLIENT INFORMATION section exactly as shown above
-2. Then proceed with each assessment section with an <h2> heading
+1. DO NOT include a CLIENT INFORMATION section - this is already displayed separately in the UI
+2. Start directly with the first assessment section with an <h2> heading
 3. Add a blank paragraph (<p><br></p>) after each heading for spacing
 4. Use the section-specific AI prompt instructions when available
 5. Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
