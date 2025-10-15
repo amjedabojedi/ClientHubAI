@@ -5314,12 +5314,13 @@ This happens because only the file metadata was stored, not the actual file cont
         req.user.username,
         report.id,
         assignment.clientId,
-        'assessment_report_downloaded',
+        'document_downloaded',
         ipAddress,
         userAgent,
         { 
           assignmentId,
           format: 'pdf',
+          documentType: 'assessment_report',
           templateName: assignment.template?.name
         }
       );
@@ -5553,12 +5554,13 @@ This happens because only the file metadata was stored, not the actual file cont
         req.user.username,
         report.id,
         assignment.clientId,
-        'assessment_report_downloaded',
+        'document_downloaded',
         ipAddress,
         userAgent,
         { 
           assignmentId,
           format: 'docx',
+          documentType: 'assessment_report',
           templateName: assignment.template?.name
         }
       );

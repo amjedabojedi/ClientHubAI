@@ -423,10 +423,8 @@ export default function AssessmentReportPage() {
                   variant="outline" 
                   size="sm"
                   onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = `/api/assessments/assignments/${assignmentId}/download/pdf`;
-                    link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
-                    link.click();
+                    // Open PDF in new tab (browser will handle print-to-PDF)
+                    window.open(`/api/assessments/assignments/${assignmentId}/download/pdf`, '_blank');
                   }}
                   className="border-red-600 text-red-600 hover:bg-red-50"
                 >
@@ -437,6 +435,7 @@ export default function AssessmentReportPage() {
                   variant="outline" 
                   size="sm"
                   onClick={() => {
+                    // Download Word document
                     const link = document.createElement('a');
                     link.href = `/api/assessments/assignments/${assignmentId}/download/docx`;
                     link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
