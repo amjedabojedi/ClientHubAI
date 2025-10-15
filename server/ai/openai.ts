@@ -596,8 +596,23 @@ ASSESSMENT SECTIONS:
     if (sectionResponses.length > 0) {
       userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
       
+      // Calculate section total score if this is a scoring section
+      let sectionTotal = null;
+      if (section.isScoring) {
+        sectionTotal = sectionResponses.reduce((sum, resp) => {
+          const scoreValue = resp.scoreValue ? Number(resp.scoreValue) : 0;
+          return sum + scoreValue;
+        }, 0);
+        console.log(`[AI DEBUG] Section "${section.title}" total score: ${sectionTotal}`);
+      }
+      
       if (section.aiReportPrompt) {
         userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+        // Add section total score for scoring sections
+        if (sectionTotal !== null) {
+          userPrompt += `SECTION TOTAL SCORE: ${sectionTotal}\n`;
+          userPrompt += `Number of items: ${sectionResponses.length}\n\n`;
+        }
       } else {
         // Default clinical section prompt based on section type
         const sectionTitle = section.title.toLowerCase();
