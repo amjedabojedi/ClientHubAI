@@ -2824,9 +2824,27 @@ export default function ClientDetailPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-56">
-                                {/* Edit Assessment - for completed assessments */}
+                                {/* Actions for completed assessments */}
                                 {assessment.status === 'completed' && (
                                   <>
+                                    <DropdownMenuItem onClick={() => handleViewAssessmentReport(assessment.id)}>
+                                      <FileText className="w-4 h-4 mr-2" />
+                                      View Report
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => window.open(`/api/assessments/assignments/${assessment.id}/download/pdf`, '_blank')}>
+                                      <Download className="w-4 h-4 mr-2" />
+                                      Download PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = `/api/assessments/assignments/${assessment.id}/download/docx`;
+                                      link.download = `assessment-report-${assessment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+                                      link.click();
+                                    }}>
+                                      <Download className="w-4 h-4 mr-2" />
+                                      Download Word
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleCompleteAssessment(assessment.id)}>
                                       <Edit className="w-4 h-4 mr-2" />
                                       Edit Assessment
