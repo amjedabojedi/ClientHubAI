@@ -542,24 +542,26 @@ Clinician: ${clinicianName}
 Report Generated: ${reportDate}
 `;
 
-  // Build the user prompt with client information and section data
-  let userPrompt = `Generate a comprehensive clinical assessment report with the following structure:
+  // Build the user prompt WITHOUT client information header (it's shown separately in UI)
+  let userPrompt = `Generate a comprehensive clinical assessment report.
 
-CRITICAL: Output must be properly formatted HTML without inline styles.
+CRITICAL RULES:
+- Output must be properly formatted HTML without inline styles
+- DO NOT include any CLIENT INFORMATION section or client details header
+- Start IMMEDIATELY with the first assessment section
+- Client information is already displayed elsewhere - DO NOT REPEAT IT
 
-IMPORTANT INSTRUCTIONS:
-1. DO NOT include a CLIENT INFORMATION section - this is already displayed separately in the UI
-2. Start directly with the first assessment section with an <h2> heading
-3. Add a blank paragraph (<p><br></p>) after each heading for spacing
-4. Use the section-specific AI prompt instructions when available
-5. Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
-6. Wrap all narrative content in <p> tags
-7. Add blank paragraphs (<p><br></p>) between content paragraphs for readability
-8. Transform raw responses into professional clinical narrative format
-9. Use third-person clinical language appropriate for medical documentation
-10. Use <strong> tags to emphasize key clinical terms
+HTML FORMAT REQUIREMENTS:
+1. Start directly with the first assessment section using <h2>SECTION NAME</h2>
+2. Add a blank paragraph (<p><br></p>) after each heading for spacing  
+3. Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
+4. Wrap all narrative content in <p> tags
+5. Add blank paragraphs (<p><br></p>) between content paragraphs for readability
+6. Transform raw responses into professional clinical narrative format
+7. Use third-person clinical language appropriate for medical documentation
+8. Use <strong> tags to emphasize key clinical terms
 
-ASSESSMENT SECTIONS:
+ASSESSMENT SECTIONS TO GENERATE:
 
 `;
 
