@@ -1039,15 +1039,15 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               {editingNote ? (
                 <>
                   <p className="font-medium">How to edit this session note:</p>
-                  <p><strong>1. Template (optional):</strong> Select or create template → click <strong>Generate Content</strong> to auto-fill fields</p>
-                  <p><strong>2. Clinical Details:</strong> Edit fields below → use 📚 button to insert saved content from library</p>
+                  <p><strong>1. AI Generation (optional):</strong> Select or create template → click <strong>Generate Content</strong> to auto-fill fields OR skip and type manually</p>
+                  <p><strong>2. Clinical Details:</strong> Edit all fields below → use 📚 button to insert saved content from library</p>
                   <p><strong>3. Risk Assessment:</strong> Update all 10 risk factors if needed</p>
                   <p><strong>4. Save:</strong> Click <strong>Save Draft</strong> to save changes (edit anytime) OR click <strong>Save & Finalize</strong> to lock note (prevents further editing)</p>
                 </>
               ) : (
                 <>
                   <p className="font-medium">How to create this session note:</p>
-                  <p><strong>1. Template (optional):</strong> Select existing or create new → click <strong>Generate Content</strong> to auto-fill fields</p>
+                  <p><strong>1. AI Generation (optional):</strong> Select or create template → click <strong>Generate Content</strong> to auto-fill fields OR skip and type manually</p>
                   <p><strong>2. Clinical Details:</strong> Fill in session focus, symptoms, goals, interventions → use 📚 button to insert saved content from library</p>
                   <p><strong>3. Risk Assessment:</strong> Complete all 10 risk factor ratings</p>
                   <p><strong>4. Save:</strong> Click <strong>Create Draft</strong> to save note (you can edit later)</p>
