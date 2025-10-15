@@ -608,6 +608,7 @@ export default function ClientDetailPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const initialTab = urlParams.get('tab') || "overview";
   const sessionIdFromUrl = urlParams.get('sessionId');
+  const fromPage = urlParams.get('from'); // Track where user came from
   
   // State
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -1546,17 +1547,30 @@ export default function ClientDetailPage() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb Navigation */}
-      <div className="flex items-center space-x-2 text-sm">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => setLocation("/clients")}
-          className="flex items-center space-x-1 h-8 px-2"
-        >
-          <ArrowLeft className="w-3 h-3" />
-          <span>Back to Clients</span>
-        </Button>
-      </div>
+      <nav className="flex items-center space-x-2 text-sm text-slate-600">
+        {fromPage === 'tasks' ? (
+          <>
+            <button
+              onClick={() => setLocation("/tasks")}
+              className="hover:text-primary transition-colors font-medium"
+            >
+              Tasks
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-900 font-medium">{client.fullName}</span>
+          </>
+        ) : (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setLocation("/clients")}
+            className="flex items-center space-x-1 h-8 px-2 -ml-2"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            <span>Back to Clients</span>
+          </Button>
+        )}
+      </nav>
 
       {/* Main Content */}
       <div>

@@ -592,7 +592,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
               <p className="text-slate-600">
                 <span 
                   className="hover:text-primary cursor-pointer font-medium"
-                  onClick={() => setLocation(`/clients/${task.client.id}`)}
+                  onClick={() => setLocation(`/clients/${task.client.id}?from=tasks`)}
                   data-testid={`client-link-${task.id}`}
                 >
                   {task.client.fullName}
