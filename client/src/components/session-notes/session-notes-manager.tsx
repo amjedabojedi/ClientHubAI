@@ -1055,13 +1055,11 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 ) : editingNote ? (
                   <>
                     <p className="font-medium text-slate-700">How to edit this session note:</p>
-                    <p className="mt-1">• <strong>Step 1:</strong> Make your changes:</p>
-                    <p className="ml-3">→ Edit fields directly (manual changes) → use 📚 button to insert from library</p>
-                    <p className="ml-3">→ OR select template → click <strong>Generate Content</strong> to regenerate with AI</p>
-                    <p>• <strong>Step 2:</strong> Update Clinical Documentation and Risk Assessment (10 factors) as needed</p>
-                    <p>• <strong>Step 3 - Save:</strong></p>
-                    <p className="ml-3">→ Click <strong>Save Draft</strong> if you need more edits later (stays unlocked)</p>
-                    <p className="ml-3">→ Click <strong>Save & Finalize</strong> if you're done (locks permanently with date stamp, no more edits)</p>
+                    <p className="mt-1">• You can directly edit each field to add, remove, or modify content → use 📚 button to insert from library</p>
+                    <p>• Update Clinical Documentation and Risk Assessment fields as needed</p>
+                    <p>• <strong>Then choose:</strong></p>
+                    <p className="ml-3">→ Click <strong>Save Draft</strong> if you want to come back and continue editing later</p>
+                    <p className="ml-3">→ Click <strong>Save & Finalize</strong> if you're done editing (locks permanently with date stamp, no more edits)</p>
                   </>
                 ) : (
                   <>
