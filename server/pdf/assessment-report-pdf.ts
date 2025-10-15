@@ -350,7 +350,7 @@ export function generateAssessmentReportHTML(
 
       <!-- Confidentiality Banner -->
       <div class="confidentiality-banner">
-        ⚠️ Confidential Medical Record - HIPAA Protected Information
+        ⚠️ PERSONAL AND CONFIDENTIAL – Protected Health Information. Unauthorized use or disclosure is prohibited under HIPAA.
       </div>
 
       <!-- Client Information Section -->
