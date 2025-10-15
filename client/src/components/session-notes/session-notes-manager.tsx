@@ -1035,24 +1035,41 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             })()}
             
             {/* Workflow Instructions */}
-            <div className="mt-3 text-sm text-slate-600 space-y-1 bg-slate-50 p-3 rounded-md border border-slate-200">
-              {editingNote ? (
-                <>
-                  <p className="font-medium">How to edit this session note:</p>
-                  <p><strong>1. AI Generation (optional):</strong> Select or create template → click <strong>Generate Content</strong> to auto-fill fields OR skip and type manually</p>
-                  <p><strong>2. Clinical Details:</strong> Edit all fields below → use 📚 button to insert saved content from library</p>
-                  <p><strong>3. Risk Assessment:</strong> Update all 10 risk factors if needed</p>
-                  <p><strong>4. Save:</strong> Click <strong>Save Draft</strong> to save changes (edit anytime) OR click <strong>Save & Finalize</strong> to lock note (prevents further editing)</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-medium">How to create this session note:</p>
-                  <p><strong>1. AI Generation (optional):</strong> Select or create template → click <strong>Generate Content</strong> to auto-fill fields OR skip and type manually</p>
-                  <p><strong>2. Clinical Details:</strong> Fill in session focus, symptoms, goals, interventions → use 📚 button to insert saved content from library</p>
-                  <p><strong>3. Risk Assessment:</strong> Complete all 10 risk factor ratings</p>
-                  <p><strong>4. Save:</strong> Click <strong>Create Draft</strong> to save note (you can edit later)</p>
-                </>
-              )}
+            <div className="mt-3 text-sm text-slate-600 space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
+              <div className="flex items-start gap-2">
+                <span className="text-base">💡</span>
+                <div>
+                  <p className="font-semibold text-slate-700">Why Document Session Notes?</p>
+                  <p className="text-xs mt-1">Session notes provide professional clinical documentation of therapy sessions, track client progress, assess risk factors, and maintain HIPAA-compliant records required for insurance and legal purposes.</p>
+                </div>
+              </div>
+              
+              <div className="border-t border-slate-300 pt-2 mt-2">
+                {editingNote?.isFinalized ? (
+                  <>
+                    <p className="font-medium text-slate-700">This session note is finalized and locked</p>
+                    <p className="mt-1"><strong>1. To view:</strong> Review the content in read-only mode</p>
+                    <p><strong>2. To edit:</strong> Finalized notes cannot be edited (contact administrator if changes are needed)</p>
+                    <p><strong>3. To export:</strong> Use the PDF download option to save or print</p>
+                  </>
+                ) : editingNote ? (
+                  <>
+                    <p className="font-medium text-slate-700">How to edit this session note:</p>
+                    <p className="mt-1"><strong>1. AI Regeneration (optional):</strong> Select different template → click <strong>Generate Content</strong> to regenerate fields OR skip and edit manually</p>
+                    <p><strong>2. Clinical Documentation:</strong> Update any fields as needed → use 📚 button to add library content</p>
+                    <p><strong>3. Risk Assessment:</strong> Review and update all 10 risk factors if client status changed</p>
+                    <p><strong>4. Save Options:</strong> Click <strong>Save Draft</strong> to save changes (note stays editable) OR click <strong>Save & Finalize</strong> to lock the note permanently (prevents any future editing)</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-slate-700">How to create this session note:</p>
+                    <p className="mt-1"><strong>1. AI Generation (optional):</strong> Select or create a template → click <strong>Generate Content</strong> to auto-fill all fields with AI-suggested content OR skip this step entirely and type manually</p>
+                    <p><strong>2. Clinical Documentation:</strong> Fill in all required fields (Session Focus, Symptoms, Short-term Goals, Intervention, Progress, Remarks) → use 📚 button next to each field to insert pre-saved content from your library</p>
+                    <p><strong>3. Risk Assessment:</strong> Complete all 10 risk factor ratings (suicide ideation, self-harm, substance use, etc.)</p>
+                    <p><strong>4. Save:</strong> Click <strong>Create Draft</strong> to save your note (you can edit it anytime later)</p>
+                  </>
+                )}
+              </div>
             </div>
           </DialogHeader>
 
