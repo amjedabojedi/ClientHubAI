@@ -1045,15 +1045,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               </div>
               
               <div className="border-t border-slate-300 pt-2 mt-2">
-                {editingNote?.isFinalized ? (
-                  <>
-                    <p className="font-medium text-slate-700">This session note is finalized and locked</p>
-                    <p className="mt-1"><strong>1. To view:</strong> Review the content in read-only mode</p>
-                    <p><strong>2. To edit:</strong> Finalized notes cannot be edited (contact administrator if changes are needed)</p>
-                    <p><strong>3. To export:</strong> Use the PDF download option to save or print</p>
-                    <p className="mt-2 text-xs text-slate-500"><strong>Note:</strong> You can preview session note in PDF after finalized through session history by pressing on preview button</p>
-                  </>
-                ) : editingNote ? (
+                {editingNote ? (
                   <>
                     <p className="font-medium text-slate-700">How to edit this session note:</p>
                     <p className="mt-1">• Edit any field directly to add, remove, or modify content (📚 library available if needed)</p>
@@ -1061,6 +1053,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     <p>• <strong>Then choose:</strong></p>
                     <p className="ml-3">→ Click <strong>Save Draft</strong> if you want to come back and continue editing later</p>
                     <p className="ml-3">→ Click <strong>Save & Finalize</strong> if you're done editing (locks permanently with date stamp, no more edits)</p>
+                    <p className="mt-2 text-xs text-slate-500"><strong>Note:</strong> Once finalized, you can preview the session note in PDF through session history by pressing the preview button</p>
                   </>
                 ) : (
                   <>
