@@ -126,7 +126,7 @@ export function generateAssessmentReportHTML(
         body {
           font-family: 'Helvetica', 'Arial', sans-serif;
           padding: 20px 30px;
-          line-height: 1.6;
+          line-height: 1.5;
           color: #333;
         }
         .header {
@@ -135,7 +135,7 @@ export function generateAssessmentReportHTML(
           align-items: flex-start;
           border-bottom: 3px solid #2563eb;
           padding-bottom: 12px;
-          margin-bottom: 20px;
+          margin-bottom: 15px;
         }
         .header-left {
           flex: 1;
@@ -146,9 +146,9 @@ export function generateAssessmentReportHTML(
           font-size: 13px;
         }
         .practice-name {
-          font-weight: 700;
+          font-weight: 600;
           color: #1e40af;
-          font-size: 18px;
+          font-size: 16px;
           margin-bottom: 8px;
         }
         .practice-info {
@@ -158,8 +158,8 @@ export function generateAssessmentReportHTML(
         }
         h1.report-title {
           color: #1e40af;
-          margin: 20px 0 10px 0;
-          font-size: 28px;
+          margin: 0 0 6px 0;
+          font-size: 26px;
           text-align: center;
           letter-spacing: 1px;
         }
@@ -167,7 +167,7 @@ export function generateAssessmentReportHTML(
           background-color: #fef3c7;
           border-left: 4px solid #f59e0b;
           padding: 10px 15px;
-          margin: 15px 0;
+          margin: 12px 0;
           text-align: center;
           font-size: 12px;
           font-weight: 600;
@@ -176,11 +176,11 @@ export function generateAssessmentReportHTML(
           text-transform: uppercase;
         }
         .client-info-section {
-          background-color: #f8fafc;
+          background-color: #f3f4f6;
           border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          padding: 20px;
-          margin: 20px 0;
+          border-radius: 6px;
+          padding: 12px 15px;
+          margin: 12px 0 15px 0;
         }
         .client-info-title {
           font-size: 16px;
@@ -211,31 +211,70 @@ export function generateAssessmentReportHTML(
           color: #1f2937;
         }
         .report-content {
-          margin: 25px 0;
+          margin-top: 8px;
+          font-size: 14px;
+          line-height: 1.6;
         }
-        .main-heading {
+        .report-content h1 {
           color: #1e40af;
-          font-size: 20px;
-          margin: 25px 0 12px 0;
-          padding-bottom: 6px;
+          font-size: 19px;
+          margin: 20px 0 8px 0;
+          padding-top: 15px;
+          font-weight: 700;
+          border-top: 3px solid #2563eb;
           border-bottom: 2px solid #dbeafe;
+          padding-bottom: 5px;
         }
-        .section-heading {
+        .report-content h1:first-child {
+          margin-top: 10px;
+          padding-top: 0;
+          border-top: none;
+        }
+        .report-content h2 {
           color: #1e40af;
           font-size: 17px;
+          margin: 15px 0 6px 0;
+          padding-top: 10px;
           font-weight: 700;
-          margin: 20px 0 10px 0;
+          border-top: 2px solid #e5e7eb;
+          border-bottom: 1px solid #e5e7eb;
           padding-bottom: 4px;
-          border-bottom: 1px solid #e0e7ff;
+        }
+        .report-content h2:first-child {
+          margin-top: 8px;
+          padding-top: 0;
+          border-top: none;
+        }
+        .report-content h3 {
+          color: #2563eb;
+          font-size: 15px;
+          margin: 10px 0 5px 0;
+          font-weight: 600;
+        }
+        .report-content h4 {
+          color: #3b82f6;
+          font-size: 14px;
+          margin: 8px 0 4px 0;
+          font-weight: 600;
         }
         .report-content p {
           margin: 5px 0;
           line-height: 1.6;
           color: #374151;
+          white-space: pre-wrap;
+          word-wrap: break-word;
         }
         .report-content strong {
           color: #1f2937;
           font-weight: 600;
+        }
+        .report-content ul, .report-content ol {
+          margin: 5px 0 5px 20px;
+          padding: 0;
+        }
+        .report-content li {
+          margin: 3px 0;
+          color: #374151;
         }
         .signature-section {
           margin-top: 40px;
