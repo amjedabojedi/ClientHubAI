@@ -3557,11 +3557,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assessmentResponses.assignmentId, assignmentId))
       .orderBy(asc(assessmentResponses.createdAt));
 
-    return results.map(result => ({
-      ...result.assessment_responses,
-      question: result.assessment_questions!,
-      responder: result.users!
-    }));
+    // Load options for each question to enable proper response display
+    const responsesWithOptions = [];
+    for (const result of results) {
+      const question = result.assessment_questions!;
+      
+      // Get options for this question
+      const options = await this.getAssessmentQuestionOptions(question.id);
+      const questionWithOptions = {
+        ...question,
+        options: options.map(opt => opt.optionText),
+        scoreValues: options.map(opt => Number(opt.optionValue) || 0)
+      };
+
+      responsesWithOptions.push({
+        ...result.assessment_responses,
+        question: questionWithOptions,
+        responder: result.users!
+      });
+    }
+
+    return responsesWithOptions;
   }
 
   async createAssessmentResponse(responseData: InsertAssessmentResponse): Promise<AssessmentResponse> {
