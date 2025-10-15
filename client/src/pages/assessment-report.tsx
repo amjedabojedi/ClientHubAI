@@ -143,6 +143,21 @@ export default function AssessmentReportPage() {
     }
   });
 
+  // Unfinalize mutation - allows reopening finalized reports
+  const unfinalizeReportMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/assessments/assignments/${assignmentId}/report/unfinalize`, "POST");
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Report Reopened", 
+        description: "The report can now be regenerated or edited again."
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
+    }
+  });
+
   // Handle Save & Finalize
   const handleSaveAndFinalize = async () => {
     // First save draft
@@ -332,7 +347,19 @@ export default function AssessmentReportPage() {
                   <FileText className="w-4 h-4 mr-2" />
                   {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate Report'}
                 </Button>
-              ) : null}
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => unfinalizeReportMutation.mutate()}
+                  disabled={unfinalizeReportMutation.isPending}
+                  className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                  data-testid="button-reopen-report"
+                >
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  {unfinalizeReportMutation.isPending ? 'Reopening...' : 'Reopen Report'}
+                </Button>
+              )}
               <div className="flex space-x-2">
                 <Button 
                   variant="outline" 

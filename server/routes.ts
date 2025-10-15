@@ -5246,6 +5246,88 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Unfinalize assessment report (allows reopening for regeneration/editing)
+  app.post("/api/assessments/assignments/:assignmentId/report/unfinalize", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const assignmentId = parseInt(req.params.assignmentId);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      // Get existing report
+      const existingReport = await storage.getAssessmentReport(assignmentId);
+      if (!existingReport) {
+        return res.status(404).json({ message: "Assessment report not found" });
+      }
+
+      // Check if actually finalized
+      if (!existingReport.isFinalized) {
+        return res.status(400).json({ message: "Report is not finalized" });
+      }
+
+      // Permission check: Only assigned therapist, supervisor, or admin
+      const assignment = await storage.getAssessmentAssignment(assignmentId);
+      const isAssignedTherapist = assignment?.assignedById === req.user.id;
+      const isAdmin = req.user.role === 'administrator';
+
+      // Check if user is a supervisor of the assigned therapist
+      let isSupervisor = false;
+      if (!isAssignedTherapist && !isAdmin && assignment) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        isSupervisor = supervisorAssignments.some(
+          sa => sa.therapistId === assignment.assignedById
+        );
+      }
+
+      if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
+        return res.status(403).json({ message: "You do not have permission to unfinalize this report" });
+      }
+
+      // Unfinalize report (move final content back to draft for editing)
+      const draftContent = existingReport.finalContent || existingReport.draftContent || existingReport.generatedContent || '';
+      const updatedReport = await storage.updateAssessmentReport(existingReport.id, {
+        isFinalized: false,
+        isDraft: true,
+        draftContent,
+        finalContent: null,
+        finalizedAt: null,
+        finalizedById: null
+      });
+
+      // Update assessment status back to therapist_completed (reopened)
+      await storage.updateAssessmentAssignment(assignmentId, {
+        status: 'therapist_completed',
+        completedAt: null
+      });
+
+      // HIPAA Audit: Log report reopening
+      await AuditLogger.logAssessmentAccess(
+        req.user.id,
+        req.user.username,
+        assignmentId,
+        existingReport.assignment.clientId,
+        'assessment_updated',
+        ipAddress,
+        userAgent,
+        { 
+          reportId: updatedReport.id,
+          operation: 'report_reopened'
+        }
+      );
+
+      res.json(updatedReport);
+    } catch (error) {
+      console.error('Error unfinalizing assessment report:', error);
+      res.status(500).json({ message: "Failed to unfinalize assessment report" });
+    }
+  });
+
   // Download assessment report as PDF
   app.get("/api/assessments/assignments/:assignmentId/download/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
