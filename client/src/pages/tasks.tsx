@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +39,9 @@ import {
   Target,
   TrendingUp,
   Users,
-  ClipboardList
+  ClipboardList,
+  MoreVertical,
+  MessageSquare
 } from "lucide-react";
 
 // Utils & Types
@@ -535,68 +538,113 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
   const [, setLocation] = useLocation();
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-6">
-        <div className="mb-4">
-          <div className="flex justify-center mb-3">
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => onViewComments(task)} title="View Comments">
-                <ClipboardList className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => onEdit(task)} title="Edit Task">
-                <Edit className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => onDelete(task.id)} title="Delete Task">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="w-full mb-2">
-            <h3 className="font-semibold text-lg text-slate-900 w-full">{task.title}</h3>
-          </div>
-          <div className="w-full">
-            <p className="text-slate-600 text-sm line-clamp-3 w-full">{task.description || "No description"}</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center gap-4">
-            <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
-              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-            </Badge>
-            <Badge className={cn("text-xs", getStatusColor(task.status))}>
-              {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
-            </Badge>
-          </div>
-
-          <div className="flex items-center justify-between text-sm text-slate-600">
-            <div className="flex items-center gap-1">
-              <User className="w-4 h-4" />
-              <span 
-                className="hover:text-primary cursor-pointer"
-                onClick={() => setLocation(`/clients/${task.client.id}`)}
-              >
-                {task.client.fullName}
-              </span>
-            </div>
-            
-            {task.dueDate && (
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                <span>{formatDate(task.dueDate)}</span>
-              </div>
+    <div className="border rounded-lg p-4 hover:bg-slate-50 transition-colors">
+      <div className="flex items-center justify-between">
+        {/* Left side: Task info */}
+        <div className="flex items-start space-x-3 flex-1 min-w-0">
+          {/* Status icon */}
+          <div className={cn(
+            "p-2 rounded-full flex-shrink-0",
+            task.status === 'completed' ? 'bg-green-100' :
+            task.status === 'in_progress' ? 'bg-blue-100' :
+            task.status === 'overdue' ? 'bg-red-100' :
+            'bg-yellow-100'
+          )}>
+            {task.status === 'completed' ? (
+              <CheckCircle className="w-4 h-4 text-green-600" />
+            ) : task.status === 'in_progress' ? (
+              <Clock className="w-4 h-4 text-blue-600" />
+            ) : task.status === 'overdue' ? (
+              <AlertCircle className="w-4 h-4 text-red-600" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-yellow-600" />
             )}
           </div>
 
-          {task.assignedTo && (
-            <div className="flex items-center gap-1 text-sm text-slate-600">
-              <Target className="w-4 h-4" />
-              <span>Assigned to {task.assignedTo.fullName}</span>
+          {/* Task details */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-semibold text-slate-900 truncate">{task.title}</h4>
+              <Badge className={cn("text-xs flex-shrink-0", getPriorityColor(task.priority))}>
+                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+              </Badge>
+              <Badge className={cn("text-xs flex-shrink-0", getStatusColor(task.status))}>
+                {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
+              </Badge>
             </div>
-          )}
+            
+            {task.description && (
+              <p className="text-sm text-slate-600 mb-2 line-clamp-2">{task.description}</p>
+            )}
+            
+            <div className="flex items-center gap-4 text-xs text-slate-500">
+              <div className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                <span 
+                  className="hover:text-primary cursor-pointer"
+                  onClick={() => setLocation(`/clients/${task.client.id}`)}
+                >
+                  {task.client.fullName}
+                </span>
+              </div>
+              {task.dueDate && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  <span>{formatDate(task.dueDate)}</span>
+                </div>
+              )}
+              {task.assignedTo && (
+                <div className="flex items-center gap-1">
+                  <Target className="w-3 h-3" />
+                  <span>{task.assignedTo.fullName}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Right side: Actions */}
+        <div className="flex items-center gap-2 ml-4">
+          {/* Primary action: View Comments */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onViewComments(task)}
+            data-testid={`button-comments-${task.id}`}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Comments
+          </Button>
+          
+          {/* Secondary actions dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                data-testid={`button-actions-${task.id}`}
+              >
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(task)} data-testid={`menu-edit-${task.id}`}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Task
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => onDelete(task.id)}
+                className="text-red-600"
+                data-testid={`menu-delete-${task.id}`}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Task
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -993,7 +1041,7 @@ export default function TasksPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+              <div className="space-y-4 mb-6">
                 {tasks.map((task) => (
                   <TaskCard
                     key={task.id}
