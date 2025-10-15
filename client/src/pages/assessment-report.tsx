@@ -466,11 +466,9 @@ export default function AssessmentReportPage() {
                 {report.isFinalized ? (
                   <>
                     <p className="font-medium">✅ This report is finalized and locked</p>
-                    <ul className="list-disc ml-5 space-y-1 mt-1">
-                      <li><strong>View report:</strong> Click the arrow below to expand and view content</li>
-                      <li><strong>Download:</strong> Click the <strong>Actions</strong> button in Assessment Summary section above, then select Download PDF or Download Word</li>
-                      <li><strong>Make changes:</strong> Click <strong>Actions</strong> button above, then select <strong>Reopen Report</strong> to unlock for editing</li>
-                    </ul>
+                    <p className="mt-1">To view: Click the arrow below</p>
+                    <p>To download: Click <strong>Actions</strong> button in Assessment Summary above → select Download PDF or Download Word</p>
+                    <p>To edit: Click <strong>Actions</strong> button above → select <strong>Reopen Report</strong> → then you can edit below</p>
                   </>
                 ) : (
                   <>
