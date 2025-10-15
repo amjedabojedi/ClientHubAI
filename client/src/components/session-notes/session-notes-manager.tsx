@@ -1063,10 +1063,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 ) : (
                   <>
                     <p className="font-medium text-slate-700">How to create this session note:</p>
-                    <p className="mt-1"><strong>1. AI Generation (optional):</strong> Select or create a template → click <strong>Generate Content</strong> to auto-fill all fields with AI-suggested content OR skip this step entirely and type manually</p>
+                    <p className="mt-1"><strong>1. AI Generation (optional - saves time):</strong> Select or create a template → click <strong>Generate Content</strong> → AI automatically fills all clinical fields based on your template instructions, saving you writing time OR skip this step entirely and type everything manually</p>
                     <p><strong>2. Clinical Documentation:</strong> Fill in all required fields (Session Focus, Symptoms, Short-term Goals, Intervention, Progress, Remarks) → use 📚 button next to each field to insert pre-saved content from your library</p>
                     <p><strong>3. Risk Assessment:</strong> Complete all 10 risk factor ratings (suicide ideation, self-harm, substance use, etc.)</p>
-                    <p><strong>4. Save:</strong> Click <strong>Create Draft</strong> to save your note (you can edit it anytime later)</p>
+                    <p><strong>4. Save:</strong> Click <strong>Create Draft</strong> → saves your note to the database as a draft (unlocked) → you can return anytime to edit, update, or finalize it later</p>
                   </>
                 )}
               </div>
