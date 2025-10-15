@@ -1,7 +1,7 @@
 # TherapyFlow
 
 ## Overview
-TherapyFlow is a comprehensive therapy practice management application for healthcare professionals. It offers a full-stack solution to streamline operations by managing client information, scheduling, documentation, and administrative tasks. Key capabilities include robust client management, advanced scheduling, efficient data handling, AI-assisted note generation, and comprehensive billing integration, all designed to support modern therapy practices. The project aims to enhance efficiency and organization in clinical settings.
+TherapyFlow is a comprehensive full-stack therapy practice management application designed to streamline operations for healthcare professionals. It manages client information, scheduling, documentation, and administrative tasks, aiming to enhance efficiency and organization in clinical settings through features like client management, advanced scheduling, AI-assisted note generation, and billing integration.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -19,9 +19,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Form Handling**: React Hook Form with Zod validation
 - **Build Tool**: Vite
 - **Design Principles**: Responsive (mobile-first), clean visual hierarchy, professional UI, color-coded indicators.
-- **Date/Time Handling**:
-    - Standardized display: "MMM dd, yyyy" for dates, "MMM dd, yyyy HH:mm:ss" for timestamps.
-    - **CRITICAL Timezone Handling**: ALL dates and times MUST consistently use `America/New_York` (EST/EDT) timezone for display and input interpretation, while storing in UTC in the database.
+- **Timezone Handling**: ALL dates and times consistently use `America/New_York` (EST/EDT) for display and input, while storing in UTC in the database.
 
 ### Backend
 - **Runtime**: Node.js with TypeScript
@@ -29,36 +27,32 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Database ORM**: Drizzle ORM
 - **Session Management**: Express sessions with PostgreSQL storage
 - **API Design**: RESTful endpoints with CRUD operations.
-- **Security**:
-    - Role-based access control (Administrator, Clinical Supervisor, Therapist, Intern/Trainee) with 15 granular permissions.
-    - Data isolation based on roles and supervisor assignments.
-    - Authentication: `requireAuth` middleware for sensitive endpoints.
-    - Authorization: Backend derives ALL access control decisions from `req.user` session context; never use user-supplied IDs/roles to prevent privilege escalation.
+- **Security**: Role-based access control (15 granular permissions), data isolation, `requireAuth` middleware, authorization derived from `req.user` session context.
 
 ### Database
 - **Database**: PostgreSQL (configured for Neon serverless)
 - **ORM**: Drizzle ORM with schema-first approach
 - **Migrations**: Drizzle Kit
 - **Connection**: Connection pooling with `@neondatabase/serverless`
-- **Data Models**: Clients, Users, Sessions, Tasks, Notes, Documents, System Options, Library (hierarchical), Assessment Templates, Checklist Templates, Supervisor Assignments.
-- **Scalability**: Optimized for 5000+ client records with indexing and query optimization.
+- **Data Models**: Clients, Users, Sessions, Tasks, Notes, Documents, System Options, Library, Assessment Templates, Checklist Templates, Supervisor Assignments.
+- **Scalability**: Optimized for 5000+ client records.
 
 ### Key Features
 - **Client Management**: Comprehensive profiles, status tracking, search/filtering, bulk operations, direct scheduling.
-- **Scheduling & Calendar**: Multi-view calendar, session management, role-based access, visual indicators, in-place session editing.
-- **Session Notes**: Mood tracking, goals, interventions, clinical documentation, rich text editing (ReactQuill), and AI-assisted generation.
+- **Scheduling & Calendar**: Multi-view calendar, session management, role-based access, in-place editing.
+- **Session Notes**: Mood tracking, goals, interventions, clinical documentation, rich text editing (ReactQuill), AI-assisted generation.
 - **System Options Management**: Dynamic, database-driven configuration for all dropdown options.
-- **Bulk Data Operations**: Bulk client and session upload via Excel with validation.
+- **Bulk Data Operations**: Bulk client and session upload via Excel.
 - **Task Management**: Creation, assignment, tracking, filtering, and commenting.
 - **Hierarchical Library System**: Categorized clinical content with smart auto-connection and search.
 - **Risk Assessment**: 10-factor matrix with automated scoring.
 - **User Profile System**: Detailed user profiles with credentials and role management.
-- **Billing Integration**: Service catalog (CPT codes), room management, automatic billing triggers, payment status tracking.
-- **Assessment Management**: Template creation, client assignment, AI-powered report generation (ReactQuill), draft/finalize workflow, digital signatures, PDF/Word export, HIPAA audit logging.
+- **Billing Integration**: Service catalog, room management, automatic billing triggers, payment status tracking.
+- **Assessment Management**: Template creation, client assignment, AI-powered report generation, draft/finalize workflow, digital signatures, PDF/Word export, HIPAA audit logging.
 - **Checklist Management**: Comprehensive templates for process workflows.
 - **Dashboard**: Key metrics, quick actions, recent activity, upcoming deadlines.
-- **HIPAA Compliance Audit System**: Comprehensive activity tracking for PHI access, data modifications, login attempts across critical operations (session notes, billing, client access, documents, user auth).
-- **Email Communications History**: Audit trail of client emails (scheduling, reminders) with content and timestamps, accessible in client profiles.
+- **HIPAA Compliance Audit System**: Comprehensive activity tracking for PHI access, data modifications, login attempts across critical operations.
+- **Email Communications History**: Audit trail of client emails (scheduling, reminders) accessible in client profiles.
 - **Login Error Feedback**: Professional handling with specific backend messages, visual cues, and persistent error state.
 
 ## External Dependencies
@@ -77,140 +71,9 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **class-variance-authority**: Type-safe CSS class variants.
 - **lucide-react**: Icon library.
 - **date-fns**: Date manipulation utilities.
-- **date-fns-tz**: Timezone-aware date utilities for consistent `America/New_York` handling.
+- **date-fns-tz**: Timezone-aware date utilities.
 
 ### Development
 - **typescript**: Type safety.
 - **vite**: Fast development and build tooling.
 - **tsx**: TypeScript execution for Node.js.
-
-## Known Issues & Future Enhancements
-
-### Assessment Report System - Recent Fixes (October 2025)
-The following issues were identified and **successfully resolved**:
-
-1. ✅ **Hardcoded Therapist ID (SECURITY ISSUE) - FIXED**
-   - **Solution**: Now uses authenticated user context (`user.id`) with validation guards
-   - **Impact**: All assessment responses and assignments correctly attributed to the actual logged-in user
-   - **Validation**: Added authentication checks to prevent saving with invalid user IDs
-
-2. ✅ **Data Display Inconsistency - FIXED**
-   - **Solution**: Standardized all response formats to show readable text
-   - **Rating Display**: Now shows "Moderate (3)" instead of "Rating: 3"
-   - **Options Display**: Shows "Option 1" instead of "Selected option 0"
-   - **Impact**: Professional, consistent report formatting
-
-3. ✅ **Confusing Assessment Workflow - FIXED**
-   - **Solution**: Implemented comprehensive completion flow with dialogs
-   - **New Workflow**:
-     1. Click "Complete Assessment"
-     2. View completion summary (questions answered/skipped)
-     3. See validation warnings for required questions
-     4. Confirm completion
-     5. Choose next action via clear dialog buttons:
-        - **Edit Assessment** → Modify questions/answers
-        - **View & Edit Report** → Generate and work with AI report
-   - **Regenerate Protection**: Added confirmation dialog warning about data loss
-
-4. ✅ **Missing Completion Summary/Validation - FIXED**
-   - **Solution**: Added comprehensive validation dialog showing:
-     - Total questions count
-     - Answered questions count
-     - Skipped questions count
-     - Warnings for unanswered required questions
-   - **Impact**: Users see exactly what they've completed before finalizing
-
-5. ✅ **Unfilled Questions Validation - FIXED**
-   - **Solution**: Validation warnings now displayed for incomplete required sections
-   - **Impact**: Users are informed about missing data before completion
-
-6. ✅ **Assessment Workflow & Status Management - FIXED (Oct 14, 2025)**
-   - **Solution**: Redesigned to match Session Notes pattern with clear status progression
-   - **Status Flow**:
-     - **pending** → "Start Assessment" (blue) - Auto-updates to "therapist_completed"
-     - **therapist_completed** → "Continue Assessment" (orange) - Therapist filling out questions
-     - **waiting_for_therapist** → "Draft" (yellow) - Report generated, needs review/finalization
-     - **completed** → "Finalized" (green) - Report locked and signed
-   - **Workflow Transitions**:
-     - Start: pending → therapist_completed (when clicking "Start Assessment")
-     - Generate Report: therapist_completed → waiting_for_therapist (AI creates draft)
-     - Finalize: waiting_for_therapist → completed (report locked with timestamp)
-     - Edit Completed: completed → therapist_completed (unlocks for re-editing, must regenerate/finalize)
-   - **UI Design**: Single primary action button (color-coded) + dropdown menu (⋮) for secondary actions (Edit, Delete)
-   - **Impact**: Clear workflow progression, intuitive status transitions, matches session notes UX pattern
-
-7. ✅ **Assessment Response Label Display - FIXED (Oct 14, 2025)**
-   - **Problem**: Assessment responses showed generic "Option 1", "Option 2" instead of meaningful text labels
-   - **Root Cause**: Completion form used hardcoded BDI-II options when database options missing, but report view had no such fallback
-   - **Solution**: Added identical hardcoded BDI-II options fallback to report display (assessment-report.tsx)
-   - **Result**: 
-     - Responses now show actual text: "I am more irritable than usual." instead of "Option 2"
-     - All 21 BDI-II questions display proper labels from hardcoded fallbacks
-     - Status display shows "Draft" for waiting_for_therapist (matching button labels)
-   - **Impact**: Professional, human-readable assessment reports with consistent status messaging
-   - **Future Enhancement**: Centralize BDI-II constants to prevent drift between completion and report pages
-
-8. ✅ **Assessment Edit Data Persistence & Refresh - FIXED (Oct 14, 2025)**
-   - **Problem**: When editing assessments, changes appeared saved locally but didn't reflect properly or persist
-   - **Root Cause**: 
-     - Query invalidation was disabled to prevent UI flicker (commented out)
-     - Response loading logic only loaded data once when state was empty, preventing fresh data updates
-   - **Solution**: 
-     - Enabled query invalidation after saves to refresh both responses and assignment data
-     - Updated response loading to check for actual data changes and update accordingly
-     - Added safety check to prevent infinite update loops
-   - **Result**:
-     - Assessment edits save to database correctly ✅
-     - UI refreshes automatically after saves to show latest data ✅
-     - Changes persist and display correctly when navigating away and returning ✅
-   - **Impact**: Reliable data persistence with real-time UI updates for assessment editing
-
-9. ✅ **Assessment Report PDF/Word Export & Finalization - FIXED (Oct 15, 2025)**
-   - **Problems**:
-     - PDF generation failed due to missing Chrome/Puppeteer dependency
-     - Finalize Report button returned 403 Forbidden (permission issue)
-     - PDF didn't display signature or finalization status
-     - Word documents lacked proper formatting, headers, signatures, and legal footer
-     - Paragraph spacing didn't match session notes style
-   - **Root Causes**:
-     - Puppeteer requires Chrome installation (not available in environment)
-     - Authorization check failed when different user tried to finalize another therapist's assessment
-     - Word export used basic markdown parsing, missing professional formatting
-   - **Solutions**:
-     - Switched PDF generation from Puppeteer to HTML-only approach (matching session notes pattern)
-     - Browser now handles PDF printing via print dialog
-     - Fixed authorization issue by reassigning assessment to correct user
-     - Completely rewrote Word document export to include:
-       - Practice header with contact information
-       - Professional title and confidentiality banner
-       - Client information section
-       - Digital signature section (only for finalized reports)
-       - Legal footer matching PDF style
-       - Tighter paragraph spacing (margin 5px, line-height 1.6)
-     - Removed debug logging from finalize route
-   - **Result**:
-     - PDF generation works reliably without external dependencies ✅
-     - Reports display signatures correctly when finalized ✅
-     - Word documents now match PDF formatting with all required sections ✅
-     - Paragraph spacing consistent with session notes style ✅
-     - Finalization workflow functions properly with proper authorization ✅
-   - **Impact**: Professional, legally compliant document exports for both PDF and Word formats with complete parity to session notes formatting
-
-10. ✅ **Assessment Report Downloads & Audit Logging - FIXED (Oct 15, 2025)**
-   - **Problems**:
-     - Audit logging failed with "invalid input value for enum audit_action: 'assessment_report_downloaded'"
-     - PDF downloads weren't opening in new tabs (tried to download HTML as file)
-   - **Root Causes**:
-     - Used non-existent enum value 'assessment_report_downloaded' instead of valid 'document_downloaded'
-     - PDF button used `link.download` which doesn't work for HTML-based generation
-   - **Solutions**:
-     - Changed audit logging to use 'document_downloaded' with documentType: 'assessment_report' in metadata
-     - Updated PDF button to use `window.open(..., '_blank')` to open HTML in new tab for browser printing
-     - Word button kept download behavior (works correctly for binary files)
-   - **Result**:
-     - Audit logs save successfully for all report downloads ✅
-     - PDF opens in new tab where users can print-to-PDF via browser ✅
-     - Word documents download directly as expected ✅
-   - **Impact**: Reliable HIPAA audit trail for report downloads and proper PDF generation workflow
-
-**Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.
