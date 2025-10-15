@@ -467,19 +467,17 @@ export default function AssessmentReportPage() {
                   <>
                     <p className="font-medium">✅ This report is finalized and locked</p>
                     <p className="mt-1"><strong>1. To view:</strong> Click the arrow below</p>
-                    <p><strong>2. To edit:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select <strong>Reopen Report</strong> → then you can edit below</p>
+                    <p><strong>2. To edit:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select <strong>Reopen Report</strong> → report unlocks → you can now edit the content below → click <strong>Save Draft</strong> to save changes → when ready, click <strong>Save & Finalize</strong> to lock report</p>
                     <p><strong>3. To download:</strong> Click <strong>Actions</strong> button above → select Download PDF or Download Word</p>
                   </>
                 ) : (
                   <>
                     <p className="font-medium">How to use this report:</p>
-                    <ul className="list-disc ml-5 space-y-1">
-                      <li><strong>Review:</strong> Click the arrow below to expand and review AI-generated content</li>
-                      <li><strong>Edit:</strong> Make changes directly in the text editor</li>
-                      <li><strong>Save Draft:</strong> Click "Save Draft" button below to save changes without locking</li>
-                      <li><strong>Finalize:</strong> Click "Save & Finalize" button below when report is complete (locks the report)</li>
-                      <li><strong>Download:</strong> Click <strong>Actions</strong> button in Assessment Summary section above to download PDF or Word</li>
-                    </ul>
+                    <p className="mt-1"><strong>1. Review:</strong> Click the arrow below to expand and view the AI-generated content</p>
+                    <p><strong>2. Edit (optional):</strong> You can accept the AI report as-is OR edit it manually in the text editor below</p>
+                    <p><strong>3. Save Draft:</strong> Click <strong>Save Draft</strong> button below to save your changes without locking (you can edit again later)</p>
+                    <p><strong>4. Finalize:</strong> When happy with the final report, click <strong>Save & Finalize</strong> button below to lock it (prevents further editing)</p>
+                    <p><strong>5. Download:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select Download PDF or Download Word</p>
                   </>
                 )}
               </div>
