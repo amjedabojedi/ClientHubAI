@@ -3584,19 +3584,45 @@ export class DatabaseStorage implements IStorage {
 
   // Assessment Reports Management
   async getAssessmentReport(assignmentId: number): Promise<(AssessmentReport & { assignment: AssessmentAssignment; createdBy: User }) | undefined> {
-    const [result] = await db
+    // First try to get the latest finalized report
+    const [finalizedResult] = await db
       .select()
       .from(assessmentReports)
       .leftJoin(assessmentAssignments, eq(assessmentReports.assignmentId, assessmentAssignments.id))
       .leftJoin(users, eq(assessmentReports.createdById, users.id))
-      .where(eq(assessmentReports.assignmentId, assignmentId));
+      .where(
+        and(
+          eq(assessmentReports.assignmentId, assignmentId),
+          eq(assessmentReports.isFinalized, true)
+        )
+      )
+      .orderBy(desc(assessmentReports.finalizedAt))
+      .limit(1);
 
-    if (!result) return undefined;
+    if (finalizedResult) {
+      return {
+        ...finalizedResult.assessment_reports,
+        assignment: finalizedResult.assessment_assignments!,
+        createdBy: finalizedResult.users!
+      };
+    }
+
+    // If no finalized report, get the latest draft
+    const [draftResult] = await db
+      .select()
+      .from(assessmentReports)
+      .leftJoin(assessmentAssignments, eq(assessmentReports.assignmentId, assessmentAssignments.id))
+      .leftJoin(users, eq(assessmentReports.createdById, users.id))
+      .where(eq(assessmentReports.assignmentId, assignmentId))
+      .orderBy(desc(assessmentReports.generatedAt))
+      .limit(1);
+
+    if (!draftResult) return undefined;
 
     return {
-      ...result.assessment_reports,
-      assignment: result.assessment_assignments!,
-      createdBy: result.users!
+      ...draftResult.assessment_reports,
+      assignment: draftResult.assessment_assignments!,
+      createdBy: draftResult.users!
     };
   }
 

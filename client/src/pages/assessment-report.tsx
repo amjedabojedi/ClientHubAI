@@ -321,7 +321,7 @@ export default function AssessmentReportPage() {
                   <FileText className="w-4 h-4 mr-2" />
                   {generateReportMutation.isPending ? 'Generating...' : 'Generate AI Report'}
                 </Button>
-              ) : (
+              ) : !report.isFinalized ? (
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -332,7 +332,7 @@ export default function AssessmentReportPage() {
                   <FileText className="w-4 h-4 mr-2" />
                   {generateReportMutation.isPending ? 'Regenerating...' : 'Regenerate Report'}
                 </Button>
-              )}
+              ) : null}
               <div className="flex space-x-2">
                 <Button 
                   variant="outline" 
