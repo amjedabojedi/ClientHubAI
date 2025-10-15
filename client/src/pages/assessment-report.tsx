@@ -462,17 +462,17 @@ export default function AssessmentReportPage() {
                   )}
                 </div>
               </CardTitle>
-              <div className="text-sm text-slate-600 mt-2 space-y-1">
+              <div className="mt-3 text-sm text-slate-600 space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
                 {report.isFinalized ? (
                   <>
-                    <p className="font-medium">This report is finalized and locked</p>
+                    <p className="font-medium text-slate-700">This report is finalized and locked</p>
                     <p className="mt-1"><strong>1. To view:</strong> Click the arrow below</p>
                     <p><strong>2. To edit:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select <strong>Reopen Report</strong> → report unlocks → you can now edit the content below → click <strong>Save Draft</strong> to save changes → when ready, click <strong>Save & Finalize</strong> to lock report</p>
                     <p><strong>3. To download:</strong> Click <strong>Actions</strong> button above → select Download PDF or Download Word</p>
                   </>
                 ) : (
                   <>
-                    <p className="font-medium">How to use this report:</p>
+                    <p className="font-medium text-slate-700">How to use this report:</p>
                     <p className="mt-1"><strong>1. Review:</strong> Click the arrow below to expand and view the AI-generated content</p>
                     <p><strong>2. Edit (optional):</strong> You can accept the AI report as-is OR edit it manually in the text editor below</p>
                     <p><strong>3. Save Draft:</strong> Click <strong>Save Draft</strong> button below to save your changes without locking (you can edit again later)</p>
