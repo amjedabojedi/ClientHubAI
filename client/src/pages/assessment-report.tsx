@@ -138,6 +138,7 @@ export default function AssessmentReportPage() {
     onSuccess: () => {
       toast({ title: "Report finalized successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
       setFinalizeModalOpen(false);
     }
   });
