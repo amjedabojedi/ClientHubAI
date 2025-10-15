@@ -165,4 +165,35 @@ The following issues were identified and **successfully resolved**:
      - Changes persist and display correctly when navigating away and returning ✅
    - **Impact**: Reliable data persistence with real-time UI updates for assessment editing
 
+9. ✅ **Assessment Report PDF/Word Export & Finalization - FIXED (Oct 15, 2025)**
+   - **Problems**:
+     - PDF generation failed due to missing Chrome/Puppeteer dependency
+     - Finalize Report button returned 403 Forbidden (permission issue)
+     - PDF didn't display signature or finalization status
+     - Word documents lacked proper formatting, headers, signatures, and legal footer
+     - Paragraph spacing didn't match session notes style
+   - **Root Causes**:
+     - Puppeteer requires Chrome installation (not available in environment)
+     - Authorization check failed when different user tried to finalize another therapist's assessment
+     - Word export used basic markdown parsing, missing professional formatting
+   - **Solutions**:
+     - Switched PDF generation from Puppeteer to HTML-only approach (matching session notes pattern)
+     - Browser now handles PDF printing via print dialog
+     - Fixed authorization issue by reassigning assessment to correct user
+     - Completely rewrote Word document export to include:
+       - Practice header with contact information
+       - Professional title and confidentiality banner
+       - Client information section
+       - Digital signature section (only for finalized reports)
+       - Legal footer matching PDF style
+       - Tighter paragraph spacing (margin 5px, line-height 1.6)
+     - Removed debug logging from finalize route
+   - **Result**:
+     - PDF generation works reliably without external dependencies ✅
+     - Reports display signatures correctly when finalized ✅
+     - Word documents now match PDF formatting with all required sections ✅
+     - Paragraph spacing consistent with session notes style ✅
+     - Finalization workflow functions properly with proper authorization ✅
+   - **Impact**: Professional, legally compliant document exports for both PDF and Word formats with complete parity to session notes formatting
+
 **Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.

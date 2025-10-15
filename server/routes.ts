@@ -5192,19 +5192,6 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Permission check: Only assigned therapist, supervisor, or admin
       const assignment = await storage.getAssessmentAssignment(assignmentId);
-      
-      // Debug logging
-      console.log('[FINALIZE DEBUG]', {
-        assignmentId,
-        currentUserId: req.user.id,
-        currentUserRole: req.user.role,
-        assignmentData: assignment ? {
-          id: assignment.id,
-          assignedById: assignment.assignedById,
-          clientId: assignment.clientId
-        } : null
-      });
-      
       const isAssignedTherapist = assignment?.assignedById === req.user.id;
       const isAdmin = req.user.role === 'administrator';
 
@@ -5216,13 +5203,6 @@ This happens because only the file metadata was stored, not the actual file cont
           sa => sa.therapistId === assignment.assignedById
         );
       }
-
-      console.log('[FINALIZE AUTH]', {
-        isAssignedTherapist,
-        isAdmin,
-        isSupervisor,
-        willAllow: isAssignedTherapist || isAdmin || isSupervisor
-      });
 
       if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
         return res.status(403).json({ message: "You do not have permission to finalize this report" });
@@ -5324,26 +5304,9 @@ This happens because only the file metadata was stored, not the actual file cont
         } as any;
       }
 
-      // Generate professional HTML using new PDF generator
+      // Generate professional HTML (browser will handle PDF printing - matching session notes pattern)
       const { generateAssessmentReportHTML } = await import("./pdf/assessment-report-pdf");
       const html = generateAssessmentReportHTML(assignment, report, practiceSettings);
-
-      // Generate PDF using puppeteer
-      const puppeteer = await import("puppeteer");
-      const browser = await puppeteer.default.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      
-      const page = await browser.newPage();
-      await page.setContent(html);
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '15mm', right: '15mm', bottom: '15mm', left: '15mm' }
-      });
-      
-      await browser.close();
       
       // HIPAA Audit: Log PDF download
       await AuditLogger.logDocumentAccess(
@@ -5361,11 +5324,13 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       );
       
-      const filename = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.send(pdf);
+      // Return HTML with proper headers (browser will handle PDF conversion via print)
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.removeHeader('ETag');
+      res.send(html);
       
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -5394,63 +5359,184 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Assessment assignment not found" });
       }
 
-      // Generate Word document using docx
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
+      // Fetch practice settings
+      const practiceOptions = await storage.getSystemOptionsByCategory('practice');
+      let practiceSettings = {
+        name: 'TherapyFlow',
+        address: '',
+        phone: '',
+        email: '',
+        website: ''
+      };
       
-      // Parse the report content - prioritize finalContent if finalized (matching session notes pattern)
+      if (practiceOptions) {
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      }
+
+      // Fetch therapist details with signature (for finalized reports)
+      if (assignment.assignedById) {
+        const therapist = await storage.getUser(assignment.assignedById);
+        const userProfile = await storage.getUserProfile(assignment.assignedById);
+        
+        assignment.assignedBy = {
+          ...therapist,
+          signatureImage: userProfile?.signatureImage,
+          profile: {
+            licenseType: userProfile?.licenseType,
+            licenseNumber: userProfile?.licenseNumber
+          }
+        } as any;
+      }
+
+      // Generate Word document using docx
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = await import("docx");
+      const { formatInTimeZone } = await import("date-fns-tz");
+      const PRACTICE_TIMEZONE = 'America/New_York';
+      
+      // Parse the report content - prioritize finalContent if finalized
       const reportContent = report.finalContent || report.draftContent || report.generatedContent || '';
-      const lines = reportContent.split('\n');
       const paragraphs = [];
       
+      // Header: Practice Information
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ 
+          text: practiceSettings.name, 
+          bold: true, 
+          size: 28,
+          color: "1e40af"
+        })],
+        spacing: { after: 100 }
+      }));
+      
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: practiceSettings.address, size: 20 })],
+        spacing: { after: 50 }
+      }));
+      
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: `Phone: ${practiceSettings.phone} | Email: ${practiceSettings.email}`, size: 20 })],
+        spacing: { after: 50 }
+      }));
+      
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: `Website: ${practiceSettings.website}`, size: 20 })],
+        spacing: { after: 300 }
+      }));
+
+      // Title
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ 
+          text: "CLINICAL ASSESSMENT REPORT", 
+          bold: true, 
+          size: 32,
+          color: "1e40af"
+        })],
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 }
+      }));
+
+      // Confidentiality Banner
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ 
+          text: "⚠️ Confidential Medical Record - HIPAA Protected Information", 
+          bold: true, 
+          size: 20,
+          color: "92400e"
+        })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 300 },
+        border: {
+          left: { style: BorderStyle.SINGLE, size: 20, color: "f59e0b" }
+        }
+      }));
+
+      // Client Information Section
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: "CLIENT INFORMATION", bold: true, size: 24, color: "1e40af" })],
+        spacing: { after: 200 }
+      }));
+
+      const clientInfo = [
+        `Client Name: ${assignment.client?.fullName || 'Not provided'}`,
+        `Client ID: ${assignment.client?.clientId || 'Not provided'}`,
+        `Date of Birth: ${assignment.client?.dateOfBirth ? formatInTimeZone(new Date(assignment.client.dateOfBirth), PRACTICE_TIMEZONE, 'MMMM dd, yyyy') : 'Not provided'}`,
+        `Assessment: ${assignment.template?.name || 'Assessment'}`,
+        `Clinician: ${assignment.assignedBy?.fullName || 'Not assigned'}${assignment.assignedBy?.title ? ', ' + assignment.assignedBy.title : ''}`
+      ];
+
+      clientInfo.forEach(info => {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({ text: info, size: 22 })],
+          spacing: { after: 100 }
+        }));
+      });
+
+      paragraphs.push(new Paragraph({ text: "", spacing: { after: 300 } }));
+
+      // Report Content - parse HTML to text
+      const htmlText = reportContent.replace(/<[^>]*>/g, ''); // Strip HTML tags for Word
+      const lines = htmlText.split('\n');
+      
       for (const line of lines) {
-        if (line.trim().startsWith('# ')) {
-          // Main heading - professional formatting
+        if (line.trim()) {
           paragraphs.push(new Paragraph({
-            children: [new TextRun({ 
-              text: line.replace('# ', '').toUpperCase(), 
-              bold: true, 
-              size: 32,
-              font: 'Times New Roman'
-            })],
-            heading: HeadingLevel.HEADING_1,
-            spacing: { after: 400, before: 200 },
-            alignment: 'center'
-          }));
-        } else if (line.trim().startsWith('## ')) {
-          // Section heading - underlined and bold
-          paragraphs.push(new Paragraph({
-            children: [new TextRun({ 
-              text: line.replace('## ', ''), 
-              bold: true, 
-              size: 26,
-              underline: { type: 'single' },
-              font: 'Times New Roman'
-            })],
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 300, after: 200 }
-          }));
-        } else if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-          // Bold text
-          paragraphs.push(new Paragraph({
-            children: [new TextRun({ 
-              text: line.replace(/\*\*/g, ''), 
-              bold: true,
-              font: 'Times New Roman'
-            })],
-            spacing: { after: 200 }
-          }));
-        } else if (line.trim()) {
-          // Regular paragraph with professional formatting
-          paragraphs.push(new Paragraph({
-            children: [new TextRun({ 
-              text: line,
-              font: 'Times New Roman'
-            })],
-            spacing: { after: 200 },
-            alignment: 'both' // Justified text
+            children: [new TextRun({ text: line, font: 'Times New Roman', size: 22 })],
+            spacing: { after: 120 }, // Tighter spacing
+            alignment: AlignmentType.JUSTIFIED
           }));
         }
       }
+
+      // Signature Section (only if finalized)
+      if (report.isFinalized && report.finalizedAt && assignment.assignedBy) {
+        paragraphs.push(new Paragraph({ text: "", spacing: { after: 400 } }));
+        
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({ text: "DIGITAL SIGNATURE", bold: true, size: 24, color: "1e40af" })],
+          spacing: { after: 200 }
+        }));
+
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({ text: assignment.assignedBy.fullName, bold: true, size: 24 })],
+          spacing: { after: 100 }
+        }));
+
+        if (assignment.assignedBy.profile?.licenseType) {
+          paragraphs.push(new Paragraph({
+            children: [new TextRun({ 
+              text: `${assignment.assignedBy.profile.licenseType}${assignment.assignedBy.profile.licenseNumber ? ' #' + assignment.assignedBy.profile.licenseNumber : ''}`, 
+              size: 22 
+            })],
+            spacing: { after: 100 }
+          }));
+        }
+
+        paragraphs.push(new Paragraph({
+          children: [new TextRun({ 
+            text: `Digitally signed: ${formatInTimeZone(new Date(report.finalizedAt), PRACTICE_TIMEZONE, 'MMMM dd, yyyy')}`, 
+            size: 22,
+            italics: true
+          })],
+          spacing: { after: 200 }
+        }));
+      }
+
+      // Footer
+      paragraphs.push(new Paragraph({ text: "", spacing: { after: 400 } }));
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: "This report was generated electronically and is valid without a physical signature.", size: 20, color: "9ca3af" })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100 }
+      }));
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: `${practiceSettings.name} | ${practiceSettings.phone} | ${practiceSettings.email}`, size: 20, color: "9ca3af" })],
+        alignment: AlignmentType.CENTER
+      }));
       
       const doc = new Document({
         sections: [{

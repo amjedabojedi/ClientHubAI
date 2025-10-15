@@ -229,8 +229,8 @@ export function generateAssessmentReportHTML(
           border-bottom: 1px solid #e0e7ff;
         }
         .report-content p {
-          margin: 8px 0;
-          line-height: 1.7;
+          margin: 5px 0;
+          line-height: 1.6;
           color: #374151;
         }
         .report-content strong {
