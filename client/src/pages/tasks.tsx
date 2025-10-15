@@ -553,7 +553,11 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
           {/* Task details */}
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-slate-900">
+              <h4 
+                className="font-semibold text-slate-900 hover:text-primary cursor-pointer"
+                onClick={() => onEdit(task)}
+                data-testid={`task-title-${task.id}`}
+              >
                 {task.title}
               </h4>
               <span className="text-slate-300">•</span>
@@ -587,8 +591,9 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
               )}
               <p className="text-slate-600">
                 <span 
-                  className="hover:text-primary cursor-pointer"
+                  className="hover:text-primary cursor-pointer font-medium"
                   onClick={() => setLocation(`/clients/${task.client.id}`)}
+                  data-testid={`client-link-${task.id}`}
                 >
                   {task.client.fullName}
                 </span>
