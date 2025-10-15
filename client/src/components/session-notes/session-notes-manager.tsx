@@ -1055,7 +1055,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 ) : editingNote ? (
                   <>
                     <p className="font-medium text-slate-700">How to edit this session note:</p>
-                    <p className="mt-1">• You can directly edit each field to add, remove, or modify content (still has the ability to insert from the library 📚 if needed)</p>
+                    <p className="mt-1">• Edit any field directly to add, remove, or modify content (📚 library available if needed)</p>
                     <p>• Update Clinical Documentation and Risk Assessment fields as needed</p>
                     <p>• <strong>Then choose:</strong></p>
                     <p className="ml-3">→ Click <strong>Save Draft</strong> if you want to come back and continue editing later</p>
