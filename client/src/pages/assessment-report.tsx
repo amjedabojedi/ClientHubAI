@@ -451,70 +451,88 @@ export default function AssessmentReportPage() {
           </CardContent>
         </Card>
 
-        {/* AI Generated Report with ReactQuill Editor */}
+        {/* AI Generated Report with ReactQuill Editor - Collapsible */}
         {report?.generatedContent && (
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-green-600" />
-                <span>Professional Report</span>
-                {report.isFinalized && (
-                  <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
-                    ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
-                  </Badge>
-                )}
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-5 h-5 text-green-600" />
+                  <span>Professional Report</span>
+                  {report.isFinalized && (
+                    <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+                      ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
+                    </Badge>
+                  )}
+                </div>
               </CardTitle>
+              <p className="text-sm text-slate-600 mt-1">
+                {report.isFinalized ? 'Click to view finalized report' : 'Click to edit report content'}
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <ReactQuill
-                  theme="snow"
-                  value={editorContent}
-                  onChange={setEditorContent}
-                  modules={quillModules}
-                  formats={quillFormats}
-                  readOnly={report.isFinalized === true}
-                  className={report.isFinalized ? "readonly-editor" : ""}
-                />
-                
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                  <div className="text-sm text-slate-600">
-                    {report.generatedAt && (
-                      <div>Generated on {formatInTimeZone(new Date(report.generatedAt), 'America/New_York', "MMM dd, yyyy 'at' h:mm a")}</div>
-                    )}
-                    {report.id && <div className="text-xs text-slate-500 mt-1">Report ID: #{report.id}</div>}
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {!report.isFinalized ? (
-                      <>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => saveDraftMutation.mutate(editorContent)}
-                          disabled={saveDraftMutation.isPending}
-                        >
-                          {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
-                        </Button>
-                        <Button 
-                          size="sm"
-                          onClick={handleSaveAndFinalize}
-                          disabled={saveDraftMutation.isPending}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Save & Finalize
-                        </Button>
-                      </>
-                    ) : (
-                      <Badge className="bg-green-100 text-green-800 px-3 py-1">
-                        ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <Accordion type="single" collapsible defaultValue="report-content" className="w-full">
+                <AccordionItem value="report-content" className="border-none">
+                  <AccordionTrigger className="hover:no-underline py-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold">
+                        {report.isFinalized ? '📄 View Report' : '✏️ Edit Report'}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-4">
+                      <ReactQuill
+                        theme="snow"
+                        value={editorContent}
+                        onChange={setEditorContent}
+                        modules={quillModules}
+                        formats={quillFormats}
+                        readOnly={report.isFinalized === true}
+                        className={report.isFinalized ? "readonly-editor" : ""}
+                      />
+                      
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                        <div className="text-sm text-slate-600">
+                          {report.generatedAt && (
+                            <div>Generated on {formatInTimeZone(new Date(report.generatedAt), 'America/New_York', "MMM dd, yyyy 'at' h:mm a")}</div>
+                          )}
+                          {report.id && <div className="text-xs text-slate-500 mt-1">Report ID: #{report.id}</div>}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {!report.isFinalized ? (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => saveDraftMutation.mutate(editorContent)}
+                                disabled={saveDraftMutation.isPending}
+                              >
+                                {saveDraftMutation.isPending ? 'Saving...' : 'Save Draft'}
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={handleSaveAndFinalize}
+                                disabled={saveDraftMutation.isPending}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Save & Finalize
+                              </Button>
+                            </>
+                          ) : (
+                            <Badge className="bg-green-100 text-green-800 px-3 py-1">
+                              ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </CardContent>
           </Card>
         )}
