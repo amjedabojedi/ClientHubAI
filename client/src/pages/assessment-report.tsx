@@ -465,7 +465,7 @@ export default function AssessmentReportPage() {
               <div className="text-sm text-slate-600 mt-2 space-y-1">
                 {report.isFinalized ? (
                   <>
-                    <p className="font-medium">✅ This report is finalized and locked</p>
+                    <p className="font-medium">This report is finalized and locked</p>
                     <p className="mt-1"><strong>1. To view:</strong> Click the arrow below</p>
                     <p><strong>2. To edit:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select <strong>Reopen Report</strong> → report unlocks → you can now edit the content below → click <strong>Save Draft</strong> to save changes → when ready, click <strong>Save & Finalize</strong> to lock report</p>
                     <p><strong>3. To download:</strong> Click <strong>Actions</strong> button above → select Download PDF or Download Word</p>
