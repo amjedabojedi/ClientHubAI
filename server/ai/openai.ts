@@ -542,39 +542,31 @@ Clinician: ${clinicianName}
 Report Generated: ${reportDate}
 `;
 
-  // Build the user prompt WITH full client information header
+  // Build the user prompt with client context
   let userPrompt = `Generate a comprehensive clinical assessment report for this client.
 
-<h2>CLIENT INFORMATION</h2>
-<p><br></p>
-<p><strong>Client Name:</strong> ${clientName}</p>
-<p><strong>Client ID:</strong> ${clientId}</p>
-<p><strong>Date of Birth:</strong> ${dateOfBirth}</p>
-<p><strong>Gender:</strong> ${gender}</p>
-<p><strong>Phone:</strong> ${phone}</p>
-<p><strong>Email:</strong> ${email}</p>
-<p><strong>Address:</strong> ${address}</p>
-<p><strong>Assessment:</strong> ${assessmentName}</p>
-<p><strong>Assessment Date:</strong> ${completedDate}</p>
-<p><strong>Clinician:</strong> ${clinicianName}</p>
-<p><strong>Report Generated:</strong> ${reportDate}</p>
-<p><br></p>
+CLIENT INFORMATION:
+Name: ${clientName}
+ID: ${clientId}
+Date of Birth: ${dateOfBirth}
+Gender: ${gender}
+Phone: ${phone}
+Email: ${email}
+Address: ${address}
+Assessment: ${assessmentName}
+Assessment Date: ${completedDate}
+Clinician: ${clinicianName}
+Report Generated: ${reportDate}
 
-CRITICAL RULES:
+CRITICAL FORMATTING RULES:
 - Output must be properly formatted HTML without inline styles
-- Use the client's actual name (${clientName}) and last name (${clientName.split(' ').pop()}) instead of ANY placeholders
-- Use appropriate pronouns based on gender: ${gender}
-- Personalize ALL narratives with the actual client information above
-
-HTML FORMAT REQUIREMENTS:
-1. Start directly with the first assessment section using <h2>SECTION NAME</h2>
-2. Add a blank paragraph (<p><br></p>) after each heading for spacing  
-3. Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
-4. Wrap all narrative content in <p> tags
-5. Add blank paragraphs (<p><br></p>) between content paragraphs for readability
-6. Transform raw responses into professional clinical narrative format
-7. Use third-person clinical language with the client's name (e.g., "Mr./Ms. ${clientName.split(' ').pop()} reported...")
-8. Use <strong> tags to emphasize key clinical terms
+- Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
+- Add a blank paragraph (<p><br></p>) after each heading for spacing
+- Wrap all narrative content in <p> tags
+- Add blank paragraphs (<p><br></p>) between content paragraphs for readability
+- Transform raw responses into professional clinical narrative format
+- Use third-person clinical language
+- Use <strong> tags to emphasize key clinical terms
 
 ASSESSMENT SECTIONS TO GENERATE:
 
@@ -610,13 +602,6 @@ ASSESSMENT SECTIONS TO GENERATE:
       
       if (section.aiReportPrompt) {
         userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
-        userPrompt += `CRITICAL: Replace ALL placeholders with actual client information from the CLIENT INFORMATION section above:\n`;
-        userPrompt += `- Use "${clientName}" for client name\n`;
-        userPrompt += `- Use "${clientName.split(' ').pop()}" for last name\n`;
-        userPrompt += `- Use "Mr." for ${gender === 'Male' ? 'this male client' : 'appropriate title'}\n`;
-        userPrompt += `- Use "${address}" for address\n`;
-        userPrompt += `- DO NOT use ANY placeholders like [Client Last Name], [Clinic Name], etc.\n\n`;
-        
         // Add section total score for scoring sections
         if (sectionTotal !== null) {
           userPrompt += `SECTION TOTAL SCORE: ${sectionTotal}\n`;
