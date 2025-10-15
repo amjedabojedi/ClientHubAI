@@ -2759,13 +2759,13 @@ export default function ClientDetailPage() {
                             {/* Single Primary Action Button - Same style as Session Notes */}
                             {(() => {
                               if (assessment.status === 'completed') {
-                                // For finalized assessments: Finalized (green)
+                                // For finalized assessments: Open PDF directly
                                 return (
                                   <Button
                                     variant="default"
                                     size="sm"
                                     className="bg-green-600 hover:bg-green-700"
-                                    onClick={() => handleViewAssessmentReport(assessment.id)}
+                                    onClick={() => window.open(`/api/assessments/assignments/${assessment.id}/download/pdf`, '_blank')}
                                     data-testid={`button-finalized-${assessment.id}`}
                                   >
                                     <CheckSquare className="w-4 h-4 mr-2" />

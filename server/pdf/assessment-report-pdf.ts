@@ -151,18 +151,6 @@ export function generateAssessmentReportHTML(
           font-size: 16px;
           margin-bottom: 8px;
         }
-        .practice-info {
-          margin: 4px 0;
-          font-size: 13px;
-          color: #4b5563;
-        }
-        h1.report-title {
-          color: #1e40af;
-          margin: 0 0 6px 0;
-          font-size: 26px;
-          text-align: center;
-          letter-spacing: 1px;
-        }
         .confidentiality-banner {
           background-color: #fef3c7;
           border-left: 4px solid #f59e0b;
@@ -331,22 +319,25 @@ export function generateAssessmentReportHTML(
       </style>
     </head>
     <body>
-      <!-- Practice Header -->
+      <!-- Header -->
       <div class="header">
         <div class="header-left">
-          <div class="practice-name">${practiceSettings.name}</div>
-          <p class="practice-info">${practiceSettings.address.replace(/\n/g, '<br>')}</p>
-          <p class="practice-info">Phone: ${practiceSettings.phone} | Email: ${practiceSettings.email}</p>
-          <p class="practice-info">Website: ${practiceSettings.website}</p>
+          <h1>
+            Clinical Assessment Report
+            ${report.isFinalized ? '<span class="status-badge status-finalized">Finalized</span>' : ''}
+          </h1>
+          <p style="margin: 5px 0; color: #6b7280;">
+            ${assignment.client?.fullName || 'Client'}
+          </p>
         </div>
         <div class="header-right">
-          <div>Report Generated</div>
-          <div style="font-weight: 600; color: #1f2937;">${reportGeneratedDate}</div>
+          <div class="practice-name">${practiceSettings.name}</div>
+          <p style="margin: 4px 0;">${practiceSettings.address.replace(/\n/g, '<br>')}</p>
+          <p style="margin: 4px 0;">Phone: ${practiceSettings.phone}</p>
+          <p style="margin: 4px 0;">Email: ${practiceSettings.email}</p>
+          <p style="margin: 4px 0;">Website: ${practiceSettings.website}</p>
         </div>
       </div>
-
-      <!-- Report Title -->
-      <h1 class="report-title">CLINICAL ASSESSMENT REPORT</h1>
 
       <!-- Confidentiality Banner -->
       <div class="confidentiality-banner">
