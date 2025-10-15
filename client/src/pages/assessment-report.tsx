@@ -549,18 +549,6 @@ export default function AssessmentReportPage() {
           </Card>
         )}
 
-        {/* Assessment Description */}
-        {assignment.template.description && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Assessment Description</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-slate-700">{assignment.template.description}</p>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Assessment Responses by Section - Collapsible */}
         <Card>
           <CardHeader>
@@ -636,20 +624,6 @@ export default function AssessmentReportPage() {
                 );
               })}
             </Accordion>
-          </CardContent>
-        </Card>
-
-        {/* Summary */}
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle>Assessment Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {assignment.notes ? (
-              <p className="text-slate-700">{assignment.notes}</p>
-            ) : (
-              <p className="text-slate-500 italic">No additional notes provided for this assessment.</p>
-            )}
           </CardContent>
         </Card>
       </div>
