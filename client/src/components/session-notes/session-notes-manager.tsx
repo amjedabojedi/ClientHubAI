@@ -1051,6 +1051,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     <p className="mt-1"><strong>1. To view:</strong> Review the content in read-only mode</p>
                     <p><strong>2. To edit:</strong> Finalized notes cannot be edited (contact administrator if changes are needed)</p>
                     <p><strong>3. To export:</strong> Use the PDF download option to save or print</p>
+                    <p className="mt-2 text-xs text-slate-500"><strong>Note:</strong> You can preview session note in PDF after finalized through session history by pressing on preview button</p>
                   </>
                 ) : editingNote ? (
                   <>
