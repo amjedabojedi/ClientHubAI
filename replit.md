@@ -196,4 +196,21 @@ The following issues were identified and **successfully resolved**:
      - Finalization workflow functions properly with proper authorization ✅
    - **Impact**: Professional, legally compliant document exports for both PDF and Word formats with complete parity to session notes formatting
 
+10. ✅ **Assessment Report Downloads & Audit Logging - FIXED (Oct 15, 2025)**
+   - **Problems**:
+     - Audit logging failed with "invalid input value for enum audit_action: 'assessment_report_downloaded'"
+     - PDF downloads weren't opening in new tabs (tried to download HTML as file)
+   - **Root Causes**:
+     - Used non-existent enum value 'assessment_report_downloaded' instead of valid 'document_downloaded'
+     - PDF button used `link.download` which doesn't work for HTML-based generation
+   - **Solutions**:
+     - Changed audit logging to use 'document_downloaded' with documentType: 'assessment_report' in metadata
+     - Updated PDF button to use `window.open(..., '_blank')` to open HTML in new tab for browser printing
+     - Word button kept download behavior (works correctly for binary files)
+   - **Result**:
+     - Audit logs save successfully for all report downloads ✅
+     - PDF opens in new tab where users can print-to-PDF via browser ✅
+     - Word documents download directly as expected ✅
+   - **Impact**: Reliable HIPAA audit trail for report downloads and proper PDF generation workflow
+
 **Note**: Detailed AI-generated reports are intentional and necessary for proper clinical documentation.
