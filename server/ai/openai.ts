@@ -587,11 +587,13 @@ ASSESSMENT SECTIONS:
       section.questions?.some(q => q.id === r.questionId)
     );
     
-    // DEBUG: Log response filtering
+    // DEBUG: Log response filtering and section scoring flag
     console.log(`[AI DEBUG] Section: "${section.title}"`);
     console.log(`[AI DEBUG] Section has ${section.questions?.length || 0} questions`);
     console.log(`[AI DEBUG] Found ${sectionResponses.length} responses for this section`);
     console.log(`[AI DEBUG] Total responses available: ${responses.length}`);
+    console.log(`[AI DEBUG] Section isScoring value:`, section.isScoring);
+    console.log(`[AI DEBUG] Section object keys:`, Object.keys(section));
 
     if (sectionResponses.length > 0) {
       userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
