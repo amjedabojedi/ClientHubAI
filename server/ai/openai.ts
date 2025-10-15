@@ -542,30 +542,23 @@ Clinician: ${clinicianName}
 Report Generated: ${reportDate}
 `;
 
-  // Build the user prompt with client context
-  let userPrompt = `Generate a comprehensive clinical assessment report for this client.
+  // Build the user prompt with client context (for personalization only, not for output)
+  let userPrompt = `Generate a comprehensive clinical assessment report.
 
-CLIENT INFORMATION:
-Name: ${clientName}
-ID: ${clientId}
-Date of Birth: ${dateOfBirth}
+CONTEXT (for personalizing the narrative - DO NOT output this as a section):
+Client: ${clientName}
 Gender: ${gender}
-Phone: ${phone}
-Email: ${email}
 Address: ${address}
-Assessment: ${assessmentName}
-Assessment Date: ${completedDate}
-Clinician: ${clinicianName}
-Report Generated: ${reportDate}
 
-CRITICAL FORMATTING RULES:
+CRITICAL RULES:
+- DO NOT create a "CLIENT INFORMATION" section - this is shown separately in the UI
+- Start immediately with the first assessment section below
+- Use the client's actual name "${clientName}" when writing narratives (e.g., "Mr./Ms. ${clientName.split(' ').pop() || clientName}")
+- Use appropriate pronouns for ${gender} client
 - Output must be properly formatted HTML without inline styles
-- Each section must have a simple <h2> heading (no styles): <h2>SECTION NAME</h2>
-- Add a blank paragraph (<p><br></p>) after each heading for spacing
-- Wrap all narrative content in <p> tags
+- Each section: <h2>SECTION NAME</h2> then <p><br></p> then content in <p> tags
 - Add blank paragraphs (<p><br></p>) between content paragraphs for readability
-- Transform raw responses into professional clinical narrative format
-- Use third-person clinical language
+- Transform responses into professional clinical narrative
 - Use <strong> tags to emphasize key clinical terms
 
 ASSESSMENT SECTIONS TO GENERATE:
