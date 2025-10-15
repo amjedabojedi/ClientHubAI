@@ -5070,16 +5070,34 @@ This happens because only the file metadata was stored, not the actual file cont
       const { generateAssessmentReport } = await import("./ai/openai");
       const generatedContent = await generateAssessmentReport(assignment, responses, sections);
 
-      // Save the generated report with authenticated user ID
-      const reportData = {
-        assignmentId,
-        generatedContent,
-        reportData: JSON.stringify({ responses, sections }),
-        generatedAt: new Date(),
-        createdById: req.user.id
-      };
-
-      const report = await storage.createAssessmentReport(reportData);
+      // Check if a report already exists for this assignment
+      const existingReport = await storage.getAssessmentReport(assignmentId);
+      
+      let report;
+      if (existingReport) {
+        // UPDATE existing report - completely replace content with new AI-generated content
+        report = await storage.updateAssessmentReport(existingReport.id, {
+          generatedContent,
+          draftContent: null, // Clear any old draft
+          finalContent: null, // Clear any old finalized content
+          reportData: JSON.stringify({ responses, sections }),
+          generatedAt: new Date(),
+          isFinalized: false, // Reset finalization status
+          finalizedAt: null,
+          finalizedById: null,
+          createdById: req.user.id
+        });
+      } else {
+        // CREATE new report
+        const reportData = {
+          assignmentId,
+          generatedContent,
+          reportData: JSON.stringify({ responses, sections }),
+          generatedAt: new Date(),
+          createdById: req.user.id
+        };
+        report = await storage.createAssessmentReport(reportData);
+      }
       
       // Update assessment status to waiting_for_therapist (report generated but not finalized)
       await storage.updateAssessmentAssignment(assignmentId, {
