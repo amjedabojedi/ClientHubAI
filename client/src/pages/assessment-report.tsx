@@ -323,10 +323,6 @@ export default function AssessmentReportPage() {
                 <h1 className="text-2xl font-bold text-slate-900">Assessment Report</h1>
               </div>
             </div>
-            <Badge className="bg-green-100 text-green-800">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Completed
-            </Badge>
           </div>
         </div>
       </div>
@@ -466,9 +462,22 @@ export default function AssessmentReportPage() {
                   )}
                 </div>
               </CardTitle>
-              <p className="text-sm text-slate-600 mt-1">
-                {report.isFinalized ? 'Click to view finalized report' : 'Click to edit report content'}
-              </p>
+              <div className="text-sm text-slate-600 mt-2 space-y-1">
+                {report.isFinalized ? (
+                  <p>📄 This report is finalized. To make changes, click <strong>Actions → Reopen Report</strong> above.</p>
+                ) : (
+                  <>
+                    <p className="font-medium">How to use this report:</p>
+                    <ul className="list-disc ml-5 space-y-1">
+                      <li><strong>Review:</strong> Click below to expand and review the AI-generated content</li>
+                      <li><strong>Edit:</strong> Make any necessary changes directly in the editor</li>
+                      <li><strong>Save Draft:</strong> Click "Save Draft" to save your changes without finalizing</li>
+                      <li><strong>Finalize:</strong> When ready, click "Save & Finalize" to lock the report (prevents further edits)</li>
+                      <li><strong>Export:</strong> Use <strong>Actions</strong> menu above to download as PDF or Word</li>
+                    </ul>
+                  </>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Accordion type="single" collapsible defaultValue="report-content" className="w-full">
