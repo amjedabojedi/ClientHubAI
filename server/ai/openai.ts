@@ -603,6 +603,7 @@ ASSESSMENT SECTIONS:
       if (section.isScoring) {
         sectionTotal = sectionResponses.reduce((sum, resp) => {
           const scoreValue = resp.scoreValue ? Number(resp.scoreValue) : 0;
+          console.log(`[AI DEBUG] Response scoreValue: ${resp.scoreValue}, converted: ${scoreValue}`);
           return sum + scoreValue;
         }, 0);
         console.log(`[AI DEBUG] Section "${section.title}" total score: ${sectionTotal}`);
