@@ -542,19 +542,29 @@ Clinician: ${clinicianName}
 Report Generated: ${reportDate}
 `;
 
-  // Build the user prompt WITH client context for personalization
+  // Build the user prompt WITH full client information header
   let userPrompt = `Generate a comprehensive clinical assessment report for this client.
 
-CLIENT CONTEXT (Use this information to personalize the report, but DO NOT create a CLIENT INFORMATION section):
-${clientInfo}
+<h2>CLIENT INFORMATION</h2>
+<p><br></p>
+<p><strong>Client Name:</strong> ${clientName}</p>
+<p><strong>Client ID:</strong> ${clientId}</p>
+<p><strong>Date of Birth:</strong> ${dateOfBirth}</p>
+<p><strong>Gender:</strong> ${gender}</p>
+<p><strong>Phone:</strong> ${phone}</p>
+<p><strong>Email:</strong> ${email}</p>
+<p><strong>Address:</strong> ${address}</p>
+<p><strong>Assessment:</strong> ${assessmentName}</p>
+<p><strong>Assessment Date:</strong> ${completedDate}</p>
+<p><strong>Clinician:</strong> ${clinicianName}</p>
+<p><strong>Report Generated:</strong> ${reportDate}</p>
+<p><br></p>
 
 CRITICAL RULES:
 - Output must be properly formatted HTML without inline styles
-- Use the client's actual name (${clientName}) instead of placeholders like "[Client Last Name]"
+- Use the client's actual name (${clientName}) and last name (${clientName.split(' ').pop()}) instead of ANY placeholders
 - Use appropriate pronouns based on gender: ${gender}
-- DO NOT create a CLIENT INFORMATION section - this data is shown separately in the UI
-- Start IMMEDIATELY with the first assessment section
-- Personalize the narrative using the client context above
+- Personalize ALL narratives with the actual client information above
 
 HTML FORMAT REQUIREMENTS:
 1. Start directly with the first assessment section using <h2>SECTION NAME</h2>
@@ -599,19 +609,13 @@ ASSESSMENT SECTIONS TO GENERATE:
       }
       
       if (section.aiReportPrompt) {
-        // Replace placeholders in the section AI prompt with actual client data
-        let personalizedPrompt = section.aiReportPrompt
-          .replace(/\[Client Last Name\]/g, clientName.split(' ').pop() || clientName)
-          .replace(/Mr\.\/Ms\. \[Client Last Name\]/g, `Mr./Ms. ${clientName.split(' ').pop() || clientName}`)
-          .replace(/\[Referring Professional's Full Name\]/g, 'the referring professional')
-          .replace(/\[Clinic Name\]/g, 'the referring clinic')
-          .replace(/\[Clinic Full Address\]/g, address)
-          .replace(/\[his\/her\/their\]/g, gender === 'Male' ? 'his' : gender === 'Female' ? 'her' : 'their')
-          .replace(/\[He\/She\/They\]/g, gender === 'Male' ? 'He' : gender === 'Female' ? 'She' : 'They')
-          .replace(/he\/she\/they/gi, gender === 'Male' ? 'he' : gender === 'Female' ? 'she' : 'they');
-        
-        userPrompt += `Instructions: ${personalizedPrompt}\n\n`;
-        userPrompt += `IMPORTANT: Use the actual client name "${clientName}" (last name: ${clientName.split(' ').pop()}) throughout the narrative. Do NOT use placeholders.\n\n`;
+        userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+        userPrompt += `CRITICAL: Replace ALL placeholders with actual client information from the CLIENT INFORMATION section above:\n`;
+        userPrompt += `- Use "${clientName}" for client name\n`;
+        userPrompt += `- Use "${clientName.split(' ').pop()}" for last name\n`;
+        userPrompt += `- Use "Mr." for ${gender === 'Male' ? 'this male client' : 'appropriate title'}\n`;
+        userPrompt += `- Use "${address}" for address\n`;
+        userPrompt += `- DO NOT use ANY placeholders like [Client Last Name], [Clinic Name], etc.\n\n`;
         
         // Add section total score for scoring sections
         if (sectionTotal !== null) {
