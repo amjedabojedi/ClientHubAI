@@ -277,49 +277,39 @@ export function generateAssessmentReportHTML(
           color: #374151;
         }
         .signature-section {
-          margin-top: 40px;
-          padding: 20px;
-          border-top: 3px solid #2563eb;
+          margin-top: 30px;
+          padding: 15px 20px;
+          border-top: 2px solid #2563eb;
+          background-color: #f9fafb;
           page-break-inside: avoid;
-        }
-        .signature-title {
-          font-size: 14px;
-          font-weight: 700;
-          color: #1e40af;
-          text-transform: uppercase;
-          margin-bottom: 15px;
-          letter-spacing: 0.5px;
         }
         .signature-content {
           display: flex;
-          flex-direction: column;
-          align-items: flex-start;
+          align-items: flex-end;
+          gap: 20px;
         }
         .signature-image {
-          max-width: 250px;
-          max-height: 80px;
-          margin-bottom: 10px;
-          border-bottom: 2px solid #1e40af;
-          padding-bottom: 5px;
+          max-width: 200px;
+          max-height: 60px;
+          object-fit: contain;
         }
         .signature-details {
-          margin-top: 8px;
+          flex: 1;
         }
         .signature-name {
-          font-weight: 700;
-          font-size: 15px;
+          font-weight: 600;
           color: #1f2937;
-          margin-bottom: 4px;
-        }
-        .signature-title-text {
-          font-size: 13px;
-          color: #4b5563;
+          font-size: 15px;
           margin-bottom: 2px;
         }
-        .signature-date {
-          font-size: 13px;
+        .signature-title {
           color: #6b7280;
-          margin-top: 8px;
+          font-size: 13px;
+          margin-bottom: 4px;
+        }
+        .signature-date {
+          color: #9ca3af;
+          font-size: 12px;
           font-style: italic;
         }
         .footer {
@@ -418,17 +408,14 @@ export function generateAssessmentReportHTML(
       <!-- Signature Section (only if finalized) -->
       ${report.isFinalized && finalizedDate && assignment.assignedBy ? `
         <div class="signature-section">
-          <div class="signature-title">Digital Signature</div>
           <div class="signature-content">
             ${assignment.assignedBy.signatureImage ? `
               <img src="${assignment.assignedBy.signatureImage}" alt="Signature" class="signature-image" />
             ` : ''}
             <div class="signature-details">
               <div class="signature-name">${assignment.assignedBy.fullName}</div>
-              ${assignment.assignedBy.profile?.licenseType ? `
-                <div class="signature-title-text">${assignment.assignedBy.profile.licenseType}${assignment.assignedBy.profile.licenseNumber ? ' #' + assignment.assignedBy.profile.licenseNumber : ''}</div>
-              ` : ''}
-              <div class="signature-date">Digitally signed: ${finalizedDate}</div>
+              ${assignment.assignedBy.profile?.licenseType ? `<div class="signature-title">${assignment.assignedBy.profile.licenseType}${assignment.assignedBy.profile.licenseNumber ? ' #' + assignment.assignedBy.profile.licenseNumber : ''}</div>` : ''}
+              <div class="signature-date">Digitally signed on ${finalizedDate}</div>
             </div>
           </div>
         </div>
