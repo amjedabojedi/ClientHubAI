@@ -268,6 +268,15 @@ export default function DashboardPage() {
 
   return (
     <div className="px-4 py-12 max-w-7xl mx-auto">
+      {/* Welcome Message */}
+      {user && (
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Welcome, {user.fullName || user.username}
+          </h1>
+        </div>
+      )}
+
       {/* Main Dashboard Content */}
       <div className="w-full">
         {/* Header */}
