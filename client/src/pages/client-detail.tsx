@@ -1,12 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { format } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { formatTime, generateTimeSlots } from "@/lib/datetime";
+import { 
+  formatTime, 
+  generateTimeSlots,
+  formatDateDisplay,
+  formatDateTimeDisplay,
+  formatDateInput,
+  DATE_FORMATS
+} from "@/lib/datetime";
+import { formatInTimeZone } from "date-fns-tz";
+import { format } from "date-fns";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -209,9 +216,9 @@ function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
             {checklist.template && checklist.template.description && (
               <p>{checklist.template.description}</p>
             )}
-            <p>Assigned: {format(new Date(checklist.createdAt), 'MMM dd, yyyy')}</p>
+            <p>Assigned: {formatDateDisplay(checklist.createdAt)}</p>
             {checklist.dueDate && (
-              <p>Due: {format(new Date(checklist.dueDate), 'MMM dd, yyyy')}</p>
+              <p>Due: {formatDateDisplay(checklist.dueDate)}</p>
             )}
           </div>
           
@@ -318,7 +325,7 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
 
                 {clientItem.completedAt && (
                   <p className="text-xs text-green-600 mt-2">
-                    Completed: {format(new Date(clientItem.completedAt), 'MMM dd, yyyy')}
+                    Completed: {formatDateDisplay(clientItem.completedAt)}
                   </p>
                 )}
               </div>
@@ -1792,7 +1799,7 @@ export default function ClientDetailPage() {
                     <div className="flex items-center justify-between py-2 border-b border-slate-100">
                       <span className="text-sm font-medium text-slate-600">Date of Birth</span>
                       <span className="text-slate-900 font-medium">
-                        {format(new Date(client.dateOfBirth), 'MMM dd, yyyy')}
+                        {formatDateDisplay(client.dateOfBirth)}
                       </span>
                     </div>
                   )}
@@ -1996,7 +2003,7 @@ export default function ClientDetailPage() {
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <div className="text-sm font-medium text-blue-800 mb-1">Referral Date</div>
                         <div className="text-blue-700 font-semibold">
-                          {format(new Date(client.referralDate), 'MMM dd, yyyy')}
+                          {formatDateDisplay(client.referralDate)}
                         </div>
                       </div>
                     )}
@@ -2222,7 +2229,7 @@ export default function ClientDetailPage() {
                                 {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
                               </Badge>
                               <p className="font-semibold text-lg">
-                                {session.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', 'MMM dd, yyyy') : 'Date TBD'}
+                                {session.sessionDate ? formatDateDisplay(session.sessionDate) : 'Date TBD'}
                               </p>
                               <p className="text-sm text-slate-600">
                                 {session.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', 'h:mm a') : ''}
@@ -2460,7 +2467,7 @@ export default function ClientDetailPage() {
                         <p className="text-slate-600">with {(selectedSessionForModal as any).therapistName || 'Unknown Therapist'}</p>
                         <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
                           <span>
-                            {formatInTimeZone(new Date(selectedSessionForModal.sessionDate), 'America/New_York', 'MMM dd, yyyy \'at\' h:mm a')} EST
+                            {formatDateTimeDisplay(selectedSessionForModal.sessionDate)} EST
                           </span>
                           <Badge className="bg-blue-100 text-blue-800" variant="secondary">
                             {selectedSessionForModal.sessionType}
@@ -2794,10 +2801,10 @@ export default function ClientDetailPage() {
                                    assessment.status.charAt(0).toUpperCase() + assessment.status.slice(1).replace(/_/g, ' ')}
                                 </span>
                                 {assessment.assignedDate && (
-                                  <span> • Assigned: {format(new Date(assessment.assignedDate), 'MMM dd, yyyy')}</span>
+                                  <span> • Assigned: {formatDateDisplay(assessment.assignedDate)}</span>
                                 )}
                                 {assessment.completedDate && (
-                                  <span> • Completed: {format(new Date(assessment.completedDate), 'MMM dd, yyyy')}</span>
+                                  <span> • Completed: {formatDateDisplay(assessment.completedDate)}</span>
                                 )}
                               </p>
                               {assessment.template.description && (
@@ -2970,7 +2977,7 @@ export default function ClientDetailPage() {
                             <p className="font-medium text-slate-900">{doc.fileName}</p>
                             <p className="text-sm text-slate-500">
                               {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : ''} • 
-                              Uploaded {doc.createdAt ? format(new Date(doc.createdAt), 'MMM dd, yyyy') : 'Unknown date'}
+                              Uploaded {doc.createdAt ? formatDateDisplay(doc.createdAt) : 'Unknown date'}
                             </p>
                           </div>
                         </div>
@@ -3048,11 +3055,11 @@ export default function ClientDetailPage() {
                                 {billing.service?.serviceName || billing.serviceName || billing.serviceCode} - ${billing.totalAmount || '0.00'}
                               </p>
                               <p className="text-sm text-slate-600">
-                                {billing.serviceDate ? format(new Date(billing.serviceDate), 'MMM dd, yyyy') : 'No session date'} • Service: {billing.service?.serviceCode || billing.serviceCode}
+                                {billing.serviceDate ? formatDateDisplay(billing.serviceDate) : 'No session date'} • Service: {billing.service?.serviceCode || billing.serviceCode}
                               </p>
                               {billing.paymentAmount && billing.paymentDate && (
                                 <p className="text-xs text-green-600 mt-1">
-                                  Payment: ${billing.paymentAmount || '0.00'} on {format(new Date(billing.paymentDate), 'MMM dd, yyyy')}
+                                  Payment: ${billing.paymentAmount || '0.00'} on {formatDateDisplay(billing.paymentDate)}
                                   {billing.paymentMethod && ` via ${billing.paymentMethod.replace('_', ' ')}`}
                                   {billing.paymentReference && ` (Ref: ${billing.paymentReference})`}
                                 </p>
@@ -3278,7 +3285,7 @@ export default function ClientDetailPage() {
                                 {task.dueDate && (
                                   <p className="text-slate-600">
                                     <Calendar className="w-3 h-3 inline mr-1" />
-                                    {formatInTimeZone(new Date(task.dueDate), 'America/New_York', 'MMM d, yyyy')}
+                                    {formatDateDisplay(task.dueDate)}
                                     {task.assignedToId && (
                                       <span className="text-slate-500 ml-2">
                                         <Target className="w-3 h-3 inline mr-1" />
@@ -3297,9 +3304,9 @@ export default function ClientDetailPage() {
                                 
                                 {task.createdAt && (
                                   <div className="flex items-center gap-4 text-xs text-slate-600 font-medium mt-2 pt-2 border-t border-slate-100">
-                                    <span>Created: {formatInTimeZone(new Date(task.createdAt), 'America/New_York', 'MMM d, yyyy')}</span>
+                                    <span>Created: {formatDateDisplay(task.createdAt)}</span>
                                     {task.completedAt && (
-                                      <span className="text-green-600">Completed: {formatInTimeZone(new Date(task.completedAt), 'America/New_York', 'MMM d, yyyy')}</span>
+                                      <span className="text-green-600">Completed: {formatDateDisplay(task.completedAt)}</span>
                                     )}
                                   </div>
                                 )}
@@ -3317,7 +3324,7 @@ export default function ClientDetailPage() {
                                         {task.recentComments.map((comment: any) => (
                                           <div key={comment.id} className="text-xs border-l-2 border-slate-300 pl-2">
                                             <div className="text-slate-600 italic">"{comment.content}"</div>
-                                            <div className="text-slate-500 mt-0.5">{comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d, yyyy')}</div>
+                                            <div className="text-slate-500 mt-0.5">{comment.author.fullName}, {formatDateDisplay(comment.createdAt)}</div>
                                           </div>
                                         ))}
                                       </div>
@@ -3672,8 +3679,8 @@ export default function ClientDetailPage() {
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                       <p className="text-slate-600">Invoice #: INV-{client.clientId}-{selectedBillingRecord.id}</p>
-                      <p className="text-slate-600">Invoice Date: {format(new Date(selectedBillingRecord.serviceDate), 'MMM dd, yyyy')}</p>
-                      <p className="text-slate-600">Service Date: {format(new Date(selectedBillingRecord.serviceDate), 'MMM dd, yyyy')}</p>
+                      <p className="text-slate-600">Invoice Date: {formatDateDisplay(selectedBillingRecord.serviceDate)}</p>
+                      <p className="text-slate-600">Service Date: {formatDateDisplay(selectedBillingRecord.serviceDate)}</p>
                     </div>
                     <div className="text-right">
                       <PracticeHeader variant="full" align="right" />
@@ -3712,7 +3719,7 @@ export default function ClientDetailPage() {
                         <tr>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceName || selectedBillingRecord.serviceName || 'Professional Service'}</td>
                           <td className="border border-slate-200 px-4 py-2">{selectedBillingRecord.service?.serviceCode || selectedBillingRecord.serviceCode}</td>
-                          <td className="border border-slate-200 px-4 py-2">{format(new Date(selectedBillingRecord.serviceDate), 'MMM dd, yyyy')}</td>
+                          <td className="border border-slate-200 px-4 py-2">{formatDateDisplay(selectedBillingRecord.serviceDate)}</td>
                           <td className="border border-slate-200 px-4 py-2 text-right">${Number(selectedBillingRecord.totalAmount || selectedBillingRecord.amount).toFixed(2)}</td>
                         </tr>
                       </tbody>

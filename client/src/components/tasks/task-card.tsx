@@ -18,7 +18,6 @@
  */
 
 import { useLocation } from "wouter";
-import { formatInTimeZone } from "date-fns-tz";
 import { 
   Calendar,
   Edit,
@@ -38,6 +37,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { formatDateDisplay } from "@/lib/datetime";
 
 import type { Task, Client, User as UserType } from "@shared/schema";
 
@@ -67,14 +67,6 @@ interface TaskCardProps {
   onViewTask: (task: TaskWithDetails) => void;
   /** Origin page for breadcrumb navigation (e.g., 'tasks', 'tasks-history') */
   fromPage?: string;
-}
-
-/**
- * Formats a date string or Date object to display format in America/New_York timezone
- */
-function formatDate(date: string | Date): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return formatInTimeZone(dateObj, 'America/New_York', 'MMM d, yyyy');
 }
 
 /**
@@ -186,7 +178,7 @@ export function TaskCard({
                 {task.dueDate && (
                   <span className="text-slate-500 ml-2">
                     <Calendar className="w-3 h-3 inline mr-1" />
-                    {formatDate(task.dueDate)}
+                    {formatDateDisplay(task.dueDate)}
                   </span>
                 )}
                 
@@ -210,10 +202,10 @@ export function TaskCard({
               {/* Creation and completion dates */}
               {task.createdAt && (
                 <div className="flex items-center gap-4 text-xs text-slate-600 font-medium mt-2 pt-2 border-t border-slate-100">
-                  <span>Created: {formatDate(task.createdAt)}</span>
+                  <span>Created: {formatDateDisplay(task.createdAt)}</span>
                   {task.completedAt && (
                     <span className="text-green-600">
-                      Completed: {formatDate(task.completedAt)}
+                      Completed: {formatDateDisplay(task.completedAt)}
                     </span>
                   )}
                 </div>
@@ -235,7 +227,7 @@ export function TaskCard({
                         <div key={comment.id} className="text-xs border-l-2 border-slate-300 pl-2">
                           <div className="text-slate-600 italic">"{comment.content}"</div>
                           <div className="text-slate-500 mt-0.5">
-                            {comment.author.fullName}, {formatDate(comment.createdAt)}
+                            {comment.author.fullName}, {formatDateDisplay(comment.createdAt)}
                           </div>
                         </div>
                       ))}

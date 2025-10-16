@@ -26,8 +26,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { formatDateDisplay, formatDateInput } from "@/lib/datetime";
 import { format } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -132,10 +132,10 @@ const getStatusColor = (status: string) => {
   }
 };
 
+// NOTE: This function is now deprecated - use formatDateDisplay from @/lib/datetime instead
+// Kept for backwards compatibility until all references are updated
 const formatDate = (dateString: string | null | Date) => {
-  if (!dateString) return 'No due date';
-  // Format date consistently across the app using MMM dd, yyyy format
-  return format(new Date(dateString), 'MMM dd, yyyy');
+  return formatDateDisplay(dateString) || 'No due date';
 };
 
 // ===== TASK FORM COMPONENT =====

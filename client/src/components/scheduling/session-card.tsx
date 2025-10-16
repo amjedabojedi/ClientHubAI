@@ -5,7 +5,7 @@ import {
   Edit, User, MapPin, FileText, MoreVertical, AlertCircle, 
   CalendarDays, CheckCircle, X, RotateCw, Video
 } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateDisplay } from "@/lib/datetime";
 import { useLocation } from "wouter";
 
 interface Session {
@@ -89,7 +89,7 @@ export function SessionCard({
               {session.status}
             </Badge>
             <p className="font-semibold text-lg">
-              {format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')}
+              {formatDateDisplay(parseSessionDate(session.sessionDate))}
             </p>
             <p className="text-sm text-slate-600">
               {formatTime(session.sessionDate)}

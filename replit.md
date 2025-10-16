@@ -20,6 +20,13 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Build Tool**: Vite
 - **Design Principles**: Responsive (mobile-first), clean visual hierarchy, professional UI, color-coded indicators.
 - **Timezone Handling**: ALL dates and times consistently use `America/New_York` (EST/EDT) for display and input, while storing in UTC in the database.
+- **Date Formatting Standards**: Centralized in `client/src/lib/datetime.ts` with consistent formats:
+  - **Date Display**: `MMM dd, yyyy` (e.g., "Jan 15, 2025") via `formatDateDisplay()`
+  - **Date with Time**: `MMM dd, yyyy 'at' h:mm a` (e.g., "Jan 15, 2025 at 2:30 PM") via `formatDateTimeDisplay()`
+  - **Full Month**: `MMMM dd, yyyy` (e.g., "January 15, 2025") via `formatDateFull()`
+  - **Input Fields**: `yyyy-MM-dd` (e.g., "2025-01-15") via `formatDateInput()`
+  - **Audit Logs**: `MMM dd, yyyy HH:mm:ss` (e.g., "Jan 15, 2025 14:30:45") via `formatDateAudit()`
+  - All formatting functions handle null/undefined values gracefully and always use America/New_York timezone
 
 ### Backend
 - **Runtime**: Node.js with TypeScript

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { formatDateInput, formatDateAudit, formatDateDisplay } from "@/lib/datetime";
 import { format } from "date-fns";
 import {
   Card,
@@ -66,8 +67,8 @@ interface UserActivity {
 
 export default function HIPAAAuditPage() {
   const [filters, setFilters] = useState({
-    startDate: format(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd'),
+    startDate: formatDateInput(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+    endDate: formatDateInput(new Date()),
     riskLevel: 'all',
     hipaaOnly: false,
     action: 'all',
@@ -317,7 +318,7 @@ export default function HIPAAAuditPage() {
                       <div>
                         <p className="font-medium text-slate-900">{user.username}</p>
                         <p className="text-sm text-slate-500">
-                          Last activity: {format(new Date(user.lastActivity), 'MMM dd, yyyy HH:mm')}
+                          Last activity: {formatDateDisplay(user.lastActivity)}
                         </p>
                       </div>
                     </div>
@@ -426,7 +427,7 @@ export default function HIPAAAuditPage() {
                       return (
                         <TableRow key={log.id} className="hover:bg-slate-50">
                           <TableCell className="font-mono text-sm">
-                            {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                            {formatDateAudit(log.timestamp)}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center">
