@@ -1,3 +1,28 @@
+/**
+ * Tasks Management Page
+ * 
+ * This page provides comprehensive task management functionality for the clinical practice.
+ * 
+ * Key Features:
+ * - Create, edit, and delete tasks
+ * - Advanced filtering by status, priority, assignee, and date range
+ * - Task statistics dashboard
+ * - Task comments and collaboration
+ * - Client-linked tasks with breadcrumb navigation
+ * - All dates displayed in America/New_York timezone
+ * 
+ * Components:
+ * - TaskForm: Handles creation and editing of tasks
+ * - TaskCard: Reusable task display component (imported from @/components/tasks/task-card)
+ * - TaskComments: Comment management dialog
+ * 
+ * Data Flow:
+ * 1. Fetches tasks from /api/tasks with query parameters for filtering
+ * 2. Fetches task statistics from /api/tasks/stats for dashboard metrics
+ * 3. Mutations invalidate both task and stats queries to keep UI in sync
+ * 4. Recent tasks are tracked via useRecentItems hook for navigation
+ */
+
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -54,22 +79,7 @@ import { useRecentItems } from "@/hooks/useRecentItems";
 
 // Components
 import { TaskComments } from "@/components/task-management/task-comments";
-
-interface TaskComment {
-  id: number;
-  content: string;
-  createdAt: string;
-  author: {
-    fullName: string;
-  };
-}
-
-interface TaskWithDetails extends Task {
-  assignedTo?: UserType;
-  client: Client;
-  commentCount?: number;
-  recentComments?: TaskComment[];
-}
+import { TaskCard, type TaskWithDetails } from "@/components/tasks/task-card";
 
 interface TasksQueryResult {
   tasks: TaskWithDetails[];
@@ -540,172 +550,6 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
   );
 }
 
-// ===== TASK CARD COMPONENT =====
-function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: { 
-  task: TaskWithDetails; 
-  onEdit: (task: TaskWithDetails) => void; 
-  onDelete: (taskId: number) => void;
-  onViewComments: (task: TaskWithDetails) => void;
-  onViewTask: (task: TaskWithDetails) => void;
-}) {
-  const [, setLocation] = useLocation();
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center space-x-3" style={{ width: '75%' }}>
-          {/* Status indicator dot */}
-          <div className={cn(
-            "w-3 h-3 rounded-full flex-shrink-0",
-            task.status === 'completed' ? 'bg-green-500' :
-            task.status === 'in_progress' ? 'bg-blue-500' :
-            task.status === 'overdue' ? 'bg-red-500' :
-            'bg-yellow-500'
-          )}></div>
-          
-          {/* Task details */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 
-                className="font-semibold text-slate-900 hover:text-primary cursor-pointer"
-                onClick={() => onEdit(task)}
-                data-testid={`task-title-${task.id}`}
-              >
-                {task.title}
-              </h4>
-              <span className="text-slate-300">•</span>
-              <Badge 
-                variant="outline"
-                className={cn(
-                  task.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
-                  task.priority === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                  task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                  'bg-green-50 text-green-700 border-green-200'
-                )}
-              >
-                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-              </Badge>
-              <Badge 
-                variant="outline"
-                className={cn(
-                  task.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                  task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                  task.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
-                  'bg-yellow-50 text-yellow-700 border-yellow-200'
-                )}
-              >
-                {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
-              </Badge>
-            </div>
-            
-            <div className="text-sm space-y-1">
-              <p className="text-slate-600">
-                <span 
-                  className="hover:text-primary cursor-pointer font-medium"
-                  onClick={() => setLocation(`/clients/${task.client.id}?from=tasks`)}
-                  data-testid={`client-link-${task.id}`}
-                >
-                  {task.client.fullName}
-                </span>
-                {task.dueDate && (
-                  <span className="text-slate-500 ml-2">
-                    <Calendar className="w-3 h-3 inline mr-1" />
-                    {formatDate(task.dueDate)}
-                  </span>
-                )}
-                {task.assignedTo && (
-                  <span className="text-slate-500 ml-2">
-                    <Target className="w-3 h-3 inline mr-1" />
-                    {task.assignedTo.fullName}
-                  </span>
-                )}
-              </p>
-              
-              {task.description && (
-                <>
-                  <div className="border-t border-slate-200 my-2"></div>
-                  <p className="text-slate-600 italic">{task.description}</p>
-                </>
-              )}
-              
-              {task.createdAt && (
-                <div className="flex items-center gap-4 text-xs text-slate-600 font-medium mt-2 pt-2 border-t border-slate-100">
-                  <span>Created: {formatInTimeZone(new Date(task.createdAt), 'America/New_York', 'MMM d, yyyy')}</span>
-                  {task.completedAt && (
-                    <span className="text-green-600">Completed: {formatInTimeZone(new Date(task.completedAt), 'America/New_York', 'MMM d, yyyy')}</span>
-                  )}
-                </div>
-              )}
-              
-              {(task.commentCount !== undefined && task.commentCount > 0) && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <MessageSquare className="w-3 h-3" />
-                    <span className="font-semibold">Comments:</span>
-                    <span>{task.commentCount}</span>
-                  </div>
-                  
-                  {task.recentComments && task.recentComments.length > 0 && (
-                    <div className="ml-4 space-y-2">
-                      {task.recentComments.map((comment) => (
-                        <div key={comment.id} className="text-xs border-l-2 border-slate-300 pl-2">
-                          <div className="text-slate-600 italic">"{comment.content}"</div>
-                          <div className="text-slate-500 mt-0.5">{comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d, yyyy')}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        {/* Right side: Actions */}
-        <div className="flex items-center gap-2">
-          {/* Primary action button */}
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => onViewComments(task)}
-            data-testid={`button-comments-${task.id}`}
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Comments
-          </Button>
-          
-          {/* Dropdown menu for other actions */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => onViewTask(task)} data-testid={`menu-view-${task.id}`}>
-                <Eye className="w-4 h-4 mr-2" />
-                View Task
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(task)} data-testid={`menu-edit-${task.id}`}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Task
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => onDelete(task.id)}
-                className="text-red-600"
-                data-testid={`menu-delete-${task.id}`}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Task
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ===== MAIN TASKS PAGE COMPONENT =====
 export default function TasksPage() {
   const { user } = useAuth();
@@ -1120,6 +964,7 @@ export default function TasksPage() {
                     key={task.id}
                     task={task}
                     onEdit={handleEdit}
+                    fromPage="tasks"
                     onDelete={handleDelete}
                     onViewComments={handleViewComments}
                     onViewTask={handleViewTask}

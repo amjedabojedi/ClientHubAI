@@ -1,3 +1,25 @@
+/**
+ * Task History Page
+ * 
+ * This page provides a historical view of all tasks in the system with advanced filtering capabilities.
+ * 
+ * Key Features:
+ * - View all tasks with historical data
+ * - Filter by status, priority, and assignee
+ * - Tab-based views (All, Completed, Overdue, Recent)
+ * - Search functionality
+ * - Pagination for large datasets
+ * - Client-linked tasks with breadcrumb navigation back to tasks-history page
+ * 
+ * Components:
+ * - TaskCard (shared): Reusable task display component with consistent styling across the app
+ * 
+ * Data Flow:
+ * - Fetches tasks from /api/tasks with includeCompleted=true to show all historical data
+ * - Client-side filtering for tab-based views and search
+ * - All dates displayed in America/New_York timezone
+ */
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -30,169 +52,13 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Task, Client, User as UserType } from "@shared/schema";
 
-interface TaskWithDetails extends Task {
-  assignedTo?: UserType;
-  client: Client;
-  commentCount?: number;
-  recentComments?: Array<{
-    id: number;
-    content: string;
-    createdAt: string;
-    author: {
-      id: number;
-      fullName: string;
-    };
-  }>;
-}
+// Components
+import { TaskCard, type TaskWithDetails } from "@/components/tasks/task-card";
 
 interface TasksQueryResult {
   tasks: TaskWithDetails[];
   total: number;
   totalPages: number;
-}
-
-// ===== UTILITY FUNCTIONS =====
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-    case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-    case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'low': return 'bg-green-100 text-green-800 border-green-200';
-    default: return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-    case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
-    case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    default: return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
-
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return 'N/A';
-  // Format date consistently across the app
-  return format(new Date(String(dateString)), 'MMM dd, yyyy');
-};
-
-const formatDateTime = (dateString: string | null) => {
-  if (!dateString) return 'N/A';
-  return format(new Date(String(dateString)), "MMM dd, yyyy 'at' h:mm a");
-};
-
-// ===== TASK HISTORY ITEM COMPONENT =====
-function TaskHistoryItem({ task }: { task: TaskWithDetails }) {
-  const [, setLocation] = useLocation();
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow mb-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3" style={{ width: '75%' }}>
-          {/* Status indicator dot */}
-          <div className={cn(
-            "w-3 h-3 rounded-full flex-shrink-0",
-            task.status === 'completed' ? 'bg-green-500' :
-            task.status === 'in_progress' ? 'bg-blue-500' :
-            task.status === 'overdue' ? 'bg-red-500' :
-            'bg-yellow-500'
-          )}></div>
-          
-          {/* Task details */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-semibold text-slate-900">{task.title}</h4>
-              <span className="text-slate-300">•</span>
-              <Badge 
-                variant="outline"
-                className={cn(
-                  task.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
-                  task.priority === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                  task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                  'bg-green-50 text-green-700 border-green-200'
-                )}
-              >
-                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-              </Badge>
-              <Badge 
-                variant="outline"
-                className={cn(
-                  task.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                  task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                  task.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
-                  'bg-yellow-50 text-yellow-700 border-yellow-200'
-                )}
-              >
-                {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
-              </Badge>
-            </div>
-            
-            <div className="text-sm space-y-1">
-              <p className="text-slate-600">
-                <span 
-                  className="hover:text-primary cursor-pointer font-medium"
-                  onClick={() => setLocation(`/clients/${task.client.id}?from=tasks-history`)}
-                >
-                  {task.client.fullName}
-                </span>
-                {task.dueDate && (
-                  <span className="text-slate-500 ml-2">
-                    <Calendar className="w-3 h-3 inline mr-1" />
-                    {formatInTimeZone(new Date(task.dueDate), 'America/New_York', 'MMM d, yyyy')}
-                  </span>
-                )}
-                {task.assignedTo && (
-                  <span className="text-slate-500 ml-2">
-                    <Target className="w-3 h-3 inline mr-1" />
-                    {task.assignedTo.fullName}
-                  </span>
-                )}
-              </p>
-              
-              {task.description && (
-                <>
-                  <div className="border-t border-slate-200 my-2"></div>
-                  <p className="text-slate-600 italic">{task.description}</p>
-                </>
-              )}
-              
-              {task.createdAt && (
-                <div className="flex items-center gap-4 text-xs text-slate-600 font-medium mt-2 pt-2 border-t border-slate-100">
-                  <span>Created: {formatInTimeZone(new Date(task.createdAt), 'America/New_York', 'MMM d, yyyy')}</span>
-                  {task.completedAt && (
-                    <span className="text-green-600">Completed: {formatInTimeZone(new Date(task.completedAt), 'America/New_York', 'MMM d, yyyy')}</span>
-                  )}
-                </div>
-              )}
-              
-              {(task.commentCount !== undefined && task.commentCount > 0) && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <MessageSquare className="w-3 h-3" />
-                    <span className="font-semibold">Comments:</span>
-                    <span>{task.commentCount}</span>
-                  </div>
-                  
-                  {task.recentComments && task.recentComments.length > 0 && (
-                    <div className="ml-4 space-y-2">
-                      {task.recentComments.map((comment) => (
-                        <div key={comment.id} className="text-xs border-l-2 border-slate-300 pl-2">
-                          <div className="text-slate-600 italic">"{comment.content}"</div>
-                          <div className="text-slate-500 mt-0.5">{comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d, yyyy')}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ===== MAIN TASK HISTORY PAGE =====
@@ -393,9 +259,17 @@ export default function TaskHistoryPage() {
             </Card>
           ) : (
             <>
-              <div className="mb-6">
+              <div className="mb-6 space-y-4">
                 {filteredTasks.map((task: TaskWithDetails) => (
-                  <TaskHistoryItem key={task.id} task={task} />
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    fromPage="tasks-history"
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    onViewComments={() => {}}
+                    onViewTask={() => {}}
+                  />
                 ))}
               </div>
 
