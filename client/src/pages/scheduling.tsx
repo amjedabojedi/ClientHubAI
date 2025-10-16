@@ -1966,225 +1966,71 @@ export default function SchedulingPage() {
           </div>
         ) : (
           /* Day/Week View */
-          (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Calendar Sidebar */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <CalendarDays className="w-5 h-5" />
-                    <span>Calendar</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    showOutsideDays={true}
-                    className="rounded-md border"
-                    classNames={{
-                      day_outside: "text-slate-300 opacity-50 hover:text-slate-400"
-                    }}
-                  />
-                </CardContent>
-              </Card>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                {viewMode === "week" ? (
+                  (() => {
+                    const dayOfWeek = selectedDate.getDay();
+                    const weekStart = new Date(selectedDate);
+                    weekStart.setDate(selectedDate.getDate() - dayOfWeek);
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    return `${format(weekStart, 'MMM dd')} - ${format(weekEnd, 'MMM dd, yyyy')}`;
+                  })()
+                ) : (
+                  format(selectedDate, 'EEEE, MMM dd, yyyy')
+                )}
+              </h2>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  checked={showMySessionsOnly}
+                  onCheckedChange={setShowMySessionsOnly}
+                />
+                <span className="text-sm text-slate-600">My Sessions Only</span>
+              </div>
+            </div>
 
-              {/* Today's Summary - Hidden in Day and Week Views */}
-              {viewMode !== "week" && viewMode !== "day" && (
-                <Card className="mt-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Clock className="w-5 h-5" />
-                      <span>
-                        {selectedDate.toDateString() === new Date().toDateString() 
-                          ? "Today's Sessions" 
-                          : "Sessions for " + format(selectedDate, 'MMM dd, yyyy')}
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {getSessionsForDate(selectedDate).length === 0 ? (
-                      <p className="text-slate-600 text-sm">No sessions scheduled for today</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {getSessionsForDate(selectedDate).slice(0, 5).map((session: Session) => (
-                          <div key={session.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="font-medium text-sm">
-                              {(() => {
-                                const sessionDate = parseSessionDate(session.sessionDate);
-                                return formatTime(sessionDate);
-                              })()}
-                            </p>
-                            <Badge className={`${getStatusColor(session.status)} text-xs`} variant="secondary">
-                              {session.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center space-x-3 mb-2">
-                            <Avatar className="w-8 h-8">
-                              <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                                {getInitials(session.client?.fullName || 'UC')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p 
-                                className="text-sm font-medium text-primary hover:underline cursor-pointer"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLocation(`/clients/${session.clientId}?from=scheduling`);
-                                }}
-                              >
-                                {session.client?.fullName || 'Unknown Client'}
-                              </p>
-                              <p className="text-xs text-slate-600">
-                                with {session.therapist?.fullName || 'Unassigned'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2 text-xs text-slate-600">
-                            <MapPin className="w-3 h-3" />
-                            <span>{session.sessionType} • {(session.service as any)?.duration || 60}min</span>
-                            {session.room && <span>• Room {session.room.roomNumber}</span>}
-                          </div>
-                          <div className="flex gap-1 mt-3">
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              className="flex-1 text-xs h-7"
-                              onClick={() => {
-                                trackSessionViewed(session);
-                                openEditSessionForm(session);
-                              }}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              Edit Session
-                            </Button>
-                            
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                  <MoreVertical className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56">
-                                {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
-                                      <Video className="w-4 h-4 mr-2 text-blue-600" />
-                                      Join Zoom Meeting
-                                    </DropdownMenuItem>
-                                    <div className="border-t my-1"></div>
-                                  </>
-                                )}
-                                
-                                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
-                                  Change Status
-                                </div>
-                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
-                                  <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
-                                  Mark Scheduled
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
-                                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                                  Mark Completed
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
-                                  <X className="w-4 h-4 mr-2 text-red-600" />
-                                  Mark Cancelled
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
-                                  <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
-                                  Mark Rescheduled
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
-                                  <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                                  Mark No-Show
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Quick Stats */}
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="w-5 h-5" />
-                    <span>Quick Stats</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">
+            {/* Quick Stats */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">
                       {viewMode === "week" ? "This Week" : "Today"}
-                    </span>
-                    <span className="font-medium">
+                    </p>
+                    <p className="text-2xl font-bold">
                       {viewMode === "week" 
                         ? getWeekSessions(selectedDate).length 
-                        : getSessionsForDate(selectedDate).length} sessions
-                    </span>
+                        : getSessionsForDate(selectedDate).length}
+                    </p>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">This Month</span>
-                    <span className="font-medium">{getMonthSessions().length} sessions</span>
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">This Month</p>
+                    <p className="text-2xl font-bold">{getMonthSessions().length}</p>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Completed</span>
-                    <span className="font-medium text-green-600">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Completed</p>
+                    <p className="text-2xl font-bold text-green-600">
                       {viewMode === "week" 
                         ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'completed').length
-                        : filteredSessions.filter((s: Session) => s.status === 'completed').length}
-                    </span>
+                        : getSessionsForDate(selectedDate).filter((s: Session) => s.status === 'completed').length}
+                    </p>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Upcoming</span>
-                    <span className="font-medium text-blue-600">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Upcoming</p>
+                    <p className="text-2xl font-bold text-blue-600">
                       {viewMode === "week"
                         ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'scheduled').length
-                        : filteredSessions.filter((s: Session) => s.status === 'scheduled').length}
-                    </span>
+                        : getSessionsForDate(selectedDate).filter((s: Session) => s.status === 'scheduled').length}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-            {/* Main Schedule View */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>
-                      {viewMode === "week" ? (
-                        (() => {
-                          const dayOfWeek = selectedDate.getDay();
-                          const weekStart = new Date(selectedDate);
-                          weekStart.setDate(selectedDate.getDate() - dayOfWeek);
-                          const weekEnd = new Date(weekStart);
-                          weekEnd.setDate(weekStart.getDate() + 6);
-                          return `${format(weekStart, 'MMM dd')} - ${format(weekEnd, 'MMM dd, yyyy')}`;
-                        })()
-                      ) : (
-                        format(selectedDate, 'EEEE, MMM dd, yyyy')
-                      )}
-                    </CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-2">
-                        <Switch 
-                          checked={showMySessionsOnly}
-                          onCheckedChange={setShowMySessionsOnly}
-                        />
-                        <span className="text-sm text-slate-600">My Sessions Only</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
                 {(() => {
                   const displaySessions = viewMode === "week" 
                     ? getWeekSessions(selectedDate)
@@ -2366,8 +2212,7 @@ export default function SchedulingPage() {
                 })()}
                 </CardContent>
               </Card>
-            </div>
-          </div>)
+          </div>
         )}
       </div>
     </div>
