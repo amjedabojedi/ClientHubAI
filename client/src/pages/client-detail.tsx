@@ -48,6 +48,7 @@ import {
   Home,
   Mail,
   MapPin,
+  MessageSquare,
   MoreVertical,
   Phone,
   Plus, 
