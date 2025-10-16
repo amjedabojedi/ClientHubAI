@@ -25,7 +25,36 @@ interface AddClientModalProps {
 
 const clientFormSchema = insertClientSchema.extend({
   assignedTherapistId: z.number().optional(),
-});
+}).refine(
+  (data) => {
+    // Validate start date is not in the future
+    if (data.startDate) {
+      const startDate = new Date(data.startDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return startDate <= today;
+    }
+    return true;
+  },
+  {
+    message: "Start date cannot be in the future",
+    path: ["startDate"],
+  }
+).refine(
+  (data) => {
+    // Validate referral date is before or equal to start date
+    if (data.referralDate && data.startDate) {
+      const referralDate = new Date(data.referralDate);
+      const startDate = new Date(data.startDate);
+      return referralDate <= startDate;
+    }
+    return true;
+  },
+  {
+    message: "Referral date must be before or equal to start date",
+    path: ["startDate"],
+  }
+);
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
 
