@@ -63,6 +63,8 @@ import { formatTime, formatDate, formatDateTime, generateTimeSlots, timeRangesOv
 
 // Components
 import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
+import { SessionCard } from "@/components/scheduling/session-card";
+import { QuickStats } from "@/components/scheduling/quick-stats";
 
 // Utility function to parse UTC date strings without timezone shift
 const parseSessionDate = (dateString: string): Date => {
@@ -1591,32 +1593,14 @@ export default function SchedulingPage() {
             </div>
 
             {/* Quick Stats */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">Total Sessions</p>
-                    <p className="text-2xl font-bold">{allSessionsData?.total || 0}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">Showing</p>
-                    <p className="text-2xl font-bold">{allSessions.length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">Completed</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {allSessions.filter((s: Session) => s.status === 'completed').length}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">Upcoming</p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {allSessions.filter((s: Session) => s.status === 'scheduled').length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <QuickStats 
+              stats={[
+                { label: "Total Sessions", value: allSessionsData?.total || 0 },
+                { label: "Showing", value: allSessions.length },
+                { label: "Completed", value: allSessions.filter((s: Session) => s.status === 'completed').length, color: "text-green-600" },
+                { label: "Upcoming", value: allSessions.filter((s: Session) => s.status === 'scheduled').length, color: "text-blue-600" }
+              ]}
+            />
 
             {/* Filters Section */}
             <Card>
@@ -1796,130 +1780,19 @@ export default function SchedulingPage() {
                 ) : (
                   <div className="space-y-4">
                     {allSessions.map((session: Session) => (
-                        <div
-                          key={session.id}
-                          className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-4 flex-1">
-                              <div className="text-center min-w-[100px]">
-                                <Badge className={`${getStatusColor(session.status)} mb-2`} variant="secondary">
-                                  {session.status}
-                                </Badge>
-                                <p className="font-semibold text-lg">
-                                  {format(new Date(session.sessionDate), 'MMM dd, yyyy')}
-                                </p>
-                                <p className="text-sm text-slate-600">
-                                  {formatTime(session.sessionDate)}
-                                </p>
-                              </div>
-                              
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 
-                                    className="font-medium text-primary hover:underline cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setLocation(`/clients/${session.clientId}?from=scheduling`);
-                                    }}
-                                  >
-                                    {session.client?.fullName || 'Unknown Client'}
-                                  </h3>
-                                  <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
-                                    Ref# {session.client?.referenceNumber || 'N/A'}
-                                  </span>
-                                </div>
-                                <div className="space-y-1 text-sm text-slate-600">
-                                  <div className="flex items-center space-x-2">
-                                    <User className="w-4 h-4" />
-                                    <span>Therapist: {session.therapist?.fullName || 'Unassigned'}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <FileText className="w-4 h-4" />
-                                    <span>{session.sessionType}</span>
-                                  </div>
-                                  {session.room && (
-                                    <div className="flex items-center space-x-2">
-                                      <MapPin className="w-4 h-4" />
-                                      <span>Room: {(session.room as any)?.roomNumber || session.room}</span>
-                                    </div>
-                                  )}
-                                  {session.service && (
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-xs bg-slate-100 px-2 py-1 rounded">
-                                        {session.service.serviceCode} - ${session.service.baseRate}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                variant="default" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  trackSessionViewed(session);
-                                  openEditSessionForm(session);
-                                }}
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Edit Session
-                              </Button>
-                              
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                  {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
-                                    <>
-                                      <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
-                                        <Video className="w-4 h-4 mr-2 text-blue-600" />
-                                        Join Zoom Meeting
-                                      </DropdownMenuItem>
-                                      <div className="border-t my-1"></div>
-                                    </>
-                                  )}
-                                  
-                                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
-                                    Change Status
-                                  </div>
-                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
-                                    <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
-                                    Mark Scheduled
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
-                                    <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                                    Mark Completed
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
-                                    <X className="w-4 h-4 mr-2 text-red-600" />
-                                    Mark Cancelled
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
-                                    <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
-                                    Mark Rescheduled
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
-                                    <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                                    Mark No-Show
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
-                          
-                          {session.notes && (
-                            <div className="mt-4 p-3 bg-slate-50 rounded-md">
-                              <p className="text-sm text-slate-600">{session.notes}</p>
-                            </div>
-                          )}
-                        </div>
+                      <SessionCard
+                        key={session.id}
+                        session={session}
+                        viewMode="list"
+                        getStatusColor={getStatusColor}
+                        parseSessionDate={parseSessionDate}
+                        formatTime={formatTime}
+                        getDisplayClientName={getDisplayClientName}
+                        getSessionConflictStyle={getSessionConflictStyle}
+                        trackSessionViewed={trackSessionViewed}
+                        openEditSessionForm={openEditSessionForm}
+                        updateSessionStatus={updateSessionStatus}
+                      />
                       ))}
                   </div>
                 )}
@@ -1992,42 +1865,29 @@ export default function SchedulingPage() {
             </div>
 
             {/* Quick Stats */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">
-                      {viewMode === "week" ? "This Week" : "Today"}
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {viewMode === "week" 
-                        ? getWeekSessions(selectedDate).length 
-                        : getSessionsForDate(selectedDate).length}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">This Month</p>
-                    <p className="text-2xl font-bold">{getMonthSessions().length}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">Completed</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      {viewMode === "week" 
-                        ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'completed').length
-                        : getSessionsForDate(selectedDate).filter((s: Session) => s.status === 'completed').length}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-slate-600 mb-1">Upcoming</p>
-                    <p className="text-2xl font-bold text-blue-600">
-                      {viewMode === "week"
-                        ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'scheduled').length
-                        : getSessionsForDate(selectedDate).filter((s: Session) => s.status === 'scheduled').length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <QuickStats 
+              stats={[
+                { 
+                  label: viewMode === "week" ? "This Week" : "Today", 
+                  value: viewMode === "week" ? getWeekSessions(selectedDate).length : getSessionsForDate(selectedDate).length 
+                },
+                { label: "This Month", value: getMonthSessions().length },
+                { 
+                  label: "Completed", 
+                  value: viewMode === "week" 
+                    ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'completed').length
+                    : getSessionsForDate(selectedDate).filter((s: Session) => s.status === 'completed').length,
+                  color: "text-green-600"
+                },
+                { 
+                  label: "Upcoming", 
+                  value: viewMode === "week"
+                    ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'scheduled').length
+                    : getSessionsForDate(selectedDate).filter((s: Session) => s.status === 'scheduled').length,
+                  color: "text-blue-600"
+                }
+              ]}
+            />
 
             <Card>
               <CardContent className="p-6">
@@ -2061,152 +1921,21 @@ export default function SchedulingPage() {
                     <div className="space-y-4">
                       {displaySessions
                         .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
-                        .map((session: Session) => {
-                          const conflictInfo = getSessionConflictStyle(session);
-                          const hasConflict = conflictInfo.conflictType !== 'none';
-                          
-                          return (
-                            <div
-                              key={session.id}
-                              className={`
-                                border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors relative
-                                ${conflictInfo.style}
-                              `}
-                            >
-                            {hasConflict && (
-                              <div className={`absolute top-2 right-2 flex items-center px-2 py-1 rounded text-xs ${
-                                conflictInfo.conflictType === 'therapist' ? 'bg-red-100 text-red-700' :
-                                conflictInfo.conflictType === 'room' ? 'bg-orange-100 text-orange-700' :
-                                'bg-red-100 text-red-700'
-                              }`}>
-                                <AlertCircle className="w-3 h-3" />
-                              </div>
-                            )}
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start space-x-4 flex-1">
-                                <div className="text-center min-w-[100px]">
-                                  <Badge className={`${getStatusColor(session.status)} mb-2`} variant="secondary">
-                                    {session.status}
-                                  </Badge>
-                                  <p className="font-semibold text-lg">
-                                    {viewMode === "week" 
-                                      ? format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')
-                                      : format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')
-                                    }
-                                  </p>
-                                  <p className="text-sm text-slate-600">
-                                    {formatTime(session.sessionDate)}
-                                  </p>
-                                </div>
-                                
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2 mb-1">
-                                    <h3 
-                                      className="font-medium text-primary hover:underline cursor-pointer"
-                                      onClick={() => setLocation(`/clients/${session.clientId}?from=scheduling`)}
-                                    >
-                                      {getDisplayClientName(session)}
-                                    </h3>
-                                    <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
-                                      Ref# {session.client?.referenceNumber || 'N/A'}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1 text-sm text-slate-600">
-                                    <div className="flex items-center space-x-2">
-                                      <User className="w-4 h-4" />
-                                      <span>Therapist: {session.therapist.fullName}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <FileText className="w-4 h-4" />
-                                      <span>{session.sessionType}</span>
-                                    </div>
-                                    {session.room && (
-                                      <div className="flex items-center space-x-2">
-                                        <MapPin className="w-4 h-4" />
-                                        <span>Room: {session.room ? `${session.room.roomNumber} - ${session.room.roomName}` : 'TBD'}</span>
-                                      </div>
-                                    )}
-                                    {session.service && (
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded">
-                                          {session.service.serviceCode} - ${session.service.baseRate}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <Button 
-                                  variant="default" 
-                                  size="sm"
-                                  onClick={() => {
-                                    trackSessionViewed(session);
-                                    openEditSessionForm(session);
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Edit Session
-                                </Button>
-                                
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-56">
-                                    {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
-                                      <>
-                                        <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
-                                          <Video className="w-4 h-4 mr-2 text-blue-600" />
-                                          Join Zoom Meeting
-                                        </DropdownMenuItem>
-                                        <div className="border-t my-1"></div>
-                                      </>
-                                    )}
-                                    
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
-                                      Change Status
-                                    </div>
-                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
-                                      <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
-                                      Mark Scheduled
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
-                                      <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                                      Mark Completed
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
-                                      <X className="w-4 h-4 mr-2 text-red-600" />
-                                      Mark Cancelled
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
-                                      <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
-                                      Mark Rescheduled
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
-                                      <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                                      Mark No-Show
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </div>
-                            
-                            {session.notes && (
-                              <div className="mt-4 p-3 bg-slate-50 rounded-md">
-                                <div className="flex items-center space-x-2 mb-2">
-                                  <FileText className="w-4 h-4 text-slate-600" />
-                                  <p className="text-sm font-medium text-slate-700">Session Notes:</p>
-                                </div>
-                                <p className="text-sm text-slate-600">{session.notes}</p>
-                              </div>
-                            )}
-                          </div>
-                          );
-                        })}
+                        .map((session: Session) => (
+                          <SessionCard
+                            key={session.id}
+                            session={session}
+                            viewMode={viewMode}
+                            getStatusColor={getStatusColor}
+                            parseSessionDate={parseSessionDate}
+                            formatTime={formatTime}
+                            getDisplayClientName={getDisplayClientName}
+                            getSessionConflictStyle={getSessionConflictStyle}
+                            trackSessionViewed={trackSessionViewed}
+                            openEditSessionForm={openEditSessionForm}
+                            updateSessionStatus={updateSessionStatus}
+                          />
+                        ))}
                     </div>
                   );
                 })()}
