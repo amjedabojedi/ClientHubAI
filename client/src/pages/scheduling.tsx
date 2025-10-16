@@ -2129,7 +2129,11 @@ export default function SchedulingPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-blue-600">
+                    <h3 
+                      className="text-lg font-semibold text-primary hover:underline cursor-pointer"
+                      onClick={() => setLocation(`/clients/${selectedSession.clientId}?from=scheduling`)}
+                      data-testid={`link-client-name-modal-${selectedSession.id}`}
+                    >
                       {selectedSession.client?.fullName || 'Unknown Client'}
                     </h3>
                     <p className="text-slate-600">with {selectedSession.therapist.fullName}</p>
@@ -2225,14 +2229,6 @@ export default function SchedulingPage() {
 
                 <div className="pt-4 border-t">
                   <div className={`grid gap-2 ${(selectedSession as any).zoomEnabled && (selectedSession as any).zoomJoinUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setLocation(`/clients/${selectedSession.clientId}?from=scheduling`)}
-                      className="text-sm px-3 py-2 h-9"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Client Profile
-                    </Button>
                     <Button 
                       variant="outline"
                       onClick={() => {
