@@ -2108,7 +2108,18 @@ export default function SchedulingPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>
-                      {format(selectedDate, 'EEEE, MMM dd, yyyy')}
+                      {viewMode === "week" ? (
+                        (() => {
+                          const dayOfWeek = selectedDate.getDay();
+                          const weekStart = new Date(selectedDate);
+                          weekStart.setDate(selectedDate.getDate() - dayOfWeek);
+                          const weekEnd = new Date(weekStart);
+                          weekEnd.setDate(weekStart.getDate() + 6);
+                          return `${format(weekStart, 'MMM dd')} - ${format(weekEnd, 'MMM dd, yyyy')}`;
+                        })()
+                      ) : (
+                        format(selectedDate, 'EEEE, MMM dd, yyyy')
+                      )}
                     </CardTitle>
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-2">
@@ -2122,26 +2133,35 @@ export default function SchedulingPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                      <p className="text-slate-600">Loading schedule...</p>
+                {(() => {
+                  const displaySessions = viewMode === "week" 
+                    ? getWeekSessions(selectedDate)
+                    : getSessionsForDate(selectedDate);
+                  
+                  return isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-slate-600">Loading schedule...</p>
+                      </div>
                     </div>
-                  </div>
-                ) : getSessionsForDate(selectedDate).length === 0 ? (
-                  <div className="text-center py-12">
-                    <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-slate-900 mb-2">No sessions scheduled</h3>
-                    <p className="text-slate-600 mb-4">Schedule your first appointment for this day.</p>
-                    <Button onClick={() => setIsNewSessionModalOpen(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Schedule Session
-                    </Button>
-                  </div>
+                  ) : displaySessions.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">No sessions scheduled</h3>
+                      <p className="text-slate-600 mb-4">
+                        {viewMode === "week" 
+                          ? "No sessions scheduled for this week." 
+                          : "Schedule your first appointment for this day."}
+                      </p>
+                      <Button onClick={() => setIsNewSessionModalOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Schedule Session
+                      </Button>
+                    </div>
                   ) : (
                     <div className="space-y-4">
-                      {getSessionsForDate(selectedDate)
+                      {displaySessions
                         .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
                         .map((session: Session) => {
                           const conflictInfo = getSessionConflictStyle(session);
@@ -2287,7 +2307,8 @@ export default function SchedulingPage() {
                           );
                         })}
                     </div>
-                  )}
+                  );
+                })()}
                 </CardContent>
               </Card>
             </div>
