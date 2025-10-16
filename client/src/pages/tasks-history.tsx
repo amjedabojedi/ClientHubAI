@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,8 @@ import {
   AlertTriangle, 
   ArrowLeft,
   Filter,
-  Target
+  Target,
+  MessageSquare
 } from "lucide-react";
 
 // Utils & Types
@@ -31,6 +33,16 @@ import type { Task, Client, User as UserType } from "@shared/schema";
 interface TaskWithDetails extends Task {
   assignedTo?: UserType;
   client: Client;
+  commentCount?: number;
+  recentComments?: Array<{
+    id: number;
+    content: string;
+    createdAt: string;
+    author: {
+      id: number;
+      fullName: string;
+    };
+  }>;
 }
 
 interface TasksQueryResult {
@@ -76,68 +88,101 @@ function TaskHistoryItem({ task }: { task: TaskWithDetails }) {
   const [, setLocation] = useLocation();
 
   return (
-    <Card className="mb-4 hover:shadow-md transition-shadow">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg text-slate-900 mb-1">{task.title}</h3>
-            <p className="text-slate-600 text-sm mb-3">{task.description || "No description provided"}</p>
+    <div className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow mb-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          {/* Status indicator dot */}
+          <div className={cn(
+            "w-3 h-3 rounded-full",
+            task.status === 'completed' ? 'bg-green-500' :
+            task.status === 'in_progress' ? 'bg-blue-500' :
+            task.status === 'overdue' ? 'bg-red-500' :
+            'bg-yellow-500'
+          )}></div>
+          
+          {/* Task details */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h4 className="font-semibold text-slate-900">{task.title}</h4>
+              <span className="text-slate-300">•</span>
+              <Badge 
+                variant="outline"
+                className={cn(
+                  task.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
+                  task.priority === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                  task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                  'bg-green-50 text-green-700 border-green-200'
+                )}
+              >
+                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+              </Badge>
+              <Badge 
+                variant="outline"
+                className={cn(
+                  task.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                  task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  task.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                  'bg-yellow-50 text-yellow-700 border-yellow-200'
+                )}
+              >
+                {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
+              </Badge>
+            </div>
             
-            <div className="flex items-center gap-4 text-sm text-slate-600">
-              <div className="flex items-center gap-1">
-                <User className="w-4 h-4" />
+            <div className="text-sm space-y-1">
+              <p className="text-slate-600">
                 <span 
-                  className="text-primary hover:underline cursor-pointer"
+                  className="hover:text-primary cursor-pointer font-medium"
                   onClick={() => setLocation(`/clients/${task.client.id}?from=tasks-history`)}
                 >
                   {task.client.fullName}
                 </span>
-              </div>
+                {task.dueDate && (
+                  <span className="text-slate-500 ml-2">
+                    <Calendar className="w-3 h-3 inline mr-1" />
+                    {formatInTimeZone(new Date(task.dueDate), 'America/New_York', 'MMM d, yyyy')}
+                  </span>
+                )}
+                {task.assignedTo && (
+                  <span className="text-slate-500 ml-2">
+                    <Target className="w-3 h-3 inline mr-1" />
+                    {task.assignedTo.fullName}
+                  </span>
+                )}
+              </p>
               
-              {task.assignedTo && (
-                <div className="flex items-center gap-1">
-                  <Target className="w-4 h-4" />
-                  <span>Assigned to {task.assignedTo.fullName}</span>
+              {task.description && (
+                <>
+                  <div className="border-t border-slate-200 my-2"></div>
+                  <p className="text-slate-600 italic">{task.description}</p>
+                </>
+              )}
+              
+              {(task.commentCount !== undefined && task.commentCount > 0) && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <MessageSquare className="w-3 h-3" />
+                    <span className="font-semibold">Comments:</span>
+                    <span>{task.commentCount}</span>
+                  </div>
+                  
+                  {task.recentComments && task.recentComments.length > 0 && (
+                    <div className="ml-4 space-y-2">
+                      {task.recentComments.map((comment) => (
+                        <div key={comment.id} className="text-xs border-l-2 border-slate-300 pl-2">
+                          <div className="text-slate-600 italic">"{comment.content}"</div>
+                          <div className="text-slate-500 mt-0.5">{comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d, yyyy')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
-          
-          <div className="flex gap-2 ml-4">
-            <Badge className={cn("text-xs", getPriorityColor(task.priority))}>
-              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-            </Badge>
-            <Badge className={cn("text-xs", getStatusColor(task.status))}>
-              {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
-            </Badge>
-          </div>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-slate-500">Created:</span>
-            <div className="font-medium">{formatDateTime(task.createdAt ? String(task.createdAt) : null)}</div>
-          </div>
-          
-          <div>
-            <span className="text-slate-500">Due Date:</span>
-            <div className="font-medium">{formatDate(task.dueDate ? String(task.dueDate) : null)}</div>
-          </div>
-          
-          <div>
-            <span className="text-slate-500">Last Updated:</span>
-            <div className="font-medium">{formatDateTime(task.updatedAt ? String(task.updatedAt) : null)}</div>
-          </div>
-          
-          {task.completedAt && (
-            <div>
-              <span className="text-slate-500">Completed:</span>
-              <div className="font-medium text-green-600">{formatDateTime(task.completedAt ? String(task.completedAt) : null)}</div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
