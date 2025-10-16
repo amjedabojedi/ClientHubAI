@@ -57,10 +57,11 @@ import { TaskComments } from "@/components/task-management/task-comments";
 
 interface TaskComment {
   id: number;
-  comment: string;
+  content: string;
   createdAt: string;
-  createdBy: number;
-  createdByName?: string;
+  author: {
+    fullName: string;
+  };
 }
 
 interface TaskWithDetails extends Task {

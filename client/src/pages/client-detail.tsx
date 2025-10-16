@@ -918,15 +918,6 @@ export default function ClientDetailPage() {
           title: "Invoice downloaded",
           description: "Invoice has been downloaded successfully.",
         });
-      } else if (action === 'print') {
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          const htmlContent = await response.text();
-          printWindow.document.write(htmlContent);
-          printWindow.document.close();
-          printWindow.focus();
-          printWindow.print();
-        }
       } else if (action === 'email') {
         const result = await response.json();
         
@@ -2897,7 +2888,7 @@ export default function ClientDetailPage() {
                                     <DropdownMenuItem onClick={() => {
                                       const link = document.createElement('a');
                                       link.href = `/api/assessments/assignments/${assessment.id}/download/docx`;
-                                      link.download = `assessment-report-${assessment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+                                      link.download = `assessment-report-${client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
                                       link.click();
                                     }}>
                                       <Download className="w-4 h-4 mr-2" />
