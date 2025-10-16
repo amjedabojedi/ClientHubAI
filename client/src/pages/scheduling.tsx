@@ -1585,49 +1585,41 @@ export default function SchedulingPage() {
           </div>)
         ) : viewMode === "list" ? (
           /* All Sessions List View */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Quick Stats Sidebar */}
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Users className="w-5 h-5" />
-                    <span>Quick Stats</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Total Sessions</span>
-                    <span className="font-medium">{allSessionsData?.total || 0}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Showing</span>
-                    <span className="font-medium">{allSessions.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Completed</span>
-                    <span className="font-medium text-green-600">
-                      {allSessions.filter((s: Session) => s.status === 'completed').length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Upcoming</span>
-                    <span className="font-medium text-blue-600">
-                      {allSessions.filter((s: Session) => s.status === 'scheduled').length}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">All Sessions</h2>
             </div>
 
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">All Sessions</h2>
-              </div>
+            {/* Quick Stats */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Total Sessions</p>
+                    <p className="text-2xl font-bold">{allSessionsData?.total || 0}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Showing</p>
+                    <p className="text-2xl font-bold">{allSessions.length}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Completed</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {allSessions.filter((s: Session) => s.status === 'completed').length}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 mb-1">Upcoming</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {allSessions.filter((s: Session) => s.status === 'scheduled').length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Filters Section */}
-              <Card>
+            {/* Filters Section */}
+            <Card>
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
                   <div>
@@ -1971,7 +1963,6 @@ export default function SchedulingPage() {
                 </CardContent>
               </Card>
             )}
-            </div>
           </div>
         ) : (
           /* Day/Week View */
