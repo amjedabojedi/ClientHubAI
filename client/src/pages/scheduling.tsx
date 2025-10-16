@@ -1720,7 +1720,13 @@ export default function SchedulingPage() {
                               
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-medium text-blue-600">
+                                  <h3 
+                                    className="font-medium text-primary hover:underline cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLocation(`/clients/${session.clientId}?from=scheduling`);
+                                    }}
+                                  >
                                     {session.client?.fullName || 'Unknown Client'}
                                   </h3>
                                   <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
@@ -1759,17 +1765,19 @@ export default function SchedulingPage() {
                               </div>
                             </div>
                             
-                            <div className="flex flex-col space-y-2">
+                            <div className="flex items-center space-x-2">
                               <Button 
-                                variant="outline" 
+                                variant="default" 
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  window.location.href = `/clients/${session.clientId}`;
+                                  setSelectedSession(session);
+                                  trackSessionViewed(session);
+                                  setIsEditSessionModalOpen(true);
                                 }}
                               >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Client
+                                <Edit className="w-4 h-4 mr-2" />
+                                View Details
                               </Button>
                             </div>
                           </div>
@@ -1883,7 +1891,13 @@ export default function SchedulingPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-blue-600">
+                              <p 
+                                className="text-sm font-medium text-primary hover:underline cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLocation(`/clients/${session.clientId}?from=scheduling`);
+                                }}
+                              >
                                 {session.client?.fullName || 'Unknown Client'}
                               </p>
                               <p className="text-xs text-slate-600">
@@ -1898,25 +1912,17 @@ export default function SchedulingPage() {
                           </div>
                           <div className="flex space-x-1 mt-3">
                             <Button 
-                              variant="outline" 
+                              variant="default" 
                               size="sm" 
                               className="flex-1 text-xs h-7"
-                              onClick={() => window.location.href = `/clients/${session.clientId}`}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              View Client
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="text-xs h-7 px-2"
                               onClick={() => {
                                 setSelectedSession(session);
                                 trackSessionViewed(session);
                                 setIsEditSessionModalOpen(true);
                               }}
                             >
-                              <Edit className="w-3 h-3" />
+                              <Eye className="w-3 h-3 mr-1" />
+                              View Details
                             </Button>
                           </div>
                         </div>
@@ -2040,7 +2046,10 @@ export default function SchedulingPage() {
                                 
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">
-                                    <h3 className="font-medium text-blue-600">
+                                    <h3 
+                                      className="font-medium text-primary hover:underline cursor-pointer"
+                                      onClick={() => setLocation(`/clients/${session.clientId}?from=scheduling`)}
+                                    >
                                       {getDisplayClientName(session)}
                                     </h3>
                                     <Badge className={getStatusColor(session.status)} variant="secondary">
@@ -2069,41 +2078,18 @@ export default function SchedulingPage() {
                                 </div>
                               </div>
                               
-                              <div className="flex flex-col space-y-2">
-                                <div className="flex space-x-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => window.location.href = `/clients/${session.clientId}`}
-                                  >
-                                    <Eye className="w-4 h-4 mr-2" />
-                                    View Client
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedSession(session);
-                                      trackSessionViewed(session);
-                                      setIsEditSessionModalOpen(true);
-                                    }}
-                                  >
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Edit
-                                  </Button>
-                                </div>
+                              <div className="flex items-center space-x-2">
                                 <Button 
-                                  variant="outline" 
+                                  variant="default" 
                                   size="sm"
-                                  className="text-blue-600 hover:text-blue-700"
                                   onClick={() => {
-                                    form.setValue('clientId', session.clientId);
-                                    form.setValue('therapistId', session.therapistId);
-                                    setIsNewSessionModalOpen(true);
+                                    setSelectedSession(session);
+                                    trackSessionViewed(session);
+                                    setIsEditSessionModalOpen(true);
                                   }}
                                 >
-                                  <Plus className="w-4 h-4 mr-2" />
-                                  Schedule Another
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit Session
                                 </Button>
                               </div>
                             </div>
@@ -2241,7 +2227,7 @@ export default function SchedulingPage() {
                   <div className={`grid gap-2 ${(selectedSession as any).zoomEnabled && (selectedSession as any).zoomJoinUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <Button 
                       variant="outline"
-                      onClick={() => window.location.href = `/clients/${selectedSession.clientId}`}
+                      onClick={() => setLocation(`/clients/${selectedSession.clientId}?from=scheduling`)}
                       className="text-sm px-3 py-2 h-9"
                     >
                       <Eye className="w-4 h-4 mr-2" />

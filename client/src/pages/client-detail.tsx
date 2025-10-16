@@ -1592,6 +1592,17 @@ export default function ClientDetailPage() {
             <span className="text-slate-400">/</span>
             <span className="text-slate-900 font-medium">{client.fullName}</span>
           </>
+        ) : fromPage === 'scheduling' ? (
+          <>
+            <button
+              onClick={() => setLocation("/scheduling")}
+              className="hover:text-primary transition-colors font-medium"
+            >
+              Scheduling
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-900 font-medium">{client.fullName}</span>
+          </>
         ) : (
           <Button 
             variant="ghost" 
