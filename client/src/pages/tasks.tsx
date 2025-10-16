@@ -636,10 +636,11 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
                   </div>
                   
                   {task.recentComments && task.recentComments.length > 0 && (
-                    <div className="ml-4 space-y-1">
+                    <div className="ml-4 space-y-2">
                       {task.recentComments.map((comment) => (
-                        <div key={comment.id} className="text-xs text-slate-600 italic border-l-2 border-slate-300 pl-2">
-                          "{comment.content}" - {comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d')}
+                        <div key={comment.id} className="text-xs border-l-2 border-slate-300 pl-2">
+                          <div className="text-slate-600 italic">"{comment.content}"</div>
+                          <div className="text-slate-500 mt-0.5">{comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d, yyyy')}</div>
                         </div>
                       ))}
                     </div>
