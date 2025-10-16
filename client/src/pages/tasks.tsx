@@ -529,11 +529,12 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
 }
 
 // ===== TASK CARD COMPONENT =====
-function TaskCard({ task, onEdit, onDelete, onViewComments }: { 
+function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: { 
   task: TaskWithDetails; 
   onEdit: (task: TaskWithDetails) => void; 
   onDelete: (taskId: number) => void;
   onViewComments: (task: TaskWithDetails) => void;
+  onViewTask: (task: TaskWithDetails) => void;
 }) {
   const [, setLocation] = useLocation();
 
@@ -635,6 +636,10 @@ function TaskCard({ task, onEdit, onDelete, onViewComments }: {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => onViewTask(task)} data-testid={`menu-view-${task.id}`}>
+                <Eye className="w-4 h-4 mr-2" />
+                View Task
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(task)} data-testid={`menu-edit-${task.id}`}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Task
@@ -672,6 +677,7 @@ export default function TasksPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithDetails | null>(null);
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<TaskWithDetails | null>(null);
+  const [viewingTask, setViewingTask] = useState<TaskWithDetails | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -749,6 +755,20 @@ export default function TasksPage() {
       dueDate: task.dueDate ? String(task.dueDate).split('T')[0] : undefined,
     });
     setSelectedTaskForComments(task);
+  };
+
+  const handleViewTask = (task: TaskWithDetails) => {
+    // Track task viewing for recent items
+    addRecentTask({
+      id: task.id,
+      title: task.title,
+      clientId: task.clientId || undefined,
+      clientName: task.client?.fullName || undefined,
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate ? String(task.dueDate).split('T')[0] : undefined,
+    });
+    setViewingTask(task);
   };
 
   const clearFilters = () => {
@@ -1056,6 +1076,7 @@ export default function TasksPage() {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onViewComments={handleViewComments}
+                    onViewTask={handleViewTask}
                   />
                 ))}
               </div>
@@ -1118,6 +1139,82 @@ export default function TasksPage() {
               taskId={selectedTaskForComments.id}
               taskTitle={selectedTaskForComments.title}
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Task Details Modal */}
+      <Dialog open={!!viewingTask} onOpenChange={() => setViewingTask(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Details</DialogTitle>
+          </DialogHeader>
+          {viewingTask && (
+            <div className="space-y-6">
+              {/* Task Information */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Title</h4>
+                    <p className="text-slate-900">{viewingTask.title}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Client</h4>
+                    <p 
+                      className="text-primary hover:underline cursor-pointer"
+                      onClick={() => {
+                        setLocation(`/clients/${viewingTask.client.id}?from=tasks`);
+                        setViewingTask(null);
+                      }}
+                    >
+                      {viewingTask.client.fullName}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Priority</h4>
+                    <Badge className={getPriorityColor(viewingTask.priority)}>
+                      {viewingTask.priority.charAt(0).toUpperCase() + viewingTask.priority.slice(1)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Status</h4>
+                    <Badge className={getStatusColor(viewingTask.status)}>
+                      {viewingTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewingTask.status.replace('_', ' ').slice(1)}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Due Date</h4>
+                    <p className="text-slate-900">{formatDate(viewingTask.dueDate)}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Assigned To</h4>
+                    <p className="text-slate-900">{viewingTask.assignedTo?.fullName || 'Unassigned'}</p>
+                  </div>
+                </div>
+
+                {viewingTask.description && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Description</h4>
+                    <p className="text-slate-900 whitespace-pre-wrap">{viewingTask.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Task Comments */}
+              <div className="border-t pt-4">
+                <h4 className="text-lg font-semibold text-slate-900 mb-4">Comments & Progress</h4>
+                <TaskComments 
+                  taskId={viewingTask.id}
+                  taskTitle={viewingTask.title}
+                />
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
