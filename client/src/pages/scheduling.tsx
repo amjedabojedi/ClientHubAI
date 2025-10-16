@@ -166,8 +166,6 @@ export default function SchedulingPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "list">("month");
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
-  const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTherapist, setSelectedTherapist] = useState<string>("all");
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -476,11 +474,6 @@ export default function SchedulingPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`] });
       queryClient.invalidateQueries({ queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`] });
       
-      // Update the selected session state to reflect the change
-      if (selectedSession) {
-        setSelectedSession({ ...selectedSession, status: variables.status as any });
-      }
-      
       toast({
         title: "Success",
         description: "Session status updated successfully",
@@ -550,6 +543,30 @@ export default function SchedulingPage() {
       'consultation': 'bg-blue-100 text-blue-800'
     };
     return typeColors[type as keyof typeof typeColors] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Helper function to load session data into form and open edit modal
+  const openEditSessionForm = (session: Session) => {
+    // Use America/New_York timezone for consistent date/time handling
+    // Pass the string directly to formatInTimeZone to avoid browser timezone conversion
+    const dateOnly = formatInTimeZone(session.sessionDate, 'America/New_York', 'yyyy-MM-dd');
+    const timeString = formatInTimeZone(session.sessionDate, 'America/New_York', 'HH:mm');
+    
+    form.reset({
+      clientId: session.clientId,
+      therapistId: session.therapistId,
+      serviceId: session.serviceId,
+      roomId: session.roomId,
+      sessionType: session.sessionType as any,
+      sessionDate: dateOnly,
+      sessionTime: timeString,
+      notes: session.notes || '',
+      zoomEnabled: (session as any).zoomEnabled || false,
+    });
+    
+    setEditingSessionId(session.id);
+    setIsSchedulingFromExistingSession(true);
+    setIsNewSessionModalOpen(true);
   };
 
   // Enhanced time slots with flexible intervals
@@ -1512,9 +1529,8 @@ export default function SchedulingPage() {
                                 `}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedSession(session);
                                   trackSessionViewed(session);
-                                  setIsEditSessionModalOpen(true);
+                                  openEditSessionForm(session);
                                 }}
                               >
                                 {getConflictIndicator()}
@@ -1696,9 +1712,8 @@ export default function SchedulingPage() {
                           key={session.id}
                           className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer"
                           onClick={() => {
-                            setSelectedSession(session);
                             trackSessionViewed(session);
-                            setIsEditSessionModalOpen(true);
+                            openEditSessionForm(session);
                           }}
                         >
                           <div className="flex items-start justify-between">
@@ -1771,13 +1786,12 @@ export default function SchedulingPage() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedSession(session);
                                   trackSessionViewed(session);
-                                  setIsEditSessionModalOpen(true);
+                                  openEditSessionForm(session);
                                 }}
                               >
                                 <Edit className="w-4 h-4 mr-2" />
-                                View Details
+                                Edit Session
                               </Button>
                             </div>
                           </div>
@@ -1916,13 +1930,12 @@ export default function SchedulingPage() {
                               size="sm" 
                               className="flex-1 text-xs h-7"
                               onClick={() => {
-                                setSelectedSession(session);
                                 trackSessionViewed(session);
-                                setIsEditSessionModalOpen(true);
+                                openEditSessionForm(session);
                               }}
                             >
-                              <Eye className="w-3 h-3 mr-1" />
-                              View Details
+                              <Edit className="w-3 h-3 mr-1" />
+                              Edit Session
                             </Button>
                           </div>
                         </div>
@@ -2083,9 +2096,8 @@ export default function SchedulingPage() {
                                   variant="default" 
                                   size="sm"
                                   onClick={() => {
-                                    setSelectedSession(session);
                                     trackSessionViewed(session);
-                                    setIsEditSessionModalOpen(true);
+                                    openEditSessionForm(session);
                                   }}
                                 >
                                   <Edit className="w-4 h-4 mr-2" />
@@ -2112,194 +2124,6 @@ export default function SchedulingPage() {
               </Card>
             </div>
           </div>)
-        )}
-        
-        {/* Edit Session Modal */}
-        {selectedSession && (
-          <Dialog open={isEditSessionModalOpen} onOpenChange={setIsEditSessionModalOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Session Details & Actions</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                <div className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
-                  <Avatar className="w-16 h-16">
-                    <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
-                      {getInitials(selectedSession.client?.fullName || 'UC')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 
-                      className="text-lg font-semibold text-primary hover:underline cursor-pointer"
-                      onClick={() => setLocation(`/clients/${selectedSession.clientId}?from=scheduling`)}
-                      data-testid={`link-client-name-modal-${selectedSession.id}`}
-                    >
-                      {selectedSession.client?.fullName || 'Unknown Client'}
-                    </h3>
-                    <p className="text-slate-600">with {selectedSession.therapist.fullName}</p>
-                    <div className="flex items-center space-x-4 mt-2 text-sm text-slate-600">
-                      <span>
-                        {formatInTimeZone(new Date(selectedSession.sessionDate), 'America/New_York', 'MMM d, yyyy \'at\' h:mm a')} EST
-                      </span>
-                      <Badge className={getSessionTypeColor(selectedSession.sessionType)} variant="secondary">
-                        {selectedSession.sessionType}
-                      </Badge>
-                      <Badge className={getStatusColor(selectedSession.status)} variant="secondary">
-                        {selectedSession.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedSession.service && (
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">Service</label>
-                      <p className="text-sm text-slate-600">
-                        {selectedSession.service.serviceName} ({selectedSession.service.serviceCode})
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {selectedSession.service.duration} min - ${selectedSession.service.baseRate}
-                      </p>
-                    </div>
-                  )}
-                  {selectedSession.room && (
-                    <div>
-                      <label className="text-sm font-medium text-slate-700">Room</label>
-                      <p className="text-sm text-slate-600">
-                        {selectedSession.room.roomName} ({selectedSession.room.roomNumber})
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedSession.notes && (
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Session Notes</label>
-                    <div className="mt-1 p-3 bg-slate-50 rounded-md">
-                      <p className="text-sm text-slate-600">{selectedSession.notes}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Status Change Section */}
-                <div className="pt-4 border-t">
-                  <label className="text-sm font-medium text-slate-700 mb-3 block">Change Session Status</label>
-                  <Select 
-                    value={selectedSession.status} 
-                    onValueChange={(value) => updateSessionStatus(selectedSession.id, value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="scheduled">
-                        <div className="flex items-center">
-                          <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
-                          Scheduled
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="completed">
-                        <div className="flex items-center">
-                          <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                          Completed
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="cancelled">
-                        <div className="flex items-center">
-                          <X className="w-4 h-4 mr-2 text-red-600" />
-                          Cancelled
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="rescheduled">
-                        <div className="flex items-center">
-                          <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
-                          Rescheduled
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="no_show">
-                        <div className="flex items-center">
-                          <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
-                          No-Show
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <div className={`grid gap-2 ${(selectedSession as any).zoomEnabled && (selectedSession as any).zoomJoinUrl ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        // Load session data into form - use reset() to update defaultValues
-                        const sessionDate = new Date(selectedSession.sessionDate);
-                        const dateOnly = selectedSession.sessionDate.split('T')[0];
-                        const hours = sessionDate.getHours().toString().padStart(2, '0');
-                        const minutes = sessionDate.getMinutes().toString().padStart(2, '0');
-                        const timeString = `${hours}:${minutes}`;
-                        
-                        // Use reset() instead of setValue() to update all values including defaults
-                        form.reset({
-                          clientId: selectedSession.clientId,
-                          therapistId: selectedSession.therapistId,
-                          serviceId: selectedSession.serviceId,
-                          roomId: selectedSession.roomId,
-                          sessionType: selectedSession.sessionType as any,
-                          sessionDate: dateOnly,
-                          sessionTime: timeString,
-                          notes: selectedSession.notes || '',
-                          zoomEnabled: (selectedSession as any).zoomEnabled || false,
-                        });
-                        
-                        setEditingSessionId(selectedSession.id);
-                        setIsSchedulingFromExistingSession(true);
-                        setIsEditSessionModalOpen(false);
-                        setIsNewSessionModalOpen(true);
-                      }}
-                      className="text-sm px-3 py-2 h-9"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit This Session
-                    </Button>
-                    {(selectedSession as any).zoomEnabled && (selectedSession as any).zoomJoinUrl && (
-                      <Button 
-                        variant="outline"
-                        className="text-sm px-3 py-2 h-9 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-                        onClick={() => window.open((selectedSession as any).zoomJoinUrl, '_blank')}
-                        data-testid={`button-zoom-join-modal-${selectedSession.id}`}
-                      >
-                        <Video className="w-4 h-4 mr-2" />
-                        Join Zoom
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
-                    )}
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        form.setValue('clientId', selectedSession.clientId);
-                        form.setValue('therapistId', selectedSession.therapistId);
-                        setIsSchedulingFromExistingSession(true);
-                        setIsEditSessionModalOpen(false);
-                        setIsNewSessionModalOpen(true);
-                      }}
-                      className="text-sm px-3 py-2 h-9"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Schedule Another Session
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsEditSessionModalOpen(false)}
-                      className="text-sm px-3 py-2 h-9"
-                    >
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         )}
       </div>
     </div>
