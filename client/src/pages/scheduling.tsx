@@ -2168,27 +2168,21 @@ export default function SchedulingPage() {
                               </div>
                             )}
                             <div className="flex items-start justify-between">
-                              <div className="flex items-center space-x-4 flex-1">
+                              <div className="flex items-start space-x-4 flex-1">
                                 <div className="text-center min-w-[100px]">
-                                  {viewMode === "week" && (
-                                    <p className="text-xs font-medium text-slate-500 mb-1">
-                                      {format(parseSessionDate(session.sessionDate), 'EEE, MMM dd')}
-                                    </p>
-                                  )}
+                                  <Badge className={`${getStatusColor(session.status)} mb-2`} variant="secondary">
+                                    {session.status}
+                                  </Badge>
                                   <p className="font-semibold text-lg">
-                                    {(() => {
-                                      const sessionDate = parseSessionDate(session.sessionDate);
-                                      return formatTime(sessionDate);
-                                    })()}
+                                    {viewMode === "week" 
+                                      ? format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')
+                                      : format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')
+                                    }
                                   </p>
-                                  <p className="text-xs text-slate-600">{(session.service as any)?.duration || 60}min</p>
+                                  <p className="text-sm text-slate-600">
+                                    {formatTime(session.sessionDate)}
+                                  </p>
                                 </div>
-                                
-                                <Avatar className="w-12 h-12">
-                                  <AvatarFallback className="bg-blue-100 text-blue-600">
-                                    {getInitials(session.client?.fullName || 'UC')}
-                                  </AvatarFallback>
-                                </Avatar>
                                 
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">
@@ -2198,9 +2192,9 @@ export default function SchedulingPage() {
                                     >
                                       {getDisplayClientName(session)}
                                     </h3>
-                                    <Badge className={getStatusColor(session.status)} variant="secondary">
-                                      {session.status}
-                                    </Badge>
+                                    <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
+                                      Ref# {session.client?.referenceNumber || 'N/A'}
+                                    </span>
                                   </div>
                                   <div className="space-y-1 text-sm text-slate-600">
                                     <div className="flex items-center space-x-2">
@@ -2210,14 +2204,18 @@ export default function SchedulingPage() {
                                     <div className="flex items-center space-x-2">
                                       <FileText className="w-4 h-4" />
                                       <span>{session.sessionType}</span>
-                                      <Badge className={getSessionTypeColor(session.sessionType)} variant="secondary">
-                                        {session.sessionType}
-                                      </Badge>
                                     </div>
                                     {session.room && (
                                       <div className="flex items-center space-x-2">
                                         <MapPin className="w-4 h-4" />
                                         <span>Room: {session.room ? `${session.room.roomNumber} - ${session.room.roomName}` : 'TBD'}</span>
+                                      </div>
+                                    )}
+                                    {session.service && (
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                                          {session.service.serviceCode} - ${session.service.baseRate}
+                                        </span>
                                       </div>
                                     )}
                                   </div>
