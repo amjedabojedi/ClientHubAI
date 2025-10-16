@@ -70,6 +70,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 import { getClientStageColor } from "@/lib/task-utils";
+import { cn } from "@/lib/utils";
 import { PracticeHeader } from "@/components/shared/practice-header";
 
 // Types
