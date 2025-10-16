@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -424,7 +423,7 @@ export default function AssessmentReportPage() {
                   <div className="text-sm text-slate-600">Completed</div>
                   <div className="font-semibold">
                     {assignment.completedAt ? 
-                      formatInTimeZone(new Date(assignment.completedAt), 'America/New_York', 'MMM dd, yyyy') : 
+                      formatDateDisplay(assignment.completedAt) : 
                       'Not completed'
                     }
                   </div>
@@ -457,7 +456,7 @@ export default function AssessmentReportPage() {
                   <span>Professional Report</span>
                   {report.isFinalized && (
                     <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
-                      ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
+                      ✅ Finalized {formatDateDisplay(report.finalizedAt)}
                     </Badge>
                   )}
                 </div>
@@ -508,7 +507,7 @@ export default function AssessmentReportPage() {
                       <div className="flex items-center justify-between pt-4 border-t border-slate-200">
                         <div className="text-sm text-slate-600">
                           {report.generatedAt && (
-                            <div>Generated on {formatInTimeZone(new Date(report.generatedAt), 'America/New_York', "MMM dd, yyyy 'at' h:mm a")}</div>
+                            <div>Generated on {formatDateTimeDisplay(report.generatedAt)}</div>
                           )}
                           {report.id && <div className="text-xs text-slate-500 mt-1">Report ID: #{report.id}</div>}
                         </div>
@@ -536,7 +535,7 @@ export default function AssessmentReportPage() {
                             </>
                           ) : (
                             <Badge className="bg-green-100 text-green-800 px-3 py-1">
-                              ✅ Finalized {formatInTimeZone(new Date(report.finalizedAt), 'America/New_York', 'MMM dd, yyyy')}
+                              ✅ Finalized {formatDateDisplay(report.finalizedAt)}
                             </Badge>
                           )}
                         </div>
