@@ -1559,6 +1559,39 @@ export default function ClientDetailPage() {
             <span className="text-slate-400">/</span>
             <span className="text-slate-900 font-medium">{client.fullName}</span>
           </>
+        ) : fromPage === 'tasks-history' ? (
+          <>
+            <button
+              onClick={() => setLocation("/tasks-history")}
+              className="hover:text-primary transition-colors font-medium"
+            >
+              Task History
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-900 font-medium">{client.fullName}</span>
+          </>
+        ) : fromPage === 'billing' ? (
+          <>
+            <button
+              onClick={() => setLocation("/billing")}
+              className="hover:text-primary transition-colors font-medium"
+            >
+              Billing
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-900 font-medium">{client.fullName}</span>
+          </>
+        ) : fromPage === 'assessments' ? (
+          <>
+            <button
+              onClick={() => setLocation("/assessments")}
+              className="hover:text-primary transition-colors font-medium"
+            >
+              Assessments
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="text-slate-900 font-medium">{client.fullName}</span>
+          </>
         ) : (
           <Button 
             variant="ghost" 
