@@ -2211,66 +2211,64 @@ export default function ClientDetailPage() {
                       <div key={session.id} className={`bg-white border rounded-lg p-4 hover:shadow-sm transition-shadow ${
                         hasConflicts ? 'border-orange-300 bg-orange-50' : 'border-slate-200'
                       }`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-3 h-3 rounded-full ${
-                              session.status === 'completed' ? 'bg-green-500' :
-                              session.status === 'scheduled' ? 'bg-blue-500' :
-                              'bg-red-500'
-                            }`}></div>
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold text-slate-900">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-4 flex-1">
+                            <div className="text-center min-w-[100px]">
+                              <Badge 
+                                variant="secondary"
+                                className={`mb-2
+                                  ${session.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  session.status === 'scheduled' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  session.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                                  session.status === 'rescheduled' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  session.status === 'no_show' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                  'bg-gray-50 text-gray-700 border-gray-200'}
+                                `}
+                              >
+                                {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
+                              </Badge>
+                              <p className="font-semibold text-lg">
+                                {session.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', 'MMM dd, yyyy') : 'Date TBD'}
+                              </p>
+                              <p className="text-sm text-slate-600">
+                                {session.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', 'h:mm a') : ''}
+                              </p>
+                            </div>
+                            
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h4 className="font-medium text-slate-900">
                                   {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
                                 </h4>
-                                <span className="text-slate-300">•</span>
-                                <Badge 
-                                  variant="outline"
-                                  className={`
-                                    ${session.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                                    session.status === 'scheduled' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                    session.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
-                                    session.status === 'rescheduled' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                    session.status === 'no_show' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                    'bg-gray-50 text-gray-700 border-gray-200'}
-                                  `}
-                                >
-                                  {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
-                                </Badge>
+                                <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
+                                  Ref# {client?.referenceNumber || 'N/A'}
+                                </span>
                               </div>
-                              <div className="text-sm space-y-0.5">
-                                {/* Line 1: Date and Time */}
-                                <p className="text-slate-600">
-                                  {session.sessionDate ? (() => {
-                                    const sessionDateObj = new Date(session.sessionDate);
-                                    return formatInTimeZone(sessionDateObj, 'America/New_York', 'MMM d, yyyy \'at\' h:mm a');
-                                  })() : 'Date TBD'}
-                                  <span className="text-slate-400 ml-1">EST</span>
-                                </p>
-                                
-                                {/* Line 2: Therapist, Room, and Service Code */}
-                                <p className="text-slate-600">
-                                  {(session as any).therapistName && (
-                                    <span>{(session as any).therapistName}</span>
-                                  )}
-                                  {(session as any).room?.roomName && (
-                                    <span className="ml-2">
-                                      <MapPin className="w-3 h-3 inline mr-1" />{(session as any).room.roomName}
+                              <div className="space-y-1 text-sm text-slate-600">
+                                {(session as any).therapistName && (
+                                  <div className="flex items-center space-x-2">
+                                    <UserIcon className="w-4 h-4" />
+                                    <span>Therapist: {(session as any).therapistName}</span>
+                                  </div>
+                                )}
+                                {(session as any).room?.roomName && (
+                                  <div className="flex items-center space-x-2">
+                                    <MapPin className="w-4 h-4" />
+                                    <span>Room: {(session as any).room.roomName}</span>
+                                  </div>
+                                )}
+                                {(session as any).service && (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                                      {(session as any).service.serviceCode} - ${(session as any).service.baseRate}
                                     </span>
-                                  )}
-                                  {(session as any).service?.serviceCode && (
-                                    <span className="text-slate-500 ml-2">
-                                      <span className="font-mono">{(session as any).service.serviceCode}</span>
-                                    </span>
-                                  )}
-                                </p>
-                                
-                                {/* Line 3: Conflict Warning */}
+                                  </div>
+                                )}
                                 {hasConflicts && conflictInfo && (
-                                  <p className="text-orange-600 font-medium">
-                                    <AlertCircle className="w-3 h-3 inline mr-1" />
-                                    {conflictInfo.sessions.length} sessions on same day
-                                  </p>
+                                  <div className="flex items-center space-x-2 text-orange-600 font-medium">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>{conflictInfo.sessions.length} sessions on same day</span>
+                                  </div>
                                 )}
                               </div>
                             </div>
