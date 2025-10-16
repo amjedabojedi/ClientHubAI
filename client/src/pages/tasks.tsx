@@ -638,7 +638,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
                     <div className="ml-4 space-y-1">
                       {task.recentComments.map((comment) => (
                         <div key={comment.id} className="text-xs text-slate-600 italic border-l-2 border-slate-300 pl-2">
-                          "{comment.comment}"
+                          "{comment.content}"
                         </div>
                       ))}
                     </div>
@@ -853,12 +853,6 @@ export default function TasksPage() {
 
   const tasks = tasksData?.tasks || [];
   const totalPages = tasksData?.totalPages || 1;
-  
-  // Debug: Log tasks to see if comments are included
-  if (tasks.length > 0) {
-    console.log('Task commentCount:', tasks[0].commentCount);
-    console.log('Task recentComments:', tasks[0].recentComments);
-  }
 
   return (
     <div className="container mx-auto px-4 py-12">
