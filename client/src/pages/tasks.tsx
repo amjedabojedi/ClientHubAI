@@ -586,10 +586,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
               </Badge>
             </div>
             
-            <div className="text-sm space-y-0.5">
-              {task.description && (
-                <p className="text-slate-600 line-clamp-1">{task.description}</p>
-              )}
+            <div className="text-sm space-y-1">
               <p className="text-slate-600">
                 <span 
                   className="hover:text-primary cursor-pointer font-medium"
@@ -611,6 +608,13 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
                   </span>
                 )}
               </p>
+              
+              {task.description && (
+                <>
+                  <div className="border-t border-slate-200 my-2"></div>
+                  <p className="text-slate-600 italic">{task.description}</p>
+                </>
+              )}
             </div>
           </div>
         </div>
