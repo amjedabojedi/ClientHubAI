@@ -1719,25 +1719,25 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-end">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSessionsFilters({
-                        page: 1,
-                        limit: 50,
-                        startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-                        endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
-                        therapistId: 'all',
-                        status: 'all',
-                        serviceCode: 'all',
-                        clientId: ''
-                      })}
-                      className="text-sm"
-                    >
-                      Reset Filters
-                    </Button>
-                  </div>
+                </div>
+                <div className="mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSessionsFilters({
+                      page: 1,
+                      limit: 50,
+                      startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+                      endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
+                      therapistId: 'all',
+                      status: 'all',
+                      serviceCode: 'all',
+                      clientId: ''
+                    })}
+                    className="text-sm"
+                  >
+                    Reset Filters
+                  </Button>
                 </div>
               </CardContent>
             </Card>
