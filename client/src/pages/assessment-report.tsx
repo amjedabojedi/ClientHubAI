@@ -314,7 +314,7 @@ export default function AssessmentReportPage() {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setLocation(`/clients/${assignment.clientId}?tab=assessments`)}
+                onClick={() => setLocation(`/clients/${assignment.clientId}?from=assessments&tab=assessments`)}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
