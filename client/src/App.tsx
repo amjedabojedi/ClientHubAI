@@ -97,8 +97,8 @@ function Navigation() {
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-8">
+        <div className="flex items-center h-16">
+          <div className="flex items-center space-x-6 flex-1">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">TF</span>
