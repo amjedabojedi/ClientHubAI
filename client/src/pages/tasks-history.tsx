@@ -87,8 +87,8 @@ function TaskHistoryItem({ task }: { task: TaskWithDetails }) {
               <div className="flex items-center gap-1">
                 <User className="w-4 h-4" />
                 <span 
-                  className="hover:text-primary cursor-pointer"
-                  onClick={() => setLocation(`/clients/${task.client.id}`)}
+                  className="text-primary hover:underline cursor-pointer"
+                  onClick={() => setLocation(`/clients/${task.client.id}?from=tasks-history`)}
                 >
                   {task.client.fullName}
                 </span>
