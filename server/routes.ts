@@ -2422,12 +2422,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Storage method now handles role-based filtering
       const result = await storage.getAllTasks(params);
       
-      // Add comment counts to each task
+      // Add comment counts and recent comments to each task
       const tasksWithComments = await Promise.all(result.tasks.map(async (task) => {
         const comments = await storage.getTaskComments(task.id);
         return {
           ...task,
-          commentCount: comments.length
+          commentCount: comments.length,
+          recentComments: comments.slice(-2).reverse() // Last 2 comments, newest first
         };
       }));
       

@@ -54,10 +54,19 @@ import { useRecentItems } from "@/hooks/useRecentItems";
 // Components
 import { TaskComments } from "@/components/task-management/task-comments";
 
+interface TaskComment {
+  id: number;
+  comment: string;
+  createdAt: string;
+  createdBy: number;
+  createdByName?: string;
+}
+
 interface TaskWithDetails extends Task {
   assignedTo?: UserType;
   client: Client;
   commentCount?: number;
+  recentComments?: TaskComment[];
 }
 
 interface TasksQueryResult {
@@ -618,10 +627,22 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
               )}
               
               {(task.commentCount !== undefined && task.commentCount > 0) && (
-                <div className="flex items-center gap-1 text-xs text-slate-500 mt-2">
-                  <MessageSquare className="w-3 h-3" />
-                  <span className="font-semibold">Comments:</span>
-                  <span>{task.commentCount}</span>
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <MessageSquare className="w-3 h-3" />
+                    <span className="font-semibold">Comments:</span>
+                    <span>{task.commentCount}</span>
+                  </div>
+                  
+                  {task.recentComments && task.recentComments.length > 0 && (
+                    <div className="ml-4 space-y-1">
+                      {task.recentComments.map((comment) => (
+                        <div key={comment.id} className="text-xs text-slate-600 italic border-l-2 border-slate-300 pl-2">
+                          "{comment.comment}"
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
