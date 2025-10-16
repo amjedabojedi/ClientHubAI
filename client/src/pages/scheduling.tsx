@@ -1921,42 +1921,25 @@ export default function SchedulingPage() {
                 </CardContent>
               </Card>
 
-              {/* Today's Summary */}
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Clock className="w-5 h-5" />
-                    <span>
-                      {viewMode === "week" ? (
-                        (() => {
-                          const dayOfWeek = selectedDate.getDay();
-                          const weekStart = new Date(selectedDate);
-                          weekStart.setDate(selectedDate.getDate() - dayOfWeek);
-                          const weekEnd = new Date(weekStart);
-                          weekEnd.setDate(weekStart.getDate() + 6);
-                          return `Week of ${format(weekStart, 'MMM dd')} - ${format(weekEnd, 'MMM dd, yyyy')}`;
-                        })()
-                      ) : (
-                        selectedDate.toDateString() === new Date().toDateString() 
+              {/* Today's Summary - Hidden in Week View */}
+              {viewMode !== "week" && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Clock className="w-5 h-5" />
+                      <span>
+                        {selectedDate.toDateString() === new Date().toDateString() 
                           ? "Today's Sessions" 
-                          : "Sessions for " + format(selectedDate, 'MMM dd, yyyy')
-                      )}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const sessions = viewMode === "week" 
-                      ? getWeekSessions(selectedDate) 
-                      : getSessionsForDate(selectedDate);
-                    
-                    return sessions.length === 0 ? (
-                      <p className="text-slate-600 text-sm">
-                        {viewMode === "week" ? "No sessions scheduled for this week" : "No sessions scheduled for today"}
-                      </p>
+                          : "Sessions for " + format(selectedDate, 'MMM dd, yyyy')}
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {getSessionsForDate(selectedDate).length === 0 ? (
+                      <p className="text-slate-600 text-sm">No sessions scheduled for today</p>
                     ) : (
                       <div className="space-y-3">
-                        {sessions.slice(0, viewMode === "week" ? 10 : 5).map((session: Session) => (
+                        {getSessionsForDate(selectedDate).slice(0, 5).map((session: Session) => (
                           <div key={session.id} className="border border-slate-100 rounded-lg p-3 hover:bg-slate-50">
                           <div className="flex items-center justify-between mb-2">
                             <p className="font-medium text-sm">
@@ -2055,10 +2038,10 @@ export default function SchedulingPage() {
                         </div>
                         ))}
                       </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Quick Stats */}
               <Card className="mt-6">
