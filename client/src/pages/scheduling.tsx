@@ -1621,8 +1621,8 @@ export default function SchedulingPage() {
             {/* Filters Section */}
             <Card>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-11 gap-6">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:flex lg:flex-wrap gap-4">
+                  <div className="lg:w-44">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Start Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -1652,8 +1652,7 @@ export default function SchedulingPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="hidden lg:block"></div>
-                  <div>
+                  <div className="lg:w-44">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">End Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -1683,8 +1682,7 @@ export default function SchedulingPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="hidden lg:block"></div>
-                  <div className="lg:col-span-2">
+                  <div className="lg:flex-1 lg:min-w-48">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
                     <Select 
                       value={sessionsFilters.therapistId} 
@@ -1703,8 +1701,7 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="hidden lg:block"></div>
-                  <div className="lg:col-span-2">
+                  <div className="lg:w-36">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
                     <Select 
                       value={sessionsFilters.status} 
@@ -1723,8 +1720,7 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="hidden lg:block"></div>
-                  <div className="lg:col-span-2">
+                  <div className="lg:flex-1 lg:min-w-48">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Service Code</label>
                     <Select 
                       value={sessionsFilters.serviceCode} 
@@ -1743,8 +1739,7 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="hidden lg:block"></div>
-                  <div>
+                  <div className="lg:w-28">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Per Page</label>
                     <Select 
                       value={sessionsFilters.limit.toString()} 
