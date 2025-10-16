@@ -1621,7 +1621,7 @@ export default function SchedulingPage() {
             {/* Filters Section */}
             <Card>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-11 gap-6">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Start Date</label>
                     <Popover>
@@ -1652,6 +1652,7 @@ export default function SchedulingPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
+                  <div className="hidden lg:block"></div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">End Date</label>
                     <Popover>
@@ -1682,6 +1683,7 @@ export default function SchedulingPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
+                  <div className="hidden lg:block"></div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
                     <Select 
@@ -1701,6 +1703,7 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="hidden lg:block"></div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
                     <Select 
@@ -1720,6 +1723,7 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="hidden lg:block"></div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Service Code</label>
                     <Select 
@@ -1739,6 +1743,7 @@ export default function SchedulingPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="hidden lg:block"></div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Per Page</label>
                     <Select 
