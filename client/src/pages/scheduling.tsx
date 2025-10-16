@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,7 +48,8 @@ import {
   RotateCw,
   Video,
   ExternalLink,
-  MoreVertical
+  MoreVertical,
+  CalendarIcon
 } from "lucide-react";
 
 // Utils and Hooks
@@ -1630,21 +1632,63 @@ export default function SchedulingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Start Date</label>
-                    <Input
-                      type="date"
-                      value={sessionsFilters.startDate}
-                      onChange={(e) => setSessionsFilters(prev => ({ ...prev, startDate: e.target.value, page: 1 }))}
-                      className="text-sm"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal text-sm h-9"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {sessionsFilters.startDate ? format(new Date(sessionsFilters.startDate), 'MMM dd, yyyy') : 'Pick a date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={sessionsFilters.startDate ? new Date(sessionsFilters.startDate) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setSessionsFilters(prev => ({ 
+                                ...prev, 
+                                startDate: format(date, 'yyyy-MM-dd'), 
+                                page: 1 
+                              }));
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">End Date</label>
-                    <Input
-                      type="date"
-                      value={sessionsFilters.endDate}
-                      onChange={(e) => setSessionsFilters(prev => ({ ...prev, endDate: e.target.value, page: 1 }))}
-                      className="text-sm"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal text-sm h-9"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {sessionsFilters.endDate ? format(new Date(sessionsFilters.endDate), 'MMM dd, yyyy') : 'Pick a date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={sessionsFilters.endDate ? new Date(sessionsFilters.endDate) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setSessionsFilters(prev => ({ 
+                                ...prev, 
+                                endDate: format(date, 'yyyy-MM-dd'), 
+                                page: 1 
+                              }));
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
