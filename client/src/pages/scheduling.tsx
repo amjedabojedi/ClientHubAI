@@ -2070,8 +2070,14 @@ export default function SchedulingPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Today</span>
-                    <span className="font-medium">{getSessionsForDate(selectedDate).length} sessions</span>
+                    <span className="text-sm text-slate-600">
+                      {viewMode === "week" ? "This Week" : "Today"}
+                    </span>
+                    <span className="font-medium">
+                      {viewMode === "week" 
+                        ? getWeekSessions(selectedDate).length 
+                        : getSessionsForDate(selectedDate).length} sessions
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600">This Month</span>
@@ -2080,13 +2086,17 @@ export default function SchedulingPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600">Completed</span>
                     <span className="font-medium text-green-600">
-                      {filteredSessions.filter((s: Session) => s.status === 'completed').length}
+                      {viewMode === "week" 
+                        ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'completed').length
+                        : filteredSessions.filter((s: Session) => s.status === 'completed').length}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600">Upcoming</span>
                     <span className="font-medium text-blue-600">
-                      {filteredSessions.filter((s: Session) => s.status === 'scheduled').length}
+                      {viewMode === "week"
+                        ? getWeekSessions(selectedDate).filter((s: Session) => s.status === 'scheduled').length
+                        : filteredSessions.filter((s: Session) => s.status === 'scheduled').length}
                     </span>
                   </div>
                 </CardContent>
