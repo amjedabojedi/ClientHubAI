@@ -629,9 +629,9 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
               
               {task.createdAt && (
                 <div className="flex items-center gap-4 text-xs text-slate-600 font-medium mt-2 pt-2 border-t border-slate-100">
-                  <span>📅 Created: {formatInTimeZone(new Date(task.createdAt), 'America/New_York', 'MMM d, yyyy')}</span>
+                  <span>Created: {formatInTimeZone(new Date(task.createdAt), 'America/New_York', 'MMM d, yyyy')}</span>
                   {task.completedAt && (
-                    <span className="text-green-600">✅ Completed: {formatInTimeZone(new Date(task.completedAt), 'America/New_York', 'MMM d, yyyy')}</span>
+                    <span className="text-green-600">Completed: {formatInTimeZone(new Date(task.completedAt), 'America/New_York', 'MMM d, yyyy')}</span>
                   )}
                 </div>
               )}
