@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -263,6 +263,7 @@ export default function BillingDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading, isFetching } = useQuery({
@@ -838,12 +839,12 @@ export default function BillingDashboard() {
                     <TableRow key={billing.id}>
                       <TableCell className="font-medium">
                         <div>
-                          <Link 
-                            href={`/clients/${client.id}`}
-                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          <span
+                            onClick={() => setLocation(`/clients/${client.id}?from=billing`)}
+                            className="text-primary hover:underline cursor-pointer"
                           >
                             {client.fullName || 'Unknown Client'}
-                          </Link>
+                          </span>
                           <div className="text-xs text-muted-foreground">{client.referenceNumber}</div>
                         </div>
                       </TableCell>
