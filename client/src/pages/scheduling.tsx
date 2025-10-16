@@ -1583,16 +1583,49 @@ export default function SchedulingPage() {
           </div>)
         ) : viewMode === "list" ? (
           /* All Sessions List View */
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">All Sessions</h2>
-              <div className="text-sm text-slate-600">
-                {allSessionsData?.total || 0} total sessions (showing {allSessions.length})
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Quick Stats Sidebar */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="w-5 h-5" />
+                    <span>Quick Stats</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Total Sessions</span>
+                    <span className="font-medium">{allSessionsData?.total || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Showing</span>
+                    <span className="font-medium">{allSessions.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Completed</span>
+                    <span className="font-medium text-green-600">
+                      {allSessions.filter((s: Session) => s.status === 'completed').length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600">Upcoming</span>
+                    <span className="font-medium text-blue-600">
+                      {allSessions.filter((s: Session) => s.status === 'scheduled').length}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Filters Section */}
-            <Card>
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">All Sessions</h2>
+              </div>
+
+              {/* Filters Section */}
+              <Card>
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
                   <div>
@@ -1894,6 +1927,7 @@ export default function SchedulingPage() {
                 </CardContent>
               </Card>
             )}
+            </div>
           </div>
         ) : (
           /* Day/Week View */
