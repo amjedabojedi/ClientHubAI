@@ -57,6 +57,7 @@ import { TaskComments } from "@/components/task-management/task-comments";
 interface TaskWithDetails extends Task {
   assignedTo?: UserType;
   client: Client;
+  commentCount?: number;
 }
 
 interface TasksQueryResult {
@@ -614,6 +615,14 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
                   <div className="border-t border-slate-200 my-2"></div>
                   <p className="text-slate-600 italic">{task.description}</p>
                 </>
+              )}
+              
+              {(task.commentCount !== undefined && task.commentCount > 0) && (
+                <div className="flex items-center gap-1 text-xs text-slate-500 mt-2">
+                  <MessageSquare className="w-3 h-3" />
+                  <span className="font-semibold">Comments:</span>
+                  <span>{task.commentCount}</span>
+                </div>
               )}
             </div>
           </div>
