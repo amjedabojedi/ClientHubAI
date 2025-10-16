@@ -853,6 +853,12 @@ export default function TasksPage() {
 
   const tasks = tasksData?.tasks || [];
   const totalPages = tasksData?.totalPages || 1;
+  
+  // Debug: Log tasks to see if comments are included
+  if (tasks.length > 0) {
+    console.log('Task commentCount:', tasks[0].commentCount);
+    console.log('Task recentComments:', tasks[0].recentComments);
+  }
 
   return (
     <div className="container mx-auto px-4 py-12">
