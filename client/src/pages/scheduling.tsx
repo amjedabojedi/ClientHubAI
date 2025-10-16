@@ -2169,7 +2169,12 @@ export default function SchedulingPage() {
                             )}
                             <div className="flex items-start justify-between">
                               <div className="flex items-center space-x-4 flex-1">
-                                <div className="text-center">
+                                <div className="text-center min-w-[100px]">
+                                  {viewMode === "week" && (
+                                    <p className="text-xs font-medium text-slate-500 mb-1">
+                                      {format(parseSessionDate(session.sessionDate), 'EEE, MMM dd')}
+                                    </p>
+                                  )}
                                   <p className="font-semibold text-lg">
                                     {(() => {
                                       const sessionDate = parseSessionDate(session.sessionDate);
