@@ -1684,7 +1684,7 @@ export default function SchedulingPage() {
                     </Popover>
                   </div>
                   <div className="hidden lg:block"></div>
-                  <div>
+                  <div className="lg:col-span-2">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
                     <Select 
                       value={sessionsFilters.therapistId} 
@@ -1704,7 +1704,7 @@ export default function SchedulingPage() {
                     </Select>
                   </div>
                   <div className="hidden lg:block"></div>
-                  <div>
+                  <div className="lg:col-span-2">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
                     <Select 
                       value={sessionsFilters.status} 
@@ -1724,7 +1724,7 @@ export default function SchedulingPage() {
                     </Select>
                   </div>
                   <div className="hidden lg:block"></div>
-                  <div>
+                  <div className="lg:col-span-2">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Service Code</label>
                     <Select 
                       value={sessionsFilters.serviceCode} 
