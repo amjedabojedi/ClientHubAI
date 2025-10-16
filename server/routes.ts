@@ -2337,7 +2337,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const clientId = parseInt(req.params.clientId);
       const tasks = await storage.getTasksByClient(clientId);
-      res.json(tasks);
+      
+      // Add comment counts and recent comments to each task
+      const tasksWithComments = await Promise.all(tasks.map(async (task) => {
+        const comments = await storage.getTaskComments(task.id);
+        return {
+          ...task,
+          commentCount: comments.length,
+          recentComments: comments.slice(-2).reverse() // Last 2 comments, newest first
+        };
+      }));
+      
+      res.json(tasksWithComments);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });

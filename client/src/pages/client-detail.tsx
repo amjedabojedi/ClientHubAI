@@ -3238,54 +3238,103 @@ export default function ClientDetailPage() {
               <CardContent className="p-6">
                 {tasks.length > 0 ? (
                   <div className="space-y-4">
-                    {tasks.map((task: Task) => (
-                      <div key={task.id} className="flex items-start justify-between border rounded-lg p-4 hover:bg-slate-50 transition-colors">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-medium text-slate-900">{task.title}</h4>
-                            <div className="flex gap-2">
-                              <Badge className={
-                                task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                                task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-green-100 text-green-800'
-                              }>
-                                {task.priority}
-                              </Badge>
-                              <Badge className={
-                                task.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                                task.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              }>
-                                {task.status?.replace('_', ' ')}
-                              </Badge>
+                    {tasks.map((task: any) => (
+                      <div key={task.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            {/* Status indicator dot */}
+                            <div className={cn(
+                              "w-3 h-3 rounded-full",
+                              task.status === 'completed' ? 'bg-green-500' :
+                              task.status === 'in_progress' ? 'bg-blue-500' :
+                              task.status === 'overdue' ? 'bg-red-500' :
+                              'bg-yellow-500'
+                            )}></div>
+                            
+                            {/* Task details */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-slate-900">{task.title}</h4>
+                                <span className="text-slate-300">•</span>
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    task.priority === 'urgent' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    task.priority === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                    task.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                    'bg-green-50 text-green-700 border-green-200'
+                                  )}
+                                >
+                                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                                </Badge>
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    task.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    task.status === 'overdue' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                  )}
+                                >
+                                  {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
+                                </Badge>
+                              </div>
+                              
+                              <div className="text-sm space-y-1">
+                                {task.dueDate && (
+                                  <p className="text-slate-600">
+                                    <Calendar className="w-3 h-3 inline mr-1" />
+                                    {formatInTimeZone(new Date(task.dueDate), 'America/New_York', 'MMM d, yyyy')}
+                                    {task.assignedToId && (
+                                      <span className="text-slate-500 ml-2">
+                                        <Target className="w-3 h-3 inline mr-1" />
+                                        User #{task.assignedToId}
+                                      </span>
+                                    )}
+                                  </p>
+                                )}
+                                
+                                {task.description && (
+                                  <>
+                                    <div className="border-t border-slate-200 my-2"></div>
+                                    <p className="text-slate-600 italic">{task.description}</p>
+                                  </>
+                                )}
+                                
+                                {(task.commentCount !== undefined && task.commentCount > 0) && (
+                                  <div className="mt-2 space-y-1">
+                                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                                      <MessageSquare className="w-3 h-3" />
+                                      <span className="font-semibold">Comments:</span>
+                                      <span>{task.commentCount}</span>
+                                    </div>
+                                    
+                                    {task.recentComments && task.recentComments.length > 0 && (
+                                      <div className="ml-4 space-y-1">
+                                        {task.recentComments.map((comment: any) => (
+                                          <div key={comment.id} className="text-xs text-slate-600 italic border-l-2 border-slate-300 pl-2">
+                                            "{comment.content}" - {comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d')}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
-                          {task.description && (
-                            <p className="text-slate-600 text-sm mb-2">{task.description}</p>
-                          )}
-                          
-                          <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <span>Created: {format(new Date(task.createdAt), 'MMM dd, yyyy')}</span>
-                            {task.dueDate && (
-                              <span>Due: {format(new Date(task.dueDate), 'MMM dd, yyyy')}</span>
-                            )}
-                            {task.assignedToId && (
-                              <span>Assigned to: User #{task.assignedToId}</span>
-                            )}
+                          {/* Action button */}
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="default"
+                              size="sm"
+                              onClick={() => setLocation("/tasks")}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              View in Tasks
+                            </Button>
                           </div>
-                        </div>
-                        
-                        <div className="flex gap-2 ml-4">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => setLocation("/tasks")}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
                         </div>
                       </div>
                     ))}

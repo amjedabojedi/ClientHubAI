@@ -638,7 +638,7 @@ function TaskCard({ task, onEdit, onDelete, onViewComments, onViewTask }: {
                     <div className="ml-4 space-y-1">
                       {task.recentComments.map((comment) => (
                         <div key={comment.id} className="text-xs text-slate-600 italic border-l-2 border-slate-300 pl-2">
-                          "{comment.content}"
+                          "{comment.content}" - {comment.author.fullName}, {formatInTimeZone(new Date(comment.createdAt), 'America/New_York', 'MMM d')}
                         </div>
                       ))}
                     </div>
