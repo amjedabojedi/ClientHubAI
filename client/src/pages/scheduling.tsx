@@ -1719,8 +1719,11 @@ export default function SchedulingPage() {
                           }}
                         >
                           <div className="flex items-start justify-between">
-                            <div className="flex items-center space-x-4 flex-1">
-                              <div className="text-center">
+                            <div className="flex items-start space-x-4 flex-1">
+                              <div className="text-center min-w-[100px]">
+                                <Badge className={`${getStatusColor(session.status)} mb-2`} variant="secondary">
+                                  {session.status}
+                                </Badge>
                                 <p className="font-semibold text-lg">
                                   {format(new Date(session.sessionDate), 'MMM dd, yyyy')}
                                 </p>
@@ -1728,12 +1731,6 @@ export default function SchedulingPage() {
                                   {formatTime(session.sessionDate)}
                                 </p>
                               </div>
-                              
-                              <Avatar className="w-12 h-12">
-                                <AvatarFallback className="bg-blue-100 text-blue-600">
-                                  {getInitials(session.client?.fullName || 'UC')}
-                                </AvatarFallback>
-                              </Avatar>
                               
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
@@ -1746,12 +1743,9 @@ export default function SchedulingPage() {
                                   >
                                     {session.client?.fullName || 'Unknown Client'}
                                   </h3>
-                                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-mono">
-                                    {session.client?.referenceNumber || 'No Ref#'}
+                                  <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
+                                    Ref# {session.client?.referenceNumber || 'N/A'}
                                   </span>
-                                  <Badge className={getStatusColor(session.status)} variant="secondary">
-                                    {session.status}
-                                  </Badge>
                                 </div>
                                 <div className="space-y-1 text-sm text-slate-600">
                                   <div className="flex items-center space-x-2">
