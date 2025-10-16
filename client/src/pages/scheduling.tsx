@@ -1620,8 +1620,8 @@ export default function SchedulingPage() {
 
             {/* Filters Section */}
             <Card>
-              <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-6">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Start Date</label>
                     <Popover>
