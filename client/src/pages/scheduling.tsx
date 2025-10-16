@@ -816,6 +816,23 @@ export default function SchedulingPage() {
     });
   };
 
+  const getWeekSessions = (date: Date): Session[] => {
+    // Get start of week (Sunday) and end of week (Saturday) for the given date
+    const dayOfWeek = date.getDay();
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - dayOfWeek);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    
+    return filteredSessions.filter((session: Session) => {
+      const sessionDate = parseSessionDate(session.sessionDate);
+      return sessionDate >= weekStart && sessionDate <= weekEnd;
+    });
+  };
+
   const getSessionsForDate = (date: Date): Session[] => {
     // Format date as YYYY-MM-DD in local timezone to avoid UTC conversion issues
     const year = date.getFullYear();
