@@ -1921,8 +1921,8 @@ export default function SchedulingPage() {
                 </CardContent>
               </Card>
 
-              {/* Today's Summary - Hidden in Week View */}
-              {viewMode !== "week" && (
+              {/* Today's Summary - Hidden in Day and Week Views */}
+              {viewMode !== "week" && viewMode !== "day" && (
                 <Card className="mt-6">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
