@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -45,7 +46,8 @@ import {
   AlertCircle,
   RotateCw,
   Video,
-  ExternalLink
+  ExternalLink,
+  MoreVertical
 } from "lucide-react";
 
 // Utils and Hooks
@@ -1780,7 +1782,7 @@ export default function SchedulingPage() {
                               </div>
                             </div>
                             
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center gap-2">
                               <Button 
                                 variant="default" 
                                 size="sm"
@@ -1793,6 +1795,49 @@ export default function SchedulingPage() {
                                 <Edit className="w-4 h-4 mr-2" />
                                 Edit Session
                               </Button>
+                              
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
+                                    <>
+                                      <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
+                                        <Video className="w-4 h-4 mr-2 text-blue-600" />
+                                        Join Zoom Meeting
+                                      </DropdownMenuItem>
+                                      <div className="border-t my-1"></div>
+                                    </>
+                                  )}
+                                  
+                                  <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                    Change Status
+                                  </div>
+                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
+                                    <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
+                                    Mark Scheduled
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
+                                    <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                    Mark Completed
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
+                                    <X className="w-4 h-4 mr-2 text-red-600" />
+                                    Mark Cancelled
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
+                                    <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                                    Mark Rescheduled
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
+                                    <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                    Mark No-Show
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                           
@@ -1924,7 +1969,7 @@ export default function SchedulingPage() {
                             <span>{session.sessionType} • {(session.service as any)?.duration || 60}min</span>
                             {session.room && <span>• Room {session.room.roomNumber}</span>}
                           </div>
-                          <div className="flex space-x-1 mt-3">
+                          <div className="flex gap-1 mt-3">
                             <Button 
                               variant="default" 
                               size="sm" 
@@ -1937,6 +1982,49 @@ export default function SchedulingPage() {
                               <Edit className="w-3 h-3 mr-1" />
                               Edit Session
                             </Button>
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
+                                      <Video className="w-4 h-4 mr-2 text-blue-600" />
+                                      Join Zoom Meeting
+                                    </DropdownMenuItem>
+                                    <div className="border-t my-1"></div>
+                                  </>
+                                )}
+                                
+                                <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                  Change Status
+                                </div>
+                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
+                                  <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
+                                  Mark Scheduled
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
+                                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                  Mark Completed
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
+                                  <X className="w-4 h-4 mr-2 text-red-600" />
+                                  Mark Cancelled
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
+                                  <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                                  Mark Rescheduled
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
+                                  <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                  Mark No-Show
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
                       ))}
@@ -2091,7 +2179,7 @@ export default function SchedulingPage() {
                                 </div>
                               </div>
                               
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center gap-2">
                                 <Button 
                                   variant="default" 
                                   size="sm"
@@ -2103,6 +2191,49 @@ export default function SchedulingPage() {
                                   <Edit className="w-4 h-4 mr-2" />
                                   Edit Session
                                 </Button>
+                                
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-56">
+                                    {(session as any).zoomEnabled && (session as any).zoomJoinUrl && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => window.open((session as any).zoomJoinUrl, '_blank')}>
+                                          <Video className="w-4 h-4 mr-2 text-blue-600" />
+                                          Join Zoom Meeting
+                                        </DropdownMenuItem>
+                                        <div className="border-t my-1"></div>
+                                      </>
+                                    )}
+                                    
+                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                      Change Status
+                                    </div>
+                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'scheduled')}>
+                                      <CalendarDays className="w-4 h-4 mr-2 text-blue-600" />
+                                      Mark Scheduled
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'completed')}>
+                                      <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                      Mark Completed
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'cancelled')}>
+                                      <X className="w-4 h-4 mr-2 text-red-600" />
+                                      Mark Cancelled
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'rescheduled')}>
+                                      <RotateCw className="w-4 h-4 mr-2 text-purple-600" />
+                                      Mark Rescheduled
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => updateSessionStatus(session.id, 'no_show')}>
+                                      <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                      Mark No-Show
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </div>
                             
