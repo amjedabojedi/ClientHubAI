@@ -1,9 +1,16 @@
 /**
  * Centralized datetime utility library for TherapyFlow
  * Provides consistent time formatting and manipulation across the application
+ * 
+ * STANDARD DATE FORMATS (ALL dates in America/New_York timezone):
+ * - Date only: 'MMM dd, yyyy' (e.g., "Jan 15, 2025")
+ * - Date with time: "MMM dd, yyyy 'at' h:mm a" (e.g., "Jan 15, 2025 at 2:30 PM")
+ * - Full month date: 'MMMM dd, yyyy' (e.g., "January 15, 2025")
+ * - Input dates: 'yyyy-MM-dd' (e.g., "2025-01-15")
  */
 
-import { toZonedTime, fromZonedTime, format as tzFormat } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime, format as tzFormat, formatInTimeZone } from 'date-fns-tz';
+import { format } from 'date-fns';
 
 // User time format preferences
 export type TimeFormat = '12h' | '24h';
@@ -12,6 +19,16 @@ export type DurationPreset = '30m' | '45m' | '1h' | '1.5h' | '2h';
 // Default user preferences (can be overridden by user settings)
 const DEFAULT_TIME_FORMAT: TimeFormat = '12h';
 const DEFAULT_TIMEZONE = 'America/New_York'; // EST/EDT timezone for entire app
+
+// STANDARD FORMAT STRINGS - Use these throughout the app for consistency
+export const DATE_FORMATS = {
+  DISPLAY: 'MMM dd, yyyy',              // Standard date display (Jan 15, 2025)
+  DISPLAY_FULL: 'MMMM dd, yyyy',        // Full month name (January 15, 2025)
+  DISPLAY_WITH_TIME: "MMM dd, yyyy 'at' h:mm a", // Date with time (Jan 15, 2025 at 2:30 PM)
+  INPUT: 'yyyy-MM-dd',                  // Date input format (2025-01-15)
+  MONTH_YEAR: 'MMMM yyyy',              // Month and year (January 2025)
+  AUDIT: 'MMM dd, yyyy HH:mm:ss',       // Audit logs with seconds
+} as const;
 
 /**
  * Get user's preferred time format (12h/24h)
@@ -34,6 +51,76 @@ export const getUserTimeFormat = (): TimeFormat => {
  */
 export const getUserTimeZone = (): string => {
   return DEFAULT_TIMEZONE;
+};
+
+/**
+ * STANDARD DATE FORMATTING FUNCTIONS
+ * Use these functions throughout the app for consistent date display
+ */
+
+/**
+ * Format date for standard display (MMM dd, yyyy)
+ * Example: Jan 15, 2025
+ */
+export const formatDateDisplay = (date: Date | string | null | undefined): string => {
+  if (!date) return 'No date';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid Date';
+  return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.DISPLAY);
+};
+
+/**
+ * Format date with full month name (MMMM dd, yyyy)
+ * Example: January 15, 2025
+ */
+export const formatDateFull = (date: Date | string | null | undefined): string => {
+  if (!date) return 'No date';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid Date';
+  return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.DISPLAY_FULL);
+};
+
+/**
+ * Format date with time (MMM dd, yyyy 'at' h:mm a)
+ * Example: Jan 15, 2025 at 2:30 PM
+ */
+export const formatDateTimeDisplay = (date: Date | string | null | undefined): string => {
+  if (!date) return 'No date';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid Date';
+  return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.DISPLAY_WITH_TIME);
+};
+
+/**
+ * Format date for input fields (yyyy-MM-dd)
+ * Example: 2025-01-15
+ */
+export const formatDateInput = (date: Date | string | null | undefined): string => {
+  if (!date) return '';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return '';
+  return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.INPUT);
+};
+
+/**
+ * Format month and year (MMMM yyyy)
+ * Example: January 2025
+ */
+export const formatMonthYear = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid Date';
+  return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.MONTH_YEAR);
+};
+
+/**
+ * Format date for audit logs with seconds (MMM dd, yyyy HH:mm:ss)
+ * Example: Jan 15, 2025 14:30:45
+ */
+export const formatDateAudit = (date: Date | string | null | undefined): string => {
+  if (!date) return 'No date';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return 'Invalid Date';
+  return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.AUDIT);
 };
 
 /**
