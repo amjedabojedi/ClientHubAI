@@ -1755,9 +1755,6 @@ export default function SchedulingPage() {
                                   <div className="flex items-center space-x-2">
                                     <FileText className="w-4 h-4" />
                                     <span>{session.sessionType}</span>
-                                    <Badge className={getSessionTypeColor(session.sessionType)} variant="secondary">
-                                      {session.sessionType}
-                                    </Badge>
                                   </div>
                                   {session.room && (
                                     <div className="flex items-center space-x-2">
