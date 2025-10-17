@@ -774,10 +774,10 @@ export default function NotificationsPage() {
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-slate-900">
             Notification Center
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
+          <p className="text-slate-600 mt-1">
             Manage notifications, triggers, and templates
           </p>
         </div>

@@ -424,8 +424,8 @@ export default function MyProfilePage() {
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">My Profile</h1>
-          <p className="text-gray-600 dark:text-gray-300">
+          <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
+          <p className="text-slate-600 mt-1">
             Manage your professional information and credentials
           </p>
         </div>

@@ -152,7 +152,7 @@ export default function TaskHistoryPage() {
             Back to Tasks
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
               <History className="w-8 h-8" />
               Task History
             </h1>

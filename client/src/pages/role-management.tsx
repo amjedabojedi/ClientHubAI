@@ -213,8 +213,8 @@ export default function RoleManagement() {
     <div className="container mx-auto py-12 px-4">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Role Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold text-slate-900">Role Management</h1>
+          <p className="text-slate-600 mt-1">
             Create and manage custom roles with specific permissions
           </p>
         </div>
