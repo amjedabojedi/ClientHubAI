@@ -2157,6 +2157,8 @@ export default function ClientDetailPage() {
                 <Button 
                   size="sm"
                   onClick={() => window.location.href = `/scheduling?clientId=${client.id}&clientName=${encodeURIComponent(client.fullName)}&therapistId=${client.assignedTherapistId || ''}&therapistName=${encodeURIComponent('')}`}
+                  disabled={client.status === 'inactive'}
+                  title={client.status === 'inactive' ? 'Cannot schedule sessions for inactive clients' : ''}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Schedule Session
@@ -2362,6 +2364,8 @@ export default function ClientDetailPage() {
                                       setPreSelectedSessionId(session.id);
                                       setIsSessionNotesDialogOpen(true);
                                     }}
+                                    disabled={client.status === 'inactive'}
+                                    title={client.status === 'inactive' ? 'Cannot add notes for inactive clients' : ''}
                                     data-testid={`button-add-note-${session.id}`}
                                   >
                                     <FileText className="w-4 h-4 mr-2" />
@@ -2378,6 +2382,8 @@ export default function ClientDetailPage() {
                                       setPreSelectedNoteId(sessionNote.id);
                                       setIsSessionNotesDialogOpen(true);
                                     }}
+                                    disabled={client.status === 'inactive'}
+                                    title={client.status === 'inactive' ? 'Cannot edit notes for inactive clients' : ''}
                                     data-testid={`button-edit-note-${session.id}`}
                                   >
                                     <Edit className="w-4 h-4 mr-2" />
