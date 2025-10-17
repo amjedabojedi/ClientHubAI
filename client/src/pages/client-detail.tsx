@@ -1874,7 +1874,7 @@ export default function ClientDetailPage() {
                       <span className="text-slate-900 font-medium">
                         {(() => {
                           const firstSessionDate = new Date(Math.min(...sessions.map((s: Session) => new Date(s.sessionDate).getTime())));
-                          return `${firstSessionDate.getFullYear()}-${String(firstSessionDate.getMonth() + 1).padStart(2, '0')}-${String(firstSessionDate.getDate()).padStart(2, '0')}`;
+                          return formatDateDisplay(firstSessionDate);
                         })()}
                       </span>
                     </div>
