@@ -273,9 +273,16 @@ export default function SchedulingPage() {
     limit: number;
     appliedFilters: any;
   }>({
-    queryKey: ["/api/sessions", { 
-      ...sessionsFilters
-    }],
+    queryKey: ["/api/sessions", 
+      sessionsFilters.page,
+      sessionsFilters.limit,
+      sessionsFilters.startDate,
+      sessionsFilters.endDate,
+      sessionsFilters.therapistId,
+      sessionsFilters.status,
+      sessionsFilters.serviceCode,
+      sessionsFilters.clientId
+    ],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: viewMode === "list",
     staleTime: 30 * 1000, // Cache for 30 seconds - list view needs fresher data
