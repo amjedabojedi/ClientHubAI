@@ -517,7 +517,10 @@ export default function BillingDashboard() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Billing Dashboard</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Billing Dashboard</h1>
+            <p className="text-slate-600 mt-1">Track invoices, payments, and billing status</p>
+          </div>
         </div>
         <div className="text-center py-8">Loading billing data...</div>
       </div>
@@ -529,14 +532,17 @@ export default function BillingDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">Billing Dashboard</h1>
-          {isFetching && !isLoading && (
-            <Badge variant="outline" className="animate-pulse">
-              <Clock className="h-3 w-3 mr-1" />
-              Updating...
-            </Badge>
-          )}
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Billing Dashboard</h1>
+            {isFetching && !isLoading && (
+              <Badge variant="outline" className="animate-pulse">
+                <Clock className="h-3 w-3 mr-1" />
+                Updating...
+              </Badge>
+            )}
+          </div>
+          <p className="text-slate-600 mt-1">Track invoices, payments, and billing status</p>
         </div>
         {user?.role === 'admin' && (
           <div className="flex gap-2">
