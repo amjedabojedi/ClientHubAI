@@ -159,7 +159,7 @@ function Navigation() {
           </div>
           
           {user && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center">
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
