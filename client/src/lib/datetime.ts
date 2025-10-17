@@ -54,6 +54,15 @@ export const getUserTimeZone = (): string => {
 };
 
 /**
+ * Get today's date in the practice timezone (America/New_York)
+ * Returns the date string in yyyy-MM-dd format for use in date inputs
+ */
+export const getTodayInPracticeTimezone = (): string => {
+  const now = new Date();
+  return formatInTimeZone(now, DEFAULT_TIMEZONE, DATE_FORMATS.INPUT);
+};
+
+/**
  * STANDARD DATE FORMATTING FUNCTIONS
  * Use these functions throughout the app for consistent date display
  */

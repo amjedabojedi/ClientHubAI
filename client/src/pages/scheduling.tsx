@@ -59,7 +59,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
-import { formatTime, formatDate, formatDateTime, formatDateInput, generateTimeSlots, timeRangesOverlap, getUserTimeFormat, DURATION_PRESETS, durationToMinutes, localToUTC } from "@/lib/datetime";
+import { formatTime, formatDate, formatDateTime, formatDateInput, getTodayInPracticeTimezone, generateTimeSlots, timeRangesOverlap, getUserTimeFormat, DURATION_PRESETS, durationToMinutes, localToUTC } from "@/lib/datetime";
 
 // Components
 import SessionBulkUploadModal from "@/components/session-management/session-bulk-upload-modal";
@@ -1081,7 +1081,7 @@ export default function SchedulingPage() {
                           control={form.control}
                           name="sessionDate"
                           render={({ field }) => {
-                            const today = formatDateInput(new Date());
+                            const today = getTodayInPracticeTimezone();
                             const currentValue = field.value;
                             const isPastDate = currentValue && currentValue < today;
                             
