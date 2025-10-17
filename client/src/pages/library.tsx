@@ -245,8 +245,8 @@ export default function LibraryPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Clinical Content Library</h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl font-bold text-slate-900">Clinical Content Library</h1>
+          <p className="text-slate-600 mt-1">
             Organize and access reusable clinical content for session notes
           </p>
         </div>
