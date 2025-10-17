@@ -2134,7 +2134,7 @@ export default function ClientDetailPage() {
                       <SelectValue placeholder="All Notes" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Sessions</SelectItem>
+                      <SelectItem value="all">All Notes</SelectItem>
                       <SelectItem value="finalized">Has Finalized Note</SelectItem>
                       <SelectItem value="draft">Has Draft Note</SelectItem>
                       <SelectItem value="no_note">No Note</SelectItem>

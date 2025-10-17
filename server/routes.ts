@@ -1079,7 +1079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filters = {
         startDate: startDate ? new Date(startDate as string) : defaultStartDate,
         endDate: endDate ? new Date(endDate as string) : defaultEndDate,
-        therapistId: therapistId ? parseInt(therapistId as string) : undefined,
+        therapistId: therapistId && therapistId !== 'all' ? parseInt(therapistId as string) : undefined,
         status: status as string,
         serviceCode: serviceCode as string,
         clientId: clientId ? parseInt(clientId as string) : undefined,
