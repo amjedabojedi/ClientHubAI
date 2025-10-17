@@ -281,7 +281,7 @@ export default function DashboardPage() {
       <div className="w-full">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Practice Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Practice Dashboard</h1>
           <p className="text-slate-600 mt-1">Overview of your therapy practice management system</p>
         </div>
 
