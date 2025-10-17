@@ -35,6 +35,7 @@ import {
   Printer
 } from "lucide-react";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { PracticeHeader } from "@/components/shared/practice-header";
 
@@ -756,25 +757,69 @@ export default function BillingDashboard() {
                   </Button>
                 </div>
                 
-                {/* Custom date inputs */}
+                {/* Custom date pickers */}
                 <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
                   <div className="flex-1">
                     <Label className="text-xs text-muted-foreground">From</Label>
-                    <Input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="mt-1"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal mt-1"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {startDate ? format(new Date(startDate), 'MMM dd, yyyy') : 'Pick a date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={startDate ? new Date(startDate + 'T00:00:00') : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                              setStartDate(formattedDate);
+                            }
+                          }}
+                          onDayClick={(date) => {
+                            const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                            setStartDate(formattedDate);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="flex-1">
                     <Label className="text-xs text-muted-foreground">To</Label>
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="mt-1"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal mt-1"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {endDate ? format(new Date(endDate), 'MMM dd, yyyy') : 'Pick a date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={endDate ? new Date(endDate + 'T00:00:00') : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                              setEndDate(formattedDate);
+                            }
+                          }}
+                          onDayClick={(date) => {
+                            const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                            setEndDate(formattedDate);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 
