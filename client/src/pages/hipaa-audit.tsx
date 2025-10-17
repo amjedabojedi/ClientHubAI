@@ -131,11 +131,11 @@ export default function HIPAAAuditPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center">
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center">
               <Shield className="w-8 h-8 mr-3 text-blue-600" />
               HIPAA Audit Trail
             </h1>
-            <p className="text-slate-600 mt-2">
+            <p className="text-slate-600 mt-1">
               Complete audit log of all PHI access and system activities for compliance monitoring
             </p>
           </div>
