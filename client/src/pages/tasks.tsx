@@ -28,10 +28,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { formatDateDisplay, formatDateInput } from "@/lib/datetime";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -849,31 +851,73 @@ export default function TasksPage() {
             <div className="flex gap-3 flex-wrap items-center">
               <div className="flex gap-2 items-center">
                 <label className="text-sm font-medium text-slate-600">Due Date:</label>
-                <Input
-                  type="date"
-                  value={dueDateFrom}
-                  onChange={(e) => {
-                    setDueDateFrom(e.target.value);
-                    setQuickDateFilter("custom");
-                    setPage(1);
-                  }}
-                  className="w-36"
-                  placeholder="From"
-                  data-testid="input-due-date-from"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-36 justify-start text-left font-normal"
+                      data-testid="button-due-date-from"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dueDateFrom ? format(new Date(dueDateFrom), 'MMM dd, yyyy') : 'From'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={dueDateFrom ? new Date(dueDateFrom + 'T00:00:00') : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                          setDueDateFrom(formattedDate);
+                          setQuickDateFilter("custom");
+                          setPage(1);
+                        }
+                      }}
+                      onDayClick={(date) => {
+                        const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                        setDueDateFrom(formattedDate);
+                        setQuickDateFilter("custom");
+                        setPage(1);
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
                 <span className="text-slate-400">to</span>
-                <Input
-                  type="date"
-                  value={dueDateTo}
-                  onChange={(e) => {
-                    setDueDateTo(e.target.value);
-                    setQuickDateFilter("custom");
-                    setPage(1);
-                  }}
-                  className="w-36"
-                  placeholder="To"
-                  data-testid="input-due-date-to"
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-36 justify-start text-left font-normal"
+                      data-testid="button-due-date-to"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dueDateTo ? format(new Date(dueDateTo), 'MMM dd, yyyy') : 'To'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={dueDateTo ? new Date(dueDateTo + 'T00:00:00') : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                          setDueDateTo(formattedDate);
+                          setQuickDateFilter("custom");
+                          setPage(1);
+                        }
+                      }}
+                      onDayClick={(date) => {
+                        const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                        setDueDateTo(formattedDate);
+                        setQuickDateFilter("custom");
+                        setPage(1);
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           
