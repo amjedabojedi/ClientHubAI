@@ -1726,25 +1726,28 @@ export default function SchedulingPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="lg:flex-1 lg:min-w-48">
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
-                    <Select 
-                      value={sessionsFilters.therapistId} 
-                      onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, therapistId: value, page: 1 }))}
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="All Therapists" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Therapists</SelectItem>
-                        {therapists.map((therapist) => (
-                          <SelectItem key={therapist.id} value={therapist.id.toString()}>
-                            {therapist.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Therapist filter - only for admin and supervisor roles */}
+                  {(user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'supervisor') && (
+                    <div className="lg:flex-1 lg:min-w-48">
+                      <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
+                      <Select 
+                        value={sessionsFilters.therapistId} 
+                        onValueChange={(value) => setSessionsFilters(prev => ({ ...prev, therapistId: value, page: 1 }))}
+                      >
+                        <SelectTrigger className="text-sm">
+                          <SelectValue placeholder="All Therapists" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Therapists</SelectItem>
+                          {therapists.map((therapist) => (
+                            <SelectItem key={therapist.id} value={therapist.id.toString()}>
+                              {therapist.fullName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="lg:w-36">
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Status</label>
                     <Select 
