@@ -163,7 +163,7 @@ function Navigation() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Button variant="ghost" className="flex items-center gap-2 h-9 px-3 hover:bg-gray-100 dark:hover:bg-gray-800">
                     <User className="w-4 h-4" />
                     Account
                     <ChevronDown className="w-4 h-4" />
