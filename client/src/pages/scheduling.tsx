@@ -1625,7 +1625,7 @@ export default function SchedulingPage() {
                             if (date) {
                               setSessionsFilters(prev => ({ 
                                 ...prev, 
-                                startDate: format(date, 'yyyy-MM-dd'), 
+                                startDate: formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd'), 
                                 page: 1 
                               }));
                             }
@@ -1655,7 +1655,7 @@ export default function SchedulingPage() {
                             if (date) {
                               setSessionsFilters(prev => ({ 
                                 ...prev, 
-                                endDate: format(date, 'yyyy-MM-dd'), 
+                                endDate: formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd'), 
                                 page: 1 
                               }));
                             }
