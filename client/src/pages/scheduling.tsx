@@ -1620,15 +1620,25 @@ export default function SchedulingPage() {
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={sessionsFilters.startDate ? new Date(sessionsFilters.startDate) : undefined}
+                          selected={sessionsFilters.startDate ? new Date(sessionsFilters.startDate + 'T00:00:00') : undefined}
                           onSelect={(date) => {
                             if (date) {
+                              const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
                               setSessionsFilters(prev => ({ 
                                 ...prev, 
-                                startDate: formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd'), 
+                                startDate: formattedDate, 
                                 page: 1 
                               }));
                             }
+                          }}
+                          onDayClick={(date) => {
+                            // Force trigger even if same date is clicked
+                            const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                            setSessionsFilters(prev => ({ 
+                              ...prev, 
+                              startDate: formattedDate, 
+                              page: 1 
+                            }));
                           }}
                           initialFocus
                         />
@@ -1650,15 +1660,25 @@ export default function SchedulingPage() {
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
-                          selected={sessionsFilters.endDate ? new Date(sessionsFilters.endDate) : undefined}
+                          selected={sessionsFilters.endDate ? new Date(sessionsFilters.endDate + 'T00:00:00') : undefined}
                           onSelect={(date) => {
                             if (date) {
+                              const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
                               setSessionsFilters(prev => ({ 
                                 ...prev, 
-                                endDate: formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd'), 
+                                endDate: formattedDate, 
                                 page: 1 
                               }));
                             }
+                          }}
+                          onDayClick={(date) => {
+                            // Force trigger even if same date is clicked
+                            const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                            setSessionsFilters(prev => ({ 
+                              ...prev, 
+                              endDate: formattedDate, 
+                              page: 1 
+                            }));
                           }}
                           initialFocus
                         />
