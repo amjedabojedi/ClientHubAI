@@ -154,12 +154,12 @@ function Navigation() {
                   </Link>
                 );
               })}
+              {user && <NotificationBell />}
             </div>
           </div>
           
           {user && (
             <div className="flex items-center space-x-2">
-              <NotificationBell />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
