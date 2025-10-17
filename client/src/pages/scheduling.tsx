@@ -283,7 +283,41 @@ export default function SchedulingPage() {
       sessionsFilters.serviceCode,
       sessionsFilters.clientId
     ],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryFn: async () => {
+      let url = '/api/sessions';
+      const params = new URLSearchParams();
+      
+      // Add all filters to query parameters
+      params.append('page', sessionsFilters.page.toString());
+      params.append('limit', sessionsFilters.limit.toString());
+      if (sessionsFilters.startDate) params.append('startDate', sessionsFilters.startDate);
+      if (sessionsFilters.endDate) params.append('endDate', sessionsFilters.endDate);
+      if (sessionsFilters.therapistId && sessionsFilters.therapistId !== 'all') {
+        params.append('therapistId', sessionsFilters.therapistId);
+      }
+      if (sessionsFilters.status && sessionsFilters.status !== 'all') {
+        params.append('status', sessionsFilters.status);
+      }
+      if (sessionsFilters.serviceCode && sessionsFilters.serviceCode !== 'all') {
+        params.append('serviceCode', sessionsFilters.serviceCode);
+      }
+      if (sessionsFilters.clientId) {
+        params.append('clientId', sessionsFilters.clientId);
+      }
+      
+      url += '?' + params.toString();
+      
+      const response = await fetch(url, {
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch sessions');
+      return response.json();
+    },
     enabled: viewMode === "list",
     staleTime: 30 * 1000, // Cache for 30 seconds - list view needs fresher data
   });
