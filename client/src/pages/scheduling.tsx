@@ -570,7 +570,7 @@ export default function SchedulingPage() {
   // Privacy protection - show client name only to assigned therapist and admins/supervisors
   const getDisplayClientName = (session: Session): string => {
     // Admins and supervisors can see all client names
-    if (user?.role === 'admin' || user?.role === 'supervisor') {
+    if (user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'supervisor') {
       return session.client?.fullName || 'Unknown Client';
     }
     
