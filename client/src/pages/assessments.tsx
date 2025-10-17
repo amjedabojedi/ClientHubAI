@@ -260,8 +260,8 @@ export default function AssessmentsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Assessments</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold text-slate-900">Assessments</h1>
+          <p className="text-slate-600 mt-1">
             Manage assessment templates and track client assessment progress
           </p>
         </div>
