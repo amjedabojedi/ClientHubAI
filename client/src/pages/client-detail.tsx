@@ -37,7 +37,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { 
   AlertCircle,
   AlertTriangle,
-  ArrowLeft, 
+  ArrowLeft,
+  Archive,
+  ArchiveRestore,
   Calendar,
   CalendarDays, 
   CheckCircle,
@@ -734,6 +736,41 @@ export default function ClientDetailPage() {
 
   const updateSessionStatus = (sessionId: number, status: string) => {
     updateSessionMutation.mutate({ sessionId, status });
+  };
+
+  // Client Status Update Mutation (Close/Reopen File)
+  const updateClientStatusMutation = useMutation({
+    mutationFn: ({ status }: { status: 'active' | 'inactive' }) => {
+      return apiRequest(`/api/clients/${clientId}`, "PUT", { status });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      const action = variables.status === 'inactive' ? 'closed' : 'reopened';
+      toast({
+        title: "Success",
+        description: `Client file ${action} successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update client status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCloseFile = () => {
+    if (window.confirm("Are you sure you want to close this client file? The file will become inactive and new sessions/notes cannot be added. All historical data will remain accessible.")) {
+      updateClientStatusMutation.mutate({ status: 'inactive' });
+    }
+  };
+
+  const handleReopenFile = () => {
+    if (window.confirm("Are you sure you want to reopen this client file? The client will be reactivated and new sessions/notes can be added.")) {
+      updateClientStatusMutation.mutate({ status: 'active' });
+    }
   };
 
   // Session Note PDF Handlers
@@ -1617,6 +1654,24 @@ export default function ClientDetailPage() {
         )}
       </nav>
 
+      {/* INACTIVE File Warning Banner */}
+      {client?.status === 'inactive' && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-md">
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-800">
+                This client file is INACTIVE
+              </p>
+              <p className="text-sm text-red-700 mt-1">
+                No new sessions or notes can be added. Historical data remains accessible for viewing. 
+                {(user?.role === 'admin' || user?.role === 'administrator') && " Only administrators can reopen this file."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1681,10 +1736,28 @@ export default function ClientDetailPage() {
                   <Badge className={`${getStageColor(client.stage || 'intake')} px-3 py-1 text-sm font-medium`}>
                     {client.stage ? client.stage.charAt(0).toUpperCase() + client.stage.slice(1) : 'Intake'}
                   </Badge>
+                  {client.status && client.status !== 'pending' && (
+                    <Badge className={client.status === 'inactive' ? 'bg-red-100 text-red-800 px-3 py-1 text-sm font-medium' : 'bg-green-100 text-green-800 px-3 py-1 text-sm font-medium'}>
+                      {client.status === 'inactive' ? 'INACTIVE' : 'ACTIVE'}
+                    </Badge>
+                  )}
                   <Button onClick={handleEditClient} variant="outline" size="sm">
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
                   </Button>
+                  {/* Close/Reopen File - Therapists can close, only admins can reopen */}
+                  {client.status !== 'inactive' && (user?.role === 'therapist' || user?.role === 'supervisor' || user?.role === 'admin' || user?.role === 'administrator') && (
+                    <Button onClick={handleCloseFile} variant="outline" size="sm" className="border-orange-200 text-orange-600 hover:bg-orange-50">
+                      <Archive className="w-4 h-4 mr-2" />
+                      Close File
+                    </Button>
+                  )}
+                  {client.status === 'inactive' && (user?.role === 'admin' || user?.role === 'administrator') && (
+                    <Button onClick={handleReopenFile} variant="outline" size="sm" className="border-green-200 text-green-600 hover:bg-green-50">
+                      <ArchiveRestore className="w-4 h-4 mr-2" />
+                      Reopen File
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleDeleteClient} className="border-red-200 text-red-600 hover:bg-red-50">
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete
