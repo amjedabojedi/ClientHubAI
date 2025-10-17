@@ -1103,6 +1103,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
+      } else if (userRole === "administrator" || userRole === "admin") {
+        // Admins can filter by specific therapist from UI
+        therapistIdFilter = filters.therapistId;
       }
 
       // PERFORMANCE: Database-level filtering with service visibility
