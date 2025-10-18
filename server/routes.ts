@@ -8668,6 +8668,117 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Get available time slots for booking
+  app.get("/api/portal/available-slots", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get client info to find assigned therapist
+      const client = await storage.getClient(session.clientId);
+      
+      if (!client || !client.assignedTherapistId) {
+        return res.status(400).json({ error: "No therapist assigned to your account" });
+      }
+
+      // Get query parameters for date range
+      const { startDate, endDate, duration } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "Start date and end date are required" });
+      }
+
+      // Use the existing availability calculation logic
+      const availableSlots = await calculateAvailableSlots(
+        client.assignedTherapistId,
+        new Date(startDate as string),
+        new Date(endDate as string),
+        duration ? parseInt(duration as string) : 60
+      );
+
+      res.json(availableSlots);
+    } catch (error) {
+      console.error("Portal available slots error:", error);
+      res.status(500).json({ error: "Failed to fetch available slots" });
+    }
+  });
+
+  // Portal - Book a new appointment
+  app.post("/api/portal/book-appointment", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get client info
+      const client = await storage.getClient(session.clientId);
+      
+      if (!client || !client.assignedTherapistId) {
+        return res.status(400).json({ error: "No therapist assigned to your account" });
+      }
+
+      const { sessionDate, sessionTime, duration, sessionType, location } = req.body;
+
+      if (!sessionDate || !sessionTime) {
+        return res.status(400).json({ error: "Session date and time are required" });
+      }
+
+      // Create the appointment
+      const newSession = await storage.createSession({
+        clientId: session.clientId,
+        therapistId: client.assignedTherapistId,
+        sessionDate: new Date(sessionDate),
+        sessionTime,
+        duration: duration || 60,
+        sessionType: sessionType || 'individual',
+        status: 'scheduled',
+        location: location || 'Office',
+        createdBy: session.clientId, // Track that client booked this
+      });
+
+      res.status(201).json({
+        message: "Appointment booked successfully",
+        appointment: {
+          id: newSession.id,
+          sessionDate: newSession.sessionDate,
+          sessionTime: newSession.sessionTime,
+          duration: newSession.duration,
+          sessionType: newSession.sessionType,
+          status: newSession.status,
+          location: newSession.location,
+        }
+      });
+    } catch (error) {
+      console.error("Portal book appointment error:", error);
+      res.status(500).json({ error: "Failed to book appointment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

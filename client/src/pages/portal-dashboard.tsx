@@ -158,7 +158,13 @@ export default function PortalDashboardPage() {
               <CardDescription>Schedule a new session</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full">View Available Times</Button>
+              <Button 
+                className="w-full" 
+                onClick={() => setLocation("/portal/book-appointment")}
+                data-testid="button-book-appointment"
+              >
+                View Available Times
+              </Button>
             </CardContent>
           </Card>
 
