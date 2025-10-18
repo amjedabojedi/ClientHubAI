@@ -614,7 +614,26 @@ function EntryForm({
   const [suggestedConnections, setSuggestedConnections] = useState<LibraryEntryWithDetails[]>([]);
   const [selectedConnections, setSelectedConnections] = useState<number[]>([]);
 
-  // Auto-suggest connections based on title and tags
+  // Helper: Get clinically related category names for smart connections
+  const getRelatedCategories = (categoryId: number): string[] => {
+    const currentCategory = categories.find(c => c.id === categoryId);
+    if (!currentCategory) return [];
+
+    const categoryName = currentCategory.name.toLowerCase();
+
+    // Define clinical relationships between categories
+    const relationships: Record<string, string[]> = {
+      'session focus': ['symptoms', 'short-term goals', 'interventions'],
+      'symptoms': ['session focus', 'interventions', 'progress'],
+      'short-term goals': ['session focus', 'interventions', 'progress'],
+      'interventions': ['session focus', 'symptoms', 'short-term goals', 'progress'],
+      'progress': ['symptoms', 'short-term goals', 'interventions']
+    };
+
+    return relationships[categoryName] || [];
+  };
+
+  // Auto-suggest connections based on title, tags, and clinical relationships
   useEffect(() => {
     if (!formData.title && !formData.tags) {
       setSuggestedConnections([]);
@@ -626,9 +645,16 @@ function EntryForm({
       ...formData.tags.toLowerCase().split(',').map(t => t.trim())
     ].filter(k => k.length > 2); // Only meaningful keywords
 
+    // Get clinically related category names
+    const relatedCategoryNames = getRelatedCategories(formData.categoryId);
+    
     const suggestions = allEntries.filter(existing => {
       // Don't suggest entries from same category
       if (existing.categoryId === formData.categoryId) return false;
+      
+      // Only suggest entries from clinically related categories
+      const existingCategoryName = existing.category.name.toLowerCase();
+      if (!relatedCategoryNames.includes(existingCategoryName)) return false;
       
       // Check if entry shares keywords
       const existingKeywords = [
@@ -644,7 +670,7 @@ function EntryForm({
     }).slice(0, 5); // Limit to 5 suggestions
     
     setSuggestedConnections(suggestions);
-  }, [formData.title, formData.tags, formData.categoryId, allEntries]);
+  }, [formData.title, formData.tags, formData.categoryId, allEntries, categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
