@@ -51,7 +51,10 @@ export default function LibraryPage() {
     queryFn: async () => {
       const response = await fetch("/api/library/categories");
       if (!response.ok) throw new Error("Failed to fetch categories");
-      return response.json();
+      const data = await response.json();
+      console.log("[LIBRARY DEBUG] Categories received from API:", data);
+      console.log("[LIBRARY DEBUG] Category names:", data.map((c: any) => c.name));
+      return data;
     },
   });
 
