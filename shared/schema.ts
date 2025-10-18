@@ -930,6 +930,27 @@ export const loginAttempts = pgTable("login_attempts", {
   successIdx: index("login_attempts_success_idx").on(table.success),
 }));
 
+// Client History - Timeline tracking of major client events
+export const clientHistory = pgTable("client_history", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // 'stage_change', 'status_change', 'therapist_assignment', 'file_closure', etc.
+  eventSource: varchar("event_source", { length: 100 }), // Where the event originated from
+  fromValue: text("from_value"), // Previous value (for changes)
+  toValue: text("to_value"), // New value (for changes)
+  metadata: text("metadata"), // JSON with additional context
+  description: text("description"), // Human-readable description
+  createdBy: integer("created_by").references(() => users.id, { onDelete: 'set null' }),
+  createdByName: varchar("created_by_name", { length: 255 }), // Store name in case user is deleted
+  auditLogId: integer("audit_log_id").references(() => auditLogs.id), // Link to HIPAA audit log if applicable
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  clientIdx: index("client_history_client_idx").on(table.clientId),
+  clientCreatedIdx: index("client_history_client_created_idx").on(table.clientId, table.createdAt),
+  eventTypeIdx: index("client_history_event_type_idx").on(table.eventType),
+  createdAtIdx: index("client_history_created_at_idx").on(table.createdAt),
+}));
+
 // Practice Configuration Table
 export const practiceConfiguration = pgTable("practice_configuration", {
   id: serial("id").primaryKey(),
@@ -1018,6 +1039,22 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   notes: many(notes),
   documents: many(documents),
   sessionNotes: many(sessionNotes),
+  history: many(clientHistory),
+}));
+
+export const clientHistoryRelations = relations(clientHistory, ({ one }) => ({
+  client: one(clients, {
+    fields: [clientHistory.clientId],
+    references: [clients.id],
+  }),
+  createdByUser: one(users, {
+    fields: [clientHistory.createdBy],
+    references: [users.id],
+  }),
+  auditLog: one(auditLogs, {
+    fields: [clientHistory.auditLogId],
+    references: [auditLogs.id],
+  }),
 }));
 
 export const servicesRelations = relations(services, ({ many }) => ({
@@ -1575,6 +1612,11 @@ export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({
   timestamp: true,
 });
 
+export const insertClientHistorySchema = createInsertSchema(clientHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof insertAuditLogSchema._type;
@@ -1582,6 +1624,8 @@ export type UserSession = typeof userSessions.$inferSelect;
 export type InsertUserSession = typeof insertUserSessionSchema._type;
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type InsertLoginAttempt = typeof insertLoginAttemptSchema._type;
+export type ClientHistory = typeof clientHistory.$inferSelect;
+export type InsertClientHistory = z.infer<typeof insertClientHistorySchema>;
 
 // Export types
 export type Role = typeof roles.$inferSelect;
