@@ -852,28 +852,44 @@ function ConnectionForm({
     e.preventDefault();
     if (selectedTargetIds.length === 0) return;
 
+    console.log("🔗 Starting connection creation");
+    console.log("📊 Source Entry:", sourceEntry.id, sourceEntry.title);
+    console.log("📊 Target IDs:", selectedTargetIds);
+    console.log("📊 Connection Strength:", connectionStrength);
+
     setIsLoading(true);
     try {
       // Create all connections in parallel
-      const connectionPromises = selectedTargetIds.map(targetId => 
-        apiRequest("/api/library/connections", {
+      const connectionPromises = selectedTargetIds.map(targetId => {
+        const connectionData = {
+          fromEntryId: sourceEntry.id,
+          toEntryId: targetId,
+          connectionType: "relates_to",
+          strength: connectionStrength,
+          description: null
+        };
+        console.log("📤 Creating connection:", connectionData);
+        
+        return apiRequest("/api/library/connections", {
           method: "POST",
-          body: JSON.stringify({
-            fromEntryId: sourceEntry.id,
-            toEntryId: targetId,
-            connectionType: "relates_to",
-            strength: connectionStrength,
-            description: null
-          })
-        })
-      );
+          body: JSON.stringify(connectionData)
+        });
+      });
 
+      console.log("⏳ Waiting for all connections to complete...");
       const results = await Promise.allSettled(connectionPromises);
+      
+      console.log("✅ Results:", results);
       const failedCount = results.filter(r => r.status === 'rejected').length;
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      
+      console.log(`📈 Success: ${successCount}, Failed: ${failedCount}`);
 
       if (failedCount > 0) {
+        const failedResults = results.filter(r => r.status === 'rejected');
+        console.error("❌ Failed connections:", failedResults);
         toast({ 
-          title: `${selectedTargetIds.length - failedCount} connections created, ${failedCount} failed`, 
+          title: `${successCount} connections created, ${failedCount} failed`, 
           variant: "destructive" 
         });
       } else {
@@ -883,6 +899,7 @@ function ConnectionForm({
       setSelectedTargetIds([]);
       onConnectionCreated();
     } catch (error) {
+      console.error("❌ Error creating connections:", error);
       toast({ title: "Failed to create connections", variant: "destructive" });
     } finally {
       setIsLoading(false);
