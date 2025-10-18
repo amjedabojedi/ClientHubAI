@@ -197,7 +197,14 @@ export default function PortalDashboardPage() {
               <CardDescription>Share insurance & forms</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full">Upload Files</Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setLocation("/portal/documents")}
+                data-testid="button-upload-documents"
+              >
+                Upload Files
+              </Button>
             </CardContent>
           </Card>
 

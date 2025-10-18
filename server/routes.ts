@@ -8927,6 +8927,124 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Get client documents
+  app.get("/api/portal/documents", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get client info for display
+      const client = await storage.getClient(session.clientId);
+      
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      // Get documents for this client
+      const documents = await storage.getDocumentsByClient(session.clientId);
+
+      // Only return documents uploaded by the client themselves (not staff-shared documents)
+      // Note: Client uploads have uploadedById = clientId, which won't match users table
+      // So we manually add client info for those documents
+      const clientDocuments = documents
+        .filter(doc => doc.uploadedById === session.clientId)
+        .map(doc => ({
+          ...doc,
+          uploadedBy: {
+            id: client.id,
+            fullName: client.fullName,
+          }
+        }));
+
+      res.json(clientDocuments);
+    } catch (error) {
+      console.error("Portal documents error:", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  // Portal - Upload document
+  app.post("/api/portal/upload-document", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      const { fileContent, fileName, originalName, fileSize, mimeType, category } = req.body;
+
+      if (!fileContent || !fileName || !originalName) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Create document record (uploaded by client = session.clientId as uploadedById)
+      // Portal uploads are marked as shared by default
+      const document = await storage.createDocument({
+        clientId: session.clientId,
+        uploadedById: session.clientId, // Client uploads their own document
+        fileName,
+        originalName,
+        fileSize: fileSize || 0,
+        mimeType: mimeType || 'application/octet-stream',
+        category: category || 'uploaded',
+        isSharedInPortal: true, // Always share portal uploads
+      });
+
+      // Store file content in Object Storage
+      if (fileContent) {
+        try {
+          // Validate and decode base64 content
+          const buffer = Buffer.from(fileContent, 'base64');
+          
+          const { Client } = await import('@replit/object-storage');
+          const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+          const objectKey = `documents/${document.id}-${document.fileName}`;
+          
+          const uploadResult = await objectStorage.uploadFromBytes(objectKey, buffer);
+          
+          if (!uploadResult.ok) {
+            // Delete document record if storage upload fails
+            await storage.deleteDocument(document.id);
+            return res.status(500).json({ error: "Failed to upload file to storage" });
+          }
+        } catch (error) {
+          // Delete document record if base64 decode or upload fails
+          await storage.deleteDocument(document.id);
+          return res.status(400).json({ error: "Invalid file content or upload failed" });
+        }
+      }
+
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Portal document upload error:", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
