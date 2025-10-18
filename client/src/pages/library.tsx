@@ -48,28 +48,7 @@ export default function LibraryPage() {
   // Fetch all categories (still needed for form dropdowns)
   const { data: categories = [], isLoading: loadingCategories } = useQuery<LibraryCategoryWithChildren[]>({
     queryKey: ["/api/library/categories"],
-    queryFn: async () => {
-      const response = await fetch("/api/library/categories", {
-        cache: 'no-cache',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      });
-      if (!response.ok) throw new Error("Failed to fetch categories");
-      const data = await response.json();
-      console.log("[LIBRARY DEBUG] RAW API Response:", JSON.stringify(data, null, 2));
-      console.log("[LIBRARY DEBUG] Total categories count:", data.length);
-      console.log("[LIBRARY DEBUG] Category names:", data.map((c: any) => c.name));
-      console.log("[LIBRARY DEBUG] Category IDs:", data.map((c: any) => c.id));
-      return data;
-    },
   });
-  
-  // Debug: Log categories after React Query processes them
-  useEffect(() => {
-    if (categories.length > 0) {
-      console.log("[LIBRARY DEBUG] Categories in React state:", categories);
-      console.log("[LIBRARY DEBUG] React state category names:", categories.map(c => c.name));
-    }
-  }, [categories]);
 
   // Set initial active tab to first category when categories load
   useEffect(() => {

@@ -4697,8 +4697,6 @@ This happens because only the file metadata was stored, not the actual file cont
   app.get("/api/library/categories", async (req, res) => {
     try {
       const categories = await storage.getLibraryCategories();
-      console.log('[API DEBUG] /api/library/categories returning:', categories.map(c => c.name));
-      console.log('[API DEBUG] Total count:', categories.length);
       res.json(categories);
     } catch (error) {
       // Error logged
