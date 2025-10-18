@@ -788,6 +788,7 @@ function ConnectionForm({
 }) {
   const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null);
+  const [connectionStrength, setConnectionStrength] = useState<number>(5);
   const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
@@ -836,7 +837,7 @@ function ConnectionForm({
             fromEntryId: sourceEntry.id,
             toEntryId: targetId,
             connectionType: "relates_to",
-            strength: 5,
+            strength: connectionStrength,
             description: null
           })
         })
@@ -908,6 +909,37 @@ function ConnectionForm({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Connection Strength Control */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="connectionStrength">Connection Strength</Label>
+            <Badge variant="secondary">{connectionStrength}/10</Badge>
+          </div>
+          <Select
+            value={connectionStrength.toString()}
+            onValueChange={(value) => setConnectionStrength(parseInt(value))}
+          >
+            <SelectTrigger data-testid="select-connection-strength">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 - Very Weak</SelectItem>
+              <SelectItem value="2">2 - Weak</SelectItem>
+              <SelectItem value="3">3 - Below Average</SelectItem>
+              <SelectItem value="4">4 - Slightly Below Average</SelectItem>
+              <SelectItem value="5">5 - Moderate (Default)</SelectItem>
+              <SelectItem value="6">6 - Slightly Above Average</SelectItem>
+              <SelectItem value="7">7 - Above Average</SelectItem>
+              <SelectItem value="8">8 - Strong</SelectItem>
+              <SelectItem value="9">9 - Very Strong</SelectItem>
+              <SelectItem value="10">10 - Extremely Strong</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Set how strongly these entries relate to "{sourceEntry.title}". All selected connections will use this strength.
+          </p>
         </div>
 
         {/* Bulk Selection Actions */}
