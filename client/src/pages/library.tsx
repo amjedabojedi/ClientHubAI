@@ -856,9 +856,8 @@ function ConnectionForm({
     try {
       // Create all connections in parallel
       const connectionPromises = selectedTargetIds.map(targetId => 
-        fetch("/api/library/connections", {
+        apiRequest("/api/library/connections", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             fromEntryId: sourceEntry.id,
             toEntryId: targetId,
@@ -869,8 +868,8 @@ function ConnectionForm({
         })
       );
 
-      const results = await Promise.all(connectionPromises);
-      const failedCount = results.filter(r => !r.ok).length;
+      const results = await Promise.allSettled(connectionPromises);
+      const failedCount = results.filter(r => r.status === 'rejected').length;
 
       if (failedCount > 0) {
         toast({ 
