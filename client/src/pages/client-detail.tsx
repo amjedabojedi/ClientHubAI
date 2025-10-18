@@ -604,6 +604,155 @@ const getTimeSlotsWithLabels = (intervalMinutes = 30): Array<{value: string, lab
   }));
 };
 
+// Client History Timeline Component
+function ClientHistoryTimeline({ clientId }: { clientId: number }) {
+  const { toast } = useToast();
+
+  const { data: history = [], isLoading: historyLoading } = useQuery<any[]>({
+    queryKey: [`/api/clients/${clientId}/history`],
+  });
+
+  const { data: stageDurations, isLoading: durationsLoading } = useQuery<any>({
+    queryKey: [`/api/clients/${clientId}/stage-durations`],
+  });
+
+  if (historyLoading || durationsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3 animate-spin" />
+          <p className="text-slate-500">Loading history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'file_closed':
+        return <Archive className="w-5 h-5 text-red-600" />;
+      case 'file_reopened':
+        return <ArchiveRestore className="w-5 h-5 text-green-600" />;
+      case 'stage_change':
+        return <Target className="w-5 h-5 text-blue-600" />;
+      case 'therapist_assignment':
+        return <UserIcon className="w-5 h-5 text-purple-600" />;
+      default:
+        return <Clock className="w-5 h-5 text-slate-600" />;
+    }
+  };
+
+  const getEventColor = (eventType: string) => {
+    switch (eventType) {
+      case 'file_closed':
+        return 'bg-red-50 border-red-200';
+      case 'file_reopened':
+        return 'bg-green-50 border-green-200';
+      case 'stage_change':
+        return 'bg-blue-50 border-blue-200';
+      case 'therapist_assignment':
+        return 'bg-purple-50 border-purple-200';
+      default:
+        return 'bg-slate-50 border-slate-200';
+    }
+  };
+
+  const formatEventType = (eventType: string) => {
+    switch (eventType) {
+      case 'file_closed':
+        return 'File Closed';
+      case 'file_reopened':
+        return 'File Reopened';
+      case 'stage_change':
+        return 'Stage Change';
+      case 'therapist_assignment':
+        return 'Therapist Assignment';
+      default:
+        return eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {stageDurations?.durations && Object.keys(stageDurations.durations).length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center">
+            <Target className="w-5 h-5 mr-2 text-blue-600" />
+            Time in Each Stage
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(stageDurations.durations).map(([stage, days]: [string, any]) => (
+              <div key={stage} className="bg-white rounded-lg p-4 border border-blue-100">
+                <p className="text-sm text-slate-600 mb-1 capitalize">{stage}</p>
+                <p className="text-2xl font-bold text-blue-600">{days} days</p>
+              </div>
+            ))}
+          </div>
+          {stageDurations.currentStage && (
+            <p className="text-sm text-slate-600 mt-4">
+              Currently in: <span className="font-semibold capitalize">{stageDurations.currentStage}</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Timeline</h3>
+        
+        {history.length === 0 ? (
+          <div className="text-center py-12 bg-slate-50 rounded-lg border border-slate-200">
+            <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-500 font-medium">No history recorded yet</p>
+            <p className="text-slate-400 text-sm">History tracking will begin with future changes</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {history.map((event) => (
+              <div 
+                key={event.id}
+                className={`flex items-start space-x-4 p-4 rounded-lg border ${getEventColor(event.eventType)}`}
+              >
+                <div className="flex-shrink-0 mt-1">
+                  {getEventIcon(event.eventType)}
+                </div>
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {formatEventType(event.eventType)}
+                      </p>
+                      {event.description && (
+                        <p className="text-sm text-slate-700 mt-1">{event.description}</p>
+                      )}
+                      {event.fromValue && event.toValue && (
+                        <p className="text-sm text-slate-600 mt-1">
+                          <span className="font-medium">{event.fromValue}</span>
+                          {' → '}
+                          <span className="font-medium">{event.toValue}</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 text-right ml-4">
+                      <p className="text-xs text-slate-500">
+                        {formatDateTimeDisplay(event.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  {event.createdByName && (
+                    <p className="text-xs text-slate-500 mt-2">
+                      by {event.createdByName}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   // Routing
   const [match, params] = useRoute("/clients/:id");
@@ -1708,6 +1857,10 @@ export default function ClientDetailPage() {
             <TabsTrigger value="communications" className="flex items-center space-x-2" data-testid="tab-communications">
               <Mail className="w-4 h-4" />
               <span>Communications</span>
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center space-x-2" data-testid="tab-history">
+              <Clock className="w-4 h-4" />
+              <span>History</span>
             </TabsTrigger>
           </TabsList>
 
@@ -3486,6 +3639,21 @@ export default function ClientDetailPage() {
               </CardHeader>
               <CardContent className="p-6">
                 <EmailHistory clientId={clientId!} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* History Tab */}
+          <TabsContent value="history" className="space-y-6">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  <span>Client History Timeline</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ClientHistoryTimeline clientId={clientId!} />
               </CardContent>
             </Card>
           </TabsContent>
