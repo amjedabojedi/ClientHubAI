@@ -4874,9 +4874,18 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.post("/api/library/connections", async (req, res) => {
+  app.post("/api/library/connections", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const connection = await storage.createLibraryEntryConnection(req.body);
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const connectionData = {
+        ...req.body,
+        createdById: req.user.id
+      };
+      
+      const connection = await storage.createLibraryEntryConnection(connectionData);
       res.status(201).json(connection);
     } catch (error) {
       // Error logged
