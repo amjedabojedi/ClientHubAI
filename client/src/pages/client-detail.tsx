@@ -687,14 +687,12 @@ function ClientHistoryTimeline({ clientId }: { clientId: number }) {
             Time in Each Stage
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(stageDurations.durations)
-              .filter(([stage, days]) => (days as number) > 0)
-              .map(([stage, days]: [string, any]) => (
-                <div key={stage} className="bg-white rounded-lg p-4 border border-blue-100">
-                  <p className="text-sm text-slate-600 mb-1 capitalize">{stage}</p>
-                  <p className="text-2xl font-bold text-blue-600">{days} days</p>
-                </div>
-              ))}
+            {Object.entries(stageDurations.durations).map(([stage, days]: [string, any]) => (
+              <div key={stage} className="bg-white rounded-lg p-4 border border-blue-100">
+                <p className="text-sm text-slate-600 mb-1 capitalize">{stage}</p>
+                <p className="text-2xl font-bold text-blue-600">{days} days</p>
+              </div>
+            ))}
           </div>
           {stageDurations.currentStage && (
             <p className="text-sm text-slate-600 mt-4">
