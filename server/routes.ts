@@ -558,6 +558,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validatedData = insertClientSchema.partial().parse(clientData);
+      
+      // AUTO-UPDATE: When closing a file (status = 'inactive'), automatically set stage to 'closed'
+      if (validatedData.status === 'inactive' && !validatedData.stage) {
+        validatedData.stage = 'closed';
+      }
+      
       const client = await storage.updateClient(id, validatedData);
       
       // Check if therapist assignment changed
