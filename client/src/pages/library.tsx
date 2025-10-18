@@ -786,7 +786,7 @@ function ConnectionForm({
   categories: LibraryCategoryWithChildren[];
   onConnectionCreated: () => void;
 }) {
-  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -802,34 +802,62 @@ function ConnectionForm({
   // Get all main categories for filter dropdown (excluding source category) - from database
   const availableCategories = categories.filter(cat => cat.id !== sourceEntry.categoryId);
 
+  // Toggle selection
+  const toggleTargetSelection = (targetId: number) => {
+    setSelectedTargetIds(prev => 
+      prev.includes(targetId) 
+        ? prev.filter(id => id !== targetId)
+        : [...prev, targetId]
+    );
+  };
 
+  // Select all in current filter
+  const selectAll = () => {
+    setSelectedTargetIds(availableTargets.map(e => e.id));
+  };
 
-  const handleCreateConnection = async (e: React.FormEvent) => {
+  // Clear all selections
+  const clearAll = () => {
+    setSelectedTargetIds([]);
+  };
+
+  const handleCreateConnections = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTargetId) return;
+    if (selectedTargetIds.length === 0) return;
 
     setIsLoading(true);
     try {
-      const connectionData = {
-        fromEntryId: sourceEntry.id,
-        toEntryId: selectedTargetId,
-        connectionType: "relates_to",
-        strength: 5,
-        description: null
-      };
+      // Create all connections in parallel
+      const connectionPromises = selectedTargetIds.map(targetId => 
+        fetch("/api/library/connections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fromEntryId: sourceEntry.id,
+            toEntryId: targetId,
+            connectionType: "relates_to",
+            strength: 5,
+            description: null
+          })
+        })
+      );
 
-      const response = await fetch("/api/library/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(connectionData)
-      });
+      const results = await Promise.all(connectionPromises);
+      const failedCount = results.filter(r => !r.ok).length;
 
-      if (!response.ok) throw new Error("Failed to create connection");
-
-      toast({ title: "Connection created successfully" });
+      if (failedCount > 0) {
+        toast({ 
+          title: `${selectedTargetIds.length - failedCount} connections created, ${failedCount} failed`, 
+          variant: "destructive" 
+        });
+      } else {
+        toast({ title: `${selectedTargetIds.length} connections created successfully` });
+      }
+      
+      setSelectedTargetIds([]);
       onConnectionCreated();
     } catch (error) {
-      toast({ title: "Failed to create connection", variant: "destructive" });
+      toast({ title: "Failed to create connections", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -857,7 +885,7 @@ function ConnectionForm({
         </div>
       </div>
 
-      <form onSubmit={handleCreateConnection} className="space-y-4">
+      <form onSubmit={handleCreateConnections} className="space-y-4">
         {/* Category Filter */}
         <div>
           <Label htmlFor="categoryFilter">Filter by Category (optional)</Label>
@@ -865,7 +893,7 @@ function ConnectionForm({
             value={selectedCategoryFilter?.toString() || "all"}
             onValueChange={(value) => {
               setSelectedCategoryFilter(value === "all" ? null : parseInt(value));
-              setSelectedTargetId(null); // Reset selection when filter changes
+              setSelectedTargetIds([]); // Reset selection when filter changes
             }}
           >
             <SelectTrigger>
@@ -882,60 +910,112 @@ function ConnectionForm({
           </Select>
         </div>
 
-        {/* Target Entry Selection */}
-        <div>
-          <Label htmlFor="targetEntry">Connect to Entry</Label>
-          <Select
-            value={selectedTargetId?.toString() || "none"}
-            onValueChange={(value) => setSelectedTargetId(value === "none" ? null : parseInt(value))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select an entry to connect to" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Select an entry...</SelectItem>
-              {availableTargets.map(entry => (
-                <SelectItem key={entry.id} value={entry.id.toString()}>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {entry.category.name}
-                    </Badge>
-                    <span>{entry.title}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Bulk Selection Actions */}
+        {availableTargets.length > 0 && (
+          <div className="flex items-center justify-between">
+            <Label>Select entries to connect ({selectedTargetIds.length} selected)</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={selectAll}
+                disabled={selectedTargetIds.length === availableTargets.length}
+                data-testid="button-select-all"
+              >
+                Select All ({availableTargets.length})
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearAll}
+                disabled={selectedTargetIds.length === 0}
+                data-testid="button-clear-all"
+              >
+                Clear All
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Target Entry Selection with Checkboxes */}
+        <ScrollArea className="h-[300px] border rounded-lg p-4">
           {availableTargets.length === 0 && selectedCategoryFilter !== null && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 text-center py-8">
               No entries in this category available for connection.
             </p>
           )}
           {availableTargets.length === 0 && selectedCategoryFilter === null && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 text-center py-8">
               No entries from different categories available for connection.
             </p>
           )}
-        </div>
-
-
+          
+          <div className="space-y-2">
+            {availableTargets.map(entry => (
+              <label
+                key={entry.id}
+                className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                data-testid={`checkbox-entry-${entry.id}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedTargetIds.includes(entry.id)}
+                  onChange={() => toggleTargetSelection(entry.id)}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="text-xs">
+                      {entry.category.name}
+                    </Badge>
+                    <span className="font-medium">{entry.title}</span>
+                  </div>
+                  {entry.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                      {entry.description}
+                    </p>
+                  )}
+                  {entry.tags && entry.tags.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Tag className="w-3 h-3" />
+                      {entry.tags.slice(0, 3).map((tag, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </label>
+            ))}
+          </div>
+        </ScrollArea>
 
         <div className="flex justify-end gap-2">
-          <Button type="submit" disabled={isLoading || !selectedTargetId}>
-            {isLoading ? "Creating Connection..." : "Create Connection"}
+          <Button 
+            type="submit" 
+            disabled={isLoading || selectedTargetIds.length === 0}
+            data-testid="button-create-connections"
+          >
+            {isLoading 
+              ? "Creating Connections..." 
+              : `Create ${selectedTargetIds.length} Connection${selectedTargetIds.length !== 1 ? 's' : ''}`
+            }
           </Button>
         </div>
       </form>
 
       {/* Example of how this helps */}
-      {selectedTargetId && (
+      {selectedTargetIds.length > 0 && (
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
           <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
             How this helps in session notes:
           </h4>
           <p className="text-sm text-green-800 dark:text-green-200">
             When you select "{sourceEntry.title}" in session notes, the system will automatically 
-            suggest "{availableTargets.find(e => e.id === selectedTargetId)?.title}" as a related option.
+            suggest these {selectedTargetIds.length} related option{selectedTargetIds.length !== 1 ? 's' : ''}.
           </p>
         </div>
       )}
