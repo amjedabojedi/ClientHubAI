@@ -161,6 +161,58 @@ export const userProfiles = pgTable("user_profiles", {
   specializationsIdx: index("user_profiles_specializations_idx").on(table.specializations),
 }));
 
+// Therapist Blocked Times - Vacation, time off, meetings, unavailable periods
+export const therapistBlockedTimes = pgTable("therapist_blocked_times", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Time Block Details
+  startTime: timestamp("start_time").notNull(), // Start of blocked period
+  endTime: timestamp("end_time").notNull(), // End of blocked period
+  allDay: boolean("all_day").notNull().default(false), // Full day block vs specific hours
+  
+  // Block Type & Reason
+  blockType: varchar("block_type", { length: 50 }).notNull(), // vacation, meeting, sick_leave, personal, training, etc.
+  reason: text("reason"), // Optional description
+  isRecurring: boolean("is_recurring").notNull().default(false), // For recurring blocks (e.g., weekly meetings)
+  recurrencePattern: text("recurrence_pattern"), // JSON string for recurrence rules
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // System Fields
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+}, (table) => ({
+  therapistIdIdx: index("blocked_times_therapist_id_idx").on(table.therapistId),
+  startTimeIdx: index("blocked_times_start_time_idx").on(table.startTime),
+  endTimeIdx: index("blocked_times_end_time_idx").on(table.endTime),
+  // Composite index for efficient availability queries
+  therapistTimeIdx: index("blocked_times_therapist_time_idx").on(table.therapistId, table.startTime, table.endTime),
+}));
+
+// Client Portal Sessions - Separate session management for client portal access
+export const clientPortalSessions = pgTable("client_portal_sessions", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  
+  // Session Details
+  sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  // Session Lifecycle
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastActivityAt: timestamp("last_activity_at").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+}, (table) => ({
+  clientIdIdx: index("portal_sessions_client_id_idx").on(table.clientId),
+  sessionTokenIdx: index("portal_sessions_token_idx").on(table.sessionToken),
+  expiresAtIdx: index("portal_sessions_expires_at_idx").on(table.expiresAt),
+}));
+
 // Supervisor-Therapist Relationships
 export const supervisorAssignments = pgTable("supervisor_assignments", {
   id: serial("id").primaryKey(),
@@ -1383,6 +1435,18 @@ export const insertSupervisorAssignmentSchema = createInsertSchema(supervisorAss
   updatedAt: true,
 });
 
+export const insertTherapistBlockedTimeSchema = createInsertSchema(therapistBlockedTimes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClientPortalSessionSchema = createInsertSchema(clientPortalSessions).omit({
+  id: true,
+  createdAt: true,
+  lastActivityAt: true,
+});
+
 export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).omit({
   id: true,
 });
@@ -1651,6 +1715,12 @@ export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 
 export type SupervisorAssignment = typeof supervisorAssignments.$inferSelect;
 export type InsertSupervisorAssignment = z.infer<typeof insertSupervisorAssignmentSchema>;
+
+export type TherapistBlockedTime = typeof therapistBlockedTimes.$inferSelect;
+export type InsertTherapistBlockedTime = z.infer<typeof insertTherapistBlockedTimeSchema>;
+
+export type ClientPortalSession = typeof clientPortalSessions.$inferSelect;
+export type InsertClientPortalSession = z.infer<typeof insertClientPortalSessionSchema>;
 
 export type UserActivityLog = typeof userActivityLog.$inferSelect;
 export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;

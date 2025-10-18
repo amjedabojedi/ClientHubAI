@@ -8,6 +8,8 @@ import {
   users,
   userProfiles,
   supervisorAssignments,
+  therapistBlockedTimes,
+  clientPortalSessions,
   userActivityLog,
   sessions, 
   tasks, 
@@ -109,6 +111,10 @@ import type {
   InsertUserProfile,
   SupervisorAssignment,
   InsertSupervisorAssignment,
+  TherapistBlockedTime,
+  InsertTherapistBlockedTime,
+  ClientPortalSession,
+  InsertClientPortalSession,
   UserActivityLog,
   InsertUserActivityLog,
   SelectOptionCategory,
@@ -211,6 +217,13 @@ export interface IStorage {
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   updateUserProfile(userId: number, profile: Partial<InsertUserProfile>): Promise<UserProfile>;
   deleteUserProfile(userId: number): Promise<void>;
+  
+  // ===== THERAPIST AVAILABILITY =====
+  getTherapistBlockedTimes(therapistId: number, startDate?: Date, endDate?: Date): Promise<TherapistBlockedTime[]>;
+  createTherapistBlockedTime(blockedTime: InsertTherapistBlockedTime): Promise<TherapistBlockedTime>;
+  updateTherapistBlockedTime(id: number, blockedTime: Partial<InsertTherapistBlockedTime>): Promise<TherapistBlockedTime>;
+  deleteTherapistBlockedTime(id: number): Promise<void>;
+  getAvailableTimeSlots(therapistId: number, date: Date, serviceId: number): Promise<{ time: string; available: boolean }[]>;
   
   // ===== SUPERVISOR ASSIGNMENTS =====
   getSupervisorAssignments(supervisorId: number): Promise<SupervisorAssignment[]>;
@@ -581,6 +594,146 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(userProfiles)
       .where(eq(userProfiles.userId, userId));
+  }
+
+  // Therapist Availability Methods
+  async getTherapistBlockedTimes(therapistId: number, startDate?: Date, endDate?: Date): Promise<TherapistBlockedTime[]> {
+    const conditions = [
+      eq(therapistBlockedTimes.therapistId, therapistId),
+      eq(therapistBlockedTimes.isActive, true)
+    ];
+    
+    if (startDate) {
+      conditions.push(gte(therapistBlockedTimes.endTime, startDate));
+    }
+    
+    if (endDate) {
+      conditions.push(lte(therapistBlockedTimes.startTime, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(therapistBlockedTimes)
+      .where(and(...conditions))
+      .orderBy(asc(therapistBlockedTimes.startTime));
+  }
+
+  async createTherapistBlockedTime(blockedTime: InsertTherapistBlockedTime): Promise<TherapistBlockedTime> {
+    const [created] = await db
+      .insert(therapistBlockedTimes)
+      .values(blockedTime)
+      .returning();
+    return created;
+  }
+
+  async updateTherapistBlockedTime(id: number, blockedTimeData: Partial<InsertTherapistBlockedTime>): Promise<TherapistBlockedTime> {
+    const [updated] = await db
+      .update(therapistBlockedTimes)
+      .set({ ...blockedTimeData, updatedAt: new Date() })
+      .where(eq(therapistBlockedTimes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTherapistBlockedTime(id: number): Promise<void> {
+    await db
+      .delete(therapistBlockedTimes)
+      .where(eq(therapistBlockedTimes.id, id));
+  }
+
+  async getAvailableTimeSlots(therapistId: number, date: Date, serviceId: number): Promise<{ time: string; available: boolean }[]> {
+    // Get therapist profile for working hours
+    const profile = await this.getUserProfile(therapistId);
+    if (!profile) {
+      return [];
+    }
+
+    // Get service duration
+    const [service] = await db
+      .select()
+      .from(services)
+      .where(eq(services.id, serviceId));
+    
+    if (!service) {
+      return [];
+    }
+
+    const sessionDuration = service.duration || profile.sessionDuration || 50;
+
+    // Parse working hours from profile (stored as JSON)
+    const workingHours = profile.workingHours ? JSON.parse(profile.workingHours) : {};
+    const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
+    
+    const dayHours = workingHours[dayOfWeek];
+    if (!dayHours || !dayHours.start || !dayHours.end) {
+      return []; // Not a working day
+    }
+
+    // Get blocked times for this day
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const blockedTimes = await this.getTherapistBlockedTimes(therapistId, dayStart, dayEnd);
+
+    // Get existing sessions for this day
+    const existingSessions = await db
+      .select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.therapistId, therapistId),
+        gte(sessions.sessionDate, dayStart),
+        lte(sessions.sessionDate, dayEnd),
+        inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+      ));
+
+    // Generate time slots
+    const slots: { time: string; available: boolean }[] = [];
+    const startHour = parseInt(dayHours.start.split(':')[0]);
+    const startMinute = parseInt(dayHours.start.split(':')[1]);
+    const endHour = parseInt(dayHours.end.split(':')[0]);
+    const endMinute = parseInt(dayHours.end.split(':')[1]);
+
+    let currentTime = new Date(date);
+    currentTime.setHours(startHour, startMinute, 0, 0);
+    
+    const endTime = new Date(date);
+    endTime.setHours(endHour, endMinute, 0, 0);
+
+    while (currentTime < endTime) {
+      const slotEnd = new Date(currentTime.getTime() + sessionDuration * 60000);
+      
+      // Check if slot is blocked
+      const isBlocked = blockedTimes.some(blocked => {
+        const blockStart = new Date(blocked.startTime);
+        const blockEnd = new Date(blocked.endTime);
+        return currentTime < blockEnd && slotEnd > blockStart;
+      });
+
+      // Check if slot overlaps with existing session
+      const hasSession = existingSessions.some(session => {
+        const sessionStart = new Date(session.sessionDate);
+        const sessionEnd = new Date(sessionStart.getTime() + sessionDuration * 60000);
+        return currentTime < sessionEnd && slotEnd > sessionStart;
+      });
+
+      const timeString = currentTime.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+
+      slots.push({
+        time: timeString,
+        available: !isBlocked && !hasSession
+      });
+
+      // Move to next slot (every 15 minutes for flexibility)
+      currentTime = new Date(currentTime.getTime() + 15 * 60000);
+    }
+
+    return slots;
   }
 
   // Supervisor Assignment Methods
