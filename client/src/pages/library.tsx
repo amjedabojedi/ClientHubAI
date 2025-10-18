@@ -144,7 +144,7 @@ export default function LibraryPage() {
       const { selectedConnections, ...entryData } = data;
       
       // Create the entry first
-      const entry = await apiRequest("/api/library/entries", "POST", entryData);
+      const entry = await apiRequest("/api/library/entries", "POST", entryData) as unknown as LibraryEntry;
       
       // Create auto-connections if any were selected
       if (selectedConnections && selectedConnections.length > 0) {
@@ -310,7 +310,7 @@ export default function LibraryPage() {
                           ? displayedEntries.filter(e => 
                               e.id !== entry.id && 
                               e.tags && entry.tags && 
-                              e.tags.some(tag => entry.tags.includes(tag))
+                              e.tags.some(tag => entry.tags?.includes(tag))
                             ).slice(0, 3)
                           : [];
                         
@@ -491,6 +491,7 @@ export default function LibraryPage() {
               <ConnectionForm
                 sourceEntry={connectingEntry}
                 allEntries={allEntries}
+                categories={categories}
                 onConnectionCreated={() => {
                   // Refresh connections
                   setConnectedEntriesMap({});
@@ -782,10 +783,12 @@ function EntryForm({
 function ConnectionForm({
   sourceEntry,
   allEntries,
+  categories,
   onConnectionCreated
 }: {
   sourceEntry: LibraryEntryWithDetails;
   allEntries: LibraryEntryWithDetails[];
+  categories: LibraryCategoryWithChildren[];
   onConnectionCreated: () => void;
 }) {
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
@@ -801,16 +804,8 @@ function ConnectionForm({
     (selectedCategoryFilter === null || entry.categoryId === selectedCategoryFilter)
   );
 
-  // Get all main categories for filter dropdown (excluding source category)
-  const allMainCategories = [
-    { id: 1, name: "Session Focus", description: "Primary focus areas for therapy sessions" },
-    { id: 2, name: "Symptoms", description: "Observable symptoms and presentations" },
-    { id: 3, name: "Short-term Goals", description: "Immediate therapeutic objectives" },
-    { id: 4, name: "Interventions", description: "Therapeutic techniques and approaches" },
-    { id: 5, name: "Progress", description: "Progress indicators and measurements" }
-  ];
-  
-  const availableCategories = allMainCategories.filter(cat => cat.id !== sourceEntry.categoryId);
+  // Get all main categories for filter dropdown (excluding source category) - from database
+  const availableCategories = categories.filter(cat => cat.id !== sourceEntry.categoryId);
 
 
 
