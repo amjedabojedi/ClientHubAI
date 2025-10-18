@@ -760,6 +760,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Client not found" });
       }
       
+      // Get file creation event
+      const [fileCreated] = await db
+        .select()
+        .from(clientHistory)
+        .where(and(
+          eq(clientHistory.clientId, clientId),
+          eq(clientHistory.eventType, 'file_created')
+        ))
+        .limit(1);
+      
       // Get all stage change events
       const stageChanges = await db
         .select()
@@ -773,35 +783,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate durations
       const durations: { [key: string]: number } = {};
       
-      // If there are stage changes, calculate durations between them
-      if (stageChanges.length > 0) {
-        for (let i = 0; i < stageChanges.length; i++) {
-          const currentStage = stageChanges[i].fromValue;
-          const nextChangeTime = i < stageChanges.length - 1 
-            ? new Date(stageChanges[i + 1].createdAt).getTime()
-            : new Date(stageChanges[i].createdAt).getTime();
-          const currentChangeTime = new Date(stageChanges[i].createdAt).getTime();
+      // Start from file creation if available
+      if (fileCreated) {
+        const initialStage = fileCreated.toValue || 'intake';
+        let currentStageStart = new Date(fileCreated.createdAt).getTime();
+        let currentStage = initialStage;
+        
+        // Process each stage change
+        for (const change of stageChanges) {
+          // Calculate duration for the stage we're leaving
+          const changeTime = new Date(change.createdAt).getTime();
+          const durationMs = changeTime - currentStageStart;
+          const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
           
           if (currentStage && currentStage !== 'none') {
-            const durationMs = nextChangeTime - currentChangeTime;
-            const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
             durations[currentStage] = (durations[currentStage] || 0) + durationDays;
           }
+          
+          // Move to next stage
+          currentStage = change.toValue || currentStage;
+          currentStageStart = changeTime;
         }
         
-        // Add duration for current stage
-        const lastStageChange = stageChanges[stageChanges.length - 1];
-        const currentStage = lastStageChange.toValue;
+        // Add duration for current stage (from last change or creation to now)
         if (currentStage) {
-          const startTime = new Date(lastStageChange.createdAt).getTime();
           const nowTime = Date.now();
-          const durationMs = nowTime - startTime;
+          const durationMs = nowTime - currentStageStart;
           const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
           durations[currentStage] = (durations[currentStage] || 0) + durationDays;
         }
       } else if (client.stage && client.startDate) {
-        // No history yet - calculate from start date to now
+        // Fallback: No history yet - calculate from start date to now
         const startTime = new Date(client.startDate).getTime();
+        const nowTime = Date.now();
+        const durationMs = nowTime - startTime;
+        const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+        durations[client.stage] = durationDays;
+      } else if (client.stage && client.createdAt) {
+        // Fallback: use createdAt if no startDate
+        const startTime = new Date(client.createdAt).getTime();
         const nowTime = Date.now();
         const durationMs = nowTime - startTime;
         const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
