@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, FileText, CreditCard, Upload, Clock } from "lucide-react";
+import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
 
 interface ClientInfo {
   id: number;
@@ -13,10 +14,22 @@ interface ClientInfo {
   assignedTherapistId?: number;
 }
 
+interface Appointment {
+  id: number;
+  sessionDate: string;
+  sessionTime: string;
+  duration?: number;
+  sessionType?: string;
+  status: string;
+  location?: string;
+}
+
 export default function PortalDashboardPage() {
   const [, setLocation] = useLocation();
   const [client, setClient] = useState<ClientInfo | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
 
   useEffect(() => {
     // Check authentication on mount
@@ -44,6 +57,30 @@ export default function PortalDashboardPage() {
     checkAuth();
   }, [setLocation]);
 
+  useEffect(() => {
+    // Fetch appointments after authentication
+    if (!client) return;
+
+    const fetchAppointments = async () => {
+      try {
+        const response = await fetch("/api/portal/appointments", {
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAppointments(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch appointments:", error);
+      } finally {
+        setIsLoadingAppointments(false);
+      }
+    };
+
+    fetchAppointments();
+  }, [client]);
+
   const handleLogout = async () => {
     try {
       await fetch("/api/portal/logout", {
@@ -56,6 +93,11 @@ export default function PortalDashboardPage() {
 
     setLocation("/portal/login");
   };
+
+  // Calculate stats
+  const upcomingAppointments = appointments.filter(
+    app => new Date(`${app.sessionDate}T${app.sessionTime}`) >= new Date()
+  );
 
   if (isLoading) {
     return (
@@ -152,7 +194,12 @@ export default function PortalDashboardPage() {
                 <Clock className="w-6 h-6 text-amber-600" />
               </div>
               <CardTitle className="text-lg">My Appointments</CardTitle>
-              <CardDescription>View upcoming sessions</CardDescription>
+              <CardDescription>
+                {upcomingAppointments.length > 0 
+                  ? `${upcomingAppointments.length} upcoming session${upcomingAppointments.length === 1 ? '' : 's'}`
+                  : 'View upcoming sessions'
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="outline" className="w-full">View Schedule</Button>
@@ -167,11 +214,80 @@ export default function PortalDashboardPage() {
             <CardDescription>Your scheduled therapy sessions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12 text-gray-500">
-              <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-sm">No upcoming appointments</p>
-              <p className="text-xs">Book a new session to get started</p>
-            </div>
+            {isLoadingAppointments ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Loading appointments...</p>
+              </div>
+            ) : appointments.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-sm">No upcoming appointments</p>
+                <p className="text-xs">Book a new session to get started</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {appointments.slice(0, 5).map((appointment) => {
+                  const sessionDateTime = new Date(`${appointment.sessionDate}T${appointment.sessionTime}`);
+                  const isPast = sessionDateTime < new Date();
+                  
+                  return (
+                    <div 
+                      key={appointment.id}
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid={`appointment-${appointment.id}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Calendar className="w-4 h-4 text-blue-600" />
+                            <span className="font-medium text-gray-900">
+                              {formatDateDisplay(appointment.sessionDate)}
+                            </span>
+                            <span className="text-sm text-gray-600">
+                              at {new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            {appointment.sessionType && (
+                              <span className="capitalize">{appointment.sessionType}</span>
+                            )}
+                            {appointment.duration && (
+                              <span>{appointment.duration} minutes</span>
+                            )}
+                            {appointment.location && (
+                              <span>{appointment.location}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            isPast 
+                              ? 'bg-gray-100 text-gray-800'
+                              : appointment.status === 'confirmed'
+                              ? 'bg-green-100 text-green-800'
+                              : appointment.status === 'cancelled'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {isPast ? 'Completed' : appointment.status || 'Scheduled'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {appointments.length > 5 && (
+                  <p className="text-sm text-gray-500 text-center pt-2">
+                    Showing 5 of {appointments.length} appointments
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

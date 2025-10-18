@@ -8627,6 +8627,47 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Get client's appointments
+  app.get("/api/portal/appointments", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get client's sessions (excluding sensitive clinical notes)
+      const clientSessions = await db
+        .select({
+          id: sessions.id,
+          sessionDate: sessions.sessionDate,
+          sessionTime: sessions.sessionTime,
+          duration: sessions.duration,
+          sessionType: sessions.sessionType,
+          status: sessions.status,
+          location: sessions.location,
+        })
+        .from(sessions)
+        .where(eq(sessions.clientId, session.clientId))
+        .orderBy(sessions.sessionDate, sessions.sessionTime);
+
+      res.json(clientSessions);
+    } catch (error) {
+      console.error("Portal appointments error:", error);
+      res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
