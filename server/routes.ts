@@ -8953,23 +8953,57 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ error: "Client not found" });
       }
 
-      // Get documents for this client
-      const documents = await storage.getDocumentsByClient(session.clientId);
+      // Query documents directly with LEFT JOIN to include all cases
+      const { db } = await import('./db');
+      const { documents, users } = await import('@shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
 
-      // Only return documents uploaded by the client themselves (not staff-shared documents)
-      // Note: Client uploads have uploadedById = clientId, which won't match users table
-      // So we manually add client info for those documents
-      const clientDocuments = documents
-        .filter(doc => doc.uploadedById === session.clientId)
-        .map(doc => ({
-          ...doc,
-          uploadedBy: {
-            id: client.id,
-            fullName: client.fullName,
+      const results = await db
+        .select({
+          document: documents,
+          uploadedBy: users
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.uploadedById, users.id))
+        .where(eq(documents.clientId, session.clientId))
+        .orderBy(desc(documents.createdAt));
+
+      // Map results to include uploadedBy info for all cases
+      const portalDocuments = results
+        // Show documents that are: (1) uploaded by client, OR (2) shared by staff
+        .filter(r => r.document.uploadedById === session.clientId || r.document.isSharedInPortal === true)
+        .map(r => {
+          // Client uploads: add client info
+          if (r.document.uploadedById === session.clientId) {
+            return {
+              ...r.document,
+              uploadedBy: {
+                id: client.id,
+                fullName: client.fullName,
+              }
+            };
           }
-        }));
+          // Staff uploads with valid user join
+          if (r.uploadedBy) {
+            return {
+              ...r.document,
+              uploadedBy: {
+                id: r.uploadedBy.id,
+                fullName: r.uploadedBy.fullName,
+              }
+            };
+          }
+          // Legacy/null uploaders
+          return {
+            ...r.document,
+            uploadedBy: {
+              id: 0,
+              fullName: "Staff"
+            }
+          };
+        });
 
-      res.json(clientDocuments);
+      res.json(portalDocuments);
     } catch (error) {
       console.error("Portal documents error:", error);
       res.status(500).json({ error: "Failed to fetch documents" });
