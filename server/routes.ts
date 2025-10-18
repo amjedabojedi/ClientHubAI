@@ -21,7 +21,7 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory } from "@shared/schema";
 import { eq, and, gte, lte, desc, sql, ilike } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -59,7 +59,8 @@ import {
   insertPermissionSchema,
   insertRolePermissionSchema,
   insertOptionCategorySchema,
-  insertSystemOptionSchema
+  insertSystemOptionSchema,
+  insertClientHistorySchema
 } from "@shared/schema";
 
 // Helper function to convert EST date/time to UTC
@@ -98,6 +99,37 @@ function sanitizeUser(user: any) {
 // Security: Safe serializer for arrays of users
 function sanitizeUsers(users: any[]) {
   return users.map(sanitizeUser);
+}
+
+// Helper function to track client history events
+async function trackClientHistory(params: {
+  clientId: number;
+  eventType: string;
+  fromValue?: string | null;
+  toValue?: string | null;
+  description?: string;
+  metadata?: any;
+  createdBy?: number;
+  createdByName?: string;
+  auditLogId?: number;
+}) {
+  try {
+    await db.insert(clientHistory).values({
+      clientId: params.clientId,
+      eventType: params.eventType,
+      eventSource: 'api',
+      fromValue: params.fromValue || null,
+      toValue: params.toValue || null,
+      description: params.description || null,
+      metadata: params.metadata ? JSON.stringify(params.metadata) : null,
+      createdBy: params.createdBy || null,
+      createdByName: params.createdByName || null,
+      auditLogId: params.auditLogId || null,
+    });
+  } catch (error) {
+    console.error('Failed to track client history:', error);
+    // Don't throw - history tracking should not break the main operation
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {

@@ -1398,7 +1398,7 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   hasPortalAccess: z.boolean().optional(),
   clientType: z.string().optional(),
   status: z.enum(['active', 'inactive', 'pending']).optional(),
-  stage: z.enum(['intake', 'assessment', 'psychotherapy']).optional(),
+  stage: z.enum(['intake', 'assessment', 'psychotherapy', 'closed']).optional(),
 });
 
 export const insertServiceSchema = createInsertSchema(services).omit({
