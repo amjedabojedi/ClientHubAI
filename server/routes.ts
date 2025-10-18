@@ -34,6 +34,7 @@ import {
   insertClientSchema, 
   insertUserSchema,
   insertUserProfileSchema,
+  insertTherapistBlockedTimeSchema,
   insertSupervisorAssignmentSchema,
   insertUserActivityLogSchema,
   insertSessionSchema, 
@@ -3991,6 +3992,21 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.patch("/api/users/:userId/profile", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const validatedData = insertUserProfileSchema.partial().parse(req.body);
+      const profile = await storage.updateUserProfile(userId, validatedData);
+      res.json(profile);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
+      }
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.delete("/api/users/:userId/profile", async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
@@ -3998,6 +4014,83 @@ This happens because only the file metadata was stored, not the actual file cont
       res.status(204).send();
     } catch (error) {
       // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Therapist Blocked Times Routes
+  app.get("/api/therapist-blocked-times", async (req, res) => {
+    try {
+      const therapistId = parseInt(req.query.therapistId as string);
+      if (!therapistId) {
+        return res.status(400).json({ message: "therapistId is required" });
+      }
+      const blockedTimes = await storage.getTherapistBlockedTimes(therapistId);
+      res.json(blockedTimes);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/therapist-blocked-times", async (req, res) => {
+    try {
+      const validatedData = insertTherapistBlockedTimeSchema.parse(req.body);
+      const blockedTime = await storage.createTherapistBlockedTime(validatedData);
+      res.status(201).json(blockedTime);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid blocked time data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/therapist-blocked-times/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertTherapistBlockedTimeSchema.partial().parse(req.body);
+      const blockedTime = await storage.updateTherapistBlockedTime(id, validatedData);
+      res.json(blockedTime);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid blocked time data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/therapist-blocked-times/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteTherapistBlockedTime(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Therapist Availability Calculation Route
+  app.get("/api/availability/slots", async (req, res) => {
+    try {
+      const therapistId = parseInt(req.query.therapistId as string);
+      const dateStr = req.query.date as string;
+      const serviceId = parseInt(req.query.serviceId as string);
+
+      if (!therapistId || !dateStr || !serviceId) {
+        return res.status(400).json({ 
+          message: "therapistId, date, and serviceId are required" 
+        });
+      }
+
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+
+      const slots = await storage.getAvailableTimeSlots(therapistId, date, serviceId);
+      res.json(slots);
+    } catch (error) {
+      console.error('Error calculating available slots:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

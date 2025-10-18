@@ -35,7 +35,11 @@ import {
   Languages,
   UserCheck,
   AlertCircle,
-  Settings
+  Settings,
+  CalendarDays,
+  CalendarClock,
+  CalendarX,
+  Save
 } from "lucide-react";
 
 // Form Handling
@@ -121,23 +125,6 @@ export default function UserProfilesPage() {
   // Fetch Users
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<UserWithProfile[]>({
     queryKey: ["/api/users"],
-    queryFn: async () => {
-      const users = await apiRequest("/api/users", "GET");
-      
-      // Fetch profiles for each user
-      const usersWithProfiles = await Promise.all(
-        users.map(async (user: UserType) => {
-          try {
-            const profile = await apiRequest(`/api/users/${user.id}/profile`, "GET");
-            return { ...user, profile };
-          } catch (error) {
-            return { ...user, profile: null };
-          }
-        })
-      );
-      
-      return usersWithProfiles;
-    },
   });
 
   // Create User Form
@@ -1010,7 +997,7 @@ export default function UserProfilesPage() {
                   />
                 </TabsContent>
                 
-                <TabsContent value="schedule" className="space-y-4">
+                <TabsContent value="schedule" className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={createProfileForm.control}
@@ -1024,6 +1011,7 @@ export default function UserProfilesPage() {
                               placeholder="8" 
                               {...field}
                               onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                              data-testid="input-max-clients-per-day"
                             />
                           </FormControl>
                           <FormMessage />
@@ -1043,6 +1031,7 @@ export default function UserProfilesPage() {
                               placeholder="50" 
                               {...field}
                               onChange={(e) => field.onChange(parseInt(e.target.value) || 50)}
+                              data-testid="input-session-duration"
                             />
                           </FormControl>
                           <FormMessage />
@@ -1050,25 +1039,37 @@ export default function UserProfilesPage() {
                       )}
                     />
                   </div>
+
+                  <Separator />
                   
-                  <FormField
-                    control={createProfileForm.control}
-                    name="workingDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Working Days</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Monday, Tuesday, Wednesday, Thursday, Friday"
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0))}
-                            value={field.value?.join(', ') || ''}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-3">Working Hours</h3>
+                      <p className="text-xs text-gray-500 mb-4">Set available hours for each day of the week</p>
+                    </div>
+                    
+                    <WorkingHoursEditor 
+                      userId={selectedUser?.id}
+                      profile={selectedUser?.profile}
+                      onUpdate={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                    />
+                  </div>
+
+                  <Separator />
+                  
+                  {selectedUser?.profile && (
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-sm font-medium mb-3">Time Off & Blocked Periods</h3>
+                        <p className="text-xs text-gray-500 mb-4">Manage vacation, meetings, and unavailable times</p>
+                      </div>
+                      
+                      <BlockedTimesManager 
+                        userId={selectedUser.id}
+                        profile={selectedUser.profile}
+                      />
+                    </div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="contact" className="space-y-4">
@@ -1172,5 +1173,456 @@ export default function UserProfilesPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Working Hours Editor Component
+interface WorkingHoursEditorProps {
+  userId?: number;
+  profile?: UserProfile;
+  onUpdate: () => void;
+}
+
+function WorkingHoursEditor({ userId, profile, onUpdate }: WorkingHoursEditorProps) {
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const [workingHours, setWorkingHours] = useState<Record<string, { start: string; end: string; enabled: boolean }>>(() => {
+    if (!profile?.workingHours) {
+      return {
+        Monday: { start: '09:00', end: '17:00', enabled: true },
+        Tuesday: { start: '09:00', end: '17:00', enabled: true },
+        Wednesday: { start: '09:00', end: '17:00', enabled: true },
+        Thursday: { start: '09:00', end: '17:00', enabled: true },
+        Friday: { start: '09:00', end: '17:00', enabled: true },
+        Saturday: { start: '09:00', end: '17:00', enabled: false },
+        Sunday: { start: '09:00', end: '17:00', enabled: false },
+      };
+    }
+    try {
+      const parsed = JSON.parse(profile.workingHours);
+      const result: Record<string, { start: string; end: string; enabled: boolean }> = {};
+      daysOfWeek.forEach(day => {
+        if (parsed[day]) {
+          result[day] = { ...parsed[day], enabled: true };
+        } else {
+          result[day] = { start: '09:00', end: '17:00', enabled: false };
+        }
+      });
+      return result;
+    } catch {
+      return {
+        Monday: { start: '09:00', end: '17:00', enabled: true },
+        Tuesday: { start: '09:00', end: '17:00', enabled: true },
+        Wednesday: { start: '09:00', end: '17:00', enabled: true },
+        Thursday: { start: '09:00', end: '17:00', enabled: true },
+        Friday: { start: '09:00', end: '17:00', enabled: true },
+        Saturday: { start: '09:00', end: '17:00', enabled: false },
+        Sunday: { start: '09:00', end: '17:00', enabled: false },
+      };
+    }
+  });
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!userId) return;
+    
+    setIsSaving(true);
+    try {
+      const enabledHours: Record<string, { start: string; end: string }> = {};
+      Object.entries(workingHours).forEach(([day, hours]) => {
+        if (hours.enabled) {
+          enabledHours[day] = { start: hours.start, end: hours.end };
+        }
+      });
+
+      await apiRequest(`/api/users/${userId}/profile`, "PATCH", {
+        workingHours: JSON.stringify(enabledHours)
+      });
+      
+      onUpdate();
+    } catch (error) {
+      console.error('Failed to save working hours:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {daysOfWeek.map(day => (
+        <div key={day} className="flex items-center gap-4 p-3 border rounded-lg bg-gray-50">
+          <div className="flex items-center gap-3 w-32">
+            <Switch
+              checked={workingHours[day].enabled}
+              onCheckedChange={(enabled) => setWorkingHours(prev => ({
+                ...prev,
+                [day]: { ...prev[day], enabled }
+              }))}
+              data-testid={`switch-working-${day.toLowerCase()}`}
+            />
+            <span className={cn(
+              "font-medium text-sm",
+              workingHours[day].enabled ? "text-gray-900" : "text-gray-400"
+            )}>{day}</span>
+          </div>
+          
+          {workingHours[day].enabled && (
+            <div className="flex items-center gap-2 flex-1">
+              <Input
+                type="time"
+                value={workingHours[day].start}
+                onChange={(e) => setWorkingHours(prev => ({
+                  ...prev,
+                  [day]: { ...prev[day], start: e.target.value }
+                }))}
+                className="w-32"
+                data-testid={`input-start-${day.toLowerCase()}`}
+              />
+              <span className="text-gray-500">to</span>
+              <Input
+                type="time"
+                value={workingHours[day].end}
+                onChange={(e) => setWorkingHours(prev => ({
+                  ...prev,
+                  [day]: { ...prev[day], end: e.target.value }
+                }))}
+                className="w-32"
+                data-testid={`input-end-${day.toLowerCase()}`}
+              />
+            </div>
+          )}
+          
+          {!workingHours[day].enabled && (
+            <span className="text-sm text-gray-400 italic">Not working</span>
+          )}
+        </div>
+      ))}
+      
+      <Button
+        onClick={handleSave}
+        disabled={isSaving || !userId}
+        className="w-full"
+        data-testid="button-save-working-hours"
+      >
+        <Save className="w-4 h-4 mr-2" />
+        {isSaving ? 'Saving...' : 'Save Working Hours'}
+      </Button>
+    </div>
+  );
+}
+
+// Blocked Times Manager Component
+interface BlockedTimesManagerProps {
+  userId: number;
+  profile: UserProfile;
+}
+
+function BlockedTimesManager({ userId, profile }: BlockedTimesManagerProps) {
+  const [isAddBlockOpen, setIsAddBlockOpen] = useState(false);
+  
+  const { data: blockedTimes = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/therapist-blocked-times', userId],
+    enabled: !!userId
+  });
+
+  const queryClient = useQueryClient();
+
+  const deleteBlockMutation = useMutation({
+    mutationFn: async (blockId: number) => {
+      await apiRequest(`/api/therapist-blocked-times/${blockId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/therapist-blocked-times', userId] });
+    }
+  });
+
+  if (isLoading) {
+    return <div className="text-sm text-gray-500">Loading blocked times...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <Button
+        onClick={() => setIsAddBlockOpen(true)}
+        variant="outline"
+        className="w-full"
+        data-testid="button-add-blocked-time"
+      >
+        <CalendarX className="w-4 h-4 mr-2" />
+        Add Time Off / Block Period
+      </Button>
+
+      {blockedTimes.length > 0 ? (
+        <div className="space-y-2">
+          {blockedTimes.map((block) => (
+            <div key={block.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="secondary">{block.blockType}</Badge>
+                  {block.allDay && <Badge variant="outline" className="text-xs">All Day</Badge>}
+                </div>
+                <div className="text-sm">
+                  {new Date(block.startTime).toLocaleDateString()} - {new Date(block.endTime).toLocaleDateString()}
+                </div>
+                {block.reason && (
+                  <div className="text-xs text-gray-600 mt-1">{block.reason}</div>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => deleteBlockMutation.mutate(block.id)}
+                disabled={deleteBlockMutation.isPending}
+                className="text-red-600 hover:text-red-700"
+                data-testid={`button-delete-block-${block.id}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 border-2 border-dashed rounded-lg text-gray-500">
+          <CalendarClock className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+          <p className="text-sm">No blocked time periods</p>
+          <p className="text-xs">Add vacation, meetings, or other unavailable times</p>
+        </div>
+      )}
+
+      <AddBlockedTimeDialog
+        open={isAddBlockOpen}
+        onOpenChange={setIsAddBlockOpen}
+        userId={userId}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/therapist-blocked-times', userId] });
+          setIsAddBlockOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
+// Add Blocked Time Dialog Component
+interface AddBlockedTimeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  userId: number;
+  onSuccess: () => void;
+}
+
+const addBlockedTimeSchema = z.object({
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  allDay: z.boolean(),
+  blockType: z.enum(["vacation", "meeting", "sick_leave", "personal", "training"]),
+  reason: z.string().optional(),
+});
+
+type AddBlockedTimeFormData = z.infer<typeof addBlockedTimeSchema>;
+
+function AddBlockedTimeDialog({ open, onOpenChange, userId, onSuccess }: AddBlockedTimeDialogProps) {
+  const form = useForm<AddBlockedTimeFormData>({
+    resolver: zodResolver(addBlockedTimeSchema),
+    defaultValues: {
+      startDate: '',
+      endDate: '',
+      startTime: '09:00',
+      endTime: '17:00',
+      allDay: true,
+      blockType: 'vacation',
+      reason: '',
+    }
+  });
+
+  const createBlockMutation = useMutation({
+    mutationFn: async (data: AddBlockedTimeFormData) => {
+      const startDateTime = data.allDay
+        ? new Date(data.startDate + 'T00:00:00')
+        : new Date(data.startDate + 'T' + data.startTime);
+      
+      const endDateTime = data.allDay
+        ? new Date(data.endDate + 'T23:59:59')
+        : new Date(data.endDate + 'T' + data.endTime);
+
+      await apiRequest('/api/therapist-blocked-times', "POST", {
+        therapistId: userId,
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        allDay: data.allDay,
+        blockType: data.blockType,
+        reason: data.reason,
+        isRecurring: false,
+        recurrencePattern: null,
+        isActive: true,
+      });
+    },
+    onSuccess: () => {
+      form.reset();
+      onSuccess();
+    }
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Blocked Time Period</DialogTitle>
+          <DialogDescription>
+            Block time for vacation, meetings, or other unavailable periods
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((data) => createBlockMutation.mutate(data))} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="blockType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Block Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-block-type">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="vacation">Vacation</SelectItem>
+                      <SelectItem value="meeting">Meeting</SelectItem>
+                      <SelectItem value="sick_leave">Sick Leave</SelectItem>
+                      <SelectItem value="personal">Personal</SelectItem>
+                      <SelectItem value="training">Training</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-start-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} data-testid="input-end-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="allDay"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>All Day</FormLabel>
+                    <FormDescription className="text-xs">
+                      Block entire day(s) instead of specific hours
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-all-day"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {!form.watch('allDay') && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid="input-block-start-time" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} data-testid="input-block-end-time" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reason (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="e.g., Family vacation, Conference attendance"
+                      {...field}
+                      data-testid="input-block-reason"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="submit"
+                disabled={createBlockMutation.isPending}
+                data-testid="button-save-blocked-time"
+              >
+                {createBlockMutation.isPending ? 'Saving...' : 'Add Block'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel-blocked-time"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

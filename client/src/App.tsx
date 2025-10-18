@@ -28,6 +28,8 @@ import SettingsPage from "@/pages/settings";
 import ChecklistManagementPage from "@/pages/checklist-management";
 import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
+import PortalLoginPage from "@/pages/portal-login";
+import PortalDashboardPage from "@/pages/portal-dashboard";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
@@ -186,7 +188,25 @@ function Navigation() {
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [location] = useLocation();
 
+  // Check if accessing portal routes (client-facing)
+  const isPortalRoute = location.startsWith('/portal');
+
+  // Portal routes don't require staff authentication
+  if (isPortalRoute) {
+    return (
+      <Switch>
+        <Route path="/portal" component={PortalLoginPage} />
+        <Route path="/portal/login" component={PortalLoginPage} />
+        <Route path="/portal/dashboard" component={PortalDashboardPage} />
+        {/* Additional portal routes will be added here */}
+        <Route component={NotFound} />
+      </Switch>
+    );
+  }
+
+  // Staff routes - require authentication
   // Wait for authentication to settle before rendering routes
   // This prevents the 404 page from flashing during page refresh
   if (isLoading) {
