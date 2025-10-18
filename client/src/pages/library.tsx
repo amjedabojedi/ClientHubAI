@@ -972,9 +972,9 @@ function ConnectionForm({
                     </Badge>
                     <span className="font-medium">{entry.title}</span>
                   </div>
-                  {entry.description && (
+                  {entry.content && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                      {entry.description}
+                      {entry.content}
                     </p>
                   )}
                   {entry.tags && entry.tags.length > 0 && (
