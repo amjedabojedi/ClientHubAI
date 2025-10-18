@@ -146,6 +146,50 @@ async function sendActivationEmail(clientEmail: string, clientName: string, acti
   }
 }
 
+// Helper function to send password reset email
+async function sendPasswordResetEmail(clientEmail: string, clientName: string, resetToken: string) {
+  if (!process.env.SPARKPOST_API_KEY) {
+    console.log('[PASSWORD_RESET] SparkPost API key not configured - reset email not sent');
+    return;
+  }
+
+  try {
+    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+    const fromEmail = 'noreply@send.rcrc.ca';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+    const resetUrl = `${baseUrl}/portal/reset-password/${resetToken}`;
+
+    await sp.transmissions.send({
+      content: {
+        from: fromEmail,
+        subject: 'Reset Your TherapyFlow Portal Password',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Password Reset Request</h2>
+            <p>Hi ${clientName},</p>
+            <p>We received a request to reset your TherapyFlow Client Portal password. Click the button below to set a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                Reset My Password
+              </a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="color: #666; font-size: 14px; word-break: break-all;">${resetUrl}</p>
+            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+              If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
+            </p>
+          </div>
+        `
+      },
+      recipients: [{ address: clientEmail }]
+    });
+
+    console.log(`[PASSWORD_RESET] Reset email sent to ${clientEmail}`);
+  } catch (error) {
+    console.error('[PASSWORD_RESET] Error sending reset email:', error);
+  }
+}
+
 // Helper function to track client history events
 async function trackClientHistory(params: {
   clientId: number;
@@ -8490,6 +8534,96 @@ This happens because only the file metadata was stored, not the actual file cont
     } catch (error) {
       console.error("Portal activation error:", error);
       res.status(500).json({ error: "Activation failed" });
+    }
+  });
+
+  // Portal password reset request - generate token and send email
+  app.post("/api/portal/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Find client by portal email
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.portalEmail, email));
+
+      // Always return success to prevent email enumeration attacks
+      if (!client) {
+        return res.json({ message: "If an account exists with this email, a password reset link has been sent." });
+      }
+
+      if (!client.hasPortalAccess) {
+        return res.json({ message: "If an account exists with this email, a password reset link has been sent." });
+      }
+
+      // Generate reset token
+      const resetToken = require('crypto').randomBytes(32).toString('hex');
+
+      // Update client with reset token (no expiry tracking for now - tokens are single-use)
+      await storage.updateClient(client.id, {
+        passwordResetToken: resetToken
+      });
+
+      // Send reset email
+      await sendPasswordResetEmail(client.portalEmail!, client.fullName, resetToken);
+
+      console.log(`[PASSWORD_RESET] Reset email sent to ${client.portalEmail} for client ${client.fullName}`);
+
+      res.json({ message: "If an account exists with this email, a password reset link has been sent." });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process password reset request" });
+    }
+  });
+
+  // Portal password reset - validate token and update password
+  app.post("/api/portal/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ error: "Reset token and password are required" });
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      }
+
+      // Find client by reset token
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.passwordResetToken, token));
+
+      if (!client) {
+        return res.status(404).json({ error: "Invalid or expired reset token" });
+      }
+
+      if (!client.hasPortalAccess) {
+        return res.status(403).json({ error: "Portal access is not enabled for this account" });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Update client with new password and clear reset token
+      await storage.updateClient(client.id, {
+        portalPassword: hashedPassword,
+        passwordResetToken: null
+      });
+
+      console.log(`[PASSWORD_RESET] Password reset successful for client ${client.fullName}`);
+
+      res.json({ message: "Password reset successfully. You can now log in with your new password." });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
     }
   });
 
