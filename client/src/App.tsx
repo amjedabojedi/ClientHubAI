@@ -30,6 +30,7 @@ import MyProfilePage from "@/pages/my-profile";
 import LoginPage from "@/pages/login";
 import PortalLoginPage from "@/pages/portal-login";
 import PortalDashboardPage from "@/pages/portal-dashboard";
+import PortalActivatePage from "@/pages/portal-activate";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
@@ -199,6 +200,7 @@ function Router() {
       <Switch>
         <Route path="/portal" component={PortalLoginPage} />
         <Route path="/portal/login" component={PortalLoginPage} />
+        <Route path="/portal/activate/:token" component={PortalActivatePage} />
         <Route path="/portal/dashboard" component={PortalDashboardPage} />
         {/* Additional portal routes will be added here */}
         <Route component={NotFound} />

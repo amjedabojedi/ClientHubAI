@@ -102,6 +102,50 @@ function sanitizeUsers(users: any[]) {
   return users.map(sanitizeUser);
 }
 
+// Helper function to send portal activation email
+async function sendActivationEmail(clientEmail: string, clientName: string, activationToken: string) {
+  if (!process.env.SPARKPOST_API_KEY) {
+    console.log('[ACTIVATION] SparkPost API key not configured - activation email not sent');
+    return;
+  }
+
+  try {
+    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+    const fromEmail = 'noreply@send.rcrc.ca';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+    const activationUrl = `${baseUrl}/portal/activate/${activationToken}`;
+
+    await sp.transmissions.send({
+      content: {
+        from: fromEmail,
+        subject: 'Activate Your TherapyFlow Portal Account',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Welcome to TherapyFlow Client Portal</h2>
+            <p>Hi ${clientName},</p>
+            <p>Your therapist has enabled portal access for you. Click the button below to activate your account and set your password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${activationUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                Activate My Account
+              </a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="color: #666; font-size: 14px; word-break: break-all;">${activationUrl}</p>
+            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+              If you didn't request portal access, please contact your therapist.
+            </p>
+          </div>
+        `
+      },
+      recipients: [{ address: clientEmail }]
+    });
+
+    console.log(`[ACTIVATION] Activation email sent to ${clientEmail}`);
+  } catch (error) {
+    console.error('[ACTIVATION] Error sending activation email:', error);
+  }
+}
+
 // Helper function to track client history events
 async function trackClientHistory(params: {
   clientId: number;
@@ -674,6 +718,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         } catch (notificationError) {
           console.error('Client assigned notification failed:', notificationError);
+        }
+      }
+      
+      // 4. Handle portal access activation
+      if (validatedData.hasPortalAccess && 
+          !originalClient.hasPortalAccess && 
+          client.portalEmail && 
+          !client.portalPassword) {
+        // Portal access was just enabled - generate activation token and send email
+        try {
+          const activationToken = require('crypto').randomBytes(32).toString('hex');
+          
+          // Update client with activation token
+          await storage.updateClient(client.id, { activationToken });
+          
+          // Send activation email
+          await sendActivationEmail(client.portalEmail, client.fullName, activationToken);
+          
+          console.log(`[PORTAL] Activation email sent to ${client.portalEmail} for client ${client.fullName}`);
+          
+          // Track portal activation in history
+          await trackClientHistory({
+            clientId: client.id,
+            eventType: 'portal_activated',
+            fromValue: 'disabled',
+            toValue: 'activation_sent',
+            description: `Portal access enabled. Activation email sent to ${client.portalEmail}`,
+            createdBy: req.user.id,
+            createdByName: req.user.fullName,
+          });
+        } catch (activationError) {
+          console.error('[PORTAL] Failed to send activation email:', activationError);
         }
       }
       
@@ -8338,6 +8414,82 @@ This happens because only the file metadata was stored, not the actual file cont
     } catch (error) {
       console.error("Portal logout error:", error);
       res.status(500).json({ error: "Logout failed" });
+    }
+  });
+
+  // Portal activation - validate token and set password
+  app.post("/api/portal/activate", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ error: "Activation token and password are required" });
+      }
+
+      // Validate password strength (at least 8 characters)
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      }
+
+      // Find client by activation token
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.activationToken, token));
+
+      if (!client) {
+        return res.status(404).json({ error: "Invalid or expired activation token" });
+      }
+
+      if (!client.hasPortalAccess) {
+        return res.status(403).json({ error: "Portal access is not enabled for this account" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Update client with password and clear activation token
+      await storage.updateClient(client.id, {
+        portalPassword: hashedPassword,
+        activationToken: null,
+        lastLogin: new Date()
+      });
+
+      // Create initial portal session
+      const sessionToken = require('crypto').randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      await storage.createPortalSession({
+        clientId: client.id,
+        sessionToken,
+        ipAddress: req.ip || req.headers['x-forwarded-for'] as string || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown',
+        expiresAt,
+        isActive: true
+      });
+
+      // Set session cookie
+      res.cookie('portalSessionToken', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/api/portal'
+      });
+
+      res.json({
+        message: "Account activated successfully",
+        client: {
+          id: client.id,
+          clientId: client.clientId,
+          fullName: client.fullName,
+          email: client.portalEmail
+        }
+      });
+    } catch (error) {
+      console.error("Portal activation error:", error);
+      res.status(500).json({ error: "Activation failed" });
     }
   });
 
