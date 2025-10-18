@@ -97,15 +97,10 @@ function Navigation() {
   return (
     <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-center h-16">
           <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">TF</span>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                TherapyFlow
-              </h1>
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">TF</span>
             </div>
             <div className="flex items-center space-x-2">
               {navItems.map((item) => {
