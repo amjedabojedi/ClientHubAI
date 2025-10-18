@@ -706,7 +706,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  // Client History Endpoints
+  
+  // GET /api/clients/:id/history - Fetch client history timeline
+  app.get("/api/clients/:id/history", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
+      // Fetch history events ordered by most recent first
+      const history = await db
+        .select()
+        .from(clientHistory)
+        .where(eq(clientHistory.clientId, clientId))
+        .orderBy(desc(clientHistory.createdAt));
+      
+      res.json(history);
+    } catch (error) {
+      console.error('Error fetching client history:', error);
+      res.status(500).json({ message: "Failed to fetch client history" });
+    }
+  });
+  
+  // GET /api/clients/:id/stage-durations - Calculate time spent in each stage
+  app.get("/api/clients/:id/stage-durations", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
+      // Get client info
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Get all stage change events
+      const stageChanges = await db
+        .select()
+        .from(clientHistory)
+        .where(and(
+          eq(clientHistory.clientId, clientId),
+          eq(clientHistory.eventType, 'stage_change')
+        ))
+        .orderBy(clientHistory.createdAt);
+      
+      // Calculate durations
+      const durations: { [key: string]: number } = {};
+      
+      // If there are stage changes, calculate durations between them
+      if (stageChanges.length > 0) {
+        for (let i = 0; i < stageChanges.length; i++) {
+          const currentStage = stageChanges[i].fromValue;
+          const nextChangeTime = i < stageChanges.length - 1 
+            ? new Date(stageChanges[i + 1].createdAt).getTime()
+            : new Date(stageChanges[i].createdAt).getTime();
+          const currentChangeTime = new Date(stageChanges[i].createdAt).getTime();
+          
+          if (currentStage && currentStage !== 'none') {
+            const durationMs = nextChangeTime - currentChangeTime;
+            const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+            durations[currentStage] = (durations[currentStage] || 0) + durationDays;
+          }
+        }
+        
+        // Add duration for current stage
+        const lastStageChange = stageChanges[stageChanges.length - 1];
+        const currentStage = lastStageChange.toValue;
+        if (currentStage) {
+          const startTime = new Date(lastStageChange.createdAt).getTime();
+          const nowTime = Date.now();
+          const durationMs = nowTime - startTime;
+          const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+          durations[currentStage] = (durations[currentStage] || 0) + durationDays;
+        }
+      } else if (client.stage && client.startDate) {
+        // No history yet - calculate from start date to now
+        const startTime = new Date(client.startDate).getTime();
+        const nowTime = Date.now();
+        const durationMs = nowTime - startTime;
+        const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+        durations[client.stage] = durationDays;
+      }
+      
+      res.json({
+        clientId,
+        currentStage: client.stage,
+        durations,
+        totalEvents: stageChanges.length
+      });
+    } catch (error) {
+      console.error('Error calculating stage durations:', error);
+      res.status(500).json({ message: "Failed to calculate stage durations" });
+    }
+  });
 
   // Session bulk upload endpoint - OPTIMIZED VERSION
   app.post("/api/sessions/bulk-upload", requireAuth, async (req: AuthenticatedRequest, res) => {
