@@ -443,7 +443,7 @@ export default function LibraryPage() {
 
         {/* Add Entry Dialog */}
         <Dialog open={showAddEntryDialog} onOpenChange={setShowAddEntryDialog}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Entry</DialogTitle>
             </DialogHeader>
@@ -459,7 +459,7 @@ export default function LibraryPage() {
 
         {/* Edit Entry Dialog */}
         <Dialog open={!!editingEntry} onOpenChange={() => setEditingEntry(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Entry</DialogTitle>
             </DialogHeader>
