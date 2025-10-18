@@ -870,10 +870,7 @@ function ConnectionForm({
         };
         console.log("📤 Creating connection:", connectionData);
         
-        return apiRequest("/api/library/connections", {
-          method: "POST",
-          body: JSON.stringify(connectionData)
-        });
+        return apiRequest("/api/library/connections", "POST", connectionData);
       });
 
       console.log("⏳ Waiting for all connections to complete...");
