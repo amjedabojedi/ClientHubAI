@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import multer from "multer";
 import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
@@ -809,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? 'Client file closed and set to inactive' 
             : 'Client file reopened and reactivated',
           createdBy: req.user.id,
-          createdByName: req.user.fullName,
+          createdByName: req.user.username,
         });
       }
       
@@ -822,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           toValue: validatedData.stage,
           description: `Client stage changed from ${originalClient.stage || 'none'} to ${validatedData.stage}`,
           createdBy: req.user.id,
-          createdByName: req.user.fullName,
+          createdByName: req.user.username,
         });
       }
       
@@ -857,7 +858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             toValue: assignedTherapist?.fullName || 'Unknown',
             description: `Therapist assignment changed from ${previousTherapist?.fullName || 'Unassigned'} to ${assignedTherapist?.fullName}`,
             createdBy: req.user.id,
-            createdByName: req.user.fullName,
+            createdByName: req.user.username,
           });
         } catch (notificationError) {
           console.error('Client assigned notification failed:', notificationError);
@@ -889,7 +890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             toValue: 'activation_sent',
             description: `Portal access enabled. Activation email sent to ${client.portalEmail}`,
             createdBy: req.user.id,
-            createdByName: req.user.fullName,
+            createdByName: req.user.username,
           });
         } catch (activationError) {
           console.error('[PORTAL] Failed to send activation email:', activationError);
@@ -989,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             toValue: 'enabled',
             description: `Portal access enabled. Activation email sent to ${email}`,
             createdBy: req.user.id,
-            createdByName: req.user.fullName,
+            createdByName: req.user.username,
           });
 
           res.json({ message: "Portal access enabled and activation email sent", activationSent: true });
@@ -1012,7 +1013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           toValue: 'disabled',
           description: 'Portal access disabled',
           createdBy: req.user.id,
-          createdByName: req.user.fullName,
+          createdByName: req.user.username,
         });
 
         res.json({ message: "Portal access disabled" });
@@ -1068,7 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           toValue: '',
           description: `Portal activation email resent to ${email}`,
           createdBy: req.user.id,
-          createdByName: req.user.fullName,
+          createdByName: req.user.username,
         });
 
         res.json({ message: "Activation email sent successfully", email });
