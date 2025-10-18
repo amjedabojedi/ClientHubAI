@@ -598,12 +598,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const client = await storage.updateClient(id, validatedData);
       
-      // Check if therapist assignment changed
+      // Track client history for important changes
+      
+      // 1. Track status changes (active/inactive)
+      if (validatedData.status && validatedData.status !== originalClient.status) {
+        await trackClientHistory({
+          clientId: client.id,
+          eventType: validatedData.status === 'inactive' ? 'file_closed' : 'file_reopened',
+          fromValue: originalClient.status || 'unknown',
+          toValue: validatedData.status,
+          description: validatedData.status === 'inactive' 
+            ? 'Client file closed and set to inactive' 
+            : 'Client file reopened and reactivated',
+          createdBy: req.user.id,
+          createdByName: req.user.fullName,
+        });
+      }
+      
+      // 2. Track stage changes
+      if (validatedData.stage && validatedData.stage !== originalClient.stage) {
+        await trackClientHistory({
+          clientId: client.id,
+          eventType: 'stage_change',
+          fromValue: originalClient.stage || 'none',
+          toValue: validatedData.stage,
+          description: `Client stage changed from ${originalClient.stage || 'none'} to ${validatedData.stage}`,
+          createdBy: req.user.id,
+          createdByName: req.user.fullName,
+        });
+      }
+      
+      // 3. Track therapist assignment changes
       if (validatedData.assignedTherapistId && 
           validatedData.assignedTherapistId !== originalClient.assignedTherapistId) {
         // Trigger client assigned notification
         try {
           const assignedTherapist = await storage.getUser(client.assignedTherapistId!);
+          const previousTherapist = originalClient.assignedTherapistId 
+            ? await storage.getUser(originalClient.assignedTherapistId) 
+            : null;
           
           await notificationService.processEvent('client_assigned', {
             id: client.id,
@@ -616,6 +649,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             assignmentDate: new Date(),
             priority: 'medium',
             previousTherapistId: originalClient.assignedTherapistId
+          });
+          
+          // Track therapist assignment in history
+          await trackClientHistory({
+            clientId: client.id,
+            eventType: 'therapist_assignment',
+            fromValue: previousTherapist?.fullName || 'Unassigned',
+            toValue: assignedTherapist?.fullName || 'Unknown',
+            description: `Therapist assignment changed from ${previousTherapist?.fullName || 'Unassigned'} to ${assignedTherapist?.fullName}`,
+            createdBy: req.user.id,
+            createdByName: req.user.fullName,
           });
         } catch (notificationError) {
           console.error('Client assigned notification failed:', notificationError);
