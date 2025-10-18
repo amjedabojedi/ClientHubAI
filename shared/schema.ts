@@ -1797,6 +1797,25 @@ export type InsertRoomBooking = z.infer<typeof insertRoomBookingSchema>;
 export type SelectSessionBilling = typeof sessionBilling.$inferSelect;
 export type InsertSessionBilling = z.infer<typeof insertSessionBillingSchema>;
 
+export interface ClientInvoice {
+  id: number;
+  sessionId: number;
+  serviceCode: string;
+  units: number;
+  ratePerUnit: string;
+  totalAmount: string;
+  insuranceCovered: boolean;
+  copayAmount: string | null;
+  billingDate: string | null;
+  paymentStatus: string;
+  paymentAmount: string | null;
+  paymentDate: string | null;
+  paymentReference: string | null;
+  paymentMethod: string | null;
+  sessionDate: Date;
+  sessionType: string;
+}
+
 // Checklist Types
 export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;

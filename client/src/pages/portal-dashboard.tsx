@@ -177,7 +177,14 @@ export default function PortalDashboardPage() {
               <CardDescription>Check billing history</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full">View Billing</Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setLocation("/portal/invoices")}
+                data-testid="button-view-invoices"
+              >
+                View Billing
+              </Button>
             </CardContent>
           </Card>
 

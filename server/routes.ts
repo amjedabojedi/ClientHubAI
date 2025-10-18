@@ -8898,6 +8898,35 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Get client invoices
+  app.get("/api/portal/invoices", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get invoices for this client
+      const invoices = await storage.getClientInvoices(session.clientId);
+
+      res.json(invoices);
+    } catch (error) {
+      console.error("Portal invoices error:", error);
+      res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

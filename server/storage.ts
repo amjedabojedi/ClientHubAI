@@ -107,6 +107,7 @@ import type {
   InsertRoomBooking,
   SelectSessionBilling,
   InsertSessionBilling,
+  ClientInvoice,
   UserProfile,
   InsertUserProfile,
   SupervisorAssignment,
@@ -271,6 +272,7 @@ export interface IStorage {
     psychotherapy: number;
   }>;
   getAllClientsForExport(): Promise<(Client & { assignedTherapist?: string })[]>;
+  getClientInvoices(clientId: number): Promise<ClientInvoice[]>;
 
   // ===== CLIENT PORTAL AUTHENTICATION =====
   getClientByPortalEmail(portalEmail: string): Promise<Client | undefined>;
@@ -1097,6 +1099,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(clients.id, id))
       .returning();
     return client;
+  }
+
+  async getClientInvoices(clientId: number): Promise<ClientInvoice[]> {
+    const result = await db
+      .select({
+        id: sessionBilling.id,
+        sessionId: sessionBilling.sessionId,
+        serviceCode: sessionBilling.serviceCode,
+        units: sessionBilling.units,
+        ratePerUnit: sessionBilling.ratePerUnit,
+        totalAmount: sessionBilling.totalAmount,
+        insuranceCovered: sessionBilling.insuranceCovered,
+        copayAmount: sessionBilling.copayAmount,
+        billingDate: sessionBilling.billingDate,
+        paymentStatus: sessionBilling.paymentStatus,
+        paymentAmount: sessionBilling.paymentAmount,
+        paymentDate: sessionBilling.paymentDate,
+        paymentReference: sessionBilling.paymentReference,
+        paymentMethod: sessionBilling.paymentMethod,
+        sessionDate: sessions.sessionDate,
+        sessionType: sessions.sessionType,
+      })
+      .from(sessionBilling)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .where(eq(sessions.clientId, clientId))
+      .orderBy(desc(sessionBilling.billingDate));
+
+    return result;
   }
 
   async deleteClient(id: number): Promise<void> {
