@@ -478,7 +478,7 @@ export default function LibraryPage() {
 
         {/* Connect Entry Dialog */}
         <Dialog open={!!connectingEntry} onOpenChange={() => setConnectingEntry(null)}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Connect "{connectingEntry?.title}" to Other Entries</DialogTitle>
             </DialogHeader>
