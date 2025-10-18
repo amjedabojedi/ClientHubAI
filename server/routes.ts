@@ -22,7 +22,7 @@ import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory } from "@shared/schema";
-import { eq, and, gte, lte, desc, sql, ilike } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { zoomService } from "./zoom-service";
@@ -717,12 +717,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid client ID" });
       }
       
-      // Fetch history events ordered by most recent first
+      // Fetch history events ordered by most recent first (truncated to second), then by ID ascending
+      // This ensures events in the same second appear in chronological insertion order
       const history = await db
         .select()
         .from(clientHistory)
         .where(eq(clientHistory.clientId, clientId))
-        .orderBy(desc(clientHistory.createdAt));
+        .orderBy(
+          desc(sql`date_trunc('second', ${clientHistory.createdAt})`),
+          asc(clientHistory.id)
+        );
       
       res.json(history);
     } catch (error) {
