@@ -272,6 +272,15 @@ export interface IStorage {
   }>;
   getAllClientsForExport(): Promise<(Client & { assignedTherapist?: string })[]>;
 
+  // ===== CLIENT PORTAL AUTHENTICATION =====
+  getClientByPortalEmail(portalEmail: string): Promise<Client | undefined>;
+  createPortalSession(session: InsertClientPortalSession): Promise<ClientPortalSession>;
+  getPortalSessionByToken(token: string): Promise<ClientPortalSession | undefined>;
+  updatePortalSessionActivity(id: number): Promise<void>;
+  deletePortalSession(id: number): Promise<void>;
+  deleteClientPortalSessions(clientId: number): Promise<void>;
+  cleanupExpiredPortalSessions(): Promise<void>;
+
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
   // SECURE: Database-level filtered session query with service visibility controls
@@ -1283,6 +1292,63 @@ export class DatabaseStorage implements IStorage {
       ...r.client, 
       assignedTherapist: r.therapist?.username || '' 
     }));
+  }
+
+  // Client Portal Authentication Methods
+  async getClientByPortalEmail(portalEmail: string): Promise<Client | undefined> {
+    const [client] = await db
+      .select()
+      .from(clients)
+      .where(eq(clients.portalEmail, portalEmail));
+    return client || undefined;
+  }
+
+  async createPortalSession(session: InsertClientPortalSession): Promise<ClientPortalSession> {
+    const [newSession] = await db
+      .insert(clientPortalSessions)
+      .values(session)
+      .returning();
+    return newSession;
+  }
+
+  async getPortalSessionByToken(token: string): Promise<ClientPortalSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(clientPortalSessions)
+      .where(and(
+        eq(clientPortalSessions.sessionToken, token),
+        eq(clientPortalSessions.isActive, true),
+        gte(clientPortalSessions.expiresAt, new Date())
+      ));
+    return session || undefined;
+  }
+
+  async updatePortalSessionActivity(id: number): Promise<void> {
+    await db
+      .update(clientPortalSessions)
+      .set({ lastActivityAt: new Date() })
+      .where(eq(clientPortalSessions.id, id));
+  }
+
+  async deletePortalSession(id: number): Promise<void> {
+    await db
+      .delete(clientPortalSessions)
+      .where(eq(clientPortalSessions.id, id));
+  }
+
+  async deleteClientPortalSessions(clientId: number): Promise<void> {
+    await db
+      .delete(clientPortalSessions)
+      .where(eq(clientPortalSessions.clientId, clientId));
+  }
+
+  async cleanupExpiredPortalSessions(): Promise<void> {
+    await db
+      .delete(clientPortalSessions)
+      .where(or(
+        eq(clientPortalSessions.isActive, false),
+        lte(clientPortalSessions.expiresAt, new Date())
+      ));
   }
 
   // Session methods

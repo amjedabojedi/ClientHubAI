@@ -20,18 +20,19 @@ export default function PortalLoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/portal/auth/login", {
+      const response = await fetch("/api/portal/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        credentials: "include", // Send cookies with request
         body: JSON.stringify({ email, password }),
       });
 
       if (response.ok) {
+        // Session is now stored in HttpOnly cookie, redirect to dashboard
         setLocation("/portal/dashboard");
       } else {
         const data = await response.json();
-        setError(data.message || "Invalid email or password");
+        setError(data.error || "Invalid email or password");
       }
     } catch (err) {
       setError("Unable to connect. Please try again.");

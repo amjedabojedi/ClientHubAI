@@ -8195,6 +8195,152 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // ===== CLIENT PORTAL AUTHENTICATION =====
+  
+  // Client portal login
+  app.post("/api/portal/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+
+      // Find client by portal email
+      const client = await storage.getClientByPortalEmail(email.toLowerCase().trim());
+      
+      if (!client || !client.hasPortalAccess || !client.portalPassword) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Verify password
+      const passwordMatch = await bcrypt.compare(password, client.portalPassword);
+      
+      if (!passwordMatch) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Generate session token
+      const sessionToken = require('crypto').randomBytes(32).toString('hex');
+      
+      // Create portal session (expires in 7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      
+      await storage.createPortalSession({
+        clientId: client.id,
+        sessionToken,
+        ipAddress: req.ip || req.headers['x-forwarded-for'] as string || 'unknown',
+        userAgent: req.headers['user-agent'] || 'unknown',
+        expiresAt,
+        isActive: true
+      });
+
+      // Update client's last login
+      await storage.updateClient(client.id, { lastLogin: new Date() });
+
+      // Set session token in HttpOnly, Secure cookie for HIPAA compliance
+      res.cookie('portalSessionToken', sessionToken, {
+        httpOnly: true, // Prevents JavaScript access (XSS protection)
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        sameSite: 'strict', // CSRF protection
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+        path: '/api/portal' // Only send cookie for portal API routes
+      });
+
+      // Return client info only (no token in response body)
+      res.json({
+        client: {
+          id: client.id,
+          clientId: client.clientId,
+          fullName: client.fullName,
+          email: client.portalEmail
+        }
+      });
+    } catch (error) {
+      console.error("Portal login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // Get current portal session info
+  app.get("/api/portal/me", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        // Clear invalid cookie with matching flags for reliable removal
+        res.clearCookie('portalSessionToken', {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          path: '/api/portal'
+        });
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get client info
+      const client = await storage.getClient(session.clientId);
+      
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      res.json({
+        client: {
+          id: client.id,
+          clientId: client.clientId,
+          fullName: client.fullName,
+          email: client.portalEmail,
+          phone: client.phone,
+          assignedTherapistId: client.assignedTherapistId
+        }
+      });
+    } catch (error) {
+      console.error("Portal session error:", error);
+      res.status(500).json({ error: "Failed to get session info" });
+    }
+  });
+
+  // Client portal logout
+  app.post("/api/portal/logout", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (sessionToken) {
+        const session = await storage.getPortalSessionByToken(sessionToken);
+        
+        if (session) {
+          await storage.deletePortalSession(session.id);
+        }
+      }
+
+      // Clear the session cookie with matching flags for reliable removal
+      res.clearCookie('portalSessionToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/api/portal'
+      });
+      
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      console.error("Portal logout error:", error);
+      res.status(500).json({ error: "Logout failed" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

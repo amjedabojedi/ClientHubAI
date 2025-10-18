@@ -1,8 +1,77 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, FileText, CreditCard, Upload, Clock } from "lucide-react";
 
+interface ClientInfo {
+  id: number;
+  clientId: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  assignedTherapistId?: number;
+}
+
 export default function PortalDashboardPage() {
+  const [, setLocation] = useLocation();
+  const [client, setClient] = useState<ClientInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check authentication on mount
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/portal/me", {
+          credentials: "include", // Send cookies automatically
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setClient(data.client);
+        } else {
+          // Session invalid or expired, redirect to login
+          setLocation("/portal/login");
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        setLocation("/portal/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [setLocation]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/portal/logout", {
+        method: "POST",
+        credentials: "include", // Send cookies automatically
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
+    setLocation("/portal/login");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!client) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
@@ -18,7 +87,11 @@ export default function PortalDashboardPage() {
                 <p className="text-xs text-gray-600">Client Portal</p>
               </div>
             </div>
-            <Button variant="outline" data-testid="button-portal-logout">
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              data-testid="button-portal-logout"
+            >
               Sign Out
             </Button>
           </div>
@@ -28,7 +101,7 @@ export default function PortalDashboardPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back, {client.fullName}!</h2>
           <p className="text-gray-600">Manage your appointments, billing, and documents all in one place.</p>
         </div>
 
