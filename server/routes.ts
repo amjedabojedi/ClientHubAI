@@ -190,6 +190,105 @@ async function sendPasswordResetEmail(clientEmail: string, clientName: string, r
   }
 }
 
+// Helper function to send appointment confirmation email
+async function sendAppointmentConfirmationEmail(
+  clientEmail: string, 
+  clientName: string, 
+  appointmentDetails: {
+    date: string;
+    time: string;
+    duration: number;
+    sessionType: string;
+    location: string;
+  }
+) {
+  if (!process.env.SPARKPOST_API_KEY) {
+    console.log('[APPOINTMENT] SparkPost API key not configured - confirmation email not sent');
+    return;
+  }
+
+  try {
+    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+    const fromEmail = 'noreply@send.rcrc.ca';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+    const dashboardUrl = `${baseUrl}/portal/dashboard`;
+
+    // Format date and time for display using America/New_York timezone
+    // Parse date at noon to avoid timezone shift issues with YYYY-MM-DD strings
+    const dateAtNoon = new Date(`${appointmentDetails.date}T12:00:00`);
+    const displayDate = dateAtNoon.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'America/New_York'
+    });
+    
+    // Format time correctly by treating the time string as already in America/New_York timezone
+    // The time value (e.g., "10:00") is meant to represent 10:00 AM Eastern
+    // Use fromZonedTime to parse it as an Eastern time, then format it
+    const dateTimeString = `${appointmentDetails.date} ${appointmentDetails.time}`;
+    const appointmentDateTimeInEastern = fromZonedTime(dateTimeString, 'America/New_York');
+    const displayTime = formatInTimeZone(appointmentDateTimeInEastern, 'America/New_York', 'h:mm a');
+
+    await sp.transmissions.send({
+      content: {
+        from: fromEmail,
+        subject: 'Appointment Confirmed - TherapyFlow',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">Appointment Confirmed</h2>
+            <p>Hi ${clientName},</p>
+            <p>Your therapy appointment has been successfully scheduled. Here are the details:</p>
+            
+            <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #374151;">Date:</td>
+                  <td style="padding: 8px 0; color: #1f2937;">${displayDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #374151;">Time:</td>
+                  <td style="padding: 8px 0; color: #1f2937;">${displayTime}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #374151;">Duration:</td>
+                  <td style="padding: 8px 0; color: #1f2937;">${appointmentDetails.duration} minutes</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #374151;">Session Type:</td>
+                  <td style="padding: 8px 0; color: #1f2937; text-transform: capitalize;">${appointmentDetails.sessionType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: bold; color: #374151;">Location:</td>
+                  <td style="padding: 8px 0; color: #1f2937;">${appointmentDetails.location}</td>
+                </tr>
+              </table>
+            </div>
+
+            <p>Please arrive 5-10 minutes early to complete any necessary paperwork.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${dashboardUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                View My Appointments
+              </a>
+            </div>
+
+            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+              If you need to reschedule or have any questions, please contact your therapist's office.
+            </p>
+          </div>
+        `
+      },
+      recipients: [{ address: clientEmail }]
+    });
+
+    console.log(`[APPOINTMENT] Confirmation email sent to ${clientEmail}`);
+  } catch (error) {
+    console.error('[APPOINTMENT] Error sending confirmation email:', error);
+  }
+}
+
 // Helper function to track client history events
 async function trackClientHistory(params: {
   clientId: number;
@@ -8760,6 +8859,26 @@ This happens because only the file metadata was stored, not the actual file cont
         location: location || 'Office',
         createdBy: session.clientId, // Track that client booked this
       });
+
+      // Send confirmation email to client
+      if (client.portalEmail) {
+        try {
+          await sendAppointmentConfirmationEmail(
+            client.portalEmail,
+            client.fullName,
+            {
+              date: sessionDate,
+              time: sessionTime,
+              duration: duration || 60,
+              sessionType: sessionType || 'individual',
+              location: location || 'Office',
+            }
+          );
+        } catch (emailError) {
+          console.error('[APPOINTMENT] Failed to send confirmation email:', emailError);
+          // Don't fail the booking if email fails
+        }
+      }
 
       res.status(201).json({
         message: "Appointment booked successfully",
