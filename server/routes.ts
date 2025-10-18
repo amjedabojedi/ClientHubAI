@@ -936,6 +936,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Portal Access Management Endpoints
+  
+  // PUT /api/clients/:id/portal-access - Enable/disable portal access
+  app.put("/api/clients/:id/portal-access", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const { enable, email } = req.body;
+
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      const client = await storage.getClient(id);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      if (enable && !email) {
+        return res.status(400).json({ message: "Email address required to enable portal access" });
+      }
+
+      // Update portal access
+      const updateData: any = {
+        hasPortalAccess: enable,
+      };
+
+      if (enable) {
+        updateData.portalEmail = email;
+        
+        // Generate activation token
+        const activationToken = crypto.randomBytes(32).toString('hex');
+        updateData.activationToken = activationToken;
+
+        // Update client
+        await storage.updateClient(id, updateData);
+
+        // Send activation email
+        try {
+          await sendActivationEmail(email, client.fullName, activationToken);
+          console.log(`[PORTAL] Activation email sent to ${email} for client ${client.fullName}`);
+
+          // Track portal activation in history
+          await trackClientHistory({
+            clientId: id,
+            eventType: 'portal_activated',
+            fromValue: 'disabled',
+            toValue: 'enabled',
+            description: `Portal access enabled. Activation email sent to ${email}`,
+            createdBy: req.user.id,
+            createdByName: req.user.fullName,
+          });
+
+          res.json({ message: "Portal access enabled and activation email sent", activationSent: true });
+        } catch (emailError) {
+          console.error('[PORTAL] Failed to send activation email:', emailError);
+          res.json({ message: "Portal access enabled but activation email failed to send", activationSent: false });
+        }
+      } else {
+        // Disable portal access
+        updateData.activationToken = null;
+        updateData.passwordResetToken = null;
+
+        await storage.updateClient(id, updateData);
+
+        // Track portal deactivation in history
+        await trackClientHistory({
+          clientId: id,
+          eventType: 'portal_deactivated',
+          fromValue: 'enabled',
+          toValue: 'disabled',
+          description: 'Portal access disabled',
+          createdBy: req.user.id,
+          createdByName: req.user.fullName,
+        });
+
+        res.json({ message: "Portal access disabled" });
+      }
+    } catch (error) {
+      console.error('[PORTAL] Portal access toggle error:', error);
+      res.status(500).json({ message: "Failed to update portal access" });
+    }
+  });
+
+  // POST /api/clients/:id/send-portal-activation - Resend activation email
+  app.post("/api/clients/:id/send-portal-activation", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      const client = await storage.getClient(id);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      if (!client.hasPortalAccess) {
+        return res.status(400).json({ message: "Portal access is not enabled for this client" });
+      }
+
+      if (!client.portalEmail && !client.email) {
+        return res.status(400).json({ message: "No email address on file for this client" });
+      }
+
+      const email = client.portalEmail || client.email!;
+
+      // Generate new activation token
+      const activationToken = crypto.randomBytes(32).toString('hex');
+      await storage.updateClient(id, { activationToken });
+
+      // Send activation email
+      try {
+        await sendActivationEmail(email, client.fullName, activationToken);
+        console.log(`[PORTAL] Activation email resent to ${email} for client ${client.fullName}`);
+
+        // Track in history
+        await trackClientHistory({
+          clientId: id,
+          eventType: 'portal_activation_resent',
+          fromValue: '',
+          toValue: '',
+          description: `Portal activation email resent to ${email}`,
+          createdBy: req.user.id,
+          createdByName: req.user.fullName,
+        });
+
+        res.json({ message: "Activation email sent successfully", email });
+      } catch (emailError) {
+        console.error('[PORTAL] Failed to send activation email:', emailError);
+        res.status(500).json({ message: "Failed to send activation email" });
+      }
+    } catch (error) {
+      console.error('[PORTAL] Send activation error:', error);
+      res.status(500).json({ message: "Failed to send activation email" });
+    }
+  });
+
   // Client History Endpoints
   
   // GET /api/clients/:id/history - Fetch client history timeline

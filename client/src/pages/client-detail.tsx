@@ -759,6 +759,218 @@ function ClientHistoryTimeline({ clientId }: { clientId: number }) {
   );
 }
 
+// Portal Management Component
+function PortalManagement({ clientId, client }: { clientId: number; client: Client }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isEnabling, setIsEnabling] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
+  const togglePortalAccessMutation = useMutation({
+    mutationFn: async (enable: boolean) => {
+      return apiRequest(`/api/clients/${clientId}/portal-access`, "PUT", { 
+        enable,
+        email: client.email 
+      });
+    },
+    onSuccess: (_, enable) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}`] });
+      toast({
+        title: "Success",
+        description: `Portal access ${enable ? 'enabled' : 'disabled'} successfully`,
+      });
+      setIsEnabling(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update portal access",
+        variant: "destructive",
+      });
+      setIsEnabling(false);
+    },
+  });
+
+  const sendActivationEmailMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/clients/${clientId}/send-portal-activation`, "POST", {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Activation Email Sent",
+        description: `Portal activation email sent to ${client.email}`,
+      });
+      setIsSendingEmail(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send activation email",
+        variant: "destructive",
+      });
+      setIsSendingEmail(false);
+    },
+  });
+
+  const handleToggleAccess = () => {
+    if (!client.email) {
+      toast({
+        title: "Email Required",
+        description: "Please add an email address to the client profile before enabling portal access.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const enable = !client.hasPortalAccess;
+    if (enable) {
+      if (confirm(`Enable portal access for ${client.fullName}?\n\nAn activation email will be sent to ${client.email}.`)) {
+        setIsEnabling(true);
+        togglePortalAccessMutation.mutate(true);
+      }
+    } else {
+      if (confirm(`Disable portal access for ${client.fullName}?\n\nThe client will no longer be able to log in to the portal.`)) {
+        setIsEnabling(true);
+        togglePortalAccessMutation.mutate(false);
+      }
+    }
+  };
+
+  const handleSendActivationEmail = () => {
+    if (!client.hasPortalAccess) {
+      toast({
+        title: "Portal Not Enabled",
+        description: "Please enable portal access first before sending activation email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (confirm(`Send portal activation email to ${client.email}?`)) {
+      setIsSendingEmail(true);
+      sendActivationEmailMutation.mutate();
+    }
+  };
+
+  return (
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-t-lg border-b border-indigo-100">
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Settings className="w-5 h-5 text-indigo-600" />
+            <span>Portal Access Management</span>
+          </div>
+          <Badge className={`px-3 py-1 ${client.hasPortalAccess ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+            {client.hasPortalAccess ? 'Enabled' : 'Disabled'}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-6">
+        <div className="space-y-6">
+          {/* Status and Info */}
+          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Mail className="w-4 h-4 text-slate-600" />
+                <span className="text-sm font-medium text-slate-700">Portal Email</span>
+              </div>
+              <span className="text-sm text-slate-900 font-medium">
+                {client.portalEmail || client.email || 'Not set'}
+              </span>
+            </div>
+            {client.lastLogin && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-slate-600" />
+                  <span className="text-sm font-medium text-slate-700">Last Login</span>
+                </div>
+                <span className="text-sm text-slate-900 font-medium">
+                  {formatDateTimeDisplay(client.lastLogin)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="space-y-3">
+            {/* Enable/Disable Toggle */}
+            <Button
+              onClick={handleToggleAccess}
+              variant={client.hasPortalAccess ? "outline" : "default"}
+              className={`w-full ${!client.hasPortalAccess ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'border-red-200 text-red-600 hover:bg-red-50'}`}
+              disabled={isEnabling || !client.email}
+              data-testid="button-toggle-portal-access"
+            >
+              {isEnabling ? (
+                <>
+                  <RotateCw className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : client.hasPortalAccess ? (
+                <>
+                  <X className="w-4 h-4 mr-2" />
+                  Disable Portal Access
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Enable Portal Access
+                </>
+              )}
+            </Button>
+
+            {!client.email && (
+              <p className="text-xs text-orange-600 flex items-center">
+                <AlertCircle className="w-3 h-3 mr-1" />
+                Email address required to enable portal access
+              </p>
+            )}
+
+            {/* Send Activation Email */}
+            {client.hasPortalAccess && (
+              <Button
+                onClick={handleSendActivationEmail}
+                variant="outline"
+                className="w-full"
+                disabled={isSendingEmail}
+                data-testid="button-send-activation-email"
+              >
+                {isSendingEmail ? (
+                  <>
+                    <RotateCw className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Resend Activation Email
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* Help Text */}
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <div className="flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-900 space-y-1">
+                <p className="font-medium">Portal Access Features:</p>
+                <ul className="list-disc list-inside space-y-1 text-blue-800">
+                  <li>View upcoming appointments</li>
+                  <li>Book new appointments online</li>
+                  <li>View and pay invoices</li>
+                  <li>Upload documents securely</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ClientDetailPage() {
   // Routing
   const [match, params] = useRoute("/clients/:id");
@@ -2157,23 +2369,38 @@ export default function ClientDetailPage() {
               <Card className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="bg-slate-50 rounded-t-lg">
                   <CardTitle className="flex items-center space-x-2">
-                    <CreditCard className="w-5 h-5 text-indigo-600" />
-                    <span>Portal Access</span>
+                    <ExternalLink className="w-5 h-5 text-indigo-600" />
+                    <span>Client Portal</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="text-center">
-                    <div className={`p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center ${
-                      client.hasPortalAccess ? 'bg-green-100' : 'bg-gray-100'
-                    }`}>
-                      <CreditCard className={`w-8 h-8 ${client.hasPortalAccess ? 'text-green-600' : 'text-gray-400'}`} />
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className={`p-3 rounded-full w-16 h-16 mx-auto mb-3 flex items-center justify-center ${
+                        client.hasPortalAccess ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        <ExternalLink className={`w-6 h-6 ${client.hasPortalAccess ? 'text-green-600' : 'text-gray-400'}`} />
+                      </div>
+                      <Badge className={`mb-2 px-3 py-1 ${client.hasPortalAccess ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {client.hasPortalAccess ? 'Enabled' : 'Disabled'}
+                      </Badge>
+                      {client.portalEmail && (
+                        <p className="text-slate-600 text-sm mt-2">{client.portalEmail}</p>
+                      )}
                     </div>
-                    <Badge className={`mb-2 px-3 py-1 ${client.hasPortalAccess ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                      {client.hasPortalAccess ? 'Access Enabled' : 'Access Disabled'}
-                    </Badge>
-                    {client.portalEmail && (
-                      <p className="text-slate-600 text-sm mt-2">{client.portalEmail}</p>
-                    )}
+                    
+                    <div className="space-y-2">
+                      <Button 
+                        onClick={() => window.open('/portal', '_blank')}
+                        variant="outline" 
+                        className="w-full"
+                        size="sm"
+                        data-testid="button-view-portal"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open Portal Login
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -2259,6 +2486,9 @@ export default function ClientDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Portal Management */}
+            <PortalManagement clientId={clientId!} client={client} />
           </TabsContent>
 
           {/* Sessions Tab */}
