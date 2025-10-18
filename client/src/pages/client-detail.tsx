@@ -629,6 +629,8 @@ function ClientHistoryTimeline({ clientId }: { clientId: number }) {
 
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
+      case 'file_created':
+        return <FileText className="w-5 h-5 text-green-600" />;
       case 'file_closed':
         return <Archive className="w-5 h-5 text-red-600" />;
       case 'file_reopened':
@@ -644,6 +646,8 @@ function ClientHistoryTimeline({ clientId }: { clientId: number }) {
 
   const getEventColor = (eventType: string) => {
     switch (eventType) {
+      case 'file_created':
+        return 'bg-green-50 border-green-200';
       case 'file_closed':
         return 'bg-red-50 border-red-200';
       case 'file_reopened':
@@ -659,6 +663,8 @@ function ClientHistoryTimeline({ clientId }: { clientId: number }) {
 
   const formatEventType = (eventType: string) => {
     switch (eventType) {
+      case 'file_created':
+        return 'File Created';
       case 'file_closed':
         return 'File Closed';
       case 'file_reopened':

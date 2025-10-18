@@ -535,6 +535,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const client = await storage.createClient(validatedData);
       
+      // Track file creation in history
+      await trackClientHistory({
+        clientId: client.id,
+        eventType: 'file_created',
+        description: 'Client file created',
+        fromValue: null,
+        toValue: client.stage || 'intake',
+        createdBy: req.user?.id
+      });
+      
       // Trigger client created notification
       try {
         await notificationService.processEvent('client_created', {
