@@ -4885,11 +4885,12 @@ This happens because only the file metadata was stored, not the actual file cont
         createdById: req.user.id
       };
       
+      console.log("Creating connection:", connectionData);
       const connection = await storage.createLibraryEntryConnection(connectionData);
       res.status(201).json(connection);
     } catch (error) {
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      console.error("Error creating library connection:", error);
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : "Unknown error" });
     }
   });
 
