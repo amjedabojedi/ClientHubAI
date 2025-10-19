@@ -8978,13 +8978,12 @@ This happens because only the file metadata was stored, not the actual file cont
         .select({
           id: sessions.id,
           sessionDate: sessions.sessionDate,
-          sessionTime: sessions.sessionTime,
           duration: sessions.duration,
           sessionType: sessions.sessionType,
           status: sessions.status,
           room: sessions.room,
           roomId: sessions.roomId,
-          serviceCodeId: sessions.serviceCodeId,
+          serviceId: sessions.serviceId,
         })
         .from(sessions)
         .where(eq(sessions.clientId, session.clientId))
@@ -9003,12 +9002,12 @@ This happens because only the file metadata was stored, not the actual file cont
       const { formatInTimeZone } = await import('date-fns-tz');
       const formattedSessions = clientSessionsRaw.map(s => {
         const room = s.roomId ? roomMap.get(s.roomId) : null;
-        const service = s.serviceCodeId ? serviceMap.get(s.serviceCodeId) : null;
+        const service = s.serviceId ? serviceMap.get(s.serviceId) : null;
         
         return {
           id: s.id,
           sessionDate: formatInTimeZone(s.sessionDate, 'America/New_York', 'yyyy-MM-dd'),
-          sessionTime: s.sessionTime || formatInTimeZone(s.sessionDate, 'America/New_York', 'HH:mm'),
+          sessionTime: formatInTimeZone(s.sessionDate, 'America/New_York', 'HH:mm'),
           duration: s.duration,
           sessionType: s.sessionType,
           status: s.status,
