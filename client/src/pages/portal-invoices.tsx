@@ -283,7 +283,7 @@ export default function PortalInvoices() {
                               )}
                             </Button>
                           )}
-                          {invoice.paymentStatus === 'paid' && invoice.paymentReference && (
+                          {invoice.paymentStatus === 'paid' && (
                             <Button
                               size="sm"
                               variant="outline"
