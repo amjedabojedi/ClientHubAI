@@ -8993,11 +8993,11 @@ This happens because only the file metadata was stored, not the actual file cont
         location: s.room || 'Office',
       }));
 
-      // Audit appointment access
+      // Audit appointment access (use null for userId since clients aren't in users table)
       const client = await storage.getClient(session.clientId);
       if (client) {
         await AuditLogger.logAction({
-          userId: client.id,
+          userId: null,
           username: client.portalEmail || client.email || 'unknown',
           action: 'appointments_viewed',
           result: 'success',

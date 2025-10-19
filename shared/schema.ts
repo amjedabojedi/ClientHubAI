@@ -434,7 +434,11 @@ export const sessions = pgTable("sessions", {
   sessionDate: timestamp("session_date").notNull(),
   sessionType: varchar("session_type", { length: 100 }).notNull(),
   status: varchar("status", { length: 50 }).notNull().default('scheduled'),
+  duration: integer("duration"), // Legacy field: session duration in minutes
   notes: text("notes"),
+  serviceProvided: text("service_provided"), // Legacy field
+  room: varchar("room", { length: 100 }), // Legacy field (deprecated, use roomId instead)
+  price: decimal("price", { precision: 10, scale: 2 }), // Legacy field (deprecated, use calculatedRate instead)
   calculatedRate: decimal("calculated_rate", { precision: 10, scale: 2 }), // Auto-calculated from service
   insuranceApplicable: boolean("insurance_applicable").notNull().default(false),
   billingNotes: text("billing_notes"),
