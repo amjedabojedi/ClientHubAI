@@ -117,22 +117,24 @@ export default function PortalDashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <header className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+      <header className="bg-white border-b shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">TF</span>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-base sm:text-lg">TF</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">TherapyFlow</h1>
-                <p className="text-xs text-gray-600">Client Portal</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">TherapyFlow</h1>
+                <p className="text-xs text-gray-600 hidden sm:block">Client Portal</p>
               </div>
             </div>
             <Button 
               variant="outline" 
               onClick={handleLogout}
               data-testid="button-portal-logout"
+              size="sm"
+              className="text-xs sm:text-sm"
             >
               Sign Out
             </Button>
@@ -141,14 +143,14 @@ export default function PortalDashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back, {client.fullName}!</h2>
-          <p className="text-gray-600">Manage your appointments, billing, and documents all in one place.</p>
+      <main className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Welcome Back, {client.fullName}!</h2>
+          <p className="text-sm sm:text-base text-gray-600">Manage your appointments, billing, and documents all in one place.</p>
         </div>
 
         {/* Quick Actions Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid="card-book-appointment">
             <CardHeader>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3">

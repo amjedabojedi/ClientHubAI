@@ -83,13 +83,13 @@ export default function PortalInvoices() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
           <Link href="/portal/dashboard">
-            <Button variant="outline" size="sm" data-testid="button-back">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
+            <Button variant="outline" size="sm" data-testid="button-back" className="text-xs sm:text-sm">
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Back to </span>Dashboard
             </Button>
           </Link>
         </div>
@@ -97,25 +97,27 @@ export default function PortalInvoices() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-primary" />
-              <CardTitle>Invoices</CardTitle>
+              <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <CardTitle className="text-lg sm:text-xl">Invoices</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               View your billing history and payment status
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!invoices || invoices.length === 0 ? (
-              <div className="text-center py-12">
-                <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Invoices Yet</h3>
-                <p className="text-muted-foreground">
+              <div className="text-center py-8 sm:py-12">
+                <Receipt className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold mb-2">No Invoices Yet</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   Your billing history will appear here once sessions are invoiced.
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <div className="overflow-hidden">
+                    <Table className="min-w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead data-testid="header-date">Date</TableHead>
@@ -167,6 +169,8 @@ export default function PortalInvoices() {
                     ))}
                   </TableBody>
                 </Table>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
