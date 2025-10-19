@@ -277,7 +277,6 @@ export default function PortalDashboardPage() {
                     const dateB = new Date(`${b.sessionDate}T${b.sessionTime}`);
                     return dateA.getTime() - dateB.getTime();
                   })
-                  .slice(0, 10)
                   .map((appointment) => {
                   const sessionDateTime = new Date(`${appointment.sessionDate}T${appointment.sessionTime}`);
                   const isPast = sessionDateTime < new Date();
@@ -319,15 +318,15 @@ export default function PortalDashboardPage() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-3">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                isPast 
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : appointment.status === 'confirmed'
+                                appointment.status === 'confirmed'
                                   ? 'bg-green-100 text-green-800'
                                   : appointment.status === 'cancelled'
                                   ? 'bg-red-100 text-red-800'
+                                  : appointment.status === 'completed'
+                                  ? 'bg-gray-100 text-gray-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}>
-                                {isPast ? 'Completed' : (appointment.status === 'scheduled' ? 'Scheduled' : appointment.status)}
+                                {appointment.status === 'scheduled' ? 'Scheduled' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                               </span>
                               <span className="font-semibold text-gray-900 capitalize">
                                 {appointment.sessionType || 'Session'}
@@ -359,11 +358,6 @@ export default function PortalDashboardPage() {
                     </div>
                   );
                 })}
-                {appointments.length > 10 && (
-                  <p className="text-sm text-gray-500 text-center pt-2">
-                    Showing 10 of {appointments.length} appointments
-                  </p>
-                )}
               </div>
             )}
           </CardContent>
