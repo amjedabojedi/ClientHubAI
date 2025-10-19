@@ -9083,24 +9083,28 @@ This happens because only the file metadata was stored, not the actual file cont
           15 // Using default service for duration, room check will happen at booking time
         );
         
-        // Filter only available slots and convert to frontend format
+        // Filter only available slots and convert to frontend format (24-hour HH:MM)
         const availableSlots = daySlots
           .filter(slot => slot.available)
           .map(slot => {
-            // Convert time to end time (60 minutes later)
+            // Convert "9:00 AM" to 24-hour format "09:00"
             const [time, period] = slot.time.split(' ');
             const [hours, minutes] = time.split(':');
             let hour = parseInt(hours);
             if (period === 'PM' && hour !== 12) hour += 12;
             if (period === 'AM' && hour === 12) hour = 0;
             
-            const startDate = new Date();
-            startDate.setHours(hour, parseInt(minutes), 0);
-            const endDate = new Date(startDate.getTime() + 60 * 60000); // +60 minutes
+            const startHour = hour.toString().padStart(2, '0');
+            const startMin = minutes.padStart(2, '0');
+            const startTime24 = `${startHour}:${startMin}`;
+            
+            // Calculate end time (60 minutes later)
+            const endHour = ((hour + 1) % 24).toString().padStart(2, '0');
+            const endTime24 = `${endHour}:${startMin}`;
             
             return {
-              start: slot.time,
-              end: endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              start: startTime24,  // "09:00" format
+              end: endTime24       // "10:00" format
             };
           });
         
