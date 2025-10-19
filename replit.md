@@ -53,7 +53,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Task Management**: Creation, assignment, tracking, filtering, and commenting.
 - **Hierarchical Library System**: Categorized clinical content with smart auto-connection and search.
 - **Risk Assessment**: 10-factor matrix with automated scoring.
-- **User Profile System**: Detailed user profiles with credentials and role management.
+- **User Profile System**: Detailed user profiles with credentials, role management, and working hours configuration for appointment scheduling.
 - **Billing Integration**: Service catalog, room management, automatic billing triggers, payment status tracking.
 - **Assessment Management**: Template creation, client assignment, AI-powered report generation, draft/finalize workflow, digital signatures, PDF/Word export, HIPAA audit logging.
 - **Checklist Management**: Comprehensive templates for process workflows.
@@ -61,6 +61,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **HIPAA Compliance Audit System**: Comprehensive activity tracking for PHI access, data modifications, login attempts across critical operations.
 - **Email Communications History**: Audit trail of client emails (scheduling, reminders) accessible in client profiles.
 - **Login Error Feedback**: Professional handling with specific backend messages, visual cues, and persistent error state.
+- **Client Portal**: Secure portal access for clients to view appointments, upload documents, and manage their care with HIPAA-compliant audit logging. Portal displays all dates/times in America/New_York timezone for consistency.
 
 ## External Dependencies
 
