@@ -868,19 +868,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 4. Handle portal access activation
       if (validatedData.hasPortalAccess && 
           !originalClient.hasPortalAccess && 
-          client.portalEmail && 
+          (client.email || client.portalEmail) && 
           !client.portalPassword) {
         // Portal access was just enabled - generate activation token and send email
         try {
           const activationToken = require('crypto').randomBytes(32).toString('hex');
+          const emailToUse = client.portalEmail || client.email!;
           
           // Update client with activation token
           await storage.updateClient(client.id, { activationToken });
           
           // Send activation email
-          await sendActivationEmail(client.portalEmail, client.fullName, activationToken);
+          await sendActivationEmail(emailToUse, client.fullName, activationToken);
           
-          console.log(`[PORTAL] Activation email sent to ${client.portalEmail} for client ${client.fullName}`);
+          console.log(`[PORTAL] Activation email sent to ${emailToUse} for client ${client.fullName}`);
           
           // Track portal activation in history
           await trackClientHistory({
@@ -888,7 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eventType: 'portal_activated',
             fromValue: 'disabled',
             toValue: 'activation_sent',
-            description: `Portal access enabled. Activation email sent to ${client.portalEmail}`,
+            description: `Portal access enabled. Activation email sent to ${emailToUse}`,
             createdBy: req.user.id,
             createdByName: req.user.username,
           });
