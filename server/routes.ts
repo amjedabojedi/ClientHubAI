@@ -7233,9 +7233,14 @@ This happens because only the file metadata was stored, not the actual file cont
             <div class="total-row total-due">
               <span>Total Due:</span>
               <span style="${remainingDue === 0 ? 'color: #16a34a; font-weight: bold;' : ''}">
-                ${remainingDue === 0 ? 'PAID IN FULL' : '$' + remainingDue.toFixed(2)}
+                $${remainingDue.toFixed(2)}
               </span>
             </div>
+            ${remainingDue === 0 ? `
+            <div class="total-row" style="color: #16a34a; font-weight: bold; margin-top: 10px;">
+              <span>Status:</span>
+              <span>✓ PAID IN FULL</span>
+            </div>` : ''}
           </div>
           
           <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
@@ -9985,9 +9990,14 @@ This happens because only the file metadata was stored, not the actual file cont
             <div class="total-row total-due">
               <span>Total Due:</span>
               <span style="${remainingDue === 0 ? 'color: #16a34a; font-weight: bold;' : ''}">
-                ${remainingDue === 0 ? 'PAID IN FULL' : '$' + remainingDue.toFixed(2)}
+                $${remainingDue.toFixed(2)}
               </span>
             </div>
+            ${remainingDue === 0 ? `
+            <div class="total-row" style="color: #16a34a; font-weight: bold; margin-top: 10px;">
+              <span>Status:</span>
+              <span>✓ PAID IN FULL</span>
+            </div>` : ''}
           </div>
           
           <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
