@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, FileText, CreditCard, Upload, Clock } from "lucide-react";
+import { Calendar, FileText, CreditCard, Upload, Clock, MapPin } from "lucide-react";
 import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
 
 interface ClientInfo {
@@ -22,6 +22,11 @@ interface Appointment {
   sessionType?: string;
   status: string;
   location?: string;
+  roomName?: string;
+  referenceNumber?: string;
+  serviceCode?: string;
+  serviceName?: string;
+  serviceRate?: number;
 }
 
 export default function PortalDashboardPage() {
@@ -253,51 +258,78 @@ export default function PortalDashboardPage() {
                   const sessionDateTime = new Date(`${appointment.sessionDate}T${appointment.sessionTime}`);
                   const isPast = sessionDateTime < new Date();
                   
+                  // Format date as "Sep 14, 2025"
+                  const formattedDate = new Date(appointment.sessionDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  
+                  // Format time as "9:00 AM"
+                  const formattedTime = new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  });
+                  
                   return (
                     <div 
                       key={appointment.id}
                       className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                       data-testid={`appointment-${appointment.id}`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Calendar className="w-4 h-4 text-blue-600" />
-                            <span className="font-medium text-gray-900">
-                              {formatDateDisplay(appointment.sessionDate)}
-                            </span>
-                            <span className="text-sm text-gray-600">
-                              at {new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
-                                hour: 'numeric', 
-                                minute: '2-digit',
-                                hour12: true 
-                              })}
-                            </span>
+                      <div className="flex gap-4">
+                        {/* Left: Date & Time */}
+                        <div className="flex flex-col items-start min-w-[120px]">
+                          <div className="text-xl font-bold text-gray-900 mb-1">
+                            {formattedDate}
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            {appointment.sessionType && (
-                              <span className="capitalize">{appointment.sessionType}</span>
-                            )}
-                            {appointment.duration && (
-                              <span>{appointment.duration} minutes</span>
-                            )}
-                            {appointment.location && (
-                              <span>{appointment.location}</span>
-                            )}
+                          <div className="text-sm text-gray-600">
+                            {formattedTime}
                           </div>
                         </div>
-                        <div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            isPast 
-                              ? 'bg-gray-100 text-gray-800'
-                              : appointment.status === 'confirmed'
-                              ? 'bg-green-100 text-green-800'
-                              : appointment.status === 'cancelled'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {isPast ? 'Completed' : appointment.status || 'Scheduled'}
-                          </span>
+                        
+                        {/* Right: Details */}
+                        <div className="flex-1">
+                          {/* Top row: Status badge, Title, Reference */}
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                isPast 
+                                  ? 'bg-gray-100 text-gray-800'
+                                  : appointment.status === 'confirmed'
+                                  ? 'bg-green-100 text-green-800'
+                                  : appointment.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {isPast ? 'Completed' : (appointment.status === 'scheduled' ? 'Scheduled' : appointment.status)}
+                              </span>
+                              <span className="font-semibold text-gray-900 capitalize">
+                                {appointment.sessionType || 'Session'}
+                              </span>
+                            </div>
+                            {appointment.referenceNumber && (
+                              <span className="text-sm text-gray-500">
+                                Ref# {appointment.referenceNumber}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Bottom row: Room and Service Code */}
+                          <div className="space-y-1">
+                            {appointment.roomName && (
+                              <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                                <MapPin className="w-4 h-4" />
+                                <span>Room: {appointment.roomName}</span>
+                              </div>
+                            )}
+                            {appointment.serviceCode && (
+                              <div className="text-sm text-gray-600">
+                                {appointment.serviceCode} - ${appointment.serviceRate?.toFixed(2) || '0.00'}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

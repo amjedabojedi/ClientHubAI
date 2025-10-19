@@ -8970,31 +8970,58 @@ This happens because only the file metadata was stored, not the actual file cont
       // Update session activity
       await storage.updatePortalSessionActivity(session.id);
 
-      // Get client's sessions (excluding sensitive clinical notes)
-      const clientSessions = await db
+      // Get client info for reference number
+      const client = await storage.getClient(session.clientId);
+      
+      // Get client's sessions with all details (excluding sensitive clinical notes)
+      const clientSessionsRaw = await db
         .select({
           id: sessions.id,
           sessionDate: sessions.sessionDate,
+          sessionTime: sessions.sessionTime,
           duration: sessions.duration,
           sessionType: sessions.sessionType,
           status: sessions.status,
           room: sessions.room,
+          roomId: sessions.roomId,
+          serviceCodeId: sessions.serviceCodeId,
         })
         .from(sessions)
         .where(eq(sessions.clientId, session.clientId))
-        .orderBy(desc(sessions.sessionDate));
+        .orderBy(desc(sessions.sessionDate))
+        .limit(100);
+
+      // Get all rooms for lookup
+      const allRooms = await storage.getRooms();
+      const roomMap = new Map(allRooms.map(r => [r.id, r]));
+      
+      // Get all services for lookup
+      const allServices = await storage.getServices();
+      const serviceMap = new Map(allServices.map(s => [s.id, s]));
 
       // Format sessions for portal display in America/New_York timezone
       const { formatInTimeZone } = await import('date-fns-tz');
-      const formattedSessions = clientSessions.map(s => ({
-        ...s,
-        sessionDate: formatInTimeZone(s.sessionDate, 'America/New_York', 'yyyy-MM-dd'),
-        sessionTime: formatInTimeZone(s.sessionDate, 'America/New_York', 'HH:mm'),
-        location: s.room || 'Office',
-      }));
+      const formattedSessions = clientSessionsRaw.map(s => {
+        const room = s.roomId ? roomMap.get(s.roomId) : null;
+        const service = s.serviceCodeId ? serviceMap.get(s.serviceCodeId) : null;
+        
+        return {
+          id: s.id,
+          sessionDate: formatInTimeZone(s.sessionDate, 'America/New_York', 'yyyy-MM-dd'),
+          sessionTime: s.sessionTime || formatInTimeZone(s.sessionDate, 'America/New_York', 'HH:mm'),
+          duration: s.duration,
+          sessionType: s.sessionType,
+          status: s.status,
+          location: s.room || 'Office',
+          roomName: room ? (room.roomName || room.roomNumber) : null,
+          referenceNumber: client?.referenceNumber,
+          serviceCode: service?.serviceCode,
+          serviceName: service?.serviceName,
+          serviceRate: service?.baseRate,
+        };
+      });
 
       // Audit appointment access (use null for userId since clients aren't in users table)
-      const client = await storage.getClient(session.clientId);
       if (client) {
         await AuditLogger.logAction({
           userId: null,
