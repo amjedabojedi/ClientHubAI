@@ -13,6 +13,7 @@ interface TimeSlot {
 
 export default function PortalBookAppointmentPage() {
   const [, setLocation] = useLocation();
+  const [sessionType, setSessionType] = useState<'online' | 'in-person'>('online');
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [availableSlots, setAvailableSlots] = useState<Record<string, TimeSlot[]>>({});
@@ -36,20 +37,26 @@ export default function PortalBookAppointmentPage() {
   const dates = generateDates();
 
   useEffect(() => {
-    // Fetch available slots for the next 14 days
+    // Reset selections when session type changes
+    setSelectedDate("");
+    setSelectedTime("");
+    
+    // Fetch available slots for the next 14 days based on session type
     const fetchSlots = async () => {
       setIsLoading(true);
+      setError("");
       try {
         const startDate = dates[0];
         const endDate = dates[dates.length - 1];
         
         const response = await fetch(
-          `/api/portal/available-slots?startDate=${startDate}&endDate=${endDate}&duration=60`,
+          `/api/portal/available-slots?startDate=${startDate}&endDate=${endDate}&sessionType=${sessionType}`,
           { credentials: "include" }
         );
 
         if (response.ok) {
           const data = await response.json();
+          console.log('Received slots data:', data);
           setAvailableSlots(data);
         } else if (response.status === 401) {
           setLocation("/portal/login");
@@ -65,7 +72,7 @@ export default function PortalBookAppointmentPage() {
     };
 
     fetchSlots();
-  }, [setLocation]);
+  }, [sessionType, setLocation]);
 
   const handleBookAppointment = async () => {
     if (!selectedDate || !selectedTime) {
@@ -159,6 +166,48 @@ export default function PortalBookAppointmentPage() {
             <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
           </Alert>
         )}
+
+        {/* Session Type Selection */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Session Type</CardTitle>
+            <CardDescription>Choose how you would like to attend your session</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setSessionType('online')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  sessionType === 'online'
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                    : 'border-gray-200 hover:border-blue-300'
+                }`}
+                data-testid="button-session-type-online"
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-2">💻</div>
+                  <div className="font-semibold">Online</div>
+                  <div className="text-xs text-gray-600 mt-1">Video session</div>
+                </div>
+              </button>
+              <button
+                onClick={() => setSessionType('in-person')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  sessionType === 'in-person'
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                    : 'border-gray-200 hover:border-blue-300'
+                }`}
+                data-testid="button-session-type-in-person"
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-2">🏢</div>
+                  <div className="font-semibold">In-Person</div>
+                  <div className="text-xs text-gray-600 mt-1">Office visit</div>
+                </div>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
 
         {isLoading ? (
           <div className="text-center py-8 sm:py-12">

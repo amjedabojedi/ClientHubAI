@@ -9046,20 +9046,24 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "No therapist assigned to your account" });
       }
 
-      // Get query parameters for date range
-      const { startDate, endDate, duration } = req.query;
+      // Get query parameters for date range and session type
+      const { startDate, endDate, sessionType } = req.query;
       
       if (!startDate || !endDate) {
         return res.status(400).json({ error: "Start date and end date are required" });
       }
+      
+      if (!sessionType || (sessionType !== 'online' && sessionType !== 'in-person')) {
+        return res.status(400).json({ error: "Valid session type (online or in-person) is required" });
+      }
 
-      // Calculate available slots - show therapist's working hours (service-agnostic)
+      // Calculate available slots - show therapist's working hours based on session type
       console.log('='.repeat(60));
       console.log('AVAILABILITY CHECK:');
       console.log(`Client: ${client.fullName} (ID: ${client.id})`);
       console.log(`Therapist ID: ${client.assignedTherapistId}`);
       console.log(`Date Range: ${startDate} to ${endDate}`);
-      console.log(`Checking therapist working hours (service will be selected later)`);
+      console.log(`Session Type: ${sessionType.toUpperCase()}`);
       
       // Get therapist profile for working hours
       const therapistProfile = await storage.getUserProfile(client.assignedTherapistId);
@@ -9076,11 +9080,12 @@ This happens because only the file metadata was stored, not the actual file cont
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateKey = d.toISOString().split('T')[0];
         
-        // Use default service just to get session duration for slot generation
+        // Check availability based on session type and room availability
         const daySlots = await storage.getAvailableTimeSlots(
           client.assignedTherapistId,
           new Date(d),
-          15 // Using default service for duration, room check will happen at booking time
+          15, // Using default service for duration
+          sessionType as 'online' | 'in-person' // Pass session type for room checking
         );
         
         // Filter only available slots and convert to frontend format (24-hour HH:MM)
