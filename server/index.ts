@@ -20,12 +20,23 @@ app.use(cookieParser());
 // Optional authentication - sets req.user if valid session exists
 app.use(optionalAuth);
 
-// CSRF protection for all API routes except auth endpoints (POST/PUT/DELETE)
+// CSRF protection for all API routes except public endpoints (POST/PUT/DELETE)
 app.use('/api', (req, res, next) => {
-  // Skip CSRF for login endpoint (it creates the CSRF token)
-  if (req.path === '/auth/login' || req.path === '/auth/logout') {
+  // Skip CSRF for public endpoints that don't require authentication
+  const publicPaths = [
+    '/auth/login',
+    '/auth/logout',
+    '/portal/login',
+    '/portal/logout',
+    '/portal/activate',
+    '/portal/forgot-password',
+    '/portal/reset-password'
+  ];
+  
+  if (publicPaths.includes(req.path)) {
     return next();
   }
+  
   return csrfProtection(req, res, next);
 });
 
