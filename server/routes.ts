@@ -9021,7 +9021,7 @@ This happens because only the file metadata was stored, not the actual file cont
         };
       });
 
-      // Audit appointment access (use null for userId since clients aren't in users table)
+      // Audit appointment access
       if (client) {
         await AuditLogger.logAction({
           userId: null,

@@ -22,7 +22,7 @@ app.use(optionalAuth);
 
 // CSRF protection for all API routes except public endpoints (POST/PUT/DELETE)
 app.use('/api', (req, res, next) => {
-  // Skip CSRF for public endpoints that don't require authentication
+  // Skip CSRF for public endpoints and all portal routes (portal uses cookie-based auth)
   const publicPaths = [
     '/auth/login',
     '/auth/logout',
@@ -33,7 +33,8 @@ app.use('/api', (req, res, next) => {
     '/portal/reset-password'
   ];
   
-  if (publicPaths.includes(req.path)) {
+  // Skip CSRF for exact public paths OR all portal routes
+  if (publicPaths.includes(req.path) || req.path.startsWith('/portal/')) {
     return next();
   }
   
