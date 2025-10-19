@@ -1569,6 +1569,37 @@ function ServiceVisibilityManager() {
     });
   };
 
+  // Portal visibility mutation
+  const updatePortalVisibilityMutation = useMutation({
+    mutationFn: async ({ id, clientPortalVisible }: { id: number; clientPortalVisible: boolean }) => {
+      return await apiRequest(`/api/services/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ clientPortalVisible }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({
+        title: "Success",
+        description: "Client portal visibility updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update client portal visibility",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTogglePortalVisibility = (service: any) => {
+    updatePortalVisibilityMutation.mutate({
+      id: service.id,
+      clientPortalVisible: !service.clientPortalVisible,
+    });
+  };
+
   const handleShowAll = () => {
     const hiddenServices = services.filter((s: any) => !s.therapistVisible);
     if (hiddenServices.length > 0) {
@@ -1629,7 +1660,7 @@ function ServiceVisibilityManager() {
           Service Code Visibility Control
         </CardTitle>
         <CardDescription>
-          Control which service codes therapists can see when booking sessions. Administrators always see all codes.
+          Control which service codes therapists can see when booking sessions and which services clients can book through the portal. Administrators always see all codes.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1654,17 +1685,18 @@ function ServiceVisibilityManager() {
         </div>
 
         {/* Services Table */}
-        <div className="border rounded-lg">
-          <div className="grid grid-cols-6 gap-4 p-3 bg-gray-50 dark:bg-gray-800 font-medium text-sm border-b">
+        <div className="border rounded-lg overflow-x-auto">
+          <div className="grid grid-cols-7 gap-4 p-3 bg-gray-50 dark:bg-gray-800 font-medium text-sm border-b min-w-max">
             <div>Service Code</div>
             <div className="col-span-2">Service Name</div>
             <div>Duration</div>
             <div>Rate</div>
-            <div className="text-center">Visible to Therapists</div>
+            <div className="text-center">Therapist<br/>Visible</div>
+            <div className="text-center">Client Portal<br/>Visible</div>
           </div>
 
           {services.map((service: any) => (
-            <div key={service.id} className="grid grid-cols-6 gap-4 p-3 border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+            <div key={service.id} className="grid grid-cols-7 gap-4 p-3 border-b hover:bg-gray-50 dark:hover:bg-gray-800 min-w-max">
               <div className="font-mono text-sm">{service.serviceCode}</div>
               <div className="col-span-2">{service.serviceName}</div>
               <div className="text-sm text-gray-600">{service.duration} min</div>
@@ -1674,7 +1706,15 @@ function ServiceVisibilityManager() {
                   checked={service.therapistVisible}
                   onCheckedChange={() => handleToggleVisibility(service)}
                   disabled={updateVisibilityMutation.isPending}
-                  data-testid={`switch-service-${service.id}`}
+                  data-testid={`switch-therapist-visible-${service.id}`}
+                />
+              </div>
+              <div className="flex justify-center">
+                <Switch
+                  checked={service.clientPortalVisible}
+                  onCheckedChange={() => handleTogglePortalVisibility(service)}
+                  disabled={updatePortalVisibilityMutation.isPending}
+                  data-testid={`switch-portal-visible-${service.id}`}
                 />
               </div>
             </div>
@@ -1690,11 +1730,13 @@ function ServiceVisibilityManager() {
         {/* Legend */}
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <div className="text-sm">
-            <div className="font-medium mb-1">Visibility Rules:</div>
+            <div className="font-medium mb-2">Visibility Rules:</div>
             <ul className="text-gray-600 dark:text-gray-300 space-y-1">
-              <li>• <strong>Visible:</strong> Therapists can see and use this service code when booking sessions</li>
-              <li>• <strong>Hidden:</strong> Therapists cannot see or select this service code (admins can always see all codes)</li>
-              <li>• <strong>Historical sessions:</strong> Always show the actual service code used, regardless of current visibility settings</li>
+              <li>• <strong>Therapist Visible:</strong> Therapists can see and use this service code when booking sessions</li>
+              <li>• <strong>Client Portal Visible:</strong> Clients can select and book this service through their portal</li>
+              <li>• <strong>Independent Controls:</strong> You can hide services from therapists but show them to clients, or vice versa</li>
+              <li>• <strong>Admin Access:</strong> Administrators can always see all service codes regardless of visibility settings</li>
+              <li>• <strong>Historical Sessions:</strong> Always show the actual service code used, regardless of current visibility settings</li>
             </ul>
           </div>
         </div>
