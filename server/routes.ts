@@ -9227,24 +9227,50 @@ This happens because only the file metadata was stored, not the actual file cont
         }
       );
 
-      // Send confirmation email to client
-      if (client.portalEmail) {
-        try {
-          await sendAppointmentConfirmationEmail(
-            client.portalEmail,
-            client.fullName,
-            {
-              date: sessionDate,
-              time: sessionTime,
-              duration: duration || 60,
-              sessionType: sessionType || 'individual',
-              location: location || 'Office',
-            }
-          );
-        } catch (emailError) {
-          console.error('[APPOINTMENT] Failed to send confirmation email:', emailError);
-          // Don't fail the booking if email fails
+      // Trigger full notification service (same as therapist booking)
+      try {
+        console.log(`[PORTAL BOOKING] Triggering session_scheduled notification for session ${newSession.id}`);
+        
+        // Get therapist details
+        const therapist = await storage.getUser(client.assignedTherapistId);
+        
+        // Get room name if room is assigned
+        let roomName = null;
+        if (newSession.roomId) {
+          try {
+            const rooms = await storage.getRooms();
+            const room = rooms.find(r => r.id === newSession.roomId);
+            roomName = room?.roomName || room?.roomNumber || `Room ${newSession.roomId}`;
+          } catch (error) {
+            console.warn('[PORTAL BOOKING] Could not fetch room name for notification');
+            roomName = `Room ${newSession.roomId}`;
+          }
         }
+        
+        const notificationData = {
+          id: newSession.id,
+          clientId: newSession.clientId,
+          therapistId: newSession.therapistId,
+          clientName: client.fullName,
+          therapistName: therapist?.fullName || 'Unknown Therapist',
+          sessionDate: newSession.sessionDate,
+          sessionType: newSession.sessionType,
+          roomId: newSession.roomId,
+          roomName: roomName,
+          duration: newSession.duration,
+          createdAt: newSession.createdAt,
+          location: newSession.location,
+          bookedByClient: true, // Flag to indicate this was booked through portal
+          zoomEnabled: false, // Portal bookings don't create Zoom meetings
+          zoomMeetingData: null
+        };
+        
+        console.log(`[PORTAL BOOKING] Notification data:`, JSON.stringify(notificationData, null, 2));
+        await notificationService.processEvent('session_scheduled', notificationData);
+        console.log(`[PORTAL BOOKING] Notification processing completed successfully`);
+      } catch (notificationError) {
+        console.error('[PORTAL BOOKING] Session scheduled notification failed:', notificationError);
+        // Don't fail the booking if notification fails
       }
 
       res.status(201).json({
