@@ -8664,7 +8664,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Audit successful portal login
       await AuditLogger.logAuthEvent(
-        client.id,
+        null, // Portal users are clients, not in users table
         email,
         'login',
         ipAddress,
@@ -8763,7 +8763,7 @@ This happens because only the file metadata was stored, not the actual file cont
           // Audit portal logout
           if (client) {
             await AuditLogger.logAuthEvent(
-              client.id,
+              null, // Portal users are clients, not in users table
               client.portalEmail || client.email || 'unknown',
               'logout',
               ipAddress,
@@ -9430,7 +9430,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const client = await storage.getClient(session.clientId);
       if (client) {
         await AuditLogger.logAction({
-          userId: client.id,
+          userId: null, // Portal users are clients, not in users table
           username: client.portalEmail || client.email || 'unknown',
           action: 'invoices_viewed',
           result: 'success',
@@ -9743,10 +9743,15 @@ This happens because only the file metadata was stored, not the actual file cont
       const invoiceId = parseInt(req.params.invoiceId);
       const { action } = req.body; // 'preview' or 'download'
 
+      console.log(`[RECEIPT] Fetching invoice ${invoiceId} for client ${session.clientId}`);
+
       // Get invoice data - ensure it belongs to this client
       const invoiceData = await storage.getBillingForInvoice(session.clientId, invoiceId);
       
+      console.log(`[RECEIPT] Invoice data found:`, invoiceData ? 'yes' : 'no');
+      
       if (!invoiceData) {
+        console.log(`[RECEIPT] Invoice ${invoiceId} not found for client ${session.clientId}`);
         return res.status(404).json({ error: "Invoice not found" });
       }
 
@@ -10019,7 +10024,7 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Audit log
       await AuditLogger.logAction({
-        userId: session.clientId,
+        userId: null, // Portal users are clients, not in users table
         username: client.email || 'unknown',
         action: 'invoice_viewed',
         result: 'success',
