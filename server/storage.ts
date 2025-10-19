@@ -671,13 +671,13 @@ export class DatabaseStorage implements IStorage {
 
     const sessionDuration = service.duration || profile.sessionDuration || 50;
 
-    // Parse working hours from profile (stored as JSON)
+    // Parse working hours from profile (stored as JSON with lowercase keys)
     const workingHours = profile.workingHours ? JSON.parse(profile.workingHours) : {};
-    const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
+    const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
     
     const dayHours = workingHours[dayOfWeek];
-    if (!dayHours || !dayHours.start || !dayHours.end) {
-      return []; // Not a working day
+    if (!dayHours || dayHours.enabled !== true || !dayHours.start || !dayHours.end) {
+      return []; // Not a working day or day is disabled
     }
 
     // Get blocked times for this day
