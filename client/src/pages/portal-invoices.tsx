@@ -87,6 +87,33 @@ export default function PortalInvoices() {
     },
   });
 
+  // View receipt function
+  const handleViewReceipt = async (invoiceId: number) => {
+    try {
+      const previewWindow = window.open('', '_blank');
+      if (previewWindow) {
+        const response = await apiRequest(`/api/portal/invoices/${invoiceId}/receipt`, 'POST', { 
+          action: 'preview'
+        });
+        const htmlContent = await response.text();
+        previewWindow.document.write(htmlContent);
+        previewWindow.document.close();
+      } else {
+        toast({
+          title: "Error",
+          description: "Please allow pop-ups to view receipt",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load receipt",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getPaymentStatusBadge = (status: string) => {
     const statusMap: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
       pending: { variant: "outline", label: "Pending" },
@@ -260,6 +287,7 @@ export default function PortalInvoices() {
                             <Button
                               size="sm"
                               variant="outline"
+                              onClick={() => handleViewReceipt(invoice.id)}
                               data-testid={`button-view-receipt-${invoice.id}`}
                             >
                               <FileText className="w-4 h-4 mr-2" />

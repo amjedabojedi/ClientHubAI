@@ -9719,6 +9719,328 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - View/Download Invoice Receipt
+  app.post("/api/portal/invoices/:invoiceId/receipt", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      const invoiceId = parseInt(req.params.invoiceId);
+      const { action } = req.body; // 'preview' or 'download'
+
+      // Get invoice data - ensure it belongs to this client
+      const invoiceData = await storage.getBillingForInvoice(session.clientId, invoiceId);
+      
+      if (!invoiceData || invoiceData.client.clientId !== session.clientId) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const client = invoiceData.client;
+      const billing = invoiceData.billing;
+      const sessionData = invoiceData.session;
+      const service = invoiceData.service;
+
+      // Get provider info
+      let providerInfo = null;
+      if (invoiceData.therapist) {
+        const therapistProfile = await storage.getUserProfile(invoiceData.therapist.id);
+        providerInfo = {
+          name: invoiceData.therapist.fullName || 'Amjed Abojedi',
+          credentials: therapistProfile?.licenseType || 'CRPO',
+          license: therapistProfile?.licenseNumber || 'License not set in profile',
+          licenseState: therapistProfile?.licenseState || 'ON',
+        };
+      } else {
+        providerInfo = {
+          name: 'Amjed Abojedi',
+          credentials: 'CRPO',
+          license: 'License not set in profile',
+          licenseState: 'ON',
+        };
+      }
+
+      // Get practice settings
+      let practiceSettings = {
+        name: 'Resilience Counseling Research & Consultation',
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'mail@resiliencec.com',
+        website: 'www.resiliencec.com'
+      };
+
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      } catch (error) {
+        // Use defaults
+      }
+
+      const invoiceNumber = `INV-${client.clientId}-${billing.id}`;
+      const serviceDate = formatInTimeZone(new Date(sessionData.sessionDate), 'America/New_York', 'MMM dd, yyyy');
+      const invoiceDate = billing.billingDate ? formatInTimeZone(new Date(billing.billingDate), 'America/New_York', 'MMM dd, yyyy') : serviceDate;
+      const paymentDate = billing.paymentDate ? formatInTimeZone(new Date(billing.paymentDate), 'America/New_York', 'MMM dd, yyyy') : null;
+
+      const invoiceHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Payment Receipt - ${client.fullName}</title>
+          <style>
+            body { 
+              font-family: 'Times New Roman', Times, serif; 
+              margin: 40px; 
+              font-size: 11pt;
+              line-height: 1.4;
+              color: #000;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 2px solid #2563eb;
+            }
+            .practice-info {
+              flex: 1;
+            }
+            .practice-name {
+              font-size: 18pt;
+              font-weight: bold;
+              color: #2563eb;
+              margin-bottom: 5px;
+            }
+            .invoice-info {
+              text-align: right;
+            }
+            .invoice-title {
+              font-size: 24pt;
+              font-weight: bold;
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+            .paid-stamp {
+              background-color: #10b981;
+              color: white;
+              padding: 10px 20px;
+              font-size: 14pt;
+              font-weight: bold;
+              border-radius: 5px;
+              display: inline-block;
+              margin-top: 10px;
+            }
+            .section {
+              margin: 30px 0;
+            }
+            .section-title {
+              font-size: 12pt;
+              font-weight: bold;
+              margin-bottom: 10px;
+              color: #2563eb;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+            }
+            th {
+              background-color: #f3f4f6;
+              padding: 10px;
+              text-align: left;
+              border: 1px solid #d1d5db;
+              font-weight: bold;
+            }
+            td {
+              padding: 10px;
+              border: 1px solid #d1d5db;
+            }
+            .total-row {
+              font-weight: bold;
+              background-color: #f9fafb;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin: 20px 0;
+            }
+            .info-box {
+              border: 1px solid #d1d5db;
+              padding: 15px;
+              border-radius: 5px;
+            }
+            .footer {
+              margin-top: 50px;
+              padding-top: 20px;
+              border-top: 1px solid #d1d5db;
+              font-size: 9pt;
+              color: #6b7280;
+              text-align: center;
+            }
+            @media print {
+              body { margin: 20px; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="practice-info">
+              <div class="practice-name">${practiceSettings.name}</div>
+              <div>${practiceSettings.address}</div>
+              <div>Phone: ${practiceSettings.phone}</div>
+              <div>Email: ${practiceSettings.email}</div>
+            </div>
+            <div class="invoice-info">
+              <div class="invoice-title">RECEIPT</div>
+              <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
+              <div><strong>Date:</strong> ${invoiceDate}</div>
+              ${billing.paymentStatus === 'paid' ? '<div class="paid-stamp">✓ PAID</div>' : ''}
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-box">
+              <div class="section-title">Bill To</div>
+              <div><strong>${client.fullName}</strong></div>
+              ${client.email ? `<div>${client.email}</div>` : ''}
+              ${client.phone ? `<div>${client.phone}</div>` : ''}
+            </div>
+            <div class="info-box">
+              <div class="section-title">Provider</div>
+              <div><strong>${providerInfo.name}</strong></div>
+              <div>${providerInfo.credentials}</div>
+              <div>License: ${providerInfo.license}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Service Details</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date of Service</th>
+                  <th>Service Code</th>
+                  <th>Description</th>
+                  <th>Type</th>
+                  <th style="text-align: right;">Rate</th>
+                  <th style="text-align: right;">Units</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${serviceDate}</td>
+                  <td>${billing.serviceCode}</td>
+                  <td>${service?.name || billing.serviceCode}</td>
+                  <td style="text-transform: capitalize;">${sessionData.sessionType}</td>
+                  <td style="text-align: right;">$${parseFloat(billing.ratePerUnit).toFixed(2)}</td>
+                  <td style="text-align: right;">${billing.units}</td>
+                  <td style="text-align: right;">$${parseFloat(billing.totalAmount).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Payment Summary</div>
+            <table style="width: 50%; margin-left: auto;">
+              <tr>
+                <td><strong>Subtotal:</strong></td>
+                <td style="text-align: right;">$${parseFloat(billing.totalAmount).toFixed(2)}</td>
+              </tr>
+              ${billing.insuranceCovered ? `
+              <tr>
+                <td>Insurance Coverage:</td>
+                <td style="text-align: right;">-$${(parseFloat(billing.totalAmount) * 0.8).toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>Copay:</td>
+                <td style="text-align: right;">$${parseFloat(billing.copayAmount || '0').toFixed(2)}</td>
+              </tr>
+              ` : ''}
+              <tr class="total-row">
+                <td><strong>Total Amount:</strong></td>
+                <td style="text-align: right;"><strong>$${parseFloat(billing.totalAmount).toFixed(2)}</strong></td>
+              </tr>
+              ${billing.paymentAmount ? `
+              <tr>
+                <td>Amount Paid:</td>
+                <td style="text-align: right; color: #10b981;">-$${parseFloat(billing.paymentAmount).toFixed(2)}</td>
+              </tr>
+              ` : ''}
+              <tr class="total-row">
+                <td><strong>Balance Due:</strong></td>
+                <td style="text-align: right;"><strong>$${(parseFloat(billing.totalAmount) - parseFloat(billing.paymentAmount || '0')).toFixed(2)}</strong></td>
+              </tr>
+            </table>
+          </div>
+
+          ${billing.paymentStatus === 'paid' && paymentDate ? `
+          <div class="section">
+            <div class="section-title">Payment Information</div>
+            <div class="info-box">
+              <div><strong>Payment Date:</strong> ${paymentDate}</div>
+              <div><strong>Payment Method:</strong> ${billing.paymentMethod || 'N/A'}</div>
+              <div><strong>Reference:</strong> ${billing.paymentReference || 'N/A'}</div>
+              <div style="margin-top: 15px; padding: 10px; background-color: #d1fae5; border-left: 4px solid #10b981;">
+                <strong>Payment Status:</strong> PAID IN FULL
+              </div>
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="footer">
+            <p>This is an official receipt from ${practiceSettings.name}</p>
+            <p>For questions about this invoice, please contact ${practiceSettings.email} or ${practiceSettings.phone}</p>
+            <p style="margin-top: 10px;">Thank you for your payment!</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Audit log
+      await AuditLogger.logAction({
+        userId: session.clientId,
+        username: client.email || 'unknown',
+        action: 'invoice_viewed',
+        result: 'success',
+        resourceType: 'billing',
+        resourceId: invoiceId.toString(),
+        clientId: session.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'medium',
+        details: JSON.stringify({ portal: true, action, invoiceNumber }),
+        accessReason: 'Client portal invoice receipt access',
+      });
+
+      res.send(invoiceHtml);
+    } catch (error) {
+      console.error("Portal invoice receipt error:", error);
+      res.status(500).json({ error: "Failed to generate receipt" });
+    }
+  });
+
   // Portal - Get client documents
   app.get("/api/portal/documents", async (req, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
