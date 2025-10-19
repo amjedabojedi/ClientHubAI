@@ -1686,39 +1686,48 @@ function ServiceVisibilityManager() {
 
         {/* Services Table */}
         <div className="border rounded-lg overflow-x-auto">
-          <div className="grid grid-cols-7 gap-4 p-3 bg-gray-50 dark:bg-gray-800 font-medium text-sm border-b min-w-max">
-            <div>Service Code</div>
-            <div className="col-span-2">Service Name</div>
-            <div>Duration</div>
-            <div>Rate</div>
-            <div className="text-center">Therapist<br/>Visible</div>
-            <div className="text-center">Client Portal<br/>Visible</div>
-          </div>
-
-          {services.map((service: any) => (
-            <div key={service.id} className="grid grid-cols-7 gap-4 p-3 border-b hover:bg-gray-50 dark:hover:bg-gray-800 min-w-max">
-              <div className="font-mono text-sm">{service.serviceCode}</div>
-              <div className="col-span-2">{service.serviceName}</div>
-              <div className="text-sm text-gray-600">{service.duration} min</div>
-              <div className="text-sm">${service.baseRate}</div>
-              <div className="flex justify-center">
-                <Switch
-                  checked={service.therapistVisible}
-                  onCheckedChange={() => handleToggleVisibility(service)}
-                  disabled={updateVisibilityMutation.isPending}
-                  data-testid={`switch-therapist-visible-${service.id}`}
-                />
-              </div>
-              <div className="flex justify-center">
-                <Switch
-                  checked={service.clientPortalVisible}
-                  onCheckedChange={() => handleTogglePortalVisibility(service)}
-                  disabled={updatePortalVisibilityMutation.isPending}
-                  data-testid={`switch-portal-visible-${service.id}`}
-                />
-              </div>
-            </div>
-          ))}
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800 border-b">
+              <tr>
+                <th className="text-left p-3 font-medium text-sm">Service Code</th>
+                <th className="text-left p-3 font-medium text-sm">Service Name</th>
+                <th className="text-left p-3 font-medium text-sm">Duration</th>
+                <th className="text-left p-3 font-medium text-sm">Rate</th>
+                <th className="text-center p-3 font-medium text-sm">Therapist<br/>Visible</th>
+                <th className="text-center p-3 font-medium text-sm">Client Portal<br/>Visible</th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((service: any) => (
+                <tr key={service.id} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <td className="p-3 font-mono text-sm">{service.serviceCode}</td>
+                  <td className="p-3">{service.serviceName}</td>
+                  <td className="p-3 text-sm text-gray-600 dark:text-gray-400">{service.duration} min</td>
+                  <td className="p-3 text-sm">${service.baseRate}</td>
+                  <td className="p-3 text-center">
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={service.therapistVisible}
+                        onCheckedChange={() => handleToggleVisibility(service)}
+                        disabled={updateVisibilityMutation.isPending}
+                        data-testid={`switch-therapist-visible-${service.id}`}
+                      />
+                    </div>
+                  </td>
+                  <td className="p-3 text-center">
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={service.clientPortalVisible}
+                        onCheckedChange={() => handleTogglePortalVisibility(service)}
+                        disabled={updatePortalVisibilityMutation.isPending}
+                        data-testid={`switch-portal-visible-${service.id}`}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
           {services.length === 0 && (
             <div className="p-8 text-center text-gray-500">
