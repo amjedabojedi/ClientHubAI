@@ -8983,7 +8983,7 @@ This happens because only the file metadata was stored, not the actual file cont
         })
         .from(sessions)
         .where(eq(sessions.clientId, session.clientId))
-        .orderBy(sessions.sessionDate, sessions.sessionTime);
+        .orderBy(desc(sessions.sessionDate));
 
       // Audit appointment access
       const client = await storage.getClient(session.clientId);
@@ -9045,15 +9045,23 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Start date and end date are required" });
       }
 
-      // Use the existing availability calculation logic
-      const availableSlots = await calculateAvailableSlots(
-        client.assignedTherapistId,
-        new Date(startDate as string),
-        new Date(endDate as string),
-        duration ? parseInt(duration as string) : 60
-      );
+      // Calculate available slots using storage method
+      // For now, return a simple week view - can be enhanced later
+      const slots = [];
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      
+      // Generate slots for each day in the range
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const daySlots = await storage.getAvailableTimeSlots(
+          client.assignedTherapistId,
+          new Date(d),
+          1 // Default service ID - can be made configurable
+        );
+        slots.push(...daySlots);
+      }
 
-      res.json(availableSlots);
+      res.json(slots);
     } catch (error) {
       console.error("Portal available slots error:", error);
       res.status(500).json({ error: "Failed to fetch available slots" });
