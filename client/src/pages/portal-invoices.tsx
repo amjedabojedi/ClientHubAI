@@ -63,7 +63,8 @@ export default function PortalInvoices() {
   const paymentMutation = useMutation({
     mutationFn: async (invoiceId: number) => {
       const response = await apiRequest(`/api/portal/invoices/${invoiceId}/pay`, "POST", {});
-      return response;
+      const data = await response.json();
+      return data;
     },
     onSuccess: async (data) => {
       console.log('Payment response:', data);
