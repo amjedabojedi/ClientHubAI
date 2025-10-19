@@ -9216,22 +9216,90 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "No therapist assigned to your account" });
       }
 
-      const { sessionDate, sessionTime, duration, sessionType, location } = req.body;
+      const { sessionDate, sessionTime, duration, serviceId, sessionType, location } = req.body;
 
       if (!sessionDate || !sessionTime) {
         return res.status(400).json({ error: "Session date and time are required" });
       }
 
-      // Create the appointment
+      if (!serviceId) {
+        return res.status(400).json({ error: "Service selection is required" });
+      }
+
+      // Get therapist profile for room assignment
+      const therapistProfile = await storage.getUserProfile(client.assignedTherapistId);
+      if (!therapistProfile) {
+        return res.status(400).json({ error: "Therapist profile not found" });
+      }
+
+      // Assign room based on session type
+      let assignedRoomId = null;
+      
+      if (sessionType === 'online') {
+        // ONLINE: Use therapist's virtual room
+        if (therapistProfile.virtualRoomId) {
+          assignedRoomId = therapistProfile.virtualRoomId;
+        }
+      } else if (sessionType === 'in-person') {
+        // IN-PERSON: Find first available physical room from therapist's assigned rooms
+        if (therapistProfile.availablePhysicalRooms && therapistProfile.availablePhysicalRooms.length > 0) {
+          // Check each assigned room for conflicts on the selected date/time
+          const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
+          const sessionDuration = duration || 60;
+          const sessionEnd = new Date(sessionDateTime.getTime() + sessionDuration * 60000);
+          
+          for (const roomId of therapistProfile.availablePhysicalRooms) {
+            // Check if this room has any conflicts at the selected time
+            const existingSessions = await db
+              .select()
+              .from(sessions)
+              .where(and(
+                eq(sessions.roomId, roomId),
+                eq(sessions.sessionDate, sessionDateTime)
+              ));
+            
+            // Check for time conflicts
+            let hasConflict = false;
+            for (const existing of existingSessions) {
+              const existingStart = new Date(existing.sessionDate);
+              const existingDuration = existing.duration || 60;
+              const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000);
+              
+              // Check if times overlap
+              if (sessionDateTime < existingEnd && sessionEnd > existingStart) {
+                hasConflict = true;
+                break;
+              }
+            }
+            
+            // If no conflict, use this room
+            if (!hasConflict) {
+              assignedRoomId = roomId;
+              break;
+            }
+          }
+          
+          // If all rooms have conflicts, return error
+          if (!assignedRoomId) {
+            return res.status(400).json({ 
+              error: "All available rooms are booked at this time. Please select a different time slot." 
+            });
+          }
+        }
+      }
+
+      // Create the appointment with assigned room
       const newSession = await storage.createSession({
         clientId: session.clientId,
         therapistId: client.assignedTherapistId,
+        serviceId: serviceId,
+        roomId: assignedRoomId,
         sessionDate: new Date(sessionDate),
         sessionTime,
         duration: duration || 60,
-        sessionType: sessionType || 'individual',
+        sessionType: sessionType || 'online',
         status: 'scheduled',
-        location: location || 'Office',
+        location: location || (sessionType === 'online' ? 'Online' : 'Office'),
         createdBy: session.clientId, // Track that client booked this
       });
 
