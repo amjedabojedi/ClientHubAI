@@ -887,7 +887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           !client.portalPassword) {
         // Portal access was just enabled - generate activation token and send email
         try {
-          const activationToken = require('crypto').randomBytes(32).toString('hex');
+          const activationToken = crypto.randomBytes(32).toString('hex');
           const emailToUse = client.portalEmail || client.email!;
           
           // Update client with activation token
@@ -8635,7 +8635,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       // Generate session token
-      const sessionToken = require('crypto').randomBytes(32).toString('hex');
+      const sessionToken = crypto.randomBytes(32).toString('hex');
       
       // Create portal session (expires in 7 days)
       const expiresAt = new Date();
@@ -8822,7 +8822,7 @@ This happens because only the file metadata was stored, not the actual file cont
       });
 
       // Create initial portal session
-      const sessionToken = require('crypto').randomBytes(32).toString('hex');
+      const sessionToken = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -8884,7 +8884,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       // Generate reset token
-      const resetToken = require('crypto').randomBytes(32).toString('hex');
+      const resetToken = crypto.randomBytes(32).toString('hex');
 
       // Update client with reset token (no expiry tracking for now - tokens are single-use)
       await storage.updateClient(client.id, {
