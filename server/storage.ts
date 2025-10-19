@@ -671,12 +671,21 @@ export class DatabaseStorage implements IStorage {
 
     const sessionDuration = service.duration || profile.sessionDuration || 50;
 
-    // Parse working hours from profile (stored as JSON with lowercase keys)
-    const workingHours = profile.workingHours ? JSON.parse(profile.workingHours) : {};
+    // Parse working hours from profile (stored as JSON array of day objects)
+    const workingHoursData = profile.workingHours ? JSON.parse(profile.workingHours) : null;
     const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()];
     
-    const dayHours = workingHours[dayOfWeek];
-    if (!dayHours || dayHours.enabled !== true || !dayHours.start || !dayHours.end) {
+    // Check if working hours is an array (new format) or object (legacy format)
+    let dayHours;
+    if (Array.isArray(workingHoursData)) {
+      // New format: array of day objects
+      dayHours = workingHoursData.find(d => d.day && d.day.toLowerCase() === dayOfWeek.toLowerCase());
+    } else if (workingHoursData && typeof workingHoursData === 'object') {
+      // Legacy format: object with day keys
+      dayHours = workingHoursData[dayOfWeek];
+    }
+    
+    if (!dayHours || dayHours.enabled === false || !dayHours.start || !dayHours.end) {
       return []; // Not a working day or day is disabled
     }
 
