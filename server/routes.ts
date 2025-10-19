@@ -9064,7 +9064,8 @@ This happens because only the file metadata was stored, not the actual file cont
         const daySlots = await storage.getAvailableTimeSlots(
           client.assignedTherapistId,
           new Date(d),
-          1 // Default service ID - can be made configurable
+          15, // Using Psychotherapy -1H (60 min) as default service
+          'online' // Default to online sessions for portal bookings
         );
         slots.push(...daySlots);
       }
