@@ -652,8 +652,8 @@ export class DatabaseStorage implements IStorage {
       .where(eq(therapistBlockedTimes.id, id));
   }
 
-  async getAvailableTimeSlots(therapistId: number, date: Date, serviceId: number): Promise<{ time: string; available: boolean }[]> {
-    // Get therapist profile for working hours
+  async getAvailableTimeSlots(therapistId: number, date: Date, serviceId: number, sessionType?: 'online' | 'in-person'): Promise<{ time: string; available: boolean }[]> {
+    // Get therapist profile for working hours and room configuration
     const profile = await this.getUserProfile(therapistId);
     if (!profile) {
       return [];
@@ -670,6 +670,10 @@ export class DatabaseStorage implements IStorage {
     }
 
     const sessionDuration = service.duration || profile.sessionDuration || 50;
+    
+    // Determine session type from service name if not provided
+    const isOnlineSession = sessionType === 'online' || 
+      (service.serviceName && service.serviceName.toLowerCase().includes('online'));
 
     // Parse working hours from profile (stored as JSON array of day objects)
     const workingHoursData = profile.workingHours ? JSON.parse(profile.workingHours) : null;
@@ -697,12 +701,22 @@ export class DatabaseStorage implements IStorage {
 
     const blockedTimes = await this.getTherapistBlockedTimes(therapistId, dayStart, dayEnd);
 
-    // Get existing sessions for this day
+    // Get existing sessions for this therapist on this day
     const existingSessions = await db
       .select()
       .from(sessions)
       .where(and(
         eq(sessions.therapistId, therapistId),
+        gte(sessions.sessionDate, dayStart),
+        lte(sessions.sessionDate, dayEnd),
+        inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+      ));
+
+    // Get ALL sessions for this day (to check room availability)
+    const allSessionsToday = await db
+      .select()
+      .from(sessions)
+      .where(and(
         gte(sessions.sessionDate, dayStart),
         lte(sessions.sessionDate, dayEnd),
         inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
@@ -731,12 +745,60 @@ export class DatabaseStorage implements IStorage {
         return currentTime < blockEnd && slotEnd > blockStart;
       });
 
-      // Check if slot overlaps with existing session
+      // Check if therapist already has a session at this time (RULE 1: One therapist = one session at a time)
       const hasSession = existingSessions.some(session => {
         const sessionStart = new Date(session.sessionDate);
-        const sessionEnd = new Date(sessionStart.getTime() + sessionDuration * 60000);
+        // Use the actual session's duration, not the requested duration
+        const actualSessionDuration = session.duration || sessionDuration;
+        const sessionEnd = new Date(sessionStart.getTime() + actualSessionDuration * 60000);
         return currentTime < sessionEnd && slotEnd > sessionStart;
       });
+
+      // Check room availability (RULE 2: Check appropriate room type)
+      let roomAvailable = true;
+      
+      if (!hasSession) { // Only check rooms if therapist is free
+        if (isOnlineSession) {
+          // ONLINE SESSION: Check if therapist's virtual room is free
+          if (profile.virtualRoomId) {
+            const virtualRoomBusy = allSessionsToday.some(session => {
+              if (!session.roomId) return false;
+              const sessionStart = new Date(session.sessionDate);
+              // Use each session's actual duration
+              const actualSessionDuration = session.duration || sessionDuration;
+              const sessionEnd = new Date(sessionStart.getTime() + actualSessionDuration * 60000);
+              const timeOverlap = currentTime < sessionEnd && slotEnd > sessionStart;
+              return timeOverlap && session.roomId === profile.virtualRoomId;
+            });
+            roomAvailable = !virtualRoomBusy;
+          } else {
+            // Therapist has no virtual room configured
+            roomAvailable = false;
+          }
+        } else {
+          // PHYSICAL SESSION: Check if ANY of therapist's physical rooms are free
+          const availableRooms = profile.availablePhysicalRooms || [];
+          if (availableRooms.length === 0) {
+            // Therapist has no physical rooms configured
+            roomAvailable = false;
+          } else {
+            // Check if at least ONE room is free
+            const hasAtLeastOneFreeRoom = availableRooms.some(roomId => {
+              const roomBusy = allSessionsToday.some(session => {
+                if (!session.roomId) return false;
+                const sessionStart = new Date(session.sessionDate);
+                // Use each session's actual duration
+                const actualSessionDuration = session.duration || sessionDuration;
+                const sessionEnd = new Date(sessionStart.getTime() + actualSessionDuration * 60000);
+                const timeOverlap = currentTime < sessionEnd && slotEnd > sessionStart;
+                return timeOverlap && session.roomId === roomId;
+              });
+              return !roomBusy; // Return true if this room is free
+            });
+            roomAvailable = hasAtLeastOneFreeRoom;
+          }
+        }
+      }
 
       const timeString = currentTime.toLocaleTimeString('en-US', { 
         hour: 'numeric', 
@@ -746,7 +808,7 @@ export class DatabaseStorage implements IStorage {
 
       slots.push({
         time: timeString,
-        available: !isBlocked && !hasSession
+        available: !isBlocked && !hasSession && roomAvailable
       });
 
       // Move to next slot (every 15 minutes for flexibility)
