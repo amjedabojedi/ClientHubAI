@@ -67,12 +67,10 @@ export default function PortalInvoices() {
       return data;
     },
     onSuccess: async (data) => {
-      console.log('Payment response:', data);
       // Redirect to Stripe Checkout URL directly
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
-        console.error('No checkoutUrl in response:', data);
         toast({
           title: "Error",
           description: "Payment URL not available",

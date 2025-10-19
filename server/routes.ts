@@ -9483,15 +9483,11 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Get the invoice (already filtered by clientId in getClientInvoices)
       const invoices = await storage.getClientInvoices(session.clientId);
-      console.log(`Payment request - InvoiceId: ${invoiceId}, ClientId: ${session.clientId}, Found invoices:`, invoices.length);
       const invoice = invoices.find(inv => inv.id === invoiceId);
       
       if (!invoice) {
-        console.log(`Invoice ${invoiceId} not found for client ${session.clientId}`);
         return res.status(404).json({ error: "Invoice not found or access denied" });
       }
-      
-      console.log(`Processing payment for invoice ${invoiceId}, status: ${invoice.paymentStatus}`);
 
       // Check if already paid
       if (invoice.paymentStatus === 'paid') {
@@ -9530,12 +9526,6 @@ This happens because only the file metadata was stored, not the actual file cont
           clientId: session.clientId.toString(),
           portalPayment: 'true',
         },
-      });
-
-      console.log('Stripe checkout session created:', {
-        id: checkoutSession.id,
-        url: checkoutSession.url,
-        hasUrl: !!checkoutSession.url
       });
 
       // Audit payment initiation
