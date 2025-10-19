@@ -2703,10 +2703,14 @@ export default function ClientDetailPage() {
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-1">
                                 <h4 className="font-medium text-slate-900">
-                                  {session.sessionType?.charAt(0).toUpperCase() + session.sessionType?.slice(1) || 'Session'}
+                                  {(session as any).service?.serviceName || 'Session'}
                                 </h4>
-                                <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
-                                  Ref# {client?.referenceNumber || 'N/A'}
+                                <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                  session.sessionType === 'online' 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'bg-green-100 text-green-700'
+                                }`}>
+                                  {session.sessionType === 'online' ? 'Online' : 'In Person'}
                                 </span>
                               </div>
                               <div className="space-y-1 text-sm text-slate-600">
