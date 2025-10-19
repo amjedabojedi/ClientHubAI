@@ -115,6 +115,18 @@ export default function LoginPage() {
             </Button>
           </form>
           
+          <div className="mt-6 pt-6 border-t text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Are you a client?{" "}
+              <a 
+                href="/portal/login" 
+                className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                data-testid="link-portal-login"
+              >
+                Access Client Portal →
+              </a>
+            </p>
+          </div>
 
         </CardContent>
       </Card>
