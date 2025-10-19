@@ -8565,10 +8565,22 @@ This happens because only the file metadata was stored, not the actual file cont
   
   // Client portal login
   app.post("/api/portal/login", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const { email, password } = req.body;
 
       if (!email || !password) {
+        // Audit failed login - missing credentials
+        await AuditLogger.logAuthEvent(
+          null,
+          email || 'unknown',
+          'login_failed',
+          ipAddress,
+          userAgent,
+          'failure',
+          { reason: 'Missing credentials', portal: true }
+        );
         return res.status(400).json({ error: "Email and password are required" });
       }
 
@@ -8576,6 +8588,16 @@ This happens because only the file metadata was stored, not the actual file cont
       const client = await storage.getClientByPortalEmail(email.toLowerCase().trim());
       
       if (!client || !client.hasPortalAccess || !client.portalPassword) {
+        // Audit failed login - client not found or no portal access
+        await AuditLogger.logAuthEvent(
+          null,
+          email,
+          'login_failed',
+          ipAddress,
+          userAgent,
+          'failure',
+          { reason: 'Invalid credentials or no portal access', portal: true }
+        );
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
@@ -8583,6 +8605,16 @@ This happens because only the file metadata was stored, not the actual file cont
       const passwordMatch = await bcrypt.compare(password, client.portalPassword);
       
       if (!passwordMatch) {
+        // Audit failed login - wrong password
+        await AuditLogger.logAuthEvent(
+          client.id,
+          email,
+          'login_failed',
+          ipAddress,
+          userAgent,
+          'failure',
+          { reason: 'Invalid password', portal: true, clientId: client.id }
+        );
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
@@ -8604,6 +8636,17 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Update client's last login
       await storage.updateClient(client.id, { lastLogin: new Date() });
+
+      // Audit successful portal login
+      await AuditLogger.logAuthEvent(
+        client.id,
+        email,
+        'login',
+        ipAddress,
+        userAgent,
+        'success',
+        { portal: true, clientId: client.id, fullName: client.fullName }
+      );
 
       // Set session token in HttpOnly, Secure cookie for HIPAA compliance
       res.cookie('portalSessionToken', sessionToken, {
@@ -8680,6 +8723,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // Client portal logout
   app.post("/api/portal/logout", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Read session token from HttpOnly cookie
       const sessionToken = req.cookies.portalSessionToken;
@@ -8688,6 +8733,21 @@ This happens because only the file metadata was stored, not the actual file cont
         const session = await storage.getPortalSessionByToken(sessionToken);
         
         if (session) {
+          const client = await storage.getClient(session.clientId);
+          
+          // Audit portal logout
+          if (client) {
+            await AuditLogger.logAuthEvent(
+              client.id,
+              client.portalEmail || client.email || 'unknown',
+              'logout',
+              ipAddress,
+              userAgent,
+              'success',
+              { portal: true, clientId: client.id }
+            );
+          }
+          
           await storage.deletePortalSession(session.id);
         }
       }
@@ -8875,6 +8935,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // Portal - Get client's appointments
   app.get("/api/portal/appointments", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Read session token from HttpOnly cookie
       const sessionToken = req.cookies.portalSessionToken;
@@ -8906,6 +8968,26 @@ This happens because only the file metadata was stored, not the actual file cont
         .from(sessions)
         .where(eq(sessions.clientId, session.clientId))
         .orderBy(sessions.sessionDate, sessions.sessionTime);
+
+      // Audit appointment access
+      const client = await storage.getClient(session.clientId);
+      if (client) {
+        await AuditLogger.logAction({
+          userId: client.id,
+          username: client.portalEmail || client.email || 'unknown',
+          action: 'appointments_viewed',
+          result: 'success',
+          resourceType: 'appointments',
+          resourceId: session.clientId.toString(),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          details: JSON.stringify({ portal: true, appointmentCount: clientSessions.length }),
+          accessReason: 'Client portal appointment viewing',
+        });
+      }
 
       res.json(clientSessions);
     } catch (error) {
@@ -8964,6 +9046,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // Portal - Book a new appointment
   app.post("/api/portal/book-appointment", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Read session token from HttpOnly cookie
       const sessionToken = req.cookies.portalSessionToken;
@@ -9007,6 +9091,24 @@ This happens because only the file metadata was stored, not the actual file cont
         createdBy: session.clientId, // Track that client booked this
       });
 
+      // Audit appointment booking
+      await AuditLogger.logSessionAccess(
+        client.id,
+        client.portalEmail || client.email || 'unknown',
+        newSession.id,
+        session.clientId,
+        'session_created',
+        ipAddress,
+        userAgent,
+        { 
+          portal: true, 
+          sessionDate, 
+          sessionTime, 
+          sessionType,
+          bookedByClient: true 
+        }
+      );
+
       // Send confirmation email to client
       if (client.portalEmail) {
         try {
@@ -9047,6 +9149,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // Portal - Get client invoices
   app.get("/api/portal/invoices", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Read session token from HttpOnly cookie
       const sessionToken = req.cookies.portalSessionToken;
@@ -9067,6 +9171,26 @@ This happens because only the file metadata was stored, not the actual file cont
       // Get invoices for this client
       const invoices = await storage.getClientInvoices(session.clientId);
 
+      // Audit invoice access
+      const client = await storage.getClient(session.clientId);
+      if (client) {
+        await AuditLogger.logAction({
+          userId: client.id,
+          username: client.portalEmail || client.email || 'unknown',
+          action: 'invoices_viewed',
+          result: 'success',
+          resourceType: 'billing',
+          resourceId: session.clientId.toString(),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          details: JSON.stringify({ portal: true, invoiceCount: invoices.length }),
+          accessReason: 'Client portal invoice viewing',
+        });
+      }
+
       res.json(invoices);
     } catch (error) {
       console.error("Portal invoices error:", error);
@@ -9076,6 +9200,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // Portal - Get client documents
   app.get("/api/portal/documents", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Read session token from HttpOnly cookie
       const sessionToken = req.cookies.portalSessionToken;
@@ -9150,6 +9276,23 @@ This happens because only the file metadata was stored, not the actual file cont
           };
         });
 
+      // Audit document access
+      await AuditLogger.logAction({
+        userId: client.id,
+        username: client.portalEmail || client.email || 'unknown',
+        action: 'documents_viewed',
+        result: 'success',
+        resourceType: 'document',
+        resourceId: session.clientId.toString(),
+        clientId: session.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({ portal: true, documentCount: portalDocuments.length }),
+        accessReason: 'Client portal document viewing',
+      });
+
       res.json(portalDocuments);
     } catch (error) {
       console.error("Portal documents error:", error);
@@ -9159,6 +9302,8 @@ This happens because only the file metadata was stored, not the actual file cont
 
   // Portal - Upload document
   app.post("/api/portal/upload-document", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       // Read session token from HttpOnly cookie
       const sessionToken = req.cookies.portalSessionToken;
@@ -9217,6 +9362,27 @@ This happens because only the file metadata was stored, not the actual file cont
           await storage.deleteDocument(document.id);
           return res.status(400).json({ error: "Invalid file content or upload failed" });
         }
+      }
+
+      // Audit document upload
+      const client = await storage.getClient(session.clientId);
+      if (client) {
+        await AuditLogger.logDocumentAccess(
+          client.id,
+          client.portalEmail || client.email || 'unknown',
+          document.id,
+          session.clientId,
+          'document_uploaded',
+          ipAddress,
+          userAgent,
+          { 
+            portal: true, 
+            fileName: originalName,
+            fileSize,
+            category,
+            uploadedByClient: true 
+          }
+        );
       }
 
       res.status(201).json(document);
