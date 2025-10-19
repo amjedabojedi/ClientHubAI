@@ -282,45 +282,41 @@ export default function PortalBookAppointmentPage() {
               <CardDescription>Choose when you'd like your appointment</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Date Picker */}
+              {/* Date Picker - Always visible calendar */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                      data-testid="button-date-picker"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? formatDateDisplay(selectedDate) : "Select a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate ? new Date(selectedDate) : undefined}
-                      onSelect={(date) => {
-                        if (date) {
-                          const dateStr = format(date, 'yyyy-MM-dd');
-                          // Only select dates with available slots
-                          if (availableSlots[dateStr] && availableSlots[dateStr].length > 0) {
-                            setSelectedDate(dateStr);
-                            setSelectedTime("");
-                            setSelectedService(null);
-                          }
-                        }
-                      }}
-                      disabled={(date) => {
+                <label className="text-sm font-medium">Select Date</label>
+                <div className="flex justify-center border rounded-lg p-4">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate ? new Date(selectedDate) : undefined}
+                    onSelect={(date) => {
+                      if (date) {
                         const dateStr = format(date, 'yyyy-MM-dd');
-                        // Disable dates outside our range or with no slots
-                        const hasSlots = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
-                        return !hasSlots;
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                        // Only select dates with available slots
+                        if (availableSlots[dateStr] && availableSlots[dateStr].length > 0) {
+                          setSelectedDate(dateStr);
+                          setSelectedTime("");
+                          setSelectedService(null);
+                        }
+                      }
+                    }}
+                    disabled={(date) => {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      // Disable dates outside our range or with no slots
+                      const hasSlots = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
+                      return !hasSlots;
+                    }}
+                    defaultMonth={new Date(2025, 9, 1)} // October 2025 (month is 0-indexed)
+                    fromDate={new Date(2025, 9, 1)} // Start from October 1, 2025
+                    toDate={new Date(2025, 9, 31)} // End at October 31, 2025
+                    initialFocus
+                  />
+                </div>
+                {selectedDate && (
+                  <div className="text-center text-sm font-medium text-blue-600">
+                    Selected: {formatDateDisplay(selectedDate)}
+                  </div>
+                )}
               </div>
 
               {/* Time Dropdown */}
