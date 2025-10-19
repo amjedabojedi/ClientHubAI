@@ -800,19 +800,18 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
-      const timeString = currentTime.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      });
+      // Format time as HH:MM (24-hour format) for consistency
+      const hours = currentTime.getHours().toString().padStart(2, '0');
+      const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
 
       slots.push({
         time: timeString,
         available: !isBlocked && !hasSession && roomAvailable
       });
 
-      // Move to next slot (every 15 minutes for flexibility)
-      currentTime = new Date(currentTime.getTime() + 15 * 60000);
+      // Move to next slot (every 30 minutes for consistent scheduling)
+      currentTime = new Date(currentTime.getTime() + 30 * 60000);
     }
 
     return slots;
