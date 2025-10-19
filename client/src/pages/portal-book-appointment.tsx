@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { formatDateDisplay } from "@/lib/datetime";
+import { formatDateDisplay, localToUTC } from "@/lib/datetime";
 import { format } from "date-fns";
 
 interface TimeSlot {
@@ -145,13 +145,15 @@ export default function PortalBookAppointmentPage() {
         return;
       }
 
+      // Convert EST date/time to UTC before sending to server
+      const sessionStartUtc = localToUTC(selectedDate, selectedTime);
+      
       const response = await fetch("/api/portal/book-appointment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          sessionDate: selectedDate,
-          sessionTime: selectedTime,
+          sessionStartUtc: sessionStartUtc.toISOString(),
           duration: service.duration,
           serviceId: selectedService,
           sessionType: sessionType, // Use the selected session type

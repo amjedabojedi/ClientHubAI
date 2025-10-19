@@ -8984,8 +8984,11 @@ This happens because only the file metadata was stored, not the actual file cont
           room: sessions.room,
           roomId: sessions.roomId,
           serviceId: sessions.serviceId,
+          therapistId: sessions.therapistId,
+          therapistName: users.fullName,
         })
         .from(sessions)
+        .leftJoin(users, eq(sessions.therapistId, users.id))
         .where(eq(sessions.clientId, session.clientId))
         .orderBy(desc(sessions.sessionDate))
         .limit(100);
@@ -9017,6 +9020,7 @@ This happens because only the file metadata was stored, not the actual file cont
           serviceCode: service?.serviceCode,
           serviceName: service?.serviceName,
           serviceRate: service?.baseRate,
+          therapistName: s.therapistName,
         };
       });
 
@@ -9216,15 +9220,22 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "No therapist assigned to your account" });
       }
 
-      const { sessionDate, sessionTime, duration, serviceId, sessionType, location } = req.body;
+      const { sessionStartUtc, duration, serviceId, sessionType, location } = req.body;
 
-      if (!sessionDate || !sessionTime) {
+      if (!sessionStartUtc) {
         return res.status(400).json({ error: "Session date and time are required" });
       }
 
       if (!serviceId) {
         return res.status(400).json({ error: "Service selection is required" });
       }
+      
+      // Parse UTC timestamp from frontend (already converted from EST to UTC)
+      const sessionDateTime = new Date(sessionStartUtc);
+      
+      // Extract sessionTime in EST for backward compatibility
+      const { formatInTimeZone } = await import('date-fns-tz');
+      const sessionTime = formatInTimeZone(sessionDateTime, 'America/New_York', 'HH:mm');
 
       // Get therapist profile for room assignment
       const therapistProfile = await storage.getUserProfile(client.assignedTherapistId);
@@ -9246,7 +9257,6 @@ This happens because only the file metadata was stored, not the actual file cont
         
         if (availableRooms.length > 0) {
           // Quick check for first available room at booking time
-          const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
           const sessionDuration = duration || 60;
           const sessionEnd = new Date(sessionDateTime.getTime() + sessionDuration * 60000);
           
@@ -9274,28 +9284,21 @@ This happens because only the file metadata was stored, not the actual file cont
           }
         }
       }
-
-      // Create the appointment with assigned room
-      // Combine date and time properly in America/New_York timezone
-      const { zonedTimeToUtc } = await import('date-fns-tz');
-      const sessionDateTimeString = `${sessionDate}T${sessionTime}:00`;
-      const sessionDateTimeEST = zonedTimeToUtc(sessionDateTimeString, 'America/New_York');
-      
+      // Create session with UTC timestamp (already properly converted from EST)
       const newSession = await storage.createSession({
         clientId: session.clientId,
         therapistId: client.assignedTherapistId,
         serviceId: serviceId,
         roomId: assignedRoomId,
-        sessionDate: sessionDateTimeEST,
-        sessionTime,
+        sessionDate: sessionDateTime, // UTC timestamp
         duration: duration || 60,
         sessionType: sessionType || 'online',
         status: 'scheduled',
-        location: location || (sessionType === 'online' ? 'Online' : 'Office'),
         createdBy: session.clientId, // Track that client booked this
       });
 
       // Audit appointment booking
+      const sessionDateEST = formatInTimeZone(sessionDateTime, 'America/New_York', 'yyyy-MM-dd');
       await AuditLogger.logSessionAccess(
         client.id,
         client.portalEmail || client.email || 'unknown',
@@ -9306,7 +9309,7 @@ This happens because only the file metadata was stored, not the actual file cont
         userAgent,
         { 
           portal: true, 
-          sessionDate, 
+          sessionDate: sessionDateEST, 
           sessionTime, 
           sessionType,
           bookedByClient: true 
@@ -9345,7 +9348,7 @@ This happens because only the file metadata was stored, not the actual file cont
           roomName: roomName,
           duration: newSession.duration,
           createdAt: newSession.createdAt,
-          location: newSession.location,
+          location: sessionType === 'online' ? 'Online' : 'Office',
           bookedByClient: true, // Flag to indicate this was booked through portal
           zoomEnabled: false, // Portal bookings don't create Zoom meetings
           zoomMeetingData: null
@@ -9363,12 +9366,12 @@ This happens because only the file metadata was stored, not the actual file cont
         message: "Appointment booked successfully",
         appointment: {
           id: newSession.id,
-          sessionDate: newSession.sessionDate,
-          sessionTime: newSession.sessionTime,
+          sessionDate: formatInTimeZone(newSession.sessionDate, 'America/New_York', 'yyyy-MM-dd'),
+          sessionTime: sessionTime,
           duration: newSession.duration,
           sessionType: newSession.sessionType,
           status: newSession.status,
-          location: newSession.location,
+          location: sessionType === 'online' ? 'Online' : 'Office',
         }
       });
     } catch (error) {
