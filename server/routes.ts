@@ -10081,11 +10081,11 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Map results to include uploadedBy info for all cases
       const portalDocuments = results
-        // Show documents that are: (1) uploaded by client, OR (2) shared by staff
-        .filter(r => r.document.uploadedById === session.clientId || r.document.isSharedInPortal === true)
+        // Show documents that are: (1) uploaded by client (null uploadedById), OR (2) shared by staff
+        .filter(r => r.document.uploadedById === null || r.document.isSharedInPortal === true)
         .map(r => {
-          // Client uploads: add client info
-          if (r.document.uploadedById === session.clientId) {
+          // Client uploads: uploadedById is null
+          if (r.document.uploadedById === null) {
             return {
               ...r.document,
               uploadedBy: {
@@ -10104,7 +10104,7 @@ This happens because only the file metadata was stored, not the actual file cont
               }
             };
           }
-          // Legacy/null uploaders
+          // Legacy/unknown uploaders
           return {
             ...r.document,
             uploadedBy: {
@@ -10165,11 +10165,12 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      // Create document record (uploaded by client = session.clientId as uploadedById)
+      // Create document record (uploaded by client)
       // Portal uploads are marked as shared by default
+      // uploadedById is NULL for client uploads (clients aren't in users table)
       const document = await storage.createDocument({
         clientId: session.clientId,
-        uploadedById: session.clientId, // Client uploads their own document
+        uploadedById: null, // Null for client uploads (clients not in users table)
         fileName,
         originalName,
         fileSize: fileSize || 0,
