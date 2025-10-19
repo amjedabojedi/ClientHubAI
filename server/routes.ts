@@ -9616,6 +9616,99 @@ This happens because only the file metadata was stored, not the actual file cont
           accessReason: 'Stripe payment webhook processing',
         });
 
+        // Send payment receipt email
+        try {
+          // Get client and invoice details
+          const client = await storage.getClient(clientId);
+          const invoiceDetails = await db
+            .select({
+              invoice: sessionBilling,
+              sessionDate: sessions.sessionDate,
+              sessionType: sessions.sessionType,
+              serviceName: services.name,
+              serviceCode: services.code,
+            })
+            .from(sessionBilling)
+            .leftJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+            .leftJoin(services, eq(sessionBilling.serviceCode, services.code))
+            .where(eq(sessionBilling.id, invoiceId))
+            .limit(1);
+
+          if (client && client.email && invoiceDetails.length > 0) {
+            const invoice = invoiceDetails[0];
+            const amount = (session.amount_total / 100).toFixed(2);
+            
+            if (process.env.SPARKPOST_API_KEY) {
+              const SparkPost = (await import('sparkpost')).default;
+              const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+              const fromEmail = 'noreply@send.rcrc.ca';
+              
+              await sp.transmissions.send({
+                options: {
+                  sandbox: false,
+                },
+                content: {
+                  from: fromEmail,
+                  subject: 'Payment Receipt - TherapyFlow',
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #2563eb;">Payment Receipt</h2>
+                      <p>Dear ${client.firstName} ${client.lastName},</p>
+                      <p>Thank you for your payment. Your payment has been successfully processed.</p>
+                      
+                      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0;">Payment Details</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td style="padding: 8px 0; font-weight: bold;">Amount Paid:</td>
+                            <td style="padding: 8px 0; text-align: right;">$${amount}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-weight: bold;">Payment Method:</td>
+                            <td style="padding: 8px 0; text-align: right;">Stripe</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-weight: bold;">Payment Date:</td>
+                            <td style="padding: 8px 0; text-align: right;">${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-weight: bold;">Service:</td>
+                            <td style="padding: 8px 0; text-align: right;">${invoice.serviceName || invoice.serviceCode}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-weight: bold;">Session Type:</td>
+                            <td style="padding: 8px 0; text-align: right; text-transform: capitalize;">${invoice.sessionType}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-weight: bold;">Reference Number:</td>
+                            <td style="padding: 8px 0; text-align: right; font-size: 12px;">${session.payment_intent || session.id}</td>
+                          </tr>
+                        </table>
+                      </div>
+                      
+                      <p>You can view all your invoices and receipts by logging into your client portal.</p>
+                      
+                      <p style="margin-top: 30px;">
+                        If you have any questions about this payment, please contact us.
+                      </p>
+                      
+                      <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+                        This is an automated receipt from TherapyFlow. Please do not reply to this email.
+                      </p>
+                    </div>
+                  `,
+                },
+                recipients: [{ address: client.email }],
+              });
+
+              console.log(`[EMAIL] Payment receipt sent to ${client.email} for invoice ${invoiceId}`);
+            }
+          }
+        } catch (emailError) {
+          console.error('[EMAIL] Failed to send payment receipt:', emailError);
+          // Don't fail the webhook if email fails
+        }
+
         console.log(`Payment completed for invoice ${invoiceId}`);
       }
 

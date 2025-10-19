@@ -216,12 +216,24 @@ export default function PortalInvoices() {
                           {invoice.copayAmount ? formatCurrency(invoice.copayAmount) : '—'}
                         </TableCell>
                         <TableCell data-testid={`text-status-${invoice.id}`}>
-                          {getPaymentStatusBadge(invoice.paymentStatus)}
-                          {invoice.paymentDate && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Paid {formatDateDisplay(invoice.paymentDate)}
-                            </div>
-                          )}
+                          <div className="space-y-1">
+                            {getPaymentStatusBadge(invoice.paymentStatus)}
+                            {invoice.paymentStatus === 'paid' && (
+                              <div className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                ✓ PAID
+                              </div>
+                            )}
+                            {invoice.paymentDate && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatDateDisplay(invoice.paymentDate)}
+                              </div>
+                            )}
+                            {invoice.paymentMethod && invoice.paymentStatus === 'paid' && (
+                              <div className="text-xs text-muted-foreground capitalize">
+                                via {invoice.paymentMethod}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell data-testid={`cell-actions-${invoice.id}`}>
                           {invoice.paymentStatus === 'pending' && (
