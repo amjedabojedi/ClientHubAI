@@ -103,8 +103,21 @@ function sanitizeUsers(users: any[]) {
   return users.map(sanitizeUser);
 }
 
+// Helper function to get the base URL from request
+function getBaseUrl(req: any): string {
+  // Use BASE_URL if set, otherwise build from request
+  if (process.env.BASE_URL) {
+    return process.env.BASE_URL;
+  }
+  
+  // Build URL from request headers
+  const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
+  return `${protocol}://${host}`;
+}
+
 // Helper function to send portal activation email
-async function sendActivationEmail(clientEmail: string, clientName: string, activationToken: string) {
+async function sendActivationEmail(clientEmail: string, clientName: string, activationToken: string, baseUrl?: string) {
   if (!process.env.SPARKPOST_API_KEY) {
     console.log('[ACTIVATION] SparkPost API key not configured - activation email not sent');
     return;
@@ -113,8 +126,9 @@ async function sendActivationEmail(clientEmail: string, clientName: string, acti
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
     const fromEmail = 'noreply@send.rcrc.ca';
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-    const activationUrl = `${baseUrl}/portal/activate/${activationToken}`;
+    // Use provided baseUrl or fall back to env variable or localhost
+    const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
+    const activationUrl = `${appUrl}/portal/activate/${activationToken}`;
 
     await sp.transmissions.send({
       content: {
@@ -148,7 +162,7 @@ async function sendActivationEmail(clientEmail: string, clientName: string, acti
 }
 
 // Helper function to send password reset email
-async function sendPasswordResetEmail(clientEmail: string, clientName: string, resetToken: string) {
+async function sendPasswordResetEmail(clientEmail: string, clientName: string, resetToken: string, baseUrl?: string) {
   if (!process.env.SPARKPOST_API_KEY) {
     console.log('[PASSWORD_RESET] SparkPost API key not configured - reset email not sent');
     return;
@@ -157,8 +171,9 @@ async function sendPasswordResetEmail(clientEmail: string, clientName: string, r
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
     const fromEmail = 'noreply@send.rcrc.ca';
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-    const resetUrl = `${baseUrl}/portal/reset-password/${resetToken}`;
+    // Use provided baseUrl or fall back to env variable or localhost
+    const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
+    const resetUrl = `${appUrl}/portal/reset-password/${resetToken}`;
 
     await sp.transmissions.send({
       content: {
@@ -879,7 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateClient(client.id, { activationToken });
           
           // Send activation email
-          await sendActivationEmail(emailToUse, client.fullName, activationToken);
+          await sendActivationEmail(emailToUse, client.fullName, activationToken, getBaseUrl(req));
           
           console.log(`[PORTAL] Activation email sent to ${emailToUse} for client ${client.fullName}`);
           
@@ -980,7 +995,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send activation email
         try {
-          await sendActivationEmail(email, client.fullName, activationToken);
+          await sendActivationEmail(email, client.fullName, activationToken, getBaseUrl(req));
           console.log(`[PORTAL] Activation email sent to ${email} for client ${client.fullName}`);
 
           // Track portal activation in history
@@ -1059,7 +1074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send activation email
       try {
-        await sendActivationEmail(email, client.fullName, activationToken);
+        await sendActivationEmail(email, client.fullName, activationToken, getBaseUrl(req));
         console.log(`[PORTAL] Activation email resent to ${email} for client ${client.fullName}`);
 
         // Track in history
@@ -8877,7 +8892,7 @@ This happens because only the file metadata was stored, not the actual file cont
       });
 
       // Send reset email
-      await sendPasswordResetEmail(client.portalEmail!, client.fullName, resetToken);
+      await sendPasswordResetEmail(client.portalEmail!, client.fullName, resetToken, getBaseUrl(req));
 
       console.log(`[PASSWORD_RESET] Reset email sent to ${client.portalEmail} for client ${client.fullName}`);
 
