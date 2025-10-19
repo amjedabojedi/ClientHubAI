@@ -28,7 +28,6 @@ interface Session {
   };
   service?: {
     serviceCode: string;
-    serviceName?: string;
     baseRate: number;
   };
 }
@@ -100,32 +99,35 @@ export function SessionCard({
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">
               <h3 
-                className="font-medium text-slate-900 hover:underline cursor-pointer"
+                className="font-medium text-primary hover:underline cursor-pointer"
                 onClick={() => setLocation(`/clients/${session.clientId}?from=scheduling`)}
               >
-                {session.service?.serviceName || session.service?.serviceCode || 'Session'}
+                {getDisplayClientName(session)}
               </h3>
-              <span className={`text-xs px-2 py-1 rounded font-medium ${
-                session.sessionType === 'online' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-green-100 text-green-700'
-              }`}>
-                {session.sessionType === 'online' ? 'Online' : 'In Person'}
+              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
+                Ref# {session.client?.referenceNumber || 'N/A'}
               </span>
             </div>
             <div className="space-y-1 text-sm text-slate-600">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4" />
-                <span>Client: {getDisplayClientName(session)}</span>
+                <span>Therapist: {session.therapist.fullName}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <User className="w-4 h-4" />
-                <span>Therapist: {session.therapist.fullName}</span>
+                <FileText className="w-4 h-4" />
+                <span>{session.sessionType}</span>
               </div>
               {session.room && (
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-4 h-4" />
-                  <span>Room: {session.room.roomName || session.room.roomNumber}</span>
+                  <span>Room: {session.room ? `${session.room.roomNumber} - ${session.room.roomName}` : 'TBD'}</span>
+                </div>
+              )}
+              {session.service && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                    {session.service.serviceCode} - ${session.service.baseRate}
+                  </span>
                 </div>
               )}
             </div>
