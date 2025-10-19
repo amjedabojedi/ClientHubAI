@@ -37,7 +37,7 @@ const profileFormSchema = z.object({
   
   // Room Configuration
   virtualRoomName: z.string().optional(), // Virtual room name/link for online sessions
-  preferredPhysicalRoom: z.string().optional(), // Preferred physical room ID
+  availablePhysicalRooms: z.array(z.number()).default([]), // Physical room IDs this therapist can use
   
   // Emergency Contact
   emergencyContactName: z.string().optional(),
@@ -95,28 +95,43 @@ type ZoomStatusResponse = {
   zoomClientId?: string | null;
 };
 
-// Room select component
-function RoomSelect({ value, onChange }: { value?: string; onChange: (value: string) => void }) {
-  const { data: rooms = [] } = useQuery({
+// Multi-select room component
+function PhysicalRoomsMultiSelect({ value = [], onChange }: { value?: number[]; onChange: (value: number[]) => void }) {
+  const { data: rooms = [] } = useQuery<Array<{ id: number; roomNumber: string; roomName: string; isActive: boolean }>>({
     queryKey: ["/api/rooms"],
   });
 
+  const toggleRoom = (roomId: number) => {
+    if (value.includes(roomId)) {
+      onChange(value.filter(id => id !== roomId));
+    } else {
+      onChange([...value, roomId]);
+    }
+  };
+
   return (
-    <Select value={value || "0"} onValueChange={(val) => onChange(val === "0" ? "" : val)}>
-      <SelectTrigger data-testid="select-preferred-room">
-        <SelectValue placeholder="Select a room" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="0">None</SelectItem>
-        {rooms
-          .filter((room: any) => room.isActive)
-          .map((room: any) => (
-            <SelectItem key={room.id} value={room.id.toString()}>
+    <div className="space-y-2">
+      {rooms
+        .filter(room => room.isActive)
+        .map(room => (
+          <div key={room.id} className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id={`room-${room.id}`}
+              checked={value.includes(room.id)}
+              onChange={() => toggleRoom(room.id)}
+              className="h-4 w-4 rounded border-gray-300"
+              data-testid={`checkbox-room-${room.id}`}
+            />
+            <label htmlFor={`room-${room.id}`} className="text-sm cursor-pointer">
               {room.roomNumber} - {room.roomName}
-            </SelectItem>
-          ))}
-      </SelectContent>
-    </Select>
+            </label>
+          </div>
+        ))}
+      {rooms.length === 0 && (
+        <p className="text-sm text-muted-foreground">No physical rooms available</p>
+      )}
+    </div>
   );
 }
 
@@ -170,7 +185,7 @@ export default function MyProfilePage() {
       sessionDuration: 50,
       workingHours: "",
       virtualRoomName: "",
-      preferredPhysicalRoom: "",
+      availablePhysicalRooms: [],
       emergencyContactName: "",
       emergencyContactPhone: "",
       emergencyContactRelationship: "",
@@ -235,7 +250,7 @@ export default function MyProfilePage() {
         sessionDuration: profile?.sessionDuration || 50,
         workingHours: profile?.workingHours || "",
         virtualRoomName: profile?.virtualRoomName || "",
-        preferredPhysicalRoom: profile?.preferredPhysicalRoom?.toString() || "",
+        availablePhysicalRooms: profile?.availablePhysicalRooms || [],
         emergencyContactName: profile?.emergencyContactName || "",
         emergencyContactPhone: profile?.emergencyContactPhone || "",
         emergencyContactRelationship: profile?.emergencyContactRelationship || "",
@@ -815,12 +830,15 @@ export default function MyProfilePage() {
                     
                     <FormField
                       control={form.control}
-                      name="preferredPhysicalRoom"
+                      name="availablePhysicalRooms"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Preferred Physical Room</FormLabel>
+                          <FormLabel>Available Physical Rooms</FormLabel>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Select all physical rooms you can use for appointments
+                          </p>
                           <FormControl>
-                            <RoomSelect 
+                            <PhysicalRoomsMultiSelect 
                               value={field.value} 
                               onChange={field.onChange}
                             />
