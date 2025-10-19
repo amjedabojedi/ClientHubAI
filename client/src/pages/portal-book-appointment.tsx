@@ -37,11 +37,12 @@ export default function PortalBookAppointmentPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  // Generate next 90 days (3 months) for calendar
+  // Generate dates for future booking (1 year ahead - no artificial limit)
   const generateDates = () => {
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 90; i++) {
+    // Generate 365 days (1 year) - allows long-term therapy scheduling
+    for (let i = 0; i < 365; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
@@ -56,7 +57,7 @@ export default function PortalBookAppointmentPage() {
     setSelectedDate("");
     setSelectedTime("");
     
-    // Fetch available slots for the next 90 days based on session type
+    // Fetch available slots for the next year based on session type
     const fetchSlots = async () => {
       setIsLoading(true);
       setError("");
