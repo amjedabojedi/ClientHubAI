@@ -2725,7 +2725,7 @@ export default function ClientDetailPage() {
                                 {(session as any).service && (
                                   <div className="flex items-center space-x-2">
                                     <span className="text-xs bg-slate-100 px-2 py-1 rounded">
-                                      {(session as any).service.serviceCode} - ${(session as any).service.baseRate}
+                                      {(session as any).service.serviceName} ({(session as any).service.serviceCode}) - ${(session as any).service.baseRate}
                                     </span>
                                   </div>
                                 )}
