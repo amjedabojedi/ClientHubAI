@@ -11,13 +11,24 @@ interface TimeSlot {
   end: string;
 }
 
+interface Service {
+  id: number;
+  serviceName: string;
+  duration: number;
+  baseRate: string;
+  description: string | null;
+}
+
 export default function PortalBookAppointmentPage() {
   const [, setLocation] = useLocation();
   const [sessionType, setSessionType] = useState<'online' | 'in-person'>('online');
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedService, setSelectedService] = useState<number | null>(null);
   const [availableSlots, setAvailableSlots] = useState<Record<string, TimeSlot[]>>({});
+  const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -74,9 +85,46 @@ export default function PortalBookAppointmentPage() {
     fetchSlots();
   }, [sessionType, setLocation]);
 
+  // Fetch services when time is selected
+  useEffect(() => {
+    if (selectedTime) {
+      fetchServices();
+    } else {
+      // Reset service selection when time is cleared
+      setSelectedService(null);
+      setServices([]);
+    }
+  }, [selectedTime]);
+
+  const fetchServices = async () => {
+    try {
+      setIsLoadingServices(true);
+      const response = await fetch("/api/portal/services", {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch services");
+      }
+
+      const data = await response.json();
+      setServices(data);
+    } catch (err) {
+      console.error("Failed to fetch services:", err);
+      setError("Failed to load available services");
+    } finally {
+      setIsLoadingServices(false);
+    }
+  };
+
   const handleBookAppointment = async () => {
     if (!selectedDate || !selectedTime) {
       setError("Please select a date and time");
+      return;
+    }
+
+    if (!selectedService) {
+      setError("Please select a service");
       return;
     }
 
@@ -84,6 +132,14 @@ export default function PortalBookAppointmentPage() {
     setError("");
 
     try {
+      // Find selected service to get duration
+      const service = services.find(s => s.id === selectedService);
+      if (!service) {
+        setError("Invalid service selected");
+        setIsBooking(false);
+        return;
+      }
+
       const response = await fetch("/api/portal/book-appointment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,9 +147,10 @@ export default function PortalBookAppointmentPage() {
         body: JSON.stringify({
           sessionDate: selectedDate,
           sessionTime: selectedTime,
-          duration: 60,
-          sessionType: "individual",
-          location: "Office",
+          duration: service.duration,
+          serviceId: selectedService,
+          sessionType: sessionType, // Use the selected session type
+          location: sessionType === 'online' ? 'Online' : 'Office',
         }),
       });
 
@@ -238,6 +295,7 @@ export default function PortalBookAppointmentPage() {
                         onClick={() => {
                           setSelectedDate(date);
                           setSelectedTime("");
+                          setSelectedService(null); // Reset service when date changes
                         }}
                         disabled={!hasSlots}
                         className={`w-full p-3 rounded-lg border text-left transition-all ${
@@ -326,14 +384,82 @@ export default function PortalBookAppointmentPage() {
           </div>
         )}
 
+        {/* Service Selection - shown after time is selected */}
+        {selectedTime && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Select Service
+              </CardTitle>
+              <CardDescription>Choose the type of service you need</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingServices ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-600">Loading services...</p>
+                </div>
+              ) : services.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">No services available</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {services.map((service) => {
+                    const isSelected = selectedService === service.id;
+                    return (
+                      <button
+                        key={service.id}
+                        onClick={() => setSelectedService(service.id)}
+                        className={`w-full p-4 rounded-lg border text-left transition-all ${
+                          isSelected
+                            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500"
+                            : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                        }`}
+                        data-testid={`service-${service.id}`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900">{service.serviceName}</div>
+                            {service.description && (
+                              <div className="text-sm text-gray-600 mt-1">{service.description}</div>
+                            )}
+                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-4 h-4" />
+                                {service.duration} min
+                              </span>
+                              <span className="font-medium text-gray-900">${service.baseRate}</span>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle className="w-5 h-5 text-blue-600 ml-3 flex-shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Booking Summary */}
-        {selectedDate && selectedTime && (
+        {selectedDate && selectedTime && selectedService && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Confirm Your Appointment</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-gray-600">Session Type</span>
+                  <span className="font-medium capitalize">{sessionType}</span>
+                </div>
                 <div className="flex items-center justify-between py-2 border-b">
                   <span className="text-gray-600">Date</span>
                   <span className="font-medium">{formatDateDisplay(selectedDate)}</span>
@@ -349,12 +475,16 @@ export default function PortalBookAppointmentPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-gray-600">Service</span>
+                  <span className="font-medium">{services.find(s => s.id === selectedService)?.serviceName}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
                   <span className="text-gray-600">Duration</span>
-                  <span className="font-medium">60 minutes</span>
+                  <span className="font-medium">{services.find(s => s.id === selectedService)?.duration} minutes</span>
                 </div>
                 <div className="flex items-center justify-between py-2">
-                  <span className="text-gray-600">Session Type</span>
-                  <span className="font-medium">Individual Therapy</span>
+                  <span className="text-gray-600">Cost</span>
+                  <span className="font-medium">${services.find(s => s.id === selectedService)?.baseRate}</span>
                 </div>
 
                 <Button

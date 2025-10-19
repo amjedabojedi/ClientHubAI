@@ -9020,6 +9020,36 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Get available services for booking
+  app.get("/api/portal/services", async (req, res) => {
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      // Get all active services that are visible to therapists (clients can book these)
+      const allServices = await storage.getServices();
+      const availableServices = allServices.filter(s => s.isActive && s.therapistVisible);
+
+      res.json(availableServices);
+    } catch (error) {
+      console.error("Portal services error:", error);
+      res.status(500).json({ error: "Failed to fetch services" });
+    }
+  });
+
   // Portal - Get available time slots for booking
   app.get("/api/portal/available-slots", async (req, res) => {
     try {
@@ -9081,10 +9111,11 @@ This happens because only the file metadata was stored, not the actual file cont
         const dateKey = d.toISOString().split('T')[0];
         
         // Check availability based on session type and room availability
+        // Use standard 60-minute duration for slot generation (service will be selected later)
         const daySlots = await storage.getAvailableTimeSlots(
           client.assignedTherapistId,
           new Date(d),
-          15, // Using default service for duration
+          23, // Using standard 60-min psychotherapy service for slot intervals
           sessionType as 'online' | 'in-person' // Pass session type for room checking
         );
         
