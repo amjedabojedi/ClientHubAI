@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar as CalendarIcon, Clock, ArrowLeft, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDateDisplay } from "@/lib/datetime";
+import { format } from "date-fns";
 
 interface TimeSlot {
   start: string;
@@ -272,176 +276,131 @@ export default function PortalBookAppointmentPage() {
             <p className="text-sm sm:text-base text-gray-600">Loading available time slots...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {/* Date Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5" />
-                  Select Date
-                </CardTitle>
-                <CardDescription>Choose a day for your appointment</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {dates.map((date) => {
-                    const slotsForDate = availableSlots[date] || [];
-                    const hasSlots = slotsForDate.length > 0;
-                    const isSelected = selectedDate === date;
+          <Card>
+            <CardHeader>
+              <CardTitle>Select Date & Time</CardTitle>
+              <CardDescription>Choose when you'd like your appointment</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Date Picker */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                      data-testid="button-date-picker"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? formatDateDisplay(selectedDate) : "Select a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate ? new Date(selectedDate) : undefined}
+                      onSelect={(date) => {
+                        if (date) {
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          // Only select dates with available slots
+                          if (availableSlots[dateStr] && availableSlots[dateStr].length > 0) {
+                            setSelectedDate(dateStr);
+                            setSelectedTime("");
+                            setSelectedService(null);
+                          }
+                        }
+                      }}
+                      disabled={(date) => {
+                        const dateStr = format(date, 'yyyy-MM-dd');
+                        // Disable dates outside our range or with no slots
+                        const hasSlots = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
+                        return !hasSlots;
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-                    return (
-                      <button
-                        key={date}
-                        onClick={() => {
-                          setSelectedDate(date);
-                          setSelectedTime("");
-                          setSelectedService(null); // Reset service when date changes
-                        }}
-                        disabled={!hasSlots}
-                        className={`w-full p-3 rounded-lg border text-left transition-all ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500"
-                            : hasSlots
-                            ? "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                            : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed"
-                        }`}
-                        data-testid={`date-${date}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">
-                              {formatDateDisplay(date)}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {hasSlots
-                                ? `${slotsForDate.length} slot${slotsForDate.length === 1 ? '' : 's'} available`
-                                : "No slots available"}
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <CheckCircle className="w-5 h-5 text-blue-600" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Time Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Select Time
-                </CardTitle>
-                <CardDescription>
-                  {selectedDate
-                    ? `Choose a time slot for ${formatDateDisplay(selectedDate)}`
-                    : "Select a date first"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!selectedDate ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-sm">Please select a date to see available times</p>
-                  </div>
-                ) : availableSlots[selectedDate]?.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <p className="text-sm">No time slots available for this date</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {availableSlots[selectedDate]?.map((slot) => {
-                      const isSelected = selectedTime === slot.start;
+              {/* Time Dropdown */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Time</label>
+                <Select
+                  value={selectedTime}
+                  onValueChange={setSelectedTime}
+                  disabled={!selectedDate}
+                >
+                  <SelectTrigger className="w-full" data-testid="select-time">
+                    <SelectValue placeholder={selectedDate ? "Select a time" : "Select a date first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedDate && availableSlots[selectedDate]?.map((slot) => {
                       const displayTime = new Date(`2000-01-01T${slot.start}`).toLocaleTimeString('en-US', {
                         hour: 'numeric',
                         minute: '2-digit',
                         hour12: true
                       });
-
                       return (
-                        <button
-                          key={slot.start}
-                          onClick={() => setSelectedTime(slot.start)}
-                          className={`w-full p-3 rounded-lg border text-center transition-all ${
-                            isSelected
-                              ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500"
-                              : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                          }`}
-                          data-testid={`time-${slot.start}`}
-                        >
-                          <div className="font-medium">{displayTime}</div>
-                        </button>
+                        <SelectItem key={slot.start} value={slot.start} data-testid={`time-${slot.start}`}>
+                          {displayTime}
+                        </SelectItem>
                       );
                     })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Service Selection - shown after time is selected */}
         {selectedTime && (
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                Select Service
-              </CardTitle>
+              <CardTitle>Select Service</CardTitle>
               <CardDescription>Choose the type of service you need</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoadingServices ? (
-                <div className="text-center py-8">
+                <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
                   <p className="text-sm text-gray-600">Loading services...</p>
                 </div>
               ) : services.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-4 text-gray-500">
                   <p className="text-sm">No services available</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {services.map((service) => {
-                    const isSelected = selectedService === service.id;
-                    return (
-                      <button
-                        key={service.id}
-                        onClick={() => setSelectedService(service.id)}
-                        className={`w-full p-4 rounded-lg border text-left transition-all ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500"
-                            : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
-                        }`}
-                        data-testid={`service-${service.id}`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-900">{service.serviceName}</div>
-                            {service.description && (
-                              <div className="text-sm text-gray-600 mt-1">{service.description}</div>
-                            )}
-                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {service.duration} min
-                              </span>
-                              <span className="font-medium text-gray-900">${service.baseRate}</span>
-                            </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Service</label>
+                  <Select
+                    value={selectedService?.toString()}
+                    onValueChange={(value) => setSelectedService(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-full" data-testid="select-service">
+                      <SelectValue placeholder="Select a service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.id.toString()} data-testid={`service-${service.id}`}>
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span className="font-medium">{service.serviceName}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {service.duration}min • ${service.baseRate}
+                            </span>
                           </div>
-                          {isSelected && (
-                            <CheckCircle className="w-5 h-5 text-blue-600 ml-3 flex-shrink-0" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedService && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="text-sm text-gray-700">
+                        {services.find(s => s.id === selectedService)?.description || 'Professional therapy service'}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
