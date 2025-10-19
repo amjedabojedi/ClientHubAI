@@ -288,10 +288,15 @@ export default function PortalBookAppointmentPage() {
                 <div className="flex justify-center border rounded-lg p-4">
                   <Calendar
                     mode="single"
-                    selected={selectedDate ? new Date(selectedDate) : undefined}
+                    selected={selectedDate ? new Date(selectedDate + 'T12:00:00') : undefined}
                     onSelect={(date) => {
                       if (date) {
-                        const dateStr = format(date, 'yyyy-MM-dd');
+                        // Use local timezone to avoid date shifts
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const dateStr = `${year}-${month}-${day}`;
+                        
                         // Only select dates with available slots
                         if (availableSlots[dateStr] && availableSlots[dateStr].length > 0) {
                           setSelectedDate(dateStr);
@@ -301,7 +306,12 @@ export default function PortalBookAppointmentPage() {
                       }
                     }}
                     disabled={(date) => {
-                      const dateStr = format(date, 'yyyy-MM-dd');
+                      // Use local timezone to avoid date shifts
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const dateStr = `${year}-${month}-${day}`;
+                      
                       // Disable dates outside therapist's available range or with no slots
                       const hasSlots = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
                       return !hasSlots;

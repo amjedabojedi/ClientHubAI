@@ -738,6 +738,11 @@ export class DatabaseStorage implements IStorage {
     while (currentTime < endTime) {
       const slotEnd = new Date(currentTime.getTime() + sessionDuration * 60000);
       
+      // Skip this slot if it extends beyond working hours
+      if (slotEnd > endTime) {
+        break; // Stop generating slots - would exceed working hours
+      }
+      
       // Check if slot is blocked
       const isBlocked = blockedTimes.some(blocked => {
         const blockStart = new Date(blocked.startTime);
