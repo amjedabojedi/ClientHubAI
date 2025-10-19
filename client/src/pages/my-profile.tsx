@@ -35,6 +35,10 @@ const profileFormSchema = z.object({
   sessionDuration: z.number().min(0).default(50),
   workingHours: z.string().optional(), // JSON string of working hours per day
   
+  // Room Configuration
+  virtualRoomName: z.string().optional(), // Virtual room name/link for online sessions
+  preferredPhysicalRoom: z.string().optional(), // Preferred physical room ID
+  
   // Emergency Contact
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -91,6 +95,31 @@ type ZoomStatusResponse = {
   zoomClientId?: string | null;
 };
 
+// Room select component
+function RoomSelect({ value, onChange }: { value?: string; onChange: (value: string) => void }) {
+  const { data: rooms = [] } = useQuery({
+    queryKey: ["/api/rooms"],
+  });
+
+  return (
+    <Select value={value || "0"} onValueChange={(val) => onChange(val === "0" ? "" : val)}>
+      <SelectTrigger data-testid="select-preferred-room">
+        <SelectValue placeholder="Select a room" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="0">None</SelectItem>
+        {rooms
+          .filter((room: any) => room.isActive)
+          .map((room: any) => (
+            <SelectItem key={room.id} value={room.id.toString()}>
+              {room.roomNumber} - {room.roomName}
+            </SelectItem>
+          ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export default function MyProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -140,6 +169,8 @@ export default function MyProfilePage() {
       maxClientsPerDay: 0,
       sessionDuration: 50,
       workingHours: "",
+      virtualRoomName: "",
+      preferredPhysicalRoom: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
       emergencyContactRelationship: "",
@@ -203,6 +234,8 @@ export default function MyProfilePage() {
         maxClientsPerDay: profile?.maxClientsPerDay || 0,
         sessionDuration: profile?.sessionDuration || 50,
         workingHours: profile?.workingHours || "",
+        virtualRoomName: profile?.virtualRoomName || "",
+        preferredPhysicalRoom: profile?.preferredPhysicalRoom?.toString() || "",
         emergencyContactName: profile?.emergencyContactName || "",
         emergencyContactPhone: profile?.emergencyContactPhone || "",
         emergencyContactRelationship: profile?.emergencyContactRelationship || "",
@@ -751,6 +784,53 @@ export default function MyProfilePage() {
                     </FormItem>
                   )}
                 />
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Video className="w-5 h-5" />
+                      Room Configuration
+                    </CardTitle>
+                    <CardDescription>
+                      Configure which rooms you use for appointments
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="virtualRoomName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Virtual Room Name / Link</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., Zoom Room A, meet.google.com/abc-defg-hij" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="preferredPhysicalRoom"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Preferred Physical Room</FormLabel>
+                          <FormControl>
+                            <RoomSelect 
+                              value={field.value} 
+                              onChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="contact" className="space-y-6">
