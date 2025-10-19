@@ -9039,9 +9039,9 @@ This happens because only the file metadata was stored, not the actual file cont
       // Update session activity
       await storage.updatePortalSessionActivity(session.id);
 
-      // Get all active services that are visible to therapists (clients can book these)
+      // Get all active services that are visible in client portal
       const allServices = await storage.getServices();
-      const availableServices = allServices.filter(s => s.isActive && s.therapistVisible);
+      const availableServices = allServices.filter(s => s.isActive && s.clientPortalVisible);
 
       res.json(availableServices);
     } catch (error) {

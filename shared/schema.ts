@@ -366,6 +366,7 @@ export const services = pgTable("services", {
   category: varchar("category", { length: 100 }),
   isActive: boolean("is_active").notNull().default(true),
   therapistVisible: boolean("therapist_visible").notNull().default(true), // Controls therapist visibility
+  clientPortalVisible: boolean("client_portal_visible").notNull().default(true), // Controls client portal visibility
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
