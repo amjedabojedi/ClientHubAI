@@ -8,7 +8,6 @@ import { ArrowLeft, Receipt, CreditCard, FileText, Loader2 } from "lucide-react"
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useToast } from "@/hooks/use-toast";
-import { loadStripe } from "@stripe/stripe-js";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Invoice {
@@ -30,9 +29,6 @@ interface Invoice {
   sessionDate: Date;
   sessionType: string;
 }
-
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
 
 export default function PortalInvoices() {
   const { toast } = useToast();
@@ -70,25 +66,13 @@ export default function PortalInvoices() {
       return response;
     },
     onSuccess: async (data) => {
-      const stripe = await stripePromise;
-      if (!stripe) {
+      // Redirect to Stripe Checkout URL directly
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
         toast({
           title: "Error",
-          description: "Payment system not available",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Redirect to Stripe Checkout
-      const { error } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId,
-      });
-
-      if (error) {
-        toast({
-          title: "Payment Error",
-          description: error.message,
+          description: "Payment URL not available",
           variant: "destructive",
         });
       }

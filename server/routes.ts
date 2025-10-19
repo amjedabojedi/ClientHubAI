@@ -9553,7 +9553,10 @@ This happens because only the file metadata was stored, not the actual file cont
         accessReason: 'Client portal payment initiation',
       });
 
-      res.json({ sessionId: checkoutSession.id });
+      res.json({ 
+        sessionId: checkoutSession.id,
+        checkoutUrl: checkoutSession.url 
+      });
     } catch (error) {
       console.error("Portal payment error:", error);
       res.status(500).json({ error: "Failed to initiate payment" });
