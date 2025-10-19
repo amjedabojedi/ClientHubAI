@@ -224,7 +224,7 @@ export default function PortalDashboardPage() {
               <CardDescription>
                 {upcomingAppointments.length > 0 
                   ? `${upcomingAppointments.length} upcoming session${upcomingAppointments.length === 1 ? '' : 's'}`
-                  : 'View upcoming sessions'
+                  : 'No upcoming sessions'
                 }
               </CardDescription>
             </CardHeader>
@@ -232,20 +232,30 @@ export default function PortalDashboardPage() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => setLocation('/portal/book-appointment')}
-                data-testid="button-view-schedule"
+                onClick={() => {
+                  const appointmentsSection = document.getElementById('appointments-section');
+                  appointmentsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                data-testid="button-view-appointments"
               >
-                View Schedule
+                View My Sessions
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Upcoming Appointments */}
-        <Card className="mb-8">
+        {/* All Appointments */}
+        <Card className="mb-8" id="appointments-section">
           <CardHeader>
-            <CardTitle>Upcoming Appointments</CardTitle>
-            <CardDescription>Your scheduled therapy sessions</CardDescription>
+            <CardTitle>My Appointments</CardTitle>
+            <CardDescription>
+              {upcomingAppointments.length > 0 
+                ? `${upcomingAppointments.length} upcoming • ${appointments.length - upcomingAppointments.length} past sessions`
+                : appointments.length > 0 
+                ? `${appointments.length} past session${appointments.length === 1 ? '' : 's'}`
+                : 'No appointments yet'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingAppointments ? (
@@ -256,12 +266,19 @@ export default function PortalDashboardPage() {
             ) : appointments.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-sm">No upcoming appointments</p>
+                <p className="text-sm">No appointments yet</p>
                 <p className="text-xs">Book a new session to get started</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {appointments.slice(0, 5).map((appointment) => {
+                {appointments
+                  .sort((a, b) => {
+                    const dateA = new Date(`${a.sessionDate}T${a.sessionTime}`);
+                    const dateB = new Date(`${b.sessionDate}T${b.sessionTime}`);
+                    return dateA.getTime() - dateB.getTime();
+                  })
+                  .slice(0, 10)
+                  .map((appointment) => {
                   const sessionDateTime = new Date(`${appointment.sessionDate}T${appointment.sessionTime}`);
                   const isPast = sessionDateTime < new Date();
                   
@@ -342,9 +359,9 @@ export default function PortalDashboardPage() {
                     </div>
                   );
                 })}
-                {appointments.length > 5 && (
+                {appointments.length > 10 && (
                   <p className="text-sm text-gray-500 text-center pt-2">
-                    Showing 5 of {appointments.length} appointments
+                    Showing 10 of {appointments.length} appointments
                   </p>
                 )}
               </div>
