@@ -9746,7 +9746,7 @@ This happens because only the file metadata was stored, not the actual file cont
       // Get invoice data - ensure it belongs to this client
       const invoiceData = await storage.getBillingForInvoice(session.clientId, invoiceId);
       
-      if (!invoiceData || invoiceData.client.clientId !== session.clientId) {
+      if (!invoiceData) {
         return res.status(404).json({ error: "Invoice not found" });
       }
 
