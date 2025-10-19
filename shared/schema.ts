@@ -134,7 +134,7 @@ export const userProfiles = pgTable("user_profiles", {
   maxClientsPerDay: integer("max_clients_per_day"),
   sessionDuration: integer("session_duration").default(50), // Minutes
   availabilityStatus: varchar("availability_status", { length: 20 }).default('available'),
-  virtualRoomName: varchar("virtual_room_name", { length: 255 }), // Zoom room or virtual meeting space for online sessions
+  virtualRoomId: integer("virtual_room_id").references(() => rooms.id), // Virtual room ID for online sessions
   availablePhysicalRooms: integer("available_physical_rooms").array(), // Physical room IDs this therapist can use
   
   // Emergency Contact

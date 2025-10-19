@@ -36,7 +36,7 @@ const profileFormSchema = z.object({
   workingHours: z.string().optional(), // JSON string of working hours per day
   
   // Room Configuration
-  virtualRoomName: z.string().optional(), // Virtual room name/link for online sessions
+  virtualRoomId: z.number().optional(), // Virtual room ID for online sessions
   availablePhysicalRooms: z.array(z.number()).default([]), // Physical room IDs this therapist can use
   
   // Emergency Contact
@@ -95,11 +95,38 @@ type ZoomStatusResponse = {
   zoomClientId?: string | null;
 };
 
-// Multi-select room component
+// Virtual room select component (only online rooms)
+function VirtualRoomSelect({ value, onChange }: { value?: number; onChange: (value: number | undefined) => void }) {
+  const { data: rooms = [] } = useQuery<Array<{ id: number; roomNumber: string; roomName: string; isActive: boolean }>>({
+    queryKey: ["/api/rooms"],
+  });
+
+  const onlineRooms = rooms.filter(room => room.isActive && room.roomName.toLowerCase().includes('online'));
+
+  return (
+    <Select value={value?.toString() || "0"} onValueChange={(val) => onChange(val === "0" ? undefined : parseInt(val))}>
+      <SelectTrigger data-testid="select-virtual-room">
+        <SelectValue placeholder="Select your online room" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="0">None</SelectItem>
+        {onlineRooms.map(room => (
+          <SelectItem key={room.id} value={room.id.toString()}>
+            {room.roomNumber} - {room.roomName}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+// Multi-select physical rooms component (only physical rooms)
 function PhysicalRoomsMultiSelect({ value = [], onChange }: { value?: number[]; onChange: (value: number[]) => void }) {
   const { data: rooms = [] } = useQuery<Array<{ id: number; roomNumber: string; roomName: string; isActive: boolean }>>({
     queryKey: ["/api/rooms"],
   });
+
+  const physicalRooms = rooms.filter(room => room.isActive && !room.roomName.toLowerCase().includes('online'));
 
   const toggleRoom = (roomId: number) => {
     if (value.includes(roomId)) {
@@ -111,24 +138,22 @@ function PhysicalRoomsMultiSelect({ value = [], onChange }: { value?: number[]; 
 
   return (
     <div className="space-y-2">
-      {rooms
-        .filter(room => room.isActive)
-        .map(room => (
-          <div key={room.id} className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id={`room-${room.id}`}
-              checked={value.includes(room.id)}
-              onChange={() => toggleRoom(room.id)}
-              className="h-4 w-4 rounded border-gray-300"
-              data-testid={`checkbox-room-${room.id}`}
-            />
-            <label htmlFor={`room-${room.id}`} className="text-sm cursor-pointer">
-              {room.roomNumber} - {room.roomName}
-            </label>
-          </div>
-        ))}
-      {rooms.length === 0 && (
+      {physicalRooms.map(room => (
+        <div key={room.id} className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id={`room-${room.id}`}
+            checked={value.includes(room.id)}
+            onChange={() => toggleRoom(room.id)}
+            className="h-4 w-4 rounded border-gray-300"
+            data-testid={`checkbox-room-${room.id}`}
+          />
+          <label htmlFor={`room-${room.id}`} className="text-sm cursor-pointer">
+            {room.roomNumber} - {room.roomName}
+          </label>
+        </div>
+      ))}
+      {physicalRooms.length === 0 && (
         <p className="text-sm text-muted-foreground">No physical rooms available</p>
       )}
     </div>
@@ -184,7 +209,7 @@ export default function MyProfilePage() {
       maxClientsPerDay: 0,
       sessionDuration: 50,
       workingHours: "",
-      virtualRoomName: "",
+      virtualRoomId: undefined,
       availablePhysicalRooms: [],
       emergencyContactName: "",
       emergencyContactPhone: "",
@@ -249,7 +274,7 @@ export default function MyProfilePage() {
         maxClientsPerDay: profile?.maxClientsPerDay || 0,
         sessionDuration: profile?.sessionDuration || 50,
         workingHours: profile?.workingHours || "",
-        virtualRoomName: profile?.virtualRoomName || "",
+        virtualRoomId: profile?.virtualRoomId || undefined,
         availablePhysicalRooms: profile?.availablePhysicalRooms || [],
         emergencyContactName: profile?.emergencyContactName || "",
         emergencyContactPhone: profile?.emergencyContactPhone || "",
@@ -813,14 +838,17 @@ export default function MyProfilePage() {
                   <CardContent className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="virtualRoomName"
+                      name="virtualRoomId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Virtual Room Name / Link</FormLabel>
+                          <FormLabel>Your Online Room</FormLabel>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Select your dedicated virtual room for online sessions
+                          </p>
                           <FormControl>
-                            <Input 
-                              placeholder="e.g., Zoom Room A, meet.google.com/abc-defg-hij" 
-                              {...field} 
+                            <VirtualRoomSelect 
+                              value={field.value} 
+                              onChange={field.onChange}
                             />
                           </FormControl>
                           <FormMessage />
