@@ -9061,30 +9061,54 @@ This happens because only the file metadata was stored, not the actual file cont
       console.log(`Date Range: ${startDate} to ${endDate}`);
       console.log(`Service ID: 15, Session Type: online`);
       
-      const slots = [];
+      // Organize slots by date in format frontend expects
+      const slotsByDate: Record<string, Array<{start: string; end: string}>> = {};
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
       // Generate slots for each day in the range
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toISOString().split('T')[0];
         const daySlots = await storage.getAvailableTimeSlots(
           client.assignedTherapistId,
           new Date(d),
           15, // Using Psychotherapy -1H (60 min) as default service
           'online' // Default to online sessions for portal bookings
         );
-        console.log(`${d.toISOString().split('T')[0]}: ${daySlots.length} slots (${daySlots.filter(s => s.available).length} available)`);
-        slots.push(...daySlots);
+        
+        // Filter only available slots and convert to frontend format
+        const availableSlots = daySlots
+          .filter(slot => slot.available)
+          .map(slot => {
+            // Convert time to end time (60 minutes later)
+            const [time, period] = slot.time.split(' ');
+            const [hours, minutes] = time.split(':');
+            let hour = parseInt(hours);
+            if (period === 'PM' && hour !== 12) hour += 12;
+            if (period === 'AM' && hour === 12) hour = 0;
+            
+            const startDate = new Date();
+            startDate.setHours(hour, parseInt(minutes), 0);
+            const endDate = new Date(startDate.getTime() + 60 * 60000); // +60 minutes
+            
+            return {
+              start: slot.time,
+              end: endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+            };
+          });
+        
+        slotsByDate[dateKey] = availableSlots;
+        console.log(`${dateKey}: ${daySlots.length} total, ${availableSlots.length} available`);
       }
 
-      console.log(`TOTAL: ${slots.length} slots returned`);
+      console.log(`ORGANIZED BY DATE: ${Object.keys(slotsByDate).length} days`);
       console.log('='.repeat(60));
 
       // Disable caching for this endpoint
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      res.json(slots);
+      res.json(slotsByDate);
     } catch (error) {
       console.error("Portal available slots error:", error);
       res.status(500).json({ error: "Failed to fetch available slots" });
