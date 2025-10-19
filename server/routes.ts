@@ -9804,219 +9804,199 @@ This happens because only the file metadata was stored, not the actual file cont
       const invoiceDate = billing.billingDate ? formatInTimeZone(new Date(billing.billingDate), 'America/New_York', 'MMM dd, yyyy') : serviceDate;
       const paymentDate = billing.paymentDate ? formatInTimeZone(new Date(billing.paymentDate), 'America/New_York', 'MMM dd, yyyy') : null;
 
+      // Calculate payment amounts
+      const subtotal = parseFloat(billing.totalAmount);
+      const insuranceCoverage = billing.insuranceCovered ? subtotal * 0.8 : 0;
+      const copayTotal = billing.insuranceCovered ? parseFloat(billing.copayAmount || '0') : 0;
+      const totalPayments = parseFloat(billing.paymentAmount || '0');
+      const remainingDue = subtotal - totalPayments;
+
+      // Use EXACT SAME invoice HTML template as admin system
       const invoiceHtml = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Payment Receipt - ${client.fullName}</title>
+          <title>Invoice - ${client.fullName} - ${billing.serviceCode}</title>
           <style>
             body { 
               font-family: 'Times New Roman', Times, serif; 
               margin: 40px; 
               font-size: 11pt;
               line-height: 1.4;
-              color: #000;
+              color: #000000;
             }
-            .header {
-              display: flex;
-              justify-content: space-between;
+            .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
+            .invoice-title { 
+              font-size: 26px; 
+              font-weight: bold; 
+              color: #000000; 
+              font-family: 'Times New Roman', Times, serif;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .company-info { 
+              text-align: right; 
+              color: #333333;
+              font-size: 10pt;
+              line-height: 1.3;
+              font-family: 'Times New Roman', Times, serif;
+            }
+            .company-info h3 {
+              font-size: 13pt;
+              font-weight: bold;
+              color: #000000;
+              margin-bottom: 8px;
+              font-family: 'Times New Roman', Times, serif;
+            }
+            .client-info { display: flex; gap: 60px; margin-bottom: 40px; }
+            .section-title { 
+              font-size: 13pt; 
+              font-weight: bold; 
+              color: #000000; 
+              margin-bottom: 12px;
+              font-family: 'Times New Roman', Times, serif;
+              text-transform: uppercase;
+              border-bottom: 1px solid #000000;
+              padding-bottom: 4px;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
               margin-bottom: 30px;
-              padding-bottom: 20px;
-              border-bottom: 2px solid #2563eb;
+              font-size: 10pt;
             }
-            .practice-info {
-              flex: 1;
-            }
-            .practice-name {
-              font-size: 18pt;
-              font-weight: bold;
-              color: #2563eb;
-              margin-bottom: 5px;
-            }
-            .invoice-info {
-              text-align: right;
-            }
-            .invoice-title {
-              font-size: 24pt;
-              font-weight: bold;
-              color: #2563eb;
-              margin-bottom: 10px;
-            }
-            .paid-stamp {
-              background-color: #10b981;
-              color: white;
-              padding: 10px 20px;
-              font-size: 14pt;
-              font-weight: bold;
-              border-radius: 5px;
-              display: inline-block;
-              margin-top: 10px;
-            }
-            .section {
-              margin: 30px 0;
-            }
-            .section-title {
-              font-size: 12pt;
-              font-weight: bold;
-              margin-bottom: 10px;
-              color: #2563eb;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin: 20px 0;
-            }
-            th {
-              background-color: #f3f4f6;
-              padding: 10px;
+            th, td { 
+              border: 1px solid #000000; 
+              padding: 10px 12px; 
               text-align: left;
-              border: 1px solid #d1d5db;
+              font-family: 'Times New Roman', Times, serif;
+            }
+            th { 
+              background-color: #f5f5f5;
               font-weight: bold;
+              color: #000000;
             }
-            td {
-              padding: 10px;
-              border: 1px solid #d1d5db;
+            .totals { width: 300px; margin-left: auto; }
+            .total-row { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 8px;
+              font-size: 10pt;
+              font-family: 'Times New Roman', Times, serif;
             }
-            .total-row {
+            .total-due { 
+              font-weight: bold; 
+              font-size: 13pt; 
+              border-top: 2px solid #000000; 
+              padding-top: 8px;
+              color: #000000;
+              font-family: 'Times New Roman', Times, serif;
+            }
+            .invoice-number {
               font-weight: bold;
-              background-color: #f9fafb;
+              font-size: 11pt;
+              font-family: 'Times New Roman', Times, serif;
             }
-            .info-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              margin: 20px 0;
-            }
-            .info-box {
-              border: 1px solid #d1d5db;
-              padding: 15px;
-              border-radius: 5px;
-            }
-            .footer {
-              margin-top: 50px;
-              padding-top: 20px;
-              border-top: 1px solid #d1d5db;
-              font-size: 9pt;
-              color: #6b7280;
-              text-align: center;
-            }
-            @media print {
-              body { margin: 20px; }
-              .no-print { display: none; }
+            @media print { 
+              body { margin: 0.5in; font-size: 10pt; }
+              .header { margin-bottom: 20px; }
+              .invoice-title { font-size: 22pt; }
+              .section-title { font-size: 11pt; }
+              .client-info { margin-bottom: 20px; }
+              table { font-size: 9pt; }
+              th, td { padding: 8px; }
             }
           </style>
         </head>
         <body>
           <div class="header">
-            <div class="practice-info">
-              <div class="practice-name">${practiceSettings.name}</div>
-              <div>${practiceSettings.address}</div>
-              <div>Phone: ${practiceSettings.phone}</div>
-              <div>Email: ${practiceSettings.email}</div>
+            <div>
+              <h1 class="invoice-title">INVOICE</h1>
+              <p>Invoice #: ${invoiceNumber}</p>
+              <p>Date: ${invoiceDate}</p>
+              <p>Service Date: ${serviceDate}</p>
             </div>
-            <div class="invoice-info">
-              <div class="invoice-title">RECEIPT</div>
-              <div><strong>Invoice #:</strong> ${invoiceNumber}</div>
-              <div><strong>Date:</strong> ${invoiceDate}</div>
-              ${billing.paymentStatus === 'paid' ? '<div class="paid-stamp">✓ PAID</div>' : ''}
-            </div>
-          </div>
-
-          <div class="info-grid">
-            <div class="info-box">
-              <div class="section-title">Bill To</div>
-              <div><strong>${client.fullName}</strong></div>
-              ${client.email ? `<div>${client.email}</div>` : ''}
-              ${client.phone ? `<div>${client.phone}</div>` : ''}
-            </div>
-            <div class="info-box">
-              <div class="section-title">Provider</div>
-              <div><strong>${providerInfo.name}</strong></div>
-              <div>${providerInfo.credentials}</div>
-              <div>License: ${providerInfo.license}</div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Service Details</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date of Service</th>
-                  <th>Service Code</th>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th style="text-align: right;">Rate</th>
-                  <th style="text-align: right;">Units</th>
-                  <th style="text-align: right;">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${serviceDate}</td>
-                  <td>${billing.serviceCode}</td>
-                  <td>${service?.name || billing.serviceCode}</td>
-                  <td style="text-transform: capitalize;">${sessionData.sessionType}</td>
-                  <td style="text-align: right;">$${parseFloat(billing.ratePerUnit).toFixed(2)}</td>
-                  <td style="text-align: right;">${billing.units}</td>
-                  <td style="text-align: right;">$${parseFloat(billing.totalAmount).toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Payment Summary</div>
-            <table style="width: 50%; margin-left: auto;">
-              <tr>
-                <td><strong>Subtotal:</strong></td>
-                <td style="text-align: right;">$${parseFloat(billing.totalAmount).toFixed(2)}</td>
-              </tr>
-              ${billing.insuranceCovered ? `
-              <tr>
-                <td>Insurance Coverage:</td>
-                <td style="text-align: right;">-$${(parseFloat(billing.totalAmount) * 0.8).toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td>Copay:</td>
-                <td style="text-align: right;">$${parseFloat(billing.copayAmount || '0').toFixed(2)}</td>
-              </tr>
-              ` : ''}
-              <tr class="total-row">
-                <td><strong>Total Amount:</strong></td>
-                <td style="text-align: right;"><strong>$${parseFloat(billing.totalAmount).toFixed(2)}</strong></td>
-              </tr>
-              ${billing.paymentAmount ? `
-              <tr>
-                <td>Amount Paid:</td>
-                <td style="text-align: right; color: #10b981;">-$${parseFloat(billing.paymentAmount).toFixed(2)}</td>
-              </tr>
-              ` : ''}
-              <tr class="total-row">
-                <td><strong>Balance Due:</strong></td>
-                <td style="text-align: right;"><strong>$${(parseFloat(billing.totalAmount) - parseFloat(billing.paymentAmount || '0')).toFixed(2)}</strong></td>
-              </tr>
-            </table>
-          </div>
-
-          ${billing.paymentStatus === 'paid' && paymentDate ? `
-          <div class="section">
-            <div class="section-title">Payment Information</div>
-            <div class="info-box">
-              <div><strong>Payment Date:</strong> ${paymentDate}</div>
-              <div><strong>Payment Method:</strong> ${billing.paymentMethod || 'N/A'}</div>
-              <div><strong>Reference:</strong> ${billing.paymentReference || 'N/A'}</div>
-              <div style="margin-top: 15px; padding: 10px; background-color: #d1fae5; border-left: 4px solid #10b981;">
-                <strong>Payment Status:</strong> PAID IN FULL
+            <div class="company-info">
+              <h3>${practiceSettings.name}</h3>
+              <div style="margin-top: 10px; font-size: 0.9em;">
+                <p>${practiceSettings.address.replace('\n', '<br>')}</p>
+                <p>Phone: ${practiceSettings.phone}</p>
+                <p>Email: ${practiceSettings.email}</p>
+                <p>Website: ${practiceSettings.website}</p>
               </div>
             </div>
           </div>
-          ` : ''}
-
-          <div class="footer">
-            <p>This is an official receipt from ${practiceSettings.name}</p>
-            <p>For questions about this invoice, please contact ${practiceSettings.email} or ${practiceSettings.phone}</p>
-            <p style="margin-top: 10px;">Thank you for your payment!</p>
+          
+          <div class="client-info">
+            <div>
+              <h3 class="section-title">Bill To:</h3>
+              <p>${client.fullName}</p>
+              <p>${client.address || ''}</p>
+              <p>${client.phone || ''}</p>
+              <p>${client.email || ''}</p>
+            </div>
+            <div>
+              <h3 class="section-title">Insurance Info:</h3>
+              <p>Provider: ${client.insuranceProvider || 'N/A'}</p>
+              <p>Policy: ${client.policyNumber || 'N/A'}</p>
+              <p>Group: ${client.groupNumber || 'N/A'}</p>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>CPT Code</th>
+                <th>Date</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${service?.name || 'Professional Service'}</td>
+                <td>${service?.serviceCode || billing.serviceCode}</td>
+                <td>${serviceDate}</td>
+                <td style="text-align: right;">$${subtotal.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="totals">
+            <div class="total-row">
+              <span>Service Amount:</span>
+              <span>$${subtotal.toFixed(2)}</span>
+            </div>
+            ${billing.insuranceCovered ? `
+            <div class="total-row">
+              <span>Insurance Coverage:</span>
+              <span>-$${insuranceCoverage.toFixed(2)}</span>
+            </div>` : ''}
+            ${billing.insuranceCovered ? `
+            <div class="total-row">
+              <span>Copay Amount:</span>
+              <span>$${copayTotal.toFixed(2)}</span>
+            </div>` : ''}
+            ${totalPayments > 0 ? `
+            <div class="total-row">
+              <span>Payments Received:</span>
+              <span>-$${totalPayments.toFixed(2)}</span>
+            </div>` : ''}
+            <div class="total-row total-due">
+              <span>Total Due:</span>
+              <span style="${remainingDue === 0 ? 'color: #16a34a; font-weight: bold;' : ''}">
+                ${remainingDue === 0 ? 'PAID IN FULL' : '$' + remainingDue.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          
+          <div style="margin-top: 40px; padding: 20px; border-top: 2px solid #e2e8f0; background-color: #f8fafc; font-size: 12px; color: #64748b;">
+            <h4 style="color: #1e293b; margin-bottom: 15px; font-size: 13px;">Provider Information for Insurance Reimbursement</h4>
+            <div>
+              <p><strong>Provider Name:</strong> ${providerInfo.name}</p>
+              <p><strong>License Name:</strong> ${providerInfo.credentials}</p>
+              <p><strong>License Number:</strong> ${providerInfo.license}</p>
+            </div>
           </div>
         </body>
         </html>
