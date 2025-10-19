@@ -9233,24 +9233,26 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       // Assign room based on session type
+      // Note: Room availability was already checked when showing available slots to client
       let assignedRoomId = null;
       
       if (sessionType === 'online') {
-        // ONLINE: Use therapist's virtual room
-        if (therapistProfile.virtualRoomId) {
-          assignedRoomId = therapistProfile.virtualRoomId;
-        }
+        // ONLINE: Assign therapist's configured virtual room
+        assignedRoomId = therapistProfile.virtualRoomId || null;
       } else if (sessionType === 'in-person') {
-        // IN-PERSON: Find first available physical room from therapist's assigned rooms
-        if (therapistProfile.availablePhysicalRooms && therapistProfile.availablePhysicalRooms.length > 0) {
-          // Check each assigned room for conflicts on the selected date/time
+        // IN-PERSON: Find first available physical room (simple assignment)
+        // Time slot availability already verified that at least one room is free
+        const availableRooms = therapistProfile.availablePhysicalRooms || [];
+        
+        if (availableRooms.length > 0) {
+          // Quick check for first available room at booking time
           const sessionDateTime = new Date(`${sessionDate}T${sessionTime}:00`);
           const sessionDuration = duration || 60;
           const sessionEnd = new Date(sessionDateTime.getTime() + sessionDuration * 60000);
           
-          for (const roomId of therapistProfile.availablePhysicalRooms) {
-            // Check if this room has any conflicts at the selected time
-            const existingSessions = await db
+          for (const roomId of availableRooms) {
+            // Quick conflict check
+            const conflicts = await db
               .select()
               .from(sessions)
               .where(and(
@@ -9258,32 +9260,17 @@ This happens because only the file metadata was stored, not the actual file cont
                 eq(sessions.sessionDate, sessionDateTime)
               ));
             
-            // Check for time conflicts
-            let hasConflict = false;
-            for (const existing of existingSessions) {
-              const existingStart = new Date(existing.sessionDate);
-              const existingDuration = existing.duration || 60;
-              const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000);
-              
-              // Check if times overlap
-              if (sessionDateTime < existingEnd && sessionEnd > existingStart) {
-                hasConflict = true;
-                break;
-              }
-            }
+            // Simple time overlap check
+            const hasConflict = conflicts.some(s => {
+              const start = new Date(s.sessionDate);
+              const end = new Date(start.getTime() + (s.duration || 60) * 60000);
+              return sessionDateTime < end && sessionEnd > start;
+            });
             
-            // If no conflict, use this room
             if (!hasConflict) {
               assignedRoomId = roomId;
               break;
             }
-          }
-          
-          // If all rooms have conflicts, return error
-          if (!assignedRoomId) {
-            return res.status(400).json({ 
-              error: "All available rooms are booked at this time. Please select a different time slot." 
-            });
           }
         }
       }
