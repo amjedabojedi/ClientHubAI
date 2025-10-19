@@ -229,7 +229,14 @@ export default function PortalDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full">View Schedule</Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setLocation('/portal/book-appointment')}
+                data-testid="button-view-schedule"
+              >
+                View Schedule
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -326,7 +333,7 @@ export default function PortalDashboardPage() {
                             )}
                             {appointment.serviceCode && (
                               <div className="text-sm text-gray-600">
-                                {appointment.serviceCode} - ${appointment.serviceRate ? parseFloat(appointment.serviceRate as string).toFixed(2) : '0.00'}
+                                {appointment.serviceCode} - ${appointment.serviceRate ? (typeof appointment.serviceRate === 'number' ? appointment.serviceRate.toFixed(2) : parseFloat(String(appointment.serviceRate)).toFixed(2)) : '0.00'}
                               </div>
                             )}
                           </div>
