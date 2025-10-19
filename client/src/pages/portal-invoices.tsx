@@ -1,16 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Receipt } from "lucide-react";
+import { ArrowLeft, Receipt, CreditCard, FileText, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
+import { useToast } from "@/hooks/use-toast";
+import { loadStripe } from "@stripe/stripe-js";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Invoice {
   id: number;
   sessionId: number;
   serviceCode: string;
+  serviceName?: string;
   units: number;
   ratePerUnit: string;
   totalAmount: string;
@@ -26,9 +31,75 @@ interface Invoice {
   sessionType: string;
 }
 
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
+
 export default function PortalInvoices() {
+  const { toast } = useToast();
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/portal/invoices"],
+  });
+
+  // Check for payment result in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    
+    if (paymentStatus === 'success') {
+      toast({
+        title: "Payment Successful",
+        description: "Your payment has been processed successfully.",
+      });
+      // Clear the URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (paymentStatus === 'cancelled') {
+      toast({
+        title: "Payment Cancelled",
+        description: "Your payment was cancelled. You can try again anytime.",
+        variant: "destructive",
+      });
+      // Clear the URL parameters
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [toast]);
+
+  // Payment mutation
+  const paymentMutation = useMutation({
+    mutationFn: async (invoiceId: number) => {
+      const response = await apiRequest(`/api/portal/invoices/${invoiceId}/pay`, "POST", {});
+      return response;
+    },
+    onSuccess: async (data) => {
+      const stripe = await stripePromise;
+      if (!stripe) {
+        toast({
+          title: "Error",
+          description: "Payment system not available",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      const { error } = await stripe.redirectToCheckout({
+        sessionId: data.sessionId,
+      });
+
+      if (error) {
+        toast({
+          title: "Payment Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to initiate payment",
+        variant: "destructive",
+      });
+    },
   });
 
   const getPaymentStatusBadge = (status: string) => {
@@ -127,6 +198,7 @@ export default function PortalInvoices() {
                       <TableHead className="text-right" data-testid="header-insurance">Insurance</TableHead>
                       <TableHead className="text-right" data-testid="header-copay">Copay</TableHead>
                       <TableHead data-testid="header-status">Status</TableHead>
+                      <TableHead data-testid="header-actions">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -136,10 +208,11 @@ export default function PortalInvoices() {
                           {formatDateDisplay(invoice.billingDate || invoice.sessionDate)}
                         </TableCell>
                         <TableCell data-testid={`text-service-${invoice.id}`}>
-                          <div className="font-mono text-sm">{invoice.serviceCode}</div>
+                          <div className="font-medium">{invoice.serviceName || invoice.serviceCode}</div>
+                          <div className="text-xs text-muted-foreground">{invoice.serviceCode}</div>
                         </TableCell>
                         <TableCell data-testid={`text-session-type-${invoice.id}`}>
-                          {invoice.sessionType}
+                          <span className="capitalize">{invoice.sessionType}</span>
                         </TableCell>
                         <TableCell className="text-right" data-testid={`text-amount-${invoice.id}`}>
                           <div className="font-semibold">{formatCurrency(invoice.totalAmount)}</div>
@@ -163,6 +236,38 @@ export default function PortalInvoices() {
                             <div className="text-xs text-muted-foreground mt-1">
                               Paid {formatDateDisplay(invoice.paymentDate)}
                             </div>
+                          )}
+                        </TableCell>
+                        <TableCell data-testid={`cell-actions-${invoice.id}`}>
+                          {invoice.paymentStatus === 'pending' && (
+                            <Button
+                              size="sm"
+                              onClick={() => paymentMutation.mutate(invoice.id)}
+                              disabled={paymentMutation.isPending}
+                              data-testid={`button-pay-${invoice.id}`}
+                            >
+                              {paymentMutation.isPending ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                <>
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  Pay Now
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          {invoice.paymentStatus === 'paid' && invoice.paymentReference && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              data-testid={`button-view-receipt-${invoice.id}`}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              Receipt
+                            </Button>
                           )}
                         </TableCell>
                       </TableRow>

@@ -1182,6 +1182,7 @@ export class DatabaseStorage implements IStorage {
         id: sessionBilling.id,
         sessionId: sessionBilling.sessionId,
         serviceCode: sessionBilling.serviceCode,
+        serviceId: sessions.serviceId,
         units: sessionBilling.units,
         ratePerUnit: sessionBilling.ratePerUnit,
         totalAmount: sessionBilling.totalAmount,
@@ -1195,6 +1196,7 @@ export class DatabaseStorage implements IStorage {
         paymentMethod: sessionBilling.paymentMethod,
         sessionDate: sessions.sessionDate,
         sessionType: sessions.sessionType,
+        clientId: sessions.clientId,
       })
       .from(sessionBilling)
       .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
