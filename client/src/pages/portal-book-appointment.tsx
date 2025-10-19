@@ -37,11 +37,11 @@ export default function PortalBookAppointmentPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  // Generate next 14 days
+  // Generate next 90 days (3 months) for calendar
   const generateDates = () => {
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 90; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
@@ -56,7 +56,7 @@ export default function PortalBookAppointmentPage() {
     setSelectedDate("");
     setSelectedTime("");
     
-    // Fetch available slots for the next 14 days based on session type
+    // Fetch available slots for the next 90 days based on session type
     const fetchSlots = async () => {
       setIsLoading(true);
       setError("");
