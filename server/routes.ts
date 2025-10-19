@@ -9053,13 +9053,19 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Start date and end date are required" });
       }
 
-      // Calculate available slots using storage method
+      // Calculate available slots - show therapist's working hours (service-agnostic)
       console.log('='.repeat(60));
       console.log('AVAILABILITY CHECK:');
       console.log(`Client: ${client.fullName} (ID: ${client.id})`);
       console.log(`Therapist ID: ${client.assignedTherapistId}`);
       console.log(`Date Range: ${startDate} to ${endDate}`);
-      console.log(`Service ID: 15, Session Type: online`);
+      console.log(`Checking therapist working hours (service will be selected later)`);
+      
+      // Get therapist profile for working hours
+      const therapistProfile = await storage.getUserProfile(client.assignedTherapistId);
+      if (!therapistProfile) {
+        return res.status(400).json({ error: "Therapist profile not found" });
+      }
       
       // Organize slots by date in format frontend expects
       const slotsByDate: Record<string, Array<{start: string; end: string}>> = {};
@@ -9069,11 +9075,12 @@ This happens because only the file metadata was stored, not the actual file cont
       // Generate slots for each day in the range
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateKey = d.toISOString().split('T')[0];
+        
+        // Use default service just to get session duration for slot generation
         const daySlots = await storage.getAvailableTimeSlots(
           client.assignedTherapistId,
           new Date(d),
-          15, // Using Psychotherapy -1H (60 min) as default service
-          'online' // Default to online sessions for portal bookings
+          15 // Using default service for duration, room check will happen at booking time
         );
         
         // Filter only available slots and convert to frontend format
