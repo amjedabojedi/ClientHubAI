@@ -326,7 +326,7 @@ export default function PortalDashboardPage() {
                             )}
                             {appointment.serviceCode && (
                               <div className="text-sm text-gray-600">
-                                {appointment.serviceCode} - ${appointment.serviceRate?.toFixed(2) || '0.00'}
+                                {appointment.serviceCode} - ${appointment.serviceRate ? parseFloat(appointment.serviceRate as string).toFixed(2) : '0.00'}
                               </div>
                             )}
                           </div>
