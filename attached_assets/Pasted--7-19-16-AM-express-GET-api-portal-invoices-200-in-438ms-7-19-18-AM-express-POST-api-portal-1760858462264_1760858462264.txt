@@ -1,0 +1,80 @@
+}
+7:19:16 AM [express] GET /api/portal/invoices 200 in 438ms
+7:19:18 AM [express] POST /api/portal/invoices/3135/receipt 404 in 308ms
+7:20:19 AM [express] GET /api/portal/me 304 in 291ms
+7:20:19 AM [express] GET /api/portal/appointments 304 in 322ms
+CRITICAL: Audit log failed to record: error: insert or update on table "audit_logs" violates foreign key constraint "audit_logs_user_id_fkey"
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Function.logAction (/home/runner/workspace/server/audit-logger.ts:11:7)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:8765:13) {
+  length: 265,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (user_id)=(3671) is not present in table "users".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'audit_logs',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'audit_logs_user_id_fkey',
+  file: 'ri_triggers.c',
+  line: '2608',
+  routine: 'ri_ReportViolation'
+}
+7:20:21 AM [express] POST /api/portal/logout 200 in 317ms
+CRITICAL: Audit log failed to record: error: insert or update on table "audit_logs" violates foreign key constraint "audit_logs_user_id_fkey"
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Function.logAction (/home/runner/workspace/server/audit-logger.ts:11:7)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:8666:7) {
+  length: 265,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (user_id)=(3671) is not present in table "users".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'audit_logs',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'audit_logs_user_id_fkey',
+  file: 'ri_triggers.c',
+  line: '2608',
+  routine: 'ri_ReportViolation'
+}
+7:20:24 AM [express] POST /api/portal/login 200 in 264ms
+7:20:25 AM [express] GET /api/portal/me 304 in 285ms
+7:20:25 AM [express] GET /api/portal/appointments 304 in 315ms
+CRITICAL: Audit log failed to record: error: insert or update on table "audit_logs" violates foreign key constraint "audit_logs_user_id_fkey"
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Function.logAction (/home/runner/workspace/server/audit-logger.ts:11:7)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:9432:9) {
+  length: 265,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (user_id)=(3671) is not present in table "users".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'audit_logs',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'audit_logs_user_id_fkey',
+  file: 'ri_triggers.c',
+  line: '2608',
+  routine: 'ri_ReportViolation'
+}
+7:20:28 AM [express] GET /api/portal/invoices 200 in 273ms
+7:20:30 AM [express] POST /api/portal/invoices/3135/receipt 404 in 279ms
