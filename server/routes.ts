@@ -9054,7 +9054,13 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       // Calculate available slots using storage method
-      // For now, return a simple week view - can be enhanced later
+      console.log('='.repeat(60));
+      console.log('AVAILABILITY CHECK:');
+      console.log(`Client: ${client.fullName} (ID: ${client.id})`);
+      console.log(`Therapist ID: ${client.assignedTherapistId}`);
+      console.log(`Date Range: ${startDate} to ${endDate}`);
+      console.log(`Service ID: 15, Session Type: online`);
+      
       const slots = [];
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
@@ -9067,9 +9073,17 @@ This happens because only the file metadata was stored, not the actual file cont
           15, // Using Psychotherapy -1H (60 min) as default service
           'online' // Default to online sessions for portal bookings
         );
+        console.log(`${d.toISOString().split('T')[0]}: ${daySlots.length} slots (${daySlots.filter(s => s.available).length} available)`);
         slots.push(...daySlots);
       }
 
+      console.log(`TOTAL: ${slots.length} slots returned`);
+      console.log('='.repeat(60));
+
+      // Disable caching for this endpoint
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.json(slots);
     } catch (error) {
       console.error("Portal available slots error:", error);
