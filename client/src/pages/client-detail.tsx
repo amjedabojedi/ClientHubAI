@@ -2705,13 +2705,6 @@ export default function ClientDetailPage() {
                                 <h4 className="font-medium text-slate-900">
                                   {(session as any).service?.serviceName || 'Session'}
                                 </h4>
-                                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                                  session.sessionType === 'online' 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'bg-green-100 text-green-700'
-                                }`}>
-                                  {session.sessionType === 'online' ? 'Online' : 'In Person'}
-                                </span>
                               </div>
                               <div className="space-y-1 text-sm text-slate-600">
                                 {(session as any).therapistName && (
@@ -2726,13 +2719,15 @@ export default function ClientDetailPage() {
                                     <span>Room: {(session as any).room.roomName}</span>
                                   </div>
                                 )}
-                                {(session as any).service && (
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-xs text-slate-600">
-                                      ${(session as any).service.baseRate}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="flex items-center space-x-2">
+                                  <span className={`text-xs px-2 py-1 rounded font-medium ${
+                                    session.sessionType === 'online' 
+                                      ? 'bg-blue-100 text-blue-700' 
+                                      : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {session.sessionType === 'online' ? 'Online' : 'In Person'}
+                                  </span>
+                                </div>
                                 {hasConflicts && conflictInfo && (
                                   <div className="flex items-center space-x-2 text-orange-600 font-medium">
                                     <AlertCircle className="w-4 h-4" />
