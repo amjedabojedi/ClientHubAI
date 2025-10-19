@@ -302,13 +302,12 @@ export default function PortalBookAppointmentPage() {
                     }}
                     disabled={(date) => {
                       const dateStr = format(date, 'yyyy-MM-dd');
-                      // Disable dates outside our range or with no slots
+                      // Disable dates outside therapist's available range or with no slots
                       const hasSlots = availableSlots[dateStr] && availableSlots[dateStr].length > 0;
                       return !hasSlots;
                     }}
-                    defaultMonth={new Date(2025, 9, 1)} // October 2025 (month is 0-indexed)
-                    fromDate={new Date(2025, 9, 1)} // Start from October 1, 2025
-                    toDate={new Date(2025, 9, 31)} // End at October 31, 2025
+                    fromDate={new Date()} // Start from today
+                    defaultMonth={new Date()} // Start with current month
                     initialFocus
                   />
                 </div>
