@@ -185,7 +185,6 @@ export const therapistBlockedTimes = pgTable("therapist_blocked_times", {
   // System Fields
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  createdBy: integer("created_by").references(() => users.id),
 }, (table) => ({
   therapistIdIdx: index("blocked_times_therapist_id_idx").on(table.therapistId),
   startTimeIdx: index("blocked_times_start_time_idx").on(table.startTime),
