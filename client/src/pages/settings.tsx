@@ -1572,10 +1572,7 @@ function ServiceVisibilityManager() {
   // Portal visibility mutation
   const updatePortalVisibilityMutation = useMutation({
     mutationFn: async ({ id, clientPortalVisible }: { id: number; clientPortalVisible: boolean }) => {
-      return await apiRequest(`/api/services/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ clientPortalVisible }),
-      });
+      return apiRequest(`/api/services/${id}`, "PATCH", { clientPortalVisible });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
