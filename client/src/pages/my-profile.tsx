@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone, Lock, Video, Check, X, AlertCircle } from "lucide-react";
+import { WorkingHoursEditor } from "@/components/user-profiles/WorkingHoursEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,7 @@ const profileFormSchema = z.object({
   yearsOfExperience: z.number().min(0).default(0),
   maxClientsPerDay: z.number().min(0).default(0),
   sessionDuration: z.number().min(0).default(50),
+  workingHours: z.string().optional(), // JSON string of working hours per day
   
   // Emergency Contact
   emergencyContactName: z.string().optional(),
@@ -137,6 +139,7 @@ export default function MyProfilePage() {
       yearsOfExperience: 0,
       maxClientsPerDay: 0,
       sessionDuration: 50,
+      workingHours: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
       emergencyContactRelationship: "",
@@ -199,6 +202,7 @@ export default function MyProfilePage() {
         yearsOfExperience: profile?.yearsOfExperience || 0,
         maxClientsPerDay: profile?.maxClientsPerDay || 0,
         sessionDuration: profile?.sessionDuration || 50,
+        workingHours: profile?.workingHours || "",
         emergencyContactName: profile?.emergencyContactName || "",
         emergencyContactPhone: profile?.emergencyContactPhone || "",
         emergencyContactRelationship: profile?.emergencyContactRelationship || "",
@@ -732,22 +736,21 @@ export default function MyProfilePage() {
               </TabsContent>
 
               <TabsContent value="schedule" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5" />
-                      Schedule Preferences
-                    </CardTitle>
-                    <CardDescription>
-                      Your availability and scheduling preferences
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Schedule management features will be available in future updates.
-                    </p>
-                  </CardContent>
-                </Card>
+                <FormField
+                  control={form.control}
+                  name="workingHours"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <WorkingHoursEditor
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               <TabsContent value="contact" className="space-y-6">

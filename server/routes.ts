@@ -8975,15 +8975,23 @@ This happens because only the file metadata was stored, not the actual file cont
         .select({
           id: sessions.id,
           sessionDate: sessions.sessionDate,
-          sessionTime: sessions.sessionTime,
           duration: sessions.duration,
           sessionType: sessions.sessionType,
           status: sessions.status,
-          location: sessions.location,
+          room: sessions.room,
         })
         .from(sessions)
         .where(eq(sessions.clientId, session.clientId))
         .orderBy(desc(sessions.sessionDate));
+
+      // Format sessions for portal display in America/New_York timezone
+      const { formatInTimeZone } = await import('date-fns-tz');
+      const formattedSessions = clientSessions.map(s => ({
+        ...s,
+        sessionDate: formatInTimeZone(s.sessionDate, 'America/New_York', 'yyyy-MM-dd'),
+        sessionTime: formatInTimeZone(s.sessionDate, 'America/New_York', 'HH:mm'),
+        location: s.room || 'Office',
+      }));
 
       // Audit appointment access
       const client = await storage.getClient(session.clientId);
@@ -9000,12 +9008,12 @@ This happens because only the file metadata was stored, not the actual file cont
           userAgent,
           hipaaRelevant: true,
           riskLevel: 'medium',
-          details: JSON.stringify({ portal: true, appointmentCount: clientSessions.length }),
+          details: JSON.stringify({ portal: true, appointmentCount: formattedSessions.length }),
           accessReason: 'Client portal appointment viewing',
         });
       }
 
-      res.json(clientSessions);
+      res.json(formattedSessions);
     } catch (error) {
       console.error("Portal appointments error:", error);
       res.status(500).json({ error: "Failed to fetch appointments" });

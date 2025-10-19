@@ -6,9 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useState, useEffect } from "react";
+import { WorkingHoursEditor } from "@/components/user-profiles/WorkingHoursEditor";
 
 // Profile form schema
 const profileFormSchema = z.object({
@@ -24,6 +27,7 @@ const profileFormSchema = z.object({
   education: z.array(z.string()).default([]),
   yearsOfExperience: z.number().default(0),
   workingDays: z.array(z.string()).default([]),
+  workingHours: z.string().optional(), // JSON string of working hours per day
   maxClientsPerDay: z.number().default(0),
   sessionDuration: z.number().default(50),
   emergencyContactName: z.string().optional(),
@@ -78,6 +82,7 @@ export function ProfileDialog({ isOpen, onClose, selectedUser, onSubmit, isLoadi
       education: [],
       yearsOfExperience: 0,
       workingDays: [],
+      workingHours: "",
       maxClientsPerDay: 0,
       sessionDuration: 50,
       emergencyContactName: "",
@@ -288,7 +293,7 @@ export function ProfileDialog({ isOpen, onClose, selectedUser, onSubmit, isLoadi
               </TabsContent>
 
               <TabsContent value="schedule" className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mb-6">
                   <FormField
                     control={form.control}
                     name="maxClientsPerDay"
@@ -326,6 +331,22 @@ export function ProfileDialog({ isOpen, onClose, selectedUser, onSubmit, isLoadi
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="workingHours"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <WorkingHoursEditor
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               <TabsContent value="contact" className="space-y-4">
