@@ -470,28 +470,12 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <div className="space-y-1 leading-none">
                           <FormLabel>Enable Portal Access</FormLabel>
                           <p className="text-sm text-muted-foreground">
-                            Allow client to access online portal
+                            Client will use their primary email address for portal login
                           </p>
                         </div>
                       </FormItem>
                     )}
                   />
-
-                  {form.watch("hasPortalAccess") && (
-                    <FormField
-                      control={form.control}
-                      name="portalEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Portal Email</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="email" placeholder="portal@example.com" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
                 </div>
               </TabsContent>
 
