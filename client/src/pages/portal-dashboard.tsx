@@ -328,8 +328,8 @@ export default function PortalDashboardPage() {
                               }`}>
                                 {appointment.status === 'scheduled' ? 'Scheduled' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                               </span>
-                              <span className="font-semibold text-gray-900 capitalize">
-                                {appointment.sessionType || 'Session'}
+                              <span className="font-semibold text-gray-900">
+                                {appointment.serviceName || 'Session'}
                               </span>
                             </div>
                             {appointment.referenceNumber && (
@@ -339,14 +339,25 @@ export default function PortalDashboardPage() {
                             )}
                           </div>
                           
-                          {/* Bottom row: Room and Service Code */}
+                          {/* Bottom row: Session type, Room and Service Code */}
                           <div className="space-y-1">
-                            {appointment.roomName && (
-                              <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                                <MapPin className="w-4 h-4" />
-                                <span>Room: {appointment.roomName}</span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-3 text-sm">
+                              {appointment.sessionType && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                  appointment.sessionType === 'online' 
+                                    ? 'bg-purple-100 text-purple-700' 
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {appointment.sessionType === 'online' ? '🌐 Online' : '🏢 In-Person'}
+                                </span>
+                              )}
+                              {appointment.roomName && (
+                                <div className="flex items-center gap-1.5 text-gray-700">
+                                  <MapPin className="w-4 h-4" />
+                                  <span>{appointment.roomName}</span>
+                                </div>
+                              )}
+                            </div>
                             {appointment.serviceCode && (
                               <div className="text-sm text-gray-600">
                                 {appointment.serviceCode} - ${appointment.serviceRate ? (typeof appointment.serviceRate === 'number' ? appointment.serviceRate.toFixed(2) : parseFloat(String(appointment.serviceRate)).toFixed(2)) : '0.00'}
