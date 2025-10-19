@@ -9276,12 +9276,17 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       // Create the appointment with assigned room
+      // Combine date and time properly in America/New_York timezone
+      const { zonedTimeToUtc } = await import('date-fns-tz');
+      const sessionDateTimeString = `${sessionDate}T${sessionTime}:00`;
+      const sessionDateTimeEST = zonedTimeToUtc(sessionDateTimeString, 'America/New_York');
+      
       const newSession = await storage.createSession({
         clientId: session.clientId,
         therapistId: client.assignedTherapistId,
         serviceId: serviceId,
         roomId: assignedRoomId,
-        sessionDate: new Date(sessionDate),
+        sessionDate: sessionDateTimeEST,
         sessionTime,
         duration: duration || 60,
         sessionType: sessionType || 'online',
