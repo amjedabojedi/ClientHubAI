@@ -159,7 +159,8 @@ export default function PortalDocuments() {
   };
 
   const getPreviewUrl = (doc: Document) => {
-    return `/api/portal/documents/${doc.id}/download`;
+    // Add cache-busting parameter to prevent browser caching issues
+    return `/api/portal/documents/${doc.id}/download?t=${Date.now()}`;
   };
 
   const isPDF = (doc: Document) => {

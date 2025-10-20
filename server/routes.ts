@@ -3870,6 +3870,9 @@ This happens because only the file metadata was stored, not the actual file cont
         
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         res.send(fileBuffer);
       } else {
         res.status(404).json({ message: "File not found in storage" });
@@ -10377,9 +10380,12 @@ This happens because only the file metadata was stored, not the actual file cont
             fileBuffer = Buffer.from(base64Content, 'base64');
           }
 
-          // Serve the file
+          // Serve the file with no-cache headers to prevent browser caching issues
           res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
           res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
           res.send(fileBuffer);
         } else {
           return res.status(404).json({ error: "File not found in storage" });
