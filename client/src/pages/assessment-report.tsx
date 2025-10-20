@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
@@ -28,7 +29,8 @@ import {
   AlertCircle,
   ClipboardList,
   MoreVertical,
-  ChevronDown
+  ChevronDown,
+  HelpCircle
 } from "lucide-react";
 
 // Utils
@@ -446,6 +448,81 @@ export default function AssessmentReportPage() {
           </CardContent>
         </Card>
 
+        {/* Inline Report Generation Help */}
+        <Collapsible defaultOpen={true} className="mb-6">
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">Assessment Report Generation Guide {report?.isFinalized ? '- Finalized' : '- Draft Mode'}</CardTitle>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-blue-600" />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                {report?.isFinalized ? (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                      <div>
+                        <p className="font-medium text-sm">View Finalized Report</p>
+                        <p className="text-xs text-gray-600">This report is finalized and locked with digital signature dated {formatDateDisplay(report.finalizedAt)}. Click the "View Report" accordion below to expand and review the complete professional assessment report with your credentials.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                      <div>
+                        <p className="font-medium text-sm">Reopen for Edits (If Needed)</p>
+                        <p className="text-xs text-gray-600">To make changes: Click <strong>Actions</strong> → select <strong>Reopen Report</strong> → report unlocks → edit content below → <strong>Save Draft</strong> → when ready click <strong>Save & Finalize</strong> to lock again with new timestamp.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                      <div>
+                        <p className="font-medium text-sm">Download Professional Documents</p>
+                        <p className="text-xs text-gray-600">Click <strong>Actions</strong> → Download PDF or Word. Both formats include your full name, license credentials, and digital signature. These documents appear on official client records and can be shared with insurance or other providers.</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                      <div>
+                        <p className="font-medium text-sm">Generate AI Report (First Time)</p>
+                        <p className="text-xs text-gray-600">Click <strong>Actions</strong> → <strong>Generate AI Report</strong>. The AI analyzes all client responses and creates a comprehensive professional assessment report with clinical insights, diagnoses, and treatment recommendations. Generation takes 30-60 seconds.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                      <div>
+                        <p className="font-medium text-sm">Review & Edit Report</p>
+                        <p className="text-xs text-gray-600">Click the "Edit Report" accordion below to expand and review AI-generated content. Accept as-is OR edit manually using the rich text editor. Add your clinical interpretations, modify wording, or restructure sections as needed.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                      <div>
+                        <p className="font-medium text-sm">Save Draft or Finalize</p>
+                        <p className="text-xs text-gray-600">Click <strong>Save Draft</strong> to save changes without locking (edit later). When report is complete, click <strong>Save & Finalize</strong> to lock with digital signature and timestamp. Finalized reports appear on official documentation and can be downloaded as PDF/Word.</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Pro Tips:</strong> Finalized reports include your professional credentials and digital signature on all exports. AI reports can be regenerated if you need a fresh analysis. All assessment activities are HIPAA audit-logged automatically.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {/* AI Generated Report with ReactQuill Editor - Collapsible */}
         {report?.generatedContent && (
           <Card className="mb-6">
@@ -461,25 +538,6 @@ export default function AssessmentReportPage() {
                   )}
                 </div>
               </CardTitle>
-              <div className="mt-3 text-sm text-slate-600 space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
-                {report.isFinalized ? (
-                  <>
-                    <p className="font-medium text-slate-700">This report is finalized and locked</p>
-                    <p className="mt-1"><strong>1. To view:</strong> Click the arrow below</p>
-                    <p><strong>2. To edit:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select <strong>Reopen Report</strong> → report unlocks → you can now edit the content below → click <strong>Save Draft</strong> to save changes → when ready, click <strong>Save & Finalize</strong> to lock report</p>
-                    <p><strong>3. To download:</strong> Click <strong>Actions</strong> button above → select Download PDF or Download Word</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-medium text-slate-700">How to use this report:</p>
-                    <p className="mt-1"><strong>1. Review:</strong> Click the arrow below to expand and view the AI-generated content</p>
-                    <p><strong>2. Edit (optional):</strong> You can accept the AI report as-is OR edit it manually in the text editor below</p>
-                    <p><strong>3. Save Draft:</strong> Click <strong>Save Draft</strong> button below to save your changes without locking (you can edit again later)</p>
-                    <p><strong>4. Finalize:</strong> When happy with the final report, click <strong>Save & Finalize</strong> button below to lock it (prevents further editing)</p>
-                    <p><strong>5. Download:</strong> Click <strong>Actions</strong> button in Assessment Summary above → select Download PDF or Download Word</p>
-                  </>
-                )}
-              </div>
             </CardHeader>
             <CardContent>
               <Accordion type="single" collapsible defaultValue="report-content" className="w-full">

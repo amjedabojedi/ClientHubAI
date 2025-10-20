@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 
 // Icons
-import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, FileText, Users, Clock, CheckCircle, AlertTriangle, Settings, Edit, Trash2, HelpCircle, ChevronDown } from "lucide-react";
 
 // Hooks & Utils
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +26,7 @@ import { CreateTemplateModal } from "@/components/assessments/create-template-mo
 import { EditTemplateModal } from "@/components/assessments/edit-template-modal";
 import { TemplateBuilder } from "@/components/assessments/template-builder";
 import { AssignAssessmentModal } from "@/components/assessments/assign-assessment-modal";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Types
 import type { AssessmentTemplate, AssessmentAssignment } from "@shared/schema";
@@ -64,6 +65,7 @@ export default function AssessmentsPage() {
   const [assigningTemplate, setAssigningTemplate] = useState<AssessmentTemplate | null>(null);
   const [showManageModal, setShowManageModal] = useState(false);
   const [managingAssignment, setManagingAssignment] = useState<AssessmentAssignmentWithDetails | null>(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -270,6 +272,71 @@ export default function AssessmentsPage() {
           New Template
         </Button>
       </div>
+
+      {/* Help Section */}
+      <Collapsible
+        open={isHelpOpen}
+        onOpenChange={setIsHelpOpen}
+        className="mb-6"
+      >
+        <Card className="border-blue-200 bg-blue-50">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="text-base">Assessment Management Guide</CardTitle>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                <div>
+                  <p className="font-medium text-sm">Creating Assessment Templates</p>
+                  <p className="text-xs text-gray-600">Click "New Template" to create custom assessment forms. Build multi-section templates with various question types (short text, long text, multiple choice, rating scales, checkboxes). Configure which sections clients can see and which are therapist-only. Templates can be reused across multiple clients.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                <div>
+                  <p className="font-medium text-sm">Assigning Assessments to Clients</p>
+                  <p className="text-xs text-gray-600">From the Templates tab, click "Assign" on any template to send it to a client. Set a due date and optional instructions. Clients receive portal access to complete their sections. You track completion status in the Active Assignments tab: Pending, In Progress, Waiting for Review, or Completed.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                <div>
+                  <p className="font-medium text-sm">Client Completion & Therapist Review</p>
+                  <p className="text-xs text-gray-600">Clients complete assessments through their portal with auto-save every 30 seconds. After client submission, status changes to "Waiting for Review." Complete therapist-only sections and generate the AI-powered professional report with clinical insights and recommendations.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                <div>
+                  <p className="font-medium text-sm">AI Report Generation & Finalization</p>
+                  <p className="text-xs text-gray-600">Generate comprehensive reports using AI that analyzes all assessment responses. Edit the AI-generated draft using the rich text editor. Save drafts for later editing or finalize with digital signature. Finalized reports can be exported to PDF/Word and appear on official documentation.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                <div>
+                  <p className="font-medium text-sm">Template Categories & Organization</p>
+                  <p className="text-xs text-gray-600">Organize templates by category (Clinical, Psychological, Behavioral, Cognitive, Custom). Use search and filters to find specific templates or assignments quickly. Edit existing templates or delete unused ones. Track how many sections each template contains.</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <p className="text-xs text-blue-900">
+                  <strong>💡 Pro Tips:</strong> Assessment reports with your professional credentials appear on official documentation. Templates support scoring sections for quantitative analysis. Client progress auto-saves prevents data loss. HIPAA audit logs track all assessment access and modifications automatically.
+                </p>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Search and Filter Bar */}
       <div className="flex gap-4 items-center">

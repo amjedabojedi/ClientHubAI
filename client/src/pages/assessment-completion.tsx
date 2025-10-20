@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Icons
 import { 
@@ -26,7 +27,9 @@ import {
   User,
   Clock,
   FileText,
-  Edit
+  Edit,
+  HelpCircle,
+  ChevronDown
 } from "lucide-react";
 
 // Utils and Types
@@ -649,6 +652,53 @@ export default function AssessmentCompletionPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Inline Assessment Help - Step Indicator Style */}
+        <Collapsible defaultOpen={true} className="mb-6">
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">Assessment Completion - Step {currentSection + 1} of {sections.length}</CardTitle>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-blue-600" />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Answer All Questions in This Section</p>
+                    <p className="text-xs text-gray-600">Complete each question in the current section. Your progress auto-saves every 30 seconds and when you navigate between sections. Required questions are marked with an asterisk (*).</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Navigate Between Sections</p>
+                    <p className="text-xs text-gray-600">Use the section tabs above to move between different parts of the assessment. Your responses are saved automatically as you work. The progress bar at the top shows overall completion across all sections.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Submit When Complete</p>
+                    <p className="text-xs text-gray-600">After completing all sections, click "Submit Assessment" at the bottom. Your therapist will be notified and can review your responses. You can save your progress and return later if needed by clicking "Save Progress."</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Pro Tip:</strong> Your responses auto-save every 30 seconds and when you navigate sections, so you won't lose progress. Close the page and return anytime to continue where you left off.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Section Navigation */}
         {sections.length > 1 && (
