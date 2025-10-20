@@ -3450,17 +3450,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
           const objectKey = `documents/${document.id}-${document.fileName}`;
           
-          // Decode base64 content to binary
-          const buffer = Buffer.from(fileContent, 'base64');
-          console.log('[UPLOAD DEBUG] Buffer created, size:', buffer.length, 'bytes');
-          console.log('[UPLOAD DEBUG] Object key:', objectKey);
-          console.log('[UPLOAD DEBUG] Buffer first 20 bytes (hex):', buffer.toString('hex', 0, 20));
-          
-          const uploadResult = await objectStorage.uploadFromBytes(objectKey, buffer);
-          console.log('[UPLOAD DEBUG] Upload result:', uploadResult.ok ? 'SUCCESS' : 'FAILED');
-          if (!uploadResult.ok) {
-            console.log('[UPLOAD DEBUG] Upload error:', uploadResult.error);
-          }
+          // Store base64 directly using uploadFromText (uploadFromBytes is broken in Replit)
+          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
           
           if (!uploadResult.ok) {
             // Delete document record if storage upload fails
@@ -3852,7 +3843,8 @@ This happens because only the file metadata was stored, not the actual file cont
       const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
       const objectKey = `documents/${document.id}-${document.fileName}`;
       
-      const downloadResult = await objectStorage.downloadAsBytes(objectKey);
+      // Download as text (base64 string) since uploadFromBytes is broken
+      const downloadResult = await objectStorage.downloadAsText(objectKey);
       
       if (downloadResult.ok) {
         // HIPAA Audit Log: Document downloaded
@@ -3869,18 +3861,8 @@ This happens because only the file metadata was stored, not the actual file cont
           );
         }
         
-        // Auto-fix corrupted files: detect if stored as base64 text instead of binary
-        let fileBuffer = Buffer.from(downloadResult.value);
-        const content = fileBuffer.toString('utf8', 0, Math.min(100, fileBuffer.length));
-        
-        // Check if it's base64 text (corrupted old upload)
-        if (content.startsWith('data:') || /^[A-Za-z0-9+/=]{50,}/.test(content)) {
-          // It's stored as base64 text - decode it to binary
-          const base64Content = content.startsWith('data:') 
-            ? content.split(',')[1] || content
-            : fileBuffer.toString('utf8');
-          fileBuffer = Buffer.from(base64Content, 'base64');
-        }
+        // Decode base64 to binary
+        const fileBuffer = Buffer.from(downloadResult.value, 'base64');
         
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
@@ -10265,14 +10247,12 @@ This happens because only the file metadata was stored, not the actual file cont
       // Store file content in Object Storage
       if (fileContent) {
         try {
-          // Validate and decode base64 content
-          const buffer = Buffer.from(fileContent, 'base64');
-          
           const { Client } = await import('@replit/object-storage');
           const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
           const objectKey = `documents/${document.id}-${document.fileName}`;
           
-          const uploadResult = await objectStorage.uploadFromBytes(objectKey, buffer);
+          // Store base64 directly using uploadFromText (uploadFromBytes is broken in Replit)
+          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
           
           if (!uploadResult.ok) {
             // Delete document record if storage upload fails
@@ -10280,9 +10260,9 @@ This happens because only the file metadata was stored, not the actual file cont
             return res.status(500).json({ error: "Failed to upload file to storage" });
           }
         } catch (error) {
-          // Delete document record if base64 decode or upload fails
+          // Delete document record if upload fails
           await storage.deleteDocument(document.id);
-          return res.status(400).json({ error: "Invalid file content or upload failed" });
+          return res.status(400).json({ error: "Upload failed" });
         }
       }
 
@@ -10359,7 +10339,8 @@ This happens because only the file metadata was stored, not the actual file cont
         const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
         const objectKey = `documents/${document.id}-${document.fileName}`;
         
-        const downloadResult = await objectStorage.downloadAsBytes(objectKey);
+        // Download as text (base64 string) since uploadFromBytes is broken
+        const downloadResult = await objectStorage.downloadAsText(objectKey);
         
         if (downloadResult.ok) {
           // Audit document download
@@ -10381,18 +10362,8 @@ This happens because only the file metadata was stored, not the actual file cont
             );
           }
 
-          // Auto-fix corrupted files: detect if stored as base64 text instead of binary
-          let fileBuffer = Buffer.from(downloadResult.value);
-          const content = fileBuffer.toString('utf8', 0, Math.min(100, fileBuffer.length));
-          
-          // Check if it's base64 text (corrupted old upload)
-          if (content.startsWith('data:') || /^[A-Za-z0-9+/=]{50,}/.test(content)) {
-            // It's stored as base64 text - decode it to binary
-            const base64Content = content.startsWith('data:') 
-              ? content.split(',')[1] || content
-              : fileBuffer.toString('utf8');
-            fileBuffer = Buffer.from(base64Content, 'base64');
-          }
+          // Decode base64 to binary
+          const fileBuffer = Buffer.from(downloadResult.value, 'base64');
 
           // Serve the file inline (not as download) for preview
           res.setHeader('Content-Type', document.mimeType || 'application/pdf');
