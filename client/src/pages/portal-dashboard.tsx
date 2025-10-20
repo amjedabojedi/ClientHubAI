@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, FileText, CreditCard, Upload, Clock, MapPin, User, Bell } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar, FileText, CreditCard, Upload, Clock, MapPin, User, Bell, HelpCircle, ChevronDown } from "lucide-react";
 import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
@@ -52,6 +53,7 @@ export default function PortalDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     // Check authentication on mount
@@ -236,6 +238,71 @@ export default function PortalDashboardPage() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Welcome Back, {client.fullName}!</h2>
           <p className="text-sm sm:text-base text-gray-600">Manage your appointments, billing, and documents all in one place.</p>
         </div>
+
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">Getting Started with Your Client Portal</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">📅 Book Appointments</p>
+                    <p className="text-xs text-gray-600">Click "Book Appointment" → Choose a service → Select date & time → Confirm booking. You'll receive a confirmation notification immediately.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">💳 View & Pay Invoices</p>
+                    <p className="text-xs text-gray-600">Click "View Invoices" → See all your billing history → Click "Pay Now" on pending invoices → Secure Stripe payment → Get instant receipt</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">📄 Upload Documents</p>
+                    <p className="text-xs text-gray-600">Click "Upload Documents" → Select file (insurance cards, forms, etc.) → Choose type → Upload. Your therapist will see it instantly.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">🔔 Check Notifications</p>
+                    <p className="text-xs text-gray-600">Click the bell icon (top right) → View appointment reminders, billing updates, and messages. You'll get a 24-hour reminder before each session.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                  <div>
+                    <p className="font-medium text-sm">📋 View Your Appointments</p>
+                    <p className="text-xs text-gray-600">Scroll down to see all upcoming and past sessions. Each appointment shows date, time, location, and therapist name.</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Pro Tips:</strong> Look for help buttons (?) on each page for detailed guidance. All times are displayed in Eastern Time (America/New_York). Your data is protected with HIPAA-compliant security. Need assistance? Contact your therapist directly.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 mb-6 sm:mb-8">
