@@ -3724,8 +3724,8 @@ This happens because only the file metadata was stored, not the actual file cont
           // New format: stored as base64
           buffer = Buffer.from(content, 'base64');
         } else {
-          // Old format: stored as raw bytes (convert text back to buffer)
-          buffer = Buffer.from(content, 'utf8');
+          // Old format: stored as raw bytes (use latin1 for byte-for-byte conversion)
+          buffer = Buffer.from(content, 'latin1');
         }
         
         res.setHeader('Content-Type', 'application/pdf');
@@ -3886,8 +3886,8 @@ This happens because only the file metadata was stored, not the actual file cont
           // New format: stored as base64
           fileBuffer = Buffer.from(content, 'base64');
         } else {
-          // Old format: stored as raw bytes (convert text back to buffer)
-          fileBuffer = Buffer.from(content, 'utf8');
+          // Old format: stored as raw bytes (use latin1 for byte-for-byte conversion)
+          fileBuffer = Buffer.from(content, 'latin1');
         }
         
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
@@ -10399,8 +10399,8 @@ This happens because only the file metadata was stored, not the actual file cont
             // New format: stored as base64
             fileBuffer = Buffer.from(content, 'base64');
           } else {
-            // Old format: stored as raw bytes (convert text back to buffer)
-            fileBuffer = Buffer.from(content, 'utf8');
+            // Old format: stored as raw bytes (use latin1 for byte-for-byte conversion)
+            fileBuffer = Buffer.from(content, 'latin1');
           }
 
           // Serve the file inline (not as download) for preview
