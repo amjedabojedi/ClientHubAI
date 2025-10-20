@@ -9265,48 +9265,162 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Therapist profile not found" });
       }
       
-      // Organize slots by date in format frontend expects
-      const slotsByDate: Record<string, Array<{start: string; end: string}>> = {};
+      // ⚡ OPTIMIZED: Fetch all data ONCE for entire date range (not per-day)
+      // This reduces database queries from 180+ (30 days × 6 queries) to just 5 queries total
       const start = new Date(startDate as string);
       const end = new Date(endDate as string);
       
-      // Generate slots for each day in the range
+      // 1. Get service info (for duration)
+      // NOTE: Using standard 60-min psychotherapy service (ID 23) for slot interval generation
+      // The actual service is selected later in the booking flow, and availability is re-validated
+      // at booking time with the actual service duration and conflicts check via transaction
+      const service = await db.select().from(services).where(eq(services.id, 23)).limit(1);
+      const sessionDuration = service[0]?.duration || therapistProfile.sessionDuration || 60;
+      
+      // 2. Get ALL blocked times for entire date range (1 query instead of 30)
+      const rangeStart = new Date(start);
+      rangeStart.setHours(0, 0, 0, 0);
+      const rangeEnd = new Date(end);
+      rangeEnd.setHours(23, 59, 59, 999);
+      
+      const blockedTimes = await storage.getTherapistBlockedTimes(
+        client.assignedTherapistId,
+        rangeStart,
+        rangeEnd
+      );
+      
+      // 3. Get ALL therapist sessions for entire date range (1 query instead of 30)
+      const therapistSessions = await db
+        .select()
+        .from(sessions)
+        .where(and(
+          eq(sessions.therapistId, client.assignedTherapistId),
+          gte(sessions.sessionDate, rangeStart),
+          lte(sessions.sessionDate, rangeEnd),
+          inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+        ));
+      
+      // 4. Get ALL sessions for room checking (1 query instead of 30)
+      const allSessions = await db
+        .select()
+        .from(sessions)
+        .where(and(
+          gte(sessions.sessionDate, rangeStart),
+          lte(sessions.sessionDate, rangeEnd),
+          inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+        ));
+      
+      // Parse working hours
+      const workingHoursData = therapistProfile.workingHours ? JSON.parse(therapistProfile.workingHours) : null;
+      
+      // Now process each day in memory (fast, no more database queries)
+      const slotsByDate: Record<string, Array<{start: string; end: string}>> = {};
+      
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateKey = d.toISOString().split('T')[0];
+        const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][d.getDay()];
         
-        // Check availability based on session type and room availability
-        // Use standard 60-minute duration for slot generation (service will be selected later)
-        const daySlots = await storage.getAvailableTimeSlots(
-          client.assignedTherapistId,
-          new Date(d),
-          23, // Using standard 60-min psychotherapy service for slot intervals
-          sessionType as 'online' | 'in-person' // Pass session type for room checking
-        );
+        // Check working hours for this day
+        let dayHours;
+        if (Array.isArray(workingHoursData)) {
+          dayHours = workingHoursData.find(dh => dh.day && dh.day.toLowerCase() === dayOfWeek.toLowerCase());
+        } else if (workingHoursData && typeof workingHoursData === 'object') {
+          dayHours = workingHoursData[dayOfWeek];
+        }
         
-        // Filter only available slots and convert to frontend format (24-hour HH:MM)
-        const availableSlots = daySlots
-          .filter(slot => slot.available)
-          .map(slot => {
-            // Convert "9:00 AM" to 24-hour format "09:00"
-            const [time, period] = slot.time.split(' ');
-            const [hours, minutes] = time.split(':');
-            let hour = parseInt(hours);
-            if (period === 'PM' && hour !== 12) hour += 12;
-            if (period === 'AM' && hour === 12) hour = 0;
+        if (!dayHours || dayHours.enabled === false || !dayHours.start || !dayHours.end) {
+          slotsByDate[dateKey] = []; // Not a working day
+          continue;
+        }
+        
+        // Get sessions for this specific day
+        const dayStart = new Date(d);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(d);
+        dayEnd.setHours(23, 59, 59, 999);
+        
+        const dayTherapistSessions = therapistSessions.filter(s => {
+          const sDate = new Date(s.sessionDate);
+          return sDate >= dayStart && sDate <= dayEnd;
+        });
+        
+        const dayAllSessions = allSessions.filter(s => {
+          const sDate = new Date(s.sessionDate);
+          return sDate >= dayStart && sDate <= dayEnd;
+        });
+        
+        const dayBlockedTimes = blockedTimes.filter(bt => {
+          const btStart = new Date(bt.startTime);
+          const btEnd = new Date(bt.endTime);
+          return (btStart >= dayStart && btStart <= dayEnd) || (btEnd >= dayStart && btEnd <= dayEnd);
+        });
+        
+        // Generate time slots for this day
+        const availableSlots = [];
+        const [startHour, startMin] = dayHours.start.split(':').map(Number);
+        const [endHour, endMin] = dayHours.end.split(':').map(Number);
+        
+        for (let hour = startHour; hour < endHour || (hour === endHour && startMin < endMin); hour++) {
+          for (let minute = 0; minute < 60; minute += 30) {
+            if (hour === startHour && minute < startMin) continue;
+            if (hour === endHour && minute >= endMin) break;
             
-            const startHour = hour.toString().padStart(2, '0');
-            const startMin = minutes.padStart(2, '0');
-            const startTime24 = `${startHour}:${startMin}`;
+            const slotDate = new Date(d);
+            slotDate.setHours(hour, minute, 0, 0);
+            const slotEnd = new Date(slotDate.getTime() + sessionDuration * 60000);
             
-            // Calculate end time (60 minutes later)
-            const endHour = ((hour + 1) % 24).toString().padStart(2, '0');
-            const endTime24 = `${endHour}:${startMin}`;
+            // Check therapist availability
+            const isTherapistBusy = dayTherapistSessions.some(s => {
+              const sStart = new Date(s.sessionDate);
+              const sEnd = new Date(sStart.getTime() + (s.duration || 60) * 60000);
+              return slotDate < sEnd && slotEnd > sStart;
+            });
             
-            return {
-              start: startTime24,  // "09:00" format
-              end: endTime24       // "10:00" format
-            };
-          });
+            // Check blocked times
+            const isBlocked = dayBlockedTimes.some(bt => {
+              const btStart = new Date(bt.startTime);
+              const btEnd = new Date(bt.endTime);
+              return slotDate < btEnd && slotEnd > btStart;
+            });
+            
+            // Check room availability
+            let roomAvailable = false;
+            if (sessionType === 'online') {
+              if (therapistProfile.virtualRoomId) {
+                const roomBusy = dayAllSessions.some(s => {
+                  if (s.roomId !== therapistProfile.virtualRoomId) return false;
+                  const sStart = new Date(s.sessionDate);
+                  const sEnd = new Date(sStart.getTime() + (s.duration || 60) * 60000);
+                  return slotDate < sEnd && slotEnd > sStart;
+                });
+                roomAvailable = !roomBusy;
+              }
+            } else {
+              const availableRooms = therapistProfile.availablePhysicalRooms || [];
+              roomAvailable = availableRooms.some(roomId => {
+                const roomBusy = dayAllSessions.some(s => {
+                  if (s.roomId !== roomId) return false;
+                  const sStart = new Date(s.sessionDate);
+                  const sEnd = new Date(sStart.getTime() + (s.duration || 60) * 60000);
+                  return slotDate < sEnd && slotEnd > sStart;
+                });
+                return !roomBusy;
+              });
+            }
+            
+            if (!isTherapistBusy && !isBlocked && roomAvailable) {
+              const startHour24 = hour.toString().padStart(2, '0');
+              const startMin24 = minute.toString().padStart(2, '0');
+              const endHour24 = slotEnd.getHours().toString().padStart(2, '0');
+              const endMin24 = slotEnd.getMinutes().toString().padStart(2, '0');
+              
+              availableSlots.push({
+                start: `${startHour24}:${startMin24}`,
+                end: `${endHour24}:${endMin24}`
+              });
+            }
+          }
+        }
         
         slotsByDate[dateKey] = availableSlots;
       }
