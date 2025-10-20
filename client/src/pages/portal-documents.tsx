@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, File, Download, Eye, X } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ArrowLeft, Upload, FileText, File, Download, Eye, X, HelpCircle, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ export default function PortalDocuments() {
   const [category, setCategory] = useState<string>("insurance");
   const [isUploading, setIsUploading] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const { data: documents, isLoading } = useQuery<Document[]>({
     queryKey: ["/api/portal/documents"],
@@ -213,16 +215,80 @@ export default function PortalDocuments() {
           </Link>
         </div>
 
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-green-200 bg-green-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-green-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-green-600" />
+                    <CardTitle className="text-base">How to Upload & View Documents</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-green-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Choose Your File</p>
+                    <p className="text-xs text-gray-600">Click "Select File" and choose a document from your computer</p>
+                    <p className="text-xs text-gray-500 mt-1">Accepted: PDF, JPG, PNG, DOC, DOCX • Max size: 10MB</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Select Document Type</p>
+                    <p className="text-xs text-gray-600">Choose the category: Insurance (cards, policies), Forms (consent, intake), or Other Documents</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Upload & Track</p>
+                    <p className="text-xs text-gray-600">Click "Upload Document" - your file will appear in the list below</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">View or Download</p>
+                    <p className="text-xs text-gray-600">Click the eye icon to preview, or download icon to save a copy</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-green-100 rounded-lg">
+                  <p className="text-xs text-green-900">
+                    <strong>💡 Tip:</strong> Your therapist can see these documents. Upload insurance cards before your first session to streamline billing. Documents are stored securely and comply with HIPAA privacy standards.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {/* Upload Card */}
         <Card className="mb-8">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
-              <CardTitle>Upload Document</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-primary" />
+                  <CardTitle>Upload Document</CardTitle>
+                </div>
+                <CardDescription className="mt-1">
+                  Upload insurance cards, forms, or other documents to share with your therapist
+                </CardDescription>
+              </div>
+              <div className="text-xs text-gray-500 font-medium hidden sm:block">Step 1-3</div>
             </div>
-            <CardDescription>
-              Upload insurance cards, forms, or other documents to share with your therapist
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid w-full items-center gap-1.5">
