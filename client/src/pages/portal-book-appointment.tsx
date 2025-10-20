@@ -161,6 +161,21 @@ export default function PortalBookAppointmentPage() {
       });
 
       if (response.ok) {
+        // Remove the booked time from available slots immediately
+        setAvailableSlots(prev => {
+          const updated = { ...prev };
+          if (updated[selectedDate]) {
+            updated[selectedDate] = updated[selectedDate].filter(
+              slot => slot.start !== selectedTime
+            );
+          }
+          return updated;
+        });
+        
+        // Clear selections
+        setSelectedTime("");
+        setSelectedService(null);
+        
         setIsSuccess(true);
         setTimeout(() => {
           setLocation("/portal/dashboard");
@@ -330,32 +345,54 @@ export default function PortalBookAppointmentPage() {
                 )}
               </div>
 
-              {/* Time Dropdown */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Time</label>
-                <Select
-                  value={selectedTime}
-                  onValueChange={setSelectedTime}
-                  disabled={!selectedDate}
-                >
-                  <SelectTrigger className="w-full" data-testid="select-time">
-                    <SelectValue placeholder={selectedDate ? "Select a time" : "Select a date first"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedDate && availableSlots[selectedDate]?.map((slot) => {
+              {/* Time Selection - Clickable Boxes */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">
+                  {selectedDate ? "Select Time" : "Select a date first"}
+                </label>
+                {selectedDate && availableSlots[selectedDate] && availableSlots[selectedDate].length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                    {availableSlots[selectedDate].map((slot) => {
                       const displayTime = new Date(`2000-01-01T${slot.start}`).toLocaleTimeString('en-US', {
                         hour: 'numeric',
                         minute: '2-digit',
                         hour12: true
                       });
+                      const isSelected = selectedTime === slot.start;
+                      
                       return (
-                        <SelectItem key={slot.start} value={slot.start} data-testid={`time-${slot.start}`}>
-                          {displayTime}
-                        </SelectItem>
+                        <button
+                          key={slot.start}
+                          onClick={() => {
+                            setSelectedTime(slot.start);
+                            setSelectedService(null); // Reset service when changing time
+                          }}
+                          className={`p-3 sm:p-4 rounded-lg border-2 transition-all text-center ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}
+                          data-testid={`time-${slot.start}`}
+                        >
+                          <div className="flex items-center justify-center gap-1 sm:gap-2">
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                            <span className="font-medium text-sm sm:text-base">{displayTime}</span>
+                          </div>
+                        </button>
                       );
                     })}
-                  </SelectContent>
-                </Select>
+                  </div>
+                ) : selectedDate ? (
+                  <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                    <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm">No available times for this date</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
+                    <CalendarIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">Please select a date first</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
