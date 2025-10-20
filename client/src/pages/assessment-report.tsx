@@ -494,7 +494,7 @@ export default function AssessmentReportPage() {
                       <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
                       <div>
                         <p className="font-medium text-sm">Generate AI Report (First Time)</p>
-                        <p className="text-xs text-gray-600">Click <strong>Actions</strong> → <strong>Generate AI Report</strong>. The AI analyzes all client responses and creates a comprehensive professional assessment report with clinical insights, diagnoses, and treatment recommendations. Generation takes 30-60 seconds.</p>
+                        <p className="text-xs text-gray-600">If no report exists yet: Click <strong>Actions</strong> → <strong>Generate AI Report</strong>. If report exists: Click <strong>Actions</strong> → <strong>Regenerate Report</strong>. The AI analyzes all client responses and creates a comprehensive professional assessment report with clinical insights, diagnoses, and treatment recommendations. Generation takes 30-60 seconds.</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
