@@ -37,6 +37,7 @@ import PortalBookAppointmentPage from "@/pages/portal-book-appointment";
 import PortalInvoicesPage from "@/pages/portal-invoices";
 import PortalDocumentsPage from "@/pages/portal-documents";
 import PortalNotificationsPage from "@/pages/portal-notifications";
+import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
@@ -211,6 +212,7 @@ function Router() {
         <Route path="/portal/reset-password/:token" component={PortalResetPasswordPage} />
         <Route path="/portal/dashboard" component={PortalDashboardPage} />
         <Route path="/portal/book-appointment" component={PortalBookAppointmentPage} />
+        <Route path="/portal/appointments" component={PortalAppointmentsPage} />
         <Route path="/portal/invoices" component={PortalInvoicesPage} />
         <Route path="/portal/documents" component={PortalDocumentsPage} />
         <Route path="/portal/notifications" component={PortalNotificationsPage} />

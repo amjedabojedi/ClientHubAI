@@ -382,13 +382,10 @@ export default function PortalDashboardPage() {
               <Button 
                 variant="outline" 
                 className="w-full"
-                onClick={() => {
-                  const appointmentsSection = document.getElementById('appointments-section');
-                  appointmentsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={() => setLocation("/portal/appointments")}
                 data-testid="button-view-appointments"
               >
-                View My Sessions
+                View All Appointments
               </Button>
             </CardContent>
           </Card>
