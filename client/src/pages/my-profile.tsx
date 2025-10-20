@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone, Lock, Video, Check, X, AlertCircle } from "lucide-react";
+import { Save, User, Briefcase, GraduationCap, Award, Calendar, Phone, Lock, Video, Check, X, AlertCircle, HelpCircle, ChevronDown } from "lucide-react";
 import { WorkingHoursEditor } from "@/components/user-profiles/WorkingHoursEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -164,6 +165,7 @@ export default function MyProfilePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("basic");
+  const [isHelpOpen, setIsHelpOpen] = useState(true);
   
   // Get current logged-in user
   const { user: authUser } = useAuth();
@@ -506,6 +508,71 @@ export default function MyProfilePage() {
             Manage your professional information and credentials
           </p>
         </div>
+
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">Professional Profile Guide</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Basic Information & License</p>
+                    <p className="text-xs text-gray-600">Enter your full name, email, and professional credentials. Your full name and license information appear on all client invoices, session documentation, and assessment reports. Ensure all details are accurate and current as they represent your practice officially.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Specializations & Treatment Approaches</p>
+                    <p className="text-xs text-gray-600">List your clinical specializations, treatment modalities, age groups served, and languages spoken. This information helps with client matching and appears in assessment reports. Add certifications and education details to demonstrate expertise on professional documentation.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Clinical Background & Experience</p>
+                    <p className="text-xs text-gray-600">Document your years of experience, clinical background, research involvement, supervisory experience, and career objectives. Include previous positions, publications, professional memberships, continuing education, and awards. This comprehensive background appears on official reports and documentation.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">Schedule & Room Configuration</p>
+                    <p className="text-xs text-gray-600">Set your working days/hours, session duration (default 50 min), max clients per day, and room availability. Configure your virtual room for online sessions and select available physical rooms. These settings control appointment availability and prevent double-booking conflicts in the scheduling system.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                  <div>
+                    <p className="font-medium text-sm">Emergency Contact & Zoom Integration</p>
+                    <p className="text-xs text-gray-600">Add emergency contact information for practice safety protocols. Configure Zoom credentials (Account ID, Client ID, Client Secret) to enable automatic virtual meeting links for online sessions. Test your Zoom connection to verify integration before scheduling online appointments.</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Pro Tips:</strong> Your full name, license details, and credentials appear on client invoices, session notes, assessment reports, and all official documentation. Keep this information current and professional. Changes to working hours affect scheduling availability immediately. Save each tab individually after making edits.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-8">
