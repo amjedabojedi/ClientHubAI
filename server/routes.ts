@@ -11,6 +11,7 @@ import puppeteer from "puppeteer";
 import { execSync } from "child_process";
 import { format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { utcDateMatchesLocalDate, localTimeToUtc, utcToLocalDateString } from "./practiceTime";
 import Stripe from "stripe";
 
 // Validation
@@ -9333,59 +9334,28 @@ This happens because only the file metadata was stored, not the actual file cont
           continue;
         }
         
-        // Get sessions for this specific day in America/New_York timezone
-        // Convert UTC session times to EST/EDT to check if they fall on this calendar day
-        const dateStr = dateKey; // yyyy-MM-dd format
+        // Get sessions for this specific day using centralized timezone helpers
+        const dayTherapistSessions = therapistSessions.filter(s => 
+          utcDateMatchesLocalDate(new Date(s.sessionDate), dateKey)
+        );
         
-        const dayTherapistSessions = therapistSessions.filter(s => {
-          const sDate = new Date(s.sessionDate);
-          // Get the date portion in America/New_York timezone
-          const estDateStr = sDate.toLocaleString('en-US', { 
-            timeZone: 'America/New_York',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).split(',')[0]; // MM/DD/YYYY
-          const [month, day, year] = estDateStr.split('/');
-          const sessionDateKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          return sessionDateKey === dateStr;
-        });
-        
-        const dayAllSessions = allSessions.filter(s => {
-          const sDate = new Date(s.sessionDate);
-          // Get the date portion in America/New_York timezone
-          const estDateStr = sDate.toLocaleString('en-US', { 
-            timeZone: 'America/New_York',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).split(',')[0]; // MM/DD/YYYY
-          const [month, day, year] = estDateStr.split('/');
-          const sessionDateKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          return sessionDateKey === dateStr;
-        });
+        const dayAllSessions = allSessions.filter(s => 
+          utcDateMatchesLocalDate(new Date(s.sessionDate), dateKey)
+        );
         
         const dayBlockedTimes = blockedTimes.filter(bt => {
           const btStart = new Date(bt.startTime);
           const btEnd = new Date(bt.endTime);
-          // Check if blocked time overlaps with this calendar day in America/New_York timezone
-          const btStartDateStr = btStart.toLocaleString('en-US', { 
-            timeZone: 'America/New_York',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).split(',')[0];
-          const btEndDateStr = btEnd.toLocaleString('en-US', { 
-            timeZone: 'America/New_York',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          }).split(',')[0];
-          const [startMonth, startDay, startYear] = btStartDateStr.split('/');
-          const [endMonth, endDay, endYear] = btEndDateStr.split('/');
-          const btStartKey = `${startYear}-${startMonth.padStart(2, '0')}-${startDay.padStart(2, '0')}`;
-          const btEndKey = `${endYear}-${endMonth.padStart(2, '0')}-${endDay.padStart(2, '0')}`;
-          return btStartKey === dateStr || btEndKey === dateStr || (btStartKey < dateStr && btEndKey > dateStr);
+          const startDateStr = utcToLocalDateString(btStart);
+          const endDateStr = utcToLocalDateString(btEnd);
+          
+          // Include if blocked time:
+          // 1. Starts on this day
+          // 2. Ends on this day
+          // 3. Spans this day (starts before, ends after)
+          return startDateStr === dateKey || 
+                 endDateStr === dateKey || 
+                 (startDateStr < dateKey && endDateStr > dateKey);
         });
         
         // Generate time slots for this day
@@ -9398,13 +9368,8 @@ This happens because only the file metadata was stored, not the actual file cont
             if (hour === startHour && minute < startMin) continue;
             if (hour === endHour && minute >= endMin) break;
             
-            // Create slot time in America/New_York timezone
-            // Parse the date string to get year, month, day
-            const [year, month, day] = dateKey.split('-').map(Number);
-            // Create a date string in America/New_York timezone
-            const slotDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
-            // Use fromZonedTime to create a UTC Date from EST/EDT time
-            const slotDate = fromZonedTime(slotDateStr, 'America/New_York');
+            // Create slot time in America/New_York timezone, then convert to UTC
+            const slotDate = localTimeToUtc(dateKey, hour, minute);
             const slotEnd = new Date(slotDate.getTime() + sessionDuration * 60000);
             
             // Check therapist availability
