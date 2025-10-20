@@ -9276,28 +9276,6 @@ This happens because only the file metadata was stored, not the actual file cont
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 50); // Limit to 50 most recent for portal
 
-      // Get client info
-      const client = await storage.getClient(clientId);
-
-      // Audit notification access
-      if (client) {
-        await AuditLogger.logAction({
-          userId: null,
-          username: client.portalEmail || client.email || 'unknown',
-          action: 'notifications_viewed',
-          result: 'success',
-          resourceType: 'notifications',
-          resourceId: clientId.toString(),
-          clientId: clientId,
-          ipAddress,
-          userAgent,
-          hipaaRelevant: false,
-          riskLevel: 'low',
-          details: JSON.stringify({ portal: true, notificationCount: allNotifications.length }),
-          accessReason: 'Client portal notification viewing',
-        });
-      }
-
       res.json(allNotifications);
     } catch (error) {
       console.error("Portal notifications error:", error);
