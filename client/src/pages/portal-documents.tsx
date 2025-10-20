@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Upload, FileText, File, Download, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Upload, FileText, File, Download, Eye, X } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,7 @@ export default function PortalDocuments() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [category, setCategory] = useState<string>("insurance");
   const [isUploading, setIsUploading] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
 
   const { data: documents, isLoading } = useQuery<Document[]>({
     queryKey: ["/api/portal/documents"],
@@ -136,9 +138,9 @@ export default function PortalDocuments() {
     return labels[cat] || cat;
   };
 
-  const handleViewDocument = (docId: number) => {
-    // Open document in new tab for preview
-    window.open(`/api/portal/documents/${docId}/download`, '_blank');
+  const handleViewDocument = (doc: Document) => {
+    // Show document in modal preview
+    setPreviewDocument(doc);
   };
 
   const handleDownload = (docId: number, fileName: string) => {
@@ -149,6 +151,18 @@ export default function PortalDocuments() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const getPreviewUrl = (doc: Document) => {
+    return `/api/portal/documents/${doc.id}/download`;
+  };
+
+  const isPDF = (doc: Document) => {
+    return doc.mimeType === 'application/pdf';
+  };
+
+  const isImage = (doc: Document) => {
+    return doc.mimeType?.startsWith('image/');
   };
 
   if (isLoading) {
@@ -315,7 +329,7 @@ export default function PortalDocuments() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleViewDocument(doc.id)}
+                              onClick={() => handleViewDocument(doc)}
                               data-testid={`button-view-${doc.id}`}
                               title="Preview document"
                             >
@@ -341,6 +355,59 @@ export default function PortalDocuments() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Document Preview Modal */}
+      <Dialog open={!!previewDocument} onOpenChange={() => setPreviewDocument(null)}>
+        <DialogContent className="max-w-4xl h-[80vh]" data-testid="dialog-preview">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{previewDocument?.originalName}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewDocument(null)}
+                data-testid="button-close-preview"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden h-full">
+            {previewDocument && isPDF(previewDocument) && (
+              <iframe
+                src={getPreviewUrl(previewDocument)}
+                className="w-full h-full border-0"
+                title={previewDocument.originalName}
+                data-testid="iframe-pdf-preview"
+              />
+            )}
+            {previewDocument && isImage(previewDocument) && (
+              <img
+                src={getPreviewUrl(previewDocument)}
+                alt={previewDocument.originalName}
+                className="w-full h-full object-contain"
+                data-testid="img-preview"
+              />
+            )}
+            {previewDocument && !isPDF(previewDocument) && !isImage(previewDocument) && (
+              <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Preview Not Available</h3>
+                <p className="text-muted-foreground mb-4">
+                  This file type cannot be previewed in the browser.
+                </p>
+                <Button
+                  onClick={() => previewDocument && handleDownload(previewDocument.id, previewDocument.originalName)}
+                  data-testid="button-download-from-preview"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download File
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
