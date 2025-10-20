@@ -3838,7 +3838,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
       const objectKey = `documents/${document.id}-${document.fileName}`;
       
-      const downloadResult = await objectStorage.downloadAsText(objectKey);
+      const downloadResult = await objectStorage.downloadAsBytes(objectKey);
       
       if (downloadResult.ok) {
         // HIPAA Audit Log: Document downloaded
@@ -3855,10 +3855,22 @@ This happens because only the file metadata was stored, not the actual file cont
           );
         }
         
-        const buffer = Buffer.from(downloadResult.value, 'base64');
+        // Auto-fix corrupted files: detect if stored as base64 text instead of binary
+        let fileBuffer = Buffer.from(downloadResult.value);
+        const content = fileBuffer.toString('utf8', 0, Math.min(100, fileBuffer.length));
+        
+        // Check if it's base64 text (corrupted old upload)
+        if (content.startsWith('data:') || /^[A-Za-z0-9+/=]{50,}/.test(content)) {
+          // It's stored as base64 text - decode it to binary
+          const base64Content = content.startsWith('data:') 
+            ? content.split(',')[1] || content
+            : fileBuffer.toString('utf8');
+          fileBuffer = Buffer.from(base64Content, 'base64');
+        }
+        
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
-        res.send(buffer);
+        res.send(fileBuffer);
       } else {
         res.status(404).json({ message: "File not found in storage" });
       }
@@ -10352,10 +10364,23 @@ This happens because only the file metadata was stored, not the actual file cont
             );
           }
 
+          // Auto-fix corrupted files: detect if stored as base64 text instead of binary
+          let fileBuffer = Buffer.from(downloadResult.value);
+          const content = fileBuffer.toString('utf8', 0, Math.min(100, fileBuffer.length));
+          
+          // Check if it's base64 text (corrupted old upload)
+          if (content.startsWith('data:') || /^[A-Za-z0-9+/=]{50,}/.test(content)) {
+            // It's stored as base64 text - decode it to binary
+            const base64Content = content.startsWith('data:') 
+              ? content.split(',')[1] || content
+              : fileBuffer.toString('utf8');
+            fileBuffer = Buffer.from(base64Content, 'base64');
+          }
+
           // Serve the file
           res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
           res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
-          res.send(Buffer.from(downloadResult.value));
+          res.send(fileBuffer);
         } else {
           return res.status(404).json({ error: "File not found in storage" });
         }
