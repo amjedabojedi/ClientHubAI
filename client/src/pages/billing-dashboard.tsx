@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -32,7 +33,9 @@ import {
   Edit,
   Mail,
   MoreVertical,
-  Printer
+  Printer,
+  HelpCircle,
+  ChevronDown
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -241,6 +244,7 @@ export default function BillingDashboard() {
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
   
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
@@ -554,6 +558,71 @@ export default function BillingDashboard() {
           </div>
         )}
       </div>
+
+      {/* Help Section */}
+      <Collapsible
+        open={isHelpOpen}
+        onOpenChange={setIsHelpOpen}
+        className="mb-6"
+      >
+        <Card className="border-blue-200 bg-blue-50">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="text-base">Billing & Invoice Management Guide</CardTitle>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                <div>
+                  <p className="font-medium text-sm">Automatic Billing Triggers</p>
+                  <p className="text-xs text-gray-600">Billing records are automatically created when sessions are marked as "completed". The system calculates rates based on service type, session duration, and any applicable insurance coverage or copay amounts.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                <div>
+                  <p className="font-medium text-sm">Payment Status Tracking</p>
+                  <p className="text-xs text-gray-600">Track payments through six statuses: Pending (awaiting billing), Billed (invoice sent), Paid (payment received), Denied (insurance denial), Refunded (payment returned), and Follow-up (requires action). Color-coded badges make status easy to identify.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                <div>
+                  <p className="font-medium text-sm">Recording Payments</p>
+                  <p className="text-xs text-gray-600">Use "Record Payment" action on any billing record to log payments. Enter amount, payment method (cash, check, credit card, insurance), reference number, and notes. Payment details are automatically linked to client invoices and tracked in audit logs.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                <div>
+                  <p className="font-medium text-sm">Invoice Management</p>
+                  <p className="text-xs text-gray-600">Preview, download, email, or print invoices directly from the action menu (⋮). Invoices use professional templates with practice information, itemized charges, and payment instructions. Email invoices go to the client's registered email address.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                <div>
+                  <p className="font-medium text-sm">Filtering & Reporting</p>
+                  <p className="text-xs text-gray-600">Filter by payment status, therapist, service type, client type, or search by client name. Set date ranges to view specific periods. Therapists see only their own billing records; administrators see all records. Export reports for accounting or insurance submission.</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <p className="text-xs text-blue-900">
+                  <strong>💡 Pro Tips:</strong> Outstanding balance shows pending and billed amounts. Summary cards update in real-time as you process payments. Use client search for quick access to specific billing records. All payment transactions are HIPAA-compliant and audit-logged for compliance.
+                </p>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
