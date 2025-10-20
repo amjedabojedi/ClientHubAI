@@ -3452,7 +3452,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Decode base64 content to binary
           const buffer = Buffer.from(fileContent, 'base64');
+          console.log('[UPLOAD DEBUG] Buffer created, size:', buffer.length, 'bytes');
+          console.log('[UPLOAD DEBUG] Object key:', objectKey);
+          console.log('[UPLOAD DEBUG] Buffer first 20 bytes (hex):', buffer.toString('hex', 0, 20));
+          
           const uploadResult = await objectStorage.uploadFromBytes(objectKey, buffer);
+          console.log('[UPLOAD DEBUG] Upload result:', uploadResult.ok ? 'SUCCESS' : 'FAILED');
+          if (!uploadResult.ok) {
+            console.log('[UPLOAD DEBUG] Upload error:', uploadResult.error);
+          }
           
           if (!uploadResult.ok) {
             // Delete document record if storage upload fails
@@ -10386,9 +10394,9 @@ This happens because only the file metadata was stored, not the actual file cont
             fileBuffer = Buffer.from(base64Content, 'base64');
           }
 
-          // Serve the file with no-cache headers to prevent browser caching issues
-          res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
-          res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
+          // Serve the file inline (not as download) for preview
+          res.setHeader('Content-Type', document.mimeType || 'application/pdf');
+          res.setHeader('Content-Disposition', `inline`);
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
