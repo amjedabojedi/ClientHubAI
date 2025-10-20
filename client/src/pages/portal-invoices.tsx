@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Receipt, CreditCard, FileText, Loader2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ArrowLeft, Receipt, CreditCard, FileText, Loader2, HelpCircle, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ interface Invoice {
 
 export default function PortalInvoices() {
   const { toast } = useToast();
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/portal/invoices"],
   });
@@ -176,6 +178,64 @@ export default function PortalInvoices() {
             </Button>
           </Link>
         </div>
+
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-purple-200 bg-purple-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-purple-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-purple-600" />
+                    <CardTitle className="text-base">Understanding Your Invoices & Payments</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-purple-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">View Invoice Details</p>
+                    <p className="text-xs text-gray-600">Each row shows: Session date, Service type, Total amount, Insurance coverage, and Your copay</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Check Payment Status</p>
+                    <p className="text-xs text-gray-600">Status badges show: <span className="font-semibold">Paid</span> (completed), <span className="font-semibold">Pending</span> (awaiting payment), <span className="font-semibold">Partially Paid</span>, or <span className="font-semibold text-red-600">Overdue</span></p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Make a Payment</p>
+                    <p className="text-xs text-gray-600">Click "Pay Now" on pending invoices → Secure Stripe payment page opens → Enter card details → Receive instant confirmation</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">View Receipt</p>
+                    <p className="text-xs text-gray-600">For paid invoices, click "View Receipt" to see a detailed payment confirmation with transaction ID and date</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-purple-100 rounded-lg">
+                  <p className="text-xs text-purple-900">
+                    <strong>💡 Tips:</strong> All payments are processed securely through Stripe. Your payment methods are never stored on our servers. If insurance is covering part of your session, you'll only pay the copay amount shown. Receipts can be printed for insurance reimbursement.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         <Card>
           <CardHeader>
