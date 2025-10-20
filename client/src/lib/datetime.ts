@@ -73,6 +73,16 @@ export const getTodayInPracticeTimezone = (): string => {
  */
 export const formatDateDisplay = (date: Date | string | null | undefined): string => {
   if (!date) return 'No date';
+  
+  // Handle date-only strings (yyyy-MM-dd) without timezone conversion
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day); // Use local timezone
+    if (isNaN(dateObj.getTime())) return 'Invalid Date';
+    return format(dateObj, DATE_FORMATS.DISPLAY);
+  }
+  
+  // Handle full datetime strings with timezone conversion
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return 'Invalid Date';
   return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.DISPLAY);
@@ -84,6 +94,16 @@ export const formatDateDisplay = (date: Date | string | null | undefined): strin
  */
 export const formatDateFull = (date: Date | string | null | undefined): string => {
   if (!date) return 'No date';
+  
+  // Handle date-only strings (yyyy-MM-dd) without timezone conversion
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day); // Use local timezone
+    if (isNaN(dateObj.getTime())) return 'Invalid Date';
+    return format(dateObj, DATE_FORMATS.DISPLAY_FULL);
+  }
+  
+  // Handle full datetime strings with timezone conversion
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return 'Invalid Date';
   return formatInTimeZone(dateObj, DEFAULT_TIMEZONE, DATE_FORMATS.DISPLAY_FULL);
