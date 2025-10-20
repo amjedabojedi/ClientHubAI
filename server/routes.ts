@@ -24,7 +24,7 @@ import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
-import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { zoomService } from "./zoom-service";
@@ -9315,57 +9315,89 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Therapist profile not found" });
       }
 
-      // Assign room based on session type
-      // Note: Room availability was already checked when showing available slots to client
-      let assignedRoomId = null;
-      
-      if (sessionType === 'online') {
-        // ONLINE: Assign therapist's configured virtual room
-        assignedRoomId = therapistProfile.virtualRoomId || null;
-      } else if (sessionType === 'in-person') {
-        // IN-PERSON: Find first available physical room (simple assignment)
-        // Time slot availability already verified that at least one room is free
-        const availableRooms = therapistProfile.availablePhysicalRooms || [];
+      // ⚡ DATABASE TRANSACTION: Prevent double-booking race conditions
+      // This ensures atomic check-and-create - no one else can book between our availability check and session creation
+      const newSession = await db.transaction(async (tx) => {
+        const sessionDuration = duration || 60;
+        const sessionEnd = new Date(sessionDateTime.getTime() + sessionDuration * 60000);
+
+        // CRITICAL: Re-check therapist availability INSIDE transaction
+        // This prevents race condition where two clients book simultaneously
+        const therapistConflicts = await tx
+          .select()
+          .from(sessions)
+          .where(and(
+            eq(sessions.therapistId, client.assignedTherapistId),
+            inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+          ));
+
+        // Check for time overlap with existing sessions
+        const hasTherapistConflict = therapistConflicts.some(s => {
+          const existingStart = new Date(s.sessionDate);
+          const existingEnd = new Date(existingStart.getTime() + (s.duration || 60) * 60000);
+          return sessionDateTime < existingEnd && sessionEnd > existingStart;
+        });
+
+        if (hasTherapistConflict) {
+          throw new Error("This time slot is no longer available. Please select another time.");
+        }
+
+        // Assign room based on session type
+        let assignedRoomId = null;
         
-        if (availableRooms.length > 0) {
-          // Quick check for first available room at booking time
-          const sessionDuration = duration || 60;
-          const sessionEnd = new Date(sessionDateTime.getTime() + sessionDuration * 60000);
+        if (sessionType === 'online') {
+          // ONLINE: Assign therapist's configured virtual room
+          assignedRoomId = therapistProfile.virtualRoomId || null;
+        } else if (sessionType === 'in-person') {
+          // IN-PERSON: Find first available physical room
+          const availableRooms = therapistProfile.availablePhysicalRooms || [];
           
-          for (const roomId of availableRooms) {
-            // Quick conflict check
-            const conflicts = await db
-              .select()
-              .from(sessions)
-              .where(and(
-                eq(sessions.roomId, roomId),
-                eq(sessions.sessionDate, sessionDateTime)
-              ));
+          if (availableRooms.length > 0) {
+            for (const roomId of availableRooms) {
+              // Check room conflicts INSIDE transaction
+              const roomConflicts = await tx
+                .select()
+                .from(sessions)
+                .where(and(
+                  eq(sessions.roomId, roomId),
+                  inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+                ));
+              
+              // Check for time overlap
+              const hasRoomConflict = roomConflicts.some(s => {
+                const existingStart = new Date(s.sessionDate);
+                const existingEnd = new Date(existingStart.getTime() + (s.duration || 60) * 60000);
+                return sessionDateTime < existingEnd && sessionEnd > existingStart;
+              });
+              
+              if (!hasRoomConflict) {
+                assignedRoomId = roomId;
+                break;
+              }
+            }
             
-            // Simple time overlap check
-            const hasConflict = conflicts.some(s => {
-              const start = new Date(s.sessionDate);
-              const end = new Date(start.getTime() + (s.duration || 60) * 60000);
-              return sessionDateTime < end && sessionEnd > start;
-            });
-            
-            if (!hasConflict) {
-              assignedRoomId = roomId;
-              break;
+            if (!assignedRoomId) {
+              throw new Error("No rooms available for this time slot. Please select another time.");
             }
           }
         }
-      }
-      // Create session with UTC timestamp (already properly converted from EST)
-      const newSession = await storage.createSession({
-        clientId: session.clientId,
-        therapistId: client.assignedTherapistId,
-        serviceId: serviceId,
-        roomId: assignedRoomId,
-        sessionDate: sessionDateTime, // UTC timestamp
-        duration: duration || 60,
-        sessionType: sessionType || 'online',
-        status: 'scheduled',
+
+        // Create session atomically within transaction
+        const [createdSession] = await tx
+          .insert(sessions)
+          .values({
+            clientId: session.clientId,
+            therapistId: client.assignedTherapistId,
+            serviceId: serviceId,
+            roomId: assignedRoomId,
+            sessionDate: sessionDateTime,
+            duration: sessionDuration,
+            sessionType: sessionType || 'online',
+            status: 'scheduled',
+          })
+          .returning();
+
+        return createdSession;
       });
 
       // Audit appointment booking
