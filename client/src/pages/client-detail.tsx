@@ -2131,41 +2131,41 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-10">
-            <TabsTrigger value="overview" className="flex items-center space-x-2">
+          <TabsList className="grid w-full grid-cols-10 gap-2 p-2">
+            <TabsTrigger value="overview" className="flex items-center space-x-2 px-4">
               <UserIcon className="w-4 h-4" />
               <span>Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="sessions" className="flex items-center space-x-2">
+            <TabsTrigger value="sessions" className="flex items-center space-x-2 px-4">
               <Calendar className="w-4 h-4" />
               <span>Sessions</span>
             </TabsTrigger>
 
-            <TabsTrigger value="assessments" className="flex items-center space-x-2">
+            <TabsTrigger value="assessments" className="flex items-center space-x-2 px-4">
               <ClipboardList className="w-4 h-4" />
               <span>Assessments</span>
             </TabsTrigger>
-            <TabsTrigger value="documents" className="flex items-center space-x-2">
+            <TabsTrigger value="documents" className="flex items-center space-x-2 px-4">
               <FolderOpen className="w-4 h-4" />
               <span>Documents</span>
             </TabsTrigger>
-            <TabsTrigger value="billing" className="flex items-center space-x-2">
+            <TabsTrigger value="billing" className="flex items-center space-x-2 px-4">
               <CreditCard className="w-4 h-4" />
               <span>Billing</span>
             </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center space-x-2">
+            <TabsTrigger value="tasks" className="flex items-center space-x-2 px-4">
               <CheckSquare className="w-4 h-4" />
               <span>Tasks</span>
             </TabsTrigger>
-            <TabsTrigger value="checklist" className="flex items-center space-x-2">
+            <TabsTrigger value="checklist" className="flex items-center space-x-2 px-4">
               <ClipboardList className="w-4 h-4" />
               <span>Checklists</span>
             </TabsTrigger>
-            <TabsTrigger value="communications" className="flex items-center space-x-2" data-testid="tab-communications">
+            <TabsTrigger value="communications" className="flex items-center space-x-2 px-4" data-testid="tab-communications">
               <Mail className="w-4 h-4" />
               <span>Communications</span>
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center space-x-2" data-testid="tab-history">
+            <TabsTrigger value="history" className="flex items-center space-x-2 px-4" data-testid="tab-history">
               <Clock className="w-4 h-4" />
               <span>History</span>
             </TabsTrigger>
