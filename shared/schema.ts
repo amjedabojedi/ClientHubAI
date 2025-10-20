@@ -533,7 +533,7 @@ export const notes = pgTable("notes", {
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull().references(() => clients.id),
-  uploadedById: integer("uploaded_by_id").notNull().references(() => users.id),
+  uploadedById: integer("uploaded_by_id").references(() => users.id), // Nullable for client uploads
   fileName: text("file_name").notNull(),
   originalName: text("original_name").notNull(),
   fileSize: integer("file_size").notNull(),
