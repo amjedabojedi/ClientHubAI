@@ -359,6 +359,7 @@ export interface IStorage {
   // Document methods
   getDocumentsByClient(clientId: number): Promise<(Document & { uploadedBy: User })[]>;
   createDocument(document: InsertDocument): Promise<Document>;
+  updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document>;
   deleteDocument(id: number): Promise<void>;
 
   // Session Notes Management
@@ -2997,6 +2998,15 @@ export class DatabaseStorage implements IStorage {
       .values(document)
       .returning();
     return newDocument;
+  }
+
+  async updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document> {
+    const [updatedDocument] = await db
+      .update(documents)
+      .set(document)
+      .where(eq(documents.id, id))
+      .returning();
+    return updatedDocument;
   }
 
   async deleteDocument(id: number): Promise<void> {

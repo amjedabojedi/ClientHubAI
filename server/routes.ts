@@ -3905,15 +3905,12 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      // Get the document
-      const document = await storage.getDocument(id);
+      // Get all documents for this client and find the specific one
+      const documents = await storage.getDocumentsByClient(clientId);
+      const document = documents.find(doc => doc.id === id);
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
-      }
-
-      if (document.clientId !== clientId) {
-        return res.status(400).json({ message: "Document does not belong to this client" });
       }
 
       // Update the sharing status
@@ -10301,15 +10298,13 @@ This happens because only the file metadata was stored, not the actual file cont
       await storage.updatePortalSessionActivity(session.id);
 
       const documentId = parseInt(req.params.id);
-      const document = await storage.getDocument(documentId);
+      
+      // Get all documents for this client and find the specific one
+      const clientDocuments = await storage.getDocumentsByClient(session.clientId);
+      const document = clientDocuments.find(doc => doc.id === documentId);
 
       if (!document) {
         return res.status(404).json({ error: "Document not found" });
-      }
-
-      // Verify client owns this document OR it's shared with them
-      if (document.clientId !== session.clientId) {
-        return res.status(403).json({ error: "Access denied" });
       }
 
       // Verify document is accessible (client upload OR shared)
