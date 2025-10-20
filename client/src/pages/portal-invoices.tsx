@@ -205,7 +205,6 @@ export default function PortalInvoices() {
                     <TableRow>
                       <TableHead data-testid="header-date">Date</TableHead>
                       <TableHead data-testid="header-service">Service</TableHead>
-                      <TableHead data-testid="header-session-type">Session Type</TableHead>
                       <TableHead className="text-right" data-testid="header-amount">Amount</TableHead>
                       <TableHead className="text-right" data-testid="header-insurance">Insurance</TableHead>
                       <TableHead className="text-right" data-testid="header-copay">Copay</TableHead>
@@ -222,9 +221,6 @@ export default function PortalInvoices() {
                         <TableCell data-testid={`text-service-${invoice.id}`}>
                           <div className="font-medium">{invoice.serviceName || invoice.serviceCode}</div>
                           <div className="text-xs text-muted-foreground">{invoice.serviceCode}</div>
-                        </TableCell>
-                        <TableCell data-testid={`text-session-type-${invoice.id}`}>
-                          <span className="capitalize">{invoice.sessionType}</span>
                         </TableCell>
                         <TableCell className="text-right" data-testid={`text-amount-${invoice.id}`}>
                           <div className="font-semibold">{formatCurrency(invoice.totalAmount)}</div>
