@@ -2162,7 +2162,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const validatedData = insertSessionSchema.parse(sessionData);
-      const session = await storage.createSession(validatedData);
+      
+      // ⚡ DATABASE TRANSACTION: Prevent double-booking race conditions
+      // This ensures atomic check-and-create for both therapist and room conflicts
+      const session = await db.transaction(async (tx) => {
+        const sessionDuration = validatedData.duration || 60;
+        const sessionEnd = new Date(sessionDate.getTime() + sessionDuration * 60000);
+
+        // CRITICAL: Re-check conflicts INSIDE transaction to prevent race conditions
+        // This prevents two therapists from booking the same room simultaneously
+        if (!req.body.ignoreConflicts) {
+          // Check therapist conflicts
+          const therapistConflicts = await tx
+            .select()
+            .from(sessions)
+            .where(and(
+              eq(sessions.therapistId, validatedData.therapistId),
+              inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+            ));
+
+          const hasTherapistConflict = therapistConflicts.some(s => {
+            const existingStart = new Date(s.sessionDate);
+            const existingEnd = new Date(existingStart.getTime() + (s.duration || 60) * 60000);
+            return sessionDate < existingEnd && sessionEnd > existingStart;
+          });
+
+          if (hasTherapistConflict) {
+            throw new Error("This therapist is no longer available at this time. Please refresh and select another time.");
+          }
+
+          // Check room conflicts if room is assigned
+          if (validatedData.roomId) {
+            const roomConflicts = await tx
+              .select()
+              .from(sessions)
+              .where(and(
+                eq(sessions.roomId, validatedData.roomId),
+                inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
+              ));
+
+            const hasRoomConflict = roomConflicts.some(s => {
+              const existingStart = new Date(s.sessionDate);
+              const existingEnd = new Date(existingStart.getTime() + (s.duration || 60) * 60000);
+              return sessionDate < existingEnd && sessionEnd > existingStart;
+            });
+
+            if (hasRoomConflict) {
+              throw new Error("This room is no longer available at this time. Please refresh and select another room.");
+            }
+          }
+        }
+
+        // Create session atomically within transaction
+        const [createdSession] = await tx
+          .insert(sessions)
+          .values(validatedData)
+          .returning();
+
+        return createdSession;
+      });
       
       // Handle Zoom meeting creation if enabled
       let zoomMeetingData = null;
