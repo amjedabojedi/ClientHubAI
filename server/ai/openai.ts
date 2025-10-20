@@ -570,14 +570,6 @@ ASSESSMENT SECTIONS TO GENERATE:
     const sectionResponses = responses.filter(r => 
       section.questions?.some(q => q.id === r.questionId)
     );
-    
-    // DEBUG: Log response filtering and section scoring flag
-    console.log(`[AI DEBUG] Section: "${section.title}"`);
-    console.log(`[AI DEBUG] Section has ${section.questions?.length || 0} questions`);
-    console.log(`[AI DEBUG] Found ${sectionResponses.length} responses for this section`);
-    console.log(`[AI DEBUG] Total responses available: ${responses.length}`);
-    console.log(`[AI DEBUG] Section isScoring value:`, section.isScoring);
-    console.log(`[AI DEBUG] Section object keys:`, Object.keys(section));
 
     if (sectionResponses.length > 0) {
       userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
@@ -587,10 +579,8 @@ ASSESSMENT SECTIONS TO GENERATE:
       if (section.isScoring) {
         sectionTotal = sectionResponses.reduce((sum, resp) => {
           const scoreValue = resp.scoreValue ? Number(resp.scoreValue) : 0;
-          console.log(`[AI DEBUG] Response scoreValue: ${resp.scoreValue}, converted: ${scoreValue}`);
           return sum + scoreValue;
         }, 0);
-        console.log(`[AI DEBUG] Section "${section.title}" total score: ${sectionTotal}`);
       }
       
       if (section.aiReportPrompt) {
@@ -618,14 +608,6 @@ ASSESSMENT SECTIONS TO GENERATE:
       sectionResponses.forEach(response => {
         const question = section.questions?.find(q => q.id === response.questionId);
         if (question) {
-          console.log(`[AI DEBUG] Question ID: ${question.id}, Type: ${question.questionType}`);
-          console.log(`[AI DEBUG] Response data:`, {
-            responseText: response.responseText,
-            selectedOptions: response.selectedOptions,
-            ratingValue: response.ratingValue,
-            questionHasOptions: question.options?.length || 0
-          });
-          
           userPrompt += `Q: ${question.questionText}\nA: `;
           
           // Handle different response types properly
@@ -636,7 +618,6 @@ ASSESSMENT SECTIONS TO GENERATE:
               const selectedTexts = response.selectedOptions
                 .map(index => question.options?.[index])
                 .filter(Boolean);
-              console.log(`[AI DEBUG] Multiple choice selected texts:`, selectedTexts);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
             } else if (response.responseText) {
               userPrompt += response.responseText;
@@ -648,7 +629,6 @@ ASSESSMENT SECTIONS TO GENERATE:
               const selectedTexts = response.selectedOptions
                 .map(index => question.options?.[index])
                 .filter(Boolean);
-              console.log(`[AI DEBUG] Checkbox selected texts:`, selectedTexts);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selections made';
             } else if (response.responseText) {
               userPrompt += response.responseText;
@@ -670,7 +650,6 @@ ASSESSMENT SECTIONS TO GENERATE:
             userPrompt += response.responseText || 'No response provided';
           }
           userPrompt += '\n\n';
-          console.log(`[AI DEBUG] Added to prompt: "${userPrompt.slice(-200)}"`);
         }
       });
     }

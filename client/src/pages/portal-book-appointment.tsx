@@ -72,7 +72,6 @@ export default function PortalBookAppointmentPage() {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Received slots data:', data);
           setAvailableSlots(data);
         } else if (response.status === 401) {
           setLocation("/portal/login");

@@ -2232,8 +2232,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trigger session scheduled notification
       try {
-        console.log(`[SESSION CREATE] Triggering session_scheduled notification for session ${session.id}`);
-        
         // Get client and therapist names for notification template
         const client = await storage.getClient(session.clientId);
         const therapist = await storage.getUser(session.therapistId);
@@ -2268,9 +2266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           zoomMeetingData: zoomMeetingData
         };
         
-        console.log(`[SESSION CREATE] Notification data:`, JSON.stringify(notificationData, null, 2));
         await notificationService.processEvent('session_scheduled', notificationData);
-        console.log(`[SESSION CREATE] Notification processing completed successfully`);
       } catch (notificationError) {
         console.error('[SESSION CREATE] Session scheduled notification failed:', notificationError);
       }
@@ -2379,11 +2375,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           const allSessions = sessionResults.sessions;
           
-          console.log(`[CONFLICT CHECK] Checking conflicts for session ${id}. Found ${allSessions.length} sessions on same day. Current session ID type: ${typeof id}, therapistId: ${sessionData.therapistId}, roomId: ${sessionData.roomId}`);
-          
           // Check therapist conflicts
           const therapistConflicts = sessionData.therapistId ? allSessions.filter(session => {
-            console.log(`[CONFLICT CHECK] Comparing session ${session.id} (type: ${typeof session.id}) with current ${id} (type: ${typeof id}). Equal? ${session.id === id}, Strict equal? ${session.id === id}`);
             if (session.id === id) return false; // Skip current session
             if (session.therapistId !== sessionData.therapistId) return false;
             
@@ -4364,14 +4357,6 @@ This happens because only the file metadata was stored, not the actual file cont
         zoomClientId: user?.zoomClientId || null
       };
 
-      console.log(`========================================`);
-      console.log(`[ZOOM STATUS API] User ID: ${currentUserId}`);
-      console.log(`[ZOOM STATUS API] isConfigured: ${isConfigured}`);
-      console.log(`[ZOOM STATUS API] zoomAccountId: ${user?.zoomAccountId || 'NULL'}`);
-      console.log(`[ZOOM STATUS API] zoomClientId: ${user?.zoomClientId || 'NULL'}`);
-      console.log(`[ZOOM STATUS API] Returning:`, JSON.stringify(response));
-      console.log(`========================================`);
-
       res.json(response);
     } catch (error) {
       console.error("Error checking Zoom credentials status:", error);
@@ -5454,7 +5439,6 @@ This happens because only the file metadata was stored, not the actual file cont
         createdById: req.user.id
       };
       
-      console.log("Creating connection:", connectionData);
       const connection = await storage.createLibraryEntryConnection(connectionData);
       res.status(201).json(connection);
     } catch (error) {
@@ -9217,13 +9201,6 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       // Calculate available slots - show therapist's working hours based on session type
-      console.log('='.repeat(60));
-      console.log('AVAILABILITY CHECK:');
-      console.log(`Client: ${client.fullName} (ID: ${client.id})`);
-      console.log(`Therapist ID: ${client.assignedTherapistId}`);
-      console.log(`Date Range: ${startDate} to ${endDate}`);
-      console.log(`Session Type: ${sessionType.toUpperCase()}`);
-      
       // Get therapist profile for working hours
       const therapistProfile = await storage.getUserProfile(client.assignedTherapistId);
       if (!therapistProfile) {
@@ -9274,11 +9251,7 @@ This happens because only the file metadata was stored, not the actual file cont
           });
         
         slotsByDate[dateKey] = availableSlots;
-        console.log(`${dateKey}: ${daySlots.length} total, ${availableSlots.length} available`);
       }
-
-      console.log(`ORGANIZED BY DATE: ${Object.keys(slotsByDate).length} days`);
-      console.log('='.repeat(60));
 
       // Disable caching for this endpoint
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -9417,8 +9390,6 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Trigger full notification service (same as therapist booking)
       try {
-        console.log(`[PORTAL BOOKING] Triggering session_scheduled notification for session ${newSession.id}`);
-        
         // Get therapist details
         const therapist = await storage.getUser(client.assignedTherapistId);
         
@@ -9453,9 +9424,7 @@ This happens because only the file metadata was stored, not the actual file cont
           zoomMeetingData: null
         };
         
-        console.log(`[PORTAL BOOKING] Notification data:`, JSON.stringify(notificationData, null, 2));
         await notificationService.processEvent('session_scheduled', notificationData);
-        console.log(`[PORTAL BOOKING] Notification processing completed successfully`);
       } catch (notificationError) {
         console.error('[PORTAL BOOKING] Session scheduled notification failed:', notificationError);
         // Don't fail the booking if notification fails
