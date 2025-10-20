@@ -22,6 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Icons
 import { 
@@ -49,7 +50,9 @@ import {
   Video,
   ExternalLink,
   MoreVertical,
-  CalendarIcon
+  CalendarIcon,
+  HelpCircle,
+  ChevronDown
 } from "lucide-react";
 
 // Utils and Hooks
@@ -169,6 +172,7 @@ export default function SchedulingPage() {
   const [, setLocation] = useLocation();
   
   // State
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "list">("month");
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
@@ -1497,6 +1501,71 @@ export default function SchedulingPage() {
       </div>
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">Scheduling & Calendar Guide</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Scheduling New Sessions</p>
+                    <p className="text-xs text-gray-600">Click "New Session" to book appointments. Select client, therapist, date, service, and room. The system automatically checks for conflicts (therapist/room double-booking) and shows available time slots based on therapist working hours and room availability.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Calendar Views</p>
+                    <p className="text-xs text-gray-600">Switch between Day, Week, Month, or All Sessions views using the view toggle. Day shows today's schedule, Week displays 7-day overview, Month shows the calendar grid, and All Sessions lists every appointment. All times display in Eastern Time (America/New_York).</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Real-Time Conflict Detection</p>
+                    <p className="text-xs text-gray-600">When scheduling, the system checks therapist availability, room availability, and client schedule in real-time. Red warnings indicate conflicts (therapist/room already booked). You can still proceed with warnings if needed (e.g., emergency appointments).</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">Managing Sessions</p>
+                    <p className="text-xs text-gray-600">Click any session card to view details. Use the action menu (⋮) to edit session details, change status (scheduled, confirmed, completed, cancelled, no-show), or delete appointments. Status changes trigger automatic billing updates.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                  <div>
+                    <p className="font-medium text-sm">Bulk Operations & Filtering</p>
+                    <p className="text-xs text-gray-600">Administrators can import multiple sessions from Excel templates. Use search to find sessions by client or therapist name. Filter by specific therapist to see only their schedule. Color-coded badges indicate session type (assessment, psychotherapy, consultation) and status.</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Pro Tips:</strong> Green time slots mean both therapist and room are available. Red text indicates conflicts that need resolution. Click "Today" to quickly return to current date. Session cards show Zoom join links when online sessions are enabled. Color-coded borders highlight scheduling conflicts.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {viewMode === "month" ? (
           /* Month View */
           (<div className="space-y-6">
