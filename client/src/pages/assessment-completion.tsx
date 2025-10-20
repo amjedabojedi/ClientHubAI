@@ -661,7 +661,7 @@ export default function AssessmentCompletionPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <HelpCircle className="w-5 h-5 text-blue-600" />
-                    <CardTitle className="text-base">Assessment Completion - Step {currentSection + 1} of {sections.length}</CardTitle>
+                    <CardTitle className="text-base">Assessment Navigation - Section {currentSection + 1} of {sections.length}</CardTitle>
                   </div>
                   <ChevronDown className="w-5 h-5 text-blue-600" />
                 </div>
@@ -672,27 +672,27 @@ export default function AssessmentCompletionPage() {
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
                   <div>
-                    <p className="font-medium text-sm">Answer All Questions in This Section</p>
-                    <p className="text-xs text-gray-600">Complete each question in the current section. Your progress auto-saves every 30 seconds and when you navigate between sections. Required questions are marked with an asterisk (*).</p>
+                    <p className="font-medium text-sm">Answer Questions</p>
+                    <p className="text-xs text-gray-600">Complete each question in the current section you're viewing. Your progress auto-saves every 30 seconds and when you move between sections. Required questions are marked with an asterisk (*).</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
                   <div>
-                    <p className="font-medium text-sm">Navigate Between Sections</p>
-                    <p className="text-xs text-gray-600">Use the section tabs above to move between different parts of the assessment. Your responses are saved automatically as you work. The progress bar at the top shows overall completion across all sections.</p>
+                    <p className="font-medium text-sm">Navigate Sections</p>
+                    <p className="text-xs text-gray-600">Click the section tabs above to move between different parts. Each assessment has its own number of sections. The progress bar shows your overall completion percentage across all sections in this assessment.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
                   <div>
-                    <p className="font-medium text-sm">Submit When Complete</p>
-                    <p className="text-xs text-gray-600">After completing all sections, click "Submit Assessment" at the bottom. Your therapist will be notified and can review your responses. You can save your progress and return later if needed by clicking "Save Progress."</p>
+                    <p className="font-medium text-sm">Submit or Save</p>
+                    <p className="text-xs text-gray-600">When done with all sections, click "Submit Assessment" at the bottom. Your therapist gets notified to review. Not ready? Click "Save Progress" to continue later - all your answers are preserved.</p>
                   </div>
                 </div>
                 <div className="mt-4 p-3 bg-blue-100 rounded-lg">
                   <p className="text-xs text-blue-900">
-                    <strong>💡 Pro Tip:</strong> Your responses auto-save every 30 seconds and when you navigate sections, so you won't lose progress. Close the page and return anytime to continue where you left off.
+                    <strong>💡 Pro Tip:</strong> Auto-save runs every 30 seconds and when navigating sections. You can safely close the page anytime and return to continue where you left off - no progress is lost.
                   </p>
                 </div>
               </CardContent>
