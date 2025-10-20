@@ -200,17 +200,17 @@ export default function PortalDashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {unreadNotifications > 0 && (
-                <div className="relative" data-testid="notification-badge">
-                  <Bell className="h-5 w-5 text-gray-600" />
+              <div className="relative" data-testid="notification-badge">
+                <Bell className="h-5 w-5 text-gray-600" />
+                {unreadNotifications > 0 && (
                   <Badge 
                     variant="destructive" 
                     className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
                   >
                     {unreadNotifications}
                   </Badge>
-                </div>
-              )}
+                )}
+              </div>
               <Button 
                 variant="outline" 
                 onClick={handleLogout}
@@ -443,6 +443,119 @@ export default function PortalDashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Past Sessions */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Past Sessions</CardTitle>
+            <CardDescription>
+              {pastAppointments.length > 0 
+                ? `${pastAppointments.length} completed or cancelled session${pastAppointments.length === 1 ? '' : 's'}`
+                : 'No past sessions'
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingAppointments ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Loading appointments...</p>
+              </div>
+            ) : pastAppointments.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-sm">No past sessions</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pastAppointments
+                  .sort((a, b) => {
+                    // Sort by most recent first
+                    const dateA = fromZonedTime(`${a.sessionDate}T${normalizeTime(a.sessionTime)}`, PRACTICE_TIMEZONE);
+                    const dateB = fromZonedTime(`${b.sessionDate}T${normalizeTime(b.sessionTime)}`, PRACTICE_TIMEZONE);
+                    return dateB.getTime() - dateA.getTime();
+                  })
+                  .map((appointment) => {
+                  const [year, month, day] = appointment.sessionDate.split('-').map(Number);
+                  const localDate = new Date(year, month - 1, day);
+                  const formattedDate = localDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  
+                  const formattedTime = new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  });
+                  
+                  return (
+                    <div 
+                      key={appointment.id}
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid={`past-appointment-${appointment.id}`}
+                    >
+                      <div className="flex gap-4">
+                        <div className="flex flex-col items-start min-w-[120px]">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${
+                            appointment.status === 'confirmed'
+                              ? 'bg-green-100 text-green-800'
+                              : appointment.status === 'cancelled'
+                              ? 'bg-red-100 text-red-800'
+                              : appointment.status === 'completed'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {appointment.status === 'scheduled' ? 'Scheduled' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                          </span>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {formattedDate}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {formattedTime}
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium text-gray-900">
+                              {appointment.serviceName || 'Session'}
+                            </h4>
+                          </div>
+                          
+                          <div className="space-y-1 text-sm text-gray-600">
+                            {appointment.therapistName && (
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4" />
+                                <span>Therapist: {appointment.therapistName}</span>
+                              </div>
+                            )}
+                            {appointment.roomName && (
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-4 h-4" />
+                                <span>Room: {appointment.roomName}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                appointment.sessionType === 'online' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {appointment.sessionType === 'online' ? 'Online' : 'In Person'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Recent Notifications */}
         <Card>
           <CardHeader>
@@ -465,7 +578,7 @@ export default function PortalDashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {notifications.slice(0, 5).map((notification) => (
+                {notifications.map((notification) => (
                   <div 
                     key={notification.id}
                     className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
