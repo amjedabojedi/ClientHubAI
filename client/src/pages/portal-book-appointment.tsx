@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar as CalendarIcon, Clock, ArrowLeft, CheckCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, ArrowLeft, CheckCircle, HelpCircle, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatDateDisplay, localToUTC } from "@/lib/datetime";
 import { format } from "date-fns";
 
@@ -36,6 +37,7 @@ export default function PortalBookAppointmentPage() {
   const [isBooking, setIsBooking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Generate dates for future booking (1 year ahead - no artificial limit)
   const generateDates = () => {
@@ -239,6 +241,64 @@ export default function PortalBookAppointmentPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 sm:py-8 max-w-4xl">
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">How to Book Your Appointment</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Choose Session Type</p>
+                    <p className="text-xs text-gray-600">Select Online (video) or In-Person (office visit)</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Select a Date</p>
+                    <p className="text-xs text-gray-600">Pick an available date from the calendar (dates with slots are clickable)</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Choose a Time</p>
+                    <p className="text-xs text-gray-600">Select from available time slots that fit your schedule</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">Select Service</p>
+                    <p className="text-xs text-gray-600">Choose the type of session you need</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Tip:</strong> You'll receive a confirmation email once your appointment is booked. Online sessions will include a video call link.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         {error && (
           <Alert variant="destructive" className="mb-4 sm:mb-6">
             <AlertDescription className="text-xs sm:text-sm">{error}</AlertDescription>
@@ -248,8 +308,13 @@ export default function PortalBookAppointmentPage() {
         {/* Session Type Selection */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Session Type</CardTitle>
-            <CardDescription>Choose how you would like to attend your session</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Step 1: Session Type</CardTitle>
+                <CardDescription>Choose how you would like to attend your session</CardDescription>
+              </div>
+              <div className="text-xs text-gray-500 font-medium">1 of 4</div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
@@ -295,8 +360,13 @@ export default function PortalBookAppointmentPage() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Select Date & Time</CardTitle>
-              <CardDescription>Choose when you'd like your appointment</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Step 2 & 3: Select Date & Time</CardTitle>
+                  <CardDescription>Choose when you'd like your appointment</CardDescription>
+                </div>
+                <div className="text-xs text-gray-500 font-medium">2-3 of 4</div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Date Picker - Always visible calendar */}
@@ -402,8 +472,13 @@ export default function PortalBookAppointmentPage() {
         {selectedTime && (
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Select Service</CardTitle>
-              <CardDescription>Choose the type of service you need</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Step 4: Select Service</CardTitle>
+                  <CardDescription>Choose the type of service you need</CardDescription>
+                </div>
+                <div className="text-xs text-gray-500 font-medium">4 of 4</div>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoadingServices ? (
