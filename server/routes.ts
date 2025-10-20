@@ -2320,9 +2320,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           roomName: roomName,
           duration: 60, // Default session duration
           createdAt: session.createdAt,
-          // Zoom meeting details - enabled if we have actual meeting data
+          // Zoom meeting details - flatten to top level for email template
           zoomEnabled: !!zoomMeetingData,
-          zoomMeetingData: zoomMeetingData
+          zoomJoinUrl: zoomMeetingData?.joinUrl || null,
+          zoomMeetingId: zoomMeetingData?.meetingId || null,
+          zoomPassword: zoomMeetingData?.password || null
         };
         
         await notificationService.processEvent('session_scheduled', notificationData);
