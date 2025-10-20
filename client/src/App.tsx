@@ -36,6 +36,7 @@ import PortalResetPasswordPage from "@/pages/portal-reset-password";
 import PortalBookAppointmentPage from "@/pages/portal-book-appointment";
 import PortalInvoicesPage from "@/pages/portal-invoices";
 import PortalDocumentsPage from "@/pages/portal-documents";
+import PortalNotificationsPage from "@/pages/portal-notifications";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
@@ -212,6 +213,7 @@ function Router() {
         <Route path="/portal/book-appointment" component={PortalBookAppointmentPage} />
         <Route path="/portal/invoices" component={PortalInvoicesPage} />
         <Route path="/portal/documents" component={PortalDocumentsPage} />
+        <Route path="/portal/notifications" component={PortalNotificationsPage} />
         {/* Additional portal routes will be added here */}
         <Route component={NotFound} />
       </Switch>

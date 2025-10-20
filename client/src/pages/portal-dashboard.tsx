@@ -204,10 +204,7 @@ export default function PortalDashboardPage() {
               <button 
                 className="relative" 
                 data-testid="notification-badge"
-                onClick={() => {
-                  const notificationsSection = document.getElementById('notifications-card');
-                  notificationsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={() => setLocation("/portal/notifications")}
               >
                 <Bell className="h-5 w-5 text-gray-600 hover:text-gray-900 cursor-pointer" />
                 {unreadNotifications > 0 && (
@@ -329,11 +326,7 @@ export default function PortalDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card 
-            className="hover:shadow-lg transition-shadow cursor-pointer" 
-            data-testid="card-notifications"
-            id="notifications-card"
-          >
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid="card-notifications">
             <CardHeader>
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-3">
                 <Bell className="w-6 h-6 text-orange-600" />
@@ -349,31 +342,14 @@ export default function PortalDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingNotifications ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
-                </div>
-              ) : notifications.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">All caught up!</p>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {notifications.slice(0, 3).map((notification) => (
-                    <div 
-                      key={notification.id}
-                      className="p-2 border rounded hover:bg-gray-50 transition-colors"
-                      data-testid={`notification-preview-${notification.id}`}
-                    >
-                      <h4 className="font-medium text-xs text-gray-900 line-clamp-1">{notification.title}</h4>
-                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{notification.message}</p>
-                    </div>
-                  ))}
-                  {notifications.length > 3 && (
-                    <p className="text-xs text-center text-gray-500 pt-2">
-                      +{notifications.length - 3} more
-                    </p>
-                  )}
-                </div>
-              )}
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setLocation("/portal/notifications")}
+                data-testid="button-view-notifications"
+              >
+                View Notifications
+              </Button>
             </CardContent>
           </Card>
         </div>
