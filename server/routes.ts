@@ -10231,6 +10231,92 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Download document
+  app.get("/api/portal/documents/:id/download", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      // Verify client owns this document OR it's shared with them
+      if (document.clientId !== session.clientId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Verify document is accessible (client upload OR shared)
+      const isClientUpload = document.uploadedById === null;
+      const isShared = document.isSharedInPortal === true;
+      
+      if (!isClientUpload && !isShared) {
+        return res.status(403).json({ error: "Document not shared" });
+      }
+
+      // Download from object storage
+      try {
+        const { Client } = await import('@replit/object-storage');
+        const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        
+        const downloadResult = await objectStorage.downloadAsBytes(objectKey);
+        
+        if (downloadResult.ok) {
+          // Audit document download
+          const client = await storage.getClient(session.clientId);
+          if (client) {
+            await AuditLogger.logDocumentAccess(
+              client.id,
+              client.portalEmail || client.email || 'unknown',
+              document.id,
+              session.clientId,
+              'document_downloaded',
+              ipAddress,
+              userAgent,
+              { 
+                portal: true, 
+                fileName: document.originalName,
+                fileSize: document.fileSize
+              }
+            );
+          }
+
+          // Serve the file
+          res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+          res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
+          res.send(Buffer.from(downloadResult.value));
+        } else {
+          return res.status(404).json({ error: "File not found in storage" });
+        }
+      } catch (error) {
+        console.error('Portal document download error:', error);
+        return res.status(500).json({ error: "Failed to download file" });
+      }
+    } catch (error) {
+      console.error("Portal document download error:", error);
+      res.status(500).json({ error: "Failed to download document" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

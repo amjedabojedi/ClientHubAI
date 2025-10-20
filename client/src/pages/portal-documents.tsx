@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Upload, FileText, File } from "lucide-react";
+import { ArrowLeft, Upload, FileText, File, Download, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useToast } from "@/hooks/use-toast";
@@ -134,6 +134,21 @@ export default function PortalDocuments() {
       generated: 'Generated',
     };
     return labels[cat] || cat;
+  };
+
+  const handleViewDocument = (docId: number) => {
+    // Open document in new tab for preview
+    window.open(`/api/portal/documents/${docId}/download`, '_blank');
+  };
+
+  const handleDownload = (docId: number, fileName: string) => {
+    // Download document with proper filename
+    const link = document.createElement('a');
+    link.href = `/api/portal/documents/${docId}/download`;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (isLoading) {
@@ -271,6 +286,7 @@ export default function PortalDocuments() {
                       <TableHead data-testid="header-size">Size</TableHead>
                       <TableHead data-testid="header-uploaded">Uploaded</TableHead>
                       <TableHead data-testid="header-shared-by">Shared By</TableHead>
+                      <TableHead data-testid="header-actions" className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -293,6 +309,28 @@ export default function PortalDocuments() {
                         </TableCell>
                         <TableCell data-testid={`text-shared-by-${doc.id}`}>
                           {doc.uploadedBy?.fullName || "You"}
+                        </TableCell>
+                        <TableCell data-testid={`cell-actions-${doc.id}`} className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewDocument(doc.id)}
+                              data-testid={`button-view-${doc.id}`}
+                              title="Preview document"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownload(doc.id, doc.originalName)}
+                              data-testid={`button-download-${doc.id}`}
+                              title="Download document"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
