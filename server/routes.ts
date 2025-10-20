@@ -3420,12 +3420,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.clientId);
       const { fileContent, ...documentData } = req.body;
       
-      // TEMPORARY DEBUG LOGGING
-      console.log('[UPLOAD DEBUG] fileContent type:', typeof fileContent);
-      console.log('[UPLOAD DEBUG] fileContent length:', fileContent?.length || 0);
-      console.log('[UPLOAD DEBUG] fileContent first 100 chars:', fileContent?.substring(0, 100));
-      console.log('[UPLOAD DEBUG] fileSize from metadata:', documentData.fileSize);
-      
       // Get authenticated user from request
       const authenticatedUser = req.user;
       if (!authenticatedUser?.id) {
