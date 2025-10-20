@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, FileText, CreditCard, Upload, Clock, MapPin, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, FileText, CreditCard, Upload, Clock, MapPin, User, Bell } from "lucide-react";
 import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 interface ClientInfo {
   id: number;
@@ -31,12 +32,25 @@ interface Appointment {
   therapistName?: string;
 }
 
+interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  createdAt: Date;
+  relatedEntityType: string;
+  relatedEntityId: number;
+  isRead?: boolean;
+}
+
 export default function PortalDashboardPage() {
   const [, setLocation] = useLocation();
   const [client, setClient] = useState<ClientInfo | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
 
   useEffect(() => {
     // Check authentication on mount
@@ -88,6 +102,30 @@ export default function PortalDashboardPage() {
     fetchAppointments();
   }, [client]);
 
+  useEffect(() => {
+    // Fetch notifications after authentication
+    if (!client) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch("/api/portal/notifications", {
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+      } finally {
+        setIsLoadingNotifications(false);
+      }
+    };
+
+    fetchNotifications();
+  }, [client]);
+
   const handleLogout = async () => {
     try {
       await fetch("/api/portal/logout", {
@@ -102,16 +140,34 @@ export default function PortalDashboardPage() {
   };
 
   // Calculate stats - filter out cancelled and completed sessions
+  // Use America/New_York timezone for consistent appointment filtering
+  const PRACTICE_TIMEZONE = 'America/New_York';
+  
+  // Get current UTC time - Date objects internally store UTC timestamps
+  // When comparing two Date objects, JavaScript compares the underlying UTC values
   const now = new Date();
+  
+  // Helper to ensure time has seconds component
+  const normalizeTime = (time: string) => {
+    // If time already has seconds (HH:mm:ss), use as-is
+    // If time is HH:mm, append :00
+    return time.length === 5 ? `${time}:00` : time;
+  };
+  
   const upcomingAppointments = appointments.filter(app => {
-    const appointmentDateTime = new Date(`${app.sessionDate}T${app.sessionTime}`);
+    // Convert session date/time from America/New_York to UTC Date object
+    // fromZonedTime interprets the datetime string as Eastern time and returns UTC
+    // Comparing with 'now' (also UTC) gives correct upcoming/past classification
+    const appointmentDateTime = fromZonedTime(`${app.sessionDate}T${normalizeTime(app.sessionTime)}`, PRACTICE_TIMEZONE);
     return appointmentDateTime >= now && app.status !== 'cancelled' && app.status !== 'completed';
   });
   
   const pastAppointments = appointments.filter(app => {
-    const appointmentDateTime = new Date(`${app.sessionDate}T${app.sessionTime}`);
+    const appointmentDateTime = fromZonedTime(`${app.sessionDate}T${normalizeTime(app.sessionTime)}`, PRACTICE_TIMEZONE);
     return appointmentDateTime < now || app.status === 'cancelled' || app.status === 'completed';
   });
+  
+  const unreadNotifications = notifications.filter(n => !n.isRead).length;
 
   if (isLoading) {
     return (
@@ -143,15 +199,28 @@ export default function PortalDashboardPage() {
                 <p className="text-xs text-gray-600 hidden sm:block">Client Portal</p>
               </div>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={handleLogout}
-              data-testid="button-portal-logout"
-              size="sm"
-              className="text-xs sm:text-sm"
-            >
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-3">
+              {unreadNotifications > 0 && (
+                <div className="relative" data-testid="notification-badge">
+                  <Bell className="h-5 w-5 text-gray-600" />
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {unreadNotifications}
+                  </Badge>
+                </div>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                data-testid="button-portal-logout"
+                size="sm"
+                className="text-xs sm:text-sm"
+              >
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -280,8 +349,9 @@ export default function PortalDashboardPage() {
               <div className="space-y-3">
                 {upcomingAppointments
                   .sort((a, b) => {
-                    const dateA = new Date(`${a.sessionDate}T${a.sessionTime}`);
-                    const dateB = new Date(`${b.sessionDate}T${b.sessionTime}`);
+                    // Use consistent timezone conversion for sorting
+                    const dateA = fromZonedTime(`${a.sessionDate}T${normalizeTime(a.sessionTime)}`, PRACTICE_TIMEZONE);
+                    const dateB = fromZonedTime(`${b.sessionDate}T${normalizeTime(b.sessionTime)}`, PRACTICE_TIMEZONE);
                     return dateA.getTime() - dateB.getTime();
                   })
                   .map((appointment) => {
@@ -373,17 +443,52 @@ export default function PortalDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* Recent Notifications */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your recent portal actions</CardDescription>
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              <CardTitle>Notifications</CardTitle>
+            </div>
+            <CardDescription>Recent updates and reminders</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-sm">No recent activity</p>
-            </div>
+            {isLoadingNotifications ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Loading notifications...</p>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Bell className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-sm">No notifications</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {notifications.slice(0, 5).map((notification) => (
+                  <div 
+                    key={notification.id}
+                    className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                    data-testid={`notification-${notification.id}`}
+                  >
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Bell className="w-4 h-4 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm text-gray-900">{notification.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatDateTimeDisplay(notification.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
