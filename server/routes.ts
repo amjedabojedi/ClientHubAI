@@ -23,7 +23,7 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
 import { eq, and, gte, lte, desc, asc, sql, ilike } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -9366,7 +9366,6 @@ This happens because only the file metadata was stored, not the actual file cont
         duration: duration || 60,
         sessionType: sessionType || 'online',
         status: 'scheduled',
-        createdBy: session.clientId, // Track that client booked this
       });
 
       // Audit appointment booking
@@ -9474,11 +9473,11 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Fetch services for service names
       const allServices = await storage.getServices();
-      const serviceMap = new Map(allServices.map(s => [s.id, s]));
+      const serviceMap = new Map(allServices.map(s => [s.serviceCode, s]));
       
       // Enrich invoices with service names
       const invoices = rawInvoices.map(inv => {
-        const service = inv.serviceId ? serviceMap.get(inv.serviceId) : null;
+        const service = inv.serviceCode ? serviceMap.get(inv.serviceCode) : null;
         return {
           ...inv,
           serviceName: service?.serviceName || null,
@@ -9712,7 +9711,7 @@ This happens because only the file metadata was stored, not the actual file cont
                   html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                       <h2 style="color: #2563eb;">Payment Receipt</h2>
-                      <p>Dear ${client.firstName} ${client.lastName},</p>
+                      <p>Dear ${client.fullName},</p>
                       <p>Thank you for your payment. Your payment has been successfully processed.</p>
                       
                       <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
