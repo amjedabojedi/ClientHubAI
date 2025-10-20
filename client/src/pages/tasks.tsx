@@ -42,6 +42,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -69,7 +70,8 @@ import {
   Users,
   ClipboardList,
   MoreVertical,
-  MessageSquare
+  MessageSquare,
+  HelpCircle
 } from "lucide-react";
 
 // Utils & Types
@@ -556,6 +558,7 @@ function TaskForm({ task, onSuccess }: { task?: TaskWithDetails; onSuccess: () =
 export default function TasksPage() {
   const { user } = useAuth();
   const { addRecentTask } = useRecentItems();
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -746,6 +749,71 @@ export default function TasksPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Help Section */}
+      <Collapsible
+        open={isHelpOpen}
+        onOpenChange={setIsHelpOpen}
+        className="mb-6"
+      >
+        <Card className="border-blue-200 bg-blue-50">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="text-base">Task Management Guide</CardTitle>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                <div>
+                  <p className="font-medium text-sm">Creating Tasks</p>
+                  <p className="text-xs text-gray-600">Click "Add Task" to create a new task. All tasks must be linked to a client. Set priority (Low, Medium, High, Urgent), assign to a therapist, set a due date, and add detailed descriptions. Tasks help track administrative, clinical, and follow-up work.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                <div>
+                  <p className="font-medium text-sm">Task Statuses</p>
+                  <p className="text-xs text-gray-600">Track progress through four statuses: Pending (not started), In Progress (actively working), Completed (finished), and Overdue (past due date). Tasks automatically become overdue when the due date passes. Use status filters to focus on specific task groups.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                <div>
+                  <p className="font-medium text-sm">Priority Levels</p>
+                  <p className="text-xs text-gray-600">Color-coded priorities help organize workload: Low (green), Medium (yellow), High (orange), and Urgent (red). Urgent tasks require immediate attention. The dashboard shows total high-priority and urgent tasks at a glance for quick prioritization.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                <div>
+                  <p className="font-medium text-sm">Collaboration & Comments</p>
+                  <p className="text-xs text-gray-600">Use the comments feature to collaborate on tasks. Add updates, questions, or notes that stay with the task. All team members assigned to the task can view and add comments, creating a full audit trail of task communication.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                <div>
+                  <p className="font-medium text-sm">Filtering & Organization</p>
+                  <p className="text-xs text-gray-600">Use quick filters (Today, This Week, Overdue) or custom date ranges to find tasks. Filter by status, priority, or assignee. Search by task title or client name. Therapists see only their assigned tasks; administrators see all tasks across the practice.</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <p className="text-xs text-blue-900">
+                  <strong>💡 Pro Tips:</strong> Dashboard metrics update in real-time. Click on a client name to view their full profile. Use "View History" to see completed tasks. Tasks show on client profiles for easy reference. Set realistic due dates to avoid overdue buildup.
+                </p>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Task Statistics Dashboard */}
       {taskStats && (

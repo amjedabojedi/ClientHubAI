@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Icons
 import { 
@@ -70,7 +71,8 @@ import {
   Upload, 
   User as UserIcon, 
   Video,
-  X
+  X,
+  HelpCircle
 } from "lucide-react";
 
 // Utils and Hooks
@@ -990,6 +992,7 @@ export default function ClientDetailPage() {
   const fromPage = urlParams.get('from'); // Track where user came from
   
   // State
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -2059,6 +2062,71 @@ export default function ClientDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Help Section */}
+      <Collapsible
+        open={isHelpOpen}
+        onOpenChange={setIsHelpOpen}
+        className="mb-6"
+      >
+        <Card className="border-blue-200 bg-blue-50">
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="text-base">Client Profile Navigation Guide</CardTitle>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                <div>
+                  <p className="font-medium text-sm">Overview Tab</p>
+                  <p className="text-xs text-gray-600">View complete client demographics, contact information, insurance details, emergency contacts, and current treatment stage. Edit profile information, manage portal access, and see quick stats including total sessions, completed assessments, and billing overview.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                <div>
+                  <p className="font-medium text-sm">Sessions & Notes Tab</p>
+                  <p className="text-xs text-gray-600">Manage all therapy sessions with this client. Schedule new sessions, update session status (scheduled, completed, cancelled), and create detailed session notes with mood tracking, goals, interventions, and AI-assisted documentation. Filter by status and quickly access session history.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                <div>
+                  <p className="font-medium text-sm">Assessments & Documents</p>
+                  <p className="text-xs text-gray-600">Assign assessment templates, track completion status, generate AI-powered reports with digital signatures, and export to PDF/Word. Upload and organize client documents in categories (intake forms, consent forms, insurance, correspondence). All files stored securely with HIPAA audit logging.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                <div>
+                  <p className="font-medium text-sm">Billing & Payments</p>
+                  <p className="text-xs text-gray-600">View all billing records, invoices, and payment history for this client. Preview, download, or email invoices. Record payments with payment method, reference numbers, and notes. Track outstanding balances and payment statuses (pending, billed, paid, denied, refunded).</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                <div>
+                  <p className="font-medium text-sm">Tasks, Checklists & Communications</p>
+                  <p className="text-xs text-gray-600">Create and track client-specific tasks with priorities and due dates. Assign workflow checklists for structured processes. View complete communication history including automated emails (appointment confirmations, reminders, portal invitations). Monitor client progress through detailed history timeline.</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <p className="text-xs text-blue-900">
+                  <strong>💡 Pro Tips:</strong> Use breadcrumb navigation to return to your previous page. Inactive client files show a red banner and prevent new entries while preserving history. Portal access requires a valid email address. All client data modifications are HIPAA-compliant and audit-logged automatically.
+                </p>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Main Content */}
       <div>
