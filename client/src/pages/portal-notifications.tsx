@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bell, Check, Clock } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ArrowLeft, Bell, Check, Clock, HelpCircle, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateTimeDisplay } from "@/lib/datetime";
 
@@ -18,6 +20,7 @@ interface Notification {
 }
 
 export default function PortalNotifications() {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const { data: notifications, isLoading } = useQuery<Notification[]>({
     queryKey: ["/api/portal/notifications"],
   });
@@ -64,6 +67,64 @@ export default function PortalNotifications() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        {/* Help Section */}
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-orange-200 bg-orange-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-orange-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-orange-600" />
+                    <CardTitle className="text-base">Understanding Your Notifications</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-orange-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Types of Notifications</p>
+                    <p className="text-xs text-gray-600">You'll receive updates about: Appointment confirmations, 24-hour reminders, schedule changes, billing updates, and important messages from your therapist</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Unread vs Read</p>
+                    <p className="text-xs text-gray-600">New notifications appear with an orange background and <span className="font-semibold">"New"</span> badge. Once opened, they turn white and show a checkmark to indicate you've seen them</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Automatic Marking</p>
+                    <p className="text-xs text-gray-600">Notifications are automatically marked as read when you view this page. No manual action needed!</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">Stay Informed</p>
+                    <p className="text-xs text-gray-600">Check back regularly for updates. The dashboard shows your unread count at the top</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-orange-100 rounded-lg">
+                  <p className="text-xs text-orange-900">
+                    <strong>💡 Tip:</strong> Important notifications like appointment reminders are sent 24 hours before your session. Make sure to check your notifications daily to stay on track with your appointments and any action items.
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
