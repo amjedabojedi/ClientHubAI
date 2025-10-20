@@ -29,10 +29,10 @@ export default function PortalNotifications() {
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white border-b">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Link href="/portal">
-              <Button variant="ghost" size="sm" data-testid="button-back-to-portal">
+            <Link href="/portal/dashboard">
+              <Button variant="ghost" size="sm" data-testid="button-back-to-dashboard">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Portal
+                Back to Dashboard
               </Button>
             </Link>
           </div>
@@ -53,10 +53,10 @@ export default function PortalNotifications() {
       {/* Header */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/portal">
-            <Button variant="ghost" size="sm" data-testid="button-back-to-portal">
+          <Link href="/portal/dashboard">
+            <Button variant="ghost" size="sm" data-testid="button-back-to-dashboard">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Portal
+              Back to Dashboard
             </Button>
           </Link>
         </div>
