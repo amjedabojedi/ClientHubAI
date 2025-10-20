@@ -418,224 +418,119 @@ export default function PortalDashboardPage() {
           </Card>
         </div>
 
-        {/* My Sessions with Tabs */}
+        {/* Upcoming Sessions Only */}
         <Card id="appointments-section">
           <CardHeader>
-            <CardTitle>My Sessions</CardTitle>
-            <CardDescription>View your upcoming and past appointments</CardDescription>
+            <CardTitle>Upcoming Sessions</CardTitle>
+            <CardDescription>
+              {upcomingAppointments.length > 0 
+                ? `${upcomingAppointments.length} upcoming session${upcomingAppointments.length === 1 ? '' : 's'}`
+                : 'No upcoming sessions scheduled'
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="upcoming" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="upcoming">
-                  Upcoming ({upcomingAppointments.length})
-                </TabsTrigger>
-                <TabsTrigger value="past">
-                  Past ({pastAppointments.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="upcoming">
-                {isLoadingAppointments ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-sm text-gray-600">Loading appointments...</p>
-                  </div>
-                ) : upcomingAppointments.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-sm">No upcoming appointments</p>
-                    <p className="text-xs">Book a new session to get started</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {upcomingAppointments
-                      .sort((a, b) => {
-                        const dateA = fromZonedTime(`${a.sessionDate}T${normalizeTime(a.sessionTime)}`, PRACTICE_TIMEZONE);
-                        const dateB = fromZonedTime(`${b.sessionDate}T${normalizeTime(b.sessionTime)}`, PRACTICE_TIMEZONE);
-                        return dateA.getTime() - dateB.getTime();
-                      })
-                      .map((appointment) => {
-                      const [year, month, day] = appointment.sessionDate.split('-').map(Number);
-                      const localDate = new Date(year, month - 1, day);
-                      const formattedDate = localDate.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      });
-                      
-                      const formattedTime = new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true 
-                      });
-                      
-                      return (
-                        <div 
-                          key={appointment.id}
-                          className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                          data-testid={`appointment-${appointment.id}`}
-                        >
-                          <div className="flex gap-4">
-                            <div className="flex flex-col items-start min-w-[120px]">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${
-                                appointment.status === 'confirmed'
-                                  ? 'bg-green-100 text-green-800'
-                                  : appointment.status === 'cancelled'
-                                  ? 'bg-red-100 text-red-800'
-                                  : appointment.status === 'completed'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : 'bg-blue-100 text-blue-800'
+            {isLoadingAppointments ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-600">Loading appointments...</p>
+              </div>
+            ) : upcomingAppointments.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-sm">No upcoming appointments</p>
+                <p className="text-xs mb-4">Book a new session to get started</p>
+                <Button onClick={() => setLocation("/portal/book-appointment")}>
+                  Book Appointment
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingAppointments
+                  .sort((a, b) => {
+                    const dateA = fromZonedTime(`${a.sessionDate}T${normalizeTime(a.sessionTime)}`, PRACTICE_TIMEZONE);
+                    const dateB = fromZonedTime(`${b.sessionDate}T${normalizeTime(b.sessionTime)}`, PRACTICE_TIMEZONE);
+                    return dateA.getTime() - dateB.getTime();
+                  })
+                  .map((appointment) => {
+                  const [year, month, day] = appointment.sessionDate.split('-').map(Number);
+                  const localDate = new Date(year, month - 1, day);
+                  const formattedDate = localDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  
+                  const formattedTime = new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  });
+                  
+                  return (
+                    <div 
+                      key={appointment.id}
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      data-testid={`appointment-${appointment.id}`}
+                    >
+                      <div className="flex gap-4">
+                        <div className="flex flex-col items-start min-w-[120px]">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${
+                            appointment.status === 'confirmed'
+                              ? 'bg-green-100 text-green-800'
+                              : appointment.status === 'cancelled'
+                              ? 'bg-red-100 text-red-800'
+                              : appointment.status === 'completed'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {appointment.status === 'scheduled' ? 'Scheduled' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                          </span>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {formattedDate}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {formattedTime}
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium text-gray-900">
+                              {appointment.serviceName || 'Session'}
+                            </h4>
+                          </div>
+                          
+                          <div className="space-y-1 text-sm text-gray-600">
+                            {appointment.therapistName && (
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4" />
+                                <span>Therapist: {appointment.therapistName}</span>
+                              </div>
+                            )}
+                            {appointment.roomName && (
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-4 h-4" />
+                                <span>Room: {appointment.roomName}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                appointment.sessionType === 'online' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'bg-green-100 text-green-700'
                               }`}>
-                                {appointment.status === 'scheduled' ? 'Scheduled' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+                                {appointment.sessionType === 'online' ? 'Online' : 'In Person'}
                               </span>
-                              <div className="text-lg font-semibold text-gray-900">
-                                {formattedDate}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                {formattedTime}
-                              </div>
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-medium text-gray-900">
-                                  {appointment.serviceName || 'Session'}
-                                </h4>
-                              </div>
-                              
-                              <div className="space-y-1 text-sm text-gray-600">
-                                {appointment.therapistName && (
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4" />
-                                    <span>Therapist: {appointment.therapistName}</span>
-                                  </div>
-                                )}
-                                {appointment.roomName && (
-                                  <div className="flex items-center gap-2">
-                                    <MapPin className="w-4 h-4" />
-                                    <span>Room: {appointment.roomName}</span>
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                    appointment.sessionType === 'online' 
-                                      ? 'bg-blue-100 text-blue-700' 
-                                      : 'bg-green-100 text-green-700'
-                                  }`}>
-                                    {appointment.sessionType === 'online' ? 'Online' : 'In Person'}
-                                  </span>
-                                </div>
-                              </div>
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="past">
-                {isLoadingAppointments ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-sm text-gray-600">Loading appointments...</p>
-                  </div>
-                ) : pastAppointments.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-sm">No past sessions</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pastAppointments
-                      .sort((a, b) => {
-                        const dateA = fromZonedTime(`${a.sessionDate}T${normalizeTime(a.sessionTime)}`, PRACTICE_TIMEZONE);
-                        const dateB = fromZonedTime(`${b.sessionDate}T${normalizeTime(b.sessionTime)}`, PRACTICE_TIMEZONE);
-                        return dateB.getTime() - dateA.getTime();
-                      })
-                      .map((appointment) => {
-                      const [year, month, day] = appointment.sessionDate.split('-').map(Number);
-                      const localDate = new Date(year, month - 1, day);
-                      const formattedDate = localDate.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      });
-                      
-                      const formattedTime = new Date(`2000-01-01T${appointment.sessionTime}`).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true 
-                      });
-                      
-                      return (
-                        <div 
-                          key={appointment.id}
-                          className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                          data-testid={`past-appointment-${appointment.id}`}
-                        >
-                          <div className="flex gap-4">
-                            <div className="flex flex-col items-start min-w-[120px]">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2 ${
-                                appointment.status === 'confirmed'
-                                  ? 'bg-green-100 text-green-800'
-                                  : appointment.status === 'cancelled'
-                                  ? 'bg-red-100 text-red-800'
-                                  : appointment.status === 'completed'
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {appointment.status === 'scheduled' ? 'Scheduled' : appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-                              </span>
-                              <div className="text-lg font-semibold text-gray-900">
-                                {formattedDate}
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                {formattedTime}
-                              </div>
-                            </div>
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-medium text-gray-900">
-                                  {appointment.serviceName || 'Session'}
-                                </h4>
-                              </div>
-                              
-                              <div className="space-y-1 text-sm text-gray-600">
-                                {appointment.therapistName && (
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4" />
-                                    <span>Therapist: {appointment.therapistName}</span>
-                                  </div>
-                                )}
-                                {appointment.roomName && (
-                                  <div className="flex items-center gap-2">
-                                    <MapPin className="w-4 h-4" />
-                                    <span>Room: {appointment.roomName}</span>
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-2">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                    appointment.sessionType === 'online' 
-                                      ? 'bg-blue-100 text-blue-700' 
-                                      : 'bg-green-100 text-green-700'
-                                  }`}>
-                                    {appointment.sessionType === 'online' ? 'Online' : 'In Person'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
