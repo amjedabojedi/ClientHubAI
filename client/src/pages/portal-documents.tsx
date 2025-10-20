@@ -139,8 +139,13 @@ export default function PortalDocuments() {
   };
 
   const handleViewDocument = (doc: Document) => {
-    // Show document in modal preview
-    setPreviewDocument(doc);
+    // For PDFs, open in new tab (iframe blocked by some browsers)
+    if (isPDF(doc)) {
+      window.open(getPreviewUrl(doc), '_blank');
+    } else {
+      // For images and other files, show in modal
+      setPreviewDocument(doc);
+    }
   };
 
   const handleDownload = (docId: number, fileName: string) => {
