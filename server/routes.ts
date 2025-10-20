@@ -3439,16 +3439,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Store file content - Use Object Storage with specific bucket ID
       if (fileContent) {
-        const { Client } = await import('@replit/object-storage');
-        const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        
-        const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
-        
-        if (!uploadResult.ok) {
-          throw new Error(`Object storage upload failed: ${uploadResult.error}`);
+        try {
+          const { Client } = await import('@replit/object-storage');
+          const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
+          const objectKey = `documents/${document.id}-${document.fileName}`;
+          
+          // Decode base64 content to binary
+          const buffer = Buffer.from(fileContent, 'base64');
+          const uploadResult = await objectStorage.uploadFromBytes(objectKey, buffer);
+          
+          if (!uploadResult.ok) {
+            // Delete document record if storage upload fails
+            await storage.deleteDocument(document.id);
+            throw new Error(`Object storage upload failed: ${uploadResult.error}`);
+          }
+        } catch (error) {
+          // Delete document record if upload fails
+          await storage.deleteDocument(document.id);
+          throw error;
         }
-        
       }
 
       // Get client data for notification
