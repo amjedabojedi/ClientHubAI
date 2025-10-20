@@ -357,7 +357,7 @@ export interface IStorage {
   deleteNote(id: number): Promise<void>;
 
   // Document methods
-  getDocumentsByClient(clientId: number): Promise<(Document & { uploadedBy: User })[]>;
+  getDocumentsByClient(clientId: number): Promise<(Document & { uploadedBy: User | null })[]>;
   createDocument(document: InsertDocument): Promise<Document>;
   updateDocument(id: number, document: Partial<InsertDocument>): Promise<Document>;
   deleteDocument(id: number): Promise<void>;
@@ -2975,20 +2975,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document methods
-  async getDocumentsByClient(clientId: number): Promise<(Document & { uploadedBy: User })[]> {
+  async getDocumentsByClient(clientId: number): Promise<(Document & { uploadedBy: User | null })[]> {
     const results = await db
       .select({
         document: documents,
         uploadedBy: users
       })
       .from(documents)
-      .innerJoin(users, eq(documents.uploadedById, users.id))
+      .leftJoin(users, eq(documents.uploadedById, users.id))
       .where(eq(documents.clientId, clientId))
       .orderBy(desc(documents.createdAt));
 
     return results.map(r => ({ 
       ...r.document, 
-      uploadedBy: r.uploadedBy 
+      uploadedBy: r.uploadedBy || null
     }));
   }
 
