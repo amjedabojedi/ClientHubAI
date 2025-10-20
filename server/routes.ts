@@ -9192,6 +9192,119 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Portal - Get client's notifications
+  app.get("/api/portal/notifications", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      // Read session token from HttpOnly cookie
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      // Update session activity
+      await storage.updatePortalSessionActivity(session.id);
+
+      const clientId = session.clientId;
+
+      // Fetch notifications related to this client
+      // Look for notifications where relatedEntityType='client' OR notifications for sessions of this client
+      const { notifications: notificationsTable } = await import("@shared/schema");
+      
+      const clientNotifications = await db
+        .select()
+        .from(notificationsTable)
+        .where(
+          and(
+            eq(notificationsTable.relatedEntityType, 'client' as any),
+            eq(notificationsTable.relatedEntityId, clientId)
+          )
+        )
+        .orderBy(desc(notificationsTable.createdAt))
+        .limit(100);
+
+      // Also get session-related notifications for this client's sessions
+      const clientSessions = await storage.getSessionsByClient(clientId, true);
+      const sessionIds = clientSessions.map((s: any) => s.id);
+
+      let sessionNotifications: any[] = [];
+      if (sessionIds.length > 0) {
+        const { inArray } = await import("drizzle-orm");
+        sessionNotifications = await db
+          .select()
+          .from(notificationsTable)
+          .where(
+            and(
+              eq(notificationsTable.relatedEntityType, 'session' as any),
+              inArray(notificationsTable.relatedEntityId, sessionIds)
+            )
+          )
+          .orderBy(desc(notificationsTable.createdAt))
+          .limit(100);
+      }
+
+      // Also get billing/invoice-related notifications for this client
+      const billingRecords = await storage.getBillingRecordsByClient(clientId);
+      const billingIds = billingRecords.map((b: any) => b.id);
+
+      let billingNotifications: any[] = [];
+      if (billingIds.length > 0) {
+        const { inArray } = await import("drizzle-orm");
+        billingNotifications = await db
+          .select()
+          .from(notificationsTable)
+          .where(
+            and(
+              eq(notificationsTable.relatedEntityType, 'billing' as any),
+              inArray(notificationsTable.relatedEntityId, billingIds)
+            )
+          )
+          .orderBy(desc(notificationsTable.createdAt))
+          .limit(100);
+      }
+
+      // Combine and sort all notifications
+      const allNotifications = [...clientNotifications, ...sessionNotifications, ...billingNotifications]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 50); // Limit to 50 most recent for portal
+
+      // Get client info
+      const client = await storage.getClient(clientId);
+
+      // Audit notification access
+      if (client) {
+        await AuditLogger.logAction({
+          userId: null,
+          username: client.portalEmail || client.email || 'unknown',
+          action: 'notifications_viewed',
+          result: 'success',
+          resourceType: 'notifications',
+          resourceId: clientId.toString(),
+          clientId: clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: false,
+          riskLevel: 'low',
+          details: JSON.stringify({ portal: true, notificationCount: allNotifications.length }),
+          accessReason: 'Client portal notification viewing',
+        });
+      }
+
+      res.json(allNotifications);
+    } catch (error) {
+      console.error("Portal notifications error:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
   // Portal - Get available services for booking
   app.get("/api/portal/services", async (req, res) => {
     try {
