@@ -3440,10 +3440,10 @@ export default function ClientDetailPage() {
                 {documents.length > 0 ? (
                   <div className="space-y-4">
                     {documents.map((doc: Document) => (
-                      <div key={doc.id} className="flex items-center justify-between border rounded-lg p-4">
-                        <div className="flex items-center space-x-3">
+                      <div key={doc.id} className="flex items-center justify-between gap-4 border rounded-lg p-4">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
                           {doc.mimeType?.startsWith('image/') ? (
-                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
+                            <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
                               <img 
                                 src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
                                 alt={doc.fileName}
@@ -3457,20 +3457,20 @@ export default function ClientDetailPage() {
                               <FolderOpen className="w-5 h-5 text-slate-400 hidden" />
                             </div>
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <div className="w-12 h-12 flex-shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
                               <FolderOpen className="w-5 h-5 text-slate-400" />
                             </div>
                           )}
-                          <div>
-                            <p className="font-medium text-slate-900">{doc.fileName}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-slate-900 truncate">{doc.fileName}</p>
                             <p className="text-sm text-slate-500">
                               {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : ''} • 
                               Uploaded {doc.createdAt ? formatDateDisplay(doc.createdAt) : 'Unknown date'}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          <div className="flex items-center gap-2">
                             <Switch
                               checked={doc.isSharedInPortal || false}
                               onCheckedChange={(checked) => {
@@ -3478,11 +3478,11 @@ export default function ClientDetailPage() {
                               }}
                               data-testid={`switch-share-portal-${doc.id}`}
                             />
-                            <Label className="text-sm cursor-pointer">
+                            <Label className="text-sm cursor-pointer whitespace-nowrap">
                               Share in Portal
                             </Label>
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center gap-2">
                             <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
                               <Eye className="w-4 h-4 mr-2" />
                               Preview
