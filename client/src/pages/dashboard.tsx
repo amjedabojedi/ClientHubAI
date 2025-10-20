@@ -290,24 +290,69 @@ export default function DashboardPage() {
         </div>
 
         {/* Help Section */}
-        <div className="mb-6 text-sm text-slate-600 space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
-          <div className="flex items-start gap-2">
-            <span className="text-base">💡</span>
-            <div>
-              <p className="font-semibold text-slate-700">Dashboard Overview</p>
-              <p className="text-xs mt-1">Your central hub for monitoring practice activity, tracking key metrics, and accessing quick actions across client management, scheduling, and tasks.</p>
-            </div>
-          </div>
-          
-          <div className="border-t border-slate-300 pt-2 mt-2">
-            <p className="font-medium text-slate-700">How to use the dashboard:</p>
-            <p className="mt-1">• <strong>Key Metrics:</strong> Monitor active clients, today's sessions, pending tasks, and overdue sessions at a glance. Click any metric card to navigate to the detailed view.</p>
-            <p>• <strong>Quick Actions:</strong> Use the action cards to quickly add new clients, schedule sessions, create tasks, or generate assessments without navigating away from the dashboard.</p>
-            <p>• <strong>Task Management:</strong> View pending tasks, mark them as in-progress or complete, and manage priorities. Urgent tasks are highlighted in red. Click on any task to edit details.</p>
-            <p>• <strong>Session Tracking:</strong> Monitor recent completed sessions and upcoming scheduled appointments. Overdue sessions (missing documentation) are flagged with actions to mark as complete, no-show, or cancel.</p>
-            <p>• <strong>Recent Items Sidebar:</strong> Access recently viewed clients quickly from the sidebar on the right. Your workflow history is tracked automatically for faster navigation.</p>
-          </div>
-        </div>
+        <Collapsible
+          open={isHelpOpen}
+          onOpenChange={setIsHelpOpen}
+          className="mb-6"
+        >
+          <Card className="border-blue-200 bg-blue-50">
+            <CollapsibleTrigger className="w-full">
+              <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                    <CardTitle className="text-base">Dashboard Quick Guide</CardTitle>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <div>
+                    <p className="font-medium text-sm">Key Metrics Overview</p>
+                    <p className="text-xs text-gray-600">Monitor active clients, today's sessions, pending tasks, and overdue sessions at a glance. Click any metric card to navigate to the detailed view.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <div>
+                    <p className="font-medium text-sm">Quick Actions</p>
+                    <p className="text-xs text-gray-600">Use the action cards to quickly add new clients, schedule sessions, create tasks, or generate assessments without navigating away from the dashboard.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <div>
+                    <p className="font-medium text-sm">Task Management</p>
+                    <p className="text-xs text-gray-600">View pending tasks, mark them as in-progress or complete, and manage priorities. Urgent tasks are highlighted in red. Click on any task to edit details.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <div>
+                    <p className="font-medium text-sm">Session Tracking</p>
+                    <p className="text-xs text-gray-600">Monitor recent completed sessions and upcoming scheduled appointments. Overdue sessions (missing documentation) are flagged with actions to mark as complete, no-show, or cancel.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                  <div>
+                    <p className="font-medium text-sm">Recent Items Sidebar</p>
+                    <p className="text-xs text-gray-600">Access recently viewed clients quickly from the sidebar on the right. Your workflow history is tracked automatically for faster navigation.</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    <strong>💡 Pro Tips:</strong> The dashboard auto-refreshes data to keep metrics current. Click metric cards for detailed views. Use keyboard shortcuts: Ctrl+K for quick search across the system. All times display in Eastern Time (America/New_York).
+                  </p>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
       {/* Key Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

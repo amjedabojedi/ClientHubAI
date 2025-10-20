@@ -13,13 +13,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 // Icons
-import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown } from "lucide-react";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -1035,39 +1036,93 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             })()}
             
             {/* Workflow Instructions */}
-            <div className="mt-3 text-sm text-slate-600 space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
-              <div className="flex items-start gap-2">
-                <span className="text-base">💡</span>
-                <div>
-                  <p className="font-semibold text-slate-700">Why Document Session Notes?</p>
-                  <p className="text-xs mt-1">Session notes provide professional clinical documentation of therapy sessions, track client progress, assess risk factors, and maintain HIPAA-compliant records required for insurance and legal purposes.</p>
-                </div>
-              </div>
-              
-              <div className="border-t border-slate-300 pt-2 mt-2">
-                {editingNote ? (
-                  <>
-                    <p className="font-medium text-slate-700">How to edit this session note:</p>
-                    <p className="mt-1">• Edit any field directly to add, remove, or modify content (📚 library available if needed)</p>
-                    <p>• Update Clinical Documentation and Risk Assessment fields as needed</p>
-                    <p>• <strong>Then choose:</strong></p>
-                    <p className="ml-3">→ Click <strong>Save Draft</strong> if you want to come back and continue editing later</p>
-                    <p className="ml-3">→ Click <strong>Save & Finalize</strong> if you're done editing (locks permanently with date stamp, no more edits)</p>
-                    <p className="mt-2 text-xs text-slate-500"><strong>Note:</strong> Once finalized, you can preview the session note in PDF through session history by pressing the preview button</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-medium text-slate-700">How to create this session note:</p>
-                    <p className="mt-1">• <strong>Step 1:</strong> Select or create a template (required for AI generation, or skip if entering manually)</p>
-                    <p>• <strong>Step 2:</strong> Fill in clinical fields (Session Focus, Symptoms, Goals, etc.) OR use 📚 button to insert from library</p>
-                    <p>• <strong>Step 3:</strong> Click <strong>Generate Content</strong> → AI uses your filled data + template to create enhanced professional note</p>
-                    <p>• <strong>Step 4:</strong> Review AI-generated content → accept or edit as needed</p>
-                    <p>• <strong>Step 5:</strong> Complete Risk Assessment (10 factors)</p>
-                    <p>• <strong>Step 6:</strong> Click <strong>Create Draft</strong> → saves to database as draft (unlocked, editable anytime)</p>
-                  </>
-                )}
-              </div>
-            </div>
+            <Collapsible defaultOpen={true} className="mt-3">
+              <Card className="border-blue-200 bg-blue-50">
+                <CollapsibleTrigger className="w-full">
+                  <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <HelpCircle className="w-5 h-5 text-blue-600" />
+                        <CardTitle className="text-base">{editingNote ? 'Session Note Editing Guide' : 'Session Note Creation Guide'}</CardTitle>
+                      </div>
+                      <ChevronDown className="w-5 h-5 text-blue-600" />
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-3 pt-0">
+                    {editingNote ? (
+                      <>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                          <div>
+                            <p className="font-medium text-sm">Edit Content</p>
+                            <p className="text-xs text-gray-600">Edit any field directly to add, remove, or modify content. Use the 📚 library button to insert pre-written clinical content if needed.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                          <div>
+                            <p className="font-medium text-sm">Update Assessments</p>
+                            <p className="text-xs text-gray-600">Update Clinical Documentation and Risk Assessment fields (10 factors) as needed to reflect current session.</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                          <div>
+                            <p className="font-medium text-sm">Save Your Changes</p>
+                            <p className="text-xs text-gray-600">Click <strong>Save Draft</strong> to continue editing later, or <strong>Save & Finalize</strong> to lock permanently with date stamp (no more edits). Once finalized, preview as PDF through session history.</p>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                          <div>
+                            <p className="font-medium text-sm">Select Template</p>
+                            <p className="text-xs text-gray-600">Select or create a template (required for AI generation, or skip if entering manually)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                          <div>
+                            <p className="font-medium text-sm">Fill Clinical Fields</p>
+                            <p className="text-xs text-gray-600">Fill in clinical fields (Session Focus, Symptoms, Goals, etc.) OR use 📚 button to insert from library</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                          <div>
+                            <p className="font-medium text-sm">Generate Content (Optional)</p>
+                            <p className="text-xs text-gray-600">Click <strong>Generate Content</strong> → AI uses your filled data + template to create enhanced professional note</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                          <div>
+                            <p className="font-medium text-sm">Review & Complete Assessment</p>
+                            <p className="text-xs text-gray-600">Review AI-generated content (accept or edit as needed), then complete Risk Assessment (10 factors)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                          <div>
+                            <p className="font-medium text-sm">Save as Draft</p>
+                            <p className="text-xs text-gray-600">Click <strong>Create Draft</strong> → saves to database as draft (unlocked, editable anytime)</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                      <p className="text-xs text-blue-900">
+                        <strong>💡 Pro Tips:</strong> Session notes provide professional clinical documentation of therapy sessions, track client progress, assess risk factors, and maintain HIPAA-compliant records required for insurance and legal purposes.
+                      </p>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           </DialogHeader>
 
           <Form {...form}>

@@ -113,24 +113,69 @@ export default function ClientsPage() {
             </div>
 
             {/* Help Section */}
-            <div className="mb-6 text-sm text-slate-600 space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
-              <div className="flex items-start gap-2">
-                <span className="text-base">💡</span>
-                <div>
-                  <p className="font-semibold text-slate-700">Client Management Overview</p>
-                  <p className="text-xs mt-1">Organize and manage your entire client roster with comprehensive profiles, stage tracking, and powerful search and filtering tools.</p>
-                </div>
-              </div>
-              
-              <div className="border-t border-slate-300 pt-2 mt-2">
-                <p className="font-medium text-slate-700">How to manage clients:</p>
-                <p className="mt-1">• <strong>Adding New Clients:</strong> Click "Add Client" button to create a new client profile. Fill in required information (name, email, contact info) and assign a primary therapist. Use client type to categorize (individual, couples, family, etc.).</p>
-                <p>• <strong>Search & Filter:</strong> Use the search bar to find clients by name, email, or phone. Apply filters for stage (intake, assessment, psychotherapy, closed), therapist assignment, client type, portal access, pending tasks, or clients without sessions.</p>
-                <p>• <strong>Stage Management:</strong> Use the tabs to filter clients by stage: All, Intake (new referrals), Assessment (evaluation phase), Psychotherapy (active treatment), or Closed (discharged). Move clients through stages as treatment progresses.</p>
-                <p>• <strong>Client Profile Actions:</strong> Click any client row to view their full profile. Use the action menu (⋮) on each row to quickly edit client details, schedule appointments, add notes, upload documents, or view billing information.</p>
-                <p>• <strong>Bulk Operations (Administrators):</strong> Export all clients to Excel for backup or reporting. Import multiple clients from an Excel template for quick onboarding. The system validates data and prevents duplicates automatically.</p>
-              </div>
-            </div>
+            <Collapsible
+              open={isHelpOpen}
+              onOpenChange={setIsHelpOpen}
+              className="mb-6"
+            >
+              <Card className="border-blue-200 bg-blue-50">
+                <CollapsibleTrigger className="w-full">
+                  <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <HelpCircle className="w-5 h-5 text-blue-600" />
+                        <CardTitle className="text-base">Client Management Guide</CardTitle>
+                      </div>
+                      <ChevronDown className={`w-5 h-5 text-blue-600 transition-transform ${isHelpOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-3 pt-0">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                      <div>
+                        <p className="font-medium text-sm">Adding New Clients</p>
+                        <p className="text-xs text-gray-600">Click "Add Client" button to create a new client profile. Fill in required information (name, email, contact info) and assign a primary therapist. Use client type to categorize (individual, couples, family, etc.).</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                      <div>
+                        <p className="font-medium text-sm">Search & Filter</p>
+                        <p className="text-xs text-gray-600">Use the search bar to find clients by name, email, or phone. Apply filters for stage (intake, assessment, psychotherapy, closed), therapist assignment, client type, portal access, pending tasks, or clients without sessions.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                      <div>
+                        <p className="font-medium text-sm">Stage Management</p>
+                        <p className="text-xs text-gray-600">Use the tabs to filter clients by stage: All, Intake (new referrals), Assessment (evaluation phase), Psychotherapy (active treatment), or Closed (discharged). Move clients through stages as treatment progresses.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                      <div>
+                        <p className="font-medium text-sm">Client Profile Actions</p>
+                        <p className="text-xs text-gray-600">Click any client row to view their full profile. Use the action menu (⋮) on each row to quickly edit client details, schedule appointments, add notes, upload documents, or view billing information.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
+                      <div>
+                        <p className="font-medium text-sm">Bulk Operations (Administrators)</p>
+                        <p className="text-xs text-gray-600">Export all clients to Excel for backup or reporting. Import multiple clients from an Excel template for quick onboarding. The system validates data and prevents duplicates automatically.</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                      <p className="text-xs text-blue-900">
+                        <strong>💡 Pro Tips:</strong> Color-coded status badges indicate client stage and activity. Red indicators highlight clients with pending tasks or no scheduled sessions. Click column headers to sort. The grid shows real-time data updates.
+                      </p>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             <ClientFilter 
               activeFilter={activeTab} 
