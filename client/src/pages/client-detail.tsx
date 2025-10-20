@@ -1445,6 +1445,27 @@ export default function ClientDetailPage() {
     }
   };
 
+  // Toggle document portal sharing
+  const toggleDocumentShare = useMutation({
+    mutationFn: async ({ docId, isShared }: { docId: number, isShared: boolean }) => {
+      await apiRequest(`/api/clients/${clientId}/documents/${docId}/share`, "PATCH", { isSharedInPortal: isShared });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
+      toast({
+        title: "Success",
+        description: "Document sharing status updated",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update sharing status. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Document upload mutation
   const uploadDocumentMutation = useMutation({
     mutationFn: async (data: { 
@@ -3448,28 +3469,42 @@ export default function ClientDetailPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            Preview
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-red-600 hover:text-red-700"
-                            onClick={() => handleDeleteDocument(doc)}
-                            disabled={deleteDocumentMutation.isPending}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={doc.isSharedInPortal || false}
+                              onCheckedChange={(checked) => {
+                                toggleDocumentShare.mutate({ docId: doc.id, isShared: checked });
+                              }}
+                              data-testid={`switch-share-portal-${doc.id}`}
+                            />
+                            <Label className="text-sm cursor-pointer">
+                              Share in Portal
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              Preview
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteDocument(doc)}
+                              disabled={deleteDocumentMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}

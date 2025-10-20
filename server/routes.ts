@@ -3892,6 +3892,54 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // Toggle document sharing in portal
+  app.patch("/api/clients/:clientId/documents/:id/share", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const id = parseInt(req.params.id);
+      const clientId = parseInt(req.params.clientId);
+      const { isSharedInPortal } = req.body;
+
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Get the document
+      const document = await storage.getDocument(id);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      if (document.clientId !== clientId) {
+        return res.status(400).json({ message: "Document does not belong to this client" });
+      }
+
+      // Update the sharing status
+      await storage.updateDocument(id, { isSharedInPortal });
+
+      // Audit log
+      if (req.user) {
+        await AuditLogger.logDocumentAccess(
+          req.user.id,
+          req.user.username,
+          id,
+          clientId,
+          isSharedInPortal ? 'document_shared_in_portal' : 'document_unshared_from_portal',
+          ipAddress,
+          userAgent,
+          { fileName: document.originalName, isSharedInPortal }
+        );
+      }
+
+      res.json({ success: true, isSharedInPortal });
+    } catch (error) {
+      console.error('Document share toggle error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Therapists route
   app.get("/api/therapists", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
