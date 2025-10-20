@@ -3713,7 +3713,21 @@ This happens because only the file metadata was stored, not the actual file cont
       const downloadResult = await objectStorage.downloadAsText(objectKey);
       
       if (downloadResult.ok) {
-        const buffer = Buffer.from(downloadResult.value, 'base64');
+        // Auto-detect if content is base64 or raw bytes (for old uploads)
+        let buffer: Buffer;
+        const content = downloadResult.value;
+        
+        // Check if it's valid base64 or raw content
+        const looksLikeBase64 = /^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100));
+        
+        if (looksLikeBase64) {
+          // New format: stored as base64
+          buffer = Buffer.from(content, 'base64');
+        } else {
+          // Old format: stored as raw bytes (convert text back to buffer)
+          buffer = Buffer.from(content, 'utf8');
+        }
+        
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -3843,7 +3857,7 @@ This happens because only the file metadata was stored, not the actual file cont
       const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
       const objectKey = `documents/${document.id}-${document.fileName}`;
       
-      // Download as text (base64 string) since uploadFromBytes is broken
+      // Download as text since we store as base64
       const downloadResult = await objectStorage.downloadAsText(objectKey);
       
       if (downloadResult.ok) {
@@ -3861,8 +3875,20 @@ This happens because only the file metadata was stored, not the actual file cont
           );
         }
         
-        // Decode base64 to binary
-        const fileBuffer = Buffer.from(downloadResult.value, 'base64');
+        // Auto-detect if content is base64 or raw bytes (for old uploads)
+        let fileBuffer: Buffer;
+        const content = downloadResult.value;
+        
+        // Check if it's valid base64 or raw content
+        const looksLikeBase64 = /^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100));
+        
+        if (looksLikeBase64) {
+          // New format: stored as base64
+          fileBuffer = Buffer.from(content, 'base64');
+        } else {
+          // Old format: stored as raw bytes (convert text back to buffer)
+          fileBuffer = Buffer.from(content, 'utf8');
+        }
         
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
@@ -10339,7 +10365,7 @@ This happens because only the file metadata was stored, not the actual file cont
         const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
         const objectKey = `documents/${document.id}-${document.fileName}`;
         
-        // Download as text (base64 string) since uploadFromBytes is broken
+        // Download as text since we store as base64
         const downloadResult = await objectStorage.downloadAsText(objectKey);
         
         if (downloadResult.ok) {
@@ -10362,8 +10388,20 @@ This happens because only the file metadata was stored, not the actual file cont
             );
           }
 
-          // Decode base64 to binary
-          const fileBuffer = Buffer.from(downloadResult.value, 'base64');
+          // Auto-detect if content is base64 or raw bytes (for old uploads)
+          let fileBuffer: Buffer;
+          const content = downloadResult.value;
+          
+          // Check if it's valid base64 or raw content
+          const looksLikeBase64 = /^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100));
+          
+          if (looksLikeBase64) {
+            // New format: stored as base64
+            fileBuffer = Buffer.from(content, 'base64');
+          } else {
+            // Old format: stored as raw bytes (convert text back to buffer)
+            fileBuffer = Buffer.from(content, 'utf8');
+          }
 
           // Serve the file inline (not as download) for preview
           res.setHeader('Content-Type', document.mimeType || 'application/pdf');
