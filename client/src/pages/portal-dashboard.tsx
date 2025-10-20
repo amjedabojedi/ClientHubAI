@@ -101,10 +101,17 @@ export default function PortalDashboardPage() {
     setLocation("/portal/login");
   };
 
-  // Calculate stats
-  const upcomingAppointments = appointments.filter(
-    app => new Date(`${app.sessionDate}T${app.sessionTime}`) >= new Date()
-  );
+  // Calculate stats - filter out cancelled and completed sessions
+  const now = new Date();
+  const upcomingAppointments = appointments.filter(app => {
+    const appointmentDateTime = new Date(`${app.sessionDate}T${app.sessionTime}`);
+    return appointmentDateTime >= now && app.status !== 'cancelled' && app.status !== 'completed';
+  });
+  
+  const pastAppointments = appointments.filter(app => {
+    const appointmentDateTime = new Date(`${app.sessionDate}T${app.sessionTime}`);
+    return appointmentDateTime < now || app.status === 'cancelled' || app.status === 'completed';
+  });
 
   if (isLoading) {
     return (
@@ -246,16 +253,14 @@ export default function PortalDashboardPage() {
           </Card>
         </div>
 
-        {/* All Appointments */}
+        {/* Upcoming Appointments */}
         <Card className="mb-8" id="appointments-section">
           <CardHeader>
-            <CardTitle>My Appointments</CardTitle>
+            <CardTitle>Upcoming Appointments</CardTitle>
             <CardDescription>
               {upcomingAppointments.length > 0 
-                ? `${upcomingAppointments.length} upcoming • ${appointments.length - upcomingAppointments.length} past sessions`
-                : appointments.length > 0 
-                ? `${appointments.length} past session${appointments.length === 1 ? '' : 's'}`
-                : 'No appointments yet'
+                ? `${upcomingAppointments.length} upcoming session${upcomingAppointments.length === 1 ? '' : 's'}`
+                : 'No upcoming sessions scheduled'
               }
             </CardDescription>
           </CardHeader>
@@ -265,15 +270,15 @@ export default function PortalDashboardPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-sm text-gray-600">Loading appointments...</p>
               </div>
-            ) : appointments.length === 0 ? (
+            ) : upcomingAppointments.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-sm">No appointments yet</p>
+                <p className="text-sm">No upcoming appointments</p>
                 <p className="text-xs">Book a new session to get started</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {appointments
+                {upcomingAppointments
                   .sort((a, b) => {
                     const dateA = new Date(`${a.sessionDate}T${a.sessionTime}`);
                     const dateB = new Date(`${b.sessionDate}T${b.sessionTime}`);
