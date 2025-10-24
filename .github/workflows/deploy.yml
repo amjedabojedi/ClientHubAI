@@ -32,7 +32,7 @@ jobs:
         run: >
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{
           secrets.SSH_HOST }} << 'EOF'
-            cd /var/www/ClientHubAI
+            cd /var/www/clienthubai-client/ClientHubAI
             echo "Pulling latest code..."
             git pull origin main
             echo "Installing dependencies..."
