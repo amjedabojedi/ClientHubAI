@@ -51,7 +51,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-center mb-4">
             <LogIn className="h-8 w-8 text-blue-600" />
           </div>
-          <CardTitle className="text-2xl text-center ">
+          <CardTitle className="text-2xl text-center">
             TherapyFlow
           </CardTitle>
           <CardDescription className="text-center">
