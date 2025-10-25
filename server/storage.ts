@@ -1016,6 +1016,7 @@ export class DatabaseStorage implements IStorage {
           JOIN ${checklistItems} ci ON ci.id = cci.checklist_item_id
           WHERE cc.client_id = ${clients.id} 
           AND ci.id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
+          AND cci.is_completed = true
         )`
       );
     }
