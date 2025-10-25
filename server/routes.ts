@@ -569,6 +569,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortOrder: sortOrder as "asc" | "desc"
       };
 
+      // DEBUG: Log filter parameters
+      if (checklistTemplateId || checklistItemIds) {
+        console.log('🔍 CHECKLIST FILTER DEBUG:');
+        console.log('  Raw checklistItemIds from query:', checklistItemIds);
+        console.log('  Parsed checklistItemIds:', params.checklistItemIds);
+        console.log('  Template ID:', params.checklistTemplateId);
+      }
+
       // SECURITY: Use authenticated user's role and ID from session, NOT from query params
       if (req.user.role === "supervisor") {
         // Get therapists supervised by this supervisor
