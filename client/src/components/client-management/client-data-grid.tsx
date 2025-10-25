@@ -26,7 +26,7 @@ interface ClientDataGridProps {
     hasPendingTasks?: boolean;
     hasNoSessions?: boolean;
     checklistTemplateId?: string;
-    checklistItemId?: string;
+    checklistItemIds?: string[];
   };
   onViewClient: (client: Client) => void;
   onEditClient: (client: Client) => void;
