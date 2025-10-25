@@ -88,7 +88,7 @@ export default function ClientDataGrid({
       needsFollowUp: typeof stageFromTab === "object" && stageFromTab.needsFollowUp ? true : undefined,
       unassigned: typeof stageFromTab === "object" && stageFromTab.unassigned ? true : undefined,
       checklistTemplateId: filters.checklistTemplateId,
-      checklistItemId: filters.checklistItemId,
+      checklistItemIds: filters.checklistItemIds,
       sortBy,
       sortOrder,
     };

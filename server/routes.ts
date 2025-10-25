@@ -544,6 +544,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasNoSessions,
         needsFollowUp,
         unassigned,
+        checklistTemplateId,
+        checklistItemIds,
         sortBy = "createdAt",
         sortOrder = "desc"
       } = req.query;
@@ -561,6 +563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hasNoSessions: hasNoSessions === "true" ? true : hasNoSessions === "false" ? false : undefined,
         needsFollowUp: needsFollowUp === "true" ? true : needsFollowUp === "false" ? false : undefined,
         unassigned: unassigned === "true" ? true : unassigned === "false" ? false : undefined,
+        checklistTemplateId: checklistTemplateId ? parseInt(checklistTemplateId as string) : undefined,
+        checklistItemIds: checklistItemIds ? (Array.isArray(checklistItemIds) ? checklistItemIds.map(id => parseInt(id as string)) : [parseInt(checklistItemIds as string)]) : undefined,
         sortBy: sortBy as string,
         sortOrder: sortOrder as "asc" | "desc"
       };

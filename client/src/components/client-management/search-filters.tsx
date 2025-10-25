@@ -20,7 +20,7 @@ interface SearchFiltersProps {
     hasPendingTasks?: boolean;
     hasNoSessions?: boolean;
     checklistTemplateId?: string;
-    checklistItemId?: string;
+    checklistItemIds?: string[];
   };
   onFiltersChange: (filters: any) => void;
 }
@@ -90,12 +90,20 @@ export default function SearchFilters({
     // Convert "all" back to empty string for backend compatibility
     const processedValue = value === "all" ? "" : value;
     
-    // If changing checklist template, clear the selected item
+    // If changing checklist template, clear the selected items
     if (key === 'checklistTemplateId') {
-      setPendingFilters({ ...pendingFilters, [key]: processedValue, checklistItemId: "" });
+      setPendingFilters({ ...pendingFilters, [key]: processedValue, checklistItemIds: [] });
     } else {
       setPendingFilters({ ...pendingFilters, [key]: processedValue });
     }
+  };
+
+  const handleChecklistItemToggle = (itemId: string) => {
+    const currentIds = pendingFilters.checklistItemIds || [];
+    const newIds = currentIds.includes(itemId)
+      ? currentIds.filter(id => id !== itemId)
+      : [...currentIds, itemId];
+    setPendingFilters({ ...pendingFilters, checklistItemIds: newIds });
   };
 
   const applyFilters = () => {
@@ -111,7 +119,7 @@ export default function SearchFilters({
       hasPendingTasks: undefined,
       hasNoSessions: undefined,
       checklistTemplateId: "",
-      checklistItemId: "",
+      checklistItemIds: [] as string[],
     };
     setPendingFilters(clearedFilters);
     onFiltersChange(clearedFilters);
@@ -216,28 +224,39 @@ export default function SearchFilters({
               </div>
             </div>
 
-            {/* Second row for checklist items */}
+            {/* Second row for checklist items - multi-select */}
             {pendingFilters.checklistTemplateId && pendingFilters.checklistTemplateId !== "all" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Checklist Item</label>
-                  <SearchableSelect
-                    value={pendingFilters.checklistItemId || "all"}
-                    onValueChange={(value) => handleFilterChange('checklistItemId', value)}
-                    options={[
-                      { value: "all", label: "All Items" },
-                      ...(filteredChecklistItems?.map((item: any) => ({
-                        value: item.id?.toString() || "",
-                        label: `${item.title || "Untitled"} (${item.category || "uncategorized"})`
-                      })) || [])
-                    ]}
-                    placeholder="All Items"
-                    searchPlaceholder="Search checklist items..."
-                  />
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Checklist Items (Select multiple - OR logic)
+                  {(pendingFilters.checklistItemIds?.length || 0) > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {pendingFilters.checklistItemIds?.length} selected
+                    </Badge>
+                  )}
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto border border-slate-200 rounded-lg p-3 bg-slate-50">
+                  {filteredChecklistItems.length === 0 ? (
+                    <p className="text-sm text-slate-500 col-span-full">No items available for this template</p>
+                  ) : (
+                    filteredChecklistItems.map((item: any) => (
+                      <label 
+                        key={item.id} 
+                        className="flex items-center space-x-2 cursor-pointer hover:bg-slate-100 p-2 rounded"
+                      >
+                        <Checkbox
+                          checked={(pendingFilters.checklistItemIds || []).includes(item.id?.toString())}
+                          onCheckedChange={() => handleChecklistItemToggle(item.id?.toString())}
+                          data-testid={`checkbox-checklist-item-${item.id}`}
+                        />
+                        <span className="text-sm text-slate-700">
+                          {item.title || "Untitled"}
+                          <span className="text-xs text-slate-500 ml-1">({item.category || "uncategorized"})</span>
+                        </span>
+                      </label>
+                    ))
+                  )}
                 </div>
-                <div></div>
-                <div></div>
-                <div></div>
               </div>
             )}
 

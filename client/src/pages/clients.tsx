@@ -36,6 +36,8 @@ export default function ClientsPage() {
     hasPortalAccess: undefined as boolean | undefined,
     hasPendingTasks: undefined as boolean | undefined,
     hasNoSessions: undefined as boolean | undefined,
+    checklistTemplateId: "",
+    checklistItemIds: [] as string[],
   });
 
   const handleViewClient = (client: Client) => {

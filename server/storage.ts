@@ -147,7 +147,7 @@ export interface ClientsQueryParams {
   needsFollowUp?: boolean;
   unassigned?: boolean;
   checklistTemplateId?: number;
-  checklistItemId?: number;
+  checklistItemIds?: number[];
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -935,7 +935,7 @@ export class DatabaseStorage implements IStorage {
       needsFollowUp,
       unassigned,
       checklistTemplateId,
-      checklistItemId,
+      checklistItemIds,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = params;
@@ -1007,15 +1007,15 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    // Filter clients by specific checklist item completion
-    if (checklistItemId) {
+    // Filter clients by specific checklist item completion (OR logic for multiple items)
+    if (checklistItemIds && checklistItemIds.length > 0) {
       whereConditions.push(
         sql`EXISTS (
           SELECT 1 FROM ${clientChecklists} cc 
           JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
           JOIN ${checklistItems} ci ON ci.id = cci.checklist_item_id
           WHERE cc.client_id = ${clients.id} 
-          AND ci.id = ${checklistItemId}
+          AND ci.id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
         )`
       );
     }
