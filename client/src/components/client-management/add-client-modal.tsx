@@ -17,6 +17,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { trackEvent } from "@/lib/posthog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -61,6 +62,7 @@ type ClientFormData = z.infer<typeof clientFormSchema>;
 export default function AddClientModal({ isOpen, onClose }: AddClientModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   
   // Fetch therapists and system options - using individual calls for better type safety
   const { data: therapists = [] } = useQuery<any[]>({
@@ -176,7 +178,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
       clientType: "",
       status: "pending",
       stage: "intake",
-      assignedTherapistId: undefined,
+      assignedTherapistId: user?.role === "therapist" ? user.id : undefined,
       
       // Insurance
       insuranceProvider: "",
@@ -531,34 +533,36 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {user?.role !== "therapist" && (
+                  <div className="grid grid-cols-2 gap-4">
 
-                  <FormField
-                    control={form.control}
-                    name="assignedTherapistId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assigned Therapist</FormLabel>
-                        <FormControl>
-                          <SearchableSelect
-                            value={field.value?.toString() || "unassigned"}
-                            onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}
-                            options={[
-                              { value: "unassigned", label: "Unassigned" },
-                              ...(therapists?.map((therapist: any) => ({
-                                value: therapist.id.toString(),
-                                label: therapist.fullName || therapist.full_name
-                              })) || [])
-                            ]}
-                            placeholder="Select therapist"
-                            searchPlaceholder="Search therapists..."
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="assignedTherapistId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned Therapist</FormLabel>
+                          <FormControl>
+                            <SearchableSelect
+                              value={field.value?.toString() || "unassigned"}
+                              onValueChange={(value) => field.onChange(value === "unassigned" ? undefined : parseInt(value))}
+                              options={[
+                                { value: "unassigned", label: "Unassigned" },
+                                ...(therapists?.map((therapist: any) => ({
+                                  value: therapist.id.toString(),
+                                  label: therapist.fullName || therapist.full_name
+                                })) || [])
+                              ]}
+                              placeholder="Select therapist"
+                              searchPlaceholder="Search therapists..."
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <div className="border-t pt-4 mt-6">
                   <h4 className="text-md font-medium text-slate-900 mb-4">Follow-up Management</h4>
