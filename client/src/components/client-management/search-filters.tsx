@@ -77,10 +77,16 @@ export default function SearchFilters({
     enabled: !!pendingFilters.checklistTemplateId && pendingFilters.checklistTemplateId !== "all",
   });
 
-  // Filter items by selected template
-  const filteredChecklistItems = checklistItems.filter((item: any) => 
-    !pendingFilters.checklistTemplateId || pendingFilters.checklistTemplateId === "all" || item.templateId?.toString() === pendingFilters.checklistTemplateId
-  );
+  // Filter items by selected template and sort by item order
+  const filteredChecklistItems = checklistItems
+    .filter((item: any) => 
+      !pendingFilters.checklistTemplateId || pendingFilters.checklistTemplateId === "all" || item.templateId?.toString() === pendingFilters.checklistTemplateId
+    )
+    .sort((a: any, b: any) => {
+      const orderA = a.itemOrder ?? a.item_order ?? 0;
+      const orderB = b.itemOrder ?? b.item_order ?? 0;
+      return orderA - orderB;
+    });
 
   const activeFilterCount = Object.values(pendingFilters).filter(value => 
     value !== "" && value !== undefined
