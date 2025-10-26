@@ -1008,38 +1008,29 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Filter clients by specific checklist item completion - current status only (most recent completed item)
+    // REQUIRES checklistTemplateId to be set - cannot filter by items without a template
     if (checklistItemIds && checklistItemIds.length > 0) {
-      // If a template is also selected, filter by most recent completed item in that template
-      if (checklistTemplateId) {
-        whereConditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${clientChecklists} cc 
-            JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
-            WHERE cc.client_id = ${clients.id}
-            AND cc.template_id = ${checklistTemplateId}
-            AND cci.is_completed = true
-            AND cci.checklist_item_id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
-            AND cci.completed_at = (
-              SELECT MAX(cci2.completed_at)
-              FROM ${clientChecklistItems} cci2
-              WHERE cci2.client_checklist_id = cc.id
-              AND cci2.is_completed = true
-            )
-          )`
-        );
-      } else {
-        // If no template selected, use old logic (any completed item)
-        whereConditions.push(
-          sql`EXISTS (
-            SELECT 1 FROM ${clientChecklists} cc 
-            JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
-            JOIN ${checklistItems} ci ON ci.id = cci.checklist_item_id
-            WHERE cc.client_id = ${clients.id} 
-            AND ci.id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
-            AND cci.is_completed = true
-          )`
-        );
+      if (!checklistTemplateId) {
+        throw new Error("Checklist template must be selected when filtering by checklist items");
       }
+      
+      // Find the most recent completed item for each client, then check if it's in the selected list
+      whereConditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM ${clientChecklists} cc
+          JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
+          WHERE cc.client_id = ${clients.id}
+          AND cc.template_id = ${checklistTemplateId}
+          AND cci.is_completed = true
+          AND cci.checklist_item_id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
+          AND NOT EXISTS (
+            SELECT 1 FROM ${clientChecklistItems} cci2
+            WHERE cci2.client_checklist_id = cc.id
+            AND cci2.is_completed = true
+            AND cci2.completed_at > cci.completed_at
+          )
+        )`
+      );
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
