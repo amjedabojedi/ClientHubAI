@@ -625,7 +625,8 @@ export class NotificationService {
 
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-      const fromEmail = getEmailFromAddress();
+
+      const fromEmail = 'noreply@send.rcrc.ca';
       
       console.log(`[EMAIL] Processing ${recipients.length} recipients for ${trigger.eventType}`);
 
