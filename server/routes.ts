@@ -8506,6 +8506,16 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.put('/api/checklist-items/:id', async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      const item = await storage.updateChecklistItem(itemId, req.body);
+      res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.delete('/api/checklist-items/:id', async (req, res) => {
     try {
       const itemId = parseInt(req.params.id);
