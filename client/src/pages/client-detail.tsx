@@ -282,6 +282,15 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
     );
   }
 
+  // Find the most recent completed item (current status)
+  const mostRecentCompleted = clientItems
+    .filter(item => item.isCompleted && item.completedAt)
+    .sort((a, b) => {
+      const dateA = new Date(a.completedAt!).getTime();
+      const dateB = new Date(b.completedAt!).getTime();
+      return dateB - dateA; // Most recent first
+    })[0];
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -306,9 +315,13 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
         const templateItem = clientItem.templateItem;
         const isCompleted = clientItem.isCompleted || false;
         const itemId = clientItem.id;
+        const isCurrentStatus = mostRecentCompleted && clientItem.id === mostRecentCompleted.id;
         
         return (
-          <div key={itemId} className="border rounded p-3 bg-slate-50">
+          <div 
+            key={itemId} 
+            className={`border rounded p-3 ${isCurrentStatus ? 'bg-blue-50 border-blue-300' : 'bg-slate-50'}`}
+          >
             <div className="flex items-start space-x-3">
               <Checkbox
                 checked={isCompleted}
@@ -317,15 +330,18 @@ function ChecklistItemsDisplay({ clientChecklistId, templateId }: { clientCheckl
                 }}
               />
               <div className="flex-1">
-                <div>
+                <div className="flex items-center gap-2 flex-wrap">
                   <h6 className="font-medium text-sm">{templateItem?.title || 'Unknown Item'}</h6>
-                  {templateItem?.description && (
-                    <p className="text-xs text-slate-600">{templateItem.description}</p>
-                  )}
                   {templateItem?.isRequired && (
                     <Badge variant="destructive" className="text-xs">Required</Badge>
                   )}
+                  {isCurrentStatus && (
+                    <Badge className="text-xs bg-blue-600">Current Status</Badge>
+                  )}
                 </div>
+                {templateItem?.description && (
+                  <p className="text-xs text-slate-600 mt-1">{templateItem.description}</p>
+                )}
 
                 {clientItem.completedAt && (
                   <p className="text-xs text-green-600 mt-2">
