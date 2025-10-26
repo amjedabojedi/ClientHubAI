@@ -1007,18 +1007,39 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    // Filter clients by specific checklist item completion (OR logic for multiple items)
+    // Filter clients by specific checklist item completion - current status only (most recent completed item)
     if (checklistItemIds && checklistItemIds.length > 0) {
-      whereConditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM ${clientChecklists} cc 
-          JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
-          JOIN ${checklistItems} ci ON ci.id = cci.checklist_item_id
-          WHERE cc.client_id = ${clients.id} 
-          AND ci.id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
-          AND cci.is_completed = true
-        )`
-      );
+      // If a template is also selected, filter by most recent completed item in that template
+      if (checklistTemplateId) {
+        whereConditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${clientChecklists} cc 
+            JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
+            WHERE cc.client_id = ${clients.id}
+            AND cc.template_id = ${checklistTemplateId}
+            AND cci.is_completed = true
+            AND cci.checklist_item_id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
+            AND cci.completed_at = (
+              SELECT MAX(cci2.completed_at)
+              FROM ${clientChecklistItems} cci2
+              WHERE cci2.client_checklist_id = cc.id
+              AND cci2.is_completed = true
+            )
+          )`
+        );
+      } else {
+        // If no template selected, use old logic (any completed item)
+        whereConditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${clientChecklists} cc 
+            JOIN ${clientChecklistItems} cci ON cci.client_checklist_id = cc.id
+            JOIN ${checklistItems} ci ON ci.id = cci.checklist_item_id
+            WHERE cc.client_id = ${clients.id} 
+            AND ci.id IN (${sql.join(checklistItemIds.map(id => sql`${id}`), sql`, `)})
+            AND cci.is_completed = true
+          )`
+        );
+      }
     }
 
     const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
