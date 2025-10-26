@@ -10699,6 +10699,49 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // ===== ADMIN TEST ENDPOINTS =====
+  
+  // Test email endpoint (Admin only)
+  app.post('/api/admin/test-email', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Only allow admins to send test emails
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+
+      const { toEmail } = req.body;
+      if (!toEmail) {
+        return res.status(400).json({ error: 'toEmail is required' });
+      }
+
+      const SparkPost = (await import('sparkpost')).default;
+      const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+      
+      await sp.transmissions.send({
+        content: {
+          from: 'noreply@resiliencecrm.com',
+          subject: 'Test Email from TherapyFlow',
+          html: `
+            <h1>Test Email</h1>
+            <p>This is a test email from TherapyFlow.</p>
+            <p>Sender: noreply@resiliencecrm.com</p>
+            <p>Sent at: ${new Date().toISOString()}</p>
+          `
+        },
+        recipients: [{ address: toEmail }]
+      });
+
+      res.json({ 
+        success: true, 
+        message: `Test email sent to ${toEmail}`,
+        from: 'noreply@resiliencecrm.com'
+      });
+    } catch (error: any) {
+      console.error('Test email error:', error);
+      res.status(500).json({ error: error.message || 'Failed to send test email' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
