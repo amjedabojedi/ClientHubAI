@@ -812,22 +812,35 @@ function ConnectionForm({
   categories: LibraryCategoryWithChildren[];
   onConnectionCreated: () => void;
 }) {
+  const [currentStep, setCurrentStep] = useState(0);
   const [selectedTargetIds, setSelectedTargetIds] = useState<number[]>([]);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<number | null>(null);
+  const [allSelectedConnections, setAllSelectedConnections] = useState<Array<{categoryId: number, targetIds: number[]}>>([]);
   const [connectionStrength, setConnectionStrength] = useState<number>(5);
   const [isLoading, setIsLoading] = useState(false);
 
   const { toast } = useToast();
-
-  // Get available target entries (from different categories than source)
-  const availableTargets = allEntries.filter(entry => 
-    entry.id !== sourceEntry.id && 
-    entry.categoryId !== sourceEntry.categoryId &&
-    (selectedCategoryFilter === null || entry.categoryId === selectedCategoryFilter)
-  );
-
-  // Get all main categories for filter dropdown (excluding source category) - from database
+  
+  // Get available categories (excluding source category) for the wizard steps
   const availableCategories = categories.filter(cat => cat.id !== sourceEntry.categoryId);
+  const currentCategory = availableCategories[currentStep];
+
+  // Get available target entries for current step's category
+  const availableTargets = currentCategory ? allEntries.filter(entry => 
+    entry.id !== sourceEntry.id && 
+    entry.categoryId === currentCategory.id
+  ) : [];
+
+  // Restore selections when returning to a previously visited category
+  useEffect(() => {
+    if (currentCategory) {
+      const savedSelection = allSelectedConnections.find(c => c.categoryId === currentCategory.id);
+      if (savedSelection) {
+        setSelectedTargetIds(savedSelection.targetIds);
+      } else {
+        setSelectedTargetIds([]);
+      }
+    }
+  }, [currentStep, currentCategory]);
 
   // Toggle selection
   const toggleTargetSelection = (targetId: number) => {
@@ -838,36 +851,84 @@ function ConnectionForm({
     );
   };
 
-  // Select all in current filter
+  // Select all in current step
   const selectAll = () => {
     setSelectedTargetIds(availableTargets.map(e => e.id));
   };
 
-  // Clear all selections
+  // Clear all selections in current step
   const clearAll = () => {
     setSelectedTargetIds([]);
   };
 
-  const handleCreateConnections = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedTargetIds.length === 0) return;
+  // Move to next step and save current selections
+  const handleNextStep = () => {
+    if (currentCategory) {
+      if (selectedTargetIds.length > 0) {
+        // Save selections for current category
+        setAllSelectedConnections(prev => [
+          ...prev.filter(c => c.categoryId !== currentCategory.id),
+          { categoryId: currentCategory.id, targetIds: selectedTargetIds }
+        ]);
+      } else {
+        // Remove empty selections for current category
+        setAllSelectedConnections(prev => prev.filter(c => c.categoryId !== currentCategory.id));
+      }
+    }
+    // Move to next step (allow reaching summary at availableCategories.length)
+    setCurrentStep(prev => prev + 1);
+  };
+
+  // Go back to previous step
+  const handlePreviousStep = () => {
+    setCurrentStep(prev => Math.max(0, prev - 1));
+  };
+
+  // Skip current category
+  const handleSkipStep = () => {
+    if (currentCategory) {
+      // Remove any selections for this category when skipping
+      setAllSelectedConnections(prev => prev.filter(c => c.categoryId !== currentCategory.id));
+    }
+    // Move to next step (allow reaching summary)
+    setCurrentStep(prev => prev + 1);
+  };
+
+  // Final submission - create all connections
+  const handleCreateConnections = async () => {
+    // Include current step selections
+    let finalConnections = [...allSelectedConnections];
+    if (currentCategory && selectedTargetIds.length > 0) {
+      finalConnections = [
+        ...finalConnections.filter(c => c.categoryId !== currentCategory.id),
+        { categoryId: currentCategory.id, targetIds: selectedTargetIds }
+      ];
+    }
+
+    const totalConnectionCount = finalConnections.reduce((sum, c) => sum + c.targetIds.length, 0);
+    if (totalConnectionCount === 0) {
+      toast({ title: "No connections selected", variant: "destructive" });
+      return;
+    }
 
     setIsLoading(true);
     try {
       // Create all connections in parallel
-      const connectionPromises = selectedTargetIds.map(targetId => {
-        const connectionData = {
-          fromEntryId: sourceEntry.id,
-          toEntryId: targetId,
-          connectionType: "relates_to",
-          strength: connectionStrength,
-          description: null
-        };
-        
-        return apiRequest("/api/library/connections", "POST", connectionData);
-      });
+      const allConnectionPromises = finalConnections.flatMap(({ targetIds }) =>
+        targetIds.map(targetId => {
+          const connectionData = {
+            fromEntryId: sourceEntry.id,
+            toEntryId: targetId,
+            connectionType: "relates_to",
+            strength: connectionStrength,
+            description: null
+          };
+          
+          return apiRequest("/api/library/connections", "POST", connectionData);
+        })
+      );
 
-      const results = await Promise.allSettled(connectionPromises);
+      const results = await Promise.allSettled(allConnectionPromises);
       
       const failedCount = results.filter(r => r.status === 'rejected').length;
       const successCount = results.filter(r => r.status === 'fulfilled').length;
@@ -878,10 +939,12 @@ function ConnectionForm({
           variant: "destructive" 
         });
       } else {
-        toast({ title: `${selectedTargetIds.length} connections created successfully` });
+        toast({ title: `${totalConnectionCount} connections created successfully` });
       }
       
       setSelectedTargetIds([]);
+      setAllSelectedConnections([]);
+      setCurrentStep(0);
       onConnectionCreated();
     } catch (error) {
       toast({ title: "Failed to create connections", variant: "destructive" });
@@ -902,40 +965,51 @@ function ConnectionForm({
           {sourceEntry.tags && sourceEntry.tags.length > 0 && (
             <div className="flex items-center gap-1">
               <Tag className="w-3 h-3" />
-              {sourceEntry.tags.slice(0, 3).map((tag, idx) => (
+              {sourceEntry.tags.slice(0, 2).map((tag, idx) => (
                 <Badge key={idx} variant="outline" className="text-xs">
                   {tag}
                 </Badge>
               ))}
+              {sourceEntry.tags.length > 2 && (
+                <span className="text-xs text-gray-500">+{sourceEntry.tags.length - 2}</span>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      <form onSubmit={handleCreateConnections} className="space-y-4">
-        {/* Category Filter */}
-        <div>
-          <Label htmlFor="categoryFilter">Filter by Category (optional)</Label>
-          <Select
-            value={selectedCategoryFilter?.toString() || "all"}
-            onValueChange={(value) => {
-              setSelectedCategoryFilter(value === "all" ? null : parseInt(value));
-              setSelectedTargetIds([]); // Reset selection when filter changes
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {availableCategories.map(category => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Progress Indicator */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium text-gray-700 dark:text-gray-300">
+            Step {currentStep + 1} of {availableCategories.length}
+          </span>
+          <span className="text-gray-500">
+            {allSelectedConnections.reduce((sum, c) => sum + c.targetIds.length, 0)} connections selected
+          </span>
         </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div 
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${((currentStep + 1) / availableCategories.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {currentCategory ? (
+        <div className="space-y-4">
+          {/* Current Step Header */}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-blue-900 dark:text-blue-100">
+                {currentCategory.name}
+              </h3>
+              <Badge variant="secondary">Step {currentStep + 1}</Badge>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Select entries from {currentCategory.name} to connect with "{sourceEntry.title}"
+            </p>
+          </div>
 
         {/* Connection Strength Control */}
         <div className="space-y-2">
@@ -999,14 +1073,9 @@ function ConnectionForm({
 
         {/* Target Entry Selection with Checkboxes */}
         <ScrollArea className="h-[300px] border rounded-lg p-4">
-          {availableTargets.length === 0 && selectedCategoryFilter !== null && (
+          {availableTargets.length === 0 && (
             <p className="text-sm text-gray-500 text-center py-8">
-              No entries in this category available for connection.
-            </p>
-          )}
-          {availableTargets.length === 0 && selectedCategoryFilter === null && (
-            <p className="text-sm text-gray-500 text-center py-8">
-              No entries from different categories available for connection.
+              No entries available in {currentCategory.name} for connection.
             </p>
           )}
           
@@ -1038,11 +1107,14 @@ function ConnectionForm({
                   {entry.tags && entry.tags.length > 0 && (
                     <div className="flex items-center gap-1 mt-1">
                       <Tag className="w-3 h-3" />
-                      {entry.tags.slice(0, 3).map((tag, idx) => (
+                      {entry.tags.slice(0, 2).map((tag, idx) => (
                         <Badge key={idx} variant="outline" className="text-xs">
                           {tag}
                         </Badge>
                       ))}
+                      {entry.tags.length > 2 && (
+                        <span className="text-xs text-gray-500">+{entry.tags.length - 2}</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1051,30 +1123,102 @@ function ConnectionForm({
           </div>
         </ScrollArea>
 
-        <div className="flex justify-end gap-2">
-          <Button 
-            type="submit" 
-            disabled={isLoading || selectedTargetIds.length === 0}
-            data-testid="button-create-connections"
-          >
-            {isLoading 
-              ? "Creating Connections..." 
-              : `Create ${selectedTargetIds.length} Connection${selectedTargetIds.length !== 1 ? 's' : ''}`
-            }
-          </Button>
+          {/* Navigation Buttons */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePreviousStep}
+              disabled={currentStep === 0}
+            >
+              ← Previous
+            </Button>
+            
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleSkipStep}
+                disabled={currentStep >= availableCategories.length - 1}
+              >
+                Skip
+              </Button>
+              
+              {currentStep < availableCategories.length - 1 ? (
+                <Button
+                  type="button"
+                  onClick={handleNextStep}
+                  variant={selectedTargetIds.length > 0 ? "default" : "outline"}
+                >
+                  Next →
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={handleCreateConnections}
+                  disabled={isLoading || (allSelectedConnections.length === 0 && selectedTargetIds.length === 0)}
+                  data-testid="button-create-connections"
+                >
+                  {isLoading 
+                    ? "Creating..." 
+                    : `Finish & Create Connections`
+                  }
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-      </form>
+      ) : (
+        <div className="space-y-4">
+          {/* Summary Screen */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 p-6 rounded-lg border-2 border-green-200 dark:border-green-800">
+            <h3 className="font-semibold text-green-900 dark:text-green-100 mb-4 text-center">
+              ✓ Review Your Connections
+            </h3>
+            {allSelectedConnections.length === 0 ? (
+              <p className="text-center text-gray-600 dark:text-gray-400">
+                No connections selected. Use the Previous button to go back and make selections.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {allSelectedConnections.map(({ categoryId, targetIds }) => {
+                  const category = categories.find(c => c.id === categoryId);
+                  return (
+                    <div key={categoryId} className="bg-white dark:bg-gray-800 p-3 rounded border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{category?.name}</Badge>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            {targetIds.length} {targetIds.length === 1 ? 'entry' : 'entries'} selected
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-      {/* Example of how this helps */}
-      {selectedTargetIds.length > 0 && (
-        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-          <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
-            How this helps in session notes:
-          </h4>
-          <p className="text-sm text-green-800 dark:text-green-200">
-            When you select "{sourceEntry.title}" in session notes, the system will automatically 
-            suggest these {selectedTargetIds.length} related option{selectedTargetIds.length !== 1 ? 's' : ''}.
-          </p>
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePreviousStep}
+            >
+              ← Previous
+            </Button>
+            <Button
+              onClick={handleCreateConnections}
+              disabled={isLoading || allSelectedConnections.length === 0}
+            >
+              {isLoading 
+                ? "Creating Connections..." 
+                : `Create ${allSelectedConnections.reduce((sum, c) => sum + c.targetIds.length, 0)} Connections`
+              }
+            </Button>
+          </div>
         </div>
       )}
     </div>
