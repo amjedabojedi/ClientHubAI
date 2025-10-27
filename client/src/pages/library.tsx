@@ -204,6 +204,18 @@ export default function LibraryPage() {
     },
   });
 
+  const deleteAllConnectionsMutation = useMutation({
+    mutationFn: (entryId: number) => apiRequest(`/api/library/entries/${entryId}/connections`, "DELETE"),
+    onSuccess: () => {
+      setConnectedEntriesMap({});
+      queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
+      toast({ title: "All connections removed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to remove connections", variant: "destructive" });
+    },
+  });
+
   // Helper function
   const getAllCategories = (cats: LibraryCategoryWithChildren[], level = 0): Array<LibraryCategoryWithChildren & { level: number }> => {
     let result: Array<LibraryCategoryWithChildren & { level: number }> = [];
@@ -311,17 +323,8 @@ export default function LibraryPage() {
                   ) : (
                     <div className="space-y-4">
                       {displayedEntries.map((entry) => {
-                        // Get database connections (preferred) or fallback to tag-based
+                        // Only show database connections (no tag-based fallback)
                         const databaseConnections = connectedEntriesMap[entry.id] || [];
-                        const tagRelatedEntries = databaseConnections.length === 0 
-                          ? displayedEntries.filter(e => 
-                              e.id !== entry.id && 
-                              e.tags && entry.tags && 
-                              e.tags.some(tag => entry.tags?.includes(tag))
-                            ).slice(0, 3)
-                          : [];
-                        
-                        const relatedEntries = databaseConnections.length > 0 ? databaseConnections : tagRelatedEntries;
 
                         return (
                           <Card key={entry.id} data-entry-id={entry.id} className="border-l-4 border-l-blue-500">
@@ -357,15 +360,30 @@ export default function LibraryPage() {
                                     </div>
                                   </div>
                                   
-                                  {/* Related Entries Section */}
-                                  {relatedEntries.length > 0 && (
+                                  {/* Connections Section */}
+                                  {databaseConnections.length > 0 && (
                                     <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1 flex-wrap">
-                                        <Link2 className="w-3 h-3" />
-                                        <span className="font-medium">
-                                          {databaseConnections.length > 0 ? 'Database Connections:' : 'Tag-Based Connections:'}
-                                        </span>
-                                        {relatedEntries.map((related, idx) => (
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                          <Link2 className="w-3 h-3" />
+                                          <span className="font-medium">
+                                            Connections ({databaseConnections.length})
+                                          </span>
+                                        </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            deleteAllConnectionsMutation.mutate(entry.id);
+                                          }}
+                                          className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:underline"
+                                          title="Remove all connections"
+                                          data-testid={`button-remove-all-connections-${entry.id}`}
+                                        >
+                                          Delete All
+                                        </button>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                                        {databaseConnections.map((related, idx) => (
                                           <span key={`${entry.id}-${related.id}-${idx}`} className="inline-flex items-center gap-1">
                                             <span 
                                               className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded"
@@ -373,11 +391,11 @@ export default function LibraryPage() {
                                                 const element = document.querySelector(`[data-entry-id="${related.id}"]`);
                                                 element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                               }}
-                                              title={databaseConnections.length > 0 ? 'Connected entry' : 'Related by tags'}
+                                              title="Click to scroll to entry"
                                             >
                                               {related.title}
                                             </span>
-                                            {databaseConnections.length > 0 && (related as any).connectionId && (
+                                            {(related as any).connectionId && (
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
@@ -390,7 +408,7 @@ export default function LibraryPage() {
                                                 <X className="w-3 h-3" />
                                               </button>
                                             )}
-                                            {idx < relatedEntries.length - 1 && <span>,</span>}
+                                            {idx < databaseConnections.length - 1 && <span>,</span>}
                                           </span>
                                         ))}
                                       </div>
