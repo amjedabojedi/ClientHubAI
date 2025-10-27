@@ -390,6 +390,7 @@ export interface IStorage {
   createLibraryEntryConnection(connection: InsertLibraryEntryConnection): Promise<LibraryEntryConnection>;
   updateLibraryEntryConnection(id: number, connection: Partial<InsertLibraryEntryConnection>): Promise<LibraryEntryConnection>;
   deleteLibraryEntryConnection(id: number): Promise<void>;
+  deleteAllLibraryEntryConnections(entryId: number): Promise<void>;
   getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; connectionId: number; category: LibraryCategory })[]>;
 
   // Assessment Templates Management
@@ -3336,6 +3337,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLibraryEntryConnection(id: number): Promise<void> {
     await db.delete(libraryEntryConnections).where(eq(libraryEntryConnections.id, id));
+  }
+
+  async deleteAllLibraryEntryConnections(entryId: number): Promise<void> {
+    await db.delete(libraryEntryConnections).where(
+      or(
+        eq(libraryEntryConnections.fromEntryId, entryId),
+        eq(libraryEntryConnections.toEntryId, entryId)
+      )
+    );
   }
 
   async getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; connectionId: number; category: LibraryCategory })[]> {

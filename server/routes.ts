@@ -5550,6 +5550,17 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  app.delete("/api/library/entries/:entryId/connections", async (req, res) => {
+    try {
+      const entryId = parseInt(req.params.entryId);
+      await storage.deleteAllLibraryEntryConnections(entryId);
+      res.status(204).send();
+    } catch (error) {
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Assessment Template Routes
   app.get("/api/assessments/templates", async (req, res) => {
     try {
