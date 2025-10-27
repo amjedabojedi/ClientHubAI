@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2 } from "lucide-react";
+import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -192,6 +192,18 @@ export default function LibraryPage() {
     },
   });
 
+  const deleteConnectionMutation = useMutation({
+    mutationFn: (connectionId: number) => apiRequest(`/api/library/connections/${connectionId}`, "DELETE"),
+    onSuccess: () => {
+      setConnectedEntriesMap({});
+      queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
+      toast({ title: "Connection removed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to remove connection", variant: "destructive" });
+    },
+  });
+
   // Helper function
   const getAllCategories = (cats: LibraryCategoryWithChildren[], level = 0): Array<LibraryCategoryWithChildren & { level: number }> => {
     let result: Array<LibraryCategoryWithChildren & { level: number }> = [];
@@ -348,13 +360,13 @@ export default function LibraryPage() {
                                   {/* Related Entries Section */}
                                   {relatedEntries.length > 0 && (
                                     <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1 flex-wrap">
                                         <Link2 className="w-3 h-3" />
                                         <span className="font-medium">
                                           {databaseConnections.length > 0 ? 'Database Connections:' : 'Tag-Based Connections:'}
                                         </span>
                                         {relatedEntries.map((related, idx) => (
-                                          <span key={`${entry.id}-${related.id}-${idx}`} className="text-xs">
+                                          <span key={`${entry.id}-${related.id}-${idx}`} className="inline-flex items-center gap-1">
                                             <span 
                                               className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded"
                                               onClick={() => {
@@ -365,7 +377,20 @@ export default function LibraryPage() {
                                             >
                                               {related.title}
                                             </span>
-                                            {idx < relatedEntries.length - 1 && ", "}
+                                            {databaseConnections.length > 0 && (related as any).connectionId && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  deleteConnectionMutation.mutate((related as any).connectionId);
+                                                }}
+                                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                title="Remove connection"
+                                                data-testid={`button-remove-connection-${(related as any).connectionId}`}
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                            {idx < relatedEntries.length - 1 && <span>,</span>}
                                           </span>
                                         ))}
                                       </div>

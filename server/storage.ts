@@ -390,7 +390,7 @@ export interface IStorage {
   createLibraryEntryConnection(connection: InsertLibraryEntryConnection): Promise<LibraryEntryConnection>;
   updateLibraryEntryConnection(id: number, connection: Partial<InsertLibraryEntryConnection>): Promise<LibraryEntryConnection>;
   deleteLibraryEntryConnection(id: number): Promise<void>;
-  getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; category: LibraryCategory })[]>;
+  getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; connectionId: number; category: LibraryCategory })[]>;
 
   // Assessment Templates Management
   getAssessmentTemplates(): Promise<(AssessmentTemplate & { createdBy: User | null; sectionsCount: number })[]>;
@@ -3338,11 +3338,12 @@ export class DatabaseStorage implements IStorage {
     await db.delete(libraryEntryConnections).where(eq(libraryEntryConnections.id, id));
   }
 
-  async getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; category: LibraryCategory })[]> {
+  async getConnectedEntries(entryId: number): Promise<(LibraryEntry & { connectionType: string; connectionStrength: number; connectionId: number; category: LibraryCategory })[]> {
     const results = await db
       .select({
         entry: libraryEntries,
         category: libraryCategories,
+        connectionId: libraryEntryConnections.id,
         connectionType: libraryEntryConnections.connectionType,
         connectionStrength: libraryEntryConnections.strength
       })
@@ -3362,6 +3363,7 @@ export class DatabaseStorage implements IStorage {
     return results.map(result => ({ 
       ...result.entry!, 
       category: result.category!,
+      connectionId: result.connectionId!,
       connectionType: result.connectionType!,
       connectionStrength: result.connectionStrength! 
     }));
