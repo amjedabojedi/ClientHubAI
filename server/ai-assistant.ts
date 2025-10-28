@@ -123,7 +123,7 @@ export async function getAIResponse(
 }
 
 export async function getQuickSuggestions(currentPage: string, userRole: "therapist" | "client"): Promise<string[]> {
-  const suggestions: Record<string, string[]> = {
+  const suggestions: Record<string, Record<string, string[]>> = {
     therapist: {
       clients: [
         "How do I add a new client?",
