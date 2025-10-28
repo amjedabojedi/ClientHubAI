@@ -55,7 +55,6 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
       return response.json();
     },
     onSuccess: (data: any) => {
-      console.log("AI Assistant Response:", data);
       setConversation(prev => [
         ...prev,
         {
@@ -65,9 +64,6 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
         }
       ]);
       setShowSuggestions(false);
-    },
-    onError: (error: any) => {
-      console.error("AI Assistant Error:", error);
     },
   });
 
