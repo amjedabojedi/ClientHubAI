@@ -33,6 +33,17 @@ export default function HelpCenter() {
 
   const { data: guides = [], isLoading } = useQuery<HelpGuide[]>({
     queryKey: ["/api/help-guides", selectedCategory],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCategory !== 'all') {
+        params.append('category', selectedCategory);
+      }
+      params.append('active', 'true');
+      const url = `/api/help-guides${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch guides');
+      return response.json();
+    },
     enabled: !selectedSlug && !searchQuery
   });
 
