@@ -80,8 +80,16 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setMessage(suggestion);
-    handleSend();
+    if (!suggestion.trim() || chatMutation.isPending) return;
+
+    const userMessage: Message = {
+      role: "user",
+      content: suggestion,
+      timestamp: new Date().toISOString()
+    };
+
+    setConversation(prev => [...prev, userMessage]);
+    chatMutation.mutate(suggestion);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -211,7 +219,7 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
                     Quick questions:
                   </p>
                   <div className="space-y-2">
-                    {suggestions.map((suggestion, idx) => (
+                    {suggestions.map((suggestion: string, idx: number) => (
                       <button
                         key={idx}
                         onClick={() => handleSuggestionClick(suggestion)}
