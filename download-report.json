@@ -1,0 +1,309 @@
+{
+  "summary": {
+    "total": 16,
+    "successful": 15,
+    "failed": 1,
+    "totalSize": 1307680,
+    "successRate": "93.75%"
+  },
+  "details": [
+    {
+      "document": {
+        "id": 9,
+        "clientId": 3420,
+        "uploadedById": 6,
+        "fileName": "test-upload.txt",
+        "originalName": "test-upload.txt",
+        "fileSize": 50,
+        "mimeType": "text/plain",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-08-18T11:05:04.889Z"
+      },
+      "success": false,
+      "error": {
+        "message": "No such object: replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8/documents/9-test-upload.txt",
+        "statusCode": 404
+      }
+    },
+    {
+      "document": {
+        "id": 17,
+        "clientId": 3645,
+        "uploadedById": 6,
+        "fileName": "Alains Initial Assessment  (1) (1)",
+        "originalName": "Alains Initial Assessment  (1) (1).docx",
+        "fileSize": 226649,
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-08-29T22:34:06.538Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/17-Alains_Initial_Assessment___1___1_.docx",
+      "size": 226649
+    },
+    {
+      "document": {
+        "id": 20,
+        "clientId": 2410,
+        "uploadedById": 6,
+        "fileName": "test-report.pdf",
+        "originalName": "test-report.pdf",
+        "fileSize": 1024,
+        "mimeType": "application/pdf",
+        "category": "Medical Report",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T02:13:20.466Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/20-test-report.pdf",
+      "size": 35
+    },
+    {
+      "document": {
+        "id": 21,
+        "clientId": 2410,
+        "uploadedById": 6,
+        "fileName": "test-notification.pdf",
+        "originalName": "test-notification.pdf",
+        "fileSize": 512,
+        "mimeType": "application/pdf",
+        "category": "Assessment",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T02:15:01.150Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/21-test-notification.pdf",
+      "size": 33
+    },
+    {
+      "document": {
+        "id": 22,
+        "clientId": 2410,
+        "uploadedById": 6,
+        "fileName": "final-test.pdf",
+        "originalName": "final-test.pdf",
+        "fileSize": 768,
+        "mimeType": "application/pdf",
+        "category": "Progress Report",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T02:16:24.775Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/22-final-test.pdf",
+      "size": 38
+    },
+    {
+      "document": {
+        "id": 23,
+        "clientId": 3671,
+        "uploadedById": 6,
+        "fileName": "referral",
+        "originalName": "referral.jpg",
+        "fileSize": 129292,
+        "mimeType": "image/jpeg",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T02:21:23.224Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/23-referral.jpg",
+      "size": 129292
+    },
+    {
+      "document": {
+        "id": 24,
+        "clientId": 3671,
+        "uploadedById": 6,
+        "fileName": "referral",
+        "originalName": "referral.jpg",
+        "fileSize": 129292,
+        "mimeType": "image/jpeg",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T02:23:59.647Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/24-referral.jpg",
+      "size": 129292
+    },
+    {
+      "document": {
+        "id": 27,
+        "clientId": 3671,
+        "uploadedById": 6,
+        "fileName": "ID1",
+        "originalName": "ID1.jpg",
+        "fileSize": 80540,
+        "mimeType": "image/jpeg",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T03:17:12.739Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/27-ID1.jpg",
+      "size": 80540
+    },
+    {
+      "document": {
+        "id": 29,
+        "clientId": 3645,
+        "uploadedById": 6,
+        "fileName": "Maries initial assessment report  updated",
+        "originalName": "Maries initial assessment report  updated.pdf",
+        "fileSize": 290867,
+        "mimeType": "application/pdf",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-09-13T12:21:15.542Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/29-Maries_initial_assessment_report__updated.pdf",
+      "size": 290867
+    },
+    {
+      "document": {
+        "id": 30,
+        "clientId": 3673,
+        "uploadedById": 28,
+        "fileName": "invoice-CL-2025-1264-3128-2025-10-08",
+        "originalName": "invoice-CL-2025-1264-3128-2025-10-08.pdf",
+        "fileSize": 38353,
+        "mimeType": "application/pdf",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-10-08T04:19:53.440Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/30-invoice-CL-2025-1264-3128-2025-10-08.pdf",
+      "size": 38353
+    },
+    {
+      "document": {
+        "id": 35,
+        "clientId": 3671,
+        "uploadedById": null,
+        "fileName": "1760919575330-cbt.pdf",
+        "originalName": "cbt.pdf",
+        "fileSize": 12739584,
+        "mimeType": "application/pdf",
+        "category": "insurance",
+        "isSharedInPortal": true,
+        "downloadCount": 0,
+        "createdAt": "2025-10-20T00:19:38.379Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/35-cbt.pdf",
+      "size": 3585
+    },
+    {
+      "document": {
+        "id": 28,
+        "clientId": 3671,
+        "uploadedById": 6,
+        "fileName": "Updated consent",
+        "originalName": "Updated consent.pdf",
+        "fileSize": 226647,
+        "mimeType": "application/pdf",
+        "category": "uploaded",
+        "isSharedInPortal": true,
+        "downloadCount": 0,
+        "createdAt": "2025-09-11T20:16:44.259Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/28-Updated_consent.pdf",
+      "size": 226647
+    },
+    {
+      "document": {
+        "id": 36,
+        "clientId": 3671,
+        "uploadedById": 23,
+        "fileName": "letter",
+        "originalName": "letter.docx",
+        "fileSize": 15071,
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "category": "uploaded",
+        "isSharedInPortal": false,
+        "downloadCount": 0,
+        "createdAt": "2025-10-20T01:02:26.083Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/36-letter.docx",
+      "size": 27
+    },
+    {
+      "document": {
+        "id": 37,
+        "clientId": 3671,
+        "uploadedById": null,
+        "fileName": "1760923340789-Amjed Abojed bio.docx",
+        "originalName": "Amjed Abojed bio.docx",
+        "fileSize": 14081,
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "category": "insurance",
+        "isSharedInPortal": true,
+        "downloadCount": 0,
+        "createdAt": "2025-10-20T01:22:19.614Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/37-Amjed_Abojed_bio.docx",
+      "size": 14081
+    },
+    {
+      "document": {
+        "id": 38,
+        "clientId": 3671,
+        "uploadedById": null,
+        "fileName": "1760923356786-وقت اللعب على الأرض في بيئات التعليم والتدخل.docx",
+        "originalName": "وقت اللعب على الأرض في بيئات التعليم والتدخل.docx",
+        "fileSize": 93575,
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "category": "insurance",
+        "isSharedInPortal": true,
+        "downloadCount": 0,
+        "createdAt": "2025-10-20T01:22:35.653Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/38-____________________________________________.docx",
+      "size": 93575
+    },
+    {
+      "document": {
+        "id": 39,
+        "clientId": 3671,
+        "uploadedById": null,
+        "fileName": "1760923744199-Jul.pdf",
+        "originalName": "Jul.pdf",
+        "fileSize": 74666,
+        "mimeType": "application/pdf",
+        "category": "insurance",
+        "isSharedInPortal": true,
+        "downloadCount": 0,
+        "createdAt": "2025-10-20T01:29:03.102Z"
+      },
+      "success": true,
+      "localPath": "downloaded-documents/39-Jul.pdf",
+      "size": 74666
+    }
+  ],
+  "instructions": {
+    "nextSteps": [
+      "1. Download the downloaded-documents folder from Replit",
+      "2. Copy the files to your local project",
+      "3. Implement a new storage system (local file system recommended)",
+      "4. Update the application to use the new storage system"
+    ]
+  }
+}

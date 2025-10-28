@@ -251,7 +251,7 @@ export class NotificationService {
         .from(scheduledNotifications)
         .where(and(
           eq(scheduledNotifications.status, 'pending'),
-          sql`${scheduledNotifications.executeAt} <= ${now}`
+          sql`${scheduledNotifications.executeAt} <= ${now.toISOString()}`
         ))
         .limit(100); // Process in batches
 

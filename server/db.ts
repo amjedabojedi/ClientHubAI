@@ -1,10 +1,7 @@
 import 'dotenv/config';
-import { neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -12,5 +9,8 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Pool connection managed by neon-serverless driver internally
-export const db = drizzle(process.env.DATABASE_URL!, { schema });
+// Create postgres connection
+const sql = postgres(process.env.DATABASE_URL!);
+
+// Create drizzle instance with postgres driver
+export const db = drizzle(sql, { schema });
