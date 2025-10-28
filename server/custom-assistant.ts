@@ -47,7 +47,7 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   
   // Session Notes
   {
-    question: ["add session note", "write note", "document session", "create note"],
+    question: ["add session note", "write note", "document session", "create note", "session note", "write session note", "create session note"],
     answer: "1. Click **Clients** → Click the client's name\n2. In their profile, click the **Sessions** tab\n3. Click **+ Add Session Note**\n4. Fill in: Session Date, Time, Duration, Session Type, clinical details\n5. Click **Save Session Note**",
     category: "notes"
   },
@@ -149,16 +149,69 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
 
 /**
  * Find the best matching answer for a user's question
+ * Uses token-based matching with Jaccard similarity for accuracy
  */
 export function findAnswer(userQuestion: string): string {
-  const normalizedQuestion = userQuestion.toLowerCase().trim();
+  const normalizedQuestion = userQuestion.toLowerCase().trim().replace(/[?!.,]/g, '');
   
-  // Find exact or partial matches
-  const matches = NAVIGATION_GUIDES.filter(guide => 
-    guide.question.some(keyword => normalizedQuestion.includes(keyword))
-  );
+  // Tokenize the question (split into words, remove common filler words)
+  const fillerWords = ['how', 'do', 'i', 'can', 'where', 'what', 'is', 'the', 'a', 'an', 'to', 'for', 'my', 'me', 'you', 'your'];
+  const questionTokens = normalizedQuestion
+    .split(/\s+/)
+    .filter(word => word.length > 1 && !fillerWords.includes(word));
   
-  if (matches.length === 0) {
+  // Score each guide based on keyword overlap using Jaccard similarity
+  const scoredGuides = NAVIGATION_GUIDES.map(guide => {
+    let bestScore = 0;
+    let bestMatchLength = 0;
+    
+    // Try each keyword pattern
+    for (const keyword of guide.question) {
+      const keywordTokens = keyword.split(/\s+/).filter(t => t.length > 1);
+      
+      // Count exact whole-token matches (no substring matching)
+      const matchedKeywords = keywordTokens.filter(kt => 
+        questionTokens.some(qt => qt === kt)
+      ).length;
+      
+      const matchedQuestion = questionTokens.filter(qt =>
+        keywordTokens.some(kt => qt === kt)
+      ).length;
+      
+      // Completeness: All keyword tokens must be in question
+      const completeness = keywordTokens.length > 0 ? matchedKeywords / keywordTokens.length : 0;
+      
+      // Coverage: How much of the question is explained by the keyword?
+      // Penalty for extra unmatched question tokens
+      const coverage = questionTokens.length > 0 ? matchedQuestion / questionTokens.length : 0;
+      
+      // Specificity: Prefer longer, more specific patterns
+      const specificity = keywordTokens.length;
+      
+      // Final score heavily weights bidirectional match quality
+      // - Must match all keyword tokens (completeness)
+      // - Should match most question tokens (coverage) 
+      // - Longer patterns break ties
+      const score = (completeness * 0.5) + (coverage * 0.4) + (Math.min(specificity / 5, 1) * 0.1);
+      
+      if (score > bestScore || (score === bestScore && specificity > bestMatchLength)) {
+        bestScore = score;
+        bestMatchLength = specificity;
+      }
+    }
+    
+    return { guide, score: bestScore, matchLength: bestMatchLength };
+  }).filter(item => item.score > 0.3); // Require at least 30% match
+  
+  // Sort by score (highest first), then by match length (longer/more specific first)
+  scoredGuides.sort((a, b) => {
+    if (Math.abs(b.score - a.score) < 0.01) {
+      return b.matchLength - a.matchLength;
+    }
+    return b.score - a.score;
+  });
+  
+  if (scoredGuides.length === 0) {
     return "I'm not sure how to help with that specific question. Could you try asking:\n\n" +
       "- How do I add a client?\n" +
       "- How do I schedule an appointment?\n" +
@@ -168,8 +221,8 @@ export function findAnswer(userQuestion: string): string {
       "Or ask about navigating to a specific section of TherapyFlow.";
   }
   
-  // Return the first (best) match
-  return matches[0].answer;
+  // Return the highest scoring match
+  return scoredGuides[0].guide.answer;
 }
 
 /**
