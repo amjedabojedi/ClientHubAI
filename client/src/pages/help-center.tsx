@@ -19,6 +19,7 @@ const CATEGORIES = [
   { value: "billing", label: "Billing" },
   { value: "tasks", label: "Tasks" },
   { value: "notes", label: "Session Notes" },
+  { value: "assessments", label: "Assessments" },
   { value: "profile", label: "My Profile" },
   { value: "portal", label: "Client Portal" }
 ];
@@ -79,8 +80,8 @@ export default function HelpCenter() {
     }
   });
 
-  // Filter out admin-only categories (assessments, library, admin)
-  const EXCLUDED_CATEGORIES = ['assessments', 'library', 'admin'];
+  // Filter out admin-only categories (library, admin only - NOT assessments because therapists use them)
+  const EXCLUDED_CATEGORIES = ['library', 'admin'];
   
   const displayGuides = searchQuery ? searchResults : guides;
   const filteredGuides = selectedCategory === 'all' 
