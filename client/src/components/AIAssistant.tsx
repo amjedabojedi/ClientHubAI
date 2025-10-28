@@ -41,14 +41,8 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
   // Chat mutation
   const chatMutation = useMutation({
     mutationFn: async (userMessage: string) => {
-      const conversationHistory = conversation.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-      
       const response = await apiRequest("/api/ai-assistant/chat", "POST", {
         message: userMessage,
-        conversationHistory,
         currentPage
       });
       
@@ -165,7 +159,7 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
               </div>
             </div>
             <p className="text-xs text-blue-100 mt-1">
-              Ask me anything about using TherapyFlow
+              Navigation help and guidance for TherapyFlow
             </p>
           </CardHeader>
 
