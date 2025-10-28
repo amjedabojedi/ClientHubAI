@@ -46,11 +46,13 @@ export default function AIAssistant({ currentPage = "dashboard" }: AIAssistantPr
         content: msg.content
       }));
       
-      return apiRequest("/api/ai-assistant/chat", "POST", {
+      const response = await apiRequest("/api/ai-assistant/chat", "POST", {
         message: userMessage,
         conversationHistory,
         currentPage
       });
+      
+      return response.json();
     },
     onSuccess: (data: any) => {
       console.log("AI Assistant Response:", data);
