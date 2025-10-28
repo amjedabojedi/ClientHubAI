@@ -41,6 +41,7 @@ import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
+import HelpCenter from "@/pages/help-center";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
@@ -342,6 +343,7 @@ function Router() {
           }} />
           <Route path="/my-profile" component={MyProfilePage} />
           <Route path="/hipaa-audit" component={HIPAAAuditPage} />
+          <Route path="/help/:slug?" component={HelpCenter} />
           <Route component={NotFound} />
         </Switch>
       </main>
