@@ -121,79 +121,88 @@ export default function HelpCenter() {
     }
 
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
         <div className="max-w-4xl mx-auto">
           <Button 
             variant="ghost" 
             onClick={() => window.location.href = '/help'}
-            className="mb-6"
+            className="mb-4 hover:bg-gray-100 dark:hover:bg-gray-800"
             data-testid="button-back-help"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Help Center
           </Button>
 
-          <Card data-testid="card-guide-detail" className="shadow-md">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b">
-              <div className="flex items-start justify-between">
+          <Card data-testid="card-guide-detail" className="shadow-sm border-gray-200 dark:border-gray-700">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                      {CATEGORIES.find(c => c.value === selectedGuide.category)?.label}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-2xl mb-3 text-slate-900 dark:text-white">{selectedGuide.title}</CardTitle>
-                  <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-                    <span className="flex items-center gap-1">
+                  <Badge 
+                    variant="secondary" 
+                    className="mb-3 bg-primary/10 text-primary border-primary/20 font-medium"
+                  >
+                    {CATEGORIES.find(c => c.value === selectedGuide.category)?.label}
+                  </Badge>
+                  <CardTitle className="text-2xl md:text-3xl mb-3 text-gray-900 dark:text-white font-bold leading-tight">
+                    {selectedGuide.title}
+                  </CardTitle>
+                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                    <span className="flex items-center gap-1.5">
                       <Eye className="h-4 w-4" />
-                      {selectedGuide.viewCount} views
+                      <span className="font-medium">{selectedGuide.viewCount}</span> views
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1.5">
                       <ThumbsUp className="h-4 w-4" />
-                      {selectedGuide.helpfulCount} helpful
+                      <span className="font-medium">{selectedGuide.helpfulCount}</span> helpful
                     </span>
                   </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="prose dark:prose-invert max-w-none">
-                <div className="text-slate-700 dark:text-slate-300 space-y-3">
+            <CardContent className="pt-8 pb-8">
+              <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none">
+                <div className="text-gray-700 dark:text-gray-300 space-y-4">
                   {selectedGuide.content.split('\n').map((line, idx) => (
                     <div key={idx} className="leading-relaxed">
-                      {line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ') ? (
-                        <div className="flex gap-3 mb-2">
-                          <span className="font-semibold text-primary flex-shrink-0">{line.substring(0, 2)}</span>
-                          <span dangerouslySetInnerHTML={{ __html: line.substring(3).replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 dark:text-white">$1</strong>') }} />
+                      {line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ') || line.startsWith('6. ') || line.startsWith('7. ') || line.startsWith('8. ') || line.startsWith('9. ') ? (
+                        <div className="flex gap-3 mb-3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <span className="font-bold text-primary flex-shrink-0 text-base">{line.substring(0, 2)}</span>
+                          <span className="flex-1" dangerouslySetInnerHTML={{ __html: line.substring(3).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-semibold">$1</strong>') }} />
                         </div>
                       ) : line.includes('**') ? (
-                        <p dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 dark:text-white">$1</strong>') }} />
+                        <p className="mb-3" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-semibold">$1</strong>') }} />
                       ) : line.trim() ? (
-                        <p>{line}</p>
+                        <p className="mb-3">{line}</p>
                       ) : null}
                     </div>
                   ))}
                 </div>
               </div>
 
-              <Separator className="my-6" />
+              <Separator className="my-8" />
 
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex flex-wrap gap-2">
                   {selectedGuide.tags.slice(0, 4).map((tag, idx) => (
-                    <Badge key={idx} variant="outline" className="text-slate-600">{tag}</Badge>
+                    <Badge 
+                      key={idx} 
+                      variant="outline" 
+                      className="text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600"
+                    >
+                      {tag}
+                    </Badge>
                   ))}
                 </div>
                 <Button
                   variant="default"
-                  size="sm"
+                  size="default"
                   onClick={() => markHelpfulMutation.mutate(selectedGuide.id)}
                   disabled={markHelpfulMutation.isPending}
-                  className="bg-primary hover:bg-primary/90"
+                  className="bg-primary hover:bg-primary/90 shadow-sm"
                   data-testid="button-mark-helpful"
                 >
                   <ThumbsUp className="h-4 w-4 mr-2" />
-                  Mark as Helpful
+                  {markHelpfulMutation.isPending ? "Marking..." : "Mark as Helpful"}
                 </Button>
               </div>
             </CardContent>
@@ -205,42 +214,48 @@ export default function HelpCenter() {
 
   // Guide list view
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <BookOpen className="h-8 w-8 text-primary" />
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-primary/10 p-2.5 rounded-lg">
+              <BookOpen className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Help Center</h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">
-                Step-by-step guides for TherapyFlow features
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Help Center</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                Step-by-step guides for TherapyFlow
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search guides..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-guides"
-            />
-          </div>
-        </div>
+        {/* Search */}
+        <Card className="mb-6 border-gray-200 dark:border-gray-700">
+          <CardContent className="pt-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search help guides..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 border-gray-300 dark:border-gray-600 focus:ring-primary focus:border-primary"
+                data-testid="input-search-guides"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-6">
-          <TabsList className="flex-wrap h-auto">
+          <TabsList className="flex-wrap h-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
             {CATEGORIES.map((cat) => (
               <TabsTrigger 
                 key={cat.value} 
                 value={cat.value}
+                className="data-[state=active]:bg-primary data-[state=active]:text-white text-sm"
                 data-testid={`tab-${cat.value}`}
               >
                 {cat.label}
@@ -249,21 +264,27 @@ export default function HelpCenter() {
           </TabsList>
         </Tabs>
 
+        {/* Guide Cards */}
         {(isLoading || isSearching) ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
+              <Card key={i} className="animate-pulse border-gray-200 dark:border-gray-700">
+                <CardHeader className="pb-3">
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
                   <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
                 </CardHeader>
+                <CardContent>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6" />
+                </CardContent>
               </Card>
             ))}
           </div>
         ) : filteredGuides.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500 dark:text-gray-400">
+          <Card className="border-gray-200 dark:border-gray-700">
+            <CardContent className="py-16 text-center">
+              <BookOpen className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">
                 {searchQuery 
                   ? `No guides found for "${searchQuery}"` 
                   : "No guides available in this category"}
@@ -271,35 +292,42 @@ export default function HelpCenter() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredGuides.map((guide) => (
               <Card 
                 key={guide.id} 
-                className="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer group"
+                className="hover:shadow-lg hover:border-primary/40 transition-all duration-200 cursor-pointer group border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
                 onClick={() => window.location.href = `/help/${guide.slug}`}
                 data-testid={`card-guide-${guide.slug}`}
               >
-                <CardHeader>
-                  <CardTitle className="text-lg line-clamp-2 group-hover:text-primary transition-colors">{guide.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-3 mt-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <Badge 
+                      variant="secondary" 
+                      className="text-xs font-medium bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                    >
                       {CATEGORIES.find(c => c.value === guide.category)?.label}
                     </Badge>
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <Eye className="h-3 w-3" />
-                      {guide.viewCount}
-                    </span>
-                    {guide.helpfulCount > 0 && (
-                      <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <ThumbsUp className="h-3 w-3" />
-                        {guide.helpfulCount}
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        {guide.viewCount}
                       </span>
-                    )}
-                  </CardDescription>
+                      {guide.helpfulCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <ThumbsUp className="h-3 w-3" />
+                          {guide.helpfulCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors leading-tight">
+                    {guide.title}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">
-                    {guide.content.substring(0, 120)}...
+                <CardContent className="pt-0">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">
+                    {guide.content.substring(0, 150)}...
                   </p>
                 </CardContent>
               </Card>
