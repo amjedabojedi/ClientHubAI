@@ -12,7 +12,7 @@ import {
   uuid,
   index
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1822,6 +1822,35 @@ export interface ClientInvoice {
   sessionType: string;
 }
 
+// Help Guides System - Searchable documentation/guides for navigation assistant
+export const helpGuides = pgTable("help_guides", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(), // URL-friendly identifier
+  content: text("content").notNull(), // Step-by-step instructions
+  category: varchar("category", { length: 100 }).notNull(), // clients, scheduling, tasks, etc.
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Search keywords
+  searchTerms: text("search_terms").array().notNull().default(sql`ARRAY[]::text[]`), // Common question variations
+  viewCount: integer("view_count").notNull().default(0), // Track popularity
+  helpfulCount: integer("helpful_count").notNull().default(0), // User feedback
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  slugIdx: index("help_guides_slug_idx").on(table.slug),
+  categoryIdx: index("help_guides_category_idx").on(table.category),
+}));
+
+export const insertHelpGuideSchema = createInsertSchema(helpGuides).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  viewCount: true,
+  helpfulCount: true,
+});
+
+export const selectHelpGuideSchema = createSelectSchema(helpGuides);
+
 // Checklist Types
 export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
@@ -1859,3 +1888,7 @@ export type InsertPracticeConfiguration = z.infer<typeof insertPracticeConfigura
 export type RecentItem = typeof recentItems.$inferSelect;
 export const insertRecentItemSchema = createInsertSchema(recentItems);
 export type InsertRecentItem = z.infer<typeof insertRecentItemSchema>;
+
+// Help Guide Types
+export type HelpGuide = typeof helpGuides.$inferSelect;
+export type InsertHelpGuide = z.infer<typeof insertHelpGuideSchema>;
