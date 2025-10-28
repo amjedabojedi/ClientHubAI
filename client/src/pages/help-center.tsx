@@ -161,23 +161,48 @@ export default function HelpCenter() {
               </div>
             </CardHeader>
             <CardContent className="pt-8 pb-8">
-              <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none">
-                <div className="text-gray-700 dark:text-gray-300 space-y-4">
-                  {selectedGuide.content.split('\n').map((line, idx) => (
-                    <div key={idx} className="leading-relaxed">
-                      {line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ') || line.startsWith('6. ') || line.startsWith('7. ') || line.startsWith('8. ') || line.startsWith('9. ') ? (
-                        <div className="flex gap-3 mb-3 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                          <span className="font-bold text-primary flex-shrink-0 text-base">{line.substring(0, 2)}</span>
-                          <span className="flex-1" dangerouslySetInnerHTML={{ __html: line.substring(3).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-semibold">$1</strong>') }} />
-                        </div>
-                      ) : line.includes('**') ? (
-                        <p className="mb-3" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-semibold">$1</strong>') }} />
-                      ) : line.trim() ? (
-                        <p className="mb-3">{line}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
+              <div className="text-gray-700 dark:text-gray-300">
+                {selectedGuide.content.split('\n').map((line, idx) => {
+                  // Skip markdown headers
+                  if (line.trim().startsWith('#')) return null;
+                  
+                  // Numbered list items
+                  if (/^\d+\.\s/.test(line)) {
+                    const num = line.match(/^(\d+\.)\s/)?.[1] || '';
+                    const text = line.substring(num.length + 1);
+                    return (
+                      <div key={idx} className="flex gap-3 mb-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <span className="font-bold text-primary flex-shrink-0 min-w-[24px]">{num}</span>
+                        <span className="flex-1" dangerouslySetInnerHTML={{ 
+                          __html: text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-semibold">$1</strong>') 
+                        }} />
+                      </div>
+                    );
+                  }
+                  
+                  // Section headers with **
+                  if (line.startsWith('**') && line.endsWith('**')) {
+                    const text = line.replace(/\*\*/g, '');
+                    return <h3 key={idx} className="text-lg font-semibold text-gray-900 dark:text-white mt-6 mb-3">{text}</h3>;
+                  }
+                  
+                  // Bold text inline
+                  if (line.includes('**')) {
+                    return (
+                      <p key={idx} className="mb-3 leading-relaxed" dangerouslySetInnerHTML={{ 
+                        __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900 dark:text-white font-semibold">$1</strong>') 
+                      }} />
+                    );
+                  }
+                  
+                  // Regular text
+                  if (line.trim()) {
+                    return <p key={idx} className="mb-3 leading-relaxed">{line}</p>;
+                  }
+                  
+                  // Empty line for spacing
+                  return <div key={idx} className="h-2" />;
+                })}
               </div>
 
               <Separator className="my-8" />
