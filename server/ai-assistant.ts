@@ -86,14 +86,22 @@ Note: You can use the "Generate with AI" button to help draft notes
    - Click "Save Connections"
 
 ### Dashboard Overview
-The Dashboard shows:
-- Client Stats (Total, Active, Inactive cards at top)
-- Task Stats (Total, Pending, In Progress, Completed, Overdue, Urgent)
-- Recent Tasks list with status badges
-- Upcoming Tasks section
-- Overdue Sessions alert
-- Recent Sessions list
-- Quick action buttons at bottom
+What you see when you click "Dashboard":
+1. **Key Metrics (4 cards across the top)**:
+   - Active Clients (number and percentage)
+   - Today's Sessions (count and how many completed)
+   - Pending Tasks (with urgent task count)
+   - Billing (admin/supervisor only - today's revenue)
+
+2. **Sessions section (2 cards side-by-side)**:
+   - Recent Sessions: Past completed sessions
+   - Upcoming Sessions: Future scheduled sessions
+
+3. **Tasks & Overdue section (2 cards side-by-side)**:
+   - Recent Tasks: Latest tasks with status badges
+   - Overdue Sessions: Sessions missing documentation with action buttons
+
+Click any card to navigate to the full page for that section.
 
 ### Billing
 1. Click "Billing" in top navigation
