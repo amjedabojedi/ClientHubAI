@@ -20,9 +20,6 @@ const CATEGORIES = [
   { value: "tasks", label: "Tasks" },
   { value: "notes", label: "Session Notes" },
   { value: "profile", label: "My Profile" },
-  { value: "library", label: "Library" },
-  { value: "assessments", label: "Assessments" },
-  { value: "admin", label: "Administration" },
   { value: "portal", label: "Client Portal" }
 ];
 
