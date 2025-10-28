@@ -45,6 +45,7 @@ import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
 import { PostHogProvider } from "@/lib/posthog";
+import AIAssistant from "@/components/AIAssistant";
 
 
 // Helper function to check if user has admin or supervisor privileges
@@ -204,21 +205,27 @@ function Router() {
   // Portal routes don't require staff authentication
   if (isPortalRoute) {
     return (
-      <Switch>
-        <Route path="/portal" component={PortalLoginPage} />
-        <Route path="/portal/login" component={PortalLoginPage} />
-        <Route path="/portal/activate/:token" component={PortalActivatePage} />
-        <Route path="/portal/forgot-password" component={PortalForgotPasswordPage} />
-        <Route path="/portal/reset-password/:token" component={PortalResetPasswordPage} />
-        <Route path="/portal/dashboard" component={PortalDashboardPage} />
-        <Route path="/portal/book-appointment" component={PortalBookAppointmentPage} />
-        <Route path="/portal/appointments" component={PortalAppointmentsPage} />
-        <Route path="/portal/invoices" component={PortalInvoicesPage} />
-        <Route path="/portal/documents" component={PortalDocumentsPage} />
-        <Route path="/portal/notifications" component={PortalNotificationsPage} />
-        {/* Additional portal routes will be added here */}
-        <Route component={NotFound} />
-      </Switch>
+      <>
+        <Switch>
+          <Route path="/portal" component={PortalLoginPage} />
+          <Route path="/portal/login" component={PortalLoginPage} />
+          <Route path="/portal/activate/:token" component={PortalActivatePage} />
+          <Route path="/portal/forgot-password" component={PortalForgotPasswordPage} />
+          <Route path="/portal/reset-password/:token" component={PortalResetPasswordPage} />
+          <Route path="/portal/dashboard" component={PortalDashboardPage} />
+          <Route path="/portal/book-appointment" component={PortalBookAppointmentPage} />
+          <Route path="/portal/appointments" component={PortalAppointmentsPage} />
+          <Route path="/portal/invoices" component={PortalInvoicesPage} />
+          <Route path="/portal/documents" component={PortalDocumentsPage} />
+          <Route path="/portal/notifications" component={PortalNotificationsPage} />
+          {/* Additional portal routes will be added here */}
+          <Route component={NotFound} />
+        </Switch>
+        {/* AI Assistant for portal users */}
+        {location !== '/portal' && location !== '/portal/login' && (
+          <AIAssistant currentPage={location.split('/')[2] || 'portal'} />
+        )}
+      </>
     );
   }
 
@@ -338,6 +345,9 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </main>
+      
+      {/* AI Assistant */}
+      <AIAssistant currentPage={location.split('/')[1] || 'dashboard'} />
       
       {/* Footer */}
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
