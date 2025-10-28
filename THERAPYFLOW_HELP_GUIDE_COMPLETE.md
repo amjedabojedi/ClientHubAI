@@ -103,25 +103,29 @@ Learn how to access and view client profiles in TherapyFlow.
 
 **What You See in a Client Profile**
 
-The client profile contains multiple tabs with different information:
+The client profile contains multiple tabs:
 
 - **Overview** - Basic information, contact details, insurance, status
 - **Sessions** - All scheduled and past appointments
-- **Notes** - Session notes and clinical documentation
-- **Tasks** - Tasks related to this client
-- **Documents** - Uploaded files and forms
 - **Assessments** - Assigned assessments and reports
+- **Documents** - Uploaded files and forms
 - **Billing** - Invoices and payment history
+- **Tasks** - Tasks related to this client
+- **Checklist** - Process checklists for this client
+- **Communications** - Email history and communications log
+- **History** - Audit trail of all changes to client record
 
 **Quick Actions**
 
 From the client profile, you can:
 - Schedule a new session
-- Add session notes
+- Add session notes (from Sessions tab)
 - Create tasks
 - Upload documents
 - Assign assessments
 - View billing information
+- Track communications
+- Review change history
 
 ## Edit Client
 
