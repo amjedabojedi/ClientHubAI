@@ -1,0 +1,147 @@
+{
+  "summary": {
+    "total": 15,
+    "successful": 14,
+    "failed": 1,
+    "successRate": "93.33%"
+  },
+  "details": [
+    {
+      "documentId": 17,
+      "fileName": "17-Alains_Initial_Assessment___1___1_.docx",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/17-Alains%20Initial%20Assessment%20%20(1)%20(1)",
+      "blobName": "documents/17-Alains Initial Assessment  (1) (1)",
+      "size": 226649,
+      "clientId": 3645
+    },
+    {
+      "documentId": 20,
+      "fileName": "20-test-report.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/20-test-report.pdf",
+      "blobName": "documents/20-test-report.pdf",
+      "size": 35,
+      "clientId": 2410
+    },
+    {
+      "documentId": 21,
+      "fileName": "21-test-notification.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/21-test-notification.pdf",
+      "blobName": "documents/21-test-notification.pdf",
+      "size": 33,
+      "clientId": 2410
+    },
+    {
+      "documentId": 22,
+      "fileName": "22-final-test.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/22-final-test.pdf",
+      "blobName": "documents/22-final-test.pdf",
+      "size": 38,
+      "clientId": 2410
+    },
+    {
+      "documentId": 23,
+      "fileName": "23-referral.jpg",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/23-referral",
+      "blobName": "documents/23-referral",
+      "size": 129292,
+      "clientId": 3671
+    },
+    {
+      "documentId": 24,
+      "fileName": "24-referral.jpg",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/24-referral",
+      "blobName": "documents/24-referral",
+      "size": 129292,
+      "clientId": 3671
+    },
+    {
+      "documentId": 27,
+      "fileName": "27-ID1.jpg",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/27-ID1",
+      "blobName": "documents/27-ID1",
+      "size": 80540,
+      "clientId": 3671
+    },
+    {
+      "documentId": 29,
+      "fileName": "29-Maries_initial_assessment_report__updated.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/29-Maries%20initial%20assessment%20report%20%20updated",
+      "blobName": "documents/29-Maries initial assessment report  updated",
+      "size": 290867,
+      "clientId": 3645
+    },
+    {
+      "documentId": 30,
+      "fileName": "30-invoice-CL-2025-1264-3128-2025-10-08.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/30-invoice-CL-2025-1264-3128-2025-10-08",
+      "blobName": "documents/30-invoice-CL-2025-1264-3128-2025-10-08",
+      "size": 38353,
+      "clientId": 3673
+    },
+    {
+      "documentId": 35,
+      "fileName": "35-cbt.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/35-1760919575330-cbt.pdf",
+      "blobName": "documents/35-1760919575330-cbt.pdf",
+      "size": 3585,
+      "clientId": 3671
+    },
+    {
+      "documentId": 28,
+      "fileName": "28-Updated_consent.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/28-Updated%20consent",
+      "blobName": "documents/28-Updated consent",
+      "size": 226647,
+      "clientId": 3671
+    },
+    {
+      "documentId": 36,
+      "fileName": "36-letter.docx",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/36-letter",
+      "blobName": "documents/36-letter",
+      "size": 27,
+      "clientId": 3671
+    },
+    {
+      "documentId": 37,
+      "fileName": "37-Amjed_Abojed_bio.docx",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/37-1760923340789-Amjed%20Abojed%20bio.docx",
+      "blobName": "documents/37-1760923340789-Amjed Abojed bio.docx",
+      "size": 14081,
+      "clientId": 3671
+    },
+    {
+      "documentId": 38,
+      "fileName": "38-____________________________________________.docx",
+      "success": false,
+      "error": "Invalid character in header content [\"x-ms-meta-originalName\"]"
+    },
+    {
+      "documentId": 39,
+      "fileName": "39-Jul.pdf",
+      "success": true,
+      "url": "https://clienthubai.blob.core.windows.net/documents/documents/39-1760923744199-Jul.pdf",
+      "blobName": "documents/39-1760923744199-Jul.pdf",
+      "size": 74666,
+      "clientId": 3671
+    }
+  ],
+  "azureConfig": {
+    "containerName": "documents",
+    "connectionString": "DefaultEndpointsProtocol=https;AccountName=clienthubai;AccountKey=***HIDDEN***;EndpointSuffix=core.windows.net"
+  },
+  "timestamp": "2025-10-28T13:37:28.034Z"
+}

@@ -1,0 +1,106 @@
+{
+  "summary": {
+    "total": 15,
+    "successful": 0,
+    "failed": 15,
+    "skipped": 0,
+    "successRate": "0.00%"
+  },
+  "details": [
+    {
+      "documentId": 17,
+      "fileName": "17-Alains_Initial_Assessment___1___1_.docx",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 20,
+      "fileName": "20-test-report.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 21,
+      "fileName": "21-test-notification.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 22,
+      "fileName": "22-final-test.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 23,
+      "fileName": "23-referral.jpg",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 24,
+      "fileName": "24-referral.jpg",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 27,
+      "fileName": "27-ID1.jpg",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 28,
+      "fileName": "28-Updated_consent.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 29,
+      "fileName": "29-Maries_initial_assessment_report__updated.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 30,
+      "fileName": "30-invoice-CL-2025-1264-3128-2025-10-08.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 35,
+      "fileName": "35-cbt.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 36,
+      "fileName": "36-letter.docx",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 37,
+      "fileName": "37-Amjed_Abojed_bio.docx",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 38,
+      "fileName": "38-____________________________________________.docx",
+      "success": false,
+      "error": "Document not found in database"
+    },
+    {
+      "documentId": 39,
+      "fileName": "39-Jul.pdf",
+      "success": false,
+      "error": "Document not found in database"
+    }
+  ],
+  "azureConfig": {
+    "containerName": "documents",
+    "connectionString": "DefaultEndpointsProtocol=https;AccountName=clienthubai;AccountKey=***HIDDEN***;EndpointSuffix=core.windows.net"
+  },
+  "timestamp": "2025-10-28T13:35:31.199Z"
+}

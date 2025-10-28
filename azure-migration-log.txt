@@ -1,0 +1,98 @@
+[2025-10-28T13:35:13.891Z] 🚀 Starting migration to Azure Blob Storage...
+[2025-10-28T13:35:13.895Z] 📁 Source directory: ./downloaded-documents
+[2025-10-28T13:35:13.896Z] ☁️  Azure container: documents
+[2025-10-28T13:35:13.911Z] ❌ Failed to create container: private is not a valid value for options.access. The valid values are: ["container","blob"].
+[2025-10-28T13:35:13.911Z] ❌ Migration failed: private is not a valid value for options.access. The valid values are: ["container","blob"].
+[2025-10-28T13:35:13.911Z] ❌ Migration script failed: private is not a valid value for options.access. The valid values are: ["container","blob"].
+[2025-10-28T13:35:29.488Z] 🚀 Starting migration to Azure Blob Storage...
+[2025-10-28T13:35:29.490Z] 📁 Source directory: ./downloaded-documents
+[2025-10-28T13:35:29.490Z] ☁️  Azure container: documents
+[2025-10-28T13:35:30.938Z] ✅ Azure Blob Storage container already exists
+[2025-10-28T13:35:30.939Z] 📄 Found 15 files to migrate
+[2025-10-28T13:35:30.940Z] 
+📋 Processing document 17: 17-Alains_Initial_Assessment___1___1_.docx
+[2025-10-28T13:35:31.168Z] ❌ Document 17 not found in database
+[2025-10-28T13:35:31.168Z] 
+📋 Processing document 20: 20-test-report.pdf
+[2025-10-28T13:35:31.172Z] ❌ Document 20 not found in database
+[2025-10-28T13:35:31.172Z] 
+📋 Processing document 21: 21-test-notification.pdf
+[2025-10-28T13:35:31.174Z] ❌ Document 21 not found in database
+[2025-10-28T13:35:31.175Z] 
+📋 Processing document 22: 22-final-test.pdf
+[2025-10-28T13:35:31.177Z] ❌ Document 22 not found in database
+[2025-10-28T13:35:31.177Z] 
+📋 Processing document 23: 23-referral.jpg
+[2025-10-28T13:35:31.178Z] ❌ Document 23 not found in database
+[2025-10-28T13:35:31.178Z] 
+📋 Processing document 24: 24-referral.jpg
+[2025-10-28T13:35:31.180Z] ❌ Document 24 not found in database
+[2025-10-28T13:35:31.181Z] 
+📋 Processing document 27: 27-ID1.jpg
+[2025-10-28T13:35:31.182Z] ❌ Document 27 not found in database
+[2025-10-28T13:35:31.183Z] 
+📋 Processing document 28: 28-Updated_consent.pdf
+[2025-10-28T13:35:31.184Z] ❌ Document 28 not found in database
+[2025-10-28T13:35:31.185Z] 
+📋 Processing document 29: 29-Maries_initial_assessment_report__updated.pdf
+[2025-10-28T13:35:31.187Z] ❌ Document 29 not found in database
+[2025-10-28T13:35:31.187Z] 
+📋 Processing document 30: 30-invoice-CL-2025-1264-3128-2025-10-08.pdf
+[2025-10-28T13:35:31.188Z] ❌ Document 30 not found in database
+[2025-10-28T13:35:31.189Z] 
+📋 Processing document 35: 35-cbt.pdf
+[2025-10-28T13:35:31.191Z] ❌ Document 35 not found in database
+[2025-10-28T13:35:31.192Z] 
+📋 Processing document 36: 36-letter.docx
+[2025-10-28T13:35:31.193Z] ❌ Document 36 not found in database
+[2025-10-28T13:35:31.193Z] 
+📋 Processing document 37: 37-Amjed_Abojed_bio.docx
+[2025-10-28T13:35:31.194Z] ❌ Document 37 not found in database
+[2025-10-28T13:35:31.196Z] 
+📋 Processing document 38: 38-____________________________________________.docx
+[2025-10-28T13:35:31.197Z] ❌ Document 38 not found in database
+[2025-10-28T13:35:31.198Z] 
+📋 Processing document 39: 39-Jul.pdf
+[2025-10-28T13:35:31.199Z] ❌ Document 39 not found in database
+[2025-10-28T13:35:31.199Z] 
+📊 Migration Summary:
+[2025-10-28T13:35:31.199Z]    Total files: 15
+[2025-10-28T13:35:31.200Z]    Successful: 0
+[2025-10-28T13:35:31.200Z]    Failed: 15
+[2025-10-28T13:35:31.200Z]    Skipped: 0
+[2025-10-28T13:35:31.200Z]    Success rate: 0.00%
+[2025-10-28T13:35:31.200Z] 
+❌ Failed uploads:
+[2025-10-28T13:35:31.201Z]    - Document 17: Document not found in database
+[2025-10-28T13:35:31.201Z]    - Document 20: Document not found in database
+[2025-10-28T13:35:31.201Z]    - Document 21: Document not found in database
+[2025-10-28T13:35:31.201Z]    - Document 22: Document not found in database
+[2025-10-28T13:35:31.201Z]    - Document 23: Document not found in database
+[2025-10-28T13:35:31.201Z]    - Document 24: Document not found in database
+[2025-10-28T13:35:31.202Z]    - Document 27: Document not found in database
+[2025-10-28T13:35:31.202Z]    - Document 28: Document not found in database
+[2025-10-28T13:35:31.202Z]    - Document 29: Document not found in database
+[2025-10-28T13:35:31.203Z]    - Document 30: Document not found in database
+[2025-10-28T13:35:31.203Z]    - Document 35: Document not found in database
+[2025-10-28T13:35:31.203Z]    - Document 36: Document not found in database
+[2025-10-28T13:35:31.204Z]    - Document 37: Document not found in database
+[2025-10-28T13:35:31.204Z]    - Document 38: Document not found in database
+[2025-10-28T13:35:31.204Z]    - Document 39: Document not found in database
+[2025-10-28T13:35:31.204Z] 
+🎉 Migration to Azure Blob Storage completed!
+[2025-10-28T13:35:31.204Z] 📄 Detailed report saved to: azure-migration-report.json
+[2025-10-28T13:35:31.204Z] 📝 Migration log saved to: azure-migration-log.txt
+[2025-10-28T13:35:31.204Z] 
+🔍 Verifying migration...
+[2025-10-28T13:35:31.492Z] ✅ Found 1 blobs in Azure container
+[2025-10-28T13:35:31.492Z] 
+📄 Sample uploaded blobs:
+[2025-10-28T13:35:31.493Z]    - 17-Alains_Initial_Assessment___1___1_.docx (226649 bytes)
+[2025-10-28T13:35:31.493Z] 
+✅ Migration script completed successfully
+[2025-10-28T13:35:31.494Z] 
+📋 Next steps:
+[2025-10-28T13:35:31.495Z] 1. Update your application routes to use Azure Blob Storage
+[2025-10-28T13:35:31.495Z] 2. Test document upload/download functionality
+[2025-10-28T13:35:31.495Z] 3. Remove old Replit Object Storage code
+[2025-10-28T13:35:31.495Z] 4. Update environment variables in production

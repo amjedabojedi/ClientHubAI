@@ -1,0 +1,174 @@
+[2025-10-28T13:37:17.320Z] 🚀 Starting direct migration to Azure Blob Storage...
+[2025-10-28T13:37:17.329Z] 📁 Source directory: ./downloaded-documents
+[2025-10-28T13:37:17.329Z] ☁️  Azure container: documents
+[2025-10-28T13:37:18.675Z] ✅ Azure Blob Storage container already exists
+[2025-10-28T13:37:18.688Z] 📄 Found 15 successful downloads to migrate
+[2025-10-28T13:37:18.689Z] 
+📋 Processing document 17: 17-Alains_Initial_Assessment___1___1_.docx
+[2025-10-28T13:37:18.689Z] 📤 Uploading document 17: Alains Initial Assessment  (1) (1).docx
+[2025-10-28T13:37:20.107Z] ✅ Successfully uploaded document 17: Alains Initial Assessment  (1) (1).docx
+[2025-10-28T13:37:20.108Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/17-Alains%20Initial%20Assessment%20%20(1)%20(1)
+[2025-10-28T13:37:20.108Z]    - Size: 226649 bytes
+[2025-10-28T13:37:20.109Z]    - Client ID: 3645
+[2025-10-28T13:37:20.109Z]    - Uploaded by: 6
+[2025-10-28T13:37:20.448Z] 
+📋 Processing document 20: 20-test-report.pdf
+[2025-10-28T13:37:20.451Z] 📤 Uploading document 20: test-report.pdf
+[2025-10-28T13:37:20.733Z] ✅ Successfully uploaded document 20: test-report.pdf
+[2025-10-28T13:37:20.734Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/20-test-report.pdf
+[2025-10-28T13:37:20.737Z]    - Size: 35 bytes
+[2025-10-28T13:37:20.737Z]    - Client ID: 2410
+[2025-10-28T13:37:20.738Z]    - Uploaded by: 6
+[2025-10-28T13:37:20.939Z] 
+📋 Processing document 21: 21-test-notification.pdf
+[2025-10-28T13:37:20.940Z] 📤 Uploading document 21: test-notification.pdf
+[2025-10-28T13:37:21.222Z] ✅ Successfully uploaded document 21: test-notification.pdf
+[2025-10-28T13:37:21.222Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/21-test-notification.pdf
+[2025-10-28T13:37:21.224Z]    - Size: 33 bytes
+[2025-10-28T13:37:21.225Z]    - Client ID: 2410
+[2025-10-28T13:37:21.225Z]    - Uploaded by: 6
+[2025-10-28T13:37:21.426Z] 
+📋 Processing document 22: 22-final-test.pdf
+[2025-10-28T13:37:21.428Z] 📤 Uploading document 22: final-test.pdf
+[2025-10-28T13:37:21.707Z] ✅ Successfully uploaded document 22: final-test.pdf
+[2025-10-28T13:37:21.707Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/22-final-test.pdf
+[2025-10-28T13:37:21.708Z]    - Size: 38 bytes
+[2025-10-28T13:37:21.709Z]    - Client ID: 2410
+[2025-10-28T13:37:21.709Z]    - Uploaded by: 6
+[2025-10-28T13:37:21.910Z] 
+📋 Processing document 23: 23-referral.jpg
+[2025-10-28T13:37:21.911Z] 📤 Uploading document 23: referral.jpg
+[2025-10-28T13:37:22.215Z] ✅ Successfully uploaded document 23: referral.jpg
+[2025-10-28T13:37:22.217Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/23-referral
+[2025-10-28T13:37:22.217Z]    - Size: 129292 bytes
+[2025-10-28T13:37:22.218Z]    - Client ID: 3671
+[2025-10-28T13:37:22.218Z]    - Uploaded by: 6
+[2025-10-28T13:37:22.420Z] 
+📋 Processing document 24: 24-referral.jpg
+[2025-10-28T13:37:22.420Z] 📤 Uploading document 24: referral.jpg
+[2025-10-28T13:37:22.712Z] ✅ Successfully uploaded document 24: referral.jpg
+[2025-10-28T13:37:22.712Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/24-referral
+[2025-10-28T13:37:22.713Z]    - Size: 129292 bytes
+[2025-10-28T13:37:22.713Z]    - Client ID: 3671
+[2025-10-28T13:37:22.713Z]    - Uploaded by: 6
+[2025-10-28T13:37:22.915Z] 
+📋 Processing document 27: 27-ID1.jpg
+[2025-10-28T13:37:22.917Z] 📤 Uploading document 27: ID1.jpg
+[2025-10-28T13:37:23.201Z] ✅ Successfully uploaded document 27: ID1.jpg
+[2025-10-28T13:37:23.201Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/27-ID1
+[2025-10-28T13:37:23.201Z]    - Size: 80540 bytes
+[2025-10-28T13:37:23.201Z]    - Client ID: 3671
+[2025-10-28T13:37:23.202Z]    - Uploaded by: 6
+[2025-10-28T13:37:23.403Z] 
+📋 Processing document 29: 29-Maries_initial_assessment_report__updated.pdf
+[2025-10-28T13:37:23.404Z] 📤 Uploading document 29: Maries initial assessment report  updated.pdf
+[2025-10-28T13:37:23.711Z] ✅ Successfully uploaded document 29: Maries initial assessment report  updated.pdf
+[2025-10-28T13:37:23.712Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/29-Maries%20initial%20assessment%20report%20%20updated
+[2025-10-28T13:37:23.712Z]    - Size: 290867 bytes
+[2025-10-28T13:37:23.713Z]    - Client ID: 3645
+[2025-10-28T13:37:23.714Z]    - Uploaded by: 6
+[2025-10-28T13:37:23.966Z] 
+📋 Processing document 30: 30-invoice-CL-2025-1264-3128-2025-10-08.pdf
+[2025-10-28T13:37:23.967Z] 📤 Uploading document 30: invoice-CL-2025-1264-3128-2025-10-08.pdf
+[2025-10-28T13:37:24.592Z] ✅ Successfully uploaded document 30: invoice-CL-2025-1264-3128-2025-10-08.pdf
+[2025-10-28T13:37:24.593Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/30-invoice-CL-2025-1264-3128-2025-10-08
+[2025-10-28T13:37:24.593Z]    - Size: 38353 bytes
+[2025-10-28T13:37:24.593Z]    - Client ID: 3673
+[2025-10-28T13:37:24.593Z]    - Uploaded by: 28
+[2025-10-28T13:37:24.868Z] 
+📋 Processing document 35: 35-cbt.pdf
+[2025-10-28T13:37:24.868Z] 📤 Uploading document 35: cbt.pdf
+[2025-10-28T13:37:25.290Z] ✅ Successfully uploaded document 35: cbt.pdf
+[2025-10-28T13:37:25.292Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/35-1760919575330-cbt.pdf
+[2025-10-28T13:37:25.292Z]    - Size: 3585 bytes
+[2025-10-28T13:37:25.293Z]    - Client ID: 3671
+[2025-10-28T13:37:25.293Z]    - Uploaded by: Client
+[2025-10-28T13:37:25.496Z] 
+📋 Processing document 28: 28-Updated_consent.pdf
+[2025-10-28T13:37:25.497Z] 📤 Uploading document 28: Updated consent.pdf
+[2025-10-28T13:37:25.789Z] ✅ Successfully uploaded document 28: Updated consent.pdf
+[2025-10-28T13:37:25.795Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/28-Updated%20consent
+[2025-10-28T13:37:25.795Z]    - Size: 226647 bytes
+[2025-10-28T13:37:25.797Z]    - Client ID: 3671
+[2025-10-28T13:37:25.797Z]    - Uploaded by: 6
+[2025-10-28T13:37:25.997Z] 
+📋 Processing document 36: 36-letter.docx
+[2025-10-28T13:37:25.998Z] 📤 Uploading document 36: letter.docx
+[2025-10-28T13:37:26.278Z] ✅ Successfully uploaded document 36: letter.docx
+[2025-10-28T13:37:26.279Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/36-letter
+[2025-10-28T13:37:26.280Z]    - Size: 27 bytes
+[2025-10-28T13:37:26.280Z]    - Client ID: 3671
+[2025-10-28T13:37:26.280Z]    - Uploaded by: 23
+[2025-10-28T13:37:26.482Z] 
+📋 Processing document 37: 37-Amjed_Abojed_bio.docx
+[2025-10-28T13:37:26.484Z] 📤 Uploading document 37: Amjed Abojed bio.docx
+[2025-10-28T13:37:27.101Z] ✅ Successfully uploaded document 37: Amjed Abojed bio.docx
+[2025-10-28T13:37:27.101Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/37-1760923340789-Amjed%20Abojed%20bio.docx
+[2025-10-28T13:37:27.103Z]    - Size: 14081 bytes
+[2025-10-28T13:37:27.103Z]    - Client ID: 3671
+[2025-10-28T13:37:27.103Z]    - Uploaded by: Client
+[2025-10-28T13:37:27.304Z] 
+📋 Processing document 38: 38-____________________________________________.docx
+[2025-10-28T13:37:27.304Z] 📤 Uploading document 38: وقت اللعب على الأرض في بيئات التعليم والتدخل.docx
+[2025-10-28T13:37:27.307Z] ❌ Failed to upload document 38: Invalid character in header content ["x-ms-meta-originalName"]
+[2025-10-28T13:37:27.509Z] 
+📋 Processing document 39: 39-Jul.pdf
+[2025-10-28T13:37:27.509Z] 📤 Uploading document 39: Jul.pdf
+[2025-10-28T13:37:27.825Z] ✅ Successfully uploaded document 39: Jul.pdf
+[2025-10-28T13:37:27.825Z]    - Blob URL: https://clienthubai.blob.core.windows.net/documents/documents/39-1760923744199-Jul.pdf
+[2025-10-28T13:37:27.826Z]    - Size: 74666 bytes
+[2025-10-28T13:37:27.826Z]    - Client ID: 3671
+[2025-10-28T13:37:27.826Z]    - Uploaded by: Client
+[2025-10-28T13:37:28.034Z] 
+📊 Migration Summary:
+[2025-10-28T13:37:28.035Z]    Total files: 15
+[2025-10-28T13:37:28.035Z]    Successful: 14
+[2025-10-28T13:37:28.037Z]    Failed: 1
+[2025-10-28T13:37:28.037Z]    Success rate: 93.33%
+[2025-10-28T13:37:28.040Z] 
+❌ Failed uploads:
+[2025-10-28T13:37:28.042Z]    - Document 38: Invalid character in header content ["x-ms-meta-originalName"]
+[2025-10-28T13:37:28.042Z] 
+✅ Successfully uploaded documents:
+[2025-10-28T13:37:28.042Z]    - Document 17: 17-Alains_Initial_Assessment___1___1_.docx (226649 bytes)
+[2025-10-28T13:37:28.042Z]    - Document 20: 20-test-report.pdf (35 bytes)
+[2025-10-28T13:37:28.043Z]    - Document 21: 21-test-notification.pdf (33 bytes)
+[2025-10-28T13:37:28.043Z]    - Document 22: 22-final-test.pdf (38 bytes)
+[2025-10-28T13:37:28.043Z]    - Document 23: 23-referral.jpg (129292 bytes)
+[2025-10-28T13:37:28.043Z]    - Document 24: 24-referral.jpg (129292 bytes)
+[2025-10-28T13:37:28.043Z]    - Document 27: 27-ID1.jpg (80540 bytes)
+[2025-10-28T13:37:28.044Z]    - Document 29: 29-Maries_initial_assessment_report__updated.pdf (290867 bytes)
+[2025-10-28T13:37:28.044Z]    - Document 30: 30-invoice-CL-2025-1264-3128-2025-10-08.pdf (38353 bytes)
+[2025-10-28T13:37:28.045Z]    - Document 35: 35-cbt.pdf (3585 bytes)
+[2025-10-28T13:37:28.045Z]    - Document 28: 28-Updated_consent.pdf (226647 bytes)
+[2025-10-28T13:37:28.045Z]    - Document 36: 36-letter.docx (27 bytes)
+[2025-10-28T13:37:28.046Z]    - Document 37: 37-Amjed_Abojed_bio.docx (14081 bytes)
+[2025-10-28T13:37:28.046Z]    - Document 39: 39-Jul.pdf (74666 bytes)
+[2025-10-28T13:37:28.046Z] 
+🎉 Direct migration to Azure Blob Storage completed!
+[2025-10-28T13:37:28.046Z] 📄 Detailed report saved to: azure-direct-upload-report.json
+[2025-10-28T13:37:28.046Z] 📝 Migration log saved to: azure-direct-upload-log.txt
+[2025-10-28T13:37:28.047Z] 
+🔍 Verifying migration...
+[2025-10-28T13:37:30.143Z] ✅ Found 15 blobs in Azure container
+[2025-10-28T13:37:30.144Z] 
+📄 Sample uploaded blobs:
+[2025-10-28T13:37:30.148Z]    - 17-Alains_Initial_Assessment___1___1_.docx (226649 bytes)
+[2025-10-28T13:37:30.148Z]    - documents/17-Alains Initial Assessment  (1) (1) (226649 bytes)
+[2025-10-28T13:37:30.154Z]    - documents/20-test-report.pdf (35 bytes)
+[2025-10-28T13:37:30.156Z]    - documents/21-test-notification.pdf (33 bytes)
+[2025-10-28T13:37:30.157Z]    - documents/22-final-test.pdf (38 bytes)
+[2025-10-28T13:37:30.157Z]    - documents/23-referral (129292 bytes)
+[2025-10-28T13:37:30.157Z]    - documents/24-referral (129292 bytes)
+[2025-10-28T13:37:30.157Z]    - documents/27-ID1 (80540 bytes)
+[2025-10-28T13:37:30.157Z]    - documents/28-Updated consent (226647 bytes)
+[2025-10-28T13:37:30.157Z]    - documents/29-Maries initial assessment report  updated (290867 bytes)
+[2025-10-28T13:37:30.158Z]    ... and 5 more
+[2025-10-28T13:37:30.158Z] 
+✅ Direct upload script completed successfully
+[2025-10-28T13:37:30.158Z] 
+📋 Next steps:
+[2025-10-28T13:37:30.161Z] 1. Update your application routes to use Azure Blob Storage
+[2025-10-28T13:37:30.162Z] 2. Test document upload/download functionality
+[2025-10-28T13:37:30.162Z] 3. Remove old Replit Object Storage code
+[2025-10-28T13:37:30.162Z] 4. Update environment variables in production

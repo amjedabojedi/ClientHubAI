@@ -28,6 +28,7 @@ import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, cli
 import { eq, and, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
+import { AzureBlobStorage } from "./azure-blob-storage";
 import { zoomService } from "./zoom-service";
 import type { AuthenticatedRequest } from "./auth-middleware";
 import { requireAuth } from "./auth-middleware";
@@ -82,6 +83,12 @@ if (!process.env.STRIPE_SECRET_KEY) {
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
 }) : null;
+
+// Initialize Azure Blob Storage
+const azureStorage = new AzureBlobStorage(
+  process.env.AZURE_STORAGE_CONNECTION_STRING || '',
+  process.env.AZURE_BLOB_CONTAINER_NAME || 'documents'
+);
 
 // Helper function to generate unique client ID
 async function generateClientId(): Promise<string> {
@@ -3495,20 +3502,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.createDocument(validatedData);
 
       
-      // Store file content - Use Object Storage with specific bucket ID
+      // Store file content in Azure Blob Storage
       if (fileContent) {
         try {
-          const { Client } = await import('@replit/object-storage');
-          const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-          const objectKey = `documents/${document.id}-${document.fileName}`;
+          const fileBuffer = Buffer.from(fileContent, 'base64');
+          const uploadResult = await azureStorage.uploadFile(
+            fileBuffer,
+            document.fileName,
+            document.mimeType,
+            document.id,
+            {
+              clientId: document.clientId.toString(),
+              uploadedById: document.uploadedById ? document.uploadedById.toString() : 'null',
+              category: document.category
+            }
+          );
           
-          // Store base64 directly using uploadFromText (uploadFromBytes is broken in Replit)
-          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
-          
-          if (!uploadResult.ok) {
+          if (!uploadResult.success) {
             // Delete document record if storage upload fails
             await storage.deleteDocument(document.id);
-            throw new Error(`Object storage upload failed: ${uploadResult.error}`);
+            throw new Error(`Azure Blob Storage upload failed: ${uploadResult.error}`);
           }
         } catch (error) {
           // Delete document record if upload fails
@@ -3623,18 +3636,14 @@ This happens because only the file metadata was stored, not the actual file cont
           res.status(500).json({ error: 'Failed to process PDF content: ' + (error instanceof Error ? error.message : 'Unknown error') });
         }
       } else if (isImage) {
-        // For images, serve from object storage
+        // For images, serve from Azure Blob Storage
         try {
-          const { Client } = await import('@replit/object-storage');
-          const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-          const objectKey = `documents/${document.id}-${document.fileName}`;
+          const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+          const downloadResult = await azureStorage.downloadFile(blobName);
           
-          const downloadResult = await objectStorage.downloadAsText(objectKey);
-          
-          if (downloadResult.ok) {
-            const buffer = Buffer.from(downloadResult.value, 'base64');
+          if (downloadResult.success) {
             res.setHeader('Content-Type', document.mimeType || 'image/jpeg');
-            res.send(buffer);
+            res.send(downloadResult.data);
           } else {
             // Fallback to icon if file not found
             res.setHeader('Content-Type', 'image/svg+xml');
@@ -3757,28 +3766,12 @@ This happens because only the file metadata was stored, not the actual file cont
         );
       }
       
-      // Use Object Storage with specific bucket ID
-      const { Client } = await import('@replit/object-storage');
-      const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-      const objectKey = `documents/${document.id}-${document.fileName}`;
+      // Download from Azure Blob Storage
+      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      const downloadResult = await azureStorage.downloadFile(blobName);
       
-      const downloadResult = await objectStorage.downloadAsText(objectKey);
-      
-      if (downloadResult.ok) {
-        // Auto-detect if content is base64 or raw bytes (for old uploads)
-        let buffer: Buffer;
-        const content = downloadResult.value;
-        
-        // Check if it's valid base64 or raw content
-        const looksLikeBase64 = /^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100));
-        
-        if (looksLikeBase64) {
-          // New format: stored as base64
-          buffer = Buffer.from(content, 'base64');
-        } else {
-          // Old format: stored as raw bytes (use latin1 for byte-for-byte conversion)
-          buffer = Buffer.from(content, 'latin1');
-        }
+      if (downloadResult.success) {
+        const buffer = downloadResult.data!;
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
@@ -3863,17 +3856,14 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ message: "This endpoint only serves Word documents" });
       }
       
-      // Use Object Storage with specific bucket ID
-      const { Client } = await import('@replit/object-storage');
-      const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-      const objectKey = `documents/${document.id}-${document.fileName}`;
+      // Download from Azure Blob Storage
+      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      const downloadResult = await azureStorage.downloadFile(blobName);
       
-      const downloadResult = await objectStorage.downloadAsText(objectKey);
-      
-      if (downloadResult.ok) {
+      if (downloadResult.success) {
         // Convert docx to HTML using mammoth
         const mammoth = await import('mammoth');
-        const buffer = Buffer.from(downloadResult.value, 'base64');
+        const buffer = downloadResult.data!;
         const result = await mammoth.convertToHtml({ buffer: buffer });
         
         res.json({ 
@@ -3904,15 +3894,11 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // Use Object Storage with specific bucket ID
-      const { Client } = await import('@replit/object-storage');
-      const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-      const objectKey = `documents/${document.id}-${document.fileName}`;
+      // Download from Azure Blob Storage
+      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      const downloadResult = await azureStorage.downloadFile(blobName);
       
-      // Download as text since we store as base64
-      const downloadResult = await objectStorage.downloadAsText(objectKey);
-      
-      if (downloadResult.ok) {
+      if (downloadResult.success) {
         // HIPAA Audit Log: Document downloaded
         if (req.user) {
           await AuditLogger.logDocumentAccess(
@@ -3927,20 +3913,7 @@ This happens because only the file metadata was stored, not the actual file cont
           );
         }
         
-        // Auto-detect if content is base64 or raw bytes (for old uploads)
-        let fileBuffer: Buffer;
-        const content = downloadResult.value;
-        
-        // Check if it's valid base64 or raw content
-        const looksLikeBase64 = /^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100));
-        
-        if (looksLikeBase64) {
-          // New format: stored as base64
-          fileBuffer = Buffer.from(content, 'base64');
-        } else {
-          // Old format: stored as raw bytes (use latin1 for byte-for-byte conversion)
-          fileBuffer = Buffer.from(content, 'latin1');
-        }
+        const fileBuffer = downloadResult.data;
         
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
@@ -10546,17 +10519,23 @@ This happens because only the file metadata was stored, not the actual file cont
         isSharedInPortal: true, // Always share portal uploads
       });
 
-      // Store file content in Object Storage
+      // Store file content in Azure Blob Storage
       if (fileContent) {
         try {
-          const { Client } = await import('@replit/object-storage');
-          const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-          const objectKey = `documents/${document.id}-${document.fileName}`;
+          const fileBuffer = Buffer.from(fileContent, 'base64');
+          const uploadResult = await azureStorage.uploadFile(
+            fileBuffer,
+            document.fileName,
+            document.mimeType,
+            document.id,
+            {
+              clientId: document.clientId.toString(),
+              uploadedById: document.uploadedById ? document.uploadedById.toString() : 'null',
+              category: document.category
+            }
+          );
           
-          // Store base64 directly using uploadFromText (uploadFromBytes is broken in Replit)
-          const uploadResult = await objectStorage.uploadFromText(objectKey, fileContent);
-          
-          if (!uploadResult.ok) {
+          if (!uploadResult.success) {
             // Delete document record if storage upload fails
             await storage.deleteDocument(document.id);
             return res.status(500).json({ error: "Failed to upload file to storage" });
@@ -10635,16 +10614,12 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(403).json({ error: "Document not shared" });
       }
 
-      // Download from object storage
+      // Download from Azure Blob Storage
       try {
-        const { Client } = await import('@replit/object-storage');
-        const objectStorage = new Client({ bucketId: "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8" });
-        const objectKey = `documents/${document.id}-${document.fileName}`;
+        const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+        const downloadResult = await azureStorage.downloadFile(blobName);
         
-        // Download as text since we store as base64
-        const downloadResult = await objectStorage.downloadAsText(objectKey);
-        
-        if (downloadResult.ok) {
+        if (downloadResult.success) {
           // Audit document download
           const client = await storage.getClient(session.clientId);
           if (client) {
@@ -10664,20 +10639,7 @@ This happens because only the file metadata was stored, not the actual file cont
             );
           }
 
-          // Auto-detect if content is base64 or raw bytes (for old uploads)
-          let fileBuffer: Buffer;
-          const content = downloadResult.value;
-          
-          // Check if it's valid base64 or raw content
-          const looksLikeBase64 = /^[A-Za-z0-9+/]+=*$/.test(content.substring(0, 100));
-          
-          if (looksLikeBase64) {
-            // New format: stored as base64
-            fileBuffer = Buffer.from(content, 'base64');
-          } else {
-            // Old format: stored as raw bytes (use latin1 for byte-for-byte conversion)
-            fileBuffer = Buffer.from(content, 'latin1');
-          }
+          const fileBuffer = downloadResult.data;
 
           // Serve the file inline (not as download) for preview
           res.setHeader('Content-Type', document.mimeType || 'application/pdf');
