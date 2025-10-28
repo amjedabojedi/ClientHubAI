@@ -113,7 +113,6 @@ export async function getAIResponse(
       model: "gpt-5",
       messages: messages as any,
       max_completion_tokens: 500,
-      temperature: 0.7,
     });
 
     return completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response. Please try again.";
