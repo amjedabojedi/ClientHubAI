@@ -79,10 +79,13 @@ export default function HelpCenter() {
     }
   });
 
+  // Filter out admin-only categories (assessments, library, admin)
+  const EXCLUDED_CATEGORIES = ['assessments', 'library', 'admin'];
+  
   const displayGuides = searchQuery ? searchResults : guides;
   const filteredGuides = selectedCategory === 'all' 
-    ? displayGuides 
-    : displayGuides.filter(g => g.category === selectedCategory);
+    ? displayGuides.filter(g => !EXCLUDED_CATEGORIES.includes(g.category))
+    : displayGuides.filter(g => g.category === selectedCategory && !EXCLUDED_CATEGORIES.includes(g.category));
 
   // Guide detail view
   if (selectedSlug) {
