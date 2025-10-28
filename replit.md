@@ -62,7 +62,7 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Email Communications History**: Audit trail of client emails (scheduling, reminders) accessible in client profiles.
 - **Login Error Feedback**: Professional handling with specific backend messages, visual cues, and persistent error state.
 - **Client Portal**: Secure portal access for clients to view appointments, upload documents, and manage their care with HIPAA-compliant audit logging. Portal displays all dates/times in America/New_York timezone for consistency.
-- **AI Assistant**: Interactive chat assistant powered by GPT-5 (via Replit AI Integrations) to help users navigate TherapyFlow. Provides context-aware guidance for both therapists and clients, with quick suggestions based on the current page. Available as a floating chat widget throughout the application.
+- **Navigation Assistant**: Custom rule-based chat assistant that helps users navigate TherapyFlow. Uses exact app UI elements (button names, navigation paths, actual field names) for accurate guidance. Provides context-aware quick suggestions based on current page. No external AI - fully deterministic matching based on actual TherapyFlow structure. Available as a floating chat widget throughout the application.
 
 ## External Dependencies
 
