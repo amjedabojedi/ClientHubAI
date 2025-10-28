@@ -1,0 +1,61 @@
+[2025-10-28T11:15:35.000Z] Starting document download from Replit Object Storage...
+[2025-10-28T11:15:35.002Z] Created download directory: ./downloaded-documents
+[2025-10-28T11:15:35.496Z] Found 16 documents in database
+[2025-10-28T11:15:35.496Z] Starting download of 16 documents...
+[2025-10-28T11:15:35.497Z] Processing document 1/16: test-upload.txt
+[2025-10-28T11:15:35.498Z] Attempting to download: documents/9-test-upload.txt
+[2025-10-28T11:15:35.665Z] Failed to download documents/9-test-upload.txt: [object Object]
+[2025-10-28T11:15:35.766Z] Processing document 2/16: Alains Initial Assessment  (1) (1).docx
+[2025-10-28T11:15:35.766Z] Attempting to download: documents/17-Alains Initial Assessment  (1) (1)
+[2025-10-28T11:15:35.865Z] Successfully downloaded: documents/17-Alains Initial Assessment  (1) (1) -> downloaded-documents/17-Alains_Initial_Assessment___1___1_.docx (226649 bytes)
+[2025-10-28T11:15:35.965Z] Processing document 3/16: test-report.pdf
+[2025-10-28T11:15:35.965Z] Attempting to download: documents/20-test-report.pdf
+[2025-10-28T11:15:36.061Z] Successfully downloaded: documents/20-test-report.pdf -> downloaded-documents/20-test-report.pdf (35 bytes)
+[2025-10-28T11:15:36.162Z] Processing document 4/16: test-notification.pdf
+[2025-10-28T11:15:36.162Z] Attempting to download: documents/21-test-notification.pdf
+[2025-10-28T11:15:36.272Z] Successfully downloaded: documents/21-test-notification.pdf -> downloaded-documents/21-test-notification.pdf (33 bytes)
+[2025-10-28T11:15:36.373Z] Processing document 5/16: final-test.pdf
+[2025-10-28T11:15:36.373Z] Attempting to download: documents/22-final-test.pdf
+[2025-10-28T11:15:36.453Z] Successfully downloaded: documents/22-final-test.pdf -> downloaded-documents/22-final-test.pdf (38 bytes)
+[2025-10-28T11:15:36.554Z] Processing document 6/16: referral.jpg
+[2025-10-28T11:15:36.557Z] Attempting to download: documents/23-referral
+[2025-10-28T11:15:36.689Z] Successfully downloaded: documents/23-referral -> downloaded-documents/23-referral.jpg (129292 bytes)
+[2025-10-28T11:15:36.790Z] Processing document 7/16: referral.jpg
+[2025-10-28T11:15:36.790Z] Attempting to download: documents/24-referral
+[2025-10-28T11:15:36.847Z] Successfully downloaded: documents/24-referral -> downloaded-documents/24-referral.jpg (129292 bytes)
+[2025-10-28T11:15:36.948Z] Processing document 8/16: ID1.jpg
+[2025-10-28T11:15:36.948Z] Attempting to download: documents/27-ID1
+[2025-10-28T11:15:37.039Z] Successfully downloaded: documents/27-ID1 -> downloaded-documents/27-ID1.jpg (80540 bytes)
+[2025-10-28T11:15:37.139Z] Processing document 9/16: Maries initial assessment report  updated.pdf
+[2025-10-28T11:15:37.139Z] Attempting to download: documents/29-Maries initial assessment report  updated
+[2025-10-28T11:15:37.222Z] Successfully downloaded: documents/29-Maries initial assessment report  updated -> downloaded-documents/29-Maries_initial_assessment_report__updated.pdf (290867 bytes)
+[2025-10-28T11:15:37.323Z] Processing document 10/16: invoice-CL-2025-1264-3128-2025-10-08.pdf
+[2025-10-28T11:15:37.323Z] Attempting to download: documents/30-invoice-CL-2025-1264-3128-2025-10-08
+[2025-10-28T11:15:37.408Z] Successfully downloaded: documents/30-invoice-CL-2025-1264-3128-2025-10-08 -> downloaded-documents/30-invoice-CL-2025-1264-3128-2025-10-08.pdf (38353 bytes)
+[2025-10-28T11:15:37.509Z] Processing document 11/16: cbt.pdf
+[2025-10-28T11:15:37.510Z] Attempting to download: documents/35-1760919575330-cbt.pdf
+[2025-10-28T11:15:37.976Z] Successfully downloaded: documents/35-1760919575330-cbt.pdf -> downloaded-documents/35-cbt.pdf (3585 bytes)
+[2025-10-28T11:15:38.077Z] Processing document 12/16: Updated consent.pdf
+[2025-10-28T11:15:38.077Z] Attempting to download: documents/28-Updated consent
+[2025-10-28T11:15:38.162Z] Successfully downloaded: documents/28-Updated consent -> downloaded-documents/28-Updated_consent.pdf (226647 bytes)
+[2025-10-28T11:15:38.263Z] Processing document 13/16: letter.docx
+[2025-10-28T11:15:38.263Z] Attempting to download: documents/36-letter
+[2025-10-28T11:15:38.386Z] Successfully downloaded: documents/36-letter -> downloaded-documents/36-letter.docx (27 bytes)
+[2025-10-28T11:15:38.486Z] Processing document 14/16: Amjed Abojed bio.docx
+[2025-10-28T11:15:38.487Z] Attempting to download: documents/37-1760923340789-Amjed Abojed bio.docx
+[2025-10-28T11:15:38.567Z] Successfully downloaded: documents/37-1760923340789-Amjed Abojed bio.docx -> downloaded-documents/37-Amjed_Abojed_bio.docx (14081 bytes)
+[2025-10-28T11:15:38.668Z] Processing document 15/16: وقت اللعب على الأرض في بيئات التعليم والتدخل.docx
+[2025-10-28T11:15:38.668Z] Attempting to download: documents/38-1760923356786-وقت اللعب على الأرض في بيئات التعليم والتدخل.docx
+[2025-10-28T11:15:38.761Z] Successfully downloaded: documents/38-1760923356786-وقت اللعب على الأرض في بيئات التعليم والتدخل.docx -> downloaded-documents/38-____________________________________________.docx (93575 bytes)
+[2025-10-28T11:15:38.862Z] Processing document 16/16: Jul.pdf
+[2025-10-28T11:15:38.863Z] Attempting to download: documents/39-1760923744199-Jul.pdf
+[2025-10-28T11:15:38.939Z] Successfully downloaded: documents/39-1760923744199-Jul.pdf -> downloaded-documents/39-Jul.pdf (74666 bytes)
+[2025-10-28T11:15:39.040Z] Download report saved to: ./download-report.json
+[2025-10-28T11:15:39.041Z] Summary: 15/16 documents downloaded successfully
+[2025-10-28T11:15:39.041Z] Total size: 1.25 MB
+[2025-10-28T11:15:39.042Z] Failed downloads:
+[2025-10-28T11:15:39.042Z]   - Document 9: [object Object]
+[2025-10-28T11:15:39.042Z] Document download completed!
+[2025-10-28T11:15:39.043Z] Files saved to: ./downloaded-documents
+[2025-10-28T11:15:39.043Z] Next: Download the downloaded-documents folder from Replit to your local machine
+[2025-10-28T11:15:39.084Z] Download script completed successfully
