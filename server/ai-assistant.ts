@@ -115,7 +115,11 @@ export async function getAIResponse(
       max_completion_tokens: 500,
     });
 
-    return completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response. Please try again.";
+    console.log("OpenAI Response:", JSON.stringify(completion, null, 2));
+    const responseContent = completion.choices[0]?.message?.content;
+    console.log("Response content:", responseContent);
+    
+    return responseContent || "I'm sorry, I couldn't generate a response. Please try again.";
   } catch (error) {
     console.error("AI Assistant error:", error);
     throw new Error("Failed to get AI response");
