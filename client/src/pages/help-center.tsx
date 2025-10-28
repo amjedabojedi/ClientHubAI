@@ -13,16 +13,17 @@ import type { HelpGuide } from "@shared/schema";
 
 const CATEGORIES = [
   { value: "all", label: "All Guides" },
-  { value: "clients", label: "Client Management" },
+  { value: "navigation", label: "Dashboard" },
+  { value: "clients", label: "Clients" },
   { value: "scheduling", label: "Scheduling" },
-  { value: "notes", label: "Session Notes" },
-  { value: "tasks", label: "Tasks" },
-  { value: "library", label: "Library" },
   { value: "billing", label: "Billing" },
+  { value: "tasks", label: "Tasks" },
+  { value: "notes", label: "Session Notes" },
+  { value: "profile", label: "My Profile" },
+  { value: "library", label: "Library" },
   { value: "assessments", label: "Assessments" },
-  { value: "portal", label: "Client Portal" },
   { value: "admin", label: "Administration" },
-  { value: "navigation", label: "Navigation" }
+  { value: "portal", label: "Client Portal" }
 ];
 
 export default function HelpCenter() {
@@ -74,9 +75,7 @@ export default function HelpCenter() {
 
   const markHelpfulMutation = useMutation({
     mutationFn: async (guideId: number) => {
-      return apiRequest(`/api/help-guides/${guideId}/helpful`, {
-        method: 'POST'
-      });
+      return apiRequest(`/api/help-guides/${guideId}/helpful`, 'POST');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/help-guides"] });
