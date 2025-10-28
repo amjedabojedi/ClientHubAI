@@ -134,47 +134,67 @@ export default function HelpCenter() {
             Back to Help Center
           </Button>
 
-          <Card data-testid="card-guide-detail">
-            <CardHeader>
+          <Card data-testid="card-guide-detail" className="shadow-md">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-3xl mb-2">{selectedGuide.title}</CardTitle>
-                  <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                    <Badge variant="secondary">{CATEGORIES.find(c => c.value === selectedGuide.category)?.label}</Badge>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                      {CATEGORIES.find(c => c.value === selectedGuide.category)?.label}
+                    </Badge>
+                  </div>
+                  <CardTitle className="text-2xl mb-3 text-slate-900 dark:text-white">{selectedGuide.title}</CardTitle>
+                  <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" />
+                      <Eye className="h-4 w-4" />
                       {selectedGuide.viewCount} views
                     </span>
                     <span className="flex items-center gap-1">
-                      <ThumbsUp className="h-3 w-3" />
+                      <ThumbsUp className="h-4 w-4" />
                       {selectedGuide.helpfulCount} helpful
                     </span>
                   </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className="prose dark:prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed">{selectedGuide.content}</pre>
+                <div className="text-slate-700 dark:text-slate-300 space-y-3">
+                  {selectedGuide.content.split('\n').map((line, idx) => (
+                    <div key={idx} className="leading-relaxed">
+                      {line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ') ? (
+                        <div className="flex gap-3 mb-2">
+                          <span className="font-semibold text-primary flex-shrink-0">{line.substring(0, 2)}</span>
+                          <span dangerouslySetInnerHTML={{ __html: line.substring(3).replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 dark:text-white">$1</strong>') }} />
+                        </div>
+                      ) : line.includes('**') ? (
+                        <p dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 dark:text-white">$1</strong>') }} />
+                      ) : line.trim() ? (
+                        <p>{line}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <Separator className="my-6" />
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex flex-wrap gap-2">
-                  {selectedGuide.tags.map((tag, idx) => (
-                    <Badge key={idx} variant="outline">{tag}</Badge>
+                  {selectedGuide.tags.slice(0, 4).map((tag, idx) => (
+                    <Badge key={idx} variant="outline" className="text-slate-600">{tag}</Badge>
                   ))}
                 </div>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() => markHelpfulMutation.mutate(selectedGuide.id)}
                   disabled={markHelpfulMutation.isPending}
+                  className="bg-primary hover:bg-primary/90"
                   data-testid="button-mark-helpful"
                 >
                   <ThumbsUp className="h-4 w-4 mr-2" />
-                  Helpful
+                  Mark as Helpful
                 </Button>
               </div>
             </CardContent>
@@ -186,16 +206,20 @@ export default function HelpCenter() {
 
   // Guide list view
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <BookOpen className="h-8 w-8 text-blue-600" />
-            <h1 className="text-4xl font-bold">Help Center</h1>
+            <div className="bg-primary/10 p-3 rounded-lg">
+              <BookOpen className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Help Center</h1>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">
+                Step-by-step guides for TherapyFlow features
+              </p>
+            </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Find guides and tutorials to help you navigate TherapyFlow
-          </p>
         </div>
 
         <div className="mb-6">
@@ -252,29 +276,31 @@ export default function HelpCenter() {
             {filteredGuides.map((guide) => (
               <Card 
                 key={guide.id} 
-                className="hover:shadow-lg transition-shadow cursor-pointer"
+                className="hover:shadow-md hover:border-primary/50 transition-all cursor-pointer group"
                 onClick={() => window.location.href = `/help/${guide.slug}`}
                 data-testid={`card-guide-${guide.slug}`}
               >
                 <CardHeader>
-                  <CardTitle className="text-lg line-clamp-2">{guide.title}</CardTitle>
-                  <CardDescription className="flex items-center gap-4 mt-2">
-                    <Badge variant="secondary" className="text-xs">
+                  <CardTitle className="text-lg line-clamp-2 group-hover:text-primary transition-colors">{guide.title}</CardTitle>
+                  <CardDescription className="flex items-center gap-3 mt-2 flex-wrap">
+                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
                       {CATEGORIES.find(c => c.value === guide.category)?.label}
                     </Badge>
-                    <span className="flex items-center gap-1 text-xs">
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
                       <Eye className="h-3 w-3" />
                       {guide.viewCount}
                     </span>
-                    <span className="flex items-center gap-1 text-xs">
-                      <ThumbsUp className="h-3 w-3" />
-                      {guide.helpfulCount}
-                    </span>
+                    {guide.helpfulCount > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <ThumbsUp className="h-3 w-3" />
+                        {guide.helpfulCount}
+                      </span>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
-                    {guide.content.substring(0, 150)}...
+                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">
+                    {guide.content.substring(0, 120)}...
                   </p>
                 </CardContent>
               </Card>
