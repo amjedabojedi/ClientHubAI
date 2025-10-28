@@ -29,7 +29,8 @@ import {
   UserX,
   Edit3,
   HelpCircle,
-  ChevronDown
+  ChevronDown,
+  BookOpen
 } from "lucide-react";
 
 // Utils & Types
@@ -284,9 +285,20 @@ export default function DashboardPage() {
       {/* Main Dashboard Content */}
       <div className="w-full">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Practice Dashboard</h1>
-          <p className="text-slate-600 mt-1">Overview of your therapy practice management system</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Practice Dashboard</h1>
+            <p className="text-slate-600 mt-1">Overview of your therapy practice management system</p>
+          </div>
+          <Button
+            onClick={() => setLocation("/help")}
+            variant="outline"
+            className="flex items-center gap-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+            data-testid="button-help-center"
+          >
+            <BookOpen className="h-4 w-4" />
+            Help Center
+          </Button>
         </div>
 
         {/* Help Section */}
