@@ -10800,6 +10800,42 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
+  // AI Assistant routes
+  app.post('/api/ai-assistant/chat', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { message, conversationHistory, currentPage } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      const { getAIResponse } = await import('./ai-assistant');
+      const userRole = req.user?.role === 'client' ? 'client' : 'therapist';
+      
+      const response = await getAIResponse(message, conversationHistory || [], userRole as any);
+      
+      res.json({ response, timestamp: new Date().toISOString() });
+    } catch (error: any) {
+      console.error('AI Assistant chat error:', error);
+      res.status(500).json({ error: 'Failed to get AI response' });
+    }
+  });
+
+  app.get('/api/ai-assistant/suggestions', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const currentPage = (req.query.page as string) || 'dashboard';
+      const { getQuickSuggestions } = await import('./ai-assistant');
+      const userRole = req.user?.role === 'client' ? 'client' : 'therapist';
+      
+      const suggestions = await getQuickSuggestions(currentPage, userRole as any);
+      
+      res.json({ suggestions });
+    } catch (error: any) {
+      console.error('AI Assistant suggestions error:', error);
+      res.status(500).json({ error: 'Failed to get suggestions' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
