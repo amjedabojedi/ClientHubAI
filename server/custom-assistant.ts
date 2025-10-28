@@ -1,7 +1,10 @@
 /**
  * Custom TherapyFlow Navigation Assistant
- * No OpenAI - pure rule-based navigation help using actual app structure
+ * Hybrid approach: Database-backed guides with rule-based matching
  */
+
+import { storage } from './storage';
+import type { HelpGuide } from '@shared/schema';
 
 interface NavigationGuide {
   question: string[];
@@ -148,10 +151,103 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
 ];
 
 /**
- * Find the best matching answer for a user's question
- * Uses token-based matching with Jaccard similarity for accuracy
+ * Search database guides and score them based on relevance
  */
-export function findAnswer(userQuestion: string): string {
+async function searchDatabaseGuides(userQuestion: string): Promise<{ guide: HelpGuide; score: number; matchLength: number }[]> {
+  try {
+    // Search database guides
+    const dbGuides = await storage.searchHelpGuides(userQuestion);
+    
+    if (dbGuides.length === 0) {
+      return [];
+    }
+    
+    const normalizedQuestion = userQuestion.toLowerCase().trim().replace(/[?!.,]/g, '');
+    const fillerWords = ['how', 'do', 'i', 'can', 'where', 'what', 'is', 'the', 'a', 'an', 'to', 'for', 'my', 'me', 'you', 'your'];
+    const questionTokens = normalizedQuestion
+      .split(/\s+/)
+      .filter(word => word.length > 1 && !fillerWords.includes(word));
+    
+    // Score each guide based on keyword overlap
+    const scoredGuides = dbGuides.map(guide => {
+      let bestScore = 0;
+      let bestMatchLength = 0;
+      
+      // Combine title, tags, and search terms for matching
+      const allKeywords = [
+        guide.title.toLowerCase(),
+        ...guide.tags.map(t => t.toLowerCase()),
+        ...guide.searchTerms.map(t => t.toLowerCase())
+      ];
+      
+      // Try each keyword pattern
+      for (const keyword of allKeywords) {
+        const keywordTokens = keyword.split(/\s+/).filter(t => t.length > 1);
+        
+        const matchedKeywords = keywordTokens.filter(kt => 
+          questionTokens.some(qt => qt === kt)
+        ).length;
+        
+        const matchedQuestion = questionTokens.filter(qt =>
+          keywordTokens.some(kt => qt === kt)
+        ).length;
+        
+        const completeness = keywordTokens.length > 0 ? matchedKeywords / keywordTokens.length : 0;
+        const coverage = questionTokens.length > 0 ? matchedQuestion / questionTokens.length : 0;
+        const specificity = keywordTokens.length;
+        
+        const score = (completeness * 0.5) + (coverage * 0.4) + (Math.min(specificity / 5, 1) * 0.1);
+        
+        if (score > bestScore || (score === bestScore && specificity > bestMatchLength)) {
+          bestScore = score;
+          bestMatchLength = specificity;
+        }
+      }
+      
+      return { guide, score: bestScore, matchLength: bestMatchLength };
+    }).filter(item => item.score > 0.3);
+    
+    // Sort by score, then by view count (popularity)
+    scoredGuides.sort((a, b) => {
+      if (Math.abs(b.score - a.score) < 0.01) {
+        return (b.guide.viewCount || 0) - (a.guide.viewCount || 0);
+      }
+      return b.score - a.score;
+    });
+    
+    return scoredGuides;
+  } catch (error) {
+    console.error('Error searching database guides:', error);
+    return [];
+  }
+}
+
+/**
+ * Format guide response with link to full guide page
+ */
+function formatGuideResponse(guide: HelpGuide): string {
+  return `${guide.content}\n\n[View full guide: /help/${guide.slug}](#)`;
+}
+
+/**
+ * Find the best matching answer for a user's question
+ * Searches database first, falls back to local guides if needed
+ */
+export async function findAnswer(userQuestion: string): Promise<string> {
+  // Try database guides first
+  const dbResults = await searchDatabaseGuides(userQuestion);
+  if (dbResults.length > 0) {
+    return formatGuideResponse(dbResults[0].guide);
+  }
+  
+  // Fallback to local guides
+  return findLocalAnswer(userQuestion);
+}
+
+/**
+ * Original local guide matching (kept as fallback)
+ */
+function findLocalAnswer(userQuestion: string): string {
   const normalizedQuestion = userQuestion.toLowerCase().trim().replace(/[?!.,]/g, '');
   
   // Tokenize the question (split into words, remove common filler words)

@@ -10900,7 +10900,7 @@ This happens because only the file metadata was stored, not the actual file cont
       }
 
       const { findAnswer } = await import('./custom-assistant');
-      const response = findAnswer(message);
+      const response = await findAnswer(message);
       
       res.json({ response, timestamp: new Date().toISOString() });
     } catch (error: any) {
