@@ -104,19 +104,19 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Billing
   {
     question: ["add service", "billing service", "create service"],
-    answer: "💵 ADD BILLING SERVICE\n\nGo to: Billing → Services tab → + Add Service\n\nService fields:\n  • Name (e.g., Individual Therapy)\n  • CPT Code (e.g., 90834)\n  • Price (default rate)\n  • Duration (minutes)\n\nTips:\n  • Services auto-populate when scheduling\n  • Link to insurance codes for claims\n  • Appear in billing reports",
+    answer: "💵 ADD SERVICE CODE\n\nGo to: Billing → Services tab → + Add Service\n\nService fields:\n  • Service Code (CPT code like 90834)\n  • Service Name (e.g., Individual Therapy 45 min)\n  • Duration (minutes)\n  • Base Rate (default price)\n  • Category (optional)\n\nWhat this does:\n  • Pre-defines service types for scheduling\n  • Services auto-populate when booking sessions\n  • Used for insurance billing codes\n  • Set standard rates for each service type",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
   {
     question: ["add room", "create room", "billing room"],
-    answer: "🏢 ADD ROOM\n\nGo to: Billing → Rooms tab → + Add Room\n\nPurpose:\n  • Track which room for each session\n  • Filter calendar by room\n  • Include in billing records\n  • Multi-location tracking",
+    answer: "🏢 ADD ROOM\n\nGo to: Billing → Rooms tab → + Add Room\n\nRoom fields:\n  • Name\n  • Type (Physical or Virtual)\n  • Capacity\n  • Location (optional)\n\nPurpose:\n  • Track which room for each session\n  • Filter calendar by room availability\n  • Include in billing records\n  • Multi-location practice tracking",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
   {
-    question: ["payment status", "track payments", "billing sessions"],
-    answer: "💳 TRACK PAYMENTS\n\nGo to: Billing → Sessions tab\n\nPayment statuses:\n  • Paid - Payment received\n  • Billed - Invoice sent, awaiting payment\n  • Pending - Completed, not yet billed\n  • Denied - Insurance claim denied\n  • Refunded - Payment refunded\n  • Follow Up - Requires attention\n\nFeatures:\n  • Filter by date and status\n  • Export for accounting\n  • Stripe integration\n  • Auto-updates when paid",
+    question: ["view billing", "track payments", "billing records", "billing page", "invoices"],
+    answer: "💳 BILLING PAGE\n\nGo to: Billing in top navigation\n\n4 Tabs:\n  • Overview - Summary stats (outstanding, collected, etc.)\n  • Sessions - View all billing records/invoices\n  • Services - Manage service codes (add/edit)\n  • Rooms - Manage therapy rooms (add/edit)\n\nSessions tab (main view):\n  • View invoices for completed sessions\n  • Filter by date, status, therapist, service, client\n  • Change payment status\n  • Download/email invoices\n  • Record payments\n\nPayment statuses:\n  Pending → Billed → Paid | Denied | Refunded | Follow Up\n\nNote: Billing records auto-create when sessions completed",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
