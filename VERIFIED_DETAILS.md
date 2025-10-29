@@ -83,9 +83,48 @@ Pro tip mentions: Auto-refresh, click cards, Ctrl+K search, Eastern Time display
 
 ---
 
-## 2. CLIENTS PAGE - TO BE VERIFIED
+## 2. CLIENTS PAGE ✅ VERIFIED
 
-(Not yet verified)
+**Files:** `client/src/pages/clients.tsx`, `client/src/components/client-management/add-client-modal.tsx`, `client/src/pages/client-detail.tsx`
+
+### Add Client Modal
+
+**5 Tabs in form:**
+1. **Personal** - Name, DOB, gender, marital status, pronouns, language, email notifications, portal access
+2. **Contact** - Phone, emergency phone, email, address
+3. **Referral** - Start date, referrer, referral date, reference number, client source  
+4. **Employment** - Employment status, education level, dependents
+5. **Clinical** - Client type, client stage, status, risk level, assigned therapist
+
+**Required Fields:**
+- Full Name only (marked with *)
+
+**Optional Fields:** All others
+
+**Portal Access:**
+- Checkbox: "Enable Portal Access"
+- Note: "Client will use their primary email address for portal login"
+- Located in Personal tab
+
+### Client Profile Page
+
+**9 TABS (NOT 10):**
+1. **Overview** - Basic info, demographics, portal management section
+2. **Sessions** - Session notes and history
+3. **Assessments** - Assigned assessments and reports
+4. **Documents** - Uploaded files and forms
+5. **Billing** - Payment history and invoices
+6. **Tasks** - Client-related tasks
+7. **Checklists** - Process checklists (note: plural "Checklists" not "Checklist")
+8. **Communications** - Email history
+9. **History** - Audit trail of changes
+
+**Important:** Portal Access is NOT a separate tab - it's a section within the Overview tab
+
+### Client Statuses
+- Active
+- Inactive  
+- Discharged
 
 ---
 
