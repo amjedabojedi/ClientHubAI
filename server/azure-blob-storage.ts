@@ -27,19 +27,37 @@ export interface DocumentInfo {
 }
 
 export class AzureBlobStorage {
-  private containerClient: ContainerClient;
+  private containerClient: ContainerClient | null = null;
   private containerName: string;
+  private isConfigured: boolean = false;
 
   constructor(connectionString: string, containerName: string = 'documents') {
-    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-    this.containerClient = blobServiceClient.getContainerClient(containerName);
     this.containerName = containerName;
+    
+    // Only initialize if connection string is provided
+    if (connectionString && connectionString.trim() !== '') {
+      try {
+        const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+        this.containerClient = blobServiceClient.getContainerClient(containerName);
+        this.isConfigured = true;
+      } catch (error) {
+        console.warn('[Azure] Failed to initialize Azure Blob Storage:', error);
+        this.isConfigured = false;
+      }
+    } else {
+      console.log('[Azure] Azure Blob Storage not configured - using local storage');
+      this.isConfigured = false;
+    }
   }
 
   /**
    * Create container if it doesn't exist
    */
   async ensureContainer(): Promise<void> {
+    if (!this.isConfigured || !this.containerClient) {
+      throw new Error('Azure Blob Storage not configured');
+    }
+    
     try {
       await this.containerClient.createIfNotExists({
         access: 'blob' // Blob-level access for security
@@ -59,6 +77,13 @@ export class AzureBlobStorage {
     documentId: number,
     metadata?: Record<string, string>
   ): Promise<AzureBlobResult> {
+    if (!this.isConfigured || !this.containerClient) {
+      return {
+        success: false,
+        error: 'Azure Blob Storage not configured'
+      };
+    }
+    
     try {
       await this.ensureContainer();
 
@@ -98,6 +123,13 @@ export class AzureBlobStorage {
    * Download file from Azure Blob Storage
    */
   async downloadFile(blobName: string): Promise<AzureBlobResult> {
+    if (!this.isConfigured || !this.containerClient) {
+      return {
+        success: false,
+        error: 'Azure Blob Storage not configured'
+      };
+    }
+    
     try {
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
       const downloadResult = await blockBlobClient.download();
