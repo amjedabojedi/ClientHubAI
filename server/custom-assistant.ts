@@ -103,22 +103,27 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   
   // Billing
   {
-    question: ["add service", "billing service", "create service"],
-    answer: "💵 ADD SERVICE CODE\n\nGo to: Billing → Services tab → + Add Service\n\nService fields:\n  • Service Code (CPT code like 90834)\n  • Service Name (e.g., Individual Therapy 45 min)\n  • Duration (minutes)\n  • Base Rate (default price)\n  • Category (optional)\n\nWhat this does:\n  • Pre-defines service types for scheduling\n  • Services auto-populate when booking sessions\n  • Used for insurance billing codes\n  • Set standard rates for each service type",
+    question: ["add service", "billing service", "create service", "service code", "cpt code"],
+    answer: "💵 ADD SERVICE CODE\n\nGo to: Administration → Settings → Service Prices tab → + Add Service\n\nService fields:\n  • Service Code (CPT code like 90834)\n  • Service Name (e.g., Individual Therapy 45 min)\n  • Duration (minutes)\n  • Base Rate (default price)\n  • Category (optional)\n\nWhat this does:\n  • Pre-defines service types for scheduling\n  • Services auto-populate when booking appointments\n  • Used for insurance billing codes\n  • Sets standard rates for each service\n\nNote: Services managed in Settings, not Billing page",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
   {
-    question: ["add room", "create room", "billing room"],
-    answer: "🏢 ADD ROOM\n\nGo to: Billing → Rooms tab → + Add Room\n\nRoom fields:\n  • Name\n  • Type (Physical or Virtual)\n  • Capacity\n  • Location (optional)\n\nPurpose:\n  • Track which room for each session\n  • Filter calendar by room availability\n  • Include in billing records\n  • Multi-location practice tracking",
+    question: ["add room", "create room", "therapy room", "manage rooms"],
+    answer: "🏢 ADD THERAPY ROOM\n\nGo to: Administration → Settings → Rooms tab → + Add Room\n\nRoom fields:\n  • Name (e.g., Therapy Room A)\n  • Type (Physical or Virtual)\n  • Capacity\n  • Location (optional)\n\nPurpose:\n  • Track which room for each session\n  • Filter calendar by room availability\n  • Multi-location practice tracking\n  • Resource scheduling\n\nNote: Rooms managed in Settings, not Billing page",
+    category: "settings",
+    helpGuideSlug: "create-invoice"
+  },
+  {
+    question: ["view billing", "track payments", "billing records", "billing page", "invoices", "billing dashboard"],
+    answer: "💳 BILLING DASHBOARD\n\nGo to: Billing (top navigation)\n\nWhat you see:\n  • Summary cards (Outstanding, Collected, Active Clients, Total Records)\n  • Filters (date, status, therapist, service, client)\n  • Billing records table\n\nWhat you can do:\n  • View all billing records/invoices\n  • Filter by date range, payment status, therapist, service, client\n  • Change payment status\n  • Record payments\n  • Download/email invoices\n  • Preview invoices\n\nPayment statuses:\n  Pending → Billed → Paid | Denied | Refunded | Follow Up\n\nImportant:\n  • Billing records auto-create when sessions completed\n  • NO tabs on Billing page - just one view\n  • Services and Rooms managed in Settings, not here",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
   {
-    question: ["view billing", "track payments", "billing records", "billing page", "invoices"],
-    answer: "💳 BILLING PAGE\n\nGo to: Billing in top navigation\n\n4 Tabs:\n  • Overview - Summary stats (outstanding, collected, etc.)\n  • Sessions - View all billing records/invoices\n  • Services - Manage service codes (add/edit)\n  • Rooms - Manage therapy rooms (add/edit)\n\nSessions tab (main view):\n  • View invoices for completed sessions\n  • Filter by date, status, therapist, service, client\n  • Change payment status\n  • Download/email invoices\n  • Record payments\n\nPayment statuses:\n  Pending → Billed → Paid | Denied | Refunded | Follow Up\n\nNote: Billing records auto-create when sessions completed",
-    category: "billing",
-    helpGuideSlug: "create-invoice"
+    question: ["settings page", "administration settings", "system settings"],
+    answer: "⚙️ SETTINGS PAGE\n\nGo to: Administration → Settings\n\n5 Tabs:\n  • System Options - Manage dropdown options\n  • Service Prices - Add/edit service codes and rates\n  • Service Visibility - Control what therapists/clients see\n  • Rooms - Add/edit therapy rooms\n  • Administration - Practice info and configuration\n\nWho can access:\n  • Administrators and Supervisors only\n\nCommon tasks:\n  • Add service codes (Service Prices tab)\n  • Add therapy rooms (Rooms tab)\n  • Configure dropdowns (System Options tab)\n  • Update practice info (Administration tab)",
+    category: "settings"
   },
   
   // Assessments
