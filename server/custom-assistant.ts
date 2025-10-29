@@ -18,19 +18,19 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Client Management
   {
     question: ["add client", "new client", "create client"],
-    answer: "👤 ADD A NEW CLIENT\n\nGo to: Clients → + Add Client\n\nRequired:\n  • First Name\n  • Last Name\n\nOptional:\n  • Email (enables portal access and reminders)\n  • Phone, Date of Birth\n  • Address\n  • Status: Active, Inactive, Discharged, On Hold, Waitlist\n  • Risk Level: None, Low, Medium, High, Critical\n  • Assigned Therapist\n\nTips:\n  • Email required for client portal\n  • Risk level triggers monitoring alerts\n  • Assigned therapist links to scheduling",
+    answer: "👤 ADD A NEW CLIENT\n\nGo to: Clients → + Add Client\n\nRequired:\n  • First Name\n  • Last Name\n\nOptional:\n  • Email (enables portal access and reminders)\n  • Phone, Date of Birth\n  • Address\n  • Status: Active, Inactive, Discharged\n  • Risk Level: None, Low, Medium, High, Critical\n  • Assigned Therapist\n\nTips:\n  • Email required for client portal\n  • Risk level triggers monitoring alerts\n  • Assigned therapist links to scheduling",
     category: "clients",
     helpGuideSlug: "add-client"
   },
   {
     question: ["view client", "see client", "find client", "client profile"],
-    answer: "📁 VIEW CLIENT PROFILE\n\nGo to: Clients → Search or browse → Click client name\n\nProfile tabs:\n  • Overview - Basic info, demographics, contact\n  • Sessions - Session notes and history\n  • Documents - Uploaded files\n  • Assessments - Assigned assessments\n  • Tasks - Client-related tasks\n  • Portal Access - Login credentials\n  • Billing - Payment history\n\nQuick actions from profile:\n  • Schedule appointment\n  • Add session note\n  • Upload documents",
+    answer: "📁 VIEW CLIENT PROFILE\n\nGo to: Clients → Search or browse → Click client name\n\nProfile tabs (10 total):\n  • Overview - Basic info, demographics\n  • Sessions - Session notes and history\n  • Assessments - Assigned assessments and reports\n  • Documents - Uploaded files and forms\n  • Billing - Payment history and invoices\n  • Tasks - Client-related tasks\n  • Checklist - Process checklists\n  • Communications - Email history\n  • History - Audit trail of changes\n  • Portal Access - Login credentials\n\nQuick actions:\n  • Schedule appointment\n  • Add session note\n  • Upload documents",
     category: "clients",
     helpGuideSlug: "add-client"
   },
   {
     question: ["edit client", "update client", "change client"],
-    answer: "✏️ EDIT CLIENT INFO\n\nSteps:\n  1. Clients → Click client name\n  2. Click Edit button\n  3. Update information\n  4. Save\n\nWhat you can edit:\n  • Demographics (name, DOB, contact)\n  • Status and Risk Level\n  • Assigned Therapist\n  • Address details\n\nImportant:\n  • All changes logged in HIPAA audit\n  • Status changes affect list visibility\n  • Risk level changes trigger alerts",
+    answer: "✏️ EDIT CLIENT INFO\n\nSteps:\n  1. Clients → Click client name\n  2. Click Edit button\n  3. Update information\n  4. Save\n\nEditable fields:\n  • Demographics (name, DOB, contact)\n  • Status: Active, Inactive, Discharged\n  • Risk Level: None, Low, Medium, High, Critical\n  • Assigned Therapist\n  • Address details\n\nImportant:\n  • All changes logged in HIPAA audit\n  • Status changes affect list visibility\n  • Risk level changes trigger alerts",
     category: "clients",
     helpGuideSlug: "edit-client"
   },
@@ -38,7 +38,7 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Scheduling
   {
     question: ["schedule appointment", "book session", "add appointment", "create session"],
-    answer: "📅 SCHEDULE APPOINTMENT\n\nGo to: Scheduling → Choose view (Day/Week/Month) → Click time slot\n\nRequired fields:\n  • Client\n  • Session Type: Initial, Follow-up, Group, etc.\n  • Service (from billing catalog)\n  • Start Time & Duration\n  • Location/Room\n\nSession statuses:\n  Scheduled → Completed → Cancelled → Rescheduled → No Show\n\nFeatures:\n  • Color-coded by session type\n  • Drag to reschedule\n  • Double-click for quick add\n  • Service auto-sets billing",
+    answer: "📅 SCHEDULE APPOINTMENT\n\nGo to: Scheduling → Choose view (Day/Week/Month) → Click time slot\n\nRequired fields:\n  • Client\n  • Session Type: Initial, Follow-up, Group, etc.\n  • Service (from billing catalog)\n  • Start Time & Duration\n  • Location/Room\n\nSession statuses:\n  • Scheduled (default)\n  • Completed\n  • Cancelled\n  • Rescheduled\n  • No Show\n\nFeatures:\n  • Color-coded by session type\n  • Drag to reschedule\n  • Double-click for quick add\n  • Service auto-sets billing",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
   },
