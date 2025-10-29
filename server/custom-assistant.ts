@@ -29,7 +29,7 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
     helpGuideSlug: "add-client"
   },
   {
-    question: ["edit client", "update client", "change client"],
+    question: ["edit client", "update client info", "modify client"],
     answer: "✏️ EDIT CLIENT INFO\n\nSteps:\n  1. Clients → Click client name\n  2. Click Edit button\n  3. Update information\n  4. Save\n\nEditable fields:\n  • Demographics (name, DOB, contact)\n  • Status: Active, Inactive, Discharged\n  • Risk Level: None, Low, Medium, High, Critical\n  • Assigned Therapist\n  • Address details\n\nImportant:\n  • All changes logged in HIPAA audit\n  • Status changes affect list visibility\n  • Risk level changes trigger alerts",
     category: "clients",
     helpGuideSlug: "edit-client"
@@ -43,7 +43,7 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
     helpGuideSlug: "schedule-appointment"
   },
   {
-    question: ["calendar view", "change view", "switch view"],
+    question: ["calendar view", "change calendar view", "switch calendar view", "calendar views"],
     answer: "🗓️ CALENDAR VIEWS\n\nViews available:\n  • Day - Hourly breakdown, detailed\n  • Week - 7-day overview, planning\n  • Month - Full month snapshot\n\nHow to switch:\n  • Click tabs at top\n  • Use arrow buttons to navigate\n  • Click Today to jump to current date\n\nFeatures:\n  • Color-coded sessions\n  • Click to edit in-place\n  • Filter by therapist or room",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
