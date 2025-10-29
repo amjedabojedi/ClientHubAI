@@ -62,8 +62,6 @@ Application name: TherapyFlow (to be used consistently throughout the applicatio
 - **Email Communications History**: Audit trail of client emails (scheduling, reminders) accessible in client profiles.
 - **Login Error Feedback**: Professional handling with specific backend messages, visual cues, and persistent error state.
 - **Client Portal**: Secure portal access for clients to view appointments, upload documents, and manage their care with HIPAA-compliant audit logging. Portal displays all dates/times in America/New_York timezone for consistency.
-- **Navigation Assistant**: Hybrid chat assistant that helps users navigate TherapyFlow with database-backed searchable guides. Searches help guide library first, falls back to local pattern matching. Uses exact app UI elements for accurate guidance. Available as a floating chat widget throughout the application.
-- **Help Center**: Searchable knowledge base with 23+ guides covering all TherapyFlow features. Database-backed with full-text search, category filtering, view tracking, and user feedback. Guides include step-by-step instructions for clients, scheduling, tasks, billing, assessments, and more. Accessible at `/help` with unique URLs for each guide.
 
 ## External Dependencies
 
