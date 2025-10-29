@@ -43,8 +43,7 @@ import {
   notifications,
   notificationTriggers,
   notificationPreferences,
-  notificationTemplates,
-  helpGuides
+  notificationTemplates
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -130,9 +129,7 @@ import type {
   NotificationPreference,
   InsertNotificationPreference,
   NotificationTemplate,
-  InsertNotificationTemplate,
-  HelpGuide,
-  InsertHelpGuide
+  InsertNotificationTemplate
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -501,17 +498,6 @@ export interface IStorage {
   processNotificationEvent(eventType: string, entityData: any): Promise<void>;
   cleanupExpiredNotifications(): Promise<void>;
   getNotificationStats(): Promise<{ total: number; unread: number }>;
-  
-  // ===== HELP GUIDES MANAGEMENT =====
-  getHelpGuides(category?: string, isActive?: boolean): Promise<HelpGuide[]>;
-  getHelpGuide(id: number): Promise<HelpGuide | undefined>;
-  getHelpGuideBySlug(slug: string): Promise<HelpGuide | undefined>;
-  createHelpGuide(guide: InsertHelpGuide): Promise<HelpGuide>;
-  updateHelpGuide(id: number, guide: Partial<InsertHelpGuide>): Promise<HelpGuide>;
-  deleteHelpGuide(id: number): Promise<void>;
-  searchHelpGuides(query: string, category?: string): Promise<HelpGuide[]>;
-  incrementHelpGuideView(id: number): Promise<void>;
-  markHelpGuideHelpful(id: number): Promise<void>;
   
   // ===== PRACTICE CONFIGURATION MANAGEMENT =====
   // Note: Practice configuration methods removed - not implemented in current schema
@@ -5057,103 +5043,6 @@ export class DatabaseStorage implements IStorage {
       total: totalResult[0]?.count || 0,
       unread: unreadResult[0]?.count || 0
     };
-  }
-
-  // ===== HELP GUIDES MANAGEMENT =====
-  async getHelpGuides(category?: string, isActive?: boolean): Promise<HelpGuide[]> {
-    const conditions = [];
-    if (category) {
-      conditions.push(eq(helpGuides.category, category));
-    }
-    if (isActive !== undefined) {
-      conditions.push(eq(helpGuides.isActive, isActive));
-    }
-
-    const guides = await db
-      .select()
-      .from(helpGuides)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(helpGuides.viewCount));
-
-    return guides;
-  }
-
-  async getHelpGuide(id: number): Promise<HelpGuide | undefined> {
-    const [guide] = await db
-      .select()
-      .from(helpGuides)
-      .where(eq(helpGuides.id, id));
-    return guide || undefined;
-  }
-
-  async getHelpGuideBySlug(slug: string): Promise<HelpGuide | undefined> {
-    const [guide] = await db
-      .select()
-      .from(helpGuides)
-      .where(eq(helpGuides.slug, slug));
-    return guide || undefined;
-  }
-
-  async createHelpGuide(guide: InsertHelpGuide): Promise<HelpGuide> {
-    const [created] = await db
-      .insert(helpGuides)
-      .values(guide)
-      .returning();
-    return created;
-  }
-
-  async updateHelpGuide(id: number, guide: Partial<InsertHelpGuide>): Promise<HelpGuide> {
-    const [updated] = await db
-      .update(helpGuides)
-      .set({ ...guide, updatedAt: new Date() })
-      .where(eq(helpGuides.id, id))
-      .returning();
-    return updated;
-  }
-
-  async deleteHelpGuide(id: number): Promise<void> {
-    await db
-      .delete(helpGuides)
-      .where(eq(helpGuides.id, id));
-  }
-
-  async searchHelpGuides(query: string, category?: string): Promise<HelpGuide[]> {
-    const searchTerm = `%${query.toLowerCase()}%`;
-    const conditions = [
-      eq(helpGuides.isActive, true),
-      or(
-        ilike(helpGuides.title, searchTerm),
-        ilike(helpGuides.content, searchTerm),
-        sql`EXISTS (SELECT 1 FROM unnest(${helpGuides.tags}) as tag WHERE LOWER(tag) LIKE ${searchTerm})`,
-        sql`EXISTS (SELECT 1 FROM unnest(${helpGuides.searchTerms}) as term WHERE LOWER(term) LIKE ${searchTerm})`
-      )
-    ];
-
-    if (category) {
-      conditions.push(eq(helpGuides.category, category));
-    }
-
-    const guides = await db
-      .select()
-      .from(helpGuides)
-      .where(and(...conditions))
-      .orderBy(desc(helpGuides.viewCount));
-
-    return guides;
-  }
-
-  async incrementHelpGuideView(id: number): Promise<void> {
-    await db
-      .update(helpGuides)
-      .set({ viewCount: sql`${helpGuides.viewCount} + 1` })
-      .where(eq(helpGuides.id, id));
-  }
-
-  async markHelpGuideHelpful(id: number): Promise<void> {
-    await db
-      .update(helpGuides)
-      .set({ helpfulCount: sql`${helpGuides.helpfulCount} + 1` })
-      .where(eq(helpGuides.id, id));
   }
 }
 
