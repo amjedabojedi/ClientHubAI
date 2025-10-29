@@ -18,19 +18,19 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Client Management
   {
     question: ["add client", "new client", "create client"],
-    answer: "**How to Add a New Client:**\n\n1. Click **Clients** in the top navigation\n2. Click the **Add Client** button (top right)\n3. Fill in required fields: First Name, Last Name\n4. Optional: Email, Phone, DOB, Address, Status, Risk Level, Assigned Therapist\n5. Click **Create Client**",
+    answer: "**How to Add a New Client:**\n\n**Required Fields:**\n• First Name & Last Name\n\n**Optional Fields:**\n• Email, Phone, Date of Birth\n• Address (Street, City, State, ZIP)\n• Status (Active, Inactive, Discharged, On Hold, Waitlist)\n• Risk Level (None, Low, Medium, High, Critical)\n• Assigned Therapist\n\n**Steps:**\n1. Click **Clients** → **+ Add Client** (top right)\n2. Fill in client information\n3. Click **Create Client**\n\n**💡 Tips:**\n• Add email to enable portal access and automated reminders\n• Set risk level for proper monitoring and alerts\n• Assign therapist for calendar/scheduling integration",
     category: "clients",
     helpGuideSlug: "add-client"
   },
   {
     question: ["view client", "see client", "find client", "client profile"],
-    answer: "**How to View a Client:**\n\n1. Click **Clients** in the top navigation\n2. Use the search box or scroll to find the client\n3. Click on the client's name to open their profile",
+    answer: "**How to View Client Profiles:**\n\n**Steps:**\n1. Click **Clients** in top navigation\n2. Use search box or browse the list\n3. Click client name to open full profile\n\n**Client Profile Tabs:**\n• Overview - Basic info, demographics, contact\n• Sessions - Session notes and history\n• Documents - Uploaded files and forms\n• Assessments - Assigned assessments and reports\n• Tasks - Client-related tasks\n• Portal Access - Login credentials and access settings\n• Billing - Payment history and invoices\n\n**💡 Quick Actions:**\n• Schedule appointment directly from profile\n• Add session note from Sessions tab\n• Upload documents via Documents tab",
     category: "clients",
     helpGuideSlug: "add-client"
   },
   {
     question: ["edit client", "update client", "change client"],
-    answer: "**How to Edit Client Information:**\n\n1. Click **Clients** → Click the client's name\n2. Click the **Edit** button in the client profile\n3. Make your changes\n4. Click **Save**",
+    answer: "**How to Edit Client Information:**\n\n**Steps:**\n1. Click **Clients** → Click client name\n2. Click **Edit** button in profile header\n3. Update information\n4. Click **Save**\n\n**What You Can Edit:**\n• Demographics (name, DOB, contact info)\n• Status and Risk Level\n• Assigned Therapist\n• Address and contact details\n\n**💡 Important:**\n• Changes are logged in HIPAA audit trail\n• Status changes affect client visibility in lists\n• Risk level changes trigger security notifications",
     category: "clients",
     helpGuideSlug: "edit-client"
   },
@@ -38,19 +38,19 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Scheduling
   {
     question: ["schedule appointment", "book session", "add appointment", "create session"],
-    answer: "**How to Schedule an Appointment:**\n\n1. Click **Scheduling** in the top navigation\n2. Choose Day/Week/Month view (tabs at top)\n3. Click on a time slot in the calendar\n4. Fill in: Client, Session Type, Service, Start Time, Duration, Location/Room\n5. Click **Create Session**",
+    answer: "**How to Schedule an Appointment:**\n\n**Steps:**\n1. Click **Scheduling** → Choose view (Day/Week/Month)\n2. Click a time slot in the calendar\n3. Fill in appointment details\n4. Click **Create Session**\n\n**Required Fields:**\n• Client\n• Session Type (Initial, Follow-up, Group, etc.)\n• Service (from billing catalog)\n• Start Time & Duration\n• Location/Room\n\n**Session Statuses:**\n• Scheduled → Completed → Cancelled → Rescheduled → No Show\n\n**💡 Tips:**\n• Color-coded by session type for easy viewing\n• Drag sessions to reschedule in calendar\n• Double-click time slot for quick scheduling\n• Service selection auto-sets billing info",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
   },
   {
     question: ["calendar view", "change view", "switch view"],
-    answer: "**How to Change Calendar View:**\n\n1. Go to **Scheduling** page\n2. At the top of the calendar, click the tabs: **Day**, **Week**, or **Month**\n3. The calendar will switch to that view",
+    answer: "**Calendar Views:**\n\n**📅 Day View** - Hourly breakdown, detailed schedule\n**📆 Week View** - 7-day overview, best for planning\n**🗓️ Month View** - Full month snapshot, high-level view\n\n**How to Switch:**\n• Click tabs at top of calendar\n• Use arrow buttons to navigate dates\n• Click \"Today\" to jump to current date\n\n**💡 Features:**\n• Color-coded by session type\n• Click any session to edit in-place\n• Filter by therapist or room\n• Export calendar to print schedules",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
   },
   {
     question: ["cancel appointment", "delete session", "cancel session"],
-    answer: "**How to Cancel an Appointment:**\n\n1. Go to **Scheduling** → Find the appointment on the calendar\n2. Click on the appointment\n3. Click **Edit** or the action menu (⋮)\n4. Choose **Cancel** or **Delete**\n5. Confirm the action",
+    answer: "**How to Cancel/Reschedule:**\n\n**Cancel Appointment:**\n1. Click appointment on calendar\n2. Click **Edit** → Change status to **Cancelled**\n3. Add cancellation reason (optional)\n4. Click **Save**\n\n**Reschedule Appointment:**\n1. Drag session to new time slot, OR\n2. Edit session → Change date/time → Save\n\n**💡 Important:**\n• Cancelled sessions stay in system for records\n• Billing status updated automatically\n• Email notifications sent to client if enabled\n• Track no-shows separately from cancellations",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
   },
@@ -58,13 +58,13 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Session Notes
   {
     question: ["add session note", "write note", "document session", "create note", "session note", "write session note", "create session note"],
-    answer: "**How to Add a Session Note:**\n\n1. Click **Clients** → Click the client's name\n2. In their profile, click the **Sessions** tab\n3. Click **+ Add Session Note**\n4. Fill in: Session Date, Time, Duration, Session Type, clinical details\n5. Click **Save Session Note**",
+    answer: "**How to Add a Session Note:**\n\n**Steps:**\n1. **Clients** → Click client → **Sessions** tab\n2. Click **+ Add Session Note**\n3. Fill in clinical documentation\n4. Click **Save Session Note**\n\n**Note Sections:**\n• Session Details (date, time, duration, type)\n• Mood Tracking (current mood, changes observed)\n• Goals & Progress\n• Interventions Used\n• Clinical Observations\n• **Risk Assessment** (10-factor matrix)\n• Treatment Plan Updates\n\n**Risk Assessment Factors:**\nSuicidal Ideation • Self-Harm • Homicidal Ideation • Psychosis • Substance Use • Impulsivity • Aggression/Violence • Trauma Symptoms • Non-Adherence • Support System\n\n**💡 Features:**\n• Auto-save every 30 seconds\n• Pick from Library content for quick documentation\n• Rich text formatting\n• HIPAA audit logging",
     category: "notes",
     helpGuideSlug: "add-session-note"
   },
   {
     question: ["ai note", "generate note", "ai help note"],
-    answer: "**How to Use AI for Session Notes:**\n\n1. When adding a session note, look for the **Generate with AI** button\n2. Click it to get AI assistance drafting the note\n3. Review and edit the generated content\n4. Click **Save Session Note**",
+    answer: "**How to Use AI for Session Notes:**\n\n**Steps:**\n1. Open session note form\n2. Click **Generate with AI** button\n3. AI drafts note using OpenAI\n4. Review and edit generated content\n5. Click **Save Session Note**\n\n**AI Can Generate:**\n• Clinical observations from session details\n• Progress notes in professional format\n• Treatment recommendations\n• Structured SOAP notes\n\n**💡 AI Templates:**\n• Create reusable templates for common scenarios\n• Save templates for future use\n• Edit and customize AI output\n• All AI-generated notes fully editable",
     category: "notes",
     helpGuideSlug: "ai-note"
   },
@@ -84,19 +84,19 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Tasks
   {
     question: ["create task", "add task", "new task"],
-    answer: "**How to Create a Task:**\n\n1. Click **Tasks** in the top navigation\n2. Click **+ Add Task** button\n3. Fill in: Title, Description, Due Date, Priority, Assigned To\n4. Optional: Link to a specific client\n5. Click **Create Task**",
+    answer: "**How to Create a Task:**\n\n**Steps:**\n1. Click **Tasks** in top navigation → **+ Add Task**\n2. Fill in required fields: Title, Description, **Client** (required), Assigned To, Due Date\n3. Set Priority level and initial Status\n4. Click **Create Task**\n\n**Priority Levels:**\n- 🔵 Low | 🟡 Medium | 🟠 High | 🔴 Urgent\n\n**Task Statuses:**\n- Pending → In Progress → Completed → Overdue (auto-set when past due)\n\n**💡 Tips:**\n• Tasks automatically show overdue when past their due date\n• Link tasks to clients to see them in client profiles\n• Add comments to track progress and communicate with team\n• Use filters to find tasks by status, priority, or assignee",
     category: "tasks",
     helpGuideSlug: "create-task"
   },
   {
     question: ["filter tasks", "search tasks", "find tasks"],
-    answer: "**How to Filter Tasks:**\n\n1. Go to **Tasks** page\n2. Use the filters at the top:\n   - Status: All/Pending/In Progress/Completed\n   - Priority: All/Low/Medium/High/Urgent\n   - Assigned To: Select a user\n3. Results update automatically",
+    answer: "**How to Filter Tasks:**\n\n**Quick Filters (Top of Tasks Page):**\n• **Status:** All | Pending | In Progress | Completed | Overdue\n• **Priority:** All | Low | Medium | High | Urgent\n• **Assigned To:** Filter by team member\n• **Client:** See tasks for specific client\n\n**💡 Tips:**\n• Filters combine - use multiple at once to narrow results\n• Overdue tasks automatically highlighted in red\n• Results update instantly as you change filters\n• Export filtered task lists for reports",
     category: "tasks",
     helpGuideSlug: "create-task"
   },
   {
     question: ["complete task", "mark task done", "finish task"],
-    answer: "**How to Complete a Task:**\n\n1. Go to **Tasks** → Find your task\n2. Click on the task to open it\n3. Change status to **Completed**\n4. Click **Save** or use the quick action button",
+    answer: "**How to Complete a Task:**\n\n**Quick Method:**\n1. Go to **Tasks** page → Find your task\n2. Click the task to open details\n3. Change Status to **Completed**\n4. Click **Save**\n\n**💡 Good Practice:**\n• Add a final comment noting completion details\n• Update progress notes before marking complete\n• Completed tasks stay visible in task list for records\n• Use filters to hide completed tasks from daily view",
     category: "tasks",
     helpGuideSlug: "create-task"
   },
@@ -104,19 +104,19 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Billing
   {
     question: ["add service", "billing service", "create service"],
-    answer: "**How to Add a Service:**\n\n1. Click **Billing** in the top navigation\n2. Click the **Services** tab\n3. Click **+ Add Service**\n4. Enter: Name, Code, Price, Duration\n5. Click **Create**",
+    answer: "**How to Add a Billing Service:**\n\n**Steps:**\n1. **Billing** → **Services** tab → **+ Add Service**\n2. Enter service details\n3. Click **Create**\n\n**Service Fields:**\n• Name (e.g., \"Individual Therapy\")\n• CPT Code (e.g., \"90834\")\n• Price (default rate)\n• Duration (minutes)\n\n**💡 Tips:**\n• Services auto-populate when scheduling sessions\n• Link services to insurance codes for claims\n• Set different rates for different service types\n• Services appear in billing reports and invoices",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
   {
     question: ["add room", "create room", "billing room"],
-    answer: "**How to Add a Room:**\n\n1. Go to **Billing** page\n2. Click the **Rooms** tab\n3. Click **+ Add Room**\n4. Enter room details\n5. Click **Create**",
+    answer: "**How to Add a Room:**\n\n**Steps:**\n1. **Billing** → **Rooms** tab → **+ Add Room**\n2. Enter room name and details\n3. Click **Create**\n\n**💡 Purpose:**\n• Track which room used for each session\n• Filter calendar by room availability\n• Room data included in billing records\n• Helpful for multi-location practices",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
   {
     question: ["payment status", "track payments", "billing sessions"],
-    answer: "**How to Track Payments:**\n\n1. Go to **Billing** page\n2. Click the **Sessions** tab\n3. You'll see all sessions with payment status: Paid, Pending, or Unpaid\n4. Use filters to narrow down by date or status",
+    answer: "**How to Track Payments:**\n\n**View Payment Status:**\n• **Billing** → **Sessions** tab\n\n**Payment Statuses:**\n• 🟢 **Paid** - Payment received\n• 🟡 **Billed** - Invoice sent, awaiting payment\n• 🔵 **Pending** - Session completed, not yet billed\n• 🔴 **Denied** - Claim denied by insurance\n• 🟣 **Refunded** - Payment refunded to client\n• 🟠 **Follow Up** - Requires attention\n\n**💡 Features:**\n• Filter by date range and status\n• Export for accounting reports\n• Stripe integration for online payments\n• Automatic status updates when payments received",
     category: "billing",
     helpGuideSlug: "create-invoice"
   },
@@ -124,48 +124,43 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Assessments
   {
     question: ["create assessment", "assessment template", "add assessment"],
-    answer: "**How to Create an Assessment Template:**\n\n1. Click **Administration** → **Assessments**\n2. Click **+ Create Template**\n3. Enter: Template Name, Description, add questions\n4. Click **Save Template**",
-    category: "assessments",
-    helpGuideSlug: "create-assessment"
+    answer: "**How to Create Assessment Templates:**\n\n**Steps:**\n1. **Administration** → **Assessments** → **+ Create Template**\n2. Enter template details and questions\n3. Click **Save Template**\n\n**Template Fields:**\n• Template Name & Description\n• Question Type (Text, Multiple Choice, Rating Scale)\n• Question text and options\n\n**💡 Features:**\n• Reusable templates for all clients\n• Multiple question types supported\n• Templates can be edited anytime\n• Track completion rates and responses",
+    category: "assessments"
   },
   {
     question: ["assign assessment", "give assessment to client"],
-    answer: "**How to Assign an Assessment:**\n\n1. Click **Clients** → Click the client's name\n2. Go to **Assessments** tab in their profile\n3. Click **Assign Assessment**\n4. Select the template and set due date\n5. Click **Assign**",
-    category: "assessments",
-    helpGuideSlug: "assign-assessment"
+    answer: "**How to Assign Assessments:**\n\n**Steps:**\n1. **Clients** → Click client → **Assessments** tab\n2. Click **Assign Assessment**\n3. Select template and set due date\n4. Click **Assign**\n\n**Assessment Workflow:**\n1. **Pending** - Assigned, waiting for client\n2. **Client In Progress** - Client started, not finished\n3. **Waiting for Therapist** - Client submitted, needs review\n4. **Therapist Completed** - AI report generated, in draft\n5. **Completed** - Finalized with digital signature\n\n**💡 Features:**\n• Client completes via portal\n• AI generates professional reports\n• Auto-save every 30 seconds\n• Export to PDF or Word\n• Digital signatures for compliance",
+    category: "assessments"
   },
   
   // Client Portal
   {
     question: ["client portal", "give client access", "portal access"],
-    answer: "**How to Enable Client Portal Access:**\n\n1. Go to **Clients** → Click the client's name\n2. Click the **Portal Access** tab\n3. Toggle **Enable Portal Access**\n4. System generates login credentials\n5. Click **Send Welcome Email** to notify the client",
-    category: "portal",
-    helpGuideSlug: "client-portal"
+    answer: "**How to Enable Client Portal:**\n\n**Steps:**\n1. **Clients** → Click client → **Portal Access** tab\n2. Toggle **Enable Portal Access** ON\n3. System auto-generates username/password\n4. Click **Send Welcome Email**\n\n**What Clients Can Do:**\n• View appointments and schedule\n• Upload documents securely\n• View and pay invoices (Stripe)\n• Complete assigned assessments\n• Update contact information\n\n**💡 Security:**\n• Unique login credentials per client\n• All access HIPAA audit logged\n• Clients see only their own data\n• Portal timezone: America/New_York",
+    category: "portal"
   },
   
   // User Management
   {
     question: ["add user", "create user", "new staff"],
-    answer: "**How to Add a New User:**\n\n1. Click **Administration** → **User Profiles**\n2. Click **+ Add User**\n3. Fill in: Full Name, Username, Email, Role\n4. Set credentials\n5. Click **Create User**",
+    answer: "**How to Add Staff Users:**\n\n**Steps:**\n1. **Administration** → **User Profiles** → **+ Add User**\n2. Fill in user information\n3. Select role and permissions\n4. Click **Create User**\n\n**User Roles:**\n• Admin - Full system access\n• Supervisor - Manage team, view all clients\n• Therapist - Manage own clients and sessions\n• Billing - Access billing and payments only\n\n**💡 Permissions:**\n• 15 granular permissions per role\n• Customize access by feature\n• Role-based navigation visibility",
     category: "admin"
   },
   {
     question: ["my profile", "change password", "update my info"],
-    answer: "**How to Update Your Profile:**\n\n1. Click your name in the top right corner\n2. Select **My Profile** from the dropdown\n3. Edit your information\n4. Click **Save Changes**",
-    category: "profile",
-    helpGuideSlug: "my-profile"
+    answer: "**How to Manage Your Profile:**\n\n**Steps:**\n1. Click your name (top right) → **My Profile**\n2. Edit your information\n3. Click **Save Changes**\n\n**Profile Tabs:**\n• **Personal Info** - Name, email, phone\n• **Credentials** - 9 license types (LCSW, LMFT, PhD, etc.)\n• **Professional Details** - Bio, specialties, education\n• **Working Hours** - Set availability for scheduling\n• **Zoom Integration** - Connect for virtual sessions\n• **Security** - Change password\n• **Notifications** - Email preferences\n• **Signature** - Upload digital signature\n\n**💡 Features:**\n• Working hours control appointment availability\n• Credentials display on reports\n• Signature auto-applies to documents",
+    category: "profile"
   },
   
   // Navigation & General
   {
     question: ["dashboard", "home", "main page"],
-    answer: "**How to Access the Dashboard:**\n\nClick **Dashboard** in the top navigation bar to return to the main overview page.",
-    category: "navigation",
-    helpGuideSlug: "dashboard"
+    answer: "**Dashboard Overview:**\n\n**Quick Stats:**\n• Total Active Clients\n• Appointments Today\n• Pending Tasks\n• Outstanding Payments\n\n**Sections:**\n• **Upcoming Appointments** - Next 5 sessions\n• **Recent Activity** - Latest client updates\n• **Task Alerts** - Overdue and urgent tasks\n• **Quick Actions** - Add client, schedule, create task\n\n**💡 Access:**\nClick **Dashboard** in top navigation anytime",
+    category: "navigation"
   },
   {
     question: ["administration", "admin menu", "settings"],
-    answer: "**How to Access Administration:**\n\nClick **Administration** in the top navigation to access:\n- Library\n- Assessments\n- Process Checklists\n- User Profiles\n- Role Management\n- Notifications\n- HIPAA Audit\n- Settings\n\n(Only visible to Admin and Supervisor roles)",
+    answer: "**Administration Menu:**\n\n**Access:** Click **Administration** in top navigation\n\n**Available Modules:**\n• **Library** - Clinical content management\n• **Assessments** - Template management\n• **Process Checklists** - Workflow templates\n• **User Profiles** - Staff management\n• **Role Management** - Permission settings\n• **Notifications** - Email configuration\n• **HIPAA Audit** - Security logs\n• **Settings** - System configuration\n\n**💡 Permissions:**\nOnly visible to Admin and Supervisor roles\nEach module requires specific permissions",
     category: "navigation"
   },
 ];
@@ -243,10 +238,10 @@ async function searchDatabaseGuides(userQuestion: string): Promise<{ guide: Help
 }
 
 /**
- * Format guide response with link to full guide page
+ * Format guide response - database guides already comprehensive, no link needed
  */
 function formatGuideResponse(guide: HelpGuide): string {
-  return `${guide.content}\n\n---\n\n📚 **[View full guide: /help/${guide.slug}](/help/${guide.slug})**`;
+  return guide.content;
 }
 
 /**
@@ -337,12 +332,8 @@ function findLocalAnswer(userQuestion: string): string {
       "Or ask about navigating to a specific section of TherapyFlow.";
   }
   
-  // Return the highest scoring match with help guide link if available
-  const bestMatch = scoredGuides[0].guide;
-  if (bestMatch.helpGuideSlug) {
-    return `${bestMatch.answer}\n\n---\n\n📚 **[View full guide: /help/${bestMatch.helpGuideSlug}](/help/${bestMatch.helpGuideSlug})**`;
-  }
-  return bestMatch.answer;
+  // Return the highest scoring match - comprehensive info in chatbot
+  return scoredGuides[0].guide.answer;
 }
 
 /**
