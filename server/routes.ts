@@ -24,6 +24,11 @@ import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalR
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
+
+// Helper function to get the email sender address from environment
+function getEmailFromAddress(): string {
+  return process.env.EMAIL_FROM || 'noreply@mail.resiliencecrm.com';
+}
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
 import { eq, and, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
@@ -142,7 +147,7 @@ async function sendActivationEmail(clientEmail: string, clientName: string, acti
 
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-    const fromEmail = 'noreply@send.rcrc.ca';
+    const fromEmail = getEmailFromAddress();
     // Use provided baseUrl or fall back to env variable or localhost
     const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
     const activationUrl = `${appUrl}/portal/activate/${activationToken}`;
@@ -187,7 +192,7 @@ async function sendPasswordResetEmail(clientEmail: string, clientName: string, r
 
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-    const fromEmail = 'noreply@send.rcrc.ca';
+    const fromEmail = getEmailFromAddress();
     // Use provided baseUrl or fall back to env variable or localhost
     const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
     const resetUrl = `${appUrl}/portal/reset-password/${resetToken}`;
@@ -242,7 +247,7 @@ async function sendAppointmentConfirmationEmail(
 
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-    const fromEmail = 'noreply@send.rcrc.ca';
+    const fromEmail = getEmailFromAddress();
     const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
     const dashboardUrl = `${baseUrl}/portal/dashboard`;
 
@@ -770,6 +775,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.user?.id
       });
       
+      // Handle portal access activation if enabled during creation
+      if (client.hasPortalAccess && 
+          (client.email || client.portalEmail)) {
+        // Portal access was enabled during creation - generate activation token and send email
+        try {
+          const activationToken = crypto.randomBytes(32).toString('hex');
+          const emailToUse = client.portalEmail || client.email!;
+          
+          // Update client with activation token
+          await storage.updateClient(client.id, { activationToken });
+          
+          // Send activation email
+          await sendActivationEmail(emailToUse, client.fullName, activationToken, getBaseUrl(req));
+          
+          console.log(`[PORTAL] Activation email sent to ${emailToUse} for client ${client.fullName} (during creation)`);
+          
+          // Track portal activation in history
+          await trackClientHistory({
+            clientId: client.id,
+            eventType: 'portal_activated',
+            fromValue: 'disabled',
+            toValue: 'activation_sent',
+            description: `Portal access enabled during creation. Activation email sent to ${emailToUse}`,
+            createdBy: req.user?.id,
+            createdByName: req.user?.username,
+          });
+        } catch (activationError) {
+          console.error('[PORTAL] Failed to send activation email during client creation:', activationError);
+        }
+      }
+
       // Trigger client created notification
       try {
         await notificationService.processEvent('client_created', {
@@ -7449,7 +7485,7 @@ This happens because only the file metadata was stored, not the actual file cont
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
             
             // Use the configured send domain for emails
-            const fromEmail = 'noreply@send.rcrc.ca';
+            const fromEmail = getEmailFromAddress();
             
             // Generate PDF for email attachment with improved reliability
             let pdfBuffer;
@@ -9986,7 +10022,7 @@ This happens because only the file metadata was stored, not the actual file cont
             if (process.env.SPARKPOST_API_KEY) {
               const SparkPost = (await import('sparkpost')).default;
               const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-              const fromEmail = 'noreply@send.rcrc.ca';
+              const fromEmail = getEmailFromAddress();
               
               await sp.transmissions.send({
                 options: {
@@ -10678,15 +10714,16 @@ This happens because only the file metadata was stored, not the actual file cont
 
       const SparkPost = (await import('sparkpost')).default;
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+      const fromEmail = getEmailFromAddress();
       
       await sp.transmissions.send({
         content: {
-          from: 'noreply@resiliencecrm.com',
+          from: fromEmail,
           subject: 'Test Email from TherapyFlow',
           html: `
             <h1>Test Email</h1>
             <p>This is a test email from TherapyFlow.</p>
-            <p>Sender: noreply@resiliencecrm.com</p>
+            <p>Sender: ${fromEmail}</p>
             <p>Sent at: ${new Date().toISOString()}</p>
           `
         },
@@ -10696,7 +10733,7 @@ This happens because only the file metadata was stored, not the actual file cont
       res.json({ 
         success: true, 
         message: `Test email sent to ${toEmail}`,
-        from: 'noreply@resiliencecrm.com'
+        from: fromEmail
       });
     } catch (error: any) {
       console.error('Test email error:', error);
