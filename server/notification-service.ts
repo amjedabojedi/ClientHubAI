@@ -1,38 +1,44 @@
 import { db } from "./db";
 import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
-import { 
-  notifications, 
-  notificationTriggers, 
-  notificationPreferences, 
+import {
+  notifications,
+  notificationTriggers,
+  notificationPreferences,
   notificationTemplates,
   scheduledNotifications,
   users,
   clients,
   supervisorAssignments,
-  sessions
+  sessions,
 } from "@shared/schema";
 import SparkPost from "sparkpost";
-import { format, toZonedTime } from 'date-fns-tz';
-import type { 
-  InsertNotification, 
+import { format, toZonedTime } from "date-fns-tz";
+import type {
+  InsertNotification,
   NotificationTrigger,
   NotificationPreference,
   NotificationTemplate,
   InsertScheduledNotification,
-  User 
+  User,
 } from "@shared/schema";
 
 // Helper function to get the email sender address from environment
 function getEmailFromAddress(): string {
-  return process.env.EMAIL_FROM || 'noreply@mail.resiliencecrm.com';
+  return process.env.EMAIL_FROM || "noreply@mail.resiliencecrm.com";
 }
 
 // Flexible trigger condition interface
 interface TriggerCondition {
   field: string;
-  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'in_array';
+  operator:
+    | "equals"
+    | "not_equals"
+    | "contains"
+    | "greater_than"
+    | "less_than"
+    | "in_array";
   value: any;
-  logicalOperator?: 'AND' | 'OR';
+  logicalOperator?: "AND" | "OR";
 }
 
 // Flexible recipient rules interface
@@ -49,17 +55,17 @@ interface RecipientRules {
 
 // Main notification service class
 export class NotificationService {
-  
   // ===== CORE NOTIFICATION METHODS =====
-  
+
   /**
    * Creates a new notification for a user
    */
-  async createNotification(notificationData: InsertNotification): Promise<void> {
+  async createNotification(
+    notificationData: InsertNotification,
+  ): Promise<void> {
     try {
       await db.insert(notifications).values(notificationData);
     } catch (error) {
-
       throw error;
     }
   }
@@ -67,13 +73,14 @@ export class NotificationService {
   /**
    * Creates multiple notifications in a batch
    */
-  async createNotificationsBatch(notificationsData: InsertNotification[]): Promise<void> {
+  async createNotificationsBatch(
+    notificationsData: InsertNotification[],
+  ): Promise<void> {
     try {
       if (notificationsData.length > 0) {
         await db.insert(notifications).values(notificationsData);
       }
     } catch (error) {
-
       throw error;
     }
   }
@@ -97,11 +104,10 @@ export class NotificationService {
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(notifications)
-      .where(and(
-        eq(notifications.userId, userId),
-        eq(notifications.isRead, false)
-      ));
-    
+      .where(
+        and(eq(notifications.userId, userId), eq(notifications.isRead, false)),
+      );
+
     return result[0]?.count || 0;
   }
 
@@ -111,14 +117,16 @@ export class NotificationService {
   async markAsRead(notificationId: number, userId: number): Promise<void> {
     await db
       .update(notifications)
-      .set({ 
-        isRead: true, 
-        readAt: new Date() 
+      .set({
+        isRead: true,
+        readAt: new Date(),
       })
-      .where(and(
-        eq(notifications.id, notificationId),
-        eq(notifications.userId, userId)
-      ));
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.userId, userId),
+        ),
+      );
   }
 
   /**
@@ -127,78 +135,121 @@ export class NotificationService {
   async markAllAsRead(userId: number): Promise<void> {
     await db
       .update(notifications)
-      .set({ 
-        isRead: true, 
-        readAt: new Date() 
+      .set({
+        isRead: true,
+        readAt: new Date(),
       })
-      .where(and(
-        eq(notifications.userId, userId),
-        eq(notifications.isRead, false)
-      ));
+      .where(
+        and(eq(notifications.userId, userId), eq(notifications.isRead, false)),
+      );
   }
 
   // ===== TRIGGER EVALUATION SYSTEM =====
-  
+
   /**
    * Processes an event and creates notifications based on triggers
    */
   async processEvent(eventType: string, entityData: any): Promise<void> {
-    
     try {
-      console.log(`[NOTIFICATION] Processing event: ${eventType}, entityId: ${entityData.id}`);
-      
+      console.log(
+        `[NOTIFICATION] Processing event: ${eventType}, entityId: ${entityData.id}`,
+      );
+
       // Get all active triggers for this event type
       const triggers = await db
         .select()
         .from(notificationTriggers)
-        .where(and(
-          eq(notificationTriggers.eventType, eventType as any),
-          eq(notificationTriggers.isActive, true)
-        ));
-        
-      console.log(`[NOTIFICATION] Found ${triggers.length} active triggers for ${eventType}`);
+        .where(
+          and(
+            eq(notificationTriggers.eventType, eventType as any),
+            eq(notificationTriggers.isActive, true),
+          ),
+        );
+
+      console.log(
+        `[NOTIFICATION] Found ${triggers.length} active triggers for ${eventType}`,
+      );
 
       // Process each trigger
       for (const trigger of triggers) {
         try {
-          console.log(`[NOTIFICATION] Processing trigger: ${trigger.name} (scheduled: ${trigger.isScheduled})`);
-          
+          console.log(
+            `[NOTIFICATION] Processing trigger: ${trigger.name} (scheduled: ${trigger.isScheduled})`,
+          );
+
           // Check if trigger conditions are met
-          const conditionsMet = await this.evaluateTriggerConditions(trigger, entityData);
-          console.log(`[NOTIFICATION] Trigger conditions met: ${conditionsMet}`);
-          
+          const conditionsMet = await this.evaluateTriggerConditions(
+            trigger,
+            entityData,
+          );
+          console.log(
+            `[NOTIFICATION] Trigger conditions met: ${conditionsMet}`,
+          );
+
           if (conditionsMet) {
             // Handle scheduled vs immediate notifications
             if (trigger.isScheduled && entityData.sessionDate) {
               // For scheduled triggers (24hr reminders), calculate when to send
               const sessionDate = new Date(entityData.sessionDate);
               const now = new Date();
-              const hoursUntilSession = (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-              
-              console.log(`[NOTIFICATION] Scheduled trigger - hours until session: ${hoursUntilSession.toFixed(1)}`);
-              
+              const hoursUntilSession =
+                (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+              console.log(
+                `[NOTIFICATION] Scheduled trigger - hours until session: ${hoursUntilSession.toFixed(1)}`,
+              );
+
               if (hoursUntilSession > 24) {
                 // Schedule for 24 hours before session
-                const executeAt = new Date(sessionDate.getTime() - (24 * 60 * 60 * 1000));
-                console.log(`[NOTIFICATION] Scheduling for: ${executeAt.toISOString()}`);
+                const executeAt = new Date(
+                  sessionDate.getTime() - 24 * 60 * 60 * 1000,
+                );
+                console.log(
+                  `[NOTIFICATION] Scheduling for: ${executeAt.toISOString()}`,
+                );
                 await this.scheduleNotification(trigger, entityData, executeAt);
               } else if (hoursUntilSession > 0) {
                 // Less than 24 hours away - send immediately
-                console.log(`[NOTIFICATION] Less than 24hrs - sending immediately`);
-                const recipients = await this.calculateRecipients(trigger, entityData);
-                console.log(`[NOTIFICATION] Calculated ${recipients.length} recipients`);
-                await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+                console.log(
+                  `[NOTIFICATION] Less than 24hrs - sending immediately`,
+                );
+                const recipients = await this.calculateRecipients(
+                  trigger,
+                  entityData,
+                );
+                console.log(
+                  `[NOTIFICATION] Calculated ${recipients.length} recipients`,
+                );
+                await this.createNotificationsFromTrigger(
+                  trigger,
+                  entityData,
+                  recipients,
+                );
               }
             } else {
               // Immediate notification (non-scheduled triggers)
-              console.log(`[NOTIFICATION] Immediate notification - calculating recipients`);
-              const recipients = await this.calculateRecipients(trigger, entityData);
-              console.log(`[NOTIFICATION] Calculated ${recipients.length} recipients for immediate send`);
-              await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+              console.log(
+                `[NOTIFICATION] Immediate notification - calculating recipients`,
+              );
+              const recipients = await this.calculateRecipients(
+                trigger,
+                entityData,
+              );
+              console.log(
+                `[NOTIFICATION] Calculated ${recipients.length} recipients for immediate send`,
+              );
+              await this.createNotificationsFromTrigger(
+                trigger,
+                entityData,
+                recipients,
+              );
             }
           }
         } catch (error) {
-          console.error(`[NOTIFICATION] Error processing trigger ${trigger.id}:`, error);
+          console.error(
+            `[NOTIFICATION] Error processing trigger ${trigger.id}:`,
+            error,
+          );
           // Continue with other triggers even if one fails
         }
       }
@@ -211,7 +262,11 @@ export class NotificationService {
   /**
    * Schedules a notification for future delivery
    */
-  async scheduleNotification(trigger: NotificationTrigger, entityData: any, executeAt: Date): Promise<void> {
+  async scheduleNotification(
+    trigger: NotificationTrigger,
+    entityData: any,
+    executeAt: Date,
+  ): Promise<void> {
     try {
       const scheduledData: InsertScheduledNotification = {
         triggerId: trigger.id,
@@ -220,19 +275,21 @@ export class NotificationService {
         entityId: entityData.id,
         entityData: JSON.stringify(entityData),
         executeAt,
-        status: 'pending',
-        retryCount: 0
+        status: "pending",
+        retryCount: 0,
       };
 
       // Check for duplicate (idempotent insert)
       const existing = await db
         .select()
         .from(scheduledNotifications)
-        .where(and(
-          eq(scheduledNotifications.sessionId, entityData.id),
-          eq(scheduledNotifications.triggerId, trigger.id),
-          eq(scheduledNotifications.status, 'pending')
-        ));
+        .where(
+          and(
+            eq(scheduledNotifications.sessionId, entityData.id),
+            eq(scheduledNotifications.triggerId, trigger.id),
+            eq(scheduledNotifications.status, "pending"),
+          ),
+        );
 
       if (existing.length === 0) {
         await db.insert(scheduledNotifications).values(scheduledData);
@@ -249,15 +306,17 @@ export class NotificationService {
   async processDueNotifications(): Promise<void> {
     try {
       const now = new Date();
-      
+
       // Get all pending notifications that are due (with row locking)
       const dueNotifications = await db
         .select()
         .from(scheduledNotifications)
-        .where(and(
-          eq(scheduledNotifications.status, 'pending'),
-          sql`${scheduledNotifications.executeAt} <= ${now.toISOString()}`
-        ))
+        .where(
+          and(
+            eq(scheduledNotifications.status, "pending"),
+            sql`${scheduledNotifications.executeAt} <= ${now.toISOString()}`,
+          ),
+        )
         .limit(100); // Process in batches
 
       for (const scheduled of dueNotifications) {
@@ -269,7 +328,9 @@ export class NotificationService {
             .where(eq(notificationTriggers.id, scheduled.triggerId));
 
           if (!trigger) {
-            console.error(`Trigger ${scheduled.triggerId} not found for scheduled notification ${scheduled.id}`);
+            console.error(
+              `Trigger ${scheduled.triggerId} not found for scheduled notification ${scheduled.id}`,
+            );
             continue;
           }
 
@@ -277,30 +338,41 @@ export class NotificationService {
           const entityData = JSON.parse(scheduled.entityData);
 
           // Calculate recipients and send notifications
-          const recipients = await this.calculateRecipients(trigger, entityData);
-          await this.createNotificationsFromTrigger(trigger, entityData, recipients);
+          const recipients = await this.calculateRecipients(
+            trigger,
+            entityData,
+          );
+          await this.createNotificationsFromTrigger(
+            trigger,
+            entityData,
+            recipients,
+          );
 
           // Mark as sent
           await db
             .update(scheduledNotifications)
-            .set({ 
-              status: 'sent', 
-              processedAt: new Date() 
+            .set({
+              status: "sent",
+              processedAt: new Date(),
             })
             .where(eq(scheduledNotifications.id, scheduled.id));
         } catch (error) {
           // Mark as failed and increment retry count
           await db
             .update(scheduledNotifications)
-            .set({ 
-              status: 'failed',
+            .set({
+              status: "failed",
               retryCount: scheduled.retryCount + 1,
-              lastError: error instanceof Error ? error.message : 'Unknown error',
-              processedAt: new Date()
+              lastError:
+                error instanceof Error ? error.message : "Unknown error",
+              processedAt: new Date(),
             })
             .where(eq(scheduledNotifications.id, scheduled.id));
 
-          console.error(`Error processing scheduled notification ${scheduled.id}:`, error);
+          console.error(
+            `Error processing scheduled notification ${scheduled.id}:`,
+            error,
+          );
         }
       }
     } catch (error) {
@@ -312,33 +384,38 @@ export class NotificationService {
   /**
    * Evaluates if trigger conditions are met
    */
-  private async evaluateTriggerConditions(trigger: NotificationTrigger, entityData: any): Promise<boolean> {
+  private async evaluateTriggerConditions(
+    trigger: NotificationTrigger,
+    entityData: any,
+  ): Promise<boolean> {
     try {
-      if (!trigger.conditionRules || trigger.conditionRules === '{}') {
+      if (!trigger.conditionRules || trigger.conditionRules === "{}") {
         return true; // No conditions or empty conditions means always trigger
       }
 
       const parsedConditions = JSON.parse(trigger.conditionRules);
-      
+
       // Handle both object format like {"sessionType": "intake"} and array format
       let conditions: TriggerCondition[] = [];
-      
+
       if (Array.isArray(parsedConditions)) {
         conditions = parsedConditions;
-      } else if (typeof parsedConditions === 'object' && parsedConditions !== null) {
+      } else if (
+        typeof parsedConditions === "object" &&
+        parsedConditions !== null
+      ) {
         // Convert object format to condition array
         conditions = Object.entries(parsedConditions).map(([field, value]) => ({
           field,
-          operator: 'equals' as const,
-          value
+          operator: "equals" as const,
+          value,
         }));
       }
-      
-      
+
       for (const condition of conditions) {
         const fieldValue = this.getFieldValue(entityData, condition.field);
         const conditionMet = this.evaluateCondition(fieldValue, condition);
-        
+
         if (!conditionMet) {
           return false; // All conditions must be met (AND logic for now)
         }
@@ -354,20 +431,25 @@ export class NotificationService {
   /**
    * Evaluates a single condition
    */
-  private evaluateCondition(fieldValue: any, condition: TriggerCondition): boolean {
+  private evaluateCondition(
+    fieldValue: any,
+    condition: TriggerCondition,
+  ): boolean {
     switch (condition.operator) {
-      case 'equals':
+      case "equals":
         return fieldValue === condition.value;
-      case 'not_equals':
+      case "not_equals":
         return fieldValue !== condition.value;
-      case 'contains':
+      case "contains":
         return String(fieldValue).includes(condition.value);
-      case 'greater_than':
+      case "greater_than":
         return Number(fieldValue) > Number(condition.value);
-      case 'less_than':
+      case "less_than":
         return Number(fieldValue) < Number(condition.value);
-      case 'in_array':
-        return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+      case "in_array":
+        return (
+          Array.isArray(condition.value) && condition.value.includes(fieldValue)
+        );
       default:
         return false;
     }
@@ -377,20 +459,25 @@ export class NotificationService {
    * Gets field value from entity data using dot notation
    */
   private getFieldValue(entityData: any, fieldPath: string): any {
-    const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], entityData);
-    
+    const value = fieldPath
+      .split(".")
+      .reduce((obj, key) => obj?.[key], entityData);
+
     // Special handling for date fields to format them in EST timezone
-    if (fieldPath === 'sessionDate' && value) {
+    if (fieldPath === "sessionDate" && value) {
       return this.formatDateEST(value);
     }
-    
+
     return value;
   }
 
   /**
    * Calculates who should receive notifications based on recipient rules
    */
-  private async calculateRecipients(trigger: NotificationTrigger, entityData: any): Promise<User[]> {
+  private async calculateRecipients(
+    trigger: NotificationTrigger,
+    entityData: any,
+  ): Promise<User[]> {
     try {
       if (!trigger.recipientRules) {
         return [];
@@ -404,49 +491,64 @@ export class NotificationService {
         const roleUsers = await db
           .select()
           .from(users)
-          .where(and(
-            inArray(users.role, recipientRules.roles),
-            eq(users.isActive, true)
-          ));
+          .where(
+            and(
+              inArray(users.role, recipientRules.roles),
+              eq(users.isActive, true),
+            ),
+          );
         recipients.push(...roleUsers);
       }
 
       // Get specific users
-      if (recipientRules.specificUsers && recipientRules.specificUsers.length > 0) {
+      if (
+        recipientRules.specificUsers &&
+        recipientRules.specificUsers.length > 0
+      ) {
         const specificUsers = await db
           .select()
           .from(users)
-          .where(and(
-            sql`${users.id} = ANY(${recipientRules.specificUsers})`,
-            eq(users.isActive, true)
-          ));
+          .where(
+            and(
+              sql`${users.id} = ANY(${recipientRules.specificUsers})`,
+              eq(users.isActive, true),
+            ),
+          );
         recipients.push(...specificUsers);
       }
 
-      // Get assigned therapist (for client-related events)  
-      if (recipientRules.assignedTherapist && (entityData.therapistId || entityData.assignedToId)) {
+      // Get assigned therapist (for client-related events)
+      if (
+        recipientRules.assignedTherapist &&
+        (entityData.therapistId || entityData.assignedToId)
+      ) {
         const therapistId = entityData.therapistId || entityData.assignedToId;
         const therapist = await db
           .select()
           .from(users)
-          .where(and(
-            eq(users.id, therapistId),
-            eq(users.isActive, true)
-          ));
+          .where(and(eq(users.id, therapistId), eq(users.isActive, true)));
         if (therapist[0]) recipients.push(therapist[0]);
       }
 
       // Get supervisor of assigned therapist (for document review notifications)
-      if (recipientRules.supervisorOfTherapist && entityData.assignedTherapistId) {
+      if (
+        recipientRules.supervisorOfTherapist &&
+        entityData.assignedTherapistId
+      ) {
         const supervisorAssignment = await db
           .select()
           .from(supervisorAssignments)
           .innerJoin(users, eq(supervisorAssignments.supervisorId, users.id))
-          .where(and(
-            eq(supervisorAssignments.therapistId, entityData.assignedTherapistId),
-            eq(supervisorAssignments.isActive, true),
-            eq(users.isActive, true)
-          ));
+          .where(
+            and(
+              eq(
+                supervisorAssignments.therapistId,
+                entityData.assignedTherapistId,
+              ),
+              eq(supervisorAssignments.isActive, true),
+              eq(users.isActive, true),
+            ),
+          );
         if (supervisorAssignment[0]) {
           recipients.push(supervisorAssignment[0].users);
         }
@@ -458,21 +560,21 @@ export class NotificationService {
           .select()
           .from(clients)
           .where(eq(clients.id, entityData.clientId));
-        
+
         if (client[0] && client[0].emailNotifications && client[0].email) {
           // Convert client to User-like object for notification system
           const clientAsUser: User = {
             id: client[0].id,
-            username: client[0].fullName || 'Client',
-            password: '', // Not needed for notifications
-            fullName: client[0].fullName || 'Client',
+            username: client[0].fullName || "Client",
+            password: "", // Not needed for notifications
+            fullName: client[0].fullName || "Client",
             email: client[0].email,
-            role: 'client',
+            role: "client",
             isActive: true,
             createdAt: client[0].createdAt || new Date(),
             updatedAt: client[0].updatedAt || new Date(),
             customRoleId: null,
-            status: 'active',
+            status: "active",
             lastLogin: null,
             passwordResetToken: null,
             passwordResetExpiry: null,
@@ -489,20 +591,20 @@ export class NotificationService {
             zoomClientSecret: null,
             zoomAccessToken: null,
             zoomTokenExpiry: null,
-            createdBy: null
+            createdBy: null,
           };
           recipients.push(clientAsUser);
         }
       }
 
       // Remove duplicates
-      const uniqueRecipients = recipients.filter((user, index, self) => 
-        index === self.findIndex(u => u.id === user.id)
+      const uniqueRecipients = recipients.filter(
+        (user, index, self) =>
+          index === self.findIndex((u) => u.id === user.id),
       );
 
       return uniqueRecipients;
     } catch (error) {
-
       return [];
     }
   }
@@ -511,9 +613,9 @@ export class NotificationService {
    * Creates notifications from trigger and template
    */
   private async createNotificationsFromTrigger(
-    trigger: NotificationTrigger, 
-    entityData: any, 
-    recipients: User[]
+    trigger: NotificationTrigger,
+    entityData: any,
+    recipients: User[],
   ): Promise<void> {
     try {
       // Get template if specified
@@ -528,80 +630,101 @@ export class NotificationService {
 
       // Separate recipients into actual users (in users table) and clients (fake user objects)
       // Clients are marked with role='client' when converted from client records
-      const actualUsers = recipients.filter(r => r.role !== 'client');
-      const clientRecipients = recipients.filter(r => r.role === 'client');
+      const actualUsers = recipients.filter((r) => r.role !== "client");
+      const clientRecipients = recipients.filter((r) => r.role === "client");
       const allRecipients = recipients; // Keep all for email sending
 
       // Create in-app notifications for actual users (not clients)
       // Clients don't have user accounts, so they can't see in-app notifications
       if (actualUsers.length > 0) {
-        const notificationsData: InsertNotification[] = actualUsers.map(recipient => {
-          // Use template if available, otherwise generate smart defaults
-          let title: string;
-          let message: string;
-          
-          if (template) {
-            title = this.renderTemplate(template.subject, entityData);
-            message = this.renderTemplate(template.bodyTemplate, entityData);
-          } else {
-            // Generate smart notification based on event type
-            const smartNotification = this.generateSmartBellNotification(trigger.eventType, entityData);
-            title = smartNotification.title;
-            message = smartNotification.message;
-          }
-          
-          const actionUrl = template?.actionUrlTemplate ? this.renderTemplate(template.actionUrlTemplate, entityData) : null;
+        const notificationsData: InsertNotification[] = actualUsers.map(
+          (recipient) => {
+            // Use template if available, otherwise generate smart defaults
+            let title: string;
+            let message: string;
 
-          return {
-            userId: recipient.id,
-            type: trigger.eventType,
-            title,
-            message,
-            data: JSON.stringify(entityData),
-            priority: trigger.priority,
-            actionUrl,
-            actionLabel: template?.actionLabel || null,
-            groupingKey: `${trigger.eventType}_${entityData.id}`,
-            relatedEntityType: trigger.entityType,
-            relatedEntityId: entityData.id
-          };
-        });
+            if (template) {
+              title = this.renderTemplate(template.subject, entityData);
+              message = this.renderTemplate(template.bodyTemplate, entityData);
+            } else {
+              // Generate smart notification based on event type
+              const smartNotification = this.generateSmartBellNotification(
+                trigger.eventType,
+                entityData,
+              );
+              title = smartNotification.title;
+              message = smartNotification.message;
+            }
+
+            const actionUrl = template?.actionUrlTemplate
+              ? this.renderTemplate(template.actionUrlTemplate, entityData)
+              : null;
+
+            return {
+              userId: recipient.id,
+              type: trigger.eventType,
+              title,
+              message,
+              data: JSON.stringify(entityData),
+              priority: trigger.priority,
+              actionUrl,
+              actionLabel: template?.actionLabel || null,
+              groupingKey: `${trigger.eventType}_${entityData.id}`,
+              relatedEntityType: trigger.entityType,
+              relatedEntityId: entityData.id,
+            };
+          },
+        );
 
         // Batch create notifications for actual users only
         await this.createNotificationsBatch(notificationsData);
       }
-      
+
       // Track client emails for Communications tab using system user
       // Clients don't have user accounts, so we use system user (id=6) for tracking
       if (clientRecipients.length > 0) {
         const SYSTEM_USER_ID = 6; // System admin user for client email tracking
-        const clientEmailTrackingData: InsertNotification[] = clientRecipients.map(client => {
-          const title = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-          const message = template ? this.renderTemplate(template.bodyTemplate, entityData) : `${trigger.name} triggered`;
-          
-          return {
-            userId: SYSTEM_USER_ID, // Use system user, not client ID
-            type: trigger.eventType,
-            title: `${title} (sent to ${client.fullName})`,
-            message: `Email sent to ${client.email}: ${message}`,
-            data: JSON.stringify({ ...entityData, isClientEmail: true, clientEmail: client.email, clientId: client.id }),
-            priority: trigger.priority,
-            actionUrl: null,
-            actionLabel: null,
-            groupingKey: `${trigger.eventType}_client_${client.id}_${entityData.id}`,
-            relatedEntityType: 'client',
-            relatedEntityId: client.id // Link to client, not session
-          };
-        });
+        const clientEmailTrackingData: InsertNotification[] =
+          clientRecipients.map((client) => {
+            const title = template
+              ? this.renderTemplate(template.subject, entityData)
+              : trigger.name;
+            const message = template
+              ? this.renderTemplate(template.bodyTemplate, entityData)
+              : `${trigger.name} triggered`;
+
+            return {
+              userId: SYSTEM_USER_ID, // Use system user, not client ID
+              type: trigger.eventType,
+              title: `${title} (sent to ${client.fullName})`,
+              message: `Email sent to ${client.email}: ${message}`,
+              data: JSON.stringify({
+                ...entityData,
+                isClientEmail: true,
+                clientEmail: client.email,
+                clientId: client.id,
+              }),
+              priority: trigger.priority,
+              actionUrl: null,
+              actionLabel: null,
+              groupingKey: `${trigger.eventType}_client_${client.id}_${entityData.id}`,
+              relatedEntityType: "client",
+              relatedEntityId: client.id, // Link to client, not session
+            };
+          });
 
         // Save client email tracking records under system user
         await this.createNotificationsBatch(clientEmailTrackingData);
       }
-      
+
       // Send emails to ALL recipients (users and clients)
       // Emails work for everyone with an email address
-      await this.sendEmailNotifications(allRecipients, trigger, template, entityData);
-      
+      await this.sendEmailNotifications(
+        allRecipients,
+        trigger,
+        template,
+        entityData,
+      );
     } catch (error) {
       console.error(`Error creating notifications from trigger:`, error);
       throw error;
@@ -612,23 +735,24 @@ export class NotificationService {
    * Sends email notifications using SparkPost
    */
   private async sendEmailNotifications(
-    recipients: User[], 
-    trigger: NotificationTrigger, 
-    template: NotificationTemplate | null, 
-    entityData: any
+    recipients: User[],
+    trigger: NotificationTrigger,
+    template: NotificationTemplate | null,
+    entityData: any,
   ): Promise<void> {
     // Check if SparkPost is configured
     if (!process.env.SPARKPOST_API_KEY) {
-      console.log('[EMAIL] SparkPost API key not configured - emails disabled');
+      console.log("[EMAIL] SparkPost API key not configured - emails disabled");
       return;
     }
 
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+      const fromEmail = "noreply@resiliencecrm.com";
 
-      const fromEmail = 'noreply@send.rcrc.ca';
-      
-      console.log(`[EMAIL] Processing ${recipients.length} recipients for ${trigger.eventType}`);
+      console.log(
+        `[EMAIL] Processing ${recipients.length} recipients for ${trigger.eventType}`,
+      );
 
       for (const recipient of recipients) {
         try {
@@ -636,66 +760,92 @@ export class NotificationService {
           const preferences = await db
             .select()
             .from(notificationPreferences)
-            .where(and(
-              eq(notificationPreferences.userId, recipient.id),
-              eq(notificationPreferences.triggerType, trigger.eventType)
-            ));
+            .where(
+              and(
+                eq(notificationPreferences.userId, recipient.id),
+                eq(notificationPreferences.triggerType, trigger.eventType),
+              ),
+            );
 
-          const hasEmailEnabled = preferences.length === 0 || // Default to enabled if no preference set
-            preferences.some(pref => {
+          const hasEmailEnabled =
+            preferences.length === 0 || // Default to enabled if no preference set
+            preferences.some((pref) => {
               if (!pref.deliveryMethods) return false;
-              const methods = typeof pref.deliveryMethods === 'string' 
-                ? [pref.deliveryMethods] 
-                : pref.deliveryMethods as string[];
-              return methods.includes('email');
+              const methods =
+                typeof pref.deliveryMethods === "string"
+                  ? [pref.deliveryMethods]
+                  : (pref.deliveryMethods as string[]);
+              return methods.includes("email");
             });
 
           if (!hasEmailEnabled) {
-            console.log(`[EMAIL] Skipping ${recipient.email} - email notifications disabled`);
+            console.log(
+              `[EMAIL] Skipping ${recipient.email} - email notifications disabled`,
+            );
             continue;
           }
-          
+
           if (!recipient.email) {
-            console.log(`[EMAIL] Skipping recipient ${recipient.id} - no email address`);
+            console.log(
+              `[EMAIL] Skipping recipient ${recipient.id} - no email address`,
+            );
             continue;
           }
 
           // Prepare purpose-specific email content based on trigger type
-          const subject = template ? this.renderTemplate(template.subject, entityData) : trigger.name;
-          let body = template ? this.renderTemplate(template.bodyTemplate, entityData) : this.generatePurposeSpecificEmailBody(trigger.eventType, entityData, recipient);
-          
+          const subject = template
+            ? this.renderTemplate(template.subject, entityData)
+            : trigger.name;
+          let body = template
+            ? this.renderTemplate(template.bodyTemplate, entityData)
+            : this.generatePurposeSpecificEmailBody(
+                trigger.eventType,
+                entityData,
+                recipient,
+              );
+
           // Note: Zoom details are now integrated into generatePurposeSpecificEmailBody
           // No need to append separately as it was causing duplicate content
 
-          console.log(`[EMAIL] Sending ${trigger.eventType} email to ${recipient.email}...`);
-          
+          console.log(
+            `[EMAIL] Sending ${trigger.eventType} email to ${recipient.email}...`,
+          );
+
           // Send email
           const result = await sp.transmissions.send({
             content: {
               from: fromEmail,
               subject: subject,
               html: this.formatEmailAsHtml(body, entityData),
-              text: body
+              text: body,
             },
-            recipients: [{ address: recipient.email }]
+            recipients: [{ address: recipient.email }],
           });
-          
-          console.log(`[EMAIL] ✓ Successfully sent to ${recipient.email} (ID: ${result.results.id})`);
+
+          console.log(
+            `[EMAIL] ✓ Successfully sent to ${recipient.email} (ID: ${result.results.id})`,
+          );
         } catch (emailError) {
-          console.error(`[EMAIL] ✗ Failed to send email to ${recipient.email}:`, emailError);
+          console.error(
+            `[EMAIL] ✗ Failed to send email to ${recipient.email}:`,
+            emailError,
+          );
           // Continue with other recipients even if one fails
         }
       }
     } catch (error) {
-      console.error('[EMAIL] Error in sendEmailNotifications:', error);
+      console.error("[EMAIL] Error in sendEmailNotifications:", error);
     }
   }
 
   /**
    * Generates Zoom meeting content for email notifications
    */
-  private generateZoomEmailContent(zoomMeetingData: any, sessionData: any): string {
-    if (!zoomMeetingData) return '';
+  private generateZoomEmailContent(
+    zoomMeetingData: any,
+    sessionData: any,
+  ): string {
+    if (!zoomMeetingData) return "";
 
     return `
 
@@ -723,54 +873,104 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   /**
    * Generates purpose-specific email body based on trigger type and recipient
    */
-  private generatePurposeSpecificEmailBody(eventType: string, entityData: any, recipient: any): string {
-    const isClient = recipient.role === 'client' || recipient.id === entityData.clientId;
-    
+  private generatePurposeSpecificEmailBody(
+    eventType: string,
+    entityData: any,
+    recipient: any,
+  ): string {
+    const isClient =
+      recipient.role === "client" || recipient.id === entityData.clientId;
+
     switch (eventType) {
-      case 'session_scheduled':
+      case "session_scheduled":
         return this.generateSessionEmailBody(entityData, recipient, isClient);
-      
-      case 'session_rescheduled':
-        return this.generateSessionRescheduledEmailBody(entityData, recipient, isClient);
-      
-      case 'client_created':
-        return this.generateClientCreatedEmailBody(entityData, recipient, isClient);
-      
-      case 'client_assigned':
-        return this.generateClientAssignedEmailBody(entityData, recipient, isClient);
-      
-      case 'task_assigned':
-        return this.generateTaskAssignedEmailBody(entityData, recipient, isClient);
-      
-      case 'task_overdue':
-        return this.generateTaskOverdueEmailBody(entityData, recipient, isClient);
-      
-      case 'document_needs_review':
-        return this.generateDocumentReviewEmailBody(entityData, recipient, isClient);
-      
-      case 'document_reviewed':
-        return this.generateDocumentReviewedEmailBody(entityData, recipient, isClient);
-      
-      case 'document_uploaded':
-        return this.generateDocumentUploadedEmailBody(entityData, recipient, isClient);
-      
-      case 'session_overdue':
-        return this.generateSessionOverdueEmailBody(entityData, recipient, isClient);
-      
+
+      case "session_rescheduled":
+        return this.generateSessionRescheduledEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "client_created":
+        return this.generateClientCreatedEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "client_assigned":
+        return this.generateClientAssignedEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "task_assigned":
+        return this.generateTaskAssignedEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "task_overdue":
+        return this.generateTaskOverdueEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "document_needs_review":
+        return this.generateDocumentReviewEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "document_reviewed":
+        return this.generateDocumentReviewedEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "document_uploaded":
+        return this.generateDocumentUploadedEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
+      case "session_overdue":
+        return this.generateSessionOverdueEmailBody(
+          entityData,
+          recipient,
+          isClient,
+        );
+
       default:
-        return this.generateGenericEmailBody(eventType, entityData, recipient, isClient);
+        return this.generateGenericEmailBody(
+          eventType,
+          entityData,
+          recipient,
+          isClient,
+        );
     }
   }
 
   /**
    * Generates session-specific email content
    */
-  private generateSessionEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateSessionEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     const sessionDate = this.formatDateEST(entityData.sessionDate);
-    
+
     // Check if Zoom is enabled and has meeting details
     const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
-    
+
     if (isClient) {
       let emailBody = `
 Dear ${recipient.fullName},
@@ -796,7 +996,7 @@ Your therapy session will be conducted via Zoom video conference.
 Meeting Details:
 • Join URL: ${entityData.zoomJoinUrl}
 • Meeting ID: ${entityData.zoomMeetingId}
-${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ""}
 
 📋 Important Instructions:
 • Please join the meeting 5 minutes before your scheduled time
@@ -849,7 +1049,7 @@ Duration: ${entityData.duration || 60} minutes`;
 
       // Check if Zoom is enabled and has meeting details
       const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
-      
+
       // Add Zoom details if available
       if (hasZoomDetails) {
         emailBody += `
@@ -862,7 +1062,7 @@ This session will be conducted via Zoom video conference.
 Meeting Details:
 • Join URL: ${entityData.zoomJoinUrl}
 • Meeting ID: ${entityData.zoomMeetingId}
-${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ""}
 
 The client will receive these Zoom details in their confirmation email.
 
@@ -884,13 +1084,17 @@ TherapyFlow Team`;
   /**
    * Generates session rescheduled email content
    */
-  private generateSessionRescheduledEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateSessionRescheduledEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     const oldSessionDate = this.formatDateEST(entityData.oldSessionDate);
     const newSessionDate = this.formatDateEST(entityData.sessionDate);
-    
+
     // Check if Zoom is enabled and has meeting details
     const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
-    
+
     if (isClient) {
       let emailBody = `
 Dear ${recipient.fullName},
@@ -918,7 +1122,7 @@ Your therapy session will be conducted via Zoom video conference.
 Meeting Details:
 • Join URL: ${entityData.zoomJoinUrl}
 • Meeting ID: ${entityData.zoomMeetingId}
-${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ""}
 
 📋 Important Instructions:
 • Please join the meeting 5 minutes before your scheduled time
@@ -974,7 +1178,7 @@ Duration: ${entityData.duration || 60} minutes`;
 
       // Check if Zoom is enabled and has meeting details
       const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
-      
+
       // Add Zoom details if available
       if (hasZoomDetails) {
         emailBody += `
@@ -987,7 +1191,7 @@ This session will be conducted via Zoom video conference.
 Meeting Details:
 • Join URL: ${entityData.zoomJoinUrl}
 • Meeting ID: ${entityData.zoomMeetingId}
-${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ''}
+${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ""}
 
 The client will receive these updated Zoom details in their rescheduled notification email.
 
@@ -1009,7 +1213,11 @@ TherapyFlow Team`;
   /**
    * Generates client creation email content
    */
-  private generateClientCreatedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateClientCreatedEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     return `
 New Client Added to System
 
@@ -1017,8 +1225,8 @@ New Client Added to System
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 Name: ${entityData.fullName}
 Client ID: ${entityData.id}
-Email: ${entityData.email || 'Not provided'}
-Phone: ${entityData.phone || 'Not provided'}
+Email: ${entityData.email || "Not provided"}
+Phone: ${entityData.phone || "Not provided"}
 Added: ${this.formatDateEST(entityData.createdAt)}
 
 📋 ACTION REQUIRED:
@@ -1037,7 +1245,11 @@ This notification was sent because you are responsible for client intake process
   /**
    * Generates client assignment email content
    */
-  private generateClientAssignedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateClientAssignedEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     if (isClient) {
       return `
 Dear ${recipient.fullName},
@@ -1081,21 +1293,27 @@ This notification was sent because you are the assigned therapist.`;
   /**
    * Generates task assignment email content
    */
-  private generateTaskAssignedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
-    const dueDate = entityData.dueDate ? this.formatDateEST(entityData.dueDate) : 'No due date set';
-    
+  private generateTaskAssignedEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
+    const dueDate = entityData.dueDate
+      ? this.formatDateEST(entityData.dueDate)
+      : "No due date set";
+
     return `
 Task Assignment Notification
 
 📋 TASK DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 Title: ${entityData.title}
-Priority: ${entityData.priority || 'Normal'}
+Priority: ${entityData.priority || "Normal"}
 Due Date: ${dueDate}
 Assigned by: ${entityData.createdByName}
 
 📝 DESCRIPTION:
-${entityData.description || 'No additional details provided.'}
+${entityData.description || "No additional details provided."}
 
 🎯 ACTION REQUIRED:
 A new task has been assigned to you. Please review the details and begin work as appropriate.
@@ -1106,9 +1324,13 @@ This notification was sent because you are responsible for completing this task.
   /**
    * Generates task overdue email content
    */
-  private generateTaskOverdueEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateTaskOverdueEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     const dueDate = this.formatDateEST(entityData.dueDate);
-    
+
     return `
 ⚠️ OVERDUE TASK ALERT
 
@@ -1116,7 +1338,7 @@ This notification was sent because you are responsible for completing this task.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 Title: ${entityData.title}
 Due Date: ${dueDate}
-Priority: ${entityData.priority || 'Normal'}
+Priority: ${entityData.priority || "Normal"}
 
 🚨 IMMEDIATE ACTION REQUIRED:
 This task is past its due date and requires immediate attention.
@@ -1129,7 +1351,11 @@ This notification was sent because you are responsible for this overdue task.`;
   /**
    * Generates document review email content
    */
-  private generateDocumentReviewEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateDocumentReviewEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     return `
 Document Review Required
 
@@ -1153,7 +1379,11 @@ This notification was sent because you are responsible for clinical document ove
   /**
    * Generates document reviewed email content
    */
-  private generateDocumentReviewedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateDocumentReviewedEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     return `
 Document Review Completed
 
@@ -1166,9 +1396,9 @@ Review Date: ${this.formatDateEST(entityData.reviewDate)}
 Status: ${entityData.reviewStatus}
 
 📋 REVIEW OUTCOME:
-Your document has been reviewed and ${entityData.reviewStatus === 'approved' ? 'approved' : 'requires revision'}.
+Your document has been reviewed and ${entityData.reviewStatus === "approved" ? "approved" : "requires revision"}.
 
-${entityData.reviewComments ? `Reviewer comments: ${entityData.reviewComments}` : ''}
+${entityData.reviewComments ? `Reviewer comments: ${entityData.reviewComments}` : ""}
 
 This notification was sent because you submitted the document for review.`;
   }
@@ -1176,7 +1406,11 @@ This notification was sent because you submitted the document for review.`;
   /**
    * Generates document uploaded email content
    */
-  private generateDocumentUploadedEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateDocumentUploadedEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     return `
 Document Uploaded Notification
 
@@ -1196,9 +1430,13 @@ This notification was sent because you are involved in this client's care.`;
   /**
    * Generates session overdue email content
    */
-  private generateSessionOverdueEmailBody(entityData: any, recipient: any, isClient: boolean): string {
+  private generateSessionOverdueEmailBody(
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     const sessionDate = this.formatDateEST(entityData.sessionDate);
-    
+
     return `
 ⚠️ SESSION STATUS UPDATE REQUIRED
 
@@ -1222,9 +1460,14 @@ This notification was sent because you are responsible for session documentation
   /**
    * Generates generic email content for unknown trigger types
    */
-  private generateGenericEmailBody(eventType: string, entityData: any, recipient: any, isClient: boolean): string {
+  private generateGenericEmailBody(
+    eventType: string,
+    entityData: any,
+    recipient: any,
+    isClient: boolean,
+  ): string {
     return `
-${eventType.replace(/_/g, ' ').toUpperCase()} Notification
+${eventType.replace(/_/g, " ").toUpperCase()} Notification
 
 📋 DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1237,7 +1480,6 @@ Please log into TherapyFlow to review the details and take any necessary action.
 
 This notification was sent because you are involved in this process.`;
   }
-
 
   /**
    * Generates content when Zoom was requested but failed to create
@@ -1262,10 +1504,10 @@ If you have any questions about joining the virtual session, please contact your
    * Formats a date to EST/EDT timezone for user display
    */
   private formatDateEST(date: Date | string): string {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    const zonedDate = toZonedTime(dateObj, 'America/New_York');
-    return format(zonedDate, 'EEEE, MMMM d, yyyy \'at\' h:mm a (zzz)', {
-      timeZone: 'America/New_York'
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    const zonedDate = toZonedTime(dateObj, "America/New_York");
+    return format(zonedDate, "EEEE, MMMM d, yyyy 'at' h:mm a (zzz)", {
+      timeZone: "America/New_York",
     });
   }
 
@@ -1274,10 +1516,10 @@ If you have any questions about joining the virtual session, please contact your
    */
   private formatEmailAsHtml(content: string, entityData: any): string {
     const htmlContent = content
-      .replace(/\n/g, '<br>')
-      .replace(/━/g, '─')
-      .replace(/📹/g, '🎥')
-      .replace(/📋/g, '📝');
+      .replace(/\n/g, "<br>")
+      .replace(/━/g, "─")
+      .replace(/📹/g, "🎥")
+      .replace(/📋/g, "📝");
 
     return `
     <html>
@@ -1307,77 +1549,82 @@ If you have any questions about joining the virtual session, please contact your
   /**
    * Generates smart bell notification title and message based on event type
    */
-  private generateSmartBellNotification(eventType: string, entityData: any): { title: string; message: string } {
+  private generateSmartBellNotification(
+    eventType: string,
+    entityData: any,
+  ): { title: string; message: string } {
     const sessionDate = this.formatDateEST(entityData.sessionDate);
-    
+
     switch (eventType) {
-      case 'session_scheduled':
+      case "session_scheduled":
         return {
-          title: 'New Session Scheduled',
-          message: `Session with ${entityData.clientName} on ${sessionDate}`
+          title: "New Session Scheduled",
+          message: `Session with ${entityData.clientName} on ${sessionDate}`,
         };
-      
-      case 'session_rescheduled':
+
+      case "session_rescheduled":
         const oldDate = this.formatDateEST(entityData.oldSessionDate);
         const newDate = this.formatDateEST(entityData.sessionDate);
         return {
-          title: 'Session Rescheduled',
-          message: `${entityData.clientName}'s session moved from ${oldDate} to ${newDate}`
+          title: "Session Rescheduled",
+          message: `${entityData.clientName}'s session moved from ${oldDate} to ${newDate}`,
         };
-      
-      case 'session_reminder':
+
+      case "session_reminder":
         return {
-          title: 'Upcoming Session Reminder',
-          message: `Session with ${entityData.clientName} is scheduled for ${sessionDate}`
+          title: "Upcoming Session Reminder",
+          message: `Session with ${entityData.clientName} is scheduled for ${sessionDate}`,
         };
-      
-      case 'session_cancelled':
+
+      case "session_cancelled":
         return {
-          title: 'Session Cancelled',
-          message: `Session with ${entityData.clientName} on ${sessionDate} has been cancelled`
+          title: "Session Cancelled",
+          message: `Session with ${entityData.clientName} on ${sessionDate} has been cancelled`,
         };
-      
-      case 'session_overdue':
+
+      case "session_overdue":
         return {
-          title: 'Overdue Session Documentation',
-          message: `Session with ${entityData.clientName} from ${sessionDate} needs documentation`
+          title: "Overdue Session Documentation",
+          message: `Session with ${entityData.clientName} from ${sessionDate} needs documentation`,
         };
-      
-      case 'client_created':
+
+      case "client_created":
         return {
-          title: 'New Client Added',
-          message: `${entityData.fullName} has been added to the system`
+          title: "New Client Added",
+          message: `${entityData.fullName} has been added to the system`,
         };
-      
-      case 'client_assigned':
+
+      case "client_assigned":
         return {
-          title: 'Client Assigned',
-          message: `${entityData.clientName} has been assigned to ${entityData.therapistName}`
+          title: "Client Assigned",
+          message: `${entityData.clientName} has been assigned to ${entityData.therapistName}`,
         };
-      
-      case 'task_assigned':
+
+      case "task_assigned":
         return {
-          title: 'New Task Assigned',
-          message: `Task: ${entityData.title || 'Untitled'}`
+          title: "New Task Assigned",
+          message: `Task: ${entityData.title || "Untitled"}`,
         };
-      
-      case 'task_due_soon':
+
+      case "task_due_soon":
         return {
-          title: 'Task Due Soon',
-          message: `Task "${entityData.title}" is due soon`
+          title: "Task Due Soon",
+          message: `Task "${entityData.title}" is due soon`,
         };
-      
-      case 'task_overdue':
+
+      case "task_overdue":
         return {
-          title: 'Task Overdue',
-          message: `Task "${entityData.title}" is now overdue`
+          title: "Task Overdue",
+          message: `Task "${entityData.title}" is now overdue`,
         };
-      
+
       default:
         // Generic fallback for unknown event types
         return {
-          title: eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          message: `Event notification: ${eventType}`
+          title: eventType
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase()),
+          message: `Event notification: ${eventType}`,
         };
     }
   }
@@ -1391,13 +1638,12 @@ If you have any questions about joining the virtual session, please contact your
         return this.getFieldValue(entityData, key) || match;
       });
     } catch (error) {
-
       return template;
     }
   }
 
   // ===== USER PREFERENCES =====
-  
+
   /**
    * Gets user notification preferences
    */
@@ -1411,44 +1657,49 @@ If you have any questions about joining the virtual session, please contact your
   /**
    * Sets user notification preference
    */
-  async setUserPreference(userId: number, triggerType: string, preferences: Partial<NotificationPreference>): Promise<void> {
+  async setUserPreference(
+    userId: number,
+    triggerType: string,
+    preferences: Partial<NotificationPreference>,
+  ): Promise<void> {
     try {
       // Check if preference exists
       const existing = await db
         .select()
         .from(notificationPreferences)
-        .where(and(
-          eq(notificationPreferences.userId, userId),
-          eq(notificationPreferences.triggerType, triggerType as any)
-        ));
+        .where(
+          and(
+            eq(notificationPreferences.userId, userId),
+            eq(notificationPreferences.triggerType, triggerType as any),
+          ),
+        );
 
       if (existing.length > 0) {
         // Update existing
         await db
           .update(notificationPreferences)
           .set({ ...preferences, updatedAt: new Date() })
-          .where(and(
-            eq(notificationPreferences.userId, userId),
-            eq(notificationPreferences.triggerType, triggerType as any)
-          ));
+          .where(
+            and(
+              eq(notificationPreferences.userId, userId),
+              eq(notificationPreferences.triggerType, triggerType as any),
+            ),
+          );
       } else {
         // Create new
-        await db
-          .insert(notificationPreferences)
-          .values({
-            userId,
-            triggerType: triggerType as any,
-            ...preferences
-          });
+        await db.insert(notificationPreferences).values({
+          userId,
+          triggerType: triggerType as any,
+          ...preferences,
+        });
       }
     } catch (error) {
-
       throw error;
     }
   }
 
   // ===== UTILITY METHODS =====
-  
+
   /**
    * Cleans up expired notifications
    */
@@ -1456,13 +1707,13 @@ If you have any questions about joining the virtual session, please contact your
     try {
       await db
         .delete(notifications)
-        .where(and(
-          sql`${notifications.expiresAt} IS NOT NULL`,
-          sql`${notifications.expiresAt} < NOW()`
-        ));
-    } catch (error) {
-
-    }
+        .where(
+          and(
+            sql`${notifications.expiresAt} IS NOT NULL`,
+            sql`${notifications.expiresAt} < NOW()`,
+          ),
+        );
+    } catch (error) {}
   }
 
   /**
@@ -1473,7 +1724,7 @@ If you have any questions about joining the virtual session, please contact your
       const totalResult = await db
         .select({ count: sql<number>`count(*)` })
         .from(notifications);
-      
+
       const unreadResult = await db
         .select({ count: sql<number>`count(*)` })
         .from(notifications)
@@ -1481,10 +1732,9 @@ If you have any questions about joining the virtual session, please contact your
 
       return {
         total: totalResult[0]?.count || 0,
-        unread: unreadResult[0]?.count || 0
+        unread: unreadResult[0]?.count || 0,
       };
     } catch (error) {
-
       return { total: 0, unread: 0 };
     }
   }

@@ -147,7 +147,7 @@ async function sendActivationEmail(clientEmail: string, clientName: string, acti
 
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-    const fromEmail = getEmailFromAddress();
+    const fromEmail = 'noreply@resiliencecrm.com';
     // Use provided baseUrl or fall back to env variable or localhost
     const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
     const activationUrl = `${appUrl}/portal/activate/${activationToken}`;
@@ -192,7 +192,11 @@ async function sendPasswordResetEmail(clientEmail: string, clientName: string, r
 
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+<<<<<<< HEAD
     const fromEmail = getEmailFromAddress();
+=======
+    const fromEmail = 'noreply@resiliencecrm.com';
+>>>>>>> dd734e8 (Update email sender address for all outgoing system notifications)
     // Use provided baseUrl or fall back to env variable or localhost
     const appUrl = baseUrl || process.env.BASE_URL || 'http://localhost:5000';
     const resetUrl = `${appUrl}/portal/reset-password/${resetToken}`;
@@ -247,7 +251,11 @@ async function sendAppointmentConfirmationEmail(
 
   try {
     const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+<<<<<<< HEAD
     const fromEmail = getEmailFromAddress();
+=======
+    const fromEmail = 'noreply@resiliencecrm.com';
+>>>>>>> dd734e8 (Update email sender address for all outgoing system notifications)
     const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
     const dashboardUrl = `${baseUrl}/portal/dashboard`;
 
@@ -7503,7 +7511,11 @@ This happens because only the file metadata was stored, not the actual file cont
             const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
             
             // Use the configured send domain for emails
+<<<<<<< HEAD
             const fromEmail = getEmailFromAddress();
+=======
+            const fromEmail = 'noreply@resiliencecrm.com';
+>>>>>>> dd734e8 (Update email sender address for all outgoing system notifications)
             
             // Generate PDF for email attachment with improved reliability
             let pdfBuffer;
@@ -10081,7 +10093,11 @@ This happens because only the file metadata was stored, not the actual file cont
             if (process.env.SPARKPOST_API_KEY) {
               const SparkPost = (await import('sparkpost')).default;
               const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+<<<<<<< HEAD
               const fromEmail = getEmailFromAddress();
+=======
+              const fromEmail = 'noreply@resiliencecrm.com';
+>>>>>>> dd734e8 (Update email sender address for all outgoing system notifications)
               
               await sp.transmissions.send({
                 options: {
