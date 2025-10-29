@@ -331,8 +331,8 @@ export default function DashboardPage() {
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
                   <div>
-                    <p className="font-medium text-sm">Quick Actions</p>
-                    <p className="text-xs text-gray-600">Use the action cards to quickly add new clients, schedule sessions, create tasks, or generate assessments without navigating away from the dashboard.</p>
+                    <p className="font-medium text-sm">Navigation</p>
+                    <p className="text-xs text-gray-600">Click on metric cards to navigate to Clients, Scheduling, Tasks, or Billing pages. Use the main menu to access all features. Empty sections show buttons to get started.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
