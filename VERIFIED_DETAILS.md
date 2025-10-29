@@ -128,9 +128,34 @@ Pro tip mentions: Auto-refresh, click cards, Ctrl+K search, Eastern Time display
 
 ---
 
-## 3. SCHEDULING PAGE - TO BE VERIFIED
+## 3. SCHEDULING PAGE ✅ VERIFIED
 
-(Not yet verified)
+**File:** `client/src/pages/scheduling.tsx`
+
+### Calendar Views (4 views)
+Switch using buttons in header:
+1. **Day** - Today's hourly schedule
+2. **Week** - 7-day overview
+3. **Month** - Calendar grid
+4. **All Sessions** - List view of all appointments
+
+### Session Statuses (4 statuses)
+- **scheduled** (default)
+- **completed**
+- **cancelled**
+- **no_show**
+
+**IMPORTANT:** "rescheduled" is NOT a status - reschedule by changing date/time
+
+### Navigation
+- Arrow buttons to navigate
+- "Today" button to jump to current date
+
+### Features
+- Color-coded sessions by type
+- Click to edit in-place
+- Filter by therapist or room
+- All times in Eastern Time (America/New_York)
 
 ---
 
@@ -140,9 +165,39 @@ Pro tip mentions: Auto-refresh, click cards, Ctrl+K search, Eastern Time display
 
 ---
 
-## 5. TASKS PAGE - TO BE VERIFIED
+## 5. TASKS PAGE ✅ VERIFIED
 
-(Not yet verified)
+**File:** `client/src/pages/tasks.tsx`
+
+### Task Statuses (4 statuses)
+- **pending** (default)
+- **in_progress**
+- **completed**
+- **overdue** (auto-set when past due date)
+
+### Priority Levels
+- Low
+- Medium
+- High
+- Urgent
+
+### Form Fields
+**Required:**
+- Title
+- Client (must select)
+- Assigned To
+- Due Date
+
+**Optional:**
+- Description
+- Priority (defaults to Medium)
+- Status (defaults to Pending)
+
+### Features
+- Auto-mark overdue when past due date
+- Link to clients (shows in client profile)
+- Add comments to track progress
+- Filter by status, priority, assignee, client
 
 ---
 

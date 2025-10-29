@@ -24,7 +24,7 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   },
   {
     question: ["view client", "see client", "find client", "client profile"],
-    answer: "📁 VIEW CLIENT PROFILE\n\nGo to: Clients → Search or browse → Click client name\n\nProfile tabs (10 total):\n  • Overview - Basic info, demographics\n  • Sessions - Session notes and history\n  • Assessments - Assigned assessments and reports\n  • Documents - Uploaded files and forms\n  • Billing - Payment history and invoices\n  • Tasks - Client-related tasks\n  • Checklist - Process checklists\n  • Communications - Email history\n  • History - Audit trail of changes\n  • Portal Access - Login credentials\n\nQuick actions:\n  • Schedule appointment\n  • Add session note\n  • Upload documents",
+    answer: "📁 VIEW CLIENT PROFILE\n\nGo to: Clients → Search or browse → Click client name\n\nProfile tabs (9 tabs):\n  • Overview - Basic info, demographics, portal management\n  • Sessions - Session notes and history\n  • Assessments - Assigned assessments and reports\n  • Documents - Uploaded files and forms\n  • Billing - Payment history and invoices\n  • Tasks - Client-related tasks\n  • Checklists - Process checklists (note: plural)\n  • Communications - Email history\n  • History - Audit trail of changes\n\nPortal Access:\n  • Portal access is IN the Overview tab (not separate tab)\n  • Enable/disable portal, send activation email\n\nQuick actions:\n  • Schedule appointment\n  • Add session note\n  • Upload documents",
     category: "clients",
     helpGuideSlug: "add-client"
   },
@@ -38,13 +38,13 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Scheduling
   {
     question: ["schedule appointment", "book session", "add appointment", "create session"],
-    answer: "📅 SCHEDULE APPOINTMENT\n\nGo to: Scheduling → Choose view (Day/Week/Month) → Click time slot\n\nRequired fields:\n  • Client\n  • Session Type: Initial, Follow-up, Group, etc.\n  • Service (from billing catalog)\n  • Start Time & Duration\n  • Location/Room\n\nSession statuses:\n  • Scheduled (default)\n  • Completed\n  • Cancelled\n  • Rescheduled\n  • No Show\n\nFeatures:\n  • Color-coded by session type\n  • Drag to reschedule\n  • Double-click for quick add\n  • Service auto-sets billing",
+    answer: "📅 SCHEDULE APPOINTMENT\n\nGo to: Scheduling → Choose view → Click time slot or + Add Session\n\nRequired fields:\n  • Client\n  • Session Type (from system options)\n  • Service (from service catalog)\n  • Date & Time\n  • Duration\n  • Room/Location\n\nSession statuses (4 total):\n  • Scheduled (default)\n  • Completed\n  • Cancelled\n  • No Show\n\n**Important:** \"Rescheduled\" is NOT a status - to reschedule, just change the date/time\n\nFeatures:\n  • Color-coded by session type\n  • Service auto-creates billing record when marked completed\n  • All times in Eastern Time",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
   },
   {
     question: ["calendar view", "change calendar view", "switch calendar view", "calendar views"],
-    answer: "🗓️ CALENDAR VIEWS\n\nViews available:\n  • Day - Hourly breakdown, detailed\n  • Week - 7-day overview, planning\n  • Month - Full month snapshot\n\nHow to switch:\n  • Click tabs at top\n  • Use arrow buttons to navigate\n  • Click Today to jump to current date\n\nFeatures:\n  • Color-coded sessions\n  • Click to edit in-place\n  • Filter by therapist or room",
+    answer: "🗓️ CALENDAR VIEWS\n\nGo to: Scheduling page\n\n4 Views (switch using buttons in header):\n  • Day - Today's hourly schedule\n  • Week - 7-day overview\n  • Month - Calendar grid\n  • All Sessions - List view of all appointments\n\nHow to switch:\n  • Click view buttons (Day/Week/Month/All Sessions)\n  • Use arrow buttons to navigate\n  • Click Today to jump to current date\n\nFeatures:\n  • Color-coded sessions by type\n  • Click to edit in-place\n  • Filter by therapist or room\n  • All times in Eastern Time (America/New_York)",
     category: "scheduling",
     helpGuideSlug: "schedule-appointment"
   },
@@ -84,7 +84,7 @@ const NAVIGATION_GUIDES: NavigationGuide[] = [
   // Tasks
   {
     question: ["create task", "add task", "new task"],
-    answer: "📋 CREATE A TASK\n\nGo to: Tasks → + Add Task\n\nRequired fields:\n  • Title and Description\n  • Client (must select)\n  • Assigned To\n  • Due Date\n  • Priority: Low, Medium, High, or Urgent\n  • Status: Pending, In Progress, Completed, or Overdue\n\nKey features:\n  • Tasks auto-mark overdue when past due date\n  • Link to clients to see in their profiles\n  • Add comments to track progress\n  • Filter by status, priority, or assignee",
+    answer: "📋 CREATE A TASK\n\nGo to: Tasks → + Add Task\n\nRequired fields:\n  • Title\n  • Client (must select)\n  • Assigned To\n  • Due Date\n\nOptional fields:\n  • Description\n  • Priority: Low, Medium, High, Urgent (defaults to Medium)\n  • Status: Pending, In Progress, Completed, Overdue (defaults to Pending)\n\nKey features:\n  • Tasks auto-mark overdue when past due date\n  • Link to clients (shows in client profile Tasks tab)\n  • Add comments to track progress\n  • Filter by status, priority, assignee, client\n\nStatuses:\n  • Pending, In Progress, Completed, Overdue (auto-set)",
     category: "tasks",
     helpGuideSlug: "create-task"
   },
