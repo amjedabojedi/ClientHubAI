@@ -8608,96 +8608,6 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  // ===== HELP GUIDES MANAGEMENT ROUTES =====
-  app.get('/api/help-guides', async (req, res) => {
-    try {
-      const { category, active } = req.query;
-      const isActive = active === 'true' ? true : active === 'false' ? false : undefined;
-      const guides = await storage.getHelpGuides(category as string, isActive);
-      res.json(guides);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get('/api/help-guides/search', async (req, res) => {
-    try {
-      const { q, category } = req.query;
-      if (!q || typeof q !== 'string') {
-        return res.status(400).json({ error: 'Search query is required' });
-      }
-      const guides = await storage.searchHelpGuides(q, category as string);
-      res.json(guides);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get('/api/help-guides/slug/:slug', async (req, res) => {
-    try {
-      const guide = await storage.getHelpGuideBySlug(req.params.slug);
-      if (!guide) {
-        return res.status(404).json({ error: 'Guide not found' });
-      }
-      await storage.incrementHelpGuideView(guide.id);
-      res.json(guide);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get('/api/help-guides/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const guide = await storage.getHelpGuide(id);
-      if (!guide) {
-        return res.status(404).json({ error: 'Guide not found' });
-      }
-      res.json(guide);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post('/api/help-guides', async (req, res) => {
-    try {
-      const guide = await storage.createHelpGuide(req.body);
-      res.status(201).json(guide);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.put('/api/help-guides/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const guide = await storage.updateHelpGuide(id, req.body);
-      res.json(guide);
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.delete('/api/help-guides/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.deleteHelpGuide(id);
-      res.status(204).send();
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post('/api/help-guides/:id/helpful', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.markHelpGuideHelpful(id);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
   // ===== AUTHENTICATION ROUTES =====
   const { default: authRoutes } = await import('./auth-routes');
   app.use('/api/auth', authRoutes);
@@ -10887,39 +10797,6 @@ This happens because only the file metadata was stored, not the actual file cont
     } catch (error: any) {
       console.error('Test email error:', error);
       res.status(500).json({ error: error.message || 'Failed to send test email' });
-    }
-  });
-
-  // Custom Navigation Assistant routes
-  app.post('/api/ai-assistant/chat', requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      const { message, currentPage } = req.body;
-      
-      if (!message) {
-        return res.status(400).json({ error: 'Message is required' });
-      }
-
-      const { findAnswer } = await import('./custom-assistant');
-      const response = await findAnswer(message);
-      
-      res.json({ response, timestamp: new Date().toISOString() });
-    } catch (error: any) {
-      console.error('Navigation Assistant chat error:', error);
-      res.status(500).json({ error: 'Failed to get response' });
-    }
-  });
-
-  app.get('/api/ai-assistant/suggestions', requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      const currentPage = (req.query.page as string) || 'dashboard';
-      const { getContextualSuggestions } = await import('./custom-assistant');
-      
-      const suggestions = getContextualSuggestions(currentPage);
-      
-      res.json({ suggestions });
-    } catch (error: any) {
-      console.error('Navigation Assistant suggestions error:', error);
-      res.status(500).json({ error: 'Failed to get suggestions' });
     }
   });
 
