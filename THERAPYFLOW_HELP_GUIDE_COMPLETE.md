@@ -40,12 +40,12 @@ The Dashboard is your home page in TherapyFlow, showing key metrics and quick ac
 
 **Quick Actions**
 
-From the Dashboard, you can quickly:
+From the Dashboard, you can:
 
-1. **Add New Client** - Click the "Add Client" button to create a new client profile
-2. **Schedule Session** - Click "Schedule Session" to book an appointment
-3. **Create Task** - Assign tasks to yourself or team members
-4. **View Recent Clients** - See clients you've recently worked with
+1. **Click on metric cards** - Navigate to Clients, Scheduling, Tasks, or Billing pages
+2. **View recent activity** - See recent sessions, tasks, and upcoming deadlines
+3. **Access empty state buttons** - When sections are empty, buttons appear to get started (e.g., "Schedule Session", "Create First Task")
+4. **Use the main menu** - Navigate to all features from the left sidebar
 
 **Navigation**
 
