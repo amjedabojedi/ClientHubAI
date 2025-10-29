@@ -776,6 +776,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Handle portal access activation if enabled during creation
+      console.log(`[PORTAL] Client ${client.id} created - checking portal access:`, {
+        hasPortalAccess: client.hasPortalAccess,
+        email: client.email || null,
+        portalEmail: client.portalEmail || null,
+        hasEmail: !!(client.email || client.portalEmail)
+      });
+      
       if (client.hasPortalAccess && 
           (client.email || client.portalEmail)) {
         // Portal access was enabled during creation - generate activation token and send email
