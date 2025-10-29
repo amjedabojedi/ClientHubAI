@@ -41,12 +41,10 @@ import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
-import HelpCenter from "@/pages/help-center";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
 import { PostHogProvider } from "@/lib/posthog";
-import AIAssistant from "@/components/AIAssistant";
 
 
 // Helper function to check if user has admin or supervisor privileges
@@ -222,10 +220,6 @@ function Router() {
           {/* Additional portal routes will be added here */}
           <Route component={NotFound} />
         </Switch>
-        {/* AI Assistant for portal users */}
-        {location !== '/portal' && location !== '/portal/login' && (
-          <AIAssistant currentPage={location.split('/')[2] || 'portal'} />
-        )}
       </>
     );
   }
@@ -343,13 +337,9 @@ function Router() {
           }} />
           <Route path="/my-profile" component={MyProfilePage} />
           <Route path="/hipaa-audit" component={HIPAAAuditPage} />
-          <Route path="/help/:slug?" component={HelpCenter} />
           <Route component={NotFound} />
         </Switch>
       </main>
-      
-      {/* AI Assistant */}
-      <AIAssistant currentPage={location.split('/')[1] || 'dashboard'} />
       
       {/* Footer */}
       <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
