@@ -30,7 +30,7 @@ function getEmailFromAddress(): string {
   return process.env.EMAIL_FROM || 'noreply@mail.resiliencecrm.com';
 }
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
-import { eq, and, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
@@ -8774,10 +8774,26 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Email and password are required" });
       }
 
-      // Find client by portal email
-      const client = await storage.getClientByPortalEmail(email.toLowerCase().trim());
+      // Find client by portal email OR regular email
+      const normalizedEmail = email.toLowerCase().trim();
+      console.log(`[PORTAL_LOGIN] Login attempt for email: ${normalizedEmail}`);
+      
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(or(
+          eq(clients.portalEmail, normalizedEmail),
+          eq(clients.email, normalizedEmail)
+        ));
       
       if (!client || !client.hasPortalAccess || !client.portalPassword) {
+        console.log(`[PORTAL_LOGIN] Login failed - client not found or no portal access:`, {
+          clientFound: !!client,
+          hasPortalAccess: client?.hasPortalAccess,
+          hasPortalPassword: !!client?.portalPassword,
+          portalEmail: client?.portalEmail,
+          email: client?.email
+        });
         // Audit failed login - client not found or no portal access
         await AuditLogger.logAuthEvent(
           null,
@@ -8791,10 +8807,13 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
+      console.log(`[PORTAL_LOGIN] Client found (ID: ${client.id}), verifying password...`);
+      
       // Verify password
       const passwordMatch = await bcrypt.compare(password, client.portalPassword);
       
       if (!passwordMatch) {
+        console.log(`[PORTAL_LOGIN] Password mismatch for client ${client.id}`);
         // Audit failed login - wrong password
         await AuditLogger.logAuthEvent(
           client.id,
@@ -8807,6 +8826,8 @@ This happens because only the file metadata was stored, not the actual file cont
         );
         return res.status(401).json({ error: "Invalid email or password" });
       }
+
+      console.log(`[PORTAL_LOGIN] Password verified successfully for client ${client.id} (${client.fullName})`);
 
       // Generate session token
       const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -9042,18 +9063,32 @@ This happens because only the file metadata was stored, not the actual file cont
         return res.status(400).json({ error: "Email is required" });
       }
 
-      // Find client by portal email
+      console.log(`[PASSWORD_RESET] Password reset requested for email: ${email}`);
+
+      // Find client by portal email OR regular email
       const [client] = await db
         .select()
         .from(clients)
-        .where(eq(clients.portalEmail, email));
+        .where(or(
+          eq(clients.portalEmail, email),
+          eq(clients.email, email)
+        ));
 
       // Always return success to prevent email enumeration attacks
       if (!client) {
+        console.log(`[PASSWORD_RESET] No client found with email: ${email}`);
         return res.json({ message: "If an account exists with this email, a password reset link has been sent." });
       }
 
       if (!client.hasPortalAccess) {
+        console.log(`[PASSWORD_RESET] Client ${client.id} does not have portal access enabled`);
+        return res.json({ message: "If an account exists with this email, a password reset link has been sent." });
+      }
+
+      // Determine which email to use for sending
+      const emailToUse = client.portalEmail || client.email;
+      if (!emailToUse) {
+        console.log(`[PASSWORD_RESET] Client ${client.id} has no email address`);
         return res.json({ message: "If an account exists with this email, a password reset link has been sent." });
       }
 
@@ -9065,14 +9100,20 @@ This happens because only the file metadata was stored, not the actual file cont
         passwordResetToken: resetToken
       });
 
-      // Send reset email
-      await sendPasswordResetEmail(client.portalEmail!, client.fullName, resetToken, getBaseUrl(req));
+      console.log(`[PASSWORD_RESET] Reset token generated for client ${client.id}, sending email to ${emailToUse}`);
 
-      console.log(`[PASSWORD_RESET] Reset email sent to ${client.portalEmail} for client ${client.fullName}`);
+      // Send reset email
+      try {
+        await sendPasswordResetEmail(emailToUse, client.fullName, resetToken, getBaseUrl(req));
+        console.log(`[PASSWORD_RESET] Reset email sent to ${emailToUse} for client ${client.fullName}`);
+      } catch (emailError) {
+        console.error(`[PASSWORD_RESET] Failed to send reset email to ${emailToUse}:`, emailError);
+        // Still return success to prevent email enumeration
+      }
 
       res.json({ message: "If an account exists with this email, a password reset link has been sent." });
     } catch (error) {
-      console.error("Forgot password error:", error);
+      console.error("[PASSWORD_RESET] Forgot password error:", error);
       res.status(500).json({ error: "Failed to process password reset request" });
     }
   });
