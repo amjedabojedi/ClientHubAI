@@ -24,7 +24,11 @@ import type {
 
 // Helper function to get the email sender address from environment
 function getEmailFromAddress(): string {
-  return process.env.EMAIL_FROM || "noreply@mail.resiliencecrm.com";
+  const from = process.env.EMAIL_FROM;
+  if (!from) {
+    throw new Error("EMAIL_FROM not configured");
+  }
+  return from;
 }
 
 // Flexible trigger condition interface
@@ -748,7 +752,7 @@ export class NotificationService {
 
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-      const fromEmail = "noreply@resiliencecrm.com";
+      const fromEmail = getEmailFromAddress();
 
       console.log(
         `[EMAIL] Processing ${recipients.length} recipients for ${trigger.eventType}`,
