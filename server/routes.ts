@@ -27,7 +27,7 @@ import { db } from "./db";
 
 // Helper function to get the email sender address from environment
 function getEmailFromAddress(): string {
-  return process.env.EMAIL_FROM || 'noreply@mail.resiliencecrm.com';
+  return process.env.EMAIL_FROM || 'noreply@mail.resiliencecrm.com'; 
 }
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
