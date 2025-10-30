@@ -670,14 +670,52 @@ ASSESSMENT SECTIONS TO GENERATE:
     
     // If section has questions, include them specifically
     if (section.questions && section.questions.length > 0) {
-      userPrompt += `Section-Specific Data: `;
+      userPrompt += `Section-Specific Data:\n`;
       section.questions.forEach(question => {
         const response = responses.find(r => r.questionId === question.id);
         if (response) {
-          userPrompt += `Q: ${question.questionText} A: ${response.responseValue} `;
+          userPrompt += `Q: ${question.questionText}\nA: `;
+          
+          // Handle different response types properly (matching regular sections logic)
+          if (question.questionType === 'short_text' || question.questionType === 'long_text') {
+            userPrompt += response.responseText || 'No response provided';
+          } else if (question.questionType === 'multiple_choice') {
+            if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              const selectedTexts = response.selectedOptions
+                .map(index => question.options?.[index])
+                .filter(Boolean);
+              userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
+            } else if (response.responseText) {
+              userPrompt += response.responseText;
+            } else {
+              userPrompt += 'No selection made';
+            }
+          } else if (question.questionType === 'checkbox') {
+            if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              const selectedTexts = response.selectedOptions
+                .map(index => question.options?.[index])
+                .filter(Boolean);
+              userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selections made';
+            } else if (response.responseText) {
+              userPrompt += response.responseText;
+            } else {
+              userPrompt += 'No selections made';
+            }
+          } else if (question.questionType === 'rating_scale' && response.ratingValue !== null && response.ratingValue !== undefined) {
+            const rating = response.ratingValue;
+            const minLabel = question.ratingLabels?.[0] || 'Low';
+            const maxLabel = question.ratingLabels?.[1] || 'High';
+            const min = question.ratingMin || 1;
+            const max = question.ratingMax || 10;
+            userPrompt += `${rating}/${max} (${minLabel} to ${maxLabel} scale)`;
+          } else if (question.questionType === 'date' && response.responseText) {
+            userPrompt += response.responseText;
+          } else {
+            userPrompt += response.responseText || 'No response provided';
+          }
+          userPrompt += '\n\n';
         }
       });
-      userPrompt += `\n\n`;
     }
     
     userPrompt += `Assessment Synthesis: Analyze and synthesize ALL assessment responses and findings provided above to generate this section according to the instructions.\n\n`;
