@@ -40,7 +40,7 @@ jobs:
             echo "Building project..."
             npm run build
             echo "Restarting backend..."
-            pm2 restart clienthub-backend
+            pm2 restart clienthubai-client
             echo "Reloading Nginx..."
             sudo systemctl reload nginx
             echo "Deployment complete!"
