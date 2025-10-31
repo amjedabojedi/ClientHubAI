@@ -50,11 +50,11 @@ export default function PortalLoginPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">TF</span>
+                  <span className="text-white font-bold text-xl">SH</span>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">TherapyFlow</h1>
-                  <p className="text-sm text-gray-600">Client Portal</p>
+                  <h1 className="text-3xl font-bold text-gray-900">SmartHub</h1>
+                  <p className="text-sm text-gray-600">Intelligent. Insightful. Care.</p>
                 </div>
               </div>
               <p className="text-lg text-gray-700">

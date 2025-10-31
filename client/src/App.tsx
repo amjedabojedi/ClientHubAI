@@ -110,7 +110,7 @@ function Navigation() {
         <div className="flex items-center justify-center h-16">
           <div className="flex items-center space-x-6">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TF</span>
+              <span className="text-white font-bold text-sm">SH</span>
             </div>
             <div className="flex items-center space-x-2">
               {navItems.map((item) => {

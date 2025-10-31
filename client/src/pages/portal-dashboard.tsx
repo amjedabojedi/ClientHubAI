@@ -195,11 +195,11 @@ export default function PortalDashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-base sm:text-lg">TF</span>
+                <span className="text-white font-bold text-base sm:text-lg">SH</span>
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">TherapyFlow</h1>
-                <p className="text-xs text-gray-600 hidden sm:block">Client Portal</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">SmartHub</h1>
+                <p className="text-xs text-gray-600 hidden sm:block">Intelligent. Insightful. Care.</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

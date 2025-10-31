@@ -1,5 +1,5 @@
 /**
- * Centralized datetime utility library for TherapyFlow
+ * Centralized datetime utility library for SmartHub
  * Provides consistent time formatting and manipulation across the application
  * 
  * STANDARD DATE FORMATS (ALL dates in America/New_York timezone):

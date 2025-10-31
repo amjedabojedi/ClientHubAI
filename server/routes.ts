@@ -155,10 +155,10 @@ async function sendActivationEmail(clientEmail: string, clientName: string, acti
     await sp.transmissions.send({
       content: {
         from: fromEmail,
-        subject: 'Activate Your TherapyFlow Portal Account',
+        subject: 'Activate Your SmartHub Portal Account',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">Welcome to TherapyFlow Client Portal</h2>
+            <h2 style="color: #2563eb;">Welcome to SmartHub Client Portal</h2>
             <p>Hi ${clientName},</p>
             <p>Your therapist has enabled portal access for you. Click the button below to activate your account and set your password:</p>
             <div style="text-align: center; margin: 30px 0;">
@@ -200,12 +200,12 @@ async function sendPasswordResetEmail(clientEmail: string, clientName: string, r
     await sp.transmissions.send({
       content: {
         from: fromEmail,
-        subject: 'Reset Your TherapyFlow Portal Password',
+        subject: 'Reset Your SmartHub Portal Password',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Password Reset Request</h2>
             <p>Hi ${clientName},</p>
-            <p>We received a request to reset your TherapyFlow Client Portal password. Click the button below to set a new password:</p>
+            <p>We received a request to reset your SmartHub Client Portal password. Click the button below to set a new password:</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Reset My Password
@@ -272,7 +272,7 @@ async function sendAppointmentConfirmationEmail(
     await sp.transmissions.send({
       content: {
         from: fromEmail,
-        subject: 'Appointment Confirmed - TherapyFlow',
+        subject: 'Appointment Confirmed - SmartHub',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #2563eb;">Appointment Confirmed</h2>
@@ -10088,7 +10088,7 @@ This happens because only the file metadata was stored, not the actual file cont
                 },
                 content: {
                   from: fromEmail,
-                  subject: 'Payment Receipt - TherapyFlow',
+                  subject: 'Payment Receipt - SmartHub',
                   html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                       <h2 style="color: #2563eb;">Payment Receipt</h2>
@@ -10132,7 +10132,7 @@ This happens because only the file metadata was stored, not the actual file cont
                       </p>
                       
                       <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
-                        This is an automated receipt from TherapyFlow. Please do not reply to this email.
+                        This is an automated receipt from SmartHub. Please do not reply to this email.
                       </p>
                     </div>
                   `,
@@ -10777,10 +10777,10 @@ This happens because only the file metadata was stored, not the actual file cont
       await sp.transmissions.send({
         content: {
           from: fromEmail,
-          subject: 'Test Email from TherapyFlow',
+          subject: 'Test Email from SmartHub',
           html: `
             <h1>Test Email</h1>
-            <p>This is a test email from TherapyFlow.</p>
+            <p>This is a test email from SmartHub.</p>
             <p>Sender: ${fromEmail}</p>
             <p>Sent at: ${new Date().toISOString()}</p>
           `

@@ -412,7 +412,7 @@ export default function UserProfilesSimplified() {
 
       {/* Role Permissions Table */}
       <div className="mb-8 bg-white border rounded-lg p-6">
-        <h2 className="text-lg font-semibold mb-4">TherapyFlow Role Permissions Overview</h2>
+        <h2 className="text-lg font-semibold mb-4">SmartHub Role Permissions Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-2">

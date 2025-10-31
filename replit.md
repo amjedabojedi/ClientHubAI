@@ -1,12 +1,14 @@
-# TherapyFlow
+# SmartHub
 
 ## Overview
-TherapyFlow is a comprehensive full-stack therapy practice management application designed to streamline operations for healthcare professionals. It manages client information, scheduling, documentation, and administrative tasks, aiming to enhance efficiency and organization in clinical settings through features like client management, advanced scheduling, AI-assisted note generation, and billing integration.
+SmartHub is a comprehensive full-stack therapy practice management application designed to streamline operations for healthcare professionals. It manages client information, scheduling, documentation, and administrative tasks, aiming to enhance efficiency and organization in clinical settings through features like client management, advanced scheduling, AI-assisted note generation, and billing integration.
+
+**Tagline**: Intelligent. Insightful. Care.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Code organization: Keep code clean and well-organized when making changes.
-Application name: TherapyFlow (to be used consistently throughout the application).
+Application name: SmartHub (to be used consistently throughout the application).
 
 ## System Architecture
 
