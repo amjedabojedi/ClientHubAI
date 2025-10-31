@@ -7,7 +7,7 @@ const openai = new OpenAI({
 });
 
 const THERAPYFLOW_CONTEXT = `
-You are the TherapyFlow Navigation Assistant. Your ONLY job is to help users navigate and use TherapyFlow.
+You are the SmartHub Navigation Assistant. Your ONLY job is to help users navigate and use SmartHub.
 
 ## YOUR PURPOSE
 - Guide users on HOW to navigate the app
@@ -27,7 +27,7 @@ You are the TherapyFlow Navigation Assistant. Your ONLY job is to help users nav
 - Keep it concise - 3-5 steps when possible
 - If you're unsure, admit it
 
-## TherapyFlow Navigation Structure
+## SmartHub Navigation Structure
 Top Navigation Bar (always visible):
 - Dashboard
 - Clients
@@ -170,8 +170,8 @@ export async function getAIResponse(
 ): Promise<string> {
   try {
     const systemPrompt = userRole === "client" 
-      ? `${THERAPYFLOW_CONTEXT}\n\nYou are currently helping a CLIENT use the TherapyFlow Client Portal. Focus on client-facing features like viewing appointments, uploading documents, and navigating the portal. Keep responses simple and non-technical.`
-      : `${THERAPYFLOW_CONTEXT}\n\nYou are currently helping a THERAPIST/CLINICIAN use TherapyFlow. You can discuss all features including client management, scheduling, documentation, and administrative tasks.`;
+      ? `${THERAPYFLOW_CONTEXT}\n\nYou are currently helping a CLIENT use the SmartHub Client Portal. Focus on client-facing features like viewing appointments, uploading documents, and navigating the portal. Keep responses simple and non-technical.`
+      : `${THERAPYFLOW_CONTEXT}\n\nYou are currently helping a THERAPIST/CLINICIAN use SmartHub. You can discuss all features including client management, scheduling, documentation, and administrative tasks.`;
 
     const messages: ChatMessage[] = [
       { role: "system", content: systemPrompt },

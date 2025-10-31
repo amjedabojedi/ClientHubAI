@@ -322,14 +322,14 @@ Date: Wednesday, January 15, 2025
 Time: 2:00 PM - 2:50 PM
 Therapist: Dr. Emily Carter
 Service: Individual Therapy (50 minutes)
-Location: TherapyFlow Center - Room 203
+Location: SmartHub Center - Room 203
 
 Cost: $150.00 (payment due at time of service)
 
 Need to reschedule? Log in to your portal or call us at (555) 123-4567.
 
 Best regards,
-TherapyFlow Team
+SmartHub Team
 ```
 
 ---
