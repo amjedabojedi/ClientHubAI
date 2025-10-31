@@ -24,7 +24,11 @@ import type {
 
 // Helper function to get the email sender address from environment
 function getEmailFromAddress(): string {
-  return process.env.EMAIL_FROM || "noreply@mail.resiliencecrm.com";
+  const from = process.env.EMAIL_FROM;
+  if (!from) {
+    throw new Error("EMAIL_FROM not configured");
+  }
+  return from;
 }
 
 // Flexible trigger condition interface
@@ -748,7 +752,7 @@ export class NotificationService {
 
     try {
       const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
-      const fromEmail = "noreply@resiliencecrm.com";
+      const fromEmail = getEmailFromAddress();
 
       console.log(
         `[EMAIL] Processing ${recipients.length} recipients for ${trigger.eventType}`,
@@ -1025,7 +1029,7 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 We look forward to seeing you at your appointment.
 
 Best regards,
-SmartHub Team`;
+TherapyFlow Team`;
 
       return emailBody;
     } else {
@@ -1075,7 +1079,7 @@ The client will receive these Zoom details in their confirmation email.
 The client has been notified via email and the session is now visible on your calendar.
 
 Best regards,
-SmartHub Team`;
+TherapyFlow Team`;
 
       return emailBody;
     }
@@ -1151,7 +1155,7 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 We look forward to seeing you at your rescheduled appointment.
 
 Best regards,
-SmartHub Team`;
+TherapyFlow Team`;
 
       return emailBody;
     } else {
@@ -1204,7 +1208,7 @@ The client will receive these updated Zoom details in their rescheduled notifica
 The client has been notified of the schedule change and the session is updated on your calendar.
 
 Best regards,
-SmartHub Team`;
+TherapyFlow Team`;
 
       return emailBody;
     }
@@ -1254,7 +1258,7 @@ This notification was sent because you are responsible for client intake process
       return `
 Dear ${recipient.fullName},
 
-Welcome to SmartHub!
+Welcome to TherapyFlow!
 
 👋 THERAPIST ASSIGNMENT:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1268,7 +1272,7 @@ Your therapist will contact you soon to schedule your first appointment.
 • Complete any intake paperwork provided
 
 Best regards,
-SmartHub Team`;
+TherapyFlow Team`;
     } else {
       return `
 Client Assignment Notification
@@ -1476,7 +1480,7 @@ An event has occurred that requires your attention.
 Event Type: ${eventType}
 Date: ${this.formatDateEST(new Date())}
 
-Please log into SmartHub to review the details and take any necessary action.
+Please log into TherapyFlow to review the details and take any necessary action.
 
 This notification was sent because you are involved in this process.`;
   }
@@ -1534,13 +1538,13 @@ If you have any questions about joining the virtual session, please contact your
       </head>
       <body>
         <div class="header">
-          <h2>SmartHub Notification</h2>
+          <h2>TherapyFlow Notification</h2>
         </div>
         <div class="content">
           ${htmlContent}
         </div>
         <div style="margin-top: 30px; padding: 15px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
-          <p>This is an automated message from SmartHub. Please do not reply to this email.</p>
+          <p>This is an automated message from TherapyFlow. Please do not reply to this email.</p>
         </div>
       </body>
     </html>`;
