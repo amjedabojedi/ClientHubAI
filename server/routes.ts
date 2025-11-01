@@ -10255,7 +10255,10 @@ This happens because only the file metadata was stored, not the actual file cont
 
       // Calculate payment amounts
       const subtotal = parseFloat(billing.totalAmount);
-      const insuranceCoverage = billing.insuranceCovered ? subtotal * 0.8 : 0;
+      // Calculate insurance coverage from actual copay amount, not hardcoded 80%
+      const insuranceCoverage = billing.insuranceCovered && billing.copayAmount 
+        ? subtotal - parseFloat(billing.copayAmount) 
+        : 0;
       const copayTotal = billing.insuranceCovered ? parseFloat(billing.copayAmount || '0') : 0;
       const totalPayments = parseFloat(billing.paymentAmount || '0');
       const remainingDue = subtotal - totalPayments;
