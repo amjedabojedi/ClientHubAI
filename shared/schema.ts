@@ -570,6 +570,18 @@ export const sessionNotes = pgTable("session_notes", {
   moodBefore: integer("mood_before"), // 1-10
   moodAfter: integer("mood_after"), // 1-10
   
+  // Risk Assessment fields (0-4 scale)
+  riskSuicidalIdeation: integer("risk_suicidal_ideation"), // 0-4
+  riskSelfHarm: integer("risk_self_harm"), // 0-4
+  riskHomicidalIdeation: integer("risk_homicidal_ideation"), // 0-4
+  riskPsychosis: integer("risk_psychosis"), // 0-4
+  riskSubstanceUse: integer("risk_substance_use"), // 0-4
+  riskImpulsivity: integer("risk_impulsivity"), // 0-4
+  riskAggression: integer("risk_aggression"), // 0-4
+  riskTraumaSymptoms: integer("risk_trauma_symptoms"), // 0-4
+  riskNonAdherence: integer("risk_non_adherence"), // 0-4
+  riskSupportSystem: integer("risk_support_system"), // 0-4
+  
   // AI & content management
   generatedContent: text("generated_content"),
   draftContent: text("draft_content"),

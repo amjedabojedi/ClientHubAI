@@ -16,6 +16,16 @@ interface SessionNote {
   recommendations?: string | null;
   moodBefore?: number | null;
   moodAfter?: number | null;
+  riskSuicidalIdeation?: number | null;
+  riskSelfHarm?: number | null;
+  riskHomicidalIdeation?: number | null;
+  riskPsychosis?: number | null;
+  riskSubstanceUse?: number | null;
+  riskImpulsivity?: number | null;
+  riskAggression?: number | null;
+  riskTraumaSymptoms?: number | null;
+  riskNonAdherence?: number | null;
+  riskSupportSystem?: number | null;
   generatedContent?: string | null;
   draftContent?: string | null;
   finalContent?: string | null;
@@ -52,6 +62,42 @@ interface PracticeSettings {
   phone: string;
   email: string;
   website: string;
+}
+
+// Helper function to calculate overall risk score
+function calculateRiskAssessment(note: SessionNote) {
+  const riskFactors = [
+    note.riskSuicidalIdeation || 0,
+    note.riskSelfHarm || 0,
+    note.riskHomicidalIdeation || 0,
+    note.riskPsychosis || 0,
+    note.riskSubstanceUse || 0,
+    note.riskImpulsivity || 0,
+    note.riskAggression || 0,
+    note.riskTraumaSymptoms || 0,
+    note.riskNonAdherence || 0,
+    note.riskSupportSystem || 0,
+  ];
+  
+  const totalScore = riskFactors.reduce((sum, score) => sum + score, 0);
+  const maxPossibleScore = 40; // 10 factors × 4 max score each
+  const percentage = (totalScore / maxPossibleScore) * 100;
+  
+  let level = 'Low';
+  let color = '#059669'; // green-600
+  
+  if (percentage > 75) {
+    level = 'Critical';
+    color = '#dc2626'; // red-600
+  } else if (percentage > 50) {
+    level = 'High';
+    color = '#ea580c'; // orange-600
+  } else if (percentage > 25) {
+    level = 'Moderate';
+    color = '#ca8a04'; // yellow-600
+  }
+  
+  return { level, color, score: totalScore, maxScore: maxPossibleScore };
 }
 
 export function generateSessionNoteHTML(note: SessionNote, practiceSettings: PracticeSettings): string {
@@ -639,6 +685,105 @@ export function generateSessionNoteHTML(note: SessionNote, practiceSettings: Pra
             </div>
           </div>
         ` : ''}
+
+        ${(() => {
+          const hasRiskData = (note.riskSuicidalIdeation !== null && note.riskSuicidalIdeation !== undefined) ||
+                              (note.riskSelfHarm !== null && note.riskSelfHarm !== undefined) ||
+                              (note.riskHomicidalIdeation !== null && note.riskHomicidalIdeation !== undefined) ||
+                              (note.riskPsychosis !== null && note.riskPsychosis !== undefined) ||
+                              (note.riskSubstanceUse !== null && note.riskSubstanceUse !== undefined) ||
+                              (note.riskImpulsivity !== null && note.riskImpulsivity !== undefined) ||
+                              (note.riskAggression !== null && note.riskAggression !== undefined) ||
+                              (note.riskTraumaSymptoms !== null && note.riskTraumaSymptoms !== undefined) ||
+                              (note.riskNonAdherence !== null && note.riskNonAdherence !== undefined) ||
+                              (note.riskSupportSystem !== null && note.riskSupportSystem !== undefined);
+          
+          if (!hasRiskData) return '';
+          
+          const assessment = calculateRiskAssessment(note);
+          const getRiskLabel = (score: number) => {
+            if (score === 0) return 'None';
+            if (score === 1) return 'Minimal';
+            if (score === 2) return 'Mild';
+            if (score === 3) return 'Moderate';
+            return 'Severe';
+          };
+          
+          return `
+          <div class="section" style="margin-top: 20px;">
+            <div class="section-title">Risk Assessment</div>
+            <div style="background-color: #f3f4f6; padding: 12px 15px; border-radius: 6px; margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; color: #374151; font-size: 14px;">Overall Risk Level:</span>
+                <span style="font-weight: 700; color: ${assessment.color}; font-size: 16px;">${assessment.level} (${assessment.score}/${assessment.maxScore})</span>
+              </div>
+            </div>
+            <div style="margin-top: 12px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background-color: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                    <th style="text-align: left; padding: 8px 10px; font-weight: 600; color: #4b5563;">Risk Factor</th>
+                    <th style="text-align: center; padding: 8px 10px; font-weight: 600; color: #4b5563;">Score</th>
+                    <th style="text-align: left; padding: 8px 10px; font-weight: 600; color: #4b5563;">Level</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">1. Suicidal Ideation</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskSuicidalIdeation || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskSuicidalIdeation || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">2. Self-Harm</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskSelfHarm || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskSelfHarm || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">3. Homicidal Ideation</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskHomicidalIdeation || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskHomicidalIdeation || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">4. Psychosis</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskPsychosis || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskPsychosis || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">5. Substance Use</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskSubstanceUse || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskSubstanceUse || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">6. Impulsivity</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskImpulsivity || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskImpulsivity || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">7. Aggression/Violence</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskAggression || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskAggression || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">8. Trauma Symptoms</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskTraumaSymptoms || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskTraumaSymptoms || 0)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 6px 10px; color: #374151;">9. Non-Adherence</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskNonAdherence || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskNonAdherence || 0)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 6px 10px; color: #374151;">10. Support System</td>
+                    <td style="text-align: center; padding: 6px 10px; font-weight: 600;">${note.riskSupportSystem || 0}/4</td>
+                    <td style="padding: 6px 10px; color: #6b7280;">${getRiskLabel(note.riskSupportSystem || 0)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          `;
+        })()}
 
         ${note.isFinalized && finalizedDate ? `
           <div class="signature-section">

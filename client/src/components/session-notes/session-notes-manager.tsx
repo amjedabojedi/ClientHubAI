@@ -95,6 +95,18 @@ interface SessionNote {
   moodBefore?: number | null;
   moodAfter?: number | null;
   
+  // Risk Assessment fields (0-4 scale)
+  riskSuicidalIdeation?: number | null;
+  riskSelfHarm?: number | null;
+  riskHomicidalIdeation?: number | null;
+  riskPsychosis?: number | null;
+  riskSubstanceUse?: number | null;
+  riskImpulsivity?: number | null;
+  riskAggression?: number | null;
+  riskTraumaSymptoms?: number | null;
+  riskNonAdherence?: number | null;
+  riskSupportSystem?: number | null;
+  
   // AI & content management
   generatedContent?: string | null;
   draftContent?: string | null;
@@ -700,6 +712,19 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       date: new Date(),
       aiEnabled: false,
     });
+    // Reset risk factors to 0
+    setRiskFactors({
+      suicidalIdeation: 0,
+      selfHarm: 0,
+      homicidalIdeation: 0,
+      psychosis: 0,
+      substanceUse: 0,
+      impulsivity: 0,
+      aggression: 0,
+      traumaSymptoms: 0,
+      nonAdherence: 0,
+      supportSystem: 0,
+    });
   };
 
   // Reset form for editing
@@ -722,6 +747,19 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       aiEnabled: note.aiEnabled,
       customAiPrompt: note.customAiPrompt || '',
     });
+    // Load risk factors from note
+    setRiskFactors({
+      suicidalIdeation: note.riskSuicidalIdeation || 0,
+      selfHarm: note.riskSelfHarm || 0,
+      homicidalIdeation: note.riskHomicidalIdeation || 0,
+      psychosis: note.riskPsychosis || 0,
+      substanceUse: note.riskSubstanceUse || 0,
+      impulsivity: note.riskImpulsivity || 0,
+      aggression: note.riskAggression || 0,
+      traumaSymptoms: note.riskTraumaSymptoms || 0,
+      nonAdherence: note.riskNonAdherence || 0,
+      supportSystem: note.riskSupportSystem || 0,
+    });
   };
 
   // Handle form submission
@@ -731,6 +769,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       ...data,
       date: data.date || new Date(),
       therapistId: user?.id || data.therapistId, // Always use authenticated user ID
+      // Include risk factors
+      riskSuicidalIdeation: riskFactors.suicidalIdeation,
+      riskSelfHarm: riskFactors.selfHarm,
+      riskHomicidalIdeation: riskFactors.homicidalIdeation,
+      riskPsychosis: riskFactors.psychosis,
+      riskSubstanceUse: riskFactors.substanceUse,
+      riskImpulsivity: riskFactors.impulsivity,
+      riskAggression: riskFactors.aggression,
+      riskTraumaSymptoms: riskFactors.traumaSymptoms,
+      riskNonAdherence: riskFactors.nonAdherence,
+      riskSupportSystem: riskFactors.supportSystem,
     };
     
     if (editingNote) {
