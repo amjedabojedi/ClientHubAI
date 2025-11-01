@@ -3976,10 +3976,16 @@ This happens because only the file metadata was stored, not the actual file cont
     }
   });
 
-  app.delete("/api/clients/:clientId/documents/:id", async (req, res) => {
+  app.delete("/api/clients/:clientId/documents/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
+      
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
       // Get document info before deleting from database
       const documents = await storage.getDocumentsByClient(clientId);
@@ -3988,6 +3994,24 @@ This happens because only the file metadata was stored, not the actual file cont
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
       }
+      
+      // Log deletion to audit trail BEFORE deleting
+      await AuditLogger.logDocumentAccess(
+        req.user.id,
+        req.user.username,
+        id,
+        clientId,
+        'document_deleted',
+        ipAddress,
+        userAgent,
+        { 
+          fileName: document.originalName,
+          fileType: document.mimeType,
+          category: document.category,
+          fileSize: document.fileSize,
+          deletedAt: new Date()
+        }
+      );
       
       // Delete from database first
       await storage.deleteDocument(id);
