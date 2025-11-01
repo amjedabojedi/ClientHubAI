@@ -7202,7 +7202,13 @@ This happens because only the file metadata was stored, not the actual file cont
       
       // Generate invoice HTML
       const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0);
-      const insuranceCoverage = billingRecords.reduce((sum, record) => sum + (Number(record.totalAmount || 0) * 0.8), 0);
+      // Calculate insurance coverage from actual copay amounts, not hardcoded 80%
+      const insuranceCoverage = billingRecords.reduce((sum, record) => {
+        if (record.insuranceCovered && record.copayAmount) {
+          return sum + (Number(record.totalAmount || 0) - Number(record.copayAmount || 0));
+        }
+        return sum;
+      }, 0);
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
       const totalPayments = billingRecords.reduce((sum, record) => sum + Number(record.paymentAmount || 0), 0);
       const remainingDue = subtotal - totalPayments;
