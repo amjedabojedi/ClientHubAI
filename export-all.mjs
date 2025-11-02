@@ -4,45 +4,50 @@ import path from "path";
 import { Client } from "@replit/object-storage";
 
 async function exportAll() {
-  const client = new Client(); // auto-detect bucket
-  console.log("📦 Listing stored items...");
+  console.log("🔌 Connecting to Replit Object Storage...");
+  const storage = new Client();
 
-  const { ok, value, error } = await client.list();
+  console.log("📦 Getting full object list...");
+  const { ok, value: objects, error } = await storage.list();
   if (!ok) {
-    console.error("❌ Failed to list objects:", error);
+    console.error("❌ Could not list objects:", error);
     process.exit(1);
   }
 
-  const objects = value; // <-- this is an ARRAY of StorageObject
   console.log(`📄 Found ${objects.length} stored objects.`);
 
   fs.mkdirSync("bucket_export", { recursive: true });
 
   for (const obj of objects) {
-    const key = obj.key;
+    const objectKey = obj.key; // FULL key (e.g., "documents/1208-contract.pdf")
 
-    // Determine filename
-    const metadataName = obj.metadata?.fileName || obj.metadata?.originalName;
-    const fallbackName = `${key}.bin`;
-    const finalName = metadataName ? `${key}-${metadataName}` : fallbackName;
+    // if (!objectKey.startsWith("documents/")) {
+    //   // Skip anything not part of documents store
+    //   continue;
+    // }
 
-    const exportPath = path.join("bucket_export", finalName);
+    // Extract filename from key
+    //const fileName = objectKey.replace("documents/", "");
 
-    console.log(`⬇️ Downloading: ${finalName}`);
+    const exportPath = path.join("bucket_export", objectKey);
+
+    console.log(`⬇️ Downloading: ${objectKey}`);
 
     const { ok: downloaded, value: bytes, error: downloadErr } =
-      await client.downloadAsBytes(key);
+      await storage.downloadAsBytes(objectKey);
 
     if (!downloaded) {
-      console.warn(`⚠️ Failed to download key ${key}:`, downloadErr);
+      console.warn(`⚠️ Could not download ${objectKey}:`, downloadErr?.message || downloadErr);
       continue;
     }
 
+    fs.mkdirSync(path.dirname(exportPath), { recursive: true });
     fs.writeFileSync(exportPath, Buffer.from(bytes));
+
     console.log(`✅ Saved → ${exportPath}`);
   }
 
-  console.log("\n🎉 Export complete → check bucket_export/");
+  console.log("\n🎉 Export completed. Files are in ./bucket_export/");
 }
 
 exportAll();
