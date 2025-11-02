@@ -3944,11 +3944,36 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(404).json({ message: "Document not found" });
       }
       
-      // Download from Azure Blob Storage
-      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
-      const downloadResult = await azureStorage.downloadFile(blobName);
+      let fileBuffer: Buffer | null = null;
+      let storageLocation = '';
       
-      if (downloadResult.success) {
+      // Try Replit Object Storage first (for older documents 1000-1299)
+      try {
+        const { Client } = await import('@replit/object-storage');
+        const replitStorage = new Client();
+        const objectKey = `documents/${document.id}-${document.fileName}`;
+        const replitResult = await replitStorage.downloadAsText(objectKey);
+        
+        if (replitResult.ok) {
+          fileBuffer = Buffer.from(replitResult.value, 'base64');
+          storageLocation = 'Replit Object Storage';
+        }
+      } catch (replitError) {
+        // Replit storage failed, will try Azure next
+      }
+      
+      // If not in Replit storage, try Azure Blob Storage (for newer documents 1300+)
+      if (!fileBuffer) {
+        const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+        const downloadResult = await azureStorage.downloadFile(blobName);
+        
+        if (downloadResult.success) {
+          fileBuffer = downloadResult.data!;
+          storageLocation = 'Azure Blob Storage';
+        }
+      }
+      
+      if (fileBuffer) {
         // HIPAA Audit Log: Document downloaded
         if (req.user) {
           await AuditLogger.logDocumentAccess(
@@ -3959,11 +3984,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
             'document_downloaded',
             ipAddress,
             userAgent,
-            { fileName: document.originalName, fileType: document.mimeType }
+            { fileName: document.originalName, fileType: document.mimeType, storageLocation }
           );
         }
-        
-        const fileBuffer = downloadResult.data;
         
         res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${document.originalName}"`);
@@ -10749,12 +10772,38 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(403).json({ error: "Document not shared" });
       }
 
-      // Download from Azure Blob Storage
+      // Try downloading from storage (Replit first, then Azure)
       try {
-        const blobName = azureStorage.generateBlobName(document.id, document.fileName);
-        const downloadResult = await azureStorage.downloadFile(blobName);
+        let fileBuffer: Buffer | null = null;
+        let storageLocation = '';
         
-        if (downloadResult.success) {
+        // Try Replit Object Storage first (for older documents 1000-1299)
+        try {
+          const { Client } = await import('@replit/object-storage');
+          const replitStorage = new Client();
+          const objectKey = `documents/${document.id}-${document.fileName}`;
+          const replitResult = await replitStorage.downloadAsText(objectKey);
+          
+          if (replitResult.ok) {
+            fileBuffer = Buffer.from(replitResult.value, 'base64');
+            storageLocation = 'Replit Object Storage';
+          }
+        } catch (replitError) {
+          // Replit storage failed, will try Azure next
+        }
+        
+        // If not in Replit storage, try Azure Blob Storage (for newer documents 1300+)
+        if (!fileBuffer) {
+          const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+          const downloadResult = await azureStorage.downloadFile(blobName);
+          
+          if (downloadResult.success) {
+            fileBuffer = downloadResult.data!;
+            storageLocation = 'Azure Blob Storage';
+          }
+        }
+        
+        if (fileBuffer) {
           // Audit document download
           const client = await storage.getClient(session.clientId);
           if (client) {
@@ -10769,12 +10818,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
               { 
                 portal: true, 
                 fileName: document.originalName,
-                fileSize: document.fileSize
+                fileSize: document.fileSize,
+                storageLocation
               }
             );
           }
-
-          const fileBuffer = downloadResult.data;
 
           // Serve the file inline (not as download) for preview
           res.setHeader('Content-Type', document.mimeType || 'application/pdf');
