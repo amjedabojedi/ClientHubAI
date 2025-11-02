@@ -7562,17 +7562,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
               options: {
                 sandbox: false  // Set to false for production sending
               },
-              recipients: [{ 
-                address: {
-                  email: client.email,
-                  name: client.fullName
-                }
-              }],
+              recipients: [{ address: client.email }],
               content: {
-                from: {
-                  name: practiceSettings.name,
-                  email: fromEmail
-                },
+                from: fromEmail,
                 subject: `Invoice from ${providerInfo.name} - ${client.fullName}`,
                 html: `
                   <div style="font-family: 'Times New Roman', Times, serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border: 1px solid #e5e7eb;">
