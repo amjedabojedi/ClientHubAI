@@ -7558,71 +7558,29 @@ You can download a copy if you have it saved locally and re-upload it.`;
               }
             }
 
-            // Generate a secure download link instead of attaching PDF (email filters block PDFs)
-            const appUrl = process.env.BASE_URL || `https://${req.get('host')}`;
-            const downloadLink = `${appUrl}/api/clients/${client.id}/invoice?action=download&billingId=${billingId}`;
-
             const result = await sp.transmissions.send({
-              options: {
-                sandbox: false  // Set to false for production sending
-              },
               recipients: [{ address: client.email }],
               content: {
                 from: fromEmail,
                 subject: `Invoice from ${providerInfo.name} - ${client.fullName}`,
-                html: `
-                  <div style="font-family: 'Times New Roman', Times, serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border: 1px solid #e5e7eb;">
-                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e293b; padding-bottom: 20px;">
-                      <h1 style="color: #1e293b; font-size: 28px; margin: 0; text-transform: uppercase; letter-spacing: 1px;">INVOICE</h1>
-                      <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">${practiceSettings.name}</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 25px;">
-                      <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Dear ${client.fullName},</p>
-                      <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Thank you for choosing ${practiceSettings.name}. Please find below the details of your recent session and billing information.</p>
-                    </div>
-                    
-                    <div style="background: #f8fafc; padding: 20px; border-left: 4px solid #3b82f6; margin: 25px 0;">
-                      <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px;">Invoice Details</h3>
-                      <table style="width: 100%; border-collapse: collapse;">
-                        <tr><td style="padding: 5px 0; color: #6b7280; width: 40%;">Invoice Number:</td><td style="padding: 5px 0; color: #1e293b; font-weight: bold;">INV-${client.clientId}-${billingId}</td></tr>
-                        <tr><td style="padding: 5px 0; color: #6b7280;">Date:</td><td style="padding: 5px 0; color: #1e293b;">${formatInTimeZone(new Date(), 'America/New_York', 'MMM dd, yyyy')}</td></tr>
-                        <tr><td style="padding: 5px 0; color: #6b7280;">Service:</td><td style="padding: 5px 0; color: #1e293b;">${billingRecords[0].serviceCode}</td></tr>
-                        <tr><td style="padding: 5px 0; color: #6b7280;">Amount Due:</td><td style="padding: 5px 0; color: #dc2626; font-weight: bold; font-size: 18px;">$${remainingDue.toFixed(2)}</td></tr>
-                      </table>
-                    </div>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                      <a href="${downloadLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
-                        Download Invoice PDF
-                      </a>
-                      <p style="margin: 15px 0; color: #6b7280; font-size: 13px;">Click the button above to download your invoice as a PDF</p>
-                    </div>
-                    
-                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-                    
-                    <div style="text-align: center; color: #6b7280; font-size: 14px; line-height: 1.5;">
-                      <p style="margin: 5px 0; font-weight: bold; color: #1e293b;">${practiceSettings.name}</p>
-                      <p style="margin: 5px 0;">${practiceSettings.address}</p>
-                      <p style="margin: 5px 0;">Phone: ${practiceSettings.phone} | Email: ${practiceSettings.email}</p>
-                      <p style="margin: 5px 0;">Website: ${practiceSettings.website}</p>
-                    </div>
-                  </div>
-                `,
-                text: `Invoice #: INV-${client.clientId}-${billingId}, Amount: $${remainingDue.toFixed(2)}. Download your invoice PDF here: ${downloadLink}. For questions, contact us at ${practiceSettings.email} or ${practiceSettings.phone}.`
+                html: invoiceHtml,
+                ...(pdfBuffer && {
+                  attachments: [{
+                    name: `Invoice-CL-${new Date().getFullYear()}-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
+                    type: 'application/pdf',
+                    data: pdfBuffer.toString('base64')
+                  }]
+                })
               }
             });
 
-            // Log successful send details for debugging delivery issues
             console.log('[EMAIL SUCCESS] Invoice email sent via SparkPost:', {
               to: client.email,
               clientName: client.fullName,
               transmissionId: result.results?.id,
               totalAccepted: result.results?.total_accepted_recipients,
               totalRejected: result.results?.total_rejected_recipients,
-              deliveryMethod: 'download_link',
-              downloadLink: downloadLink,
-              fromDomain: fromEmail.split('@')[1],
+              hasAttachment: !!pdfBuffer,
               timestamp: new Date().toISOString()
             });
 
@@ -7636,15 +7594,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 userId: SYSTEM_USER_ID, // System user for client email tracking
                 type: 'invoice_sent' as any,
                 title: `Invoice Sent - INV-${client.clientId}-${billingId}`,
-                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)} with download link`,
+                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)}${pdfBuffer ? ' with PDF attachment' : ''}`,
                 data: JSON.stringify({
                   isClientEmail: true,
                   clientEmail: client.email,
                   billingId,
                   invoiceNumber: `INV-${client.clientId}-${billingId}`,
                   amount: remainingDue,
-                  deliveryMethod: 'download_link',
-                  downloadLink: downloadLink,
+                  hasAttachment: !!pdfBuffer,
                   transmissionId: result.results?.id
                 }),
                 priority: 'medium' as any,
@@ -7668,8 +7625,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
             res.json({ 
               message: `Invoice email sent successfully to ${client.email}`,
               messageId: result.results?.id,
-              deliveryMethod: 'download_link',
-              note: `Invoice email sent with secure PDF download link. Client can download the PDF by clicking the button in the email.`
+              hasAttachment: !!pdfBuffer
             });
           } catch (error) {
             const err = error as any;
