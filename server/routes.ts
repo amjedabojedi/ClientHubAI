@@ -7558,6 +7558,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
               }
             }
 
+            // Generate a secure download link instead of attaching PDF (email filters block PDFs)
+            const appUrl = process.env.BASE_URL || `https://${req.get('host')}`;
+            const downloadLink = `${appUrl}/api/clients/${client.id}/invoice?action=download&billingId=${billingId}`;
+
             const result = await sp.transmissions.send({
               options: {
                 sandbox: false  // Set to false for production sending
@@ -7574,6 +7578,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
                     </div>
                     
                     <div style="margin-bottom: 25px;">
+                      <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Dear ${client.fullName},</p>
                       <p style="margin: 15px 0; line-height: 1.6; color: #374151;">Thank you for choosing ${practiceSettings.name}. Please find below the details of your recent session and billing information.</p>
                     </div>
                     
@@ -7587,6 +7592,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
                       </table>
                     </div>
                     
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${downloadLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
+                        Download Invoice PDF
+                      </a>
+                      <p style="margin: 15px 0; color: #6b7280; font-size: 13px;">Click the button above to download your invoice as a PDF</p>
+                    </div>
+                    
                     <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
                     
                     <div style="text-align: center; color: #6b7280; font-size: 14px; line-height: 1.5;">
@@ -7597,14 +7609,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
                     </div>
                   </div>
                 `,
-                text: `Please find your invoice attached as a PDF. Invoice #: INV-${client.clientId}-${billingId}, Amount: $${remainingDue.toFixed(2)}. For questions, contact us at ${practiceSettings.email} or ${practiceSettings.phone}.`,
-                ...(pdfBuffer && {
-                  attachments: [{
-                    name: `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
-                    type: 'application/pdf',
-                    data: Buffer.isBuffer(pdfBuffer) ? pdfBuffer.toString('base64') : Buffer.from(pdfBuffer).toString('base64')
-                  }]
-                })
+                text: `Invoice #: INV-${client.clientId}-${billingId}, Amount: $${remainingDue.toFixed(2)}. Download your invoice PDF here: ${downloadLink}. For questions, contact us at ${practiceSettings.email} or ${practiceSettings.phone}.`
               }
             });
 
@@ -7615,7 +7620,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
               transmissionId: result.results?.id,
               totalAccepted: result.results?.total_accepted_recipients,
               totalRejected: result.results?.total_rejected_recipients,
-              hasAttachment: !!pdfBuffer,
+              deliveryMethod: 'download_link',
+              downloadLink: downloadLink,
               fromDomain: fromEmail.split('@')[1],
               timestamp: new Date().toISOString()
             });
@@ -7630,14 +7636,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 userId: SYSTEM_USER_ID, // System user for client email tracking
                 type: 'invoice_sent' as any,
                 title: `Invoice Sent - INV-${client.clientId}-${billingId}`,
-                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)}${pdfBuffer ? ' with PDF attachment' : ' as HTML email'}`,
+                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)} with download link`,
                 data: JSON.stringify({
                   isClientEmail: true,
                   clientEmail: client.email,
                   billingId,
                   invoiceNumber: `INV-${client.clientId}-${billingId}`,
                   amount: remainingDue,
-                  hasPdfAttachment: !!pdfBuffer,
+                  deliveryMethod: 'download_link',
+                  downloadLink: downloadLink,
                   transmissionId: result.results?.id
                 }),
                 priority: 'medium' as any,
@@ -7659,10 +7666,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
             }
 
             res.json({ 
-              message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
+              message: `Invoice email sent successfully to ${client.email}`,
               messageId: result.results?.id,
-              attachmentType: pdfBuffer ? 'PDF' : 'HTML',
-              note: `Invoice sent as ${pdfBuffer ? 'PDF attachment' : 'professional HTML email'} from configured domain.`
+              deliveryMethod: 'download_link',
+              note: `Invoice email sent with secure PDF download link. Client can download the PDF by clicking the button in the email.`
             });
           } catch (error) {
             const err = error as any;
