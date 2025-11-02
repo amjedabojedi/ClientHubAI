@@ -7,7 +7,9 @@ import * as crypto from "crypto";
 import multer from "multer";
 import bcrypt from "bcrypt";
 import SparkPost from "sparkpost";
-import puppeteer from "puppeteer";
+import puppeteerCore from "puppeteer-core";
+import puppeteerFull from "puppeteer";
+import chromium from "@sparticuz/chromium";
 import { execSync } from "child_process";
 import { format } from "date-fns";
 import { toZonedTime, fromZonedTime, formatInTimeZone } from "date-fns-tz";
@@ -10504,34 +10506,138 @@ You can download a copy if you have it saved locally and re-upload it.`;
         accessReason: 'Client portal invoice receipt access',
       });
 
-      // Generate PDF from HTML
-      console.log('[RECEIPT] Launching Puppeteer to generate PDF...');
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-
-      const page = await browser.newPage();
-      await page.setContent(invoiceHtml, { waitUntil: 'networkidle0' });
+      // Generate PDF from HTML with production-safe Chromium
+      const pdfStartTime = Date.now();
+      console.log(`[RECEIPT] Starting PDF generation for invoice ${invoiceNumber} at ${new Date().toISOString()}`);
       
-      const pdfBuffer = await page.pdf({
-        format: 'Letter',
-        margin: {
-          top: '0.5in',
-          right: '0.5in',
-          bottom: '0.5in',
-          left: '0.5in'
-        },
-        printBackground: true
-      });
+      let browser: any = null;
+      let pdfBuffer: Buffer | null = null;
+      
+      try {
+        // Production-safe browser launch configuration
+        const isProduction = process.env.NODE_ENV === 'production';
+        
+        let launchOptions: any;
+        let puppeteer: any;
+        
+        if (isProduction) {
+          // Production: Use puppeteer-core with @sparticuz/chromium for serverless/production environments
+          puppeteer = puppeteerCore;
+          launchOptions = {
+            args: [
+              ...chromium.args,
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--single-process',
+              '--no-zygote'
+            ],
+            executablePath: await chromium.executablePath(),
+            headless: true,
+          };
+        } else {
+          // Development: Use regular puppeteer with bundled Chromium
+          puppeteer = puppeteerFull;
+          launchOptions = {
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            headless: true
+          };
+        }
 
-      await browser.close();
-      console.log('[RECEIPT] PDF generated successfully');
+        console.log(`[RECEIPT] Launching browser (${isProduction ? 'production' : 'development'} mode)...`);
+        browser = await Promise.race([
+          puppeteer.launch(launchOptions),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Browser launch timeout after 10s')), 10000)
+          )
+        ]) as any;
 
-      // Send PDF with proper headers
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `${action === 'download' ? 'attachment' : 'inline'}; filename="Invoice-${invoiceNumber}.pdf"`);
-      res.send(pdfBuffer);
+        console.log('[RECEIPT] Browser launched successfully, creating page...');
+        const page = await browser.newPage();
+        
+        console.log('[RECEIPT] Setting page content...');
+        await page.setContent(invoiceHtml, { 
+          waitUntil: 'networkidle0',
+          timeout: 15000 
+        });
+        
+        console.log('[RECEIPT] Generating PDF...');
+        pdfBuffer = await Promise.race([
+          page.pdf({
+            format: 'Letter',
+            margin: {
+              top: '0.5in',
+              right: '0.5in',
+              bottom: '0.5in',
+              left: '0.5in'
+            },
+            printBackground: true,
+            preferCSSPageSize: false
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('PDF generation timeout after 15s')), 15000)
+          )
+        ]);
+
+        const pdfDuration = Date.now() - pdfStartTime;
+        const pdfSizeKB = pdfBuffer ? (pdfBuffer.length / 1024).toFixed(2) : '0';
+        console.log(`[RECEIPT] ✅ PDF generated successfully - Size: ${pdfSizeKB}KB, Duration: ${pdfDuration}ms`);
+
+        // Validate PDF buffer
+        if (!pdfBuffer || pdfBuffer.length < 100) {
+          throw new Error(`Invalid PDF buffer - size: ${pdfBuffer?.length || 0} bytes`);
+        }
+
+        // Send PDF with proper headers
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', pdfBuffer.length.toString());
+        res.setHeader('Content-Disposition', `${action === 'download' ? 'attachment' : 'inline'}; filename="Invoice-${invoiceNumber}.pdf"`);
+        res.send(pdfBuffer);
+
+      } catch (pdfError: any) {
+        const pdfDuration = Date.now() - pdfStartTime;
+        console.error(`[RECEIPT] ❌ PDF generation failed after ${pdfDuration}ms:`, pdfError);
+        console.error('[RECEIPT] Error details:', {
+          message: pdfError?.message || 'Unknown error',
+          stack: pdfError?.stack,
+          invoiceNumber,
+          isProduction: process.env.NODE_ENV === 'production'
+        });
+        
+        // Log error for monitoring
+        await AuditLogger.logAction({
+          userId: null,
+          username: client.email || 'unknown',
+          action: 'pdf_generation_failed',
+          result: 'failure',
+          resourceType: 'billing',
+          resourceId: invoiceId.toString(),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: false,
+          riskLevel: 'low',
+          details: JSON.stringify({ 
+            error: pdfError?.message || 'Unknown error', 
+            duration: pdfDuration,
+            invoiceNumber 
+          }),
+          accessReason: 'PDF generation error logging',
+        });
+        
+        throw pdfError;
+      } finally {
+        // Always close browser to prevent memory leaks
+        if (browser) {
+          try {
+            await browser.close();
+            console.log('[RECEIPT] Browser closed successfully');
+          } catch (closeError) {
+            console.error('[RECEIPT] Error closing browser:', closeError);
+          }
+        }
+      }
     } catch (error) {
       console.error("Portal invoice receipt error:", error);
       res.status(500).json({ error: "Failed to generate receipt" });
