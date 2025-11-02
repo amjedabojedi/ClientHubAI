@@ -13,11 +13,13 @@ interface Session {
   clientId: number;
   therapistId: number;
   serviceId: number;
-  roomId: number;
+  roomId: number | null;
   sessionDate: string;
   status: string;
-  notes?: string;
+  notes?: string | null;
   sessionType: string;
+  zoomEnabled?: boolean;
+  zoomJoinUrl?: string | null;
   client?: {
     id: number;
     fullName: string;
@@ -31,13 +33,22 @@ interface Session {
     fullName: string;
   };
   room?: {
+    id: number;
     roomNumber: string;
     roomName: string;
-  };
+    capacity: number | null;
+    equipment: string | null;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
   service?: {
+    id: number;
+    serviceName: string;
     serviceCode: string;
+    duration: number;
     baseRate: number;
-  };
+  } | null;
 }
 
 interface ConflictInfo {

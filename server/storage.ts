@@ -195,8 +195,16 @@ export type SessionFilterParams = {
   includeHiddenServices?: boolean; // Admin-only flag to see all services
 };
 
+// Type for sessions with joined relations (without legacy room string field)
+export type SessionWithRelations = Omit<Session, 'room'> & { 
+  therapist: User; 
+  client?: Client; 
+  service: any; 
+  room: any;
+};
+
 export type SessionQueryResult = {
-  sessions: (Session & { therapist: User; client: Client; service: any })[];
+  sessions: SessionWithRelations[];
   total: number;
   totalPages: number;
 };
@@ -284,12 +292,12 @@ export interface IStorage {
   cleanupExpiredPortalSessions(): Promise<void>;
 
   // ===== SESSION MANAGEMENT =====
-  getAllSessions(): Promise<(Session & { therapist: User; client: Client })[]>;
+  getAllSessions(): Promise<SessionWithRelations[]>;
   // SECURE: Database-level filtered session query with service visibility controls
   getSessionsWithFiltering(params: SessionFilterParams): Promise<SessionQueryResult>;
-  getSessionsByClient(clientId: number, includeHiddenServices?: boolean): Promise<(Session & { therapist: User })[]>;
-  getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<(Session & { therapist: User; client: Client })[]>;
-  getOverdueSessions(limit?: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<(Session & { therapist: User; client: Client; daysOverdue: number })[]>;
+  getSessionsByClient(clientId: number, includeHiddenServices?: boolean): Promise<SessionWithRelations[]>;
+  getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<SessionWithRelations[]>;
+  getOverdueSessions(limit?: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<(SessionWithRelations & { daysOverdue: number })[]>;
   createSession(session: InsertSession): Promise<Session>;
   createSessionsBulk(sessions: InsertSession[]): Promise<Session[]>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
@@ -364,11 +372,11 @@ export interface IStorage {
 
   // Session Notes Management
   getSessionNotesBySession(sessionId: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session })[]>;
-  getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session & { room?: SelectRoom | null } })[]>;
+  getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Omit<Session, 'room'> & { room?: SelectRoom | null } })[]>;
   createSessionNote(sessionNote: InsertSessionNote): Promise<SessionNote>;
   updateSessionNote(id: number, sessionNote: Partial<InsertSessionNote>): Promise<SessionNote>;
   deleteSessionNote(id: number): Promise<void>;
-  getSessionNote(id: number): Promise<(SessionNote & { therapist: User; client: Client; session: Session & { room?: SelectRoom | null } }) | undefined>;
+  getSessionNote(id: number): Promise<(SessionNote & { therapist: User & { profile?: UserProfile | null }; client: Client; session: Omit<Session, 'room'> & { room?: SelectRoom | null } }) | undefined>;
 
   // Hierarchical Library Management
   getLibraryCategories(): Promise<(LibraryCategory & { children?: LibraryCategory[]; entries?: LibraryEntry[] })[]>;
@@ -1645,7 +1653,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSessionsByClient(clientId: number, includeHiddenServices = false): Promise<(Session & { therapist: User; service: any })[]> {
+  async getSessionsByClient(clientId: number, includeHiddenServices = false): Promise<SessionWithRelations[]> {
     let query = db
       .select({
         session: sessions,
@@ -1764,7 +1772,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<SessionWithRelations[]> {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
@@ -1828,7 +1836,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getRecentSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getRecentSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<SessionWithRelations[]> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -1890,7 +1898,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getUpcomingSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getUpcomingSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<SessionWithRelations[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -1954,7 +1962,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any; daysOverdue: number })[]> {
+  async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(SessionWithRelations & { daysOverdue: number })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -3067,7 +3075,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Session & { room?: SelectRoom | null } })[]> {
+  async getSessionNotesByClient(clientId: number): Promise<(SessionNote & { therapist: User; session: Omit<Session, 'room'> & { room?: SelectRoom | null } })[]> {
     const results = await db
       .select({
         sessionNote: sessionNotes,
@@ -3116,7 +3124,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(sessionNotes).where(eq(sessionNotes.id, id));
   }
 
-  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User & { profile?: UserProfile | null }; client: Client; session: Session & { room?: SelectRoom | null } }) | undefined> {
+  async getSessionNote(id: number): Promise<(SessionNote & { therapist: User & { profile?: UserProfile | null }; client: Client; session: Omit<Session, 'room'> & { room?: SelectRoom | null } }) | undefined> {
     const results = await db
       .select({
         sessionNote: sessionNotes,

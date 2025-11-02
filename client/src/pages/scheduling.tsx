@@ -116,7 +116,7 @@ const sessionFormSchema = z.object({
   sessionDate: z.string().min(1, "Date is required"),
   sessionTime: z.string().min(1, "Time is required"),
   serviceId: z.coerce.number().int().min(1, "Service is required"),
-  roomId: z.coerce.number().int().min(1, "Room is required"),
+  roomId: z.coerce.number().int().min(1, "Room is required").optional(),
   sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
   notes: z.string().optional(),
   zoomEnabled: z.boolean().optional().default(false),
@@ -132,14 +132,13 @@ interface Session {
   sessionType: string;
   status: string;
   serviceId: number;
-  roomId: number;
-  notes?: string;
+  roomId: number | null;
+  notes?: string | null;
   calculatedRate?: number;
-  // Zoom integration fields
   zoomEnabled?: boolean;
-  zoomMeetingId?: string;
-  zoomJoinUrl?: string;
-  zoomPassword?: string;
+  zoomMeetingId?: string | null;
+  zoomJoinUrl?: string | null;
+  zoomPassword?: string | null;
   therapist: {
     id: number;
     fullName: string;
@@ -158,12 +157,17 @@ interface Session {
     serviceCode: string;
     duration: number;
     baseRate: number;
-  };
+  } | null;
   room?: {
     id: number;
     roomNumber: string;
     roomName: string;
-  };
+    capacity: number | null;
+    equipment: string | null;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
 }
 
 export default function SchedulingPage() {
@@ -414,7 +418,7 @@ export default function SchedulingPage() {
           form.setValue('clientId', sessionToEdit.clientId);
           form.setValue('therapistId', sessionToEdit.therapistId);
           form.setValue('serviceId', sessionToEdit.serviceId);
-          form.setValue('roomId', sessionToEdit.roomId);
+          form.setValue('roomId', sessionToEdit.roomId ?? undefined);
           form.setValue('sessionType', sessionToEdit.sessionType as any);
           
           // Parse date/time from UTC and convert to EST for editing
@@ -607,7 +611,7 @@ export default function SchedulingPage() {
       clientId: session.clientId,
       therapistId: session.therapistId,
       serviceId: session.serviceId,
-      roomId: session.roomId,
+      roomId: session.roomId ?? undefined,
       sessionType: session.sessionType as any,
       sessionDate: dateOnly,
       sessionTime: timeString,
