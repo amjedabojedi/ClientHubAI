@@ -10504,7 +10504,34 @@ You can download a copy if you have it saved locally and re-upload it.`;
         accessReason: 'Client portal invoice receipt access',
       });
 
-      res.send(invoiceHtml);
+      // Generate PDF from HTML
+      console.log('[RECEIPT] Launching Puppeteer to generate PDF...');
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+
+      const page = await browser.newPage();
+      await page.setContent(invoiceHtml, { waitUntil: 'networkidle0' });
+      
+      const pdfBuffer = await page.pdf({
+        format: 'Letter',
+        margin: {
+          top: '0.5in',
+          right: '0.5in',
+          bottom: '0.5in',
+          left: '0.5in'
+        },
+        printBackground: true
+      });
+
+      await browser.close();
+      console.log('[RECEIPT] PDF generated successfully');
+
+      // Send PDF with proper headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `${action === 'download' ? 'attachment' : 'inline'}; filename="Invoice-${invoiceNumber}.pdf"`);
+      res.send(pdfBuffer);
     } catch (error) {
       console.error("Portal invoice receipt error:", error);
       res.status(500).json({ error: "Failed to generate receipt" });
