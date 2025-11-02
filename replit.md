@@ -114,19 +114,36 @@ The codebase follows a monorepo structure with clear separation:
 
 ### PDF Generation
 
-**Decision:** Server-side PDF generation using Puppeteer with Chromium
-**Rationale:** Complex clinical documents require sophisticated rendering. Puppeteer provides full HTML/CSS rendering capabilities for professional-quality outputs.
+**Decision:** Dual-strategy PDF generation based on use case
+**Rationale:** Different delivery methods require different technical approaches for reliability and user experience.
 
-**Implementation:**
-- Uses `@sparticuz/chromium` for AWS Lambda compatibility
-- HTML templates for invoices, session notes, and assessment reports
-- Practice branding integration (logo, letterhead)
-- Error handling for timeout and resource issues
+**Implementation - Two Strategies:**
 
-**Challenges Identified:**
-- Timeout issues in resource-constrained environments
-- Network initialization delays (see error logs in `attached_assets/`)
-- Requires adequate memory allocation
+1. **Browser Print Dialog (Downloads/Printing):**
+   - Used for: Session notes, assessment reports, invoice downloads
+   - Server generates professional HTML with embedded styles
+   - Frontend opens HTML in new window with print dialog
+   - User saves as PDF using native browser print-to-PDF
+   - Benefits: 100% reliable, no server dependencies, perfect formatting
+   - Files: `server/pdf/session-note-pdf.ts`, `server/pdf/assessment-report-pdf.ts`
+
+2. **Server-side Puppeteer (Email Attachments):**
+   - Used for: Invoice emails, automated PDF generation
+   - Production: `puppeteer-core` + `@sparticuz/chromium` (Lambda-compatible)
+   - Development: Standard `puppeteer` with bundled Chrome
+   - Generates actual PDF buffer for email attachment
+   - Graceful degradation: If PDF fails, sends HTML email without attachment
+   - Configuration: Environment-aware (checks `NODE_ENV`)
+
+**Key Endpoints:**
+- `/api/clients/:clientId/invoice` - Admin billing invoice (action: 'download' = HTML, 'email' = PDF)
+- `/api/portal/invoices/:invoiceId/receipt` - Client portal receipt (action: 'preview' = HTML)
+- Session notes and assessment reports - Always return HTML for browser print
+
+**Production Considerations:**
+- Email PDFs require actual file attachment (can't use browser print)
+- Download PDFs work better with browser print (no server resource constraints)
+- Puppeteer configuration adapts to environment automatically
 
 ### AI Integration
 

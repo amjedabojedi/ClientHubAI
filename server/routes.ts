@@ -7472,40 +7472,44 @@ You can download a copy if you have it saved locally and re-upload it.`;
             // Use the configured send domain for emails
             const fromEmail = getEmailFromAddress();
             
-            // Generate PDF for email attachment with improved reliability
-            let pdfBuffer;
+            // Generate PDF for email attachment using production-safe configuration
+            let pdfBuffer = null;
             try {
-              const browser = await puppeteer.launch({
-                executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-                args: [
-                  '--no-sandbox',
-                  '--disable-setuid-sandbox',
-                  '--disable-dev-shm-usage',
-                  '--disable-gpu',
-                  '--disable-extensions',
-                  '--disable-default-apps',
-                  '--disable-web-security',
-                  '--single-process',
-                  '--no-zygote',
-                  '--disable-logging',
-                  '--disable-background-networking',
-                  '--disable-background-timer-throttling',
-                  '--disable-renderer-backgrounding',
-                  '--disable-features=TranslateUI,BlinkGenPropertyTrees'
-                ],
-                headless: true,
-                timeout: 90000,
-                protocolTimeout: 120000
-              });
+              const isProduction = process.env.NODE_ENV === 'production';
+              let puppeteer: any;
+              let launchOptions: any;
               
+              if (isProduction) {
+                puppeteer = puppeteerCore;
+                launchOptions = {
+                  args: [
+                    ...chromium.args,
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--single-process',
+                    '--no-zygote'
+                  ],
+                  executablePath: await chromium.executablePath(),
+                  headless: true,
+                };
+              } else {
+                puppeteer = puppeteerFull;
+                launchOptions = {
+                  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+                  headless: true
+                };
+              }
+              
+              const browser = await puppeteer.launch(launchOptions);
               const page = await browser.newPage();
-              await page.setDefaultTimeout(60000);
               await page.setViewport({ width: 1200, height: 800 });
               await page.emulateMediaType('print');
-              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
               
               // Wait for fonts and styling to load
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise(resolve => setTimeout(resolve, 1500));
               
               pdfBuffer = await page.pdf({
                 format: 'A4',
@@ -7515,11 +7519,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
                   right: '10mm',
                   bottom: '20mm',
                   left: '10mm'
-                },
-                timeout: 60000
+                }
               });
               
               await browser.close();
+              console.log(`[EMAIL PDF] Generated PDF successfully for ${client.email}`);
               
             } catch (pdfError: any) {
               console.error('PDF generation failed for email:', {
@@ -7530,28 +7534,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 clientEmail: client.email,
                 timestamp: new Date().toISOString()
               });
-              
-              // Retry once with different settings if it's a timeout
-              if (pdfError?.message?.includes('timeout') || pdfError?.message?.includes('timed out')) {
-                try {
-                  const browser = await puppeteer.launch({
-                    executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-                    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-                    headless: true,
-                    timeout: 60000,
-                    protocolTimeout: 60000
-                  });
-                  
-                  const page = await browser.newPage();
-                  await page.setContent(invoiceHtml);
-                  pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-                  await browser.close();
-                } catch (retryError: any) {
-                  pdfBuffer = null;
-                }
-              } else {
-                pdfBuffer = null;
-              }
+              pdfBuffer = null;
             }
 
             const result = await sp.transmissions.send({
