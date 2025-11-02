@@ -7455,95 +7455,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
         </html>
       `;
       
-      if (action === 'download') {
-        // Generate PDF for download with production-safe configuration
-        try {
-          const isProduction = process.env.NODE_ENV === 'production';
-          let puppeteer: any;
-          let launchOptions: any;
-          
-          if (isProduction) {
-            puppeteer = puppeteerCore;
-            launchOptions = {
-              args: [
-                ...chromium.args,
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process',
-                '--no-zygote'
-              ],
-              executablePath: await chromium.executablePath(),
-              headless: true,
-            };
-          } else {
-            puppeteer = puppeteerFull;
-            launchOptions = {
-              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-              headless: true
-            };
-          }
-          
-          const browser = await puppeteer.launch(launchOptions);
-          
-          const page = await browser.newPage();
-          await page.setViewport({ width: 1200, height: 800 });
-          await page.emulateMediaType('print');
-          await page.setContent(invoiceHtml, { waitUntil: 'domcontentloaded' });
-          
-          // Wait for fonts to load
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: {
-              top: '20mm',
-              right: '10mm',
-              bottom: '20mm',
-              left: '10mm'
-            }
-          });
-          
-          await browser.close();
-          
-          // Send PDF file for download
-          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`;
-          res.writeHead(200, {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="${filename}"`,
-            'Content-Length': pdfBuffer.length
-          });
-          res.end(pdfBuffer, 'binary');
-          return;
-          
-        } catch (pdfError: any) {
-          console.error('PDF generation failed for download:', {
-            error: pdfError?.message || 'Unknown error',
-            stack: pdfError?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack',
-            clientId: client.clientId,
-            timestamp: new Date().toISOString()
-          });
-          
-          // Fallback to enhanced HTML if PDF generation fails
-          const enhancedHtml = invoiceHtml.replace(
-            '</head>',
-            `<style>
-              @media screen { body { background: #f5f5f5; padding: 20px; font-family: 'Times New Roman', serif; } 
-                .invoice-container { background: white; max-width: 800px; margin: 0 auto; padding: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; } }
-              @media print { body { background: white; padding: 0; } .invoice-container { box-shadow: none; border-radius: 0; } }
-            </style></head><body><div class="invoice-container">`
-          ).replace('</body>', '</div></body>');
-          
-          const filename = `Invoice-${client.clientId}-${new Date().toISOString().split('T')[0]}.html`;
-          res.setHeader('Content-Type', 'text/html');
-          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-          return res.send(enhancedHtml);
-        }
-      } else if (action === 'print') {
-        // Return HTML for printing
+      if (action === 'download' || action === 'print') {
+        // Return HTML - browser will handle PDF conversion (matching session notes & assessment reports pattern)
         res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.removeHeader('ETag');
         res.send(invoiceHtml);
       } else if (action === 'email') {
         // Email invoice using SparkPost if available
@@ -10516,138 +10434,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
         accessReason: 'Client portal invoice receipt access',
       });
 
-      // Generate PDF from HTML with production-safe Chromium
-      const pdfStartTime = Date.now();
-      console.log(`[RECEIPT] Starting PDF generation for invoice ${invoiceNumber} at ${new Date().toISOString()}`);
-      
-      let browser: any = null;
-      let pdfBuffer: Buffer | null = null;
-      
-      try {
-        // Production-safe browser launch configuration
-        const isProduction = process.env.NODE_ENV === 'production';
-        
-        let launchOptions: any;
-        let puppeteer: any;
-        
-        if (isProduction) {
-          // Production: Use puppeteer-core with @sparticuz/chromium for serverless/production environments
-          puppeteer = puppeteerCore;
-          launchOptions = {
-            args: [
-              ...chromium.args,
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--single-process',
-              '--no-zygote'
-            ],
-            executablePath: await chromium.executablePath(),
-            headless: true,
-          };
-        } else {
-          // Development: Use regular puppeteer with bundled Chromium
-          puppeteer = puppeteerFull;
-          launchOptions = {
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-            headless: true
-          };
-        }
-
-        console.log(`[RECEIPT] Launching browser (${isProduction ? 'production' : 'development'} mode)...`);
-        browser = await Promise.race([
-          puppeteer.launch(launchOptions),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Browser launch timeout after 10s')), 10000)
-          )
-        ]) as any;
-
-        console.log('[RECEIPT] Browser launched successfully, creating page...');
-        const page = await browser.newPage();
-        
-        console.log('[RECEIPT] Setting page content...');
-        await page.setContent(invoiceHtml, { 
-          waitUntil: 'networkidle0',
-          timeout: 15000 
-        });
-        
-        console.log('[RECEIPT] Generating PDF...');
-        pdfBuffer = await Promise.race([
-          page.pdf({
-            format: 'Letter',
-            margin: {
-              top: '0.5in',
-              right: '0.5in',
-              bottom: '0.5in',
-              left: '0.5in'
-            },
-            printBackground: true,
-            preferCSSPageSize: false
-          }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('PDF generation timeout after 15s')), 15000)
-          )
-        ]);
-
-        const pdfDuration = Date.now() - pdfStartTime;
-        const pdfSizeKB = pdfBuffer ? (pdfBuffer.length / 1024).toFixed(2) : '0';
-        console.log(`[RECEIPT] ✅ PDF generated successfully - Size: ${pdfSizeKB}KB, Duration: ${pdfDuration}ms`);
-
-        // Validate PDF buffer
-        if (!pdfBuffer || pdfBuffer.length < 100) {
-          throw new Error(`Invalid PDF buffer - size: ${pdfBuffer?.length || 0} bytes`);
-        }
-
-        // Send PDF with proper headers
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Length', pdfBuffer.length.toString());
-        res.setHeader('Content-Disposition', `${action === 'download' ? 'attachment' : 'inline'}; filename="Invoice-${invoiceNumber}.pdf"`);
-        res.send(pdfBuffer);
-
-      } catch (pdfError: any) {
-        const pdfDuration = Date.now() - pdfStartTime;
-        console.error(`[RECEIPT] ❌ PDF generation failed after ${pdfDuration}ms:`, pdfError);
-        console.error('[RECEIPT] Error details:', {
-          message: pdfError?.message || 'Unknown error',
-          stack: pdfError?.stack,
-          invoiceNumber,
-          isProduction: process.env.NODE_ENV === 'production'
-        });
-        
-        // Log error for monitoring
-        await AuditLogger.logAction({
-          userId: null,
-          username: client.email || 'unknown',
-          action: 'pdf_generation_failed',
-          result: 'failure',
-          resourceType: 'billing',
-          resourceId: invoiceId.toString(),
-          clientId: session.clientId,
-          ipAddress,
-          userAgent,
-          hipaaRelevant: false,
-          riskLevel: 'low',
-          details: JSON.stringify({ 
-            error: pdfError?.message || 'Unknown error', 
-            duration: pdfDuration,
-            invoiceNumber 
-          }),
-          accessReason: 'PDF generation error logging',
-        });
-        
-        throw pdfError;
-      } finally {
-        // Always close browser to prevent memory leaks
-        if (browser) {
-          try {
-            await browser.close();
-            console.log('[RECEIPT] Browser closed successfully');
-          } catch (closeError) {
-            console.error('[RECEIPT] Error closing browser:', closeError);
-          }
-        }
-      }
+      // Return HTML - browser will handle PDF conversion (matching session notes & assessment reports pattern)
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.removeHeader('ETag');
+      res.send(invoiceHtml);
     } catch (error) {
       console.error("Portal invoice receipt error:", error);
       res.status(500).json({ error: "Failed to generate receipt" });
