@@ -7563,7 +7563,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
               content: {
                 from: fromEmail,
                 subject: `Invoice from ${providerInfo.name} - ${client.fullName}`,
-                html: invoiceHtml,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Invoice Number: INV-${client.clientId}-${billingId}</h2>
+                    <p><strong>Date:</strong> ${formatInTimeZone(new Date(), 'America/New_York', 'MMM dd, yyyy')}</p>
+                    <p><strong>Service:</strong> ${billingRecords[0].serviceCode}</p>
+                    <p><strong>Amount Due:</strong> $${remainingDue.toFixed(2)}</p>
+                    
+                    <div style="margin: 30px 0; padding: 20px; background-color: #fff9e6; border-left: 4px solid #f59e0b;">
+                      <p style="margin: 0;"><strong>Payment Information:</strong> Payment is due within 30 days of invoice date. For questions or payment arrangements, please contact our billing department.</p>
+                    </div>
+                    
+                    <hr style="margin: 30px 0;">
+                    
+                    <div style="text-align: center;">
+                      <p><strong>${practiceSettings.name}</strong></p>
+                      <p>${practiceSettings.address}</p>
+                      <p>Phone: ${practiceSettings.phone} | Email: ${practiceSettings.email}</p>
+                      <p>Website: ${practiceSettings.website}</p>
+                    </div>
+                  </div>
+                `,
                 ...(pdfBuffer && {
                   attachments: [{
                     name: `Invoice-CL-${new Date().getFullYear()}-${client.clientId}-${new Date().toISOString().split('T')[0]}.pdf`,
