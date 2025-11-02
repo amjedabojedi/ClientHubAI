@@ -7519,6 +7519,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
               
               await browser.close();
               
+              console.log('[PDF SUCCESS] Generated PDF for email:', {
+                clientEmail: client.email,
+                pdfSize: pdfBuffer.length,
+                pdfSizeKB: (pdfBuffer.length / 1024).toFixed(2) + 'KB'
+              });
+              
             } catch (pdfError: any) {
               console.error('PDF generation failed for email:', {
                 error: pdfError?.message || 'Unknown error',
