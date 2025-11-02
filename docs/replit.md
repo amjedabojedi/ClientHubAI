@@ -46,6 +46,13 @@ Application name: SmartHub (to be used consistently throughout the application).
 - **Data Models**: Clients, Users, Sessions, Tasks, Notes, Documents, System Options, Library, Assessment Templates, Checklist Templates, Supervisor Assignments.
 - **Scalability**: Optimized for 5000+ client records.
 
+### Document Storage
+- **Primary Storage**: Azure Blob Storage (all document operations)
+- **File Operations**: Upload, download, preview, and client portal access all use Azure exclusively
+- **Storage Stats**: 1,300+ documents stored in Azure Blob Storage (IDs 17-1392)
+- **Legacy Storage**: ~1,000 duplicate files remain in Replit Object Storage (IDs 1000-1299) as backup - not actively used by application
+- **Future Uploads**: All new document uploads go directly to Azure Blob Storage
+
 ### Key Features
 - **Client Management**: Comprehensive profiles, status tracking, search/filtering, bulk operations, direct scheduling.
 - **Scheduling & Calendar**: Multi-view calendar, session management, role-based access, in-place editing.
