@@ -343,7 +343,7 @@ export default function SchedulingPage() {
 
   // Fetch services for booking (role-based filtering)
   const { data: services = [] } = useQuery<Service[]>({
-    queryKey: [user?.role === 'administrator' || user?.role === 'admin' || user?.role === 'supervisor' || user?.role === 'clinical_supervisor' ? "/api/services" : "/api/services/filtered"],
+    queryKey: [user?.role === 'administrator' || user?.role === 'admin' ? "/api/services" : "/api/services/filtered"],
     queryFn: getQueryFn({ on401: "throw" }),
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes - services rarely change
   });
