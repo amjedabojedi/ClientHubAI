@@ -3639,14 +3639,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isText = document.mimeType?.startsWith('text/');
       
       if (isPDF) {
-        // For PDFs, serve the actual PDF file for viewing
+        // For PDFs, check if file exists in Azure Blob Storage
         try {
-          const filePath = path.join(process.cwd(), 'uploads', `${document.id}-${document.fileName}`);
+          const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+          const fileExists = await azureStorage.fileExists(blobName);
           
-          if (fs.existsSync(filePath)) {
-
-            
-            // Return PDF file URL for the browser to display
+          if (fileExists) {
+            // File exists in Azure - return PDF URL for the browser to display
             res.setHeader('Content-Type', 'application/json');
             res.json({
               type: 'pdf',
@@ -3658,16 +3657,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               viewerUrl: `/api/clients/${clientId}/documents/${id}/viewer`
             });
           } else {
-            // File doesn't exist - return explanation
-            const pdfContent = `PDF file not found on server.
+            // File doesn't exist in storage - return helpful message
+            const pdfContent = `PDF file not found in storage.
 
-The file ${document.fileName} (${Math.round(document.fileSize / 1024)} KB) was uploaded but the actual file content is not available for preview.
+The file "${document.originalName}" (${Math.round(document.fileSize / 1024)} KB) was uploaded but the actual file content is not available in cloud storage.
 
-To see the actual content, you would need to:
-1. Re-upload the file with actual file content
-2. Or download the file to view it locally
+This may have happened because:
+• The file upload to cloud storage was interrupted
+• The file was uploaded before cloud storage was configured
+• The file was deleted from storage but the database record remains
 
-This happens because only the file metadata was stored, not the actual file content.`;
+To fix this:
+1. Re-upload the file to restore it
+2. Or contact your system administrator
+
+You can download a copy if you have it saved locally and re-upload it.`;
             
             res.setHeader('Content-Type', 'application/json');
             res.json({
