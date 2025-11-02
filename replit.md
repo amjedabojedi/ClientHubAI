@@ -128,22 +128,21 @@ The codebase follows a monorepo structure with clear separation:
    - Files: `server/pdf/session-note-pdf.ts`, `server/pdf/assessment-report-pdf.ts`
 
 2. **Server-side Puppeteer (Email Attachments):**
-   - Used for: Invoice emails, automated PDF generation
-   - Production: `puppeteer-core` + `@sparticuz/chromium` (Lambda-compatible)
-   - Development: Standard `puppeteer` with bundled Chrome
+   - Used for: Invoice emails with PDF attachment
+   - Uses `puppeteer` with hardcoded Chromium path on Replit
    - Generates actual PDF buffer for email attachment
    - Graceful degradation: If PDF fails, sends HTML email without attachment
-   - Configuration: Environment-aware (checks `NODE_ENV`)
+   - Retry logic for timeout errors
 
 **Key Endpoints:**
 - `/api/clients/:clientId/invoice` - Admin billing invoice (action: 'download' = HTML, 'email' = PDF)
 - `/api/portal/invoices/:invoiceId/receipt` - Client portal receipt (action: 'preview' = HTML)
 - Session notes and assessment reports - Always return HTML for browser print
 
-**Production Considerations:**
+**Technical Details:**
+- Chromium path: `/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium`
 - Email PDFs require actual file attachment (can't use browser print)
 - Download PDFs work better with browser print (no server resource constraints)
-- Puppeteer configuration adapts to environment automatically
 
 ### AI Integration
 
