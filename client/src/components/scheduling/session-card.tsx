@@ -10,16 +10,24 @@ import { useLocation } from "wouter";
 
 interface Session {
   id: number;
+  clientId: number;
+  therapistId: number;
+  serviceId: number;
+  roomId: number;
   sessionDate: string;
   status: string;
   notes?: string;
-  clientId: number;
   sessionType: string;
   client?: {
-    fullName?: string;
-    referenceNumber?: string;
+    id: number;
+    fullName: string;
+    clientId: string;
+    client_id: string;
+    referenceNumber: string;
+    reference_number: string;
   };
   therapist: {
+    id: number;
     fullName: string;
   };
   room?: {

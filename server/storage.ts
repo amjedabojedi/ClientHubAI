@@ -1474,7 +1474,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session methods
-  async getAllSessions(therapistId?: number, supervisedTherapistIds?: number[]): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
+  async getAllSessions(therapistId?: number, supervisedTherapistIds?: number[]): Promise<any[]> {
     let query = db
       .select({
         session: sessions,
@@ -1501,13 +1501,16 @@ export class DatabaseStorage implements IStorage {
 
     const results = await query.orderBy(desc(sessions.sessionDate));
 
-    return results.map(r => ({ 
-      ...r.session, 
-      therapist: r.therapist, 
-      client: r.client,
-      service: r.service,
-      room: r.room
-    }));
+    return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
+      return {
+        ...sessionData,
+        therapist: r.therapist,
+        client: r.client,
+        service: r.service,
+        room: r.room
+      };
+    });
   }
 
   // SECURE: Database-level session filtering with comprehensive security and performance optimizations
@@ -1674,7 +1677,10 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
 
-    return results.map(r => ({ ...r.session, therapist: r.therapist, service: r.service, room: r.room }));
+    return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
+      return { ...sessionData, therapist: r.therapist, service: r.service, room: r.room };
+    });
   }
 
   async getClientSessionConflicts(clientId: number, includeHiddenServices = false): Promise<{
@@ -1810,13 +1816,16 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(sessions.sessionDate));
 
-    return results.map(r => ({ 
-      ...r.session, 
-      therapist: r.therapist, 
-      client: r.client,
-      service: r.service,
-      room: r.room
-    }));
+    return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
+      return {
+        ...sessionData,
+        therapist: r.therapist,
+        client: r.client,
+        service: r.service,
+        room: r.room
+      };
+    });
   }
 
   async getRecentSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
@@ -1869,13 +1878,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sessions.sessionDate))
       .limit(limit);
 
-    return results.map(r => ({ 
-      ...r.session, 
-      therapist: r.therapist, 
-      client: r.client,
-      service: r.service,
-      room: r.room
-    }));
+    return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
+      return {
+        ...sessionData,
+        therapist: r.therapist,
+        client: r.client,
+        service: r.service,
+        room: r.room
+      };
+    });
   }
 
   async getUpcomingSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any })[]> {
@@ -1930,13 +1942,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(sessions.sessionDate))
       .limit(limit);
 
-    return results.map(r => ({ 
-      ...r.session, 
-      therapist: r.therapist, 
-      client: r.client,
-      service: r.service,
-      room: r.room
-    }));
+    return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
+      return {
+        ...sessionData,
+        therapist: r.therapist,
+        client: r.client,
+        service: r.service,
+        room: r.room
+      };
+    });
   }
 
   async getOverdueSessions(limit: number = 10, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices = false): Promise<(Session & { therapist: User; client: Client; service: any; daysOverdue: number })[]> {
@@ -1990,12 +2005,13 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
 
     return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
       const sessionDate = new Date(r.session.sessionDate);
       const timeDiff = today.getTime() - sessionDate.getTime();
       const daysOverdue = Math.floor(timeDiff / (1000 * 3600 * 24));
       
       return { 
-        ...r.session, 
+        ...sessionData,
         therapist: r.therapist, 
         client: r.client,
         service: r.service,
@@ -3066,14 +3082,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sessionNotes.clientId, clientId))
       .orderBy(desc(sessionNotes.createdAt));
 
-    return results.map(r => ({ 
-      ...r.sessionNote, 
-      therapist: r.therapist, 
-      session: {
-        ...r.session,
-        room: r.room || null
-      }
-    }));
+    return results.map(r => {
+      const { room: _legacyRoom, ...sessionData } = r.session;
+      return {
+        ...r.sessionNote,
+        therapist: r.therapist,
+        session: {
+          ...sessionData,
+          room: r.room || null
+        }
+      };
+    });
   }
 
   async createSessionNote(sessionNote: InsertSessionNote): Promise<SessionNote> {
