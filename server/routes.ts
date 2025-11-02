@@ -7456,26 +7456,36 @@ You can download a copy if you have it saved locally and re-upload it.`;
       `;
       
       if (action === 'download') {
-        // Generate PDF for download with improved error handling
+        // Generate PDF for download with production-safe configuration
         try {
+          const isProduction = process.env.NODE_ENV === 'production';
+          let puppeteer: any;
+          let launchOptions: any;
           
-          const browser = await puppeteer.launch({
-            executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--disable-extensions',
-              '--disable-default-apps',
-              '--disable-web-security',
-              '--single-process',
-              '--no-zygote'
-            ],
-            headless: true,
-            timeout: 45000,
-            protocolTimeout: 45000
-          });
+          if (isProduction) {
+            puppeteer = puppeteerCore;
+            launchOptions = {
+              args: [
+                ...chromium.args,
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote'
+              ],
+              executablePath: await chromium.executablePath(),
+              headless: true,
+            };
+          } else {
+            puppeteer = puppeteerFull;
+            launchOptions = {
+              args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+              headless: true
+            };
+          }
+          
+          const browser = await puppeteer.launch(launchOptions);
           
           const page = await browser.newPage();
           await page.setViewport({ width: 1200, height: 800 });
