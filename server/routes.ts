@@ -3802,36 +3802,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "This endpoint only serves PDF files" });
       }
       
-      let fileBuffer: Buffer | null = null;
-      let storageLocation = '';
+      // Download from Azure Blob Storage (only)
+      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      const downloadResult = await azureStorage.downloadFile(blobName);
       
-      // Try Replit Object Storage first (for older documents 1000-1299)
-      try {
-        const { Client } = await import('@replit/object-storage');
-        const replitStorage = new Client();
-        const objectKey = `documents/${document.id}-${document.fileName}`;
-        const replitResult = await replitStorage.downloadAsText(objectKey);
-        
-        if (replitResult.ok) {
-          fileBuffer = Buffer.from(replitResult.value, 'base64');
-          storageLocation = 'Replit Object Storage';
-        }
-      } catch (replitError) {
-        // Replit storage failed, will try Azure next
-      }
-      
-      // If not in Replit storage, try Azure Blob Storage (for newer documents 1300+)
-      if (!fileBuffer) {
-        const blobName = azureStorage.generateBlobName(document.id, document.fileName);
-        const downloadResult = await azureStorage.downloadFile(blobName);
-        
-        if (downloadResult.success) {
-          fileBuffer = downloadResult.data!;
-          storageLocation = 'Azure Blob Storage';
-        }
-      }
-      
-      if (fileBuffer) {
+      if (downloadResult.success) {
         // HIPAA Audit Log: Document viewed (PDF file access)
         if (req.user) {
           await AuditLogger.logDocumentAccess(
@@ -3842,15 +3817,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
             'document_viewed',
             ipAddress,
             userAgent,
-            { fileName: document.originalName, fileType: document.mimeType, accessType: 'pdf_view', storageLocation }
+            { fileName: document.originalName, fileType: document.mimeType, accessType: 'pdf_view', storageLocation: 'Azure Blob Storage' }
           );
         }
+        
+        const buffer = downloadResult.data!;
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${document.originalName}"`);
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
         res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-        res.send(fileBuffer);
+        res.send(buffer);
       } else {
         res.status(404).json({ message: "File not found in storage" });
       }
