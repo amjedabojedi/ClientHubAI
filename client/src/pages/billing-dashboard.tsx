@@ -479,19 +479,20 @@ export default function BillingDashboard() {
       });
 
       if (action === 'download') {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `invoice-${client.clientId}-${billing.id}-${new Date().toISOString().split('T')[0]}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        // Get HTML and open print dialog (matching session notes pattern)
+        const html = await response.text();
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          setTimeout(() => {
+            printWindow.print(); // Opens browser's print dialog where user can save as PDF
+          }, 250);
+        }
         
         toast({
-          title: "Invoice downloaded",
-          description: "Invoice has been downloaded successfully.",
+          title: "Print dialog opened",
+          description: "Use your browser's print dialog to save the invoice as PDF.",
         });
       } else if (action === 'email') {
         const result = await response.json();
