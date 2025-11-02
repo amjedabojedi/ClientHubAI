@@ -100,4 +100,4 @@ externalPort = 9000
 integrations = ["javascript_stripe:1.0.0", "javascript_openai_ai_integrations:1.0.0"]
 
 [objectStorage]
-defaultBucketID = "replit-objstore-b4f2317b-97e0-4b3a-913b-637fe3bbfea8"
+defaultBucketID = "replit-objstore-f52068a8-0421-4eb6-8b0c-2d09231aa6b1"
