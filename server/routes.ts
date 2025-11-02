@@ -33,6 +33,11 @@ function getEmailFromAddress(): string {
   }
   return from;
 }
+
+// Helper function to check if OpenAI is available (via Replit AI Integrations or direct API key)
+function isOpenAIAvailable(): boolean {
+  return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+}
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
@@ -4912,7 +4917,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       );
       
       // Generate AI content if enabled
-      if (validatedData.aiEnabled && process.env.OPENAI_API_KEY) {
+      if (validatedData.aiEnabled && isOpenAIAvailable()) {
         try {
           // Update status to processing
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'processing' });
@@ -5244,7 +5249,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { templateId, field, context } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isOpenAIAvailable()) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -5282,7 +5287,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { field, context } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isOpenAIAvailable()) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -5297,7 +5302,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const sessionNoteData = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isOpenAIAvailable()) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -5318,7 +5323,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const sessionNoteId = parseInt(req.params.sessionNoteId);
       const { customPrompt } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isOpenAIAvailable()) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
