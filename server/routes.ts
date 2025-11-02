@@ -6050,9 +6050,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
       );
 
       res.status(201).json(report);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating assessment report:', error);
-      res.status(500).json({ message: "Failed to generate assessment report" });
+      const errorMessage = error?.message || "Failed to generate assessment report";
+      res.status(500).json({ 
+        message: "Failed to generate assessment report",
+        error: errorMessage,
+        details: error?.stack?.split('\n').slice(0, 3).join('\n')
+      });
     }
   });
 
