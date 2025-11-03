@@ -1031,6 +1031,277 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to determine which client to keep based on scoring
+  function determineWhichToKeep(client1: any, client2: any) {
+    let score1 = 0;
+    let score2 = 0;
+    let keepClient = client1;
+    let deleteClient = client2;
+    const reasons: string[] = [];
+
+    // Score based on session count (40 points max)
+    if (client1.sessionCount > client2.sessionCount) {
+      score1 += 40;
+      reasons.push(`More sessions (${client1.sessionCount} vs ${client2.sessionCount})`);
+    } else if (client2.sessionCount > client1.sessionCount) {
+      score2 += 40;
+    }
+
+    // Score based on document count (30 points max)
+    if (client1.documentCount > client2.documentCount) {
+      score1 += 30;
+      reasons.push(`More documents (${client1.documentCount} vs ${client2.documentCount})`);
+    } else if (client2.documentCount > client1.documentCount) {
+      score2 += 30;
+    }
+
+    // Score based on billing count (20 points max)
+    if (client1.billingCount > client2.billingCount) {
+      score1 += 20;
+      reasons.push(`More billing records (${client1.billingCount} vs ${client2.billingCount})`);
+    } else if (client2.billingCount > client1.billingCount) {
+      score2 += 20;
+    }
+
+    // Score based on age/creation date (10 points max - older is better)
+    const date1 = client1.createdAt ? new Date(client1.createdAt) : null;
+    const date2 = client2.createdAt ? new Date(client2.createdAt) : null;
+    if (date1 && date2) {
+      if (date1 < date2) {
+        score1 += 10;
+        reasons.push(`Older record (${date1.toLocaleDateString()})`);
+      } else if (date2 < date1) {
+        score2 += 10;
+      }
+    } else if (date1) {
+      score1 += 10;
+      reasons.push('Has creation date');
+    } else if (date2) {
+      score2 += 10;
+    }
+
+    // Score based on last activity (10 points max)
+    const lastDate1 = client1.lastSessionDate ? new Date(client1.lastSessionDate) : null;
+    const lastDate2 = client2.lastSessionDate ? new Date(client2.lastSessionDate) : null;
+    if (lastDate1 && lastDate2) {
+      if (lastDate1 > lastDate2) {
+        score1 += 10;
+        reasons.push(`More recent activity (${lastDate1.toLocaleDateString()})`);
+      } else if (lastDate2 > lastDate1) {
+        score2 += 10;
+      }
+    } else if (client1.lastSessionDate) {
+      score1 += 10;
+      reasons.push('Has session history');
+    } else if (client2.lastSessionDate) {
+      score2 += 10;
+    }
+
+    // Determine which to keep
+    if (score2 > score1) {
+      keepClient = client2;
+      deleteClient = client1;
+    }
+
+    return {
+      keepClientId: keepClient.id,
+      deleteClientId: deleteClient.id,
+      reasons: reasons.length > 0 ? reasons : ['Both records similar - choose based on preference']
+    };
+  }
+
+  // Duplicate Detection API endpoints
+  app.get("/api/clients/duplicates", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Only admin and supervisor can access duplicate detection
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get all clients that are not marked as duplicate
+      const basicClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
+      
+      // Get all client IDs for bulk querying
+      const clientIds = basicClients.map(c => c.id);
+      
+      // Bulk query: Get session counts for all clients
+      const sessionCounts = await db
+        .select({
+          clientId: sessions.clientId,
+          count: count()
+        })
+        .from(sessions)
+        .where(inArray(sessions.clientId, clientIds))
+        .groupBy(sessions.clientId);
+      
+      // Bulk query: Get document counts for all clients
+      const documentCounts = await db
+        .select({
+          clientId: documents.clientId,
+          count: count()
+        })
+        .from(documents)
+        .where(inArray(documents.clientId, clientIds))
+        .groupBy(documents.clientId);
+      
+      // Bulk query: Get billing counts for all clients (via sessions JOIN)
+      const billingCounts = await db
+        .select({
+          clientId: sessions.clientId,
+          count: count()
+        })
+        .from(sessionBilling)
+        .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+        .where(inArray(sessions.clientId, clientIds))
+        .groupBy(sessions.clientId);
+      
+      // Bulk query: Get last session dates for all clients
+      const lastSessionDates = await db
+        .select({
+          clientId: sessions.clientId,
+          lastDate: sql<Date>`MAX(${sessions.sessionDate})`
+        })
+        .from(sessions)
+        .where(inArray(sessions.clientId, clientIds))
+        .groupBy(sessions.clientId);
+      
+      // Create lookup maps for O(1) access
+      const sessionCountMap = new Map(sessionCounts.map(r => [r.clientId, Number(r.count)]));
+      const documentCountMap = new Map(documentCounts.map(r => [r.clientId, Number(r.count)]));
+      const billingCountMap = new Map(billingCounts.map(r => [r.clientId, Number(r.count)]));
+      const lastSessionMap = new Map(lastSessionDates.map(r => [r.clientId, r.lastDate]));
+      
+      // Enrich client data using the lookup maps
+      type EnrichedClient = typeof basicClients[0] & {
+        sessionCount: number;
+        documentCount: number;
+        billingCount: number;
+        lastSessionDate: Date | null;
+      };
+      
+      const allClientsData: EnrichedClient[] = basicClients.map(client => ({
+        ...client,
+        sessionCount: sessionCountMap.get(client.id) || 0,
+        documentCount: documentCountMap.get(client.id) || 0,
+        billingCount: billingCountMap.get(client.id) || 0,
+        lastSessionDate: lastSessionMap.get(client.id) || null
+      }));
+      
+      // Find potential duplicates with multiple confidence levels
+      const duplicateGroups: Array<{
+        clients: any[];
+        confidenceLevel: 'high' | 'medium';
+        confidenceScore: number;
+        matchType: string;
+        recommendation?: {
+          keepClientId: number;
+          deleteClientId: number;
+          reasons: string[];
+        };
+      }> = [];
+      
+      const processedPairs = new Set<string>();
+      
+      for (let i = 0; i < allClientsData.length; i++) {
+        for (let j = i + 1; j < allClientsData.length; j++) {
+          const client1 = allClientsData[i];
+          const client2 = allClientsData[j];
+          
+          const pairKey = [client1.id, client2.id].sort().join('-');
+          if (processedPairs.has(pairKey)) continue;
+          
+          const name1 = client1.fullName?.toLowerCase().trim() || '';
+          const name2 = client2.fullName?.toLowerCase().trim() || '';
+          const phone1 = client1.phone?.replace(/\D/g, '') || '';
+          const phone2 = client2.phone?.replace(/\D/g, '') || '';
+          const email1 = client1.email?.toLowerCase().trim() || '';
+          const email2 = client2.email?.toLowerCase().trim() || '';
+          
+          let isDuplicate = false;
+          let confidenceLevel: 'high' | 'medium' = 'medium';
+          let confidenceScore = 0;
+          let matchType = '';
+          
+          // High confidence: Matching name AND (phone OR email)
+          if (name1 && name2 && name1 === name2) {
+            if ((phone1 && phone2 && phone1 === phone2) || (email1 && email2 && email1 === email2)) {
+              isDuplicate = true;
+              confidenceLevel = 'high';
+              confidenceScore = 99;
+              matchType = 'Name + Contact';
+            }
+          }
+          
+          // Medium confidence: Same phone OR same email (without matching names)
+          if (!isDuplicate) {
+            if (phone1 && phone2 && phone1 === phone2 && phone1.length >= 10) {
+              isDuplicate = true;
+              confidenceLevel = 'medium';
+              confidenceScore = 85;
+              matchType = 'Phone Match';
+            } else if (email1 && email2 && email1 === email2) {
+              isDuplicate = true;
+              confidenceLevel = 'medium';
+              confidenceScore = 85;
+              matchType = 'Email Match';
+            }
+          }
+          
+          if (isDuplicate) {
+            processedPairs.add(pairKey);
+            
+            const recommendation = determineWhichToKeep(client1, client2);
+            
+            duplicateGroups.push({
+              clients: [client1, client2],
+              confidenceLevel,
+              confidenceScore,
+              matchType,
+              recommendation
+            });
+          }
+        }
+      }
+      
+      res.json({ duplicateGroups });
+    } catch (error) {
+      console.error('Duplicate detection error:', error);
+      res.status(500).json({ message: "Failed to detect duplicates" });
+    }
+  });
+
+  // Unmark duplicate endpoint
+  app.post("/api/clients/:id/unmark-duplicate", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Only admin and supervisor can unmark duplicates
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      // Update client to unmark as duplicate
+      await storage.updateClient(id, { isDuplicate: false });
+      
+      res.json({ message: "Client unmarked as duplicate successfully" });
+    } catch (error) {
+      console.error('Unmark duplicate error:', error);
+      res.status(500).json({ message: "Failed to unmark duplicate" });
+    }
+  });
+
   // Portal Access Management Endpoints
   
   // PUT /api/clients/:id/portal-access - Enable/disable portal access
