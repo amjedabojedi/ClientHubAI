@@ -746,42 +746,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         basicClients.map(async (client, index) => {
           console.log(`[DEBUG] Processing client ${index + 1}/${basicClients.length} (ID: ${client.id})`);
           
-          try {
-            console.log(`[DEBUG] Counting sessions for client ${client.id}...`);
-            const [sessionCountResult] = await db.select({ value: count() })
-              .from(sessions)
-              .where(eq(sessions.clientId, client.id));
-            console.log(`[DEBUG] Session count result:`, sessionCountResult);
-            
-            console.log(`[DEBUG] Counting documents for client ${client.id}...`);
-            const [documentCountResult] = await db.select({ value: count() })
-              .from(documents)
-              .where(eq(documents.clientId, client.id));
-            console.log(`[DEBUG] Document count result:`, documentCountResult);
-            
-            console.log(`[DEBUG] Counting billing records for client ${client.id}...`);
-            const [billingCountResult] = await db.select({ value: count() })
-              .from(sessionBilling)
-              .where(eq(sessionBilling.clientId, client.id));
-            console.log(`[DEBUG] Billing count result:`, billingCountResult);
-            
-            console.log(`[DEBUG] Getting last session date for client ${client.id}...`);
-            const [lastSessionResult] = await db.select({ value: sql<Date | null>`max(session_date)` })
-              .from(sessions)
-              .where(eq(sessions.clientId, client.id));
-            console.log(`[DEBUG] Last session result:`, lastSessionResult);
-            
-            return {
-              ...client,
-              sessionCount: Number(sessionCountResult?.value) || 0,
-              documentCount: Number(documentCountResult?.value) || 0,
-              billingCount: Number(billingCountResult?.value) || 0,
-              lastSessionDate: lastSessionResult?.value || null
-            };
-          } catch (error) {
-            console.error(`[DEBUG] ERROR processing client ${client.id}:`, error);
-            throw error;
-          }
+          const [sessionCountResult] = await db.select({ value: count() })
+            .from(sessions)
+            .where(eq(sessions.clientId, client.id));
+          
+          const [documentCountResult] = await db.select({ value: count() })
+            .from(documents)
+            .where(eq(documents.clientId, client.id));
+          
+          const [billingCountResult] = await db.select({ value: count() })
+            .from(sessionBilling)
+            .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+            .where(eq(sessions.clientId, client.id));
+          
+          const [lastSessionResult] = await db.select({ value: sql<Date | null>`max(session_date)` })
+            .from(sessions)
+            .where(eq(sessions.clientId, client.id));
+          
+          return {
+            ...client,
+            sessionCount: Number(sessionCountResult?.value) || 0,
+            documentCount: Number(documentCountResult?.value) || 0,
+            billingCount: Number(billingCountResult?.value) || 0,
+            lastSessionDate: lastSessionResult?.value || null
+          };
         })
       );
       console.log('[DEBUG] Finished enriching client data');
