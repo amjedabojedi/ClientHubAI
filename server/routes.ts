@@ -736,43 +736,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all clients that are not marked as duplicate
-      console.log('[DEBUG] Fetching basic clients...');
       const basicClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
-      console.log(`[DEBUG] Found ${basicClients.length} non-duplicate clients`);
       
-      // Enrich with counts manually to avoid SQL interpolation issues
-      console.log('[DEBUG] Starting to enrich client data with counts...');
-      const allClientsData = await Promise.all(
-        basicClients.map(async (client, index) => {
-          console.log(`[DEBUG] Processing client ${index + 1}/${basicClients.length} (ID: ${client.id})`);
-          
-          const [sessionCountResult] = await db.select({ value: count() })
-            .from(sessions)
-            .where(eq(sessions.clientId, client.id));
-          
-          const [documentCountResult] = await db.select({ value: count() })
-            .from(documents)
-            .where(eq(documents.clientId, client.id));
-          
-          const [billingCountResult] = await db.select({ value: count() })
-            .from(sessionBilling)
-            .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-            .where(eq(sessions.clientId, client.id));
-          
-          const [lastSessionResult] = await db.select({ value: sql<Date | null>`max(session_date)` })
-            .from(sessions)
-            .where(eq(sessions.clientId, client.id));
-          
-          return {
-            ...client,
-            sessionCount: Number(sessionCountResult?.value) || 0,
-            documentCount: Number(documentCountResult?.value) || 0,
-            billingCount: Number(billingCountResult?.value) || 0,
-            lastSessionDate: lastSessionResult?.value || null
-          };
+      // Get all client IDs for bulk querying
+      const clientIds = basicClients.map(c => c.id);
+      
+      // Bulk query: Get session counts for all clients
+      const sessionCounts = await db
+        .select({
+          clientId: sessions.clientId,
+          count: count()
         })
-      );
-      console.log('[DEBUG] Finished enriching client data');
+        .from(sessions)
+        .where(inArray(sessions.clientId, clientIds))
+        .groupBy(sessions.clientId);
+      
+      // Bulk query: Get document counts for all clients
+      const documentCounts = await db
+        .select({
+          clientId: documents.clientId,
+          count: count()
+        })
+        .from(documents)
+        .where(inArray(documents.clientId, clientIds))
+        .groupBy(documents.clientId);
+      
+      // Bulk query: Get billing counts for all clients
+      const billingCounts = await db
+        .select({
+          clientId: sessions.clientId,
+          count: count()
+        })
+        .from(sessionBilling)
+        .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+        .where(inArray(sessions.clientId, clientIds))
+        .groupBy(sessions.clientId);
+      
+      // Bulk query: Get last session dates for all clients
+      const lastSessionDates = await db
+        .select({
+          clientId: sessions.clientId,
+          lastDate: sql<Date | null>`max(session_date)`
+        })
+        .from(sessions)
+        .where(inArray(sessions.clientId, clientIds))
+        .groupBy(sessions.clientId);
+      
+      // Create lookup maps for O(1) access
+      const sessionCountMap = new Map(sessionCounts.map(r => [r.clientId, Number(r.count)]));
+      const documentCountMap = new Map(documentCounts.map(r => [r.clientId, Number(r.count)]));
+      const billingCountMap = new Map(billingCounts.map(r => [r.clientId, Number(r.count)]));
+      const lastSessionMap = new Map(lastSessionDates.map(r => [r.clientId, r.lastDate]));
+      
+      // Enrich client data using the lookup maps
+      const allClientsData = basicClients.map(client => ({
+        ...client,
+        sessionCount: sessionCountMap.get(client.id) || 0,
+        documentCount: documentCountMap.get(client.id) || 0,
+        billingCount: billingCountMap.get(client.id) || 0,
+        lastSessionDate: lastSessionMap.get(client.id) || null
+      }));
       
       // Find potential duplicates with multiple confidence levels
       const duplicateGroups: Array<{
