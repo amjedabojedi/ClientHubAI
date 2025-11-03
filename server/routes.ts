@@ -38,7 +38,7 @@ function getEmailFromAddress(): string {
 function isOpenAIAvailable(): boolean {
   return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";

@@ -19,6 +19,10 @@ interface Client {
   status: string | null;
   assignedTherapistId: number | null;
   createdAt: string;
+  sessionCount: number;
+  documentCount: number;
+  billingCount: number;
+  lastSessionDate: string | null;
 }
 
 interface DuplicateGroup {
@@ -26,6 +30,11 @@ interface DuplicateGroup {
   matchType: string;
   confidence: string;
   confidenceScore: number;
+  recommendation?: {
+    keepClientId: number;
+    deleteClientId: number;
+    reasons: string[];
+  };
 }
 
 interface DuplicatesResponse {
@@ -42,11 +51,7 @@ export default function DuplicateDetectionPage() {
 
   const markDuplicateMutation = useMutation({
     mutationFn: async ({ clientId, duplicateOfClientId }: { clientId: number; duplicateOfClientId: number }) => {
-      return await apiRequest(`/api/clients/${clientId}/mark-duplicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duplicateOfClientId }),
-      });
+      return await apiRequest(`/api/clients/${clientId}/mark-duplicate`, 'POST', { duplicateOfClientId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients/duplicates'] });
@@ -68,9 +73,7 @@ export default function DuplicateDetectionPage() {
 
   const unmarkDuplicateMutation = useMutation({
     mutationFn: async (clientId: number) => {
-      return await apiRequest(`/api/clients/${clientId}/unmark-duplicate`, {
-        method: 'POST',
-      });
+      return await apiRequest(`/api/clients/${clientId}/unmark-duplicate`, 'POST', {});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients/duplicates'] });
@@ -203,80 +206,148 @@ export default function DuplicateDetectionPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {/* Recommendation Banner */}
+                  {group.recommendation && (
+                    <Alert className="mb-4 bg-blue-50 border-blue-200">
+                      <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                      <AlertTitle className="text-blue-900">Smart Recommendation</AlertTitle>
+                      <AlertDescription className="text-blue-800">
+                        <div className="space-y-1 mt-2">
+                          <p className="font-semibold">
+                            Keep: {group.clients.find(c => c.id === group.recommendation!.keepClientId)?.fullName} 
+                            {" "}({group.clients.find(c => c.id === group.recommendation!.keepClientId)?.clientId})
+                          </p>
+                          <p className="text-sm">Reasons:</p>
+                          <ul className="list-disc list-inside text-sm">
+                            {group.recommendation.reasons.map((reason, idx) => (
+                              <li key={idx}>{reason}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {group.clients.map((client, clientIndex) => (
-                      <Card key={client.id} className="bg-white">
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">
-                              {client.fullName}
-                            </CardTitle>
-                            <Badge variant={clientIndex === 0 ? "default" : "secondary"}>
-                              {clientIndex === 0 ? "Primary?" : `Duplicate ${clientIndex}`}
-                            </Badge>
-                          </div>
-                          <CardDescription>Client ID: {client.clientId}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="grid grid-cols-1 gap-2 text-sm">
-                            {client.phone && (
+                    {group.clients.map((client) => {
+                      const isRecommendedToKeep = group.recommendation?.keepClientId === client.id;
+                      const isRecommendedToDelete = group.recommendation?.deleteClientId === client.id;
+                      
+                      return (
+                        <Card key={client.id} className={`${isRecommendedToKeep ? 'border-green-300 bg-green-50' : isRecommendedToDelete ? 'border-orange-300 bg-orange-50' : 'bg-white'}`}>
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-base">
+                                {client.fullName}
+                              </CardTitle>
+                              {isRecommendedToKeep && (
+                                <Badge className="bg-green-600">✓ Keep This</Badge>
+                              )}
+                              {isRecommendedToDelete && (
+                                <Badge className="bg-orange-600">Mark as Duplicate</Badge>
+                              )}
+                            </div>
+                            <CardDescription>Client ID: {client.clientId}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="grid grid-cols-1 gap-2 text-sm">
+                              {client.phone && (
+                                <div className="flex items-center gap-2">
+                                  <Phone className="h-4 w-4 text-muted-foreground" />
+                                  <span>{client.phone}</span>
+                                </div>
+                              )}
+                              {client.email && (
+                                <div className="flex items-center gap-2">
+                                  <Mail className="h-4 w-4 text-muted-foreground" />
+                                  <span className="truncate">{client.email}</span>
+                                </div>
+                              )}
+                              {client.dateOfBirth && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <span>DOB: {format(new Date(client.dateOfBirth), 'MMM d, yyyy')}</span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <span>{client.phone}</span>
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <span>Status: {client.status || 'N/A'}</span>
                               </div>
-                            )}
-                            {client.email && (
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <span className="truncate">{client.email}</span>
-                              </div>
-                            )}
-                            {client.dateOfBirth && (
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <span>DOB: {format(new Date(client.dateOfBirth), 'MMM d, yyyy')}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Created: {format(new Date(client.createdAt), 'MMM d, yyyy')}
+                                </span>
                               </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
-                              <span>Status: {client.status || 'N/A'}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                Created: {format(new Date(client.createdAt), 'MMM d, yyyy')}
-                              </span>
+
+                            <Separator />
+
+                            {/* Activity Stats */}
+                            <div className="bg-gray-50 p-3 rounded space-y-1">
+                              <div className="text-sm font-semibold mb-2">Activity Summary</div>
+                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                <div className="text-center">
+                                  <div className="font-bold text-lg text-blue-600">{client.sessionCount}</div>
+                                  <div className="text-muted-foreground">Sessions</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-bold text-lg text-purple-600">{client.documentCount}</div>
+                                  <div className="text-muted-foreground">Documents</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-bold text-lg text-green-600">{client.billingCount}</div>
+                                  <div className="text-muted-foreground">Billing</div>
+                                </div>
+                              </div>
+                              {client.lastSessionDate && (
+                                <div className="text-xs text-muted-foreground mt-2 text-center">
+                                  Last session: {format(new Date(client.lastSessionDate), 'MMM d, yyyy')}
+                                </div>
+                              )}
                             </div>
-                          </div>
 
-                          <Separator />
+                            <Separator />
 
-                          <div className="space-y-2">
-                            {clientIndex > 0 && (
+                            <div className="space-y-2">
+                              {/* Show all possible duplicate options, with recommended one highlighted */}
+                              {group.clients
+                                .filter(otherClient => otherClient.id !== client.id)
+                                .map(otherClient => {
+                                  const isRecommendedAction = 
+                                    group.recommendation?.deleteClientId === client.id && 
+                                    group.recommendation?.keepClientId === otherClient.id;
+                                  
+                                  return (
+                                    <Button
+                                      key={otherClient.id}
+                                      size="sm"
+                                      variant={isRecommendedAction ? "default" : "outline"}
+                                      className={`w-full ${isRecommendedAction ? 'bg-orange-600 hover:bg-orange-700' : ''}`}
+                                      onClick={() => handleMarkDuplicate(client.id, otherClient.id)}
+                                      disabled={markDuplicateMutation.isPending}
+                                      data-testid={`button-mark-duplicate-${client.id}-of-${otherClient.id}`}
+                                    >
+                                      {isRecommendedAction && '⭐ '}
+                                      Mark as Duplicate of {otherClient.fullName.split(' ')[0]}
+                                      {isRecommendedAction && ' (Recommended)'}
+                                    </Button>
+                                  );
+                                })}
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 className="w-full"
-                                onClick={() => handleMarkDuplicate(client.id, group.clients[0].id)}
-                                disabled={markDuplicateMutation.isPending}
-                                data-testid={`button-mark-duplicate-${client.id}`}
+                                onClick={() => window.open(`/clients/${client.id}`, '_blank')}
+                                data-testid={`button-view-client-${client.id}`}
                               >
-                                Mark as Duplicate of {group.clients[0].fullName}
+                                View Full Record
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="w-full"
-                              onClick={() => window.open(`/clients/${client.id}`, '_blank')}
-                              data-testid={`button-view-client-${client.id}`}
-                            >
-                              View Full Record
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
