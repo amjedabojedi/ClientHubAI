@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, Users, Phone, Mail, Calendar, FileText } from "lucide-react";
+import { AlertCircle, CheckCircle2, Users, Phone, Mail, Calendar, FileText, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,7 @@ interface DuplicateGroup {
   clients: Client[];
   matchType: string;
   confidence: string;
+  confidenceScore: number;
 }
 
 interface DuplicatesResponse {
@@ -123,13 +124,37 @@ export default function DuplicateDetectionPage() {
   const duplicateGroups = duplicatesData?.duplicateGroups || [];
   const totalDuplicates = duplicatesData?.totalDuplicates || 0;
 
+  const getConfidenceBadgeColor = (confidenceScore: number) => {
+    if (confidenceScore >= 95) return "bg-red-100 text-red-800 border-red-300";
+    if (confidenceScore >= 85) return "bg-orange-100 text-orange-800 border-orange-300";
+    return "bg-yellow-100 text-yellow-800 border-yellow-300";
+  };
+
+  const getGroupBorderColor = (confidenceScore: number) => {
+    if (confidenceScore >= 95) return "border-red-300 bg-red-50/50";
+    if (confidenceScore >= 85) return "border-orange-300 bg-orange-50/50";
+    return "border-yellow-300 bg-yellow-50/50";
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Duplicate Detection</h1>
-        <p className="text-muted-foreground mt-2">
-          Identify and manage potential duplicate client records
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Duplicate Detection</h1>
+          <p className="text-muted-foreground mt-2">
+            Identify and manage potential duplicate client records
+          </p>
+        </div>
+        <Button
+          onClick={() => refetch()}
+          disabled={isLoading}
+          variant="outline"
+          className="gap-2"
+          data-testid="button-refresh-duplicates"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh Scan
+        </Button>
       </div>
 
       {duplicateGroups.length === 0 ? (
@@ -157,7 +182,7 @@ export default function DuplicateDetectionPage() {
 
           <div className="space-y-6">
             {duplicateGroups.map((group, groupIndex) => (
-              <Card key={groupIndex} className="border-orange-200 bg-orange-50/50">
+              <Card key={groupIndex} className={getGroupBorderColor(group.confidenceScore)}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -166,12 +191,12 @@ export default function DuplicateDetectionPage() {
                         <Badge variant="outline" className="mt-2">
                           {group.matchType}
                         </Badge>
-                        <Badge variant="secondary" className="mt-2 ml-2">
-                          Confidence: {group.confidence}
+                        <Badge variant="outline" className={`mt-2 ml-2 ${getConfidenceBadgeColor(group.confidenceScore)}`}>
+                          {group.confidence}
                         </Badge>
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2 text-orange-600">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Users className="h-5 w-5" />
                       <span className="font-semibold">{group.clients.length} records</span>
                     </div>

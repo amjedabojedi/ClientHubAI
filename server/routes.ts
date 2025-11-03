@@ -666,42 +666,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all clients that are not marked as duplicate
       const allClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
       
-      // Find potential duplicates based on exact match: same name AND same phone
+      // Find potential duplicates with multiple confidence levels
       const duplicateGroups: Array<{
         clients: any[];
         matchType: string;
         confidence: string;
+        confidenceScore: number;
       }> = [];
       
-      // Group clients by name+phone combination
-      const clientsByKey = new Map<string, any[]>();
+      // Track which clients we've already grouped to avoid duplicates
+      const processedClientIds = new Set<number>();
       
+      // LEVEL 1: High Confidence (99%) - Same name AND same phone
+      const namePhoneMap = new Map<string, any[]>();
       for (const client of allClients) {
-        // Create key from normalized name and phone
         const name = (client.fullName || '').toLowerCase().trim();
-        const phone = (client.phone || '').replace(/\D/g, ''); // Remove non-digits
+        const phone = (client.phone || '').replace(/\D/g, '');
         
-        // Only check if both name and phone exist
         if (name && phone) {
           const key = `${name}|${phone}`;
-          
-          if (!clientsByKey.has(key)) {
-            clientsByKey.set(key, []);
+          if (!namePhoneMap.has(key)) {
+            namePhoneMap.set(key, []);
           }
-          clientsByKey.get(key)!.push(client);
+          namePhoneMap.get(key)!.push(client);
         }
       }
       
-      // Find groups with more than 1 client (duplicates)
-      for (const [, group] of Array.from(clientsByKey.entries())) {
+      for (const [, group] of Array.from(namePhoneMap.entries())) {
         if (group.length > 1) {
           duplicateGroups.push({
             clients: group,
-            matchType: 'Exact match: Same name and phone',
-            confidence: 'High (99%)'
+            matchType: 'Same name + phone',
+            confidence: 'High (99%)',
+            confidenceScore: 99
           });
+          group.forEach(c => processedClientIds.add(c.id));
         }
       }
+      
+      // LEVEL 2: Medium Confidence (85%) - Same phone with DIFFERENT names
+      const phoneMap = new Map<string, any[]>();
+      for (const client of allClients) {
+        if (processedClientIds.has(client.id)) continue; // Skip already grouped
+        
+        const phone = (client.phone || '').replace(/\D/g, '');
+        if (phone && phone.length >= 10) { // Valid phone number
+          if (!phoneMap.has(phone)) {
+            phoneMap.set(phone, []);
+          }
+          phoneMap.get(phone)!.push(client);
+        }
+      }
+      
+      for (const [, group] of Array.from(phoneMap.entries())) {
+        if (group.length > 1) {
+          // Check if names are actually different
+          const uniqueNames = new Set(group.map(c => (c.fullName || '').toLowerCase().trim()));
+          if (uniqueNames.size > 1) {
+            duplicateGroups.push({
+              clients: group,
+              matchType: 'Same phone (different names)',
+              confidence: 'Medium (85%)',
+              confidenceScore: 85
+            });
+            group.forEach(c => processedClientIds.add(c.id));
+          }
+        }
+      }
+      
+      // LEVEL 3: Medium Confidence (85%) - Same email with DIFFERENT names
+      const emailMap = new Map<string, any[]>();
+      for (const client of allClients) {
+        if (processedClientIds.has(client.id)) continue; // Skip already grouped
+        
+        const email = (client.email || '').toLowerCase().trim();
+        if (email && email.includes('@')) { // Valid email
+          if (!emailMap.has(email)) {
+            emailMap.set(email, []);
+          }
+          emailMap.get(email)!.push(client);
+        }
+      }
+      
+      for (const [, group] of Array.from(emailMap.entries())) {
+        if (group.length > 1) {
+          // Check if names are actually different
+          const uniqueNames = new Set(group.map(c => (c.fullName || '').toLowerCase().trim()));
+          if (uniqueNames.size > 1) {
+            duplicateGroups.push({
+              clients: group,
+              matchType: 'Same email (different names)',
+              confidence: 'Medium (85%)',
+              confidenceScore: 85
+            });
+            group.forEach(c => processedClientIds.add(c.id));
+          }
+        }
+      }
+      
+      // Sort by confidence score (highest first)
+      duplicateGroups.sort((a, b) => b.confidenceScore - a.confidenceScore);
       
       res.json({ 
         duplicateGroups,
