@@ -6,7 +6,9 @@ import { formatInTimeZone } from "date-fns-tz";
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
+  timeout: 120000, // 120 seconds timeout for long-running requests
+  maxRetries: 2
 });
 
 // Clinical Content Library - Connected templates for intelligent field suggestions
@@ -761,6 +763,14 @@ Client Response Data: Base recommendations on the assessment findings and clinic
   }
 
   try {
+    // Validate API key is present before making the request
+    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY && !process.env.OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured. Please set OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY environment variable.");
+    }
+
+    console.log('[AI] Starting assessment report generation...');
+    const startTime = Date.now();
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -771,7 +781,14 @@ Client Response Data: Base recommendations on the assessment findings and clinic
       max_tokens: 4000,
     });
 
+    const duration = Date.now() - startTime;
+    console.log(`[AI] Assessment report generation completed in ${duration}ms`);
+
     let content = response.choices[0].message.content || '';
+    
+    if (!content) {
+      throw new Error("OpenAI returned empty content. Please check your API key and try again.");
+    }
     
     // Strip markdown code fences if AI wrapped the response in them
     // Remove opening code fence (```html or ```)
@@ -782,8 +799,19 @@ Client Response Data: Base recommendations on the assessment findings and clinic
     content = content.replace(/```(?:html)?\s*/gi, '');
     
     return content.trim();
-  } catch (error) {
-    throw new Error(`Assessment report generation failed: ${error.message}`);
+  } catch (error: any) {
+    console.error('[AI] Assessment report generation error:', error);
+    if (error.code === 'insufficient_quota') {
+      throw new Error("OpenAI API quota exceeded. Please check your API billing.");
+    } else if (error.code === 'invalid_api_key') {
+      throw new Error("Invalid OpenAI API key. Please check your OPENAI_API_KEY configuration.");
+    } else if (error.message?.includes('timeout') || error.message?.includes('ETIMEDOUT')) {
+      throw new Error("OpenAI API request timed out. Please try again.");
+    } else if (error.message) {
+      throw new Error(`Assessment report generation failed: ${error.message}`);
+    } else {
+      throw new Error(`Assessment report generation failed: ${JSON.stringify(error)}`);
+    }
   }
 }
 

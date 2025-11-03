@@ -6277,7 +6277,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const responses = await storage.getAssessmentResponses(assignmentId);
       const sections = await storage.getAssessmentSections(assignment.templateId);
 
+      // Check if OpenAI API key is configured
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.status(503).json({ 
+          message: "AI features not available. Please configure OPENAI_API_KEY environment variable." 
+        });
+      }
+
       // Generate the report using AI
+      console.log(`[API] Generating assessment report for assignment ${assignmentId}...`);
       const { generateAssessmentReport } = await import("./ai/openai");
       const generatedContent = await generateAssessmentReport(assignment, responses, sections);
 
@@ -6333,9 +6341,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
       );
 
       res.status(201).json(report);
-    } catch (error) {
-      console.error('Error generating assessment report:', error);
-      res.status(500).json({ message: "Failed to generate assessment report" });
+    } catch (error: any) {
+      console.error('[API] Error generating assessment report:', error);
+      const errorMessage = error.message || "Failed to generate assessment report";
+      
+      // Return appropriate status code based on error type
+      if (errorMessage.includes('not configured') || errorMessage.includes('API key')) {
+        return res.status(503).json({ message: errorMessage });
+      } else if (errorMessage.includes('timeout')) {
+        return res.status(504).json({ message: errorMessage });
+      } else if (errorMessage.includes('quota') || errorMessage.includes('billing')) {
+        return res.status(402).json({ message: errorMessage });
+      }
+      
+      res.status(500).json({ message: errorMessage });
     }
   });
 
