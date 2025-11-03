@@ -1112,16 +1112,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Duplicate Detection API endpoints
   app.get("/api/clients/duplicates", requireAuth, async (req: AuthenticatedRequest, res) => {
+    console.log('[DUPLICATE DETECTION] Endpoint called, user:', req.user?.username, 'role:', req.user?.role);
     try {
       if (!req.user) {
+        console.log('[DUPLICATE DETECTION] No user - returning 401');
         return res.status(401).json({ message: "Authentication required" });
       }
       
       // Only admin and supervisor can access duplicate detection
       if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        console.log('[DUPLICATE DETECTION] Access denied for role:', req.user.role);
         return res.status(403).json({ message: "Access denied" });
       }
 
+      console.log('[DUPLICATE DETECTION] Starting duplicate detection scan...');
       // Get all clients that are not marked as duplicate
       const basicClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
       
