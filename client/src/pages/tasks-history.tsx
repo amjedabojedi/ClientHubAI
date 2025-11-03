@@ -21,7 +21,7 @@
  */
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -31,6 +31,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 // UI Components & Icons
 import { 
@@ -51,9 +53,11 @@ import {
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import type { Task, Client, User as UserType } from "@shared/schema";
+import { formatDateDisplay } from "@/lib/datetime";
 
 // Components
 import { TaskCard, type TaskWithDetails } from "@/components/tasks/task-card";
+import { TaskComments } from "@/components/task-management/task-comments";
 
 interface TasksQueryResult {
   tasks: TaskWithDetails[];
@@ -64,12 +68,16 @@ interface TasksQueryResult {
 // ===== MAIN TASK HISTORY PAGE =====
 export default function TaskHistoryPage() {
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [selectedTaskForComments, setSelectedTaskForComments] = useState<TaskWithDetails | null>(null);
+  const [viewingTask, setViewingTask] = useState<TaskWithDetails | null>(null);
 
   // Fetch tasks with history (including completed)
   const { data: tasksData, isLoading } = useQuery<TasksQueryResult>({
@@ -115,12 +123,65 @@ export default function TaskHistoryPage() {
     queryFn: () => apiRequest("/api/therapists", "GET"),
   });
 
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: (taskId: number) => apiRequest(`/api/tasks/${taskId}`, "DELETE"),
+    onSuccess: () => {
+      toast({ title: "Task deleted successfully!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    },
+    onError: () => {
+      toast({ title: "Error deleting task", variant: "destructive" });
+    },
+  });
+
+  // Event handlers
+  const handleEdit = (task: TaskWithDetails) => {
+    // Navigate to the main tasks page to edit the task
+    setLocation(`/tasks?editTask=${task.id}`);
+  };
+
+  const handleDelete = (taskId: number) => {
+    if (confirm("Are you sure you want to delete this task?")) {
+      deleteTaskMutation.mutate(taskId);
+    }
+  };
+
+  const handleViewComments = (task: TaskWithDetails) => {
+    setSelectedTaskForComments(task);
+  };
+
+  const handleViewTask = (task: TaskWithDetails) => {
+    setViewingTask(task);
+  };
+
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
     setPriorityFilter("all");
     setAssigneeFilter("all");
     setPage(1);
+  };
+
+  // Helper functions for task details modal
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
+      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const tasks = tasksData?.tasks || [];
@@ -265,10 +326,10 @@ export default function TaskHistoryPage() {
                     key={task.id}
                     task={task}
                     fromPage="tasks-history"
-                    onEdit={() => {}}
-                    onDelete={() => {}}
-                    onViewComments={() => {}}
-                    onViewTask={() => {}}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onViewComments={handleViewComments}
+                    onViewTask={handleViewTask}
                   />
                 ))}
               </div>
@@ -301,6 +362,100 @@ export default function TaskHistoryPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Task Comments Modal */}
+      <Dialog open={!!selectedTaskForComments} onOpenChange={() => setSelectedTaskForComments(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Comments & Progress</DialogTitle>
+            <DialogDescription>
+              Track progress and communicate with team members about this task.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedTaskForComments && (
+            <TaskComments 
+              taskId={selectedTaskForComments.id}
+              taskTitle={selectedTaskForComments.title}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Task Details Modal */}
+      <Dialog open={!!viewingTask} onOpenChange={() => setViewingTask(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Details</DialogTitle>
+          </DialogHeader>
+          {viewingTask && (
+            <div className="space-y-6">
+              {/* Task Information */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Title</h4>
+                    <p className="text-slate-900">{viewingTask.title}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Client</h4>
+                    <p 
+                      className="text-primary hover:underline cursor-pointer"
+                      onClick={() => {
+                        setLocation(`/clients/${viewingTask.client.id}?from=tasks-history`);
+                        setViewingTask(null);
+                      }}
+                    >
+                      {viewingTask.client.fullName}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Priority</h4>
+                    <Badge className={getPriorityColor(viewingTask.priority)}>
+                      {viewingTask.priority.charAt(0).toUpperCase() + viewingTask.priority.slice(1)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Status</h4>
+                    <Badge className={getStatusColor(viewingTask.status)}>
+                      {viewingTask.status.replace('_', ' ').charAt(0).toUpperCase() + viewingTask.status.replace('_', ' ').slice(1)}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Due Date</h4>
+                    <p className="text-slate-900">{formatDateDisplay(viewingTask.dueDate) || 'No due date'}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Assigned To</h4>
+                    <p className="text-slate-900">{viewingTask.assignedTo?.fullName || 'Unassigned'}</p>
+                  </div>
+                </div>
+
+                {viewingTask.description && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-1">Description</h4>
+                    <p className="text-slate-900 whitespace-pre-wrap">{viewingTask.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Task Comments */}
+              <div className="border-t pt-4">
+                <h4 className="text-lg font-semibold text-slate-900 mb-4">Comments & Progress</h4>
+                <TaskComments 
+                  taskId={viewingTask.id}
+                  taskTitle={viewingTask.title}
+                />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
