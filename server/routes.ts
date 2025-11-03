@@ -7857,8 +7857,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
             // Generate PDF for email attachment with improved reliability
             let pdfBuffer;
             try {
-              // Build launch options - use environment variable or default to bundled Chromium
-              const launchOptions: any = {
+              const browser = await puppeteer.launch({
+                executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
                 args: [
                   '--no-sandbox',
                   '--disable-setuid-sandbox',
@@ -7878,18 +7878,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 headless: true,
                 timeout: 90000,
                 protocolTimeout: 120000
-              };
-
-              // Use custom executable path if provided via environment variable, otherwise use bundled Chromium
-              if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-                launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-                console.log('[PDF] Using custom Chromium path from PUPPETEER_EXECUTABLE_PATH');
-              } else {
-                // Let Puppeteer use its bundled Chromium (no executablePath specified)
-                console.log('[PDF] Using Puppeteer bundled Chromium');
-              }
-
-              const browser = await puppeteer.launch(launchOptions);
+              });
               
               const page = await browser.newPage();
               await page.setDefaultTimeout(60000);
@@ -7921,41 +7910,34 @@ You can download a copy if you have it saved locally and re-upload it.`;
               });
               
             } catch (pdfError: any) {
-              console.error('[PDF ERROR] PDF generation failed for email:', {
+              console.error('PDF generation failed for email:', {
                 error: pdfError?.message || 'Unknown error',
                 errorType: pdfError?.name || 'Unknown',
-                stack: pdfError?.stack?.split('\n').slice(0, 5).join('\n') || 'No stack',
+                stack: pdfError?.stack?.split('\n').slice(0, 3).join('\n') || 'No stack',
                 clientId: client.clientId,
                 clientEmail: client.email,
-                timestamp: new Date().toISOString(),
-                hasExecutablePath: !!process.env.PUPPETEER_EXECUTABLE_PATH
+                timestamp: new Date().toISOString()
               });
               
-              // Retry once with minimal settings (no custom executable path - use bundled)
-              try {
-                console.log('[PDF RETRY] Attempting retry with bundled Chromium (no custom path)');
-                const browser = await puppeteer.launch({
-                  // No executablePath - use bundled Chromium
-                  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-                  headless: true,
-                  timeout: 60000,
-                  protocolTimeout: 60000
-                });
-                
-                const page = await browser.newPage();
-                await page.setContent(invoiceHtml);
-                pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-                await browser.close();
-                
-                console.log('[PDF SUCCESS] PDF generated on retry:', {
-                  pdfSize: pdfBuffer.length,
-                  pdfSizeKB: (pdfBuffer.length / 1024).toFixed(2) + 'KB'
-                });
-              } catch (retryError: any) {
-                console.error('[PDF ERROR] Retry also failed:', {
-                  error: retryError?.message,
-                  errorType: retryError?.name
-                });
+              // Retry once with different settings if it's a timeout
+              if (pdfError?.message?.includes('timeout') || pdfError?.message?.includes('timed out')) {
+                try {
+                  const browser = await puppeteer.launch({
+                    executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+                    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+                    headless: true,
+                    timeout: 60000,
+                    protocolTimeout: 60000
+                  });
+                  
+                  const page = await browser.newPage();
+                  await page.setContent(invoiceHtml);
+                  pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+                  await browser.close();
+                } catch (retryError: any) {
+                  pdfBuffer = null;
+                }
+              } else {
                 pdfBuffer = null;
               }
             }
@@ -8066,15 +8048,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
               // Don't fail the request if tracking fails
             }
 
-            const emailMessage = pdfBuffer 
-              ? `Invoice email sent successfully to ${client.email} with PDF attachment`
-              : `Invoice email sent successfully to ${client.email}. Note: PDF attachment generation failed - check server logs for details.`;
-
             res.json({ 
-              message: emailMessage,
+              message: `Invoice email sent successfully to ${client.email}`,
               messageId: result.results?.id,
-              hasAttachment: !!pdfBuffer,
-              warning: !pdfBuffer ? 'Email sent without PDF attachment due to PDF generation failure. Check server logs for details.' : undefined
+              hasAttachment: !!pdfBuffer
             });
           } catch (error) {
             const err = error as any;

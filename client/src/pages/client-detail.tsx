@@ -1361,18 +1361,10 @@ export default function ClientDetailPage() {
           return;
         }
         
-        if (result.warning || !result.hasAttachment) {
-          toast({
-            title: "Email sent (no attachment)",
-            description: result.warning || result.message || `Invoice email sent to ${client.email}, but PDF attachment could not be generated. Check server logs for details.`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Email sent successfully!",
-            description: result.message || `Invoice has been sent to ${client.email} with PDF attachment`,
-          });
-        }
+        toast({
+          title: "Email sent successfully!",
+          description: result.message || `Invoice has been sent to ${client.email}`,
+        });
       }
     } catch (error: any) {
       console.error('Invoice generation error:', error);
