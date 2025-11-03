@@ -651,6 +651,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Duplicate Detection API endpoints
+  app.get("/api/clients/duplicates", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Only admin and supervisor can access duplicate detection
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get all clients that are not marked as duplicate
+      const allClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
+      
+      // Find potential duplicates based on exact match: same name AND same phone
+      const duplicateGroups: Array<{
+        clients: any[];
+        matchType: string;
+        confidence: string;
+      }> = [];
+      
+      // Group clients by name+phone combination
+      const clientsByKey = new Map<string, any[]>();
+      
+      for (const client of allClients) {
+        // Create key from normalized name and phone
+        const name = (client.fullName || '').toLowerCase().trim();
+        const phone = (client.phone || '').replace(/\D/g, ''); // Remove non-digits
+        
+        // Only check if both name and phone exist
+        if (name && phone) {
+          const key = `${name}|${phone}`;
+          
+          if (!clientsByKey.has(key)) {
+            clientsByKey.set(key, []);
+          }
+          clientsByKey.get(key)!.push(client);
+        }
+      }
+      
+      // Find groups with more than 1 client (duplicates)
+      for (const [, group] of Array.from(clientsByKey.entries())) {
+        if (group.length > 1) {
+          duplicateGroups.push({
+            clients: group,
+            matchType: 'Exact match: Same name and phone',
+            confidence: 'High (99%)'
+          });
+        }
+      }
+      
+      res.json({ 
+        duplicateGroups,
+        totalDuplicates: duplicateGroups.reduce((sum, group) => sum + group.clients.length, 0)
+      });
+    } catch (error) {
+      console.error('Error detecting duplicates:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Mark a client as duplicate
+  app.post("/api/clients/:id/mark-duplicate", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Only admin and supervisor can mark duplicates
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const clientId = parseInt(req.params.id);
+      const { duplicateOfClientId } = req.body;
+      
+      if (!duplicateOfClientId) {
+        return res.status(400).json({ message: "Primary client ID required" });
+      }
+      
+      // Verify both clients exist
+      const client = await storage.getClient(clientId);
+      const primaryClient = await storage.getClient(duplicateOfClientId);
+      
+      if (!client || !primaryClient) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Cannot mark a client as duplicate of itself
+      if (clientId === duplicateOfClientId) {
+        return res.status(400).json({ message: "Cannot mark client as duplicate of itself" });
+      }
+      
+      // Update the duplicate client
+      await db.update(clients)
+        .set({
+          isDuplicate: true,
+          duplicateOfClientId: duplicateOfClientId,
+          duplicateMarkedAt: new Date(),
+          duplicateMarkedBy: req.user.id,
+          updatedAt: new Date()
+        })
+        .where(eq(clients.id, clientId));
+      
+      res.json({ 
+        message: "Client marked as duplicate successfully",
+        clientId,
+        duplicateOfClientId
+      });
+    } catch (error) {
+      console.error('Error marking duplicate:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Unmark a client as duplicate
+  app.post("/api/clients/:id/unmark-duplicate", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Only admin and supervisor can unmark duplicates
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const clientId = parseInt(req.params.id);
+      
+      // Verify client exists
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Update the client to remove duplicate marking
+      await db.update(clients)
+        .set({
+          isDuplicate: false,
+          duplicateOfClientId: null,
+          duplicateMarkedAt: null,
+          duplicateMarkedBy: null,
+          updatedAt: new Date()
+        })
+        .where(eq(clients.id, clientId));
+      
+      res.json({ 
+        message: "Client unmarked as duplicate successfully",
+        clientId
+      });
+    } catch (error) {
+      console.error('Error unmarking duplicate:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Client export endpoint - moved before the :id route to avoid conflicts  
   app.get("/api/clients/export", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
