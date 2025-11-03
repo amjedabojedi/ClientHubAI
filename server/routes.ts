@@ -34,12 +34,18 @@ function getEmailFromAddress(): string {
   return from;
 }
 
-// Helper function to check if OpenAI is available (via Replit AI Integrations or direct API key)
-function isOpenAIAvailable(): boolean {
-  return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+// Helper function to get the Chromium executable path
+// First tries the Nix path (for Replit), falls back to system Chrome/Chromium
+function getChromiumExecutablePath(): string | undefined {
+  const nixPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+  if (fs.existsSync(nixPath)) {
+    return nixPath;
+  }
+  // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
+  return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents } from "@shared/schema";
-import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
+import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
@@ -647,380 +653,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       // Error logged
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Helper function to generate smart recommendations for duplicate pairs
-  function generateDuplicateRecommendation(client1: any, client2: any) {
-    const reasons: string[] = [];
-    let keepClient = client1;
-    let deleteClient = client2;
-    let score1 = 0;
-    let score2 = 0;
-
-    // Factor 1: Session count (most important - 40 points)
-    if (client1.sessionCount > client2.sessionCount) {
-      score1 += 40;
-      reasons.push(`Has ${client1.sessionCount} sessions vs ${client2.sessionCount}`);
-    } else if (client2.sessionCount > client1.sessionCount) {
-      score2 += 40;
-    }
-
-    // Factor 2: Document count (30 points)
-    if (client1.documentCount > client2.documentCount) {
-      score1 += 30;
-      if (client1.documentCount > 0) reasons.push(`Has ${client1.documentCount} documents vs ${client2.documentCount}`);
-    } else if (client2.documentCount > client1.documentCount) {
-      score2 += 30;
-    }
-
-    // Factor 3: Billing history (20 points)
-    if (client1.billingCount > client2.billingCount) {
-      score1 += 20;
-      if (client1.billingCount > 0) reasons.push(`Has ${client1.billingCount} billing records vs ${client2.billingCount}`);
-    } else if (client2.billingCount > client1.billingCount) {
-      score2 += 20;
-    }
-
-    // Factor 4: Older record (10 points - more established)
-    const date1 = new Date(client1.createdAt);
-    const date2 = new Date(client2.createdAt);
-    if (date1 < date2) {
-      score1 += 10;
-      reasons.push(`Created earlier (${date1.toLocaleDateString()})`);
-    } else if (date2 < date1) {
-      score2 += 10;
-    }
-
-    // Factor 5: More recent activity (10 points)
-    if (client1.lastSessionDate && client2.lastSessionDate) {
-      const lastDate1 = new Date(client1.lastSessionDate);
-      const lastDate2 = new Date(client2.lastSessionDate);
-      if (lastDate1 > lastDate2) {
-        score1 += 10;
-        reasons.push(`More recent activity (${lastDate1.toLocaleDateString()})`);
-      } else if (lastDate2 > lastDate1) {
-        score2 += 10;
-      }
-    } else if (client1.lastSessionDate) {
-      score1 += 10;
-      reasons.push('Has session history');
-    } else if (client2.lastSessionDate) {
-      score2 += 10;
-    }
-
-    // Determine which to keep
-    if (score2 > score1) {
-      keepClient = client2;
-      deleteClient = client1;
-    }
-
-    return {
-      keepClientId: keepClient.id,
-      deleteClientId: deleteClient.id,
-      reasons: reasons.length > 0 ? reasons : ['Both records similar - choose based on preference']
-    };
-  }
-
-  // Duplicate Detection API endpoints
-  app.get("/api/clients/duplicates", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      // Only admin and supervisor can access duplicate detection
-      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      // Get all clients that are not marked as duplicate
-      const basicClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
-      
-      // Get all client IDs for bulk querying
-      const clientIds = basicClients.map(c => c.id);
-      
-      // Bulk query: Get session counts for all clients
-      const sessionCounts = await db
-        .select({
-          clientId: sessions.clientId,
-          count: count()
-        })
-        .from(sessions)
-        .where(inArray(sessions.clientId, clientIds))
-        .groupBy(sessions.clientId);
-      
-      // Bulk query: Get document counts for all clients
-      const documentCounts = await db
-        .select({
-          clientId: documents.clientId,
-          count: count()
-        })
-        .from(documents)
-        .where(inArray(documents.clientId, clientIds))
-        .groupBy(documents.clientId);
-      
-      // Bulk query: Get billing counts for all clients
-      const billingCounts = await db
-        .select({
-          clientId: sessions.clientId,
-          count: count()
-        })
-        .from(sessionBilling)
-        .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-        .where(inArray(sessions.clientId, clientIds))
-        .groupBy(sessions.clientId);
-      
-      // Bulk query: Get last session dates for all clients
-      const lastSessionDates = await db
-        .select({
-          clientId: sessions.clientId,
-          lastDate: sql<Date | null>`max(session_date)`
-        })
-        .from(sessions)
-        .where(inArray(sessions.clientId, clientIds))
-        .groupBy(sessions.clientId);
-      
-      // Create lookup maps for O(1) access
-      const sessionCountMap = new Map(sessionCounts.map(r => [r.clientId, Number(r.count)]));
-      const documentCountMap = new Map(documentCounts.map(r => [r.clientId, Number(r.count)]));
-      const billingCountMap = new Map(billingCounts.map(r => [r.clientId, Number(r.count)]));
-      const lastSessionMap = new Map(lastSessionDates.map(r => [r.clientId, r.lastDate]));
-      
-      // Enrich client data using the lookup maps
-      type EnrichedClient = typeof basicClients[0] & {
-        sessionCount: number;
-        documentCount: number;
-        billingCount: number;
-        lastSessionDate: Date | null;
-      };
-      
-      const allClientsData: EnrichedClient[] = basicClients.map(client => ({
-        ...client,
-        sessionCount: sessionCountMap.get(client.id) || 0,
-        documentCount: documentCountMap.get(client.id) || 0,
-        billingCount: billingCountMap.get(client.id) || 0,
-        lastSessionDate: lastSessionMap.get(client.id) || null
-      }));
-      
-      // Find potential duplicates with multiple confidence levels
-      const duplicateGroups: Array<{
-        clients: any[];
-        matchType: string;
-        confidence: string;
-        confidenceScore: number;
-        recommendation?: {
-          keepClientId: number;
-          deleteClientId: number;
-          reasons: string[];
-        };
-      }> = [];
-      
-      // Track which clients we've already grouped to avoid duplicates
-      const processedClientIds = new Set<number>();
-      const allClients = allClientsData;
-      
-      // LEVEL 1: High Confidence (99%) - Same name AND same phone
-      const namePhoneMap = new Map<string, any[]>();
-      for (const client of allClients) {
-        const name = (client.fullName || '').toLowerCase().trim();
-        const phone = (client.phone || '').replace(/\D/g, '');
-        
-        if (name && phone) {
-          const key = `${name}|${phone}`;
-          if (!namePhoneMap.has(key)) {
-            namePhoneMap.set(key, []);
-          }
-          namePhoneMap.get(key)!.push(client);
-        }
-      }
-      
-      for (const [, group] of Array.from(namePhoneMap.entries())) {
-        if (group.length > 1) {
-          duplicateGroups.push({
-            clients: group,
-            matchType: 'Same name + phone',
-            confidence: 'High (99%)',
-            confidenceScore: 99
-          });
-          group.forEach(c => processedClientIds.add(c.id));
-        }
-      }
-      
-      // LEVEL 2: Medium Confidence (85%) - Same phone with DIFFERENT names
-      const phoneMap = new Map<string, any[]>();
-      for (const client of allClients) {
-        if (processedClientIds.has(client.id)) continue; // Skip already grouped
-        
-        const phone = (client.phone || '').replace(/\D/g, '');
-        if (phone && phone.length >= 10) { // Valid phone number
-          if (!phoneMap.has(phone)) {
-            phoneMap.set(phone, []);
-          }
-          phoneMap.get(phone)!.push(client);
-        }
-      }
-      
-      for (const [, group] of Array.from(phoneMap.entries())) {
-        if (group.length > 1) {
-          // Check if names are actually different
-          const uniqueNames = new Set(group.map(c => (c.fullName || '').toLowerCase().trim()));
-          if (uniqueNames.size > 1) {
-            duplicateGroups.push({
-              clients: group,
-              matchType: 'Same phone (different names)',
-              confidence: 'Medium (85%)',
-              confidenceScore: 85
-            });
-            group.forEach(c => processedClientIds.add(c.id));
-          }
-        }
-      }
-      
-      // LEVEL 3: Medium Confidence (85%) - Same email with DIFFERENT names
-      const emailMap = new Map<string, any[]>();
-      for (const client of allClients) {
-        if (processedClientIds.has(client.id)) continue; // Skip already grouped
-        
-        const email = (client.email || '').toLowerCase().trim();
-        if (email && email.includes('@')) { // Valid email
-          if (!emailMap.has(email)) {
-            emailMap.set(email, []);
-          }
-          emailMap.get(email)!.push(client);
-        }
-      }
-      
-      for (const [, group] of Array.from(emailMap.entries())) {
-        if (group.length > 1) {
-          // Check if names are actually different
-          const uniqueNames = new Set(group.map(c => (c.fullName || '').toLowerCase().trim()));
-          if (uniqueNames.size > 1) {
-            duplicateGroups.push({
-              clients: group,
-              matchType: 'Same email (different names)',
-              confidence: 'Medium (85%)',
-              confidenceScore: 85
-            });
-            group.forEach(c => processedClientIds.add(c.id));
-          }
-        }
-      }
-      
-      // Sort by confidence score (highest first)
-      duplicateGroups.sort((a, b) => b.confidenceScore - a.confidenceScore);
-      
-      // Add smart recommendations for each group
-      for (const group of duplicateGroups) {
-        if (group.clients.length === 2) {
-          const [client1, client2] = group.clients;
-          const recommendation = generateDuplicateRecommendation(client1, client2);
-          group.recommendation = recommendation;
-        }
-      }
-      
-      res.json({ 
-        duplicateGroups,
-        totalDuplicates: duplicateGroups.reduce((sum, group) => sum + group.clients.length, 0)
-      });
-    } catch (error) {
-      console.error('Error detecting duplicates:', error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Mark a client as duplicate
-  app.post("/api/clients/:id/mark-duplicate", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      // Only admin and supervisor can mark duplicates
-      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      const clientId = parseInt(req.params.id);
-      const { duplicateOfClientId } = req.body;
-      
-      if (!duplicateOfClientId) {
-        return res.status(400).json({ message: "Primary client ID required" });
-      }
-      
-      // Verify both clients exist
-      const client = await storage.getClient(clientId);
-      const primaryClient = await storage.getClient(duplicateOfClientId);
-      
-      if (!client || !primaryClient) {
-        return res.status(404).json({ message: "Client not found" });
-      }
-      
-      // Cannot mark a client as duplicate of itself
-      if (clientId === duplicateOfClientId) {
-        return res.status(400).json({ message: "Cannot mark client as duplicate of itself" });
-      }
-      
-      // Update the duplicate client
-      await db.update(clients)
-        .set({
-          isDuplicate: true,
-          duplicateOfClientId: duplicateOfClientId,
-          duplicateMarkedAt: new Date(),
-          duplicateMarkedBy: req.user.id,
-          updatedAt: new Date()
-        })
-        .where(eq(clients.id, clientId));
-      
-      res.json({ 
-        message: "Client marked as duplicate successfully",
-        clientId,
-        duplicateOfClientId
-      });
-    } catch (error) {
-      console.error('Error marking duplicate:', error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  // Unmark a client as duplicate
-  app.post("/api/clients/:id/unmark-duplicate", requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: "Authentication required" });
-      }
-      
-      // Only admin and supervisor can unmark duplicates
-      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      const clientId = parseInt(req.params.id);
-      
-      // Verify client exists
-      const client = await storage.getClient(clientId);
-      if (!client) {
-        return res.status(404).json({ message: "Client not found" });
-      }
-      
-      // Update the client to remove duplicate marking
-      await db.update(clients)
-        .set({
-          isDuplicate: false,
-          duplicateOfClientId: null,
-          duplicateMarkedAt: null,
-          duplicateMarkedBy: null,
-          updatedAt: new Date()
-        })
-        .where(eq(clients.id, clientId));
-      
-      res.json({ 
-        message: "Client unmarked as duplicate successfully",
-        clientId
-      });
-    } catch (error) {
-      console.error('Error unmarking duplicate:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -5291,7 +4923,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       );
       
       // Generate AI content if enabled
-      if (validatedData.aiEnabled && isOpenAIAvailable()) {
+      if (validatedData.aiEnabled && process.env.OPENAI_API_KEY) {
         try {
           // Update status to processing
           await storage.updateSessionNote(sessionNote.id, { aiProcessingStatus: 'processing' });
@@ -5623,7 +5255,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { templateId, field, context } = req.body;
       
-      if (!isOpenAIAvailable()) {
+      if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -5661,7 +5293,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { field, context } = req.body;
       
-      if (!isOpenAIAvailable()) {
+      if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -5676,7 +5308,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const sessionNoteData = req.body;
       
-      if (!isOpenAIAvailable()) {
+      if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -5697,7 +5329,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const sessionNoteId = parseInt(req.params.sessionNoteId);
       const { customPrompt } = req.body;
       
-      if (!isOpenAIAvailable()) {
+      if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -6429,14 +6061,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       );
 
       res.status(201).json(report);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error generating assessment report:', error);
-      const errorMessage = error?.message || "Failed to generate assessment report";
-      res.status(500).json({ 
-        message: "Failed to generate assessment report",
-        error: errorMessage,
-        details: error?.stack?.split('\n').slice(0, 3).join('\n')
-      });
+      res.status(500).json({ message: "Failed to generate assessment report" });
     }
   });
 
@@ -7857,8 +7484,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
             // Generate PDF for email attachment with improved reliability
             let pdfBuffer;
             try {
-              const browser = await puppeteer.launch({
-                executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+              const chromiumPath = getChromiumExecutablePath();
+              const launchOptions: any = {
                 args: [
                   '--no-sandbox',
                   '--disable-setuid-sandbox',
@@ -7878,7 +7505,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 headless: true,
                 timeout: 90000,
                 protocolTimeout: 120000
-              });
+              };
+              
+              // Only set executablePath if the Nix path exists, otherwise let Puppeteer find system Chrome
+              if (chromiumPath) {
+                launchOptions.executablePath = chromiumPath;
+              }
+              
+              const browser = await puppeteer.launch(launchOptions);
               
               const page = await browser.newPage();
               await page.setDefaultTimeout(60000);
@@ -7922,13 +7556,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
               // Retry once with different settings if it's a timeout
               if (pdfError?.message?.includes('timeout') || pdfError?.message?.includes('timed out')) {
                 try {
-                  const browser = await puppeteer.launch({
-                    executablePath: '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium',
+                  const chromiumPath = getChromiumExecutablePath();
+                  const launchOptions: any = {
                     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
                     headless: true,
                     timeout: 60000,
                     protocolTimeout: 60000
-                  });
+                  };
+                  
+                  // Only set executablePath if the Nix path exists, otherwise let Puppeteer find system Chrome
+                  if (chromiumPath) {
+                    launchOptions.executablePath = chromiumPath;
+                  }
+                  
+                  const browser = await puppeteer.launch(launchOptions);
                   
                   const page = await browser.newPage();
                   await page.setContent(invoiceHtml);
@@ -7946,17 +7587,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
               options: {
                 sandbox: false  // Set to false for production sending
               },
-              recipients: [{ 
-                address: {
-                  email: client.email,
-                  name: client.fullName
-                }
-              }],
+              recipients: [{ address: client.email }],
               content: {
-                from: {
-                  name: practiceSettings.name,
-                  email: fromEmail
-                },
+                from: fromEmail,
                 subject: `Invoice from ${providerInfo.name} - ${client.fullName}`,
                 html: `
                   <div style="font-family: 'Times New Roman', Times, serif; max-width: 600px; margin: 0 auto; padding: 30px; background: #ffffff; border: 1px solid #e5e7eb;">
@@ -8000,6 +7633,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
               }
             });
 
+            // Log successful send details for debugging delivery issues
             console.log('[EMAIL SUCCESS] Invoice email sent via SparkPost:', {
               to: client.email,
               clientName: client.fullName,
@@ -8007,6 +7641,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
               totalAccepted: result.results?.total_accepted_recipients,
               totalRejected: result.results?.total_rejected_recipients,
               hasAttachment: !!pdfBuffer,
+              fromDomain: fromEmail.split('@')[1],
               timestamp: new Date().toISOString()
             });
 
@@ -8020,14 +7655,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 userId: SYSTEM_USER_ID, // System user for client email tracking
                 type: 'invoice_sent' as any,
                 title: `Invoice Sent - INV-${client.clientId}-${billingId}`,
-                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)}${pdfBuffer ? ' with PDF attachment' : ''}`,
+                message: `Invoice sent to ${client.email} for $${remainingDue.toFixed(2)}${pdfBuffer ? ' with PDF attachment' : ' as HTML email'}`,
                 data: JSON.stringify({
                   isClientEmail: true,
                   clientEmail: client.email,
                   billingId,
                   invoiceNumber: `INV-${client.clientId}-${billingId}`,
                   amount: remainingDue,
-                  hasAttachment: !!pdfBuffer,
+                  hasPdfAttachment: !!pdfBuffer,
                   transmissionId: result.results?.id
                 }),
                 priority: 'medium' as any,
@@ -8049,9 +7684,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
             }
 
             res.json({ 
-              message: `Invoice email sent successfully to ${client.email}`,
+              message: `Invoice ${pdfBuffer ? 'PDF' : 'email'} sent successfully to ` + client.email,
               messageId: result.results?.id,
-              hasAttachment: !!pdfBuffer
+              attachmentType: pdfBuffer ? 'PDF' : 'HTML',
+              note: `Invoice sent as ${pdfBuffer ? 'PDF attachment' : 'professional HTML email'} from configured domain.`
             });
           } catch (error) {
             const err = error as any;
