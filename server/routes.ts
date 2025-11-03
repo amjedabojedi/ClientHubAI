@@ -39,7 +39,7 @@ function isOpenAIAvailable(): boolean {
   return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY);
 }
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents } from "@shared/schema";
-import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
@@ -741,28 +741,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enrich with counts manually to avoid SQL interpolation issues
       const allClientsData = await Promise.all(
         basicClients.map(async (client) => {
-          const [sessionCountResult] = await db.select({ count: sql<number>`count(*)::int` })
+          const [sessionCountResult] = await db.select({ value: count() })
             .from(sessions)
             .where(eq(sessions.clientId, client.id));
           
-          const [documentCountResult] = await db.select({ count: sql<number>`count(*)::int` })
+          const [documentCountResult] = await db.select({ value: count() })
             .from(documents)
             .where(eq(documents.clientId, client.id));
           
-          const [billingCountResult] = await db.select({ count: sql<number>`count(*)::int` })
+          const [billingCountResult] = await db.select({ value: count() })
             .from(sessionBilling)
             .where(eq(sessionBilling.clientId, client.id));
           
-          const [lastSessionResult] = await db.select({ date: sql<Date | null>`max(session_date)` })
+          const [lastSessionResult] = await db.select({ value: sql<Date | null>`max(session_date)` })
             .from(sessions)
             .where(eq(sessions.clientId, client.id));
           
           return {
             ...client,
-            sessionCount: sessionCountResult?.count || 0,
-            documentCount: documentCountResult?.count || 0,
-            billingCount: billingCountResult?.count || 0,
-            lastSessionDate: lastSessionResult?.date || null
+            sessionCount: Number(sessionCountResult?.value) || 0,
+            documentCount: Number(documentCountResult?.value) || 0,
+            billingCount: Number(billingCountResult?.value) || 0,
+            lastSessionDate: lastSessionResult?.value || null
           };
         })
       );
