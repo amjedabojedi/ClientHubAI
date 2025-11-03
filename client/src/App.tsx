@@ -41,6 +41,7 @@ import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
+import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
@@ -90,6 +91,7 @@ function Navigation() {
           { path: "/library", label: "Library", icon: BookOpen },
           { path: "/assessments", label: "Assessments", icon: ClipboardList },
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
+          { path: "/duplicate-detection", label: "Duplicate Detection", icon: Users },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/notifications", label: "Notifications", icon: Bell },
@@ -298,6 +300,7 @@ function Router() {
           <Route path="/checklist-management" component={ChecklistManagementPage} />
           <Route path="/user-profiles" component={UserProfilesPage} />
           <Route path="/role-management" component={RoleManagementPage} />
+          <Route path="/duplicate-detection" component={DuplicateDetectionPage} />
           <Route path="/notifications" component={NotificationsPage} />
           <Route path="/settings" component={() => {
             const { user } = useAuth();
