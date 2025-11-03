@@ -789,7 +789,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lastSessionMap = new Map(lastSessionDates.map(r => [r.clientId, r.lastDate]));
       
       // Enrich client data using the lookup maps
-      const allClientsData = basicClients.map(client => ({
+      type EnrichedClient = typeof basicClients[0] & {
+        sessionCount: number;
+        documentCount: number;
+        billingCount: number;
+        lastSessionDate: Date | null;
+      };
+      
+      const allClientsData: EnrichedClient[] = basicClients.map(client => ({
         ...client,
         sessionCount: sessionCountMap.get(client.id) || 0,
         documentCount: documentCountMap.get(client.id) || 0,
