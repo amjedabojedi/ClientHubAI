@@ -4,16 +4,6 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
-    // Debug logging for duplicate detection errors
-    if (res.url.includes('/duplicates')) {
-      console.error('[QUERY CLIENT] Response failed:', {
-        status: res.status,
-        statusText: res.statusText,
-        url: res.url,
-        responseBody: text
-      });
-    }
-    
     // Try to parse as JSON and extract clean message
     let errorMessage = null;
     try {

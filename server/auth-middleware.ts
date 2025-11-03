@@ -84,16 +84,7 @@ export function verifySessionToken(token: string): TokenPayload | null {
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const token = req.cookies?.sessionToken;
   
-  // Debug logging for duplicate detection endpoint
-  if (req.path === '/api/clients/duplicates') {
-    console.log('[AUTH] Duplicate detection auth check - has token:', !!token);
-    console.log('[AUTH] All cookies:', req.cookies);
-  }
-  
   if (!token) {
-    if (req.path === '/api/clients/duplicates') {
-      console.log('[AUTH] No session token - returning 401');
-    }
     // Force logout if no session cookie - clear any remaining invalid cookies
     res.clearCookie('sessionToken', { path: '/', httpOnly: true, secure: false, sameSite: 'strict' });
     res.clearCookie('csrfToken', { path: '/', httpOnly: false, secure: false, sameSite: 'strict' });
@@ -102,14 +93,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   
   const user = verifySessionToken(token);
   if (!user) {
-    if (req.path === '/api/clients/duplicates') {
-      console.log('[AUTH] Token verification failed - returning 401');
-    }
     return res.status(401).json({ error: "Invalid or expired session" });
-  }
-  
-  if (req.path === '/api/clients/duplicates') {
-    console.log('[AUTH] Auth successful - user:', user.username, 'role:', user.role);
   }
   
   req.user = user;
