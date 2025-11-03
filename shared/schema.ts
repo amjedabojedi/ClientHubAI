@@ -340,6 +340,12 @@ export const clients = pgTable("clients", {
   followUpDate: date("follow_up_date"),
   followUpNotes: text("follow_up_notes"),
   
+  // Duplicate Detection & Management
+  isDuplicate: boolean("is_duplicate").default(false), // Whether this client is marked as a duplicate
+  duplicateOfClientId: integer("duplicate_of_client_id").references(() => clients.id), // References the primary client record
+  duplicateMarkedAt: timestamp("duplicate_marked_at"), // When this was marked as duplicate
+  duplicateMarkedBy: integer("duplicate_marked_by").references(() => users.id), // Admin who marked as duplicate
+  
   // Timestamps
   lastSessionDate: timestamp("last_session_date"),
   nextAppointmentDate: timestamp("next_appointment_date"),
