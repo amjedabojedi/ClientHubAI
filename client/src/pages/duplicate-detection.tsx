@@ -51,8 +51,10 @@ export default function DuplicateDetectionPage() {
 
   // Debug logging
   console.log('[DUPLICATE DETECTION] Query state:', { isLoading, hasError: !!error, hasData: !!duplicatesData });
+  console.log('[DUPLICATE DETECTION] Cookies:', document.cookie);
   if (error) {
     console.error('[DUPLICATE DETECTION] Query error:', error);
+    console.error('[DUPLICATE DETECTION] Error details:', JSON.stringify(error));
   }
 
   const markDuplicateMutation = useMutation({
