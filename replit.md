@@ -175,6 +175,18 @@ The system tracks clients through distinct stages with comprehensive profile dat
 - `client_checklists` - Onboarding task tracking
 - `client_portal_access` - Portal authentication credentials
 
+**Duplicate Detection:**
+- Multi-level confidence matching system for identifying duplicate client records
+- Three detection levels:
+  - High (99%): Same name AND same phone number
+  - Medium (85%): Same phone number with different names
+  - Medium (85%): Same email address with different names
+- Database fields: `isDuplicate` (boolean), `duplicateOfClientId` (reference to primary record)
+- Admin/supervisor-only access via Administration menu
+- Features: Real-time refresh, color-coded confidence badges, side-by-side comparison
+- Marking duplicates hides them from normal views while preserving all associated data
+- Prevents duplicate grouping (clients appear in only one group using processedClientIds tracking)
+
 ### Clinical Documentation
 
 **Session Management:**
