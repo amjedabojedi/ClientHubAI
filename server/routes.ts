@@ -735,22 +735,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Get all clients that are not marked as duplicate with detailed info
-      const allClientsData = await db.select({
-        id: clients.id,
-        clientId: clients.clientId,
-        fullName: clients.fullName,
-        phone: clients.phone,
-        email: clients.email,
-        dateOfBirth: clients.dateOfBirth,
-        status: clients.status,
-        assignedTherapistId: clients.assignedTherapistId,
-        createdAt: clients.createdAt,
-        sessionCount: sql<number>`(SELECT COUNT(*) FROM sessions WHERE client_id = ${clients.id})`.as('sessionCount'),
-        documentCount: sql<number>`(SELECT COUNT(*) FROM documents WHERE client_id = ${clients.id})`.as('documentCount'),
-        billingCount: sql<number>`(SELECT COUNT(*) FROM session_billing WHERE client_id = ${clients.id})`.as('billingCount'),
-        lastSessionDate: sql<Date | null>`(SELECT MAX(session_date) FROM sessions WHERE client_id = ${clients.id})`.as('lastSessionDate')
-      }).from(clients).where(eq(clients.isDuplicate, false));
+      // Get all clients that are not marked as duplicate
+      const basicClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
+      
+      // Enrich with counts manually to avoid SQL interpolation issues
+      const allClientsData = await Promise.all(
+        basicClients.map(async (client) => {
+          const [sessionCountResult] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(sessions)
+            .where(eq(sessions.clientId, client.id));
+          
+          const [documentCountResult] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(documents)
+            .where(eq(documents.clientId, client.id));
+          
+          const [billingCountResult] = await db.select({ count: sql<number>`count(*)::int` })
+            .from(sessionBilling)
+            .where(eq(sessionBilling.clientId, client.id));
+          
+          const [lastSessionResult] = await db.select({ date: sql<Date | null>`max(session_date)` })
+            .from(sessions)
+            .where(eq(sessions.clientId, client.id));
+          
+          return {
+            ...client,
+            sessionCount: sessionCountResult?.count || 0,
+            documentCount: documentCountResult?.count || 0,
+            billingCount: billingCountResult?.count || 0,
+            lastSessionDate: lastSessionResult?.date || null
+          };
+        })
+      );
       
       // Find potential duplicates with multiple confidence levels
       const duplicateGroups: Array<{
