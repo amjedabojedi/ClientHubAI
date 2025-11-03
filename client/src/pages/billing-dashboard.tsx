@@ -496,10 +496,19 @@ export default function BillingDashboard() {
         });
       } else if (action === 'email') {
         const result = await response.json();
-        toast({
-          title: "Email sent successfully!",
-          description: result.message || `Invoice has been sent to ${client.email}`,
-        });
+        
+        if (result.warning || !result.hasAttachment) {
+          toast({
+            title: "Email sent (no attachment)",
+            description: result.warning || result.message || `Invoice email sent to ${client.email}, but PDF attachment could not be generated. Check server logs for details.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Email sent successfully!",
+            description: result.message || `Invoice has been sent to ${client.email} with PDF attachment`,
+          });
+        }
       } else if (action === 'print') {
         const printWindow = window.open('', '_blank');
         if (printWindow) {
