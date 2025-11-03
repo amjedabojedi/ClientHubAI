@@ -7857,7 +7857,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
             // Generate PDF for email attachment with improved reliability
             let pdfBuffer;
             try {
-              // Build launch options - prioritize @sparticuz/chromium for Linux/serverless environments
+              // Build launch options - use environment variable or default to bundled Chromium
               const launchOptions: any = {
                 args: [
                   '--no-sandbox',
@@ -7880,39 +7880,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 protocolTimeout: 120000
               };
 
-              // Priority order:
-              // 1. Environment variable (explicit override)
-              // 2. @sparticuz/chromium for Linux/production (better compatibility, no system deps needed)
-              // 3. Bundled Puppeteer Chromium (works on macOS/Windows locally)
-              
+              // Use custom executable path if provided via environment variable, otherwise use bundled Chromium
               if (process.env.PUPPETEER_EXECUTABLE_PATH) {
                 launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
                 console.log('[PDF] Using custom Chromium path from PUPPETEER_EXECUTABLE_PATH');
               } else {
-                // Try @sparticuz/chromium first (better for Linux/serverless - no system library dependencies)
-                try {
-                  const chromium = await import('@sparticuz/chromium').catch(() => null) as any;
-                  if (chromium && chromium.executablePath) {
-                    // Configure for serverless/Linux environments
-                    if (chromium.setGraphicsMode) {
-                      chromium.setGraphicsMode(false); // Disable GPU (better for headless)
-                    }
-                    launchOptions.executablePath = await chromium.executablePath();
-                    // Add font path configuration for better compatibility
-                    launchOptions.args.push(
-                      '--font-render-hinting=none',
-                      '--disable-font-subpixel-positioning'
-                    );
-                    console.log('[PDF] Using @sparticuz/chromium (optimized for Linux/serverless, no system deps required)');
-                  } else {
-                    throw new Error('@sparticuz/chromium not properly imported');
-                  }
-                } catch (sparticuzError) {
-                  // Fallback to bundled Chromium (works locally on macOS/Windows)
-                  console.log('[PDF] @sparticuz/chromium not available, using Puppeteer bundled Chromium');
-                  console.log('[PDF] Note: If this fails on Linux, install @sparticuz/chromium or system Chromium dependencies');
-                  // No executablePath = use bundled
-                }
+                // Let Puppeteer use its bundled Chromium (no executablePath specified)
+                console.log('[PDF] Using Puppeteer bundled Chromium');
               }
 
               const browser = await puppeteer.launch(launchOptions);
@@ -7957,32 +7931,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
                 hasExecutablePath: !!process.env.PUPPETEER_EXECUTABLE_PATH
               });
               
-              // Retry once with @sparticuz/chromium (better Linux compatibility, no system deps)
+              // Retry once with minimal settings (no custom executable path - use bundled)
               try {
-                console.log('[PDF RETRY] Attempting retry with @sparticuz/chromium');
-                let retryExecutablePath;
-                let retryArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
-                
-                try {
-                  const chromium = await import('@sparticuz/chromium').catch(() => null) as any;
-                  if (chromium && chromium.executablePath) {
-                    if (chromium.setGraphicsMode) {
-                      chromium.setGraphicsMode(false); // Disable GPU
-                    }
-                    retryExecutablePath = await chromium.executablePath();
-                    retryArgs.push('--font-render-hinting=none', '--disable-font-subpixel-positioning');
-                    console.log('[PDF RETRY] Using @sparticuz/chromium executable (no system library dependencies)');
-                  } else {
-                    throw new Error('@sparticuz/chromium not properly imported');
-                  }
-                } catch (sparticuzError) {
-                  console.log('[PDF RETRY] @sparticuz/chromium not available, trying without executablePath');
-                  retryExecutablePath = undefined;
-                }
-                
+                console.log('[PDF RETRY] Attempting retry with bundled Chromium (no custom path)');
                 const browser = await puppeteer.launch({
-                  ...(retryExecutablePath && { executablePath: retryExecutablePath }),
-                  args: retryArgs,
+                  // No executablePath - use bundled Chromium
+                  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
                   headless: true,
                   timeout: 60000,
                   protocolTimeout: 60000
