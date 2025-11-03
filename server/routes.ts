@@ -746,10 +746,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: clients.status,
         assignedTherapistId: clients.assignedTherapistId,
         createdAt: clients.createdAt,
-        sessionCount: sql<number>`(SELECT COUNT(*) FROM ${sessions} WHERE ${sessions.clientId} = ${clients.id})`.as('sessionCount'),
-        documentCount: sql<number>`(SELECT COUNT(*) FROM ${documents} WHERE ${documents.clientId} = ${clients.id})`.as('documentCount'),
-        billingCount: sql<number>`(SELECT COUNT(*) FROM ${sessionBilling} WHERE ${sessionBilling.clientId} = ${clients.id})`.as('billingCount'),
-        lastSessionDate: sql<Date | null>`(SELECT MAX(session_date) FROM ${sessions} WHERE ${sessions.clientId} = ${clients.id})`.as('lastSessionDate')
+        sessionCount: sql<number>`(SELECT COUNT(*) FROM sessions WHERE client_id = ${clients.id})`.as('sessionCount'),
+        documentCount: sql<number>`(SELECT COUNT(*) FROM documents WHERE client_id = ${clients.id})`.as('documentCount'),
+        billingCount: sql<number>`(SELECT COUNT(*) FROM session_billing WHERE client_id = ${clients.id})`.as('billingCount'),
+        lastSessionDate: sql<Date | null>`(SELECT MAX(session_date) FROM sessions WHERE client_id = ${clients.id})`.as('lastSessionDate')
       }).from(clients).where(eq(clients.isDuplicate, false));
       
       // Find potential duplicates with multiple confidence levels
