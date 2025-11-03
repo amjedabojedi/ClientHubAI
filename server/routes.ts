@@ -44,8 +44,8 @@ function getChromiumExecutablePath(): string | undefined {
   // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
   return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services } from "@shared/schema";
-import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray } from "drizzle-orm";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents } from "@shared/schema";
+import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
