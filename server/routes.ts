@@ -651,6 +651,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to generate smart recommendations for duplicate pairs
+  function generateDuplicateRecommendation(client1: any, client2: any) {
+    const reasons: string[] = [];
+    let keepClient = client1;
+    let deleteClient = client2;
+    let score1 = 0;
+    let score2 = 0;
+
+    // Factor 1: Session count (most important - 40 points)
+    if (client1.sessionCount > client2.sessionCount) {
+      score1 += 40;
+      reasons.push(`Has ${client1.sessionCount} sessions vs ${client2.sessionCount}`);
+    } else if (client2.sessionCount > client1.sessionCount) {
+      score2 += 40;
+    }
+
+    // Factor 2: Document count (30 points)
+    if (client1.documentCount > client2.documentCount) {
+      score1 += 30;
+      if (client1.documentCount > 0) reasons.push(`Has ${client1.documentCount} documents vs ${client2.documentCount}`);
+    } else if (client2.documentCount > client1.documentCount) {
+      score2 += 30;
+    }
+
+    // Factor 3: Billing history (20 points)
+    if (client1.billingCount > client2.billingCount) {
+      score1 += 20;
+      if (client1.billingCount > 0) reasons.push(`Has ${client1.billingCount} billing records vs ${client2.billingCount}`);
+    } else if (client2.billingCount > client1.billingCount) {
+      score2 += 20;
+    }
+
+    // Factor 4: Older record (10 points - more established)
+    const date1 = new Date(client1.createdAt);
+    const date2 = new Date(client2.createdAt);
+    if (date1 < date2) {
+      score1 += 10;
+      reasons.push(`Created earlier (${date1.toLocaleDateString()})`);
+    } else if (date2 < date1) {
+      score2 += 10;
+    }
+
+    // Factor 5: More recent activity (10 points)
+    if (client1.lastSessionDate && client2.lastSessionDate) {
+      const lastDate1 = new Date(client1.lastSessionDate);
+      const lastDate2 = new Date(client2.lastSessionDate);
+      if (lastDate1 > lastDate2) {
+        score1 += 10;
+        reasons.push(`More recent activity (${lastDate1.toLocaleDateString()})`);
+      } else if (lastDate2 > lastDate1) {
+        score2 += 10;
+      }
+    } else if (client1.lastSessionDate) {
+      score1 += 10;
+      reasons.push('Has session history');
+    } else if (client2.lastSessionDate) {
+      score2 += 10;
+    }
+
+    // Determine which to keep
+    if (score2 > score1) {
+      keepClient = client2;
+      deleteClient = client1;
+    }
+
+    return {
+      keepClientId: keepClient.id,
+      deleteClientId: deleteClient.id,
+      reasons: reasons.length > 0 ? reasons : ['Both records similar - choose based on preference']
+    };
+  }
+
   // Duplicate Detection API endpoints
   app.get("/api/clients/duplicates", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
@@ -663,8 +735,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Get all clients that are not marked as duplicate
-      const allClients = await db.select().from(clients).where(eq(clients.isDuplicate, false));
+      // Get all clients that are not marked as duplicate with detailed info
+      const allClientsData = await db.select({
+        id: clients.id,
+        clientId: clients.clientId,
+        fullName: clients.fullName,
+        phone: clients.phone,
+        email: clients.email,
+        dateOfBirth: clients.dateOfBirth,
+        status: clients.status,
+        assignedTherapistId: clients.assignedTherapistId,
+        createdAt: clients.createdAt,
+        sessionCount: sql<number>`(SELECT COUNT(*) FROM ${sessions} WHERE ${sessions.clientId} = ${clients.id})`.as('sessionCount'),
+        documentCount: sql<number>`(SELECT COUNT(*) FROM ${documents} WHERE ${documents.clientId} = ${clients.id})`.as('documentCount'),
+        billingCount: sql<number>`(SELECT COUNT(*) FROM ${sessionBilling} WHERE ${sessionBilling.clientId} = ${clients.id})`.as('billingCount'),
+        lastSessionDate: sql<Date | null>`(SELECT MAX(session_date) FROM ${sessions} WHERE ${sessions.clientId} = ${clients.id})`.as('lastSessionDate')
+      }).from(clients).where(eq(clients.isDuplicate, false));
       
       // Find potential duplicates with multiple confidence levels
       const duplicateGroups: Array<{
@@ -672,10 +758,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         matchType: string;
         confidence: string;
         confidenceScore: number;
+        recommendation?: {
+          keepClientId: number;
+          deleteClientId: number;
+          reasons: string[];
+        };
       }> = [];
       
       // Track which clients we've already grouped to avoid duplicates
       const processedClientIds = new Set<number>();
+      const allClients = allClientsData;
       
       // LEVEL 1: High Confidence (99%) - Same name AND same phone
       const namePhoneMap = new Map<string, any[]>();
@@ -766,6 +858,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Sort by confidence score (highest first)
       duplicateGroups.sort((a, b) => b.confidenceScore - a.confidenceScore);
+      
+      // Add smart recommendations for each group
+      for (const group of duplicateGroups) {
+        if (group.clients.length === 2) {
+          const [client1, client2] = group.clients;
+          const recommendation = generateDuplicateRecommendation(client1, client2);
+          group.recommendation = recommendation;
+        }
+      }
       
       res.json({ 
         duplicateGroups,
