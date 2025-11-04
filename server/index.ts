@@ -129,17 +129,21 @@ process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
   try {
     log('Starting application initialization...');
     
-    // Test critical dependencies first
+    // Test database connectivity (non-blocking - allows server to start even if DB is temporarily unavailable)
     try {
       log('Testing database connectivity...');
-      await storage.getUsers();
+      await Promise.race([
+        storage.getUsers(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout')), 5000))
+      ]);
       log('Database connection verified');
     } catch (dbError) {
-      log(`Database connection failed: ${dbError}`);
-      throw new Error(`Database initialization failed: ${dbError}`);
+      log(`Warning: Database connection check failed: ${dbError}`);
+      log('Server will start anyway. Database operations may fail until connection is established.');
+      // Don't throw - allow deployment to initialize even if DB is temporarily unavailable
     }
 
-    // Synchronize notification triggers from code to database
+    // Synchronize notification triggers from code to database (non-critical)
     try {
       log('Synchronizing notification triggers...');
       await syncNotificationTriggers();
