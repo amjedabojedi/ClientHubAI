@@ -1034,7 +1034,7 @@ export const practiceConfiguration = pgTable("practice_configuration", {
   practiceAddress: text("practice_address").default("123 Healthcare Ave, Suite 100\nMental Health City, CA 90210"),
   practicePhone: varchar("practice_phone", { length: 50 }).default("(555) 123-4567"),
   practiceEmail: varchar("practice_email", { length: 255 }).default("contact@smarthub.com"),
-  practiceWebsite: varchar("practice_website", { length: 255 }).default("www.smarthub.com"),
+  practiceWebsite: varchar("practice_website", { length: 255 }).default("https://resiliencecrm.com"),
   taxId: varchar("tax_id", { length: 50 }).default("12-3456789"),
   licenseNumber: varchar("license_number", { length: 100 }).default("PSY-12345-CA"),
   licenseState: varchar("license_state", { length: 50 }).default("California"),
