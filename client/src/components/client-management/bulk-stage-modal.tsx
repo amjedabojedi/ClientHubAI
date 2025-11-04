@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,24 +15,28 @@ interface BulkStageModalProps {
   onSuccess: () => void;
 }
 
-type Stage = "intake" | "assessment" | "psychotherapy" | "maintenance" | "discharged";
-
-const stageOptions = [
-  { value: "intake", label: "Intake" },
-  { value: "assessment", label: "Assessment" },
-  { value: "psychotherapy", label: "Psychotherapy" },
-  { value: "maintenance", label: "Maintenance" },
-  { value: "discharged", label: "Discharged" }
-];
-
 export default function BulkStageModal({
   open,
   onOpenChange,
   selectedClientIds,
   onSuccess
 }: BulkStageModalProps) {
-  const [stage, setStage] = useState<Stage>("psychotherapy");
+  const [stage, setStage] = useState<string>("");
   const { toast } = useToast();
+
+  // Fetch system options for stages
+  const { data: systemOptions } = useQuery<any[]>({
+    queryKey: ["/api/system-options/categories"],
+    enabled: open
+  });
+
+  const stageCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_stage");
+  const { data: stageOptionsData } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${stageCategory?.id}`],
+    enabled: !!stageCategory?.id && open
+  });
+
+  const stageOptions = stageOptionsData?.options || [];
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
@@ -43,9 +47,10 @@ export default function BulkStageModal({
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      const selectedStageLabel = stageOptions.find((s: any) => s.optionValue === stage)?.optionLabel || stage;
       toast({
         title: "Stage Updated",
-        description: `Successfully updated ${data.successful} client(s) to "${stageOptions.find(s => s.value === stage)?.label}" stage.`
+        description: `Successfully updated ${data.successful} client(s) to "${selectedStageLabel}" stage.`
       });
       onSuccess();
       onOpenChange(false);
@@ -83,14 +88,14 @@ export default function BulkStageModal({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">New Stage</label>
-            <Select value={stage} onValueChange={(value) => setStage(value as Stage)}>
+            <Select value={stage} onValueChange={setStage}>
               <SelectTrigger data-testid="select-stage">
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
-                {stageOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                {stageOptions.map((option: any) => (
+                  <SelectItem key={option.id} value={option.optionValue}>
+                    {option.optionLabel}
                   </SelectItem>
                 ))}
               </SelectContent>

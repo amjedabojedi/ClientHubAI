@@ -35,10 +35,10 @@ export default function BulkActionsBar({
 
   return (
     <div 
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground rounded-lg shadow-2xl border border-primary/20 p-4 min-w-[600px] max-w-[800px]"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground rounded-lg shadow-2xl border border-primary/20 p-5 w-[90vw] max-w-[1200px]"
       data-testid="bulk-actions-bar"
     >
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 w-full">
         {/* Selection Count */}
         <div className="flex items-center gap-3">
           <Badge variant="secondary" className="text-base px-3 py-1">

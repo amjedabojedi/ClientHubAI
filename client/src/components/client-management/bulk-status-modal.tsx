@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,23 +15,28 @@ interface BulkStatusModalProps {
   onSuccess: () => void;
 }
 
-type Status = "active" | "inactive" | "pending" | "discharged";
-
-const statusOptions = [
-  { value: "active", label: "Active", description: "Client is currently receiving services" },
-  { value: "inactive", label: "Inactive", description: "Client is not currently receiving services" },
-  { value: "pending", label: "Pending", description: "Client intake or onboarding in progress" },
-  { value: "discharged", label: "Discharged", description: "Client has completed treatment" }
-];
-
 export default function BulkStatusModal({
   open,
   onOpenChange,
   selectedClientIds,
   onSuccess
 }: BulkStatusModalProps) {
-  const [status, setStatus] = useState<Status>("active");
+  const [status, setStatus] = useState<string>("");
   const { toast } = useToast();
+
+  // Fetch system options for statuses
+  const { data: systemOptions } = useQuery<any[]>({
+    queryKey: ["/api/system-options/categories"],
+    enabled: open
+  });
+
+  const statusCategory = systemOptions?.find?.((cat: any) => cat.categoryKey === "client_status");
+  const { data: statusOptionsData } = useQuery<{ options: any[] }>({
+    queryKey: [`/api/system-options/categories/${statusCategory?.id}`],
+    enabled: !!statusCategory?.id && open
+  });
+
+  const statusOptions = statusOptionsData?.options || [];
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
@@ -42,9 +47,10 @@ export default function BulkStatusModal({
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      const selectedStatusLabel = statusOptions.find((s: any) => s.optionValue === status)?.optionLabel || status;
       toast({
         title: "Status Updated",
-        description: `Successfully updated ${data.successful} client(s) to "${statusOptions.find(s => s.value === status)?.label}" status.`
+        description: `Successfully updated ${data.successful} client(s) to "${selectedStatusLabel}" status.`
       });
       onSuccess();
       onOpenChange(false);
@@ -62,7 +68,7 @@ export default function BulkStatusModal({
     bulkUpdateMutation.mutate();
   };
 
-  const selectedOption = statusOptions.find(s => s.value === status);
+  const selectedOption = statusOptions.find((s: any) => s.optionValue === status);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,17 +90,14 @@ export default function BulkStatusModal({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">New Status</label>
-            <Select value={status} onValueChange={(value) => setStatus(value as Status)}>
+            <Select value={status} onValueChange={setStatus}>
               <SelectTrigger data-testid="select-status">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                {statusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div>
-                      <div className="font-medium">{option.label}</div>
-                      <div className="text-xs text-muted-foreground">{option.description}</div>
-                    </div>
+                {statusOptions.map((option: any) => (
+                  <SelectItem key={option.id} value={option.optionValue}>
+                    {option.optionLabel}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -103,8 +106,7 @@ export default function BulkStatusModal({
 
           {selectedOption && (
             <div className="bg-muted p-3 rounded-md text-sm">
-              <div className="font-medium mb-1">{selectedOption.label}</div>
-              <div className="text-muted-foreground">{selectedOption.description}</div>
+              <div className="font-medium">{selectedOption.optionLabel}</div>
             </div>
           )}
         </div>
