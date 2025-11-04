@@ -25,9 +25,6 @@ export default function BulkStageModal({
   const [stage, setStage] = useState<string>("");
   const { toast } = useToast();
 
-  // Debug: Log when stage changes
-  console.log('[BulkStageModal] Current stage value:', stage);
-
   // Fetch system options for stages
   const { data: systemOptions } = useQuery<any[]>({
     queryKey: ["/api/system-options/categories"],

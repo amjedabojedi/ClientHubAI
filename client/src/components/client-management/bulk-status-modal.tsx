@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -97,27 +98,28 @@ export default function BulkStatusModal({
             </AlertDescription>
           </Alert>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">New Status</label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger data-testid="select-status">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">New Status (select one)</label>
+            <RadioGroup value={status} onValueChange={setStatus}>
+              <div className="space-y-2">
                 {statusOptions.map((option: any) => (
-                  <SelectItem key={option.id} value={option.optionValue}>
-                    {option.optionLabel}
-                  </SelectItem>
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <RadioGroupItem 
+                      value={option.optionValue} 
+                      id={`status-${option.id}`}
+                      data-testid={`radio-status-${option.optionValue}`}
+                    />
+                    <Label 
+                      htmlFor={`status-${option.id}`} 
+                      className="cursor-pointer font-normal"
+                    >
+                      {option.optionLabel}
+                    </Label>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </RadioGroup>
           </div>
-
-          {selectedOption && (
-            <div className="bg-muted p-3 rounded-md text-sm">
-              <div className="font-medium">{selectedOption.optionLabel}</div>
-            </div>
-          )}
         </div>
 
         <DialogFooter>
