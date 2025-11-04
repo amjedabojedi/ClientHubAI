@@ -22,7 +22,7 @@ export default function BulkStatusModal({
   selectedClientIds,
   onSuccess
 }: BulkStatusModalProps) {
-  const [status, setStatus] = useState<string>("");
+  const [selectedOptionId, setSelectedOptionId] = useState<string>("");
   const { toast } = useToast();
 
   // Fetch system options for statuses
@@ -41,6 +41,8 @@ export default function BulkStatusModal({
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
+      const selectedOption = statusOptions.find((s: any) => s.id.toString() === selectedOptionId);
+      const status = selectedOption?.optionValue || "";
       const response = await apiRequest("/api/clients/bulk-update-status", "POST", { 
         clientIds: selectedClientIds, 
         status 
@@ -49,7 +51,8 @@ export default function BulkStatusModal({
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      const selectedStatusLabel = statusOptions.find((s: any) => s.optionValue === status)?.optionLabel || status;
+      const selectedOption = statusOptions.find((s: any) => s.id.toString() === selectedOptionId);
+      const selectedStatusLabel = selectedOption?.optionLabel || "selected status";
       toast({
         title: "Status Updated",
         description: `Successfully updated ${data.successful} client(s) to "${selectedStatusLabel}" status.`
@@ -67,7 +70,7 @@ export default function BulkStatusModal({
   });
 
   const handleSubmit = () => {
-    if (!status) {
+    if (!selectedOptionId) {
       toast({
         title: "Selection Required",
         description: "Please select a status before proceeding",
@@ -77,8 +80,6 @@ export default function BulkStatusModal({
     }
     bulkUpdateMutation.mutate();
   };
-
-  const selectedOption = statusOptions.find((s: any) => s.optionValue === status);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,14 +101,14 @@ export default function BulkStatusModal({
 
           <div className="space-y-3">
             <label className="text-sm font-medium">New Status (select one)</label>
-            <RadioGroup value={status} onValueChange={setStatus}>
+            <RadioGroup value={selectedOptionId} onValueChange={setSelectedOptionId}>
               <div className="space-y-2">
                 {statusOptions.map((option: any) => (
                   <div key={option.id} className="flex items-center space-x-2">
                     <RadioGroupItem 
-                      value={option.optionValue} 
+                      value={option.id.toString()} 
                       id={`status-${option.id}`}
-                      data-testid={`radio-status-${option.optionValue}`}
+                      data-testid={`radio-status-${option.id}`}
                     />
                     <Label 
                       htmlFor={`status-${option.id}`} 
@@ -133,7 +134,7 @@ export default function BulkStatusModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={bulkUpdateMutation.isPending || !status}
+            disabled={bulkUpdateMutation.isPending || !selectedOptionId}
             data-testid="button-confirm-status"
           >
             {bulkUpdateMutation.isPending ? (

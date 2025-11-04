@@ -22,7 +22,7 @@ export default function BulkStageModal({
   selectedClientIds,
   onSuccess
 }: BulkStageModalProps) {
-  const [stage, setStage] = useState<string>("");
+  const [selectedOptionId, setSelectedOptionId] = useState<string>("");
   const { toast } = useToast();
 
   // Fetch system options for stages
@@ -41,6 +41,8 @@ export default function BulkStageModal({
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
+      const selectedOption = stageOptions.find((s: any) => s.id.toString() === selectedOptionId);
+      const stage = selectedOption?.optionValue || "";
       const response = await apiRequest("/api/clients/bulk-update-stage", "POST", { 
         clientIds: selectedClientIds, 
         stage 
@@ -49,7 +51,8 @@ export default function BulkStageModal({
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      const selectedStageLabel = stageOptions.find((s: any) => s.optionValue === stage)?.optionLabel || stage;
+      const selectedOption = stageOptions.find((s: any) => s.id.toString() === selectedOptionId);
+      const selectedStageLabel = selectedOption?.optionLabel || "selected stage";
       toast({
         title: "Stage Updated",
         description: `Successfully updated ${data.successful} client(s) to "${selectedStageLabel}" stage.`
@@ -67,7 +70,7 @@ export default function BulkStageModal({
   });
 
   const handleSubmit = () => {
-    if (!stage) {
+    if (!selectedOptionId) {
       toast({
         title: "Selection Required",
         description: "Please select a stage before proceeding",
@@ -98,14 +101,14 @@ export default function BulkStageModal({
 
           <div className="space-y-3">
             <label className="text-sm font-medium">New Stage (select one)</label>
-            <RadioGroup value={stage} onValueChange={setStage}>
+            <RadioGroup value={selectedOptionId} onValueChange={setSelectedOptionId}>
               <div className="space-y-2">
                 {stageOptions.map((option: any) => (
                   <div key={option.id} className="flex items-center space-x-2">
                     <RadioGroupItem 
-                      value={option.optionValue} 
+                      value={option.id.toString()} 
                       id={`stage-${option.id}`}
-                      data-testid={`radio-stage-${option.optionValue}`}
+                      data-testid={`radio-stage-${option.id}`}
                     />
                     <Label 
                       htmlFor={`stage-${option.id}`} 
@@ -131,7 +134,7 @@ export default function BulkStageModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={bulkUpdateMutation.isPending || !stage}
+            disabled={bulkUpdateMutation.isPending || !selectedOptionId}
             data-testid="button-confirm-stage"
           >
             {bulkUpdateMutation.isPending ? (
