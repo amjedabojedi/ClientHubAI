@@ -172,6 +172,36 @@ export default function BulkReassignModal({
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : distribution === "single" ? (
+              <RadioGroup 
+                value={selectedTherapists[0]?.toString() || ""} 
+                onValueChange={(value) => handleTherapistToggle(parseInt(value))}
+              >
+                <div className="space-y-2 border rounded-md p-3 max-h-[200px] overflow-y-auto">
+                  {therapistsWithCounts.map((therapist) => (
+                    <div
+                      key={therapist.id}
+                      className="flex items-center justify-between p-2 hover:bg-accent rounded-md"
+                      data-testid={`therapist-option-${therapist.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <RadioGroupItem
+                          value={therapist.id.toString()}
+                          id={`therapist-${therapist.id}`}
+                        />
+                        <Label htmlFor={`therapist-${therapist.id}`} className="cursor-pointer">
+                          <div className="font-medium">{therapist.fullName}</div>
+                          <div className="text-xs text-muted-foreground">@{therapist.username}</div>
+                        </Label>
+                      </div>
+                      <Badge variant="secondary" className="gap-1">
+                        <Users className="h-3 w-3" />
+                        {therapist.clientCount} clients
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </RadioGroup>
             ) : (
               <div className="space-y-2 border rounded-md p-3 max-h-[200px] overflow-y-auto">
                 {therapistsWithCounts.map((therapist) => (
@@ -182,21 +212,12 @@ export default function BulkReassignModal({
                     data-testid={`therapist-option-${therapist.id}`}
                   >
                     <div className="flex items-center gap-3">
-                      {distribution === "single" ? (
-                        <RadioGroupItem
-                          value={therapist.id.toString()}
-                          id={`therapist-${therapist.id}`}
-                          checked={selectedTherapists.includes(therapist.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <Checkbox
-                          id={`therapist-${therapist.id}`}
-                          checked={selectedTherapists.includes(therapist.id)}
-                          onCheckedChange={() => handleTherapistToggle(therapist.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      )}
+                      <Checkbox
+                        id={`therapist-${therapist.id}`}
+                        checked={selectedTherapists.includes(therapist.id)}
+                        onCheckedChange={() => handleTherapistToggle(therapist.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
                       <Label htmlFor={`therapist-${therapist.id}`} className="cursor-pointer">
                         <div className="font-medium">{therapist.fullName}</div>
                         <div className="text-xs text-muted-foreground">@{therapist.username}</div>
