@@ -42,7 +42,7 @@ export default function BulkStatusModal({
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
       const selectedOption = statusOptions.find((s: any) => s.id.toString() === selectedOptionId);
-      const status = selectedOption?.optionValue || "";
+      const status = selectedOption?.optionKey || "";
       const response = await apiRequest("/api/clients/bulk-update-status", "POST", { 
         clientIds: selectedClientIds, 
         status 

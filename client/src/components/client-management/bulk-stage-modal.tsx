@@ -42,7 +42,7 @@ export default function BulkStageModal({
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
       const selectedOption = stageOptions.find((s: any) => s.id.toString() === selectedOptionId);
-      const stage = selectedOption?.optionValue || "";
+      const stage = selectedOption?.optionKey || "";
       const response = await apiRequest("/api/clients/bulk-update-stage", "POST", { 
         clientIds: selectedClientIds, 
         stage 
