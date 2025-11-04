@@ -60,6 +60,29 @@ The codebase is a monorepo:
 ### Client Lifecycle Management
 Tracks clients through stages (intake, assessment, active_therapy, maintenance, discharged) and statuses (active, inactive, pending). Includes comprehensive profiles, onboarding checklists, and portal access. Features multi-level duplicate detection with AI-powered recommendations for merging records, and an "unmark" functionality.
 
+**Bulk Client Management (Added November 2025):**
+Comprehensive bulk operations system for mass client updates with role-based access control.
+
+**Permission Model:**
+- **Admin:** Full access to all bulk operations across all clients
+- **Supervisor:** Access to bulk operations for clients assigned to supervised therapists only (no portal access changes)
+- **Therapist:** No access to bulk operations (checkboxes hidden, actions disabled)
+
+**Bulk Operations:**
+1. **Stage Changes:** Update lifecycle stage for multiple clients simultaneously
+2. **Therapist Reassignment:** Reassign clients to one or multiple therapists with smart workload distribution
+3. **Portal Access Toggle:** Enable/disable client portal access (admin only, requires email validation)
+4. **Status Updates:** Change client status (active/inactive/pending) in bulk
+
+**Key Features:**
+- Filter-based client selection with select-all support
+- Database-driven options from `system_options` table (not hardcoded)
+- Smart workload distribution algorithm for balanced therapist assignment
+- Comprehensive audit logging for all bulk operations
+- Detailed success/skip/error reporting with user-friendly toast notifications
+- Input validation prevents empty submissions
+- Scope enforcement ensures supervisors only affect their team
+
 ### Clinical Documentation
 **Session Management:** `sessions` table links clients, therapists, services, rooms; auto-billing on completion.
 **Session Notes:** `session_notes` table for AI-generated drafts, progress tracking, goal documentation.
