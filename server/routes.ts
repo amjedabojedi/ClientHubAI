@@ -2155,8 +2155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Sort therapists by current workload
         const therapistWorkloads = await Promise.all(
           therapistIds.map(async (id) => {
-            const clients = await storage.getClientsByFilters({ therapistId: id });
-            return { therapistId: id, currentCount: clients.length };
+            const result = await storage.getClients({ therapistId: id, pageSize: 9999 });
+            return { therapistId: id, currentCount: result.total };
           })
         );
         therapistWorkloads.sort((a, b) => a.currentCount - b.currentCount);
