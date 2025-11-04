@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -95,20 +96,27 @@ export default function BulkStageModal({
             </AlertDescription>
           </Alert>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">New Stage</label>
-            <Select value={stage} onValueChange={setStage}>
-              <SelectTrigger data-testid="select-stage">
-                <SelectValue placeholder="Select stage" />
-              </SelectTrigger>
-              <SelectContent>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">New Stage (select one)</label>
+            <RadioGroup value={stage} onValueChange={setStage}>
+              <div className="space-y-2">
                 {stageOptions.map((option: any) => (
-                  <SelectItem key={option.id} value={option.optionValue}>
-                    {option.optionLabel}
-                  </SelectItem>
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <RadioGroupItem 
+                      value={option.optionValue} 
+                      id={`stage-${option.id}`}
+                      data-testid={`radio-stage-${option.optionValue}`}
+                    />
+                    <Label 
+                      htmlFor={`stage-${option.id}`} 
+                      className="cursor-pointer font-normal"
+                    >
+                      {option.optionLabel}
+                    </Label>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </RadioGroup>
           </div>
         </div>
 
