@@ -2000,6 +2000,394 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk update stage endpoint
+  app.post("/api/clients/bulk-update-stage", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only admin and supervisor can perform bulk updates
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied. Only administrators and supervisors can perform bulk updates." });
+      }
+
+      const { clientIds, stage } = req.body;
+
+      if (!Array.isArray(clientIds) || clientIds.length === 0) {
+        return res.status(400).json({ message: "Invalid input: clientIds must be a non-empty array" });
+      }
+
+      if (!['intake', 'assessment', 'psychotherapy', 'maintenance', 'discharged'].includes(stage)) {
+        return res.status(400).json({ message: "Invalid stage value" });
+      }
+
+      // For supervisors, verify they can only update clients assigned to their supervised therapists
+      if (req.user.role === 'supervisor') {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+
+        if (supervisedTherapistIds.length === 0) {
+          return res.status(403).json({ message: "You have no supervised therapists" });
+        }
+
+        // Get all clients and verify they belong to supervised therapists
+        const clients = await Promise.all(clientIds.map(id => storage.getClient(id)));
+        const unauthorizedClients = clients.filter(c => 
+          c && c.assignedTherapistId && !supervisedTherapistIds.includes(c.assignedTherapistId)
+        );
+
+        if (unauthorizedClients.length > 0) {
+          return res.status(403).json({ 
+            message: "You can only update clients assigned to therapists you supervise",
+            unauthorizedClientIds: unauthorizedClients.map(c => c?.id)
+          });
+        }
+      }
+
+      const results = {
+        total: clientIds.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as any[]
+      };
+
+      for (const clientId of clientIds) {
+        try {
+          await storage.updateClient(clientId, { stage });
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            clientId,
+            message: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      // Audit log
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'bulk_update_stage',
+        resourceType: 'client',
+        resourceId: null,
+        details: `Updated stage to "${stage}" for ${results.successful} clients`,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Bulk stage update failed", 
+        details: error.message || "Internal server error" 
+      });
+    }
+  });
+
+  // Bulk reassign therapist endpoint
+  app.post("/api/clients/bulk-reassign-therapist", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only admin and supervisor can perform bulk reassignment
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied. Only administrators and supervisors can perform bulk updates." });
+      }
+
+      const { clientIds, therapistIds, distribution } = req.body;
+
+      if (!Array.isArray(clientIds) || clientIds.length === 0) {
+        return res.status(400).json({ message: "Invalid input: clientIds must be a non-empty array" });
+      }
+
+      if (!Array.isArray(therapistIds) || therapistIds.length === 0) {
+        return res.status(400).json({ message: "Invalid input: therapistIds must be a non-empty array" });
+      }
+
+      // For supervisors, verify scope
+      if (req.user.role === 'supervisor') {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+
+        if (supervisedTherapistIds.length === 0) {
+          return res.status(403).json({ message: "You have no supervised therapists" });
+        }
+
+        // Verify all target therapists are supervised by this supervisor
+        const unauthorizedTherapists = therapistIds.filter(id => !supervisedTherapistIds.includes(id));
+        if (unauthorizedTherapists.length > 0) {
+          return res.status(403).json({ 
+            message: "You can only reassign to therapists you supervise",
+            unauthorizedTherapistIds: unauthorizedTherapists
+          });
+        }
+
+        // Verify all clients belong to supervised therapists
+        const clients = await Promise.all(clientIds.map(id => storage.getClient(id)));
+        const unauthorizedClients = clients.filter(c => 
+          c && c.assignedTherapistId && !supervisedTherapistIds.includes(c.assignedTherapistId)
+        );
+
+        if (unauthorizedClients.length > 0) {
+          return res.status(403).json({ 
+            message: "You can only reassign clients assigned to therapists you supervise",
+            unauthorizedClientIds: unauthorizedClients.map(c => c?.id)
+          });
+        }
+      }
+
+      const results = {
+        total: clientIds.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as any[],
+        distribution: {} as Record<number, number>
+      };
+
+      // Initialize distribution counter
+      therapistIds.forEach(id => results.distribution[id] = 0);
+
+      // Distribute clients evenly or to single therapist
+      if (distribution === 'even') {
+        // Sort therapists by current workload
+        const therapistWorkloads = await Promise.all(
+          therapistIds.map(async (id) => {
+            const clients = await storage.getClientsByFilters({ therapistId: id });
+            return { therapistId: id, currentCount: clients.length };
+          })
+        );
+        therapistWorkloads.sort((a, b) => a.currentCount - b.currentCount);
+
+        let therapistIndex = 0;
+        for (const clientId of clientIds) {
+          try {
+            const therapistId = therapistWorkloads[therapistIndex].therapistId;
+            await storage.updateClient(clientId, { assignedTherapistId: therapistId });
+            results.successful++;
+            results.distribution[therapistId]++;
+            therapistWorkloads[therapistIndex].currentCount++;
+            
+            // Re-sort to keep balanced
+            therapistWorkloads.sort((a, b) => a.currentCount - b.currentCount);
+            therapistIndex = 0; // Always assign to therapist with lowest count
+          } catch (error) {
+            results.failed++;
+            results.errors.push({
+              clientId,
+              message: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      } else {
+        // Assign all to single therapist (first in array)
+        const therapistId = therapistIds[0];
+        for (const clientId of clientIds) {
+          try {
+            await storage.updateClient(clientId, { assignedTherapistId: therapistId });
+            results.successful++;
+            results.distribution[therapistId]++;
+          } catch (error) {
+            results.failed++;
+            results.errors.push({
+              clientId,
+              message: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      }
+
+      // Audit log
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'bulk_reassign_therapist',
+        resourceType: 'client',
+        resourceId: null,
+        details: `Reassigned ${results.successful} clients to ${therapistIds.length} therapist(s)`,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Bulk therapist reassignment failed", 
+        details: error.message || "Internal server error" 
+      });
+    }
+  });
+
+  // Bulk portal access toggle endpoint
+  app.post("/api/clients/bulk-portal-access", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only admin can modify portal access (security concern)
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator') {
+        return res.status(403).json({ message: "Access denied. Only administrators can modify portal access." });
+      }
+
+      const { clientIds, enable } = req.body;
+
+      if (!Array.isArray(clientIds) || clientIds.length === 0) {
+        return res.status(400).json({ message: "Invalid input: clientIds must be a non-empty array" });
+      }
+
+      if (typeof enable !== 'boolean') {
+        return res.status(400).json({ message: "Invalid input: enable must be a boolean" });
+      }
+
+      const results = {
+        total: clientIds.length,
+        successful: 0,
+        failed: 0,
+        skipped: 0,
+        errors: [] as any[]
+      };
+
+      for (const clientId of clientIds) {
+        try {
+          const client = await storage.getClient(clientId);
+          
+          if (!client) {
+            results.failed++;
+            results.errors.push({
+              clientId,
+              message: 'Client not found'
+            });
+            continue;
+          }
+
+          // Skip if enabling portal but no email
+          if (enable && !client.email) {
+            results.skipped++;
+            results.errors.push({
+              clientId,
+              message: 'Skipped: No email address'
+            });
+            continue;
+          }
+
+          await storage.updateClient(clientId, { hasPortalAccess: enable });
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            clientId,
+            message: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      // Audit log
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'bulk_portal_access',
+        resourceType: 'client',
+        resourceId: null,
+        details: `${enable ? 'Enabled' : 'Disabled'} portal access for ${results.successful} clients`,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Bulk portal access update failed", 
+        details: error.message || "Internal server error" 
+      });
+    }
+  });
+
+  // Bulk status update endpoint
+  app.post("/api/clients/bulk-update-status", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only admin and supervisor can perform bulk updates
+      if (req.user.role !== 'admin' && req.user.role !== 'administrator' && req.user.role !== 'supervisor') {
+        return res.status(403).json({ message: "Access denied. Only administrators and supervisors can perform bulk updates." });
+      }
+
+      const { clientIds, status } = req.body;
+
+      if (!Array.isArray(clientIds) || clientIds.length === 0) {
+        return res.status(400).json({ message: "Invalid input: clientIds must be a non-empty array" });
+      }
+
+      if (!['active', 'inactive', 'pending', 'discharged'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+
+      // For supervisors, verify scope
+      if (req.user.role === 'supervisor') {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+
+        if (supervisedTherapistIds.length === 0) {
+          return res.status(403).json({ message: "You have no supervised therapists" });
+        }
+
+        // Verify all clients belong to supervised therapists
+        const clients = await Promise.all(clientIds.map(id => storage.getClient(id)));
+        const unauthorizedClients = clients.filter(c => 
+          c && c.assignedTherapistId && !supervisedTherapistIds.includes(c.assignedTherapistId)
+        );
+
+        if (unauthorizedClients.length > 0) {
+          return res.status(403).json({ 
+            message: "You can only update clients assigned to therapists you supervise",
+            unauthorizedClientIds: unauthorizedClients.map(c => c?.id)
+          });
+        }
+      }
+
+      const results = {
+        total: clientIds.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as any[]
+      };
+
+      for (const clientId of clientIds) {
+        try {
+          await storage.updateClient(clientId, { status });
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            clientId,
+            message: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
+      }
+
+      // Audit log
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'bulk_update_status',
+        resourceType: 'client',
+        resourceId: null,
+        details: `Updated status to "${status}" for ${results.successful} clients`,
+        ipAddress: req.ip || '',
+        userAgent: req.get('user-agent') || ''
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ 
+        message: "Bulk status update failed", 
+        details: error.message || "Internal server error" 
+      });
+    }
+  });
+
   // Sessions routes with pagination and filtering - SECURE: Uses authenticated user context
   app.get("/api/sessions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
