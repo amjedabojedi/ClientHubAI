@@ -40,12 +40,13 @@ export default function BulkStageModal({
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/clients/bulk-update-stage", {
-        method: "POST",
-        body: JSON.stringify({ clientIds: selectedClientIds, stage })
+      const response = await apiRequest("/api/clients/bulk-update-stage", "POST", { 
+        clientIds: selectedClientIds, 
+        stage 
       });
+      return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       const selectedStageLabel = stageOptions.find((s: any) => s.optionValue === stage)?.optionLabel || stage;
       toast({
@@ -65,6 +66,14 @@ export default function BulkStageModal({
   });
 
   const handleSubmit = () => {
+    if (!stage) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a stage before proceeding",
+        variant: "destructive"
+      });
+      return;
+    }
     bulkUpdateMutation.mutate();
   };
 
@@ -114,7 +123,7 @@ export default function BulkStageModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={bulkUpdateMutation.isPending}
+            disabled={bulkUpdateMutation.isPending || !stage}
             data-testid="button-confirm-stage"
           >
             {bulkUpdateMutation.isPending ? (

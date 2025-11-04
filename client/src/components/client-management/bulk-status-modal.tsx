@@ -40,12 +40,13 @@ export default function BulkStatusModal({
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/clients/bulk-update-status", {
-        method: "POST",
-        body: JSON.stringify({ clientIds: selectedClientIds, status })
+      const response = await apiRequest("/api/clients/bulk-update-status", "POST", { 
+        clientIds: selectedClientIds, 
+        status 
       });
+      return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       const selectedStatusLabel = statusOptions.find((s: any) => s.optionValue === status)?.optionLabel || status;
       toast({
@@ -65,6 +66,14 @@ export default function BulkStatusModal({
   });
 
   const handleSubmit = () => {
+    if (!status) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a status before proceeding",
+        variant: "destructive"
+      });
+      return;
+    }
     bulkUpdateMutation.mutate();
   };
 
@@ -122,7 +131,7 @@ export default function BulkStatusModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={bulkUpdateMutation.isPending}
+            disabled={bulkUpdateMutation.isPending || !status}
             data-testid="button-confirm-status"
           >
             {bulkUpdateMutation.isPending ? (

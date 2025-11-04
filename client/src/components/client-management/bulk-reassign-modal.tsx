@@ -43,7 +43,7 @@ export default function BulkReassignModal({
   });
 
   // Fetch client counts for each therapist
-  const { data: clientStats } = useQuery({
+  const { data: clientStats } = useQuery<any>({
     queryKey: ["/api/clients/stats"],
     enabled: open && therapists.length > 0
   });
@@ -56,16 +56,14 @@ export default function BulkReassignModal({
 
   const bulkReassignMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/clients/bulk-reassign-therapist", {
-        method: "POST",
-        body: JSON.stringify({ 
-          clientIds: selectedClientIds, 
-          therapistIds: selectedTherapists,
-          distribution 
-        })
+      const response = await apiRequest("/api/clients/bulk-reassign-therapist", "POST", { 
+        clientIds: selectedClientIds, 
+        therapistIds: selectedTherapists,
+        distribution 
       });
+      return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients/stats"] });
       

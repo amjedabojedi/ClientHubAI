@@ -27,12 +27,13 @@ export default function BulkPortalModal({
 
   const bulkPortalMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/clients/bulk-portal-access", {
-        method: "POST",
-        body: JSON.stringify({ clientIds: selectedClientIds, enable })
+      const response = await apiRequest("/api/clients/bulk-portal-access", "POST", { 
+        clientIds: selectedClientIds, 
+        enable 
       });
+      return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       
       const skippedMessage = data.skipped > 0 
