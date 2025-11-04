@@ -102,11 +102,6 @@
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
   }
-
-  /* Fix RadioGroup indicator to only show when checked */
-  button[role="radio"][data-state="unchecked"] span[data-radix-radio-indicator] {
-    display: none !important;
-  }
 }
 
 /* Custom component styles for healthcare theme */
