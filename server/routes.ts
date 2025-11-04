@@ -2066,7 +2066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Audit log
-      await storage.createAuditLog({
+      await storage.logUserActivity({
         userId: req.user.id,
         action: 'bulk_update_stage',
         resourceType: 'client',
@@ -2200,7 +2200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Audit log
-      await storage.createAuditLog({
+      await storage.logUserActivity({
         userId: req.user.id,
         action: 'bulk_reassign_therapist',
         resourceType: 'client',
@@ -2212,6 +2212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(results);
     } catch (error: any) {
+      console.error('[Bulk Reassign Error]', error);
       res.status(500).json({ 
         message: "Bulk therapist reassignment failed", 
         details: error.message || "Internal server error" 
@@ -2284,7 +2285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Audit log
-      await storage.createAuditLog({
+      await storage.logUserActivity({
         userId: req.user.id,
         action: 'bulk_portal_access',
         resourceType: 'client',
@@ -2369,7 +2370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Audit log
-      await storage.createAuditLog({
+      await storage.logUserActivity({
         userId: req.user.id,
         action: 'bulk_update_status',
         resourceType: 'client',
