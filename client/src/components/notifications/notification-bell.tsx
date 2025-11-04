@@ -27,7 +27,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
   const userId = user?.id;
 
   const { data: unreadData, isLoading: countLoading, error: countError, refetch: refetchCount } = useQuery({
-    queryKey: ["/api/notifications/unread-count"],
+    queryKey: ["/api/notifications/unread-count", userId],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!user && !!userId,
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -36,7 +36,7 @@ export default function NotificationBell({ className }: NotificationBellProps) {
 
   // Get notifications when dropdown is opened
   const { data: notificationsData, isLoading: notificationsLoading, error: notificationsError, refetch: refetchNotifications } = useQuery({
-    queryKey: ["/api/notifications", { limit: 20 }],
+    queryKey: ["/api/notifications", userId, { limit: 20 }],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: isOpen && !!user && !!userId, // Only fetch when dropdown is open and user is authenticated
     retry: (failureCount, error: any) => {

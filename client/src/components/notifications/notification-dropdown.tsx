@@ -69,6 +69,7 @@ export default function NotificationDropdown({
     mutationFn: (notificationId: number) => 
       apiRequest(`/api/notifications/${notificationId}/read`, "PUT"),
     onSuccess: () => {
+      // Invalidate all notification queries for this user
       queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", userId] });
     },
