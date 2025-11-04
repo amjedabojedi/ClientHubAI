@@ -1,0 +1,131 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+interface BulkStageModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedClientIds: number[];
+  onSuccess: () => void;
+}
+
+type Stage = "intake" | "assessment" | "psychotherapy" | "maintenance" | "discharged";
+
+const stageOptions = [
+  { value: "intake", label: "Intake" },
+  { value: "assessment", label: "Assessment" },
+  { value: "psychotherapy", label: "Psychotherapy" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "discharged", label: "Discharged" }
+];
+
+export default function BulkStageModal({
+  open,
+  onOpenChange,
+  selectedClientIds,
+  onSuccess
+}: BulkStageModalProps) {
+  const [stage, setStage] = useState<Stage>("psychotherapy");
+  const { toast } = useToast();
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/clients/bulk-update-stage", {
+        method: "POST",
+        body: JSON.stringify({ clientIds: selectedClientIds, stage })
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      toast({
+        title: "Stage Updated",
+        description: `Successfully updated ${data.successful} client(s) to "${stageOptions.find(s => s.value === stage)?.label}" stage.`
+      });
+      onSuccess();
+      onOpenChange(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update client stages",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleSubmit = () => {
+    bulkUpdateMutation.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]" data-testid="modal-bulk-stage">
+        <DialogHeader>
+          <DialogTitle>Change Stage for Multiple Clients</DialogTitle>
+          <DialogDescription>
+            Update the therapy stage for {selectedClientIds.length} selected client{selectedClientIds.length !== 1 ? 's' : ''}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              This will change the stage for all {selectedClientIds.length} selected clients. This action cannot be undone.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">New Stage</label>
+            <Select value={stage} onValueChange={(value) => setStage(value as Stage)}>
+              <SelectTrigger data-testid="select-stage">
+                <SelectValue placeholder="Select stage" />
+              </SelectTrigger>
+              <SelectContent>
+                {stageOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={bulkUpdateMutation.isPending}
+            data-testid="button-cancel"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={bulkUpdateMutation.isPending}
+            data-testid="button-confirm-stage"
+          >
+            {bulkUpdateMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Update {selectedClientIds.length} Client{selectedClientIds.length !== 1 ? 's' : ''}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

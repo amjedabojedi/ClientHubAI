@@ -14,6 +14,11 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/hooks/useAuth";
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import { format } from "date-fns";
+import BulkActionsBar from "./bulk-actions-bar";
+import BulkStageModal from "./bulk-stage-modal";
+import BulkReassignModal from "./bulk-reassign-modal";
+import BulkPortalModal from "./bulk-portal-modal";
+import BulkStatusModal from "./bulk-status-modal";
 
 interface ClientDataGridProps {
   activeTab: string;
@@ -56,6 +61,12 @@ export default function ClientDataGrid({
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedClients, setSelectedClients] = useState<number[]>([]);
+  
+  // Bulk action modals
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [showPortalModal, setShowPortalModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -126,6 +137,17 @@ export default function ClientDataGrid({
     }
   };
 
+  const handleClearSelection = () => {
+    setSelectedClients([]);
+  };
+
+  const handleBulkActionSuccess = () => {
+    setSelectedClients([]);
+  };
+
+  // Check if user can perform bulk actions (admin or supervisor only)
+  const canBulkEdit = user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'supervisor';
+
   const getStageBadge = (stage: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       intake: "outline",
@@ -188,12 +210,15 @@ export default function ClientDataGrid({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox 
-                    checked={selectedClients.length === data?.clients?.length && data?.clients?.length > 0}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
+                {canBulkEdit && (
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={selectedClients.length === data?.clients?.length && data?.clients?.length > 0}
+                      onCheckedChange={handleSelectAll}
+                      data-testid="checkbox-select-all"
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="cursor-pointer hover:bg-slate-50" onClick={() => handleSort("name")}>
                   <div className="flex items-center space-x-1">
                     <span>Client Name</span>
@@ -241,12 +266,15 @@ export default function ClientDataGrid({
               ) : (
                 data?.clients?.map((client: any) => (
                   <TableRow key={client.id} className="hover:bg-slate-50">
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedClients.includes(client.id)}
-                        onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
-                      />
-                    </TableCell>
+                    {canBulkEdit && (
+                      <TableCell>
+                        <Checkbox 
+                          checked={selectedClients.includes(client.id)}
+                          onCheckedChange={(checked) => handleSelectClient(client.id, checked as boolean)}
+                          data-testid={`checkbox-client-${client.id}`}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
@@ -475,6 +503,45 @@ export default function ClientDataGrid({
           onPageSizeChange={setPageSize}
         />
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedCount={selectedClients.length}
+        onClearSelection={handleClearSelection}
+        onChangeStage={() => setShowStageModal(true)}
+        onReassignTherapist={() => setShowReassignModal(true)}
+        onTogglePortalAccess={() => setShowPortalModal(true)}
+        onUpdateStatus={() => setShowStatusModal(true)}
+      />
+
+      {/* Bulk Action Modals */}
+      <BulkStageModal
+        open={showStageModal}
+        onOpenChange={setShowStageModal}
+        selectedClientIds={selectedClients}
+        onSuccess={handleBulkActionSuccess}
+      />
+
+      <BulkReassignModal
+        open={showReassignModal}
+        onOpenChange={setShowReassignModal}
+        selectedClientIds={selectedClients}
+        onSuccess={handleBulkActionSuccess}
+      />
+
+      <BulkPortalModal
+        open={showPortalModal}
+        onOpenChange={setShowPortalModal}
+        selectedClientIds={selectedClients}
+        onSuccess={handleBulkActionSuccess}
+      />
+
+      <BulkStatusModal
+        open={showStatusModal}
+        onOpenChange={setShowStatusModal}
+        selectedClientIds={selectedClients}
+        onSuccess={handleBulkActionSuccess}
+      />
     </div>
   );
 }
