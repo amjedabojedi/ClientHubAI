@@ -6,7 +6,7 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
-const THERAPYFLOW_CONTEXT = `
+const SMARTHUB_CONTEXT = `
 You are the SmartHub Navigation Assistant. Your ONLY job is to help users navigate and use SmartHub.
 
 ## YOUR PURPOSE
@@ -170,8 +170,8 @@ export async function getAIResponse(
 ): Promise<string> {
   try {
     const systemPrompt = userRole === "client" 
-      ? `${THERAPYFLOW_CONTEXT}\n\nYou are currently helping a CLIENT use the SmartHub Client Portal. Focus on client-facing features like viewing appointments, uploading documents, and navigating the portal. Keep responses simple and non-technical.`
-      : `${THERAPYFLOW_CONTEXT}\n\nYou are currently helping a THERAPIST/CLINICIAN use SmartHub. You can discuss all features including client management, scheduling, documentation, and administrative tasks.`;
+      ? `${SMARTHUB_CONTEXT}\n\nYou are currently helping a CLIENT use the SmartHub Client Portal. Focus on client-facing features like viewing appointments, uploading documents, and navigating the portal. Keep responses simple and non-technical.`
+      : `${SMARTHUB_CONTEXT}\n\nYou are currently helping a THERAPIST/CLINICIAN use SmartHub. You can discuss all features including client management, scheduling, documentation, and administrative tasks.`;
 
     const messages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
