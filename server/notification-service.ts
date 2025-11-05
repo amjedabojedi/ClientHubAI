@@ -10,7 +10,6 @@ import {
   clients,
   supervisorAssignments,
   sessions,
-  practiceConfiguration,
 } from "@shared/schema";
 import SparkPost from "sparkpost";
 import { format, toZonedTime } from "date-fns-tz";
@@ -803,7 +802,7 @@ export class NotificationService {
             : trigger.name;
           let body = template
             ? this.renderTemplate(template.bodyTemplate, entityData)
-            : await this.generatePurposeSpecificEmailBody(
+            : this.generatePurposeSpecificEmailBody(
                 trigger.eventType,
                 entityData,
                 recipient,
@@ -878,20 +877,20 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   /**
    * Generates purpose-specific email body based on trigger type and recipient
    */
-  private async generatePurposeSpecificEmailBody(
+  private generatePurposeSpecificEmailBody(
     eventType: string,
     entityData: any,
     recipient: any,
-  ): Promise<string> {
+  ): string {
     const isClient =
       recipient.role === "client" || recipient.id === entityData.clientId;
 
     switch (eventType) {
       case "session_scheduled":
-        return await this.generateSessionEmailBody(entityData, recipient, isClient);
+        return this.generateSessionEmailBody(entityData, recipient, isClient);
 
       case "session_rescheduled":
-        return await this.generateSessionRescheduledEmailBody(
+        return this.generateSessionRescheduledEmailBody(
           entityData,
           recipient,
           isClient,
@@ -966,19 +965,15 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   /**
    * Generates session-specific email content
    */
-  private async generateSessionEmailBody(
+  private generateSessionEmailBody(
     entityData: any,
     recipient: any,
     isClient: boolean,
-  ): Promise<string> {
+  ): string {
     const sessionDate = this.formatDateEST(entityData.sessionDate);
 
     // Check if Zoom is enabled and has meeting details
     const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
-
-    // Fetch practice configuration for clinic address
-    const practiceConfig = await db.select().from(practiceConfiguration).limit(1);
-    const practice = practiceConfig[0];
 
     if (isClient) {
       let emailBody = `
@@ -1018,17 +1013,6 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
       }
 
-      // Add clinic address for in-person sessions only
-      if (!hasZoomDetails && practice) {
-        emailBody += `
-
-🏢 CLINIC ADDRESS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-${practice.practiceName}
-${practice.practiceAddress}
-Phone: ${practice.practicePhone}`;
-      }
-
       emailBody += `
 
 📋 IMPORTANT REMINDERS:`;
@@ -1046,11 +1030,6 @@ We look forward to seeing you at your appointment.
 
 Best regards,
 SmartHub Team`;
-      
-      if (practice?.practiceWebsite) {
-        emailBody += `
-Website: ${practice.practiceWebsite}`;
-      }
 
       return emailBody;
     } else {
@@ -1109,20 +1088,16 @@ SmartHub Team`;
   /**
    * Generates session rescheduled email content
    */
-  private async generateSessionRescheduledEmailBody(
+  private generateSessionRescheduledEmailBody(
     entityData: any,
     recipient: any,
     isClient: boolean,
-  ): Promise<string> {
+  ): string {
     const oldSessionDate = this.formatDateEST(entityData.oldSessionDate);
     const newSessionDate = this.formatDateEST(entityData.sessionDate);
 
     // Check if Zoom is enabled and has meeting details
     const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
-
-    // Fetch practice configuration for clinic address
-    const practiceConfig = await db.select().from(practiceConfiguration).limit(1);
-    const practice = practiceConfig[0];
 
     if (isClient) {
       let emailBody = `
@@ -1164,17 +1139,6 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
       }
 
-      // Add clinic address for in-person sessions only
-      if (!hasZoomDetails && practice) {
-        emailBody += `
-
-🏢 CLINIC ADDRESS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-${practice.practiceName}
-${practice.practiceAddress}
-Phone: ${practice.practicePhone}`;
-      }
-
       emailBody += `
 
 📋 IMPORTANT REMINDERS:`;
@@ -1192,11 +1156,6 @@ We look forward to seeing you at your rescheduled appointment.
 
 Best regards,
 SmartHub Team`;
-      
-      if (practice?.practiceWebsite) {
-        emailBody += `
-Website: ${practice.practiceWebsite}`;
-      }
 
       return emailBody;
     } else {
