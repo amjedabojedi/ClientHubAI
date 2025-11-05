@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { storage } from "./storage";
 import { eq, and, or, sql, desc, asc, inArray } from "drizzle-orm";
 import {
   notifications,
@@ -59,7 +60,53 @@ interface RecipientRules {
 
 // Main notification service class
 export class NotificationService {
+  // Cache for practice settings to avoid repeated DB queries
+  private practiceSettingsCache: any = null;
+
   // ===== CORE NOTIFICATION METHODS =====
+
+  /**
+   * Fetches practice settings from system options
+   */
+  private async getPracticeSettings(): Promise<any> {
+    // Return cached settings if available
+    if (this.practiceSettingsCache) {
+      return this.practiceSettingsCache;
+    }
+
+    // Default practice settings
+    let practiceSettings = {
+      name: 'Resilience Counseling Research & Consultation',
+      address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+      phone: '+1 (548)866-0366',
+      email: 'resiliencecrc@gmail.com',
+      website: 'www.resiliencec.com'
+    };
+    
+    try {
+      const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+      
+      // Update settings if found in database
+      const nameOpt = practiceOptions.find(o => o.optionKey === 'practice_name');
+      const addressOpt = practiceOptions.find(o => o.optionKey === 'practice_address');
+      const phoneOpt = practiceOptions.find(o => o.optionKey === 'practice_phone');
+      const emailOpt = practiceOptions.find(o => o.optionKey === 'practice_email');
+      const websiteOpt = practiceOptions.find(o => o.optionKey === 'practice_website');
+      
+      if (nameOpt) practiceSettings.name = nameOpt.optionLabel;
+      if (addressOpt) practiceSettings.address = addressOpt.optionLabel;
+      if (phoneOpt) practiceSettings.phone = phoneOpt.optionLabel;
+      if (emailOpt) practiceSettings.email = emailOpt.optionLabel;
+      if (websiteOpt) practiceSettings.website = websiteOpt.optionLabel;
+    } catch (error) {
+      // Use defaults if practice settings not found
+      console.log('[EMAIL] Using default practice settings');
+    }
+
+    // Cache the settings
+    this.practiceSettingsCache = practiceSettings;
+    return practiceSettings;
+  }
 
   /**
    * Creates a new notification for a user
@@ -802,7 +849,7 @@ export class NotificationService {
             : trigger.name;
           let body = template
             ? this.renderTemplate(template.bodyTemplate, entityData)
-            : this.generatePurposeSpecificEmailBody(
+            : await this.generatePurposeSpecificEmailBody(
                 trigger.eventType,
                 entityData,
                 recipient,
@@ -877,20 +924,20 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   /**
    * Generates purpose-specific email body based on trigger type and recipient
    */
-  private generatePurposeSpecificEmailBody(
+  private async generatePurposeSpecificEmailBody(
     eventType: string,
     entityData: any,
     recipient: any,
-  ): string {
+  ): Promise<string> {
     const isClient =
       recipient.role === "client" || recipient.id === entityData.clientId;
 
     switch (eventType) {
       case "session_scheduled":
-        return this.generateSessionEmailBody(entityData, recipient, isClient);
+        return await this.generateSessionEmailBody(entityData, recipient, isClient);
 
       case "session_rescheduled":
-        return this.generateSessionRescheduledEmailBody(
+        return await this.generateSessionRescheduledEmailBody(
           entityData,
           recipient,
           isClient,
@@ -965,15 +1012,18 @@ Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
   /**
    * Generates session-specific email content
    */
-  private generateSessionEmailBody(
+  private async generateSessionEmailBody(
     entityData: any,
     recipient: any,
     isClient: boolean,
-  ): string {
+  ): Promise<string> {
     const sessionDate = this.formatDateEST(entityData.sessionDate);
 
     // Check if Zoom is enabled and has meeting details
     const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
+    
+    // Get practice settings
+    const practice = await this.getPracticeSettings();
 
     if (isClient) {
       let emailBody = `
@@ -1011,6 +1061,15 @@ ${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ""}
 Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      } else {
+        // Add clinic address for in-person sessions only
+        emailBody += `
+
+🏢 CLINIC ADDRESS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+${practice.name}
+${practice.address}
+Phone: ${practice.phone}`;
       }
 
       emailBody += `
@@ -1088,16 +1147,19 @@ SmartHub Team`;
   /**
    * Generates session rescheduled email content
    */
-  private generateSessionRescheduledEmailBody(
+  private async generateSessionRescheduledEmailBody(
     entityData: any,
     recipient: any,
     isClient: boolean,
-  ): string {
+  ): Promise<string> {
     const oldSessionDate = this.formatDateEST(entityData.oldSessionDate);
     const newSessionDate = this.formatDateEST(entityData.sessionDate);
 
     // Check if Zoom is enabled and has meeting details
     const hasZoomDetails = entityData.zoomEnabled && entityData.zoomJoinUrl;
+    
+    // Get practice settings
+    const practice = await this.getPracticeSettings();
 
     if (isClient) {
       let emailBody = `
@@ -1137,6 +1199,15 @@ ${entityData.zoomPassword ? `• Password: ${entityData.zoomPassword}` : ""}
 Need help with Zoom? Visit: https://support.zoom.us/hc/en-us/articles/201362613
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      } else {
+        // Add clinic address for in-person sessions only
+        emailBody += `
+
+🏢 CLINIC ADDRESS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+${practice.name}
+${practice.address}
+Phone: ${practice.phone}`;
       }
 
       emailBody += `
