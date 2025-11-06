@@ -36,7 +36,8 @@ import {
   Printer,
   HelpCircle,
   ChevronDown,
-  TicketPercent
+  TicketPercent,
+  Percent
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -1179,7 +1180,21 @@ export default function BillingDashboard() {
                         }
                       </TableCell>
                       <TableCell>{therapist.fullName || 'N/A'}</TableCell>
-                      <TableCell>${Number(billing.totalAmount).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {billing.discountAmount && Number(billing.discountAmount) > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-green-700 dark:text-green-500 font-semibold">
+                              ${Math.max(Number(billing.totalAmount) - Number(billing.discountAmount), 0).toFixed(2)}
+                            </span>
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                              <Percent className="h-3 w-3 mr-0.5" />
+                              Discount
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span>${Number(billing.totalAmount).toFixed(2)}</span>
+                        )}
+                      </TableCell>
                       <TableCell>${Number(billing.paymentAmount || 0).toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge className={getStatusBadgeColor(billing.paymentStatus)}>
