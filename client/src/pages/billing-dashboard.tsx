@@ -101,14 +101,14 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | ''>('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'none'>('none');
   const [discountValue, setDiscountValue] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Calculate discount amount based on type and value
   const discountAmount = useMemo(() => {
-    if (!discountType || !discountValue || !billingRecord?.totalAmount) return 0;
+    if (discountType === 'none' || !discountValue || !billingRecord?.totalAmount) return 0;
     const value = parseFloat(discountValue);
     if (isNaN(value) || value <= 0) return 0;
     
@@ -127,7 +127,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       setPaymentReference('');
       setPaymentNotes('');
       // Load existing discount values if present
-      setDiscountType((billingRecord.discountType === 'percentage' || billingRecord.discountType === 'fixed' ? billingRecord.discountType : '') as '' | 'percentage' | 'fixed');
+      setDiscountType((billingRecord.discountType === 'percentage' || billingRecord.discountType === 'fixed' ? billingRecord.discountType : 'none') as 'none' | 'percentage' | 'fixed');
       setDiscountValue(billingRecord.discountValue?.toString() || '');
     }
   }, [isOpen, billingRecord]);
@@ -184,9 +184,9 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       date: new Date().toISOString().split('T')[0],
       clientId: clientId,
       // Only send discount fields if a discount type is selected
-      discountType: discountType || null,
-      discountValue: (discountType && discountValue) ? parseFloat(discountValue) : null,
-      discountAmount: (discountType && discountAmount > 0) ? discountAmount : null
+      discountType: discountType !== 'none' ? discountType : null,
+      discountValue: (discountType !== 'none' && discountValue) ? parseFloat(discountValue) : null,
+      discountAmount: (discountType !== 'none' && discountAmount > 0) ? discountAmount : null
     });
   };
 
@@ -227,7 +227,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
               <Select value={discountType} onValueChange={(value: any) => {
                 setDiscountType(value);
                 // Reset discount value when "No discount" is selected
-                if (!value) {
+                if (value === 'none') {
                   setDiscountValue('');
                 }
               }}>
@@ -235,7 +235,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                   <SelectValue placeholder="No discount" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No discount</SelectItem>
+                  <SelectItem value="none">No discount</SelectItem>
                   <SelectItem value="percentage">Percentage (%)</SelectItem>
                   <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
                 </SelectContent>
@@ -252,7 +252,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 value={discountValue}
                 onChange={(e) => setDiscountValue(e.target.value)}
                 placeholder={discountType === 'percentage' ? '10' : '0.00'}
-                disabled={!discountType}
+                disabled={discountType === 'none'}
               />
             </div>
           </div>
