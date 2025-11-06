@@ -93,6 +93,19 @@ Automated workflow from service selection to invoice generation and payment trac
 **Key Tables:** `services`, `session_billing`, `invoices`, `payments`.
 **Stripe Integration:** For online payments and webhook handling.
 
+**Discount Functionality (Added November 2025):**
+Flexible discount system for billing with two discount types:
+- **Percentage Discount:** Apply a percentage off the service amount (e.g., 10% off)
+- **Fixed Amount Discount:** Apply a fixed dollar amount off (e.g., $25 off)
+
+**Implementation:**
+- Three new fields in `session_billing`: `discount_type`, `discount_value`, `discount_amount`
+- Real-time discount calculation in payment recording UI
+- Discounts display on invoices in green between subtotal and insurance coverage
+- Invoice calculation order: Subtotal → Discount → Insurance Coverage → Copay → Payments → Total Due
+- Full persistence support: load existing discounts when editing, clear discounts when "No discount" selected
+- Both admin and client portal invoices show applied discounts
+
 ### Audit & Compliance
 **Decision:** Comprehensive audit logging for HIPAA compliance.
 **Implementation:** `audit_logs` table captures significant actions (user, action type, resource, timestamp, IP).
