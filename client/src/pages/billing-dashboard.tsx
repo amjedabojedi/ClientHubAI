@@ -35,7 +35,8 @@ import {
   MoreVertical,
   Printer,
   HelpCircle,
-  ChevronDown
+  ChevronDown,
+  TicketPercent
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -101,36 +102,31 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'none'>('none');
-  const [discountValue, setDiscountValue] = useState('');
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
 
-  // Calculate discount amount based on type and value
+  // Calculate amount after discount
   const discountAmount = useMemo(() => {
-    if (discountType === 'none' || !discountValue || !billingRecord?.totalAmount) return 0;
-    const value = parseFloat(discountValue);
-    if (isNaN(value) || value <= 0) return 0;
-    
-    if (discountType === 'percentage') {
-      return (Number(billingRecord.totalAmount) * value) / 100;
-    } else {
-      return value;
-    }
-  }, [discountType, discountValue, billingRecord?.totalAmount]);
+    if (!billingRecord?.discountAmount) return 0;
+    return Number(billingRecord.discountAmount);
+  }, [billingRecord?.discountAmount]);
+
+  const amountAfterDiscount = useMemo(() => {
+    if (!billingRecord?.totalAmount) return 0;
+    return Number(billingRecord.totalAmount) - discountAmount;
+  }, [billingRecord?.totalAmount, discountAmount]);
 
   // Reset form when dialog opens or billingRecord changes
   useEffect(() => {
     if (isOpen && billingRecord) {
-      setPaymentAmount(billingRecord.totalAmount?.toString() || '');
+      // Set payment amount to the amount after discount, clamped at 0 for full discounts
+      const finalAmount = Math.max(amountAfterDiscount, 0);
+      setPaymentAmount(finalAmount.toFixed(2));
       setPaymentMethod('');
       setPaymentReference('');
       setPaymentNotes('');
-      // Load existing discount values if present
-      setDiscountType((billingRecord.discountType === 'percentage' || billingRecord.discountType === 'fixed' ? billingRecord.discountType : 'none') as 'none' | 'percentage' | 'fixed');
-      setDiscountValue(billingRecord.discountValue?.toString() || '');
     }
-  }, [isOpen, billingRecord]);
+  }, [isOpen, billingRecord, amountAfterDiscount]);
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -182,11 +178,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       reference: paymentReference,
       notes: paymentNotes,
       date: new Date().toISOString().split('T')[0],
-      clientId: clientId,
-      // Only send discount fields if a discount type is selected
-      discountType: discountType !== 'none' ? discountType : null,
-      discountValue: (discountType !== 'none' && discountValue) ? parseFloat(discountValue) : null,
-      discountAmount: (discountType !== 'none' && discountAmount > 0) ? discountAmount : null
+      clientId: clientId
     });
   };
 
@@ -201,11 +193,11 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount Summary Section */}
           <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-400">Service Amount</span>
+              <span className="text-slate-600 dark:text-slate-400">Original Amount</span>
               <span className="font-semibold text-slate-900 dark:text-slate-100">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
             </div>
             {discountAmount > 0 && (
@@ -215,55 +207,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                   <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">Amount After Discount</span>
-                  <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${(Number(billingRecord.totalAmount || 0) - discountAmount).toFixed(2)}</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">Amount Due</span>
+                  <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${Math.max(amountAfterDiscount, 0).toFixed(2)}</span>
                 </div>
               </>
             )}
-          </div>
-
-          {/* Discount Section */}
-          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-4">
-            <h4 className="font-medium text-sm text-slate-900 dark:text-slate-100">Apply Discount (Optional)</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="discountType">Discount Type</Label>
-                <Select value={discountType} onValueChange={(value: any) => {
-                  setDiscountType(value);
-                  if (value === 'none') {
-                    setDiscountValue('');
-                  }
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="No discount" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No discount</SelectItem>
-                    <SelectItem value="percentage">Percentage (%)</SelectItem>
-                    <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
-                  </SelectContent>
-                </Select>
+            {discountAmount === 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                <span className="font-medium text-slate-900 dark:text-slate-100">Amount Due</span>
+                <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
               </div>
-              <div>
-                <Label htmlFor="discountValue">
-                  {discountType === 'percentage' ? 'Percentage' : 'Amount'}
-                </Label>
-                <Input
-                  id="discountValue"
-                  type="number"
-                  step={discountType === 'percentage' ? '1' : '0.01'}
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
-                  placeholder={discountType === 'percentage' ? '10' : '0.00'}
-                  disabled={discountType === 'none'}
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Payment Details Section */}
           <div className="space-y-4">
-            <h4 className="font-medium text-sm text-slate-900 dark:text-slate-100">Payment Details</h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="paymentAmount">Payment Amount *</Label>
@@ -331,6 +289,159 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   );
 }
 
+function ApplyDiscountDialog({ 
+  isOpen, 
+  onClose, 
+  billingRecord, 
+  onDiscountApplied 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  billingRecord: BillingRecord | null;
+  onDiscountApplied: () => void;
+}) {
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | 'none'>('none');
+  const [discountValue, setDiscountValue] = useState('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const discountAmount = useMemo(() => {
+    if (discountType === 'none' || !discountValue || !billingRecord?.totalAmount) return 0;
+    const value = parseFloat(discountValue);
+    if (isNaN(value) || value <= 0) return 0;
+    
+    if (discountType === 'percentage') {
+      return (Number(billingRecord.totalAmount) * value) / 100;
+    } else {
+      return value;
+    }
+  }, [discountType, discountValue, billingRecord?.totalAmount]);
+
+  useEffect(() => {
+    if (isOpen && billingRecord) {
+      setDiscountType((billingRecord.discountType === 'percentage' || billingRecord.discountType === 'fixed' ? billingRecord.discountType : 'none') as 'none' | 'percentage' | 'fixed');
+      setDiscountValue(billingRecord.discountValue?.toString() || '');
+    }
+  }, [isOpen, billingRecord]);
+
+  const applyDiscountMutation = useMutation({
+    mutationFn: async (data: { discountType: string | null; discountValue: number | null; discountAmount: number | null }) => {
+      if (!billingRecord) return;
+      return apiRequest(`/api/billing/${billingRecord.id}/discount`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+      toast({
+        title: "Discount Applied",
+        description: "The discount has been applied to the invoice successfully.",
+      });
+      onDiscountApplied();
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to apply discount. Please try again.",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    applyDiscountMutation.mutate({
+      discountType: discountType !== 'none' ? discountType : null,
+      discountValue: (discountType !== 'none' && discountValue) ? parseFloat(discountValue) : null,
+      discountAmount: (discountType !== 'none' && discountAmount > 0) ? discountAmount : null
+    });
+  };
+
+  if (!billingRecord) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Apply Discount</DialogTitle>
+          <DialogDescription>
+            {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600 dark:text-slate-400">Service Amount</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <>
+                <div className="flex items-center justify-between text-sm text-green-700 dark:text-green-500">
+                  <span>Discount</span>
+                  <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="font-medium text-slate-900 dark:text-slate-100">Amount After Discount</span>
+                  <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${(Number(billingRecord.totalAmount || 0) - discountAmount).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="discountType">Discount Type</Label>
+                <Select value={discountType} onValueChange={(value: any) => {
+                  setDiscountType(value);
+                  if (value === 'none') {
+                    setDiscountValue('');
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No discount" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No discount</SelectItem>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="discountValue">
+                  {discountType === 'percentage' ? 'Percentage' : 'Amount'}
+                </Label>
+                <Input
+                  id="discountValue"
+                  type="number"
+                  step={discountType === 'percentage' ? '1' : '0.01'}
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                  placeholder={discountType === 'percentage' ? '10' : '0.00'}
+                  disabled={discountType === 'none'}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={applyDiscountMutation.isPending}>
+              {applyDiscountMutation.isPending ? 'Applying...' : 'Apply Discount'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function BillingDashboard() {
   // Set default date range to current month
   const currentDate = new Date();
@@ -356,6 +467,7 @@ export default function BillingDashboard() {
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [selectedBillingRecord, setSelectedBillingRecord] = useState<BillingRecord | null>(null);
   const { toast } = useToast();
@@ -1175,6 +1287,17 @@ export default function BillingDashboard() {
                               )}
                               <div className="border-t my-1"></div>
                               <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                Billing Actions
+                              </div>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedBillingRecord(billing);
+                                setDiscountDialogOpen(true);
+                              }}>
+                                <TicketPercent className="h-4 w-4 mr-2 text-green-600" />
+                                Apply Discount
+                              </DropdownMenuItem>
+                              <div className="border-t my-1"></div>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
                                 Change Status
                               </div>
                               <DropdownMenuItem onClick={() => updateStatusMutation.mutate({ billingId: billing.id, status: 'pending' })}>
@@ -1225,6 +1348,16 @@ export default function BillingDashboard() {
         onClose={() => setPaymentDialogOpen(false)}
         billingRecord={selectedBillingRecord}
         onPaymentRecorded={() => {
+          setSelectedBillingRecord(null);
+        }}
+      />
+
+      {/* Apply Discount Dialog */}
+      <ApplyDiscountDialog
+        isOpen={discountDialogOpen}
+        onClose={() => setDiscountDialogOpen(false)}
+        billingRecord={selectedBillingRecord}
+        onDiscountApplied={() => {
           setSelectedBillingRecord(null);
         }}
       />

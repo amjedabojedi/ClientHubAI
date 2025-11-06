@@ -8420,7 +8420,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.put("/api/billing/:billingId/payment", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
-      const { status, amount, date, reference, method, notes, clientId, discountType, discountValue, discountAmount } = req.body;
+      const { status, amount, date, reference, method, notes, clientId } = req.body;
       
       // Use centralized storage method to get billing data for authorization
       // clientId is passed from frontend to use getBillingForInvoice
@@ -8457,15 +8457,37 @@ You can download a copy if you have it saved locally and re-upload it.`;
         date,
         reference,
         method,
-        notes,
-        discountType,
-        discountValue,
-        discountAmount
+        notes
       });
       
       res.json({ message: "Payment details updated successfully" });
     } catch (error) {
       console.error('[PAYMENT ERROR]', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Apply discount to billing record
+  app.patch("/api/billing/:billingId/discount", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const billingId = parseInt(req.params.billingId);
+      const { discountType, discountValue, discountAmount } = req.body;
+      
+      // Authorization check: Allow administrators and billing roles
+      if (!['administrator', 'admin', 'billing'].includes(req.user?.role || '')) {
+        return res.status(403).json({ message: "Access denied. Only administrators and billing staff can apply discounts." });
+      }
+      
+      // Update the billing record with discount
+      await storage.updateBillingDiscount(billingId, {
+        discountType,
+        discountValue,
+        discountAmount
+      });
+      
+      res.json({ message: "Discount applied successfully" });
+    } catch (error) {
+      console.error('[DISCOUNT ERROR]', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
