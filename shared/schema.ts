@@ -477,6 +477,10 @@ export const sessionBilling = pgTable("session_billing", {
   copayAmount: decimal("copay_amount", { precision: 10, scale: 2 }),
   billingDate: date("billing_date"),
   paymentStatus: varchar("payment_status", { length: 20 }).notNull().default('pending'),
+  // Discount fields
+  discountType: varchar("discount_type", { length: 20 }), // 'percentage' or 'fixed'
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }), // % value (e.g., 10.00 for 10%) or $ amount
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }), // Calculated $ discount amount
   // Payment details
   paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
   paymentDate: date("payment_date"),

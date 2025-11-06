@@ -7929,8 +7929,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return sum;
       }, 0);
       const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
+      const totalDiscount = billingRecords.reduce((sum, record) => sum + Number(record.discountAmount || 0), 0);
       const totalPayments = billingRecords.reduce((sum, record) => sum + Number(record.paymentAmount || 0), 0);
-      const remainingDue = subtotal - totalPayments;
+      const remainingDue = subtotal - totalDiscount - totalPayments;
       
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
@@ -8105,6 +8106,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
               <span>${billingRecords.length === 1 ? 'Service Amount:' : 'Subtotal:'}</span>
               <span>$${subtotal.toFixed(2)}</span>
             </div>
+            ${totalDiscount > 0 ? `
+            <div class="total-row" style="color: #059669;">
+              <span>Discount Applied:</span>
+              <span>-$${totalDiscount.toFixed(2)}</span>
+            </div>` : ''}
             ${billingRecords.some(r => r.insuranceCovered) ? `
             <div class="total-row">
               <span>Insurance Coverage:</span>
@@ -10919,8 +10925,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         ? subtotal - parseFloat(billing.copayAmount) 
         : 0;
       const copayTotal = billing.insuranceCovered ? parseFloat(billing.copayAmount || '0') : 0;
+      const totalDiscount = parseFloat(billing.discountAmount || '0');
       const totalPayments = parseFloat(billing.paymentAmount || '0');
-      const remainingDue = subtotal - totalPayments;
+      const remainingDue = subtotal - totalDiscount - totalPayments;
 
       // Use EXACT SAME invoice HTML template as admin system
       const invoiceHtml = `
@@ -11078,6 +11085,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
               <span>Service Amount:</span>
               <span>$${subtotal.toFixed(2)}</span>
             </div>
+            ${totalDiscount > 0 ? `
+            <div class="total-row" style="color: #059669;">
+              <span>Discount Applied:</span>
+              <span>-$${totalDiscount.toFixed(2)}</span>
+            </div>` : ''}
             ${billing.insuranceCovered ? `
             <div class="total-row">
               <span>Insurance Coverage:</span>
