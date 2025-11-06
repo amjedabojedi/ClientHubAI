@@ -327,10 +327,7 @@ function ApplyDiscountDialog({
   const applyDiscountMutation = useMutation({
     mutationFn: async (data: { discountType: string | null; discountValue: number | null; discountAmount: number | null }) => {
       if (!billingRecord) return;
-      return apiRequest(`/api/billing/${billingRecord.id}/discount`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
+      return apiRequest(`/api/billing/${billingRecord.id}/discount`, 'PATCH', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['billing'] });
