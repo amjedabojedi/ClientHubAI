@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
@@ -58,6 +58,9 @@ interface BillingRecord {
   paymentReference?: string;
   paymentMethod?: string;
   paymentNotes?: string;
+  discountType?: string;
+  discountValue?: number;
+  discountAmount?: number;
   createdAt: string;
   updatedAt: string;
   session?: {
@@ -98,8 +101,23 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed' | ''>('');
+  const [discountValue, setDiscountValue] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Calculate discount amount based on type and value
+  const discountAmount = useMemo(() => {
+    if (!discountType || !discountValue || !billingRecord?.totalAmount) return 0;
+    const value = parseFloat(discountValue);
+    if (isNaN(value) || value <= 0) return 0;
+    
+    if (discountType === 'percentage') {
+      return (Number(billingRecord.totalAmount) * value) / 100;
+    } else {
+      return value;
+    }
+  }, [discountType, discountValue, billingRecord?.totalAmount]);
 
   // Reset form when dialog opens or billingRecord changes
   useEffect(() => {
@@ -108,6 +126,9 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       setPaymentMethod('');
       setPaymentReference('');
       setPaymentNotes('');
+      // Load existing discount values if present
+      setDiscountType((billingRecord.discountType === 'percentage' || billingRecord.discountType === 'fixed' ? billingRecord.discountType : '') as '' | 'percentage' | 'fixed');
+      setDiscountValue(billingRecord.discountValue?.toString() || '');
     }
   }, [isOpen, billingRecord]);
 
@@ -161,7 +182,11 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       reference: paymentReference,
       notes: paymentNotes,
       date: new Date().toISOString().split('T')[0],
-      clientId: clientId
+      clientId: clientId,
+      // Only send discount fields if a discount type is selected
+      discountType: discountType || null,
+      discountValue: (discountType && discountValue) ? parseFloat(discountValue) : null,
+      discountAmount: (discountType && discountAmount > 0) ? discountAmount : null
     });
   };
 
@@ -177,6 +202,61 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Service Amount</Label>
+              <span className="font-semibold">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between text-green-700">
+                <Label>Discount Applied</Label>
+                <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {discountAmount > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t">
+                <Label>Amount After Discount</Label>
+                <span className="font-bold">${(Number(billingRecord.totalAmount || 0) - discountAmount).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="discountType">Discount Type</Label>
+              <Select value={discountType} onValueChange={(value: any) => {
+                setDiscountType(value);
+                // Reset discount value when "No discount" is selected
+                if (!value) {
+                  setDiscountValue('');
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No discount" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No discount</SelectItem>
+                  <SelectItem value="percentage">Percentage (%)</SelectItem>
+                  <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="discountValue">
+                {discountType === 'percentage' ? 'Percentage' : 'Amount'}
+              </Label>
+              <Input
+                id="discountValue"
+                type="number"
+                step={discountType === 'percentage' ? '1' : '0.01'}
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+                placeholder={discountType === 'percentage' ? '10' : '0.00'}
+                disabled={!discountType}
+              />
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="paymentAmount">Payment Amount *</Label>
             <Input

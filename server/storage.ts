@@ -2587,6 +2587,9 @@ export class DatabaseStorage implements IStorage {
     reference?: string;
     method: string;
     notes?: string;
+    discountType?: string | null;
+    discountValue?: number | null;
+    discountAmount?: number | null;
   }): Promise<SelectSessionBilling> {
     const updateData: any = {
       paymentStatus: paymentData.status,
@@ -2601,6 +2604,16 @@ export class DatabaseStorage implements IStorage {
     }
     if (paymentData.notes) {
       updateData.paymentNotes = paymentData.notes;
+    }
+    // Always set discount fields (including null to clear them)
+    if (paymentData.discountType !== undefined) {
+      updateData.discountType = paymentData.discountType;
+    }
+    if (paymentData.discountValue !== undefined) {
+      updateData.discountValue = paymentData.discountValue !== null ? paymentData.discountValue.toString() : null;
+    }
+    if (paymentData.discountAmount !== undefined) {
+      updateData.discountAmount = paymentData.discountAmount !== null ? paymentData.discountAmount.toString() : null;
     }
 
     const [updated] = await db
