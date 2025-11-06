@@ -194,117 +194,130 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
-            Recording payment for {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
+            {billingRecord.session?.client?.fullName} - {billingRecord.serviceCode}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Service Amount</Label>
-              <span className="font-semibold">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Amount Summary Section */}
+          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600 dark:text-slate-400">Service Amount</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
             </div>
             {discountAmount > 0 && (
-              <div className="flex items-center justify-between text-green-700">
-                <Label>Discount Applied</Label>
-                <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
-              </div>
-            )}
-            {discountAmount > 0 && (
-              <div className="flex items-center justify-between pt-2 border-t">
-                <Label>Amount After Discount</Label>
-                <span className="font-bold">${(Number(billingRecord.totalAmount || 0) - discountAmount).toFixed(2)}</span>
-              </div>
+              <>
+                <div className="flex items-center justify-between text-sm text-green-700 dark:text-green-500">
+                  <span>Discount Applied</span>
+                  <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="font-medium text-slate-900 dark:text-slate-100">Amount After Discount</span>
+                  <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${(Number(billingRecord.totalAmount || 0) - discountAmount).toFixed(2)}</span>
+                </div>
+              </>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="discountType">Discount Type</Label>
-              <Select value={discountType} onValueChange={(value: any) => {
-                setDiscountType(value);
-                // Reset discount value when "No discount" is selected
-                if (value === 'none') {
-                  setDiscountValue('');
-                }
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No discount" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No discount</SelectItem>
-                  <SelectItem value="percentage">Percentage (%)</SelectItem>
-                  <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Discount Section */}
+          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-4">
+            <h4 className="font-medium text-sm text-slate-900 dark:text-slate-100">Apply Discount (Optional)</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="discountType">Discount Type</Label>
+                <Select value={discountType} onValueChange={(value: any) => {
+                  setDiscountType(value);
+                  if (value === 'none') {
+                    setDiscountValue('');
+                  }
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No discount" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No discount</SelectItem>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount ($)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="discountValue">
+                  {discountType === 'percentage' ? 'Percentage' : 'Amount'}
+                </Label>
+                <Input
+                  id="discountValue"
+                  type="number"
+                  step={discountType === 'percentage' ? '1' : '0.01'}
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                  placeholder={discountType === 'percentage' ? '10' : '0.00'}
+                  disabled={discountType === 'none'}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Details Section */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-sm text-slate-900 dark:text-slate-100">Payment Details</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="paymentAmount">Payment Amount *</Label>
+                <Input
+                  id="paymentAmount"
+                  type="number"
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="0.00"
+                  required
+                  className="font-medium"
+                />
+              </div>
+              <div>
+                <Label htmlFor="paymentMethod">Payment Method *</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                    <SelectItem value="debit_card">Debit Card</SelectItem>
+                    <SelectItem value="insurance">Insurance</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="online_payment">Online Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
-              <Label htmlFor="discountValue">
-                {discountType === 'percentage' ? 'Percentage' : 'Amount'}
-              </Label>
+              <Label htmlFor="paymentReference">Reference Number</Label>
               <Input
-                id="discountValue"
-                type="number"
-                step={discountType === 'percentage' ? '1' : '0.01'}
-                value={discountValue}
-                onChange={(e) => setDiscountValue(e.target.value)}
-                placeholder={discountType === 'percentage' ? '10' : '0.00'}
-                disabled={discountType === 'none'}
+                id="paymentReference"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Check number, transaction ID, etc."
+              />
+            </div>
+            <div>
+              <Label htmlFor="paymentNotes">Notes</Label>
+              <Textarea
+                id="paymentNotes"
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                placeholder="Additional payment notes"
+                rows={3}
               />
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="paymentAmount">Payment Amount *</Label>
-            <Input
-              id="paymentAmount"
-              type="number"
-              step="0.01"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              placeholder="0.00"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="paymentMethod">Payment Method *</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="check">Check</SelectItem>
-                <SelectItem value="credit_card">Credit Card</SelectItem>
-                <SelectItem value="debit_card">Debit Card</SelectItem>
-                <SelectItem value="insurance">Insurance</SelectItem>
-                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                <SelectItem value="online_payment">Online Payment</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="paymentReference">Reference Number</Label>
-            <Input
-              id="paymentReference"
-              value={paymentReference}
-              onChange={(e) => setPaymentReference(e.target.value)}
-              placeholder="Check number, transaction ID, etc."
-            />
-          </div>
-          <div>
-            <Label htmlFor="paymentNotes">Notes</Label>
-            <Textarea
-              id="paymentNotes"
-              value={paymentNotes}
-              onChange={(e) => setPaymentNotes(e.target.value)}
-              placeholder="Additional payment notes"
-            />
-          </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
