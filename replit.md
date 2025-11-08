@@ -117,6 +117,12 @@ Intelligent auto-suggestion system for creating connections between library entr
 - Batch creation with success/error reporting
 - Bulk entries accessible via "Bulk Add" button per category
 
+**Duplicate Prevention (Added November 2025):**
+- Case-insensitive title matching prevents duplicate library entries
+- Single entry creation returns 409 error if title already exists
+- Bulk import skips duplicates and reports them separately (successful/skipped/failed)
+- Database cleaned from 254 to 176 unique entries (78 duplicates removed)
+
 ### Billing & Financial Tracking
 Automated workflow from service selection to invoice generation and payment tracking.
 **Key Tables:** `services`, `session_billing`, `invoices`, `payments`.
