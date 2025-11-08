@@ -880,6 +880,51 @@ function CategoryForm({
   );
 }
 
+// Pattern Parser for Library Entry Codes
+// Parses format: [CONDITION][TYPE][NUMBER]_[VARIANT]
+// Examples: ANXS10, ANXI10_2, ANXP10_1, DEPR5_1
+interface ParsedPattern {
+  condition: string;  // ANX, DEPR, TRAUM, PTSD, etc.
+  type: string;       // S=Symptom, I=Intervention, P=Progress, G=Goal
+  pathway: number;    // The pathway number (1-99)
+  variant?: number;   // Optional variant number (_1, _2, _3)
+  raw: string;        // Original title
+}
+
+function parseLibraryPattern(title: string): ParsedPattern | null {
+  if (!title) return null;
+  
+  // Pattern: [CONDITION][TYPE][NUMBER]_[VARIANT]
+  // CONDITION: 3-5 uppercase letters (ANX, DEPR, TRAUM, PTSD)
+  // TYPE: Single letter (S, I, P, G)
+  // NUMBER: 1-2 digits
+  // VARIANT: Optional _1, _2, _3, etc.
+  const pattern = /^([A-Z]{3,5})([SIPG])(\d{1,2})(?:_(\d+))?$/;
+  const match = title.trim().match(pattern);
+  
+  if (!match) return null;
+  
+  return {
+    condition: match[1],
+    type: match[2],
+    pathway: parseInt(match[3]),
+    variant: match[4] ? parseInt(match[4]) : undefined,
+    raw: title.trim()
+  };
+}
+
+// Get connection type based on entry types
+function getConnectionType(fromType: string, toType: string): string {
+  const typeMap: Record<string, Record<string, string>> = {
+    'S': { 'I': 'treats', 'P': 'measures', 'G': 'targets' },
+    'I': { 'S': 'treats', 'P': 'measures', 'I': 'alternative_to', 'G': 'targets' },
+    'P': { 'S': 'measures', 'I': 'measured_by', 'G': 'tracks' },
+    'G': { 'S': 'targets', 'I': 'achieved_by', 'P': 'tracked_by' }
+  };
+  
+  return typeMap[fromType]?.[toType] || 'relates_to';
+}
+
 // Entry Form Component
 function EntryForm({ 
   entry, 
@@ -927,44 +972,82 @@ function EntryForm({
     return relationships[categoryName] || [];
   };
 
-  // Auto-suggest connections based on title, tags, and clinical relationships
+  // Auto-suggest connections using pattern-based matching + keyword fallback
   useEffect(() => {
-    if (!formData.title && !formData.tags) {
+    if (!formData.title) {
       setSuggestedConnections([]);
       return;
     }
 
+    // Step 1: Try pattern-based matching (HIGHEST PRIORITY)
+    const currentPattern = parseLibraryPattern(formData.title);
+    
+    if (currentPattern) {
+      // Pattern detected! Find all entries in same pathway
+      const patternMatches = allEntries
+        .filter(existing => {
+          if (existing.id === entry?.id) return false; // Don't suggest self
+          
+          const existingPattern = parseLibraryPattern(existing.title);
+          if (!existingPattern) return false;
+          
+          // Same condition and pathway number
+          return existingPattern.condition === currentPattern.condition &&
+                 existingPattern.pathway === currentPattern.pathway;
+        })
+        .map(e => ({ 
+          ...e, 
+          confidence: 100, // Pattern match = 100% confidence
+          reason: `Same pathway #${currentPattern.pathway}` 
+        }));
+      
+      if (patternMatches.length > 0) {
+        setSuggestedConnections(patternMatches.slice(0, 10));
+        return;
+      }
+    }
+
+    // Step 2: Keyword-based matching (FALLBACK)
     const keywords = [
       ...formData.title.toLowerCase().split(' '),
       ...formData.tags.toLowerCase().split(',').map(t => t.trim())
-    ].filter(k => k.length > 2); // Only meaningful keywords
+    ].filter(k => k.length > 2);
 
-    // Get clinically related category names
+    if (keywords.length === 0) {
+      setSuggestedConnections([]);
+      return;
+    }
+
     const relatedCategoryNames = getRelatedCategories(formData.categoryId);
     
-    const suggestions = allEntries.filter(existing => {
-      // Don't suggest entries from same category
-      if (existing.categoryId === formData.categoryId) return false;
-      
-      // Only suggest entries from clinically related categories
-      const existingCategoryName = existing.category.name.toLowerCase();
-      if (!relatedCategoryNames.includes(existingCategoryName)) return false;
-      
-      // Check if entry shares keywords
-      const existingKeywords = [
-        ...existing.title.toLowerCase().split(' '),
-        ...(existing.tags || []).map(t => t.toLowerCase())
-      ];
-      
-      return keywords.some(keyword => 
-        existingKeywords.some(existing => 
-          existing.includes(keyword) || keyword.includes(existing)
-        )
-      );
-    }).slice(0, 5); // Limit to 5 suggestions
+    const keywordMatches = allEntries
+      .filter(existing => {
+        if (existing.id === entry?.id) return false;
+        if (existing.categoryId === formData.categoryId) return false;
+        
+        const existingCategoryName = existing.category.name.toLowerCase();
+        if (!relatedCategoryNames.includes(existingCategoryName)) return false;
+        
+        const existingKeywords = [
+          ...existing.title.toLowerCase().split(' '),
+          ...(existing.tags || []).map(t => t.toLowerCase())
+        ];
+        
+        return keywords.some(keyword => 
+          existingKeywords.some(existing => 
+            existing.includes(keyword) || keyword.includes(existing)
+          )
+        );
+      })
+      .map(e => ({ 
+        ...e, 
+        confidence: 60, // Keyword match = 60% confidence
+        reason: 'Shared keywords' 
+      }))
+      .slice(0, 5);
     
-    setSuggestedConnections(suggestions);
-  }, [formData.title, formData.tags, formData.categoryId, allEntries, categories]);
+    setSuggestedConnections(keywordMatches);
+  }, [formData.title, formData.tags, formData.categoryId, allEntries, categories, entry]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1038,41 +1121,64 @@ function EntryForm({
       </div>
       {/* Auto-suggested Connections */}
       {suggestedConnections.length > 0 && (
-        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-          <h4 className="font-medium text-green-900 dark:text-green-100 mb-3">
-            🔗 Auto-detected Related Entries
-          </h4>
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium text-green-900 dark:text-green-100">
+              🔗 Smart Connect Suggestions
+            </h4>
+            {(suggestedConnections[0] as any)?.confidence === 100 && (
+              <Badge className="bg-green-600 text-white">Pattern Match</Badge>
+            )}
+          </div>
           <p className="text-sm text-green-800 dark:text-green-200 mb-3">
-            These entries seem related to "{formData.title}". Select ones to automatically connect:
+            {(suggestedConnections[0] as any)?.confidence === 100 
+              ? `Found ${suggestedConnections.length} entries in the same treatment pathway. Select to auto-connect:`
+              : `These entries share keywords with "${formData.title}". Select to connect:`
+            }
           </p>
           <div className="space-y-2">
-            {suggestedConnections.map(suggestion => (
-              <label key={suggestion.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border">
-                <input
-                  type="checkbox"
-                  checked={selectedConnections.includes(suggestion.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedConnections([...selectedConnections, suggestion.id]);
-                    } else {
-                      setSelectedConnections(selectedConnections.filter(id => id !== suggestion.id));
-                    }
-                  }}
-                  className="rounded"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {categories.find(c => c.id === suggestion.categoryId)?.name}
-                    </Badge>
-                    <span className="font-medium">{suggestion.title}</span>
+            {suggestedConnections.map(suggestion => {
+              const suggestionPattern = parseLibraryPattern(suggestion.title);
+              const currentPattern = parseLibraryPattern(formData.title);
+              
+              return (
+                <label key={suggestion.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedConnections.includes(suggestion.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedConnections([...selectedConnections, suggestion.id]);
+                      } else {
+                        setSelectedConnections(selectedConnections.filter(id => id !== suggestion.id));
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs">
+                        {categories.find(c => c.id === suggestion.categoryId)?.name}
+                      </Badge>
+                      <span className="font-medium">{suggestion.title}</span>
+                      {(suggestion as any).confidence === 100 && suggestionPattern && currentPattern && (
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {getConnectionType(currentPattern.type, suggestionPattern.type)}
+                        </Badge>
+                      )}
+                      {(suggestion as any).confidence && (
+                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                          {(suggestion as any).confidence}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {suggestion.content.substring(0, 80)}...
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {suggestion.content.substring(0, 80)}...
-                  </p>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
           {selectedConnections.length > 0 && (
             <p className="text-sm text-green-700 dark:text-green-300 mt-2">
