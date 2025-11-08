@@ -990,8 +990,12 @@ function EntryForm({
       return;
     }
 
+    console.log('[Smart Connect] Title:', formData.title);
+    console.log('[Smart Connect] All entries available:', allEntries.length);
+
     // Step 1: Try pattern-based matching (HIGHEST PRIORITY)
     const currentPattern = parseLibraryPattern(formData.title);
+    console.log('[Smart Connect] Parsed pattern:', currentPattern);
     
     if (currentPattern) {
       // Pattern detected! Find all entries in same pathway
@@ -1011,6 +1015,9 @@ function EntryForm({
           confidence: 100, // Pattern match = 100% confidence
           reason: `Same pathway #${currentPattern.pathway}` 
         }));
+      
+      console.log('[Smart Connect] Pattern matches found:', patternMatches.length);
+      console.log('[Smart Connect] Matches:', patternMatches.map(m => ({ title: m.title, category: m.category.name })));
       
       if (patternMatches.length > 0) {
         setSuggestedConnections(patternMatches.slice(0, 10));
