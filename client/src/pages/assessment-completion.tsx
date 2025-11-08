@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { format } from "date-fns";
@@ -96,35 +96,38 @@ export default function AssessmentCompletionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
+  const [isSectionLoading, setIsSectionLoading] = useState(false);
+  const initialLoadDone = useRef(false);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
 
   // Fetch assessment assignment details
-  const { data: assignment, isLoading: assignmentLoading } = useQuery({
+  const { data: assignment, isLoading: assignmentLoading } = useQuery<AssessmentAssignment>({
     queryKey: [`/api/assessments/assignments/${assignmentId}`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
   });
 
   // Fetch assessment template with sections and questions
-  const { data: sections = [], isLoading: sectionsLoading } = useQuery({
-    queryKey: [`/api/assessments/templates/${(assignment as any)?.templateId}/sections`],
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery<AssessmentSection[]>({
+    queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!(assignment as any)?.templateId,
+    enabled: !!assignment?.templateId,
   });
 
   // Fetch existing responses if any
-  const { data: existingResponses = [] } = useQuery({
+  const { data: existingResponses = [], isLoading: responsesLoading } = useQuery<any[]>({
     queryKey: [`/api/assessments/assignments/${assignmentId}/responses`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
   });
 
-  // Load existing responses into state (update when data changes)
+  // Load existing responses into state ONLY on initial mount
+  // This prevents overwriting user's current selections when switching sections
   useEffect(() => {
-    if (existingResponses.length > 0) {
+    if (existingResponses.length > 0 && !initialLoadDone.current) {
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
         // Handle selectedOptions - database may return as JSON array or null
@@ -148,11 +151,8 @@ export default function AssessmentCompletionPage() {
         };
       });
       
-      // Only update state if there are actual changes (prevent infinite loops)
-      const hasChanges = JSON.stringify(responseMap) !== JSON.stringify(responses);
-      if (hasChanges) {
-        setResponses(responseMap);
-      }
+      setResponses(responseMap);
+      initialLoadDone.current = true; // Mark initial load as complete
     }
   }, [existingResponses]);
 
@@ -708,8 +708,20 @@ export default function AssessmentCompletionPage() {
                 key={section.id}
                 variant={currentSection === index ? "default" : "outline"}
                 size="sm"
-                onClick={() => setCurrentSection(index)}
+                onClick={async () => {
+                  if (currentSection !== index) {
+                    // Save all current responses before switching sections
+                    setIsSectionLoading(true);
+                    const savePromises = Object.keys(responses).map((questionId) => 
+                      saveResponse(parseInt(questionId))
+                    );
+                    await Promise.all(savePromises);
+                    setCurrentSection(index);
+                    setTimeout(() => setIsSectionLoading(false), 300);
+                  }
+                }}
                 className="whitespace-nowrap"
+                disabled={isSectionLoading}
               >
                 {index + 1}. {section.title}
               </Button>
@@ -719,10 +731,13 @@ export default function AssessmentCompletionPage() {
 
         {/* Current Section */}
         {currentSectionData && (
-          <Card>
+          <Card className={isSectionLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <span>Section {currentSection + 1}: {currentSectionData.title}</span>
+                {isSectionLoading && (
+                  <span className="text-sm text-blue-600 font-normal ml-2">(Saving...)</span>
+                )}
               </CardTitle>
               {currentSectionData.description && (
                 <p className="text-slate-600">{currentSectionData.description}</p>
@@ -760,7 +775,17 @@ export default function AssessmentCompletionPage() {
             {currentSection > 0 && (
               <Button
                 variant="outline"
-                onClick={() => setCurrentSection(currentSection - 1)}
+                onClick={async () => {
+                  // Save before going to previous section
+                  setIsSectionLoading(true);
+                  const savePromises = Object.keys(responses).map((questionId) => 
+                    saveResponse(parseInt(questionId))
+                  );
+                  await Promise.all(savePromises);
+                  setCurrentSection(currentSection - 1);
+                  setTimeout(() => setIsSectionLoading(false), 300);
+                }}
+                disabled={isSectionLoading}
               >
                 Previous Section
               </Button>
@@ -770,16 +795,17 @@ export default function AssessmentCompletionPage() {
           <div className="flex space-x-2">
             <Button 
               variant="outline"
-              onClick={() => {
-                Object.keys(responses).forEach((questionId) => {
-                  saveResponse(parseInt(questionId));
-                });
+              onClick={async () => {
+                const savePromises = Object.keys(responses).map((questionId) => 
+                  saveResponse(parseInt(questionId))
+                );
+                await Promise.all(savePromises);
                 toast({
                   title: "Progress saved",
                   description: "Your responses have been saved. You can continue later.",
                 });
               }}
-              disabled={saveResponseMutation.isPending}
+              disabled={saveResponseMutation.isPending || isSectionLoading}
             >
               <Save className="w-4 h-4 mr-2" />
               {saveResponseMutation.isPending ? 'Saving...' : 'Save Progress'}
@@ -787,9 +813,19 @@ export default function AssessmentCompletionPage() {
             
             {currentSection < sections.length - 1 ? (
               <Button
-                onClick={() => setCurrentSection(currentSection + 1)}
+                onClick={async () => {
+                  // Save before going to next section
+                  setIsSectionLoading(true);
+                  const savePromises = Object.keys(responses).map((questionId) => 
+                    saveResponse(parseInt(questionId))
+                  );
+                  await Promise.all(savePromises);
+                  setCurrentSection(currentSection + 1);
+                  setTimeout(() => setIsSectionLoading(false), 300);
+                }}
+                disabled={isSectionLoading}
               >
-                Next Section
+                {isSectionLoading ? 'Saving...' : 'Next Section'}
               </Button>
             ) : (
               <div className="flex space-x-2">
