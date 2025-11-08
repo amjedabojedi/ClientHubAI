@@ -601,7 +601,11 @@ function BulkAddForm({
     const entries: Array<{ title: string; content: string; error?: string }> = [];
 
     lines.forEach((line, index) => {
-      const parts = line.split('\t');
+      // Try TAB separator first, then comma
+      let parts = line.split('\t');
+      if (parts.length < 2) {
+        parts = line.split(',');
+      }
       
       if (parts.length < 2) {
         entries.push({
@@ -698,15 +702,15 @@ function BulkAddForm({
       <div>
         <Label htmlFor="bulk-paste">Step 2: Paste Excel Data</Label>
         <p className="text-xs text-slate-500 mb-2">
-          Copy 2 columns from Excel: <strong>Title</strong> and <strong>Content</strong> (TAB-separated)
+          Copy 2 columns from Excel: <strong>Title</strong> and <strong>Content</strong> (TAB or comma-separated)
         </p>
         <Textarea
           id="bulk-paste"
           value={pastedData}
           onChange={(e) => setPastedData(e.target.value)}
-          placeholder="Title    Content
-Cognitive Restructuring A technique to identify and challenge...
-DBT Skills      Dialectical behavior therapy skills..."
+          placeholder="Title,Content
+Cognitive Restructuring,A technique to identify and challenge...
+DBT Skills,Dialectical behavior therapy skills..."
           rows={8}
           className="font-mono text-sm"
         />
