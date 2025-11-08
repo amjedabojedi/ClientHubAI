@@ -656,14 +656,25 @@ function BulkAddForm({
       const response = await apiRequest('/api/library/bulk-entries', 'POST', {
         categoryId: selectedCategoryId,
         entries: validEntries
-      });
+      }) as any;
+
+      const successCount = response.successful || 0;
+      const skippedCount = response.skipped || 0;
+      const failedCount = response.failed || 0;
+
+      let description = `✓ ${successCount} created`;
+      if (skippedCount > 0) description += `, ${skippedCount} skipped (duplicates)`;
+      if (failedCount > 0) description += `, ${failedCount} failed`;
 
       toast({
-        title: "Success!",
-        description: `${validEntries.length} entries imported successfully${invalidEntries.length > 0 ? ` (${invalidEntries.length} skipped)` : ''}`,
+        title: successCount > 0 ? "Import complete!" : "Import completed with issues",
+        description,
+        variant: successCount > 0 ? "default" : "destructive"
       });
 
-      onComplete();
+      if (successCount > 0) {
+        onComplete();
+      }
     } catch (error: any) {
       toast({
         title: "Import failed",

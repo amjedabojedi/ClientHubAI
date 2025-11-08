@@ -6124,6 +6124,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.post("/api/library/entries", async (req, res) => {
     try {
       const validatedData = insertLibraryEntrySchema.parse(req.body);
+      
+      // Check for existing entry with same title
+      const allEntries = await storage.getLibraryEntries();
+      const existingEntry = allEntries.find(e => e.title.trim().toLowerCase() === validatedData.title.trim().toLowerCase());
+      
+      if (existingEntry) {
+        return res.status(409).json({ 
+          message: "Duplicate entry", 
+          error: `Entry with title "${validatedData.title}" already exists` 
+        });
+      }
+      
       const entry = await storage.createLibraryEntry(validatedData);
       res.status(201).json(entry);
     } catch (error) {
@@ -6144,9 +6156,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Invalid input: categoryId and entries array required" });
       }
 
+      // Get all existing entries once for duplicate checking
+      const existingEntries = await storage.getLibraryEntries();
+      const existingTitles = new Set(existingEntries.map(e => e.title.trim().toLowerCase()));
+
       const results = {
         total: entries.length,
         successful: 0,
+        skipped: 0,
         failed: 0,
         errors: [] as any[]
       };
@@ -6155,6 +6172,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const entryData = entries[i];
         
         try {
+          // Check for duplicate
+          if (existingTitles.has(entryData.title.trim().toLowerCase())) {
+            results.skipped++;
+            results.errors.push({
+              row: i + 1,
+              title: entryData.title,
+              error: 'Duplicate - entry with this title already exists'
+            });
+            continue;
+          }
+          
           const validatedData = insertLibraryEntrySchema.parse({
             categoryId,
             title: entryData.title,
@@ -6165,6 +6193,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           });
           
           await storage.createLibraryEntry(validatedData);
+          existingTitles.add(entryData.title.trim().toLowerCase()); // Add to set for next iterations
           results.successful++;
         } catch (error) {
           results.failed++;
