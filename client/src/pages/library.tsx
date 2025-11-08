@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload } from "lucide-react";
+import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -38,6 +40,8 @@ export default function LibraryPage() {
   const [editingEntry, setEditingEntry] = useState<LibraryEntryWithDetails | null>(null);
   const [connectingEntry, setConnectingEntry] = useState<LibraryEntryWithDetails | null>(null);
   const [connectedEntriesMap, setConnectedEntriesMap] = useState<Record<number, any[]>>({});
+  const [selectedEntries, setSelectedEntries] = useState<Set<number>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -218,6 +222,24 @@ export default function LibraryPage() {
     },
   });
 
+  const bulkDeleteEntriesMutation = useMutation({
+    mutationFn: async (entryIds: number[]) => {
+      const deletePromises = entryIds.map(id => apiRequest(`/api/library/entries/${id}`, "DELETE"));
+      await Promise.all(deletePromises);
+    },
+    onSuccess: (_data, entryIds) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
+      setSelectedEntries(new Set());
+      setShowBulkDeleteDialog(false);
+      toast({ 
+        title: `${entryIds.length} ${entryIds.length === 1 ? 'entry' : 'entries'} deleted successfully` 
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete entries", variant: "destructive" });
+    },
+  });
+
   const deleteConnectionMutation = useMutation({
     mutationFn: (connectionId: number) => apiRequest(`/api/library/connections/${connectionId}`, "DELETE"),
     onSuccess: () => {
@@ -255,6 +277,45 @@ export default function LibraryPage() {
   };
 
   const displayedEntries = searchQuery.trim() ? searchResults : entries;
+
+  // Clear selection when context changes (tab switch, search, or entries change)
+  useEffect(() => {
+    setSelectedEntries(new Set());
+  }, [activeTab, searchQuery, entries.length]);
+
+  // Selection helpers
+  const toggleSelectEntry = (entryId: number) => {
+    const newSelection = new Set(selectedEntries);
+    if (newSelection.has(entryId)) {
+      newSelection.delete(entryId);
+    } else {
+      newSelection.add(entryId);
+    }
+    setSelectedEntries(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    const displayedIds = new Set(displayedEntries.map(e => e.id));
+    const visibleSelected = Array.from(selectedEntries).filter(id => displayedIds.has(id));
+    
+    if (visibleSelected.length === displayedEntries.length && displayedEntries.length > 0) {
+      // All visible entries are selected, so deselect them
+      setSelectedEntries(new Set());
+    } else {
+      // Select all visible entries
+      setSelectedEntries(new Set(displayedEntries.map(e => e.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedEntries(new Set());
+  };
+
+  // Calculate selection state based on visible entries only
+  const displayedIds = new Set(displayedEntries.map(e => e.id));
+  const visibleSelectedCount = Array.from(selectedEntries).filter(id => displayedIds.has(id)).length;
+  const allSelected = displayedEntries.length > 0 && visibleSelectedCount === displayedEntries.length;
+  const someSelected = visibleSelectedCount > 0 && visibleSelectedCount < displayedEntries.length;
 
   // Fetch connected entries for displayed entries
   useEffect(() => {
@@ -348,6 +409,35 @@ export default function LibraryPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Bulk Action Bar - Only show for visible selections */}
+                  {visibleSelectedCount > 0 && (
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                          {visibleSelectedCount} {visibleSelectedCount === 1 ? 'entry' : 'entries'} selected
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={clearSelection}
+                          className="h-7 text-xs"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setShowBulkDeleteDialog(true)}
+                        className="flex items-center gap-1"
+                        data-testid="button-bulk-delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete Selected
+                      </Button>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                 <ScrollArea className="h-[600px]">
@@ -359,14 +449,48 @@ export default function LibraryPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {/* Select All Checkbox */}
+                      {displayedEntries.length > 0 && (
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded border mb-2">
+                          <div className="flex items-center">
+                            <Checkbox
+                              checked={someSelected && !allSelected ? "indeterminate" : allSelected}
+                              onCheckedChange={toggleSelectAll}
+                              data-testid="checkbox-select-all"
+                            />
+                          </div>
+                          <label className="text-sm font-medium cursor-pointer" onClick={toggleSelectAll}>
+                            {someSelected && !allSelected 
+                              ? `Select All (${visibleSelectedCount}/${displayedEntries.length} selected)`
+                              : `Select All (${displayedEntries.length})`
+                            }
+                          </label>
+                        </div>
+                      )}
+
                       {displayedEntries.map((entry) => {
                         // Only show database connections (no tag-based fallback)
                         const databaseConnections = connectedEntriesMap[entry.id] || [];
 
+                        const isSelected = selectedEntries.has(entry.id);
+                        
                         return (
-                          <Card key={entry.id} data-entry-id={entry.id} className="border-l-4 border-l-blue-500">
+                          <Card 
+                            key={entry.id} 
+                            data-entry-id={entry.id} 
+                            className={`border-l-4 ${isSelected ? 'border-l-green-500 bg-green-50 dark:bg-green-900/10' : 'border-l-blue-500'}`}
+                          >
                             <CardContent className="p-4">
-                              <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-3">
+                                {/* Checkbox */}
+                                <div className="pt-1">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleSelectEntry(entry.id)}
+                                    data-testid={`checkbox-entry-${entry.id}`}
+                                  />
+                                </div>
+
                                 <div className="flex-1">
                                   <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
                                     {entry.title}
@@ -397,62 +521,92 @@ export default function LibraryPage() {
                                     </div>
                                   </div>
                                   
-                                  {/* Connections Section */}
+                                  {/* Connections Section - Professional Badge Display */}
                                   {databaseConnections.length > 0 && (
-                                    <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                                          <Link2 className="w-3 h-3" />
-                                          <span className="font-medium">
-                                            Connections ({databaseConnections.length})
+                                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                          <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                          <span>
+                                            Connected Entries ({databaseConnections.length})
                                           </span>
                                         </div>
-                                        <button
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             deleteAllConnectionsMutation.mutate(entry.id);
                                           }}
-                                          className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:underline"
+                                          className="h-7 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                                           title="Remove all connections"
                                           data-testid={`button-remove-all-connections-${entry.id}`}
                                         >
+                                          <Trash2 className="w-3 h-3 mr-1" />
                                           Delete All
-                                        </button>
+                                        </Button>
                                       </div>
-                                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                                      <div className="flex flex-wrap gap-2">
                                         {databaseConnections.map((related, idx) => (
-                                          <span key={`${entry.id}-${related.id}-${idx}`} className="inline-flex items-center gap-1">
-                                            <span 
-                                              className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline bg-blue-50 dark:bg-blue-900/20 px-1 py-0.5 rounded"
-                                              onClick={() => {
-                                                const element = document.querySelector(`[data-entry-id="${related.id}"]`);
-                                                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                              }}
-                                              title="Click to scroll to entry"
-                                            >
-                                              {related.title}
-                                            </span>
+                                          <div 
+                                            key={`${entry.id}-${related.id}-${idx}`} 
+                                            className="group relative flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
+                                          >
+                                            <div className="flex flex-col gap-1">
+                                              <div className="flex items-center gap-1.5">
+                                                <Badge 
+                                                  variant="secondary" 
+                                                  className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium"
+                                                >
+                                                  {related.category.name}
+                                                </Badge>
+                                                <span 
+                                                  className="text-sm font-medium text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                                                  onClick={() => {
+                                                    const element = document.querySelector(`[data-entry-id="${related.id}"]`);
+                                                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                  }}
+                                                  title="Click to scroll to entry"
+                                                >
+                                                  {related.title}
+                                                </span>
+                                              </div>
+                                              {(related as any).strength && (
+                                                <div className="flex items-center gap-0.5" title={`Connection strength: ${(related as any).strength}/5`}>
+                                                  {Array.from({ length: 5 }).map((_, i) => (
+                                                    <div 
+                                                      key={i} 
+                                                      className={`w-1.5 h-1.5 rounded-full ${
+                                                        i < (related as any).strength 
+                                                          ? 'bg-green-500 dark:bg-green-400' 
+                                                          : 'bg-gray-300 dark:bg-gray-600'
+                                                      }`}
+                                                    />
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
                                             {(related as any).connectionId && (
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   deleteConnectionMutation.mutate((related as any).connectionId);
                                                 }}
-                                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                className="ml-2 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 title="Remove connection"
                                                 data-testid={`button-remove-connection-${(related as any).connectionId}`}
                                               >
-                                                <X className="w-3 h-3" />
+                                                <X className="w-3.5 h-3.5" />
                                               </button>
                                             )}
-                                            {idx < databaseConnections.length - 1 && <span>,</span>}
-                                          </span>
+                                          </div>
                                         ))}
                                       </div>
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1 ml-4">
+
+                                <div className="flex items-center gap-1">
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -595,6 +749,33 @@ export default function LibraryPage() {
             />
           </DialogContent>
         </Dialog>
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {visibleSelectedCount} {visibleSelectedCount === 1 ? 'Entry' : 'Entries'}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the selected {visibleSelectedCount === 1 ? 'entry' : 'entries'} and all associated connections. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  // Only delete visible selected entries
+                  const displayedIds = new Set(displayedEntries.map(e => e.id));
+                  const visibleSelected = Array.from(selectedEntries).filter(id => displayedIds.has(id));
+                  bulkDeleteEntriesMutation.mutate(visibleSelected);
+                }}
+                className="bg-red-600 hover:bg-red-700"
+                data-testid="button-confirm-bulk-delete"
+              >
+                Delete {visibleSelectedCount} {visibleSelectedCount === 1 ? 'Entry' : 'Entries'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
