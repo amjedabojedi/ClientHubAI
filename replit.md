@@ -88,6 +88,35 @@ Comprehensive bulk operations system for mass client updates with role-based acc
 **Session Notes:** `session_notes` table for AI-generated drafts, progress tracking, goal documentation.
 **Assessments:** `assessment_templates`, `assessment_assignments`, `assessment_responses`, and AI-generated `assessment_reports`.
 
+**Clinical Content Library (Enhanced November 2025):**
+Comprehensive library system for reusable clinical content with smart connections and bulk import.
+
+**Title Pattern System:**
+Library entries follow a structured coding pattern: `[CONDITION][TYPE][NUMBER]_[VARIANT]`
+- **CONDITION:** 3-5 letter code (ANX=Anxiety, DEPR=Depression, TRAUM=Trauma, PTSD, ADHD, etc.)
+- **TYPE:** Single letter identifying entry purpose
+  - S = Symptom (parent/root entry)
+  - I = Intervention (treatment options)
+  - P = Progress (outcome measures)
+  - G = Goal (target outcomes)
+- **NUMBER:** Pathway number (1-99) linking related entries
+- **VARIANT:** Optional variant number (_1, _2, _3) for multiple options
+
+Examples: `ANXS10` (Anxiety Symptom #10), `ANXI10_2` (Anxiety Intervention for pathway 10, variant 2), `ANXP10_1` (Progress measure for pathway 10)
+
+**Smart Connect Feature:**
+Intelligent auto-suggestion system for creating connections between library entries:
+1. **Pattern-Based Matching (100% confidence):** Automatically detects entries in the same pathway by parsing title codes. If creating `ANXI10_2`, suggests connecting to `ANXS10`, `ANXI10_1`, `ANXI10_3`, `ANXP10_1`, `ANXG10`.
+2. **Keyword Fallback (60% confidence):** For non-pattern titles, uses keyword matching across titles and tags with category relationships.
+3. **Connection Types:** Automatically determines relationship type based on entry types (S→I = "treats", I→P = "measures", S→G = "targets", I→I = "alternative_to").
+
+**Bulk Import:**
+- Copy-paste from Excel with TAB or comma separator support
+- Two-column format: Title, Content
+- Real-time validation and preview with error detection
+- Batch creation with success/error reporting
+- Bulk entries accessible via "Bulk Add" button per category
+
 ### Billing & Financial Tracking
 Automated workflow from service selection to invoice generation and payment tracking.
 **Key Tables:** `services`, `session_billing`, `invoices`, `payments`.
