@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X } from "lucide-react";
+import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,7 @@ export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategoryDialog, setShowAddCategoryDialog] = useState(false);
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
+  const [showBulkAddDialog, setShowBulkAddDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LibraryCategoryWithChildren | null>(null);
   const [editingEntry, setEditingEntry] = useState<LibraryEntryWithDetails | null>(null);
   const [connectingEntry, setConnectingEntry] = useState<LibraryEntryWithDetails | null>(null);
@@ -291,14 +292,25 @@ export default function LibraryPage() {
                         {category.description || `Clinical content for ${category.name.toLowerCase()}`}
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowAddEntryDialog(true)}
-                      className="flex items-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Entry
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowBulkAddDialog(true)}
+                        className="flex items-center gap-1"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Bulk Add
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowAddEntryDialog(true)}
+                        className="flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Entry
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 mt-4">
                     <div className="relative flex-1">
@@ -541,6 +553,241 @@ export default function LibraryPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Bulk Add Dialog */}
+        <Dialog open={showBulkAddDialog} onOpenChange={setShowBulkAddDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Bulk Add Library Entries</DialogTitle>
+            </DialogHeader>
+            <BulkAddForm
+              categoryId={currentCategoryId}
+              categories={categories}
+              onComplete={() => {
+                setShowBulkAddDialog(false);
+                queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
+
+// Bulk Add Form Component
+function BulkAddForm({
+  categoryId,
+  categories,
+  onComplete
+}: {
+  categoryId?: number;
+  categories: LibraryCategoryWithChildren[];
+  onComplete: () => void;
+}) {
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(categoryId);
+  const [pastedData, setPastedData] = useState("");
+  const [parsedEntries, setParsedEntries] = useState<Array<{ title: string; content: string; error?: string }>>([]);
+  const { toast } = useToast();
+
+  // Parse pasted data when it changes
+  useEffect(() => {
+    if (!pastedData.trim()) {
+      setParsedEntries([]);
+      return;
+    }
+
+    const lines = pastedData.split('\n').filter(line => line.trim());
+    const entries: Array<{ title: string; content: string; error?: string }> = [];
+
+    lines.forEach((line, index) => {
+      const parts = line.split('\t');
+      
+      if (parts.length < 2) {
+        entries.push({
+          title: parts[0] || '',
+          content: '',
+          error: 'Missing content column (must have 2 columns: Title and Content)'
+        });
+      } else {
+        const title = parts[0]?.trim() || '';
+        const content = parts[1]?.trim() || '';
+        
+        if (!title) {
+          entries.push({ title: '', content, error: 'Title is required' });
+        } else if (!content) {
+          entries.push({ title, content: '', error: 'Content is required' });
+        } else {
+          entries.push({ title, content });
+        }
+      }
+    });
+
+    setParsedEntries(entries);
+  }, [pastedData]);
+
+  const validEntries = parsedEntries.filter(e => !e.error);
+  const invalidEntries = parsedEntries.filter(e => e.error);
+
+  const handleImport = async () => {
+    if (!selectedCategoryId) {
+      toast({
+        title: "Category required",
+        description: "Please select a category first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (validEntries.length === 0) {
+      toast({
+        title: "No valid entries",
+        description: "Please paste valid data with Title and Content columns",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await apiRequest('/api/library/bulk-entries', 'POST', {
+        categoryId: selectedCategoryId,
+        entries: validEntries
+      });
+
+      toast({
+        title: "Success!",
+        description: `${validEntries.length} entries imported successfully${invalidEntries.length > 0 ? ` (${invalidEntries.length} skipped)` : ''}`,
+      });
+
+      onComplete();
+    } catch (error: any) {
+      toast({
+        title: "Import failed",
+        description: error.message || "Failed to import entries",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Step 1: Select Category */}
+      <div>
+        <Label htmlFor="bulk-category">Step 1: Select Category *</Label>
+        <Select
+          value={selectedCategoryId?.toString()}
+          onValueChange={(value) => setSelectedCategoryId(parseInt(value))}
+        >
+          <SelectTrigger id="bulk-category">
+            <SelectValue placeholder="Choose a category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map(cat => (
+              <SelectItem key={cat.id} value={cat.id.toString()}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-slate-500 mt-1">
+          All imported entries will be added to this category
+        </p>
+      </div>
+
+      {/* Step 2: Paste Data */}
+      <div>
+        <Label htmlFor="bulk-paste">Step 2: Paste Excel Data</Label>
+        <p className="text-xs text-slate-500 mb-2">
+          Copy 2 columns from Excel: <strong>Title</strong> and <strong>Content</strong> (TAB-separated)
+        </p>
+        <Textarea
+          id="bulk-paste"
+          value={pastedData}
+          onChange={(e) => setPastedData(e.target.value)}
+          placeholder="Title    Content
+Cognitive Restructuring A technique to identify and challenge...
+DBT Skills      Dialectical behavior therapy skills..."
+          rows={8}
+          className="font-mono text-sm"
+        />
+      </div>
+
+      {/* Preview */}
+      {parsedEntries.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Preview ({parsedEntries.length} rows)</Label>
+            <div className="flex gap-2 text-xs">
+              <span className="text-green-600">✓ {validEntries.length} valid</span>
+              {invalidEntries.length > 0 && (
+                <span className="text-red-600">⚠ {invalidEntries.length} errors</span>
+              )}
+            </div>
+          </div>
+          <div className="border rounded-lg max-h-64 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0">
+                <tr>
+                  <th className="text-left p-2 w-8">#</th>
+                  <th className="text-left p-2">Title</th>
+                  <th className="text-left p-2">Content</th>
+                  <th className="text-left p-2 w-20">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedEntries.map((entry, index) => (
+                  <tr key={index} className={entry.error ? 'bg-red-50 dark:bg-red-950' : ''}>
+                    <td className="p-2 text-slate-500">{index + 1}</td>
+                    <td className="p-2 font-medium">{entry.title || <span className="text-slate-400">empty</span>}</td>
+                    <td className="p-2 text-slate-600 dark:text-slate-400 truncate max-w-xs">
+                      {entry.content || <span className="text-slate-400">empty</span>}
+                    </td>
+                    <td className="p-2">
+                      {entry.error ? (
+                        <span className="text-xs text-red-600" title={entry.error}>⚠ Error</span>
+                      ) : (
+                        <span className="text-xs text-green-600">✓ Valid</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {invalidEntries.length > 0 && (
+            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
+              <strong>Errors:</strong>
+              <ul className="list-disc list-inside mt-1">
+                {invalidEntries.slice(0, 3).map((entry, index) => (
+                  <li key={index}>{entry.error}</li>
+                ))}
+                {invalidEntries.length > 3 && (
+                  <li>... and {invalidEntries.length - 3} more</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Import Button */}
+      <div className="flex justify-end gap-2 pt-4 border-t">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setPastedData("");
+            setParsedEntries([]);
+          }}
+        >
+          Clear
+        </Button>
+        <Button
+          onClick={handleImport}
+          disabled={validEntries.length === 0 || !selectedCategoryId}
+        >
+          Import {validEntries.length > 0 && `${validEntries.length} ${validEntries.length === 1 ? 'Entry' : 'Entries'}`}
+        </Button>
       </div>
     </div>
   );

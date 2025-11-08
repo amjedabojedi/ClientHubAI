@@ -6135,6 +6135,53 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Bulk create library entries
+  app.post("/api/library/bulk-entries", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { categoryId, entries } = req.body;
+      
+      if (!categoryId || !Array.isArray(entries)) {
+        return res.status(400).json({ message: "Invalid input: categoryId and entries array required" });
+      }
+
+      const results = {
+        total: entries.length,
+        successful: 0,
+        failed: 0,
+        errors: [] as any[]
+      };
+
+      for (let i = 0; i < entries.length; i++) {
+        const entryData = entries[i];
+        
+        try {
+          const validatedData = insertLibraryEntrySchema.parse({
+            categoryId,
+            title: entryData.title,
+            content: entryData.content,
+            createdById: req.user!.id,
+            tags: entryData.tags || null,
+            sortOrder: entryData.sortOrder || 0
+          });
+          
+          await storage.createLibraryEntry(validatedData);
+          results.successful++;
+        } catch (error) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            title: entryData.title,
+            error: error instanceof z.ZodError ? error.errors[0].message : 'Unknown error'
+          });
+        }
+      }
+
+      res.status(201).json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.put("/api/library/entries/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
