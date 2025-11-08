@@ -170,12 +170,37 @@ export default function LibraryPage() {
   });
 
   const updateEntryMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<InsertLibraryEntry> }) =>
-      apiRequest(`/api/library/entries/${id}`, "PUT", data),
-    onSuccess: () => {
+    mutationFn: async ({ id, data }: { id: number; data: Partial<InsertLibraryEntry> & { selectedConnections?: number[] } }) => {
+      const { selectedConnections, ...entryData } = data;
+      
+      // Update the entry first
+      const entry = await apiRequest(`/api/library/entries/${id}`, "PUT", entryData);
+      
+      // Create auto-connections if any were selected
+      if (selectedConnections && selectedConnections.length > 0) {
+        const connectionPromises = selectedConnections.map(targetId => 
+          apiRequest("/api/library/connections", "POST", {
+            fromEntryId: id,
+            toEntryId: targetId,
+            connectionType: "relates_to",
+            strength: 4,
+          })
+        );
+        
+        await Promise.all(connectionPromises);
+      }
+      
+      return entry;
+    },
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
       setEditingEntry(null);
-      toast({ title: "Entry updated successfully" });
+      const connectCount = (variables.data as any).selectedConnections?.length || 0;
+      toast({ 
+        title: connectCount > 0 
+          ? `Entry updated with ${connectCount} new connection(s)` 
+          : "Entry updated successfully" 
+      });
     },
     onError: () => {
       toast({ title: "Failed to update entry", variant: "destructive" });
