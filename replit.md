@@ -123,6 +123,13 @@ Intelligent auto-suggestion system for creating connections between library entr
 - Bulk import skips duplicates and reports them separately (successful/skipped/failed)
 - Database cleaned from 254 to 176 unique entries (78 duplicates removed)
 
+**Natural Sorting (Added November 2025):**
+- Intelligent alphanumeric sorting prevents confusion with pattern-based titles
+- Properly orders entries like ANX1, ANX2, ANX10 (not ANX1, ANX10, ANX2)
+- Algorithm splits titles into numeric and text segments, compares numbers as integers
+- Maintains sortOrder field priority, then applies natural sort to titles
+- Applied consistently to both entry lists and search results
+
 ### Billing & Financial Tracking
 Automated workflow from service selection to invoice generation and payment tracking.
 **Key Tables:** `services`, `session_billing`, `invoices`, `payments`.

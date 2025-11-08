@@ -29,6 +29,31 @@ interface LibraryEntryWithDetails extends LibraryEntry {
   createdBy: { id: number; username: string };
 }
 
+// Natural sort function to properly handle numbers in titles (ANX1, ANX2, ANX10 instead of ANX1, ANX10, ANX2)
+function naturalSort(a: string, b: string): number {
+  const regex = /(\d+)|(\D+)/g;
+  const aParts = a.match(regex) || [];
+  const bParts = b.match(regex) || [];
+  
+  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+    const aPart = aParts[i] || '';
+    const bPart = bParts[i] || '';
+    
+    const aIsNum = /^\d+$/.test(aPart);
+    const bIsNum = /^\d+$/.test(bPart);
+    
+    if (aIsNum && bIsNum) {
+      const diff = parseInt(aPart, 10) - parseInt(bPart, 10);
+      if (diff !== 0) return diff;
+    } else {
+      const diff = aPart.localeCompare(bPart);
+      if (diff !== 0) return diff;
+    }
+  }
+  
+  return 0;
+}
+
 
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState("");
@@ -276,7 +301,26 @@ export default function LibraryPage() {
     return result;
   };
 
-  const displayedEntries = searchQuery.trim() ? searchResults : entries;
+  // Apply natural sorting to entries (handles ANX1, ANX2, ANX10 correctly)
+  const sortedEntries = [...entries].sort((a, b) => {
+    // First sort by sortOrder field
+    if (a.sortOrder !== b.sortOrder) {
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    }
+    // Then apply natural sort to titles
+    return naturalSort(a.title, b.title);
+  });
+
+  const sortedSearchResults = [...searchResults].sort((a, b) => {
+    // First sort by sortOrder field
+    if (a.sortOrder !== b.sortOrder) {
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    }
+    // Then apply natural sort to titles
+    return naturalSort(a.title, b.title);
+  });
+
+  const displayedEntries = searchQuery.trim() ? sortedSearchResults : sortedEntries;
 
   // Clear selection when context changes (tab switch, search, or entries change)
   useEffect(() => {
