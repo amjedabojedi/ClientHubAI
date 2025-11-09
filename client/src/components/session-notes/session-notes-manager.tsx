@@ -1151,29 +1151,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               <FileText className="h-5 w-5 text-blue-600" />
               {editingNote ? 'Edit Session Note' : 'Add Session Note'}
             </DialogTitle>
-            {(() => {
-              // Get session ID from either editing note or form watch
-              const sessionId = editingNote?.sessionId || form.watch('sessionId');
-              const session = sessions.find(s => s.id === sessionId);
-              if (session) {
-                return (
-                  <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-100">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium text-blue-900">
-                        Session: {format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy')} - {session.sessionType}
-                      </span>
-                    </div>
-                    {clientData && (
-                      <div className="text-xs text-blue-700 mt-1">
-                        Client: {clientData.fullName}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-              return <DialogDescription>Document therapy session details, assessments, and progress notes.</DialogDescription>;
-            })()}
+            <DialogDescription>Document therapy session details, assessments, and progress notes.</DialogDescription>
             
             {/* Workflow Instructions */}
             <Collapsible defaultOpen={true} className="mt-3">
