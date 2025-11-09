@@ -903,10 +903,12 @@ function BulkAddForm({
     }
 
     try {
-      const response = await apiRequest('/api/library/bulk-entries', 'POST', {
+      const res = await apiRequest('/api/library/bulk-entries', 'POST', {
         categoryId: selectedCategoryId,
         entries: validEntries
-      }) as any;
+      });
+      
+      const response = await res.json() as any;
 
       const successCount = response.successful || 0;
       const skippedCount = response.skipped || 0;
