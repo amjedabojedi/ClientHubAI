@@ -41,6 +41,7 @@ export function SmartConnectPanel({
 }: SmartConnectPanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
+  // MUST call hooks before any conditional returns (Rules of Hooks)
   const {
     state,
     displayList,
@@ -60,6 +61,9 @@ export function SmartConnectPanel({
     initialSelections: selectedConnections
   });
 
+  const totalSuggestions = displayList.patterns.length + displayList.keywords.length;
+  const showPanel = currentTitle.length > 0;
+
   // Sync selections with parent
   const handleToggle = (id: number) => {
     toggleSelection(id);
@@ -75,9 +79,7 @@ export function SmartConnectPanel({
     setSearch(value);
   };
 
-  const totalSuggestions = displayList.patterns.length + displayList.keywords.length;
-  const showPanel = currentTitle.length > 0;
-
+  // Empty state - show AFTER hooks are called
   if (!showPanel) {
     return (
       <div className="bg-gray-50 dark:bg-gray-900/20 p-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
