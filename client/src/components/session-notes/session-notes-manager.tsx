@@ -976,8 +976,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       
       // If "Show connected only" is enabled, filter by connections
       const matchesConnection = !showConnectedOnly || 
-        connectedEntryIds.length === 0 || 
-        connectedEntryIds.includes(entry.id);
+        (connectedEntryIds.length > 0 && connectedEntryIds.includes(entry.id));
       
       return matchesCategory && matchesSearch && matchesConnection;
     }) : [];
