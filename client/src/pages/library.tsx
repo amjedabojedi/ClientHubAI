@@ -284,7 +284,7 @@ export default function LibraryPage() {
   const deleteConnectionMutation = useMutation({
     mutationFn: (connectionId: number) => apiRequest(`/api/library/connections/${connectionId}`, "DELETE"),
     onSuccess: () => {
-      setConnectedEntriesMap({});
+      // Don't clear the entire map, just refetch the connections
       queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
       toast({ title: "Connection removed successfully" });
     },
@@ -295,8 +295,13 @@ export default function LibraryPage() {
 
   const deleteAllConnectionsMutation = useMutation({
     mutationFn: (entryId: number) => apiRequest(`/api/library/entries/${entryId}/connections`, "DELETE"),
-    onSuccess: () => {
-      setConnectedEntriesMap({});
+    onSuccess: (_data, entryId) => {
+      // Only remove connections for this specific entry, not all entries
+      setConnectedEntriesMap(prev => {
+        const updated = { ...prev };
+        delete updated[entryId];
+        return updated;
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
       toast({ title: "All connections removed successfully" });
     },
@@ -917,10 +922,8 @@ export default function LibraryPage() {
                 allEntries={allEntries}
                 categories={categories}
                 onConnectionCreated={() => {
-                  // Refresh connections
-                  setConnectedEntriesMap({});
+                  // Close dialog and refresh entries
                   setConnectingEntry(null);
-                  // Refresh entries to show new connections
                   queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
                 }}
               />
