@@ -692,7 +692,7 @@ export default function LibraryPage() {
                                               {visibleConnections.map((related, idx) => (
                                                 <div 
                                                   key={`${entry.id}-${related.id}-${idx}`} 
-                                                  className="group relative flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                                                  className="group relative flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                                 >
                                                   <div className="flex flex-col gap-1">
                                                     <div className="flex items-center gap-1.5">
