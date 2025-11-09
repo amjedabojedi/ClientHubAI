@@ -1264,19 +1264,35 @@ function EntryForm({
 
     // Step 1: Try pattern-based matching (HIGHEST PRIORITY)
     const currentPattern = parseLibraryPattern(formData.title);
+    console.log('🔍 Smart Connect Debug:', {
+      title: formData.title,
+      currentPattern,
+      totalEntries: allEntries.length,
+      sampleTitles: allEntries.slice(0, 5).map(e => e.title)
+    });
     
     if (currentPattern) {
+      console.log('✅ Pattern detected:', currentPattern);
+      
       // Pattern detected! Find all entries in same pathway
       const patternMatches = allEntries
         .filter(existing => {
           if (existing.id === entry?.id) return false; // Don't suggest self
           
           const existingPattern = parseLibraryPattern(existing.title);
+          console.log(`Checking entry "${existing.title}":`, existingPattern);
+          
           if (!existingPattern) return false;
           
           // Same condition and pathway number
-          return existingPattern.condition === currentPattern.condition &&
+          const isMatch = existingPattern.condition === currentPattern.condition &&
                  existingPattern.pathway === currentPattern.pathway;
+          
+          if (isMatch) {
+            console.log(`✅ MATCH FOUND: "${existing.title}" matches pathway ${currentPattern.pathway}`);
+          }
+          
+          return isMatch;
         })
         .map(e => ({ 
           ...e, 
@@ -1284,10 +1300,14 @@ function EntryForm({
           reason: `Same pathway #${currentPattern.pathway}` 
         }));
       
+      console.log('📊 Pattern matches found:', patternMatches.length, patternMatches.map(m => m.title));
+      
       if (patternMatches.length > 0) {
         setSuggestedConnections(patternMatches.slice(0, 10));
         return;
       }
+    } else {
+      console.log('❌ No pattern detected in title:', formData.title);
     }
 
     // Step 2: Keyword-based matching (FALLBACK)
