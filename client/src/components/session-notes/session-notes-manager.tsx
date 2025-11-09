@@ -205,6 +205,21 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     supportSystem: 0,
   });
 
+  // Track selected library entries per field for relationship filtering
+  const [selectedLibraryEntries, setSelectedLibraryEntries] = useState<{
+    'session-focus': number[];
+    'symptoms': number[];
+    'short-term-goals': number[];
+    'interventions': number[];
+    'progress': number[];
+  }>({
+    'session-focus': [],
+    'symptoms': [],
+    'short-term-goals': [],
+    'interventions': [],
+    'progress': []
+  });
+
   // Load saved templates from localStorage on component mount
   useEffect(() => {
     const stored = localStorage.getItem('aiSessionTemplates');
@@ -918,10 +933,12 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Library Picker Component
   const LibraryPicker = ({ fieldType, onSelect }: {
     fieldType: 'session-focus' | 'symptoms' | 'short-term-goals' | 'interventions' | 'progress';
-    onSelect: (content: string) => void;
+    onSelect: (content: string, entryId: number) => void;
   }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [showConnectedOnly, setShowConnectedOnly] = useState(false);
+    const [connectedEntryIds, setConnectedEntryIds] = useState<number[]>([]);
 
     // Category mapping
     const categoryIds = {
@@ -936,14 +953,63 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       queryKey: ['/api/library/entries'],
     });
 
-    // Filter entries by category and search
+    // Fetch connections for previously selected entries
+    useEffect(() => {
+      const fetchConnections = async () => {
+        if (!showConnectedOnly) {
+          setConnectedEntryIds([]);
+          return;
+        }
+
+        // Get all previously selected entry IDs from other fields
+        const allSelectedIds = Object.entries(selectedLibraryEntries)
+          .filter(([key]) => key !== fieldType) // Exclude current field
+          .flatMap(([, ids]) => ids);
+
+        if (allSelectedIds.length === 0) {
+          setConnectedEntryIds([]);
+          return;
+        }
+
+        try {
+          // Fetch connections for all selected entries
+          const connectionPromises = allSelectedIds.map(async (id) => {
+            const response = await fetch(`/api/library/entries/${id}/connected`);
+            if (response.ok) {
+              const connected = await response.json();
+              return connected.map((c: any) => c.id);
+            }
+            return [];
+          });
+
+          const results = await Promise.all(connectionPromises);
+          const allConnectedIds = Array.from(new Set(results.flat()));
+          setConnectedEntryIds(allConnectedIds);
+        } catch (error) {
+          console.error('Failed to fetch connections:', error);
+          setConnectedEntryIds([]);
+        }
+      };
+
+      if (isOpen) {
+        fetchConnections();
+      }
+    }, [isOpen, showConnectedOnly, selectedLibraryEntries, fieldType]);
+
+    // Filter entries by category, search, and connections
     const filteredEntries = Array.isArray(libraryEntries) ? libraryEntries.filter((entry: LibraryEntry) => {
       const matchesCategory = entry.categoryId === categoryIds[fieldType];
       const matchesSearch = !searchQuery || 
         entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (entry.tags && entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
-      return matchesCategory && matchesSearch;
+      
+      // If "Show connected only" is enabled, filter by connections
+      const matchesConnection = !showConnectedOnly || 
+        connectedEntryIds.length === 0 || 
+        connectedEntryIds.includes(entry.id);
+      
+      return matchesCategory && matchesSearch && matchesConnection;
     }) : [];
 
     // Mutation for incrementing usage count
@@ -962,12 +1028,26 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     });
 
     const handleSelect = (entry: LibraryEntry) => {
-      onSelect(entry.content);
+      onSelect(entry.content, entry.id);
       setIsOpen(false);
       
       // Increment usage count
       incrementUsageMutation.mutate(entry.id);
+      
+      // Track this selection
+      setSelectedLibraryEntries(prev => ({
+        ...prev,
+        [fieldType]: [...prev[fieldType], entry.id]
+      }));
     };
+
+    // Get count of previously selected entries from other fields
+    const previousSelectionsCount = Object.entries(selectedLibraryEntries)
+      .filter(([key]) => key !== fieldType)
+      .reduce((sum, [, ids]) => sum + ids.length, 0);
+    
+    const hasConnections = connectedEntryIds.length > 0;
+    const showingFiltered = showConnectedOnly && hasConnections;
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -977,6 +1057,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             variant="ghost"
             size="sm"
             className="h-6 px-2"
+            data-testid={`button-library-picker-${fieldType}`}
           >
             <BookOpen className="h-3 w-3 mr-1" />
             Library
@@ -991,6 +1072,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           </DialogHeader>
           
           <div className="space-y-4">
+            {/* Search Box */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -998,8 +1080,35 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
+                data-testid={`input-search-library-${fieldType}`}
               />
             </div>
+            
+            {/* Connected Entries Filter Toggle */}
+            {previousSelectionsCount > 0 && (
+              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={showConnectedOnly}
+                      onCheckedChange={setShowConnectedOnly}
+                      data-testid={`toggle-connected-only-${fieldType}`}
+                    />
+                    <Label htmlFor="connected-filter" className="font-medium text-sm cursor-pointer" onClick={() => setShowConnectedOnly(!showConnectedOnly)}>
+                      Show connected entries only
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-11">
+                    {showConnectedOnly 
+                      ? hasConnections
+                        ? `Showing ${connectedEntryIds.length} entries connected to your previous selections`
+                        : 'No connections found. Showing all entries.'
+                      : `Filter by entries connected to your ${previousSelectionsCount} previous selection${previousSelectionsCount > 1 ? 's' : ''}`
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
 
             <ScrollArea className="h-96">
               <div className="space-y-2">
