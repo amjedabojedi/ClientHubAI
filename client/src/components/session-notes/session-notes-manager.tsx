@@ -963,8 +963,24 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       showConnectedOnly ? previouslySelectedIds : []
     );
 
-    // Extract connected entry IDs
+    // Extract connected entry IDs and filter by current category
     const connectedEntryIds = connectedEntries.map((entry: LibraryEntry) => entry.id);
+    const connectedEntriesInCategory = connectedEntries.filter(
+      (entry: LibraryEntry) => entry.categoryId === categoryIds[fieldType]
+    );
+    const connectedEntryIdsInCategory = connectedEntriesInCategory.map((entry: LibraryEntry) => entry.id);
+
+    // Debug logging
+    if (showConnectedOnly && previouslySelectedIds.length > 0) {
+      console.log('🔍 Library Picker Debug:', {
+        fieldType,
+        categoryId: categoryIds[fieldType],
+        previouslySelectedIds,
+        totalConnectedEntries: connectedEntries.length,
+        connectedEntriesInThisCategory: connectedEntriesInCategory.length,
+        connectedEntryIdsInCategory
+      });
+    }
 
     // Filter entries by category, search, and connections
     const filteredEntries = Array.isArray(libraryEntries) ? libraryEntries.filter((entry: LibraryEntry) => {
@@ -974,9 +990,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         entry.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (entry.tags && entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
       
-      // If "Show connected only" is enabled, filter by connections
+      // If "Show connected only" is enabled, filter by connections IN THIS CATEGORY
       const matchesConnection = !showConnectedOnly || 
-        (connectedEntryIds.length > 0 && connectedEntryIds.includes(entry.id));
+        (connectedEntryIdsInCategory.length > 0 && connectedEntryIdsInCategory.includes(entry.id));
       
       return matchesCategory && matchesSearch && matchesConnection;
     }) : [];
@@ -1015,7 +1031,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       .filter(([key]) => key !== fieldType)
       .reduce((sum, [, ids]) => sum + ids.length, 0);
     
-    const hasConnections = connectedEntryIds.length > 0;
+    const hasConnections = connectedEntryIdsInCategory.length > 0;
     const showingFiltered = showConnectedOnly && hasConnections;
 
     return (
@@ -1070,8 +1086,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-11">
                     {showConnectedOnly 
                       ? hasConnections
-                        ? `Showing ${connectedEntryIds.length} entries connected to your previous selections`
-                        : 'No connections found. Showing all entries.'
+                        ? `Showing ${connectedEntryIdsInCategory.length} connected ${connectedEntryIdsInCategory.length === 1 ? 'entry' : 'entries'} (from ${connectedEntries.length} total connections)`
+                        : 'No connections found in this category.'
                       : `Filter by entries connected to your ${previousSelectionsCount} previous selection${previousSelectionsCount > 1 ? 's' : ''}`
                     }
                   </p>
