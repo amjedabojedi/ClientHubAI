@@ -953,10 +953,19 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       queryKey: ['/api/library/entries'],
     });
 
-    // Get all previously selected entry IDs from other fields
-    const previouslySelectedIds = Object.entries(selectedLibraryEntries)
-      .filter(([key]) => key !== fieldType) // Exclude current field
-      .flatMap(([, ids]) => ids);
+    // Define which fields should be used as filter sources for each field type
+    // E.g., when opening Goals, use only Symptoms; when opening Interventions, use Symptoms and Goals
+    const fieldRelationships: Record<typeof fieldType, (typeof fieldType)[]> = {
+      'session-focus': [], // No filtering for session focus
+      'symptoms': [], // No filtering for symptoms (it's the source)
+      'short-term-goals': ['symptoms'], // Goals filtered by symptoms
+      'interventions': ['symptoms', 'short-term-goals'], // Interventions filtered by symptoms and goals
+      'progress': ['symptoms', 'short-term-goals', 'interventions'] // Progress filtered by symptoms, goals, and interventions
+    };
+
+    // Get selected entry IDs only from relevant related fields
+    const relevantFields = fieldRelationships[fieldType];
+    const previouslySelectedIds = relevantFields.flatMap(field => selectedLibraryEntries[field]);
 
     // Fetch connected entries using the custom hook
     const { data: connectedEntries = [], isLoading: isLoadingConnections } = useConnectedEntries(
@@ -964,11 +973,11 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     );
 
     // Extract connected entry IDs and filter by current category
-    const connectedEntryIds = connectedEntries.map((entry: LibraryEntry) => entry.id);
+    const connectedEntryIds = connectedEntries.map((entry: any) => entry.id);
     const connectedEntriesInCategory = connectedEntries.filter(
-      (entry: LibraryEntry) => entry.categoryId === categoryIds[fieldType]
+      (entry: any) => entry.categoryId === categoryIds[fieldType]
     );
-    const connectedEntryIdsInCategory = connectedEntriesInCategory.map((entry: LibraryEntry) => entry.id);
+    const connectedEntryIdsInCategory = connectedEntriesInCategory.map((entry: any) => entry.id);
 
     // Debug logging
     if (showConnectedOnly && previouslySelectedIds.length > 0) {
