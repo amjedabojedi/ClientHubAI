@@ -891,7 +891,8 @@ export default function BillingDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${user?.role === 'admin' || user?.role === 'administrator' ? 'lg:grid-cols-3 xl:grid-cols-6' : 'lg:grid-cols-3'}`}>
+          {/* Top Row: Basic Filters */}
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 ${user?.role === 'admin' || user?.role === 'administrator' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
             <div>
               <Label htmlFor="client-search">Client Name</Label>
               <Input
@@ -971,11 +972,14 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-0 md:col-span-2 lg:col-span-full">
-              <Label>Date Range</Label>
-              <div className="space-y-3">
-                {/* Quick preset buttons */}
-                <div className="flex flex-wrap gap-2 justify-center">
+          </div>
+
+          {/* Bottom Row: Date Range */}
+          <div className="border-t pt-4">
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end justify-between">
+              <div className="flex-1 w-full lg:w-auto">
+                <Label className="mb-2 block">Date Range</Label>
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1029,98 +1033,99 @@ export default function BillingDashboard() {
                     This Year
                   </Button>
                 </div>
-                
-                {/* Custom date pickers */}
-                <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground">From</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal mt-1"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {startDate ? format(new Date(startDate), 'MMM dd, yyyy') : 'Pick a date'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={startDate ? new Date(startDate + 'T00:00:00') : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
-                              setStartDate(formattedDate);
-                            }
-                          }}
-                          onDayClick={(date) => {
+              </div>
+
+              {/* Custom date pickers inline */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                <div className="min-w-[180px]">
+                  <Label className="text-xs text-muted-foreground">From</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal mt-1"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {startDate ? format(new Date(startDate), 'MMM dd, yyyy') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={startDate ? new Date(startDate + 'T00:00:00') : undefined}
+                        onSelect={(date) => {
+                          if (date) {
                             const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
                             setStartDate(formattedDate);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground">To</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal mt-1"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {endDate ? format(new Date(endDate), 'MMM dd, yyyy') : 'Pick a date'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={endDate ? new Date(endDate + 'T00:00:00') : undefined}
-                          onSelect={(date) => {
-                            if (date) {
-                              const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
-                              setEndDate(formattedDate);
-                            }
-                          }}
-                          onDayClick={(date) => {
+                          }
+                        }}
+                        onDayClick={(date) => {
+                          const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                          setStartDate(formattedDate);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="min-w-[180px]">
+                  <Label className="text-xs text-muted-foreground">To</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal mt-1"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {endDate ? format(new Date(endDate), 'MMM dd, yyyy') : 'Pick a date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={endDate ? new Date(endDate + 'T00:00:00') : undefined}
+                        onSelect={(date) => {
+                          if (date) {
                             const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
                             setEndDate(formattedDate);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                          }
+                        }}
+                        onDayClick={(date) => {
+                          const formattedDate = formatInTimeZone(date, 'America/New_York', 'yyyy-MM-dd');
+                          setEndDate(formattedDate);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                
-                {/* Display selected range */}
-                {startDate && endDate && (
-                  <div className="text-center text-sm text-muted-foreground">
-                    Selected: {format(new Date(startDate), "MMM dd, yyyy")} - {format(new Date(endDate), "MMM dd, yyyy")}
-                  </div>
-                )}
               </div>
+
+              {/* Reset button */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={() => {
+                  setClientSearch('');
+                  setStartDate(firstDayOfMonth.toISOString().split('T')[0]);
+                  setEndDate(lastDayOfMonth.toISOString().split('T')[0]);
+                  setSelectedStatus('all');
+                  setSelectedTherapist('all');
+                  setSelectedService('all');
+                  setSelectedClientType('all');
+                }}
+              >
+                Reset Filters
+              </Button>
             </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                setClientSearch('');
-                setStartDate(firstDayOfMonth.toISOString().split('T')[0]);
-                setEndDate(lastDayOfMonth.toISOString().split('T')[0]);
-                setSelectedStatus('all');
-                setSelectedTherapist('all');
-                setSelectedService('all');
-                setSelectedClientType('all');
-              }}
-            >
-              Reset Filters
-            </Button>
+            
+            {/* Display selected range */}
+            {startDate && endDate && (
+              <div className="mt-3 text-sm text-muted-foreground text-center lg:text-left">
+                Selected: {format(new Date(startDate), "MMM dd, yyyy")} - {format(new Date(endDate), "MMM dd, yyyy")}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
