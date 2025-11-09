@@ -261,11 +261,35 @@ export function useSmartConnect({
     };
   }, [state]);
 
-  // Get unique categories for tabs
+  // Get unique categories for tabs with custom order
   const availableCategories = useMemo(() => {
     const catSet = new Set<string>();
     allEntries.forEach(e => catSet.add(e.category.name));
-    return Array.from(catSet).sort();
+    
+    // Custom order: Session Focus → Symptoms → Short-term Goals → Progress → Interventions
+    const preferredOrder = [
+      'session focus',
+      'symptoms',
+      'short-term goals',
+      'progress',
+      'interventions'
+    ];
+    
+    const categories = Array.from(catSet);
+    return categories.sort((a, b) => {
+      const indexA = preferredOrder.indexOf(a.toLowerCase());
+      const indexB = preferredOrder.indexOf(b.toLowerCase());
+      
+      // If both are in preferred order, sort by index
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      
+      // If only one is in preferred order, it comes first
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      
+      // If neither is in preferred order, sort alphabetically
+      return a.localeCompare(b);
+    });
   }, [allEntries]);
 
   return {
