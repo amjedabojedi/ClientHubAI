@@ -1,0 +1,318 @@
+import { useState } from 'react';
+import { Search, Sparkles, Target, Brain } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useSmartConnect } from '@/hooks/use-smart-connect';
+import type { LibraryEntry, LibraryCategory } from '@shared/schema';
+
+interface LibraryEntryWithDetails extends LibraryEntry {
+  category: LibraryCategory;
+  createdBy: { id: number; username: string };
+}
+
+interface LibraryCategoryWithChildren extends LibraryCategory {
+  children?: LibraryCategoryWithChildren[];
+  entries?: LibraryEntry[];
+}
+
+interface SmartConnectPanelProps {
+  currentTitle: string;
+  currentTags: string;
+  currentCategoryId: number;
+  currentEntryId?: number;
+  allEntries: LibraryEntryWithDetails[];
+  categories: LibraryCategoryWithChildren[];
+  selectedConnections: number[];
+  onSelectionChange: (selectedIds: number[]) => void;
+}
+
+export function SmartConnectPanel({
+  currentTitle,
+  currentTags,
+  currentCategoryId,
+  currentEntryId,
+  allEntries,
+  categories,
+  selectedConnections,
+  onSelectionChange
+}: SmartConnectPanelProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const {
+    state,
+    displayList,
+    availableCategories,
+    toggleSelection,
+    setCategory,
+    setSearch,
+    loadMore,
+    hasMore
+  } = useSmartConnect({
+    currentTitle,
+    currentTags,
+    currentCategoryId,
+    currentEntryId,
+    allEntries,
+    categories,
+    initialSelections: selectedConnections
+  });
+
+  // Sync selections with parent
+  const handleToggle = (id: number) => {
+    toggleSelection(id);
+    const newSelections = state.selectedIds.includes(id)
+      ? state.selectedIds.filter(sid => sid !== id)
+      : [...state.selectedIds, id];
+    onSelectionChange(newSelections);
+  };
+
+  // Handle search with debounce
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setSearch(value);
+  };
+
+  const totalSuggestions = displayList.patterns.length + displayList.keywords.length;
+  const showPanel = currentTitle.length > 0;
+
+  if (!showPanel) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-900/20 p-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
+        <Brain className="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Enter a title to see Smart Connect suggestions
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with counts */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+            Smart Connect
+          </h4>
+        </div>
+        {state.selectedIds.length > 0 && (
+          <Badge className="bg-blue-600 text-white">
+            {state.selectedIds.length} selected
+          </Badge>
+        )}
+      </div>
+
+      {/* Category Tabs */}
+      <Tabs
+        value={state.activeCategory || 'all'}
+        onValueChange={(val) => setCategory(val === 'all' ? null : val)}
+      >
+        <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-1">
+          <TabsTrigger value="all" className="text-xs">
+            All {displayList.totalCount > 0 && `(${displayList.totalCount})`}
+          </TabsTrigger>
+          {availableCategories.map(cat => {
+            const count = allEntries.filter(e => e.category.name === cat).length;
+            return (
+              <TabsTrigger key={cat} value={cat} className="text-xs">
+                {cat} {count > 0 && `(${count})`}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Input
+          value={searchTerm}
+          onChange={(e) => handleSearch(e.target.value)}
+          placeholder="Search connections..."
+          className="pl-9"
+          data-testid="input-search-connections"
+        />
+      </div>
+
+      {/* Suggestions List */}
+      <ScrollArea className="h-[400px] rounded-lg border border-gray-200 dark:border-gray-800">
+        <div className="p-4 space-y-4">
+          {/* Pattern Matches (always first, green highlight) */}
+          {displayList.patterns.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 text-green-600 dark:text-green-400" />
+                <h5 className="font-medium text-green-900 dark:text-green-100 text-sm">
+                  Pattern Matches
+                  <Badge className="ml-2 bg-green-600 text-white text-xs">
+                    100% Confidence
+                  </Badge>
+                </h5>
+              </div>
+              {displayList.patterns.map((entry: any) => (
+                <SuggestionCard
+                  key={entry.id}
+                  entry={entry}
+                  isSelected={state.selectedIds.includes(entry.id)}
+                  onToggle={handleToggle}
+                  confidence={entry.confidence}
+                  reason={entry.reason}
+                  highlight="pattern"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Keyword Matches (shown if no pattern matches) */}
+          {displayList.keywords.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Brain className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <h5 className="font-medium text-blue-900 dark:text-blue-100 text-sm">
+                  Keyword Matches
+                  <Badge className="ml-2 bg-blue-600 text-white text-xs">
+                    60% Confidence
+                  </Badge>
+                </h5>
+              </div>
+              {displayList.keywords.map((entry: any) => (
+                <SuggestionCard
+                  key={entry.id}
+                  entry={entry}
+                  isSelected={state.selectedIds.includes(entry.id)}
+                  onToggle={handleToggle}
+                  confidence={entry.confidence}
+                  reason={entry.reason}
+                  highlight="keyword"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Manual Catalog */}
+          {displayList.manual.length > 0 && (
+            <div className="space-y-2">
+              {totalSuggestions > 0 && (
+                <div className="border-t border-gray-200 dark:border-gray-700 my-4" />
+              )}
+              <h5 className="font-medium text-gray-700 dark:text-gray-300 text-sm mb-3">
+                Other Entries
+              </h5>
+              {displayList.manual.map((entry) => (
+                <SuggestionCard
+                  key={entry.id}
+                  entry={entry}
+                  isSelected={state.selectedIds.includes(entry.id)}
+                  onToggle={handleToggle}
+                  highlight="none"
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Load More */}
+          {hasMore && (
+            <Button
+              variant="outline"
+              onClick={loadMore}
+              className="w-full"
+              data-testid="button-load-more-connections"
+            >
+              Load 20 More
+            </Button>
+          )}
+
+          {/* Empty State */}
+          {displayList.patterns.length === 0 &&
+           displayList.keywords.length === 0 &&
+           displayList.manual.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No entries found matching your filters
+              </p>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Summary */}
+      {state.selectedIds.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            ✓ {state.selectedIds.length} connection(s) will be created when you save
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Suggestion Card Component
+interface SuggestionCardProps {
+  entry: any;
+  isSelected: boolean;
+  onToggle: (id: number) => void;
+  confidence?: number;
+  reason?: string;
+  highlight: 'pattern' | 'keyword' | 'none';
+}
+
+function SuggestionCard({
+  entry,
+  isSelected,
+  onToggle,
+  confidence,
+  reason,
+  highlight
+}: SuggestionCardProps) {
+  const bgClass = highlight === 'pattern'
+    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+    : highlight === 'keyword'
+    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+
+  return (
+    <label
+      className={`flex items-start gap-3 p-3 rounded border cursor-pointer hover:shadow-sm transition-shadow ${bgClass}`}
+      data-testid={`suggestion-card-${entry.id}`}
+    >
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => onToggle(entry.id)}
+        className="mt-1 rounded"
+        data-testid={`checkbox-connection-${entry.id}`}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap mb-1">
+          <Badge variant="outline" className="text-xs">
+            {entry.category.name}
+          </Badge>
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {entry.title}
+          </span>
+          {confidence && (
+            <Badge
+              className="text-xs"
+              variant={confidence === 100 ? 'default' : 'secondary'}
+            >
+              {confidence}%
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+          {entry.content}
+        </p>
+        {reason && (
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 italic">
+            {reason}
+          </p>
+        )}
+      </div>
+    </label>
+  );
+}
