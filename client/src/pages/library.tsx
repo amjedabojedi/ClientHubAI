@@ -395,7 +395,8 @@ export default function LibraryPage() {
       results.forEach(({ entryId, connected }) => {
         newMap[entryId] = connected;
       });
-      setConnectedEntriesMap(newMap);
+      // Merge with existing data instead of replacing to preserve connections from other tabs
+      setConnectedEntriesMap(prev => ({ ...prev, ...newMap }));
     };
 
     fetchConnections();
