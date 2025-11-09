@@ -384,17 +384,10 @@ export default function LibraryPage() {
 
       try {
         const entryIds = allEntries.map(e => e.id);
-        const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds });
-        const results = await response.json();
+        const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds }) as Record<number, any[]>;
         
-        // Transform bulk response into map keyed by entry ID
-        // Important: Each entry gets its connections array directly from the response
-        const newMap: Record<number, any[]> = {};
-        results.forEach((connections: any[], index: number) => {
-          newMap[entryIds[index]] = connections || [];
-        });
-        
-        setConnectedEntriesMap(newMap);
+        // Response is already keyed by entry ID, use it directly
+        setConnectedEntriesMap(connectionsMap);
       } catch (error) {
         console.error('Failed to fetch bulk connections:', error);
       }
