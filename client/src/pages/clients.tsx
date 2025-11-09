@@ -78,7 +78,7 @@ export default function ClientsPage() {
       
       <div className="flex">        
         <main className="flex-1 px-6 py-12">
-          <div className="max-w-full">
+          <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">Clients</h1>

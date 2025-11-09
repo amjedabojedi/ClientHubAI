@@ -489,7 +489,7 @@ export default function MyProfilePage() {
   if (userLoading || profileLoading) {
     return (
       <div className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600 dark:text-gray-300">Loading your profile...</p>
@@ -501,7 +501,7 @@ export default function MyProfilePage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">My Profile</h1>
           <p className="text-slate-600 mt-1">
