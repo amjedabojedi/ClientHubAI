@@ -912,12 +912,31 @@ function BulkAddForm({
       const skippedCount = response.skipped || 0;
       const failedCount = response.failed || 0;
 
-      let description = `✓ ${successCount} created`;
-      if (skippedCount > 0) description += `, ${skippedCount} skipped (duplicates)`;
-      if (failedCount > 0) description += `, ${failedCount} failed`;
+      let description = '';
+      let title = '';
+      
+      if (successCount === 0 && skippedCount > 0) {
+        // All entries were duplicates
+        title = "All entries already exist";
+        description = `${skippedCount} entries skipped because they already exist in the library. Please use unique titles.`;
+      } else if (successCount === 0 && failedCount > 0) {
+        // All entries failed
+        title = "Import failed";
+        description = `${failedCount} entries failed validation. Please check your data format.`;
+      } else if (successCount > 0) {
+        // Some or all succeeded
+        title = "Import complete!";
+        description = `✓ ${successCount} created`;
+        if (skippedCount > 0) description += `, ${skippedCount} skipped (duplicates)`;
+        if (failedCount > 0) description += `, ${failedCount} failed`;
+      } else {
+        // Unknown state
+        title = "Import completed with issues";
+        description = "No entries were created. Please check your data.";
+      }
 
       toast({
-        title: successCount > 0 ? "Import complete!" : "Import completed with issues",
+        title,
         description,
         variant: successCount > 0 ? "default" : "destructive"
       });
