@@ -394,6 +394,25 @@ export default function LibraryPage() {
       fetchConnections();
     }
   }, [displayedEntries]);
+  
+  // Initialize progressive disclosure state when connections are fetched or data changes
+  useEffect(() => {
+    const newVisibleCounts: Record<number, number> = {};
+    const newSearchTerms: Record<number, string> = {};
+    const newCategoryFilters: Record<number, number | undefined> = {};
+    
+    Object.keys(connectedEntriesMap).forEach(entryId => {
+      const id = parseInt(entryId);
+      // Preserve existing state or initialize to defaults
+      newVisibleCounts[id] = visibleConnectionsByEntry[id] || 10;
+      newSearchTerms[id] = connectionSearchTerm[id] || '';
+      newCategoryFilters[id] = connectionCategoryFilter[id];
+    });
+    
+    setVisibleConnectionsByEntry(newVisibleCounts);
+    setConnectionSearchTerm(newSearchTerms);
+    setConnectionCategoryFilter(newCategoryFilters);
+  }, [connectedEntriesMap]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -570,36 +589,17 @@ export default function LibraryPage() {
                                   </div>
                                   
                                   {/* Connections Section - Professional Badge Display with Progressive Disclosure */}
-                                  {(() => {
-                                    // Helper functions for per-entry state
-                                    const getVisibleCount = (entryId: number) => visibleConnectionsByEntry[entryId] || 10;
-                                    const getSearchTerm = (entryId: number) => connectionSearchTerm[entryId] || '';
-                                    const getCategoryFilter = (entryId: number) => connectionCategoryFilter[entryId];
-                                    
-                                    const setVisibleCount = (entryId: number, count: number) => {
-                                      setVisibleConnectionsByEntry(prev => ({ ...prev, [entryId]: count }));
-                                    };
-                                    const setSearchTerm = (entryId: number, term: string) => {
-                                      setConnectionSearchTerm(prev => ({ ...prev, [entryId]: term }));
-                                      setVisibleCount(entryId, 10); // Reset visible count on search
-                                    };
-                                    const setCategoryFilter = (entryId: number, categoryId: number | undefined) => {
-                                      setConnectionCategoryFilter(prev => ({ ...prev, [entryId]: categoryId }));
-                                      setVisibleCount(entryId, 10); // Reset visible count on filter
-                                    };
-                                    
-                                    // Filtering pipeline: search → category → limit
-                                    const searchTerm = getSearchTerm(entry.id).toLowerCase();
-                                    const categoryFilter = getCategoryFilter(entry.id);
-                                    const visibleCount = getVisibleCount(entry.id);
+                                  {databaseConnections.length > 0 && (() => {
+                                    const entryId = entry.id;
+                                    const searchTerm = (connectionSearchTerm[entryId] || '').toLowerCase();
+                                    const categoryFilter = connectionCategoryFilter[entryId];
+                                    const visibleCount = visibleConnectionsByEntry[entryId] || 10;
                                     
                                     const filteredConnections = databaseConnections
                                       .filter(related => {
-                                        // Search by title
                                         if (searchTerm && !related.title.toLowerCase().includes(searchTerm)) {
                                           return false;
                                         }
-                                        // Filter by category
                                         if (categoryFilter !== undefined && related.category.id !== categoryFilter) {
                                           return false;
                                         }
@@ -610,12 +610,23 @@ export default function LibraryPage() {
                                     const hasMore = filteredConnections.length > visibleCount;
                                     const remainingCount = filteredConnections.length - visibleCount;
                                     
-                                    // Get unique categories from all connections
                                     const availableCategories = Array.from(
                                       new Map(databaseConnections.map(c => [c.category.id, c.category])).values()
                                     );
                                     
-                                    return databaseConnections.length > 0 && (
+                                    const updateVisibleCount = (count: number) => {
+                                      setVisibleConnectionsByEntry(prev => ({ ...prev, [entryId]: count }));
+                                    };
+                                    const updateSearchTerm = (term: string) => {
+                                      setConnectionSearchTerm(prev => ({ ...prev, [entryId]: term }));
+                                      updateVisibleCount(10);
+                                    };
+                                    const updateCategoryFilter = (catId: number | undefined) => {
+                                      setConnectionCategoryFilter(prev => ({ ...prev, [entryId]: catId }));
+                                      updateVisibleCount(10);
+                                    };
+                                    
+                                    return (
                                       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                                         {/* Header with title and delete all button */}
                                         <div className="flex items-center justify-between mb-2">
@@ -646,14 +657,14 @@ export default function LibraryPage() {
                                           <div className="flex gap-2 mb-3">
                                             <Input
                                               placeholder="Search connections..."
-                                              value={getSearchTerm(entry.id)}
-                                              onChange={(e) => setSearchTerm(entry.id, e.target.value)}
+                                              value={searchTerm}
+                                              onChange={(e) => updateSearchTerm(e.target.value)}
                                               className="h-8 text-sm flex-1"
-                                              data-testid={`input-search-connections-${entry.id}`}
+                                              data-testid={`input-search-connections-${entryId}`}
                                             />
                                             <Select
-                                              value={getCategoryFilter(entry.id)?.toString() || 'all'}
-                                              onValueChange={(val) => setCategoryFilter(entry.id, val === 'all' ? undefined : parseInt(val))}
+                                              value={categoryFilter?.toString() || 'all'}
+                                              onValueChange={(val) => updateCategoryFilter(val === 'all' ? undefined : parseInt(val))}
                                             >
                                               <SelectTrigger className="h-8 text-sm w-40" data-testid={`select-category-filter-${entry.id}`}>
                                                 <SelectValue placeholder="All categories" />
@@ -742,10 +753,10 @@ export default function LibraryPage() {
                                                   size="sm"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setVisibleCount(entry.id, visibleCount + 10);
+                                                    updateVisibleCount(visibleCount + 10);
                                                   }}
                                                   className="text-xs"
-                                                  data-testid={`button-show-more-connections-${entry.id}`}
+                                                  data-testid={`button-show-more-connections-${entryId}`}
                                                 >
                                                   Show {Math.min(10, remainingCount)} More ({remainingCount} remaining)
                                                 </Button>
@@ -1372,35 +1383,19 @@ function EntryForm({
 
     // Step 1: Try pattern-based matching (HIGHEST PRIORITY)
     const currentPattern = parseLibraryPattern(formData.title);
-    console.log('🔍 Smart Connect Debug:', {
-      title: formData.title,
-      currentPattern,
-      totalEntries: allEntries.length,
-      sampleTitles: allEntries.slice(0, 5).map(e => e.title)
-    });
     
     if (currentPattern) {
-      console.log('✅ Pattern detected:', currentPattern);
-      
       // Pattern detected! Find all entries in same pathway
       const patternMatches = allEntries
         .filter(existing => {
           if (existing.id === entry?.id) return false; // Don't suggest self
           
           const existingPattern = parseLibraryPattern(existing.title);
-          console.log(`Checking entry "${existing.title}":`, existingPattern);
-          
           if (!existingPattern) return false;
           
           // Same condition and pathway number
-          const isMatch = existingPattern.condition === currentPattern.condition &&
+          return existingPattern.condition === currentPattern.condition &&
                  existingPattern.pathway === currentPattern.pathway;
-          
-          if (isMatch) {
-            console.log(`✅ MATCH FOUND: "${existing.title}" matches pathway ${currentPattern.pathway}`);
-          }
-          
-          return isMatch;
         })
         .map(e => ({ 
           ...e, 
@@ -1408,14 +1403,10 @@ function EntryForm({
           reason: `Same pathway #${currentPattern.pathway}` 
         }));
       
-      console.log('📊 Pattern matches found:', patternMatches.length, patternMatches.map(m => m.title));
-      
       if (patternMatches.length > 0) {
         setSuggestedConnections(patternMatches.slice(0, 10));
         return;
       }
-    } else {
-      console.log('❌ No pattern detected in title:', formData.title);
     }
 
     // Step 2: Keyword-based matching (FALLBACK)
