@@ -266,13 +266,13 @@ export function useSmartConnect({
     const catSet = new Set<string>();
     allEntries.forEach(e => catSet.add(e.category.name));
     
-    // Custom order: Session Focus → Symptoms → Short-term Goals → Progress → Interventions
+    // Custom order: Session Focus → Symptoms → Short-term Goals → Interventions → Progress
     const preferredOrder = [
       'session focus',
       'symptoms',
       'short-term goals',
-      'progress',
-      'interventions'
+      'interventions',
+      'progress'
     ];
     
     const categories = Array.from(catSet);
