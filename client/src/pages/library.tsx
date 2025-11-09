@@ -914,6 +914,10 @@ export default function LibraryPage() {
                 selectedCategoryId={editingEntry.categoryId}
                 isLoading={updateEntryMutation.isPending}
                 allEntries={allEntries}
+                onOpenManualConnect={() => {
+                  setConnectingEntry(editingEntry);
+                  setEditingEntry(null);
+                }}
               />
             )}
           </DialogContent>
@@ -1378,7 +1382,8 @@ function EntryForm({
   categories, 
   selectedCategoryId,
   isLoading,
-  allEntries = []
+  allEntries = [],
+  onOpenManualConnect
 }: { 
   entry?: LibraryEntryWithDetails;
   onSubmit: (data: InsertLibraryEntry) => void;
@@ -1386,6 +1391,7 @@ function EntryForm({
   selectedCategoryId?: number | null;
   isLoading: boolean;
   allEntries?: LibraryEntryWithDetails[];
+  onOpenManualConnect?: () => void;
 }) {
   const [formData, setFormData] = useState({
     title: entry?.title || "",
@@ -1479,6 +1485,7 @@ function EntryForm({
         categories={categories}
         selectedConnections={selectedConnections}
         onSelectionChange={setSelectedConnections}
+        onOpenManualDialog={entry && onOpenManualConnect ? onOpenManualConnect : undefined}
       />
 
       <div className="flex justify-end gap-2">
