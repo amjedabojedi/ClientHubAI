@@ -68,6 +68,10 @@ export default function LibraryPage() {
   const [selectedEntries, setSelectedEntries] = useState<Set<number>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
+  const [visibleConnectionsByEntry, setVisibleConnectionsByEntry] = useState<Record<number, number>>({});
+  const [connectionSearchTerm, setConnectionSearchTerm] = useState<Record<number, string>>({});
+  const [connectionCategoryFilter, setConnectionCategoryFilter] = useState<Record<number, number | undefined>>({});
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
