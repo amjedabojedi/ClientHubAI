@@ -597,9 +597,17 @@ export default function LibraryPage() {
                                 </div>
 
                                 <div className="flex-1">
-                                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                    {entry.title}
-                                  </h3>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                                      {entry.title}
+                                    </h3>
+                                    {databaseConnections.length > 0 && (
+                                      <Badge className="bg-blue-600 text-white text-xs flex items-center gap-1">
+                                        <Link2 className="w-3 h-3" />
+                                        {databaseConnections.length}
+                                      </Badge>
+                                    )}
+                                  </div>
                                   <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
                                     {entry.content}
                                   </p>
