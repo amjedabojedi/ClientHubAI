@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -365,11 +365,19 @@ export default function LibraryPage() {
   const allSelected = displayedEntries.length > 0 && visibleSelectedCount === displayedEntries.length;
   const someSelected = visibleSelectedCount > 0 && visibleSelectedCount < displayedEntries.length;
 
+  // Memoize entry IDs to prevent infinite loop - only re-fetch when actual IDs change
+  const entryIds = useMemo(
+    () => displayedEntries.map(e => e.id).sort((a, b) => a - b).join(','),
+    [displayedEntries]
+  );
+
   // Fetch connected entries for displayed entries
   useEffect(() => {
     const fetchConnections = async () => {
-      const entryIds = displayedEntries.map(e => e.id);
-      const connectionsPromises = entryIds.map(async (id) => {
+      const ids = entryIds.split(',').filter(Boolean).map(Number);
+      if (ids.length === 0) return;
+
+      const connectionsPromises = ids.map(async (id) => {
         try {
           const response = await fetch(`/api/library/entries/${id}/connected`);
           if (response.ok) {
@@ -390,10 +398,8 @@ export default function LibraryPage() {
       setConnectedEntriesMap(newMap);
     };
 
-    if (displayedEntries.length > 0) {
-      fetchConnections();
-    }
-  }, [displayedEntries]);
+    fetchConnections();
+  }, [entryIds]);
   
   // Initialize progressive disclosure state when connections are fetched or data changes
   useEffect(() => {
@@ -401,18 +407,40 @@ export default function LibraryPage() {
     const newSearchTerms: Record<number, string> = {};
     const newCategoryFilters: Record<number, number | undefined> = {};
     
+    let hasChanges = false;
+    
     Object.keys(connectedEntriesMap).forEach(entryId => {
       const id = parseInt(entryId);
-      // Preserve existing state or initialize to defaults
-      newVisibleCounts[id] = visibleConnectionsByEntry[id] || 10;
-      newSearchTerms[id] = connectionSearchTerm[id] || '';
-      newCategoryFilters[id] = connectionCategoryFilter[id];
+      // Only initialize if entry doesn't have state yet
+      if (!(id in visibleConnectionsByEntry)) {
+        newVisibleCounts[id] = 10;
+        hasChanges = true;
+      } else {
+        newVisibleCounts[id] = visibleConnectionsByEntry[id];
+      }
+      
+      if (!(id in connectionSearchTerm)) {
+        newSearchTerms[id] = '';
+        hasChanges = true;
+      } else {
+        newSearchTerms[id] = connectionSearchTerm[id];
+      }
+      
+      if (!(id in connectionCategoryFilter)) {
+        newCategoryFilters[id] = undefined;
+        hasChanges = true;
+      } else {
+        newCategoryFilters[id] = connectionCategoryFilter[id];
+      }
     });
     
-    setVisibleConnectionsByEntry(newVisibleCounts);
-    setConnectionSearchTerm(newSearchTerms);
-    setConnectionCategoryFilter(newCategoryFilters);
-  }, [connectedEntriesMap]);
+    // Only update state if there are actual changes
+    if (hasChanges) {
+      setVisibleConnectionsByEntry(newVisibleCounts);
+      setConnectionSearchTerm(newSearchTerms);
+      setConnectionCategoryFilter(newCategoryFilters);
+    }
+  }, [connectedEntriesMap, visibleConnectionsByEntry, connectionSearchTerm, connectionCategoryFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
