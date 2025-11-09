@@ -384,13 +384,20 @@ export default function LibraryPage() {
 
       try {
         const entryIds = allEntries.map(e => e.id);
+        console.log('Fetching connections for entry IDs:', entryIds.slice(0, 5), '... (total:', entryIds.length, ')');
+        
         const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds }) as Record<string, any[]>;
+        console.log('Received connections map:', Object.keys(connectionsMap).length, 'entries');
+        console.log('Sample connection data:', Object.entries(connectionsMap).slice(0, 3));
         
         // Convert string keys to number keys for easier lookup
         const numericKeyMap: Record<number, any[]> = {};
         Object.entries(connectionsMap).forEach(([key, value]) => {
           numericKeyMap[parseInt(key)] = value;
         });
+        
+        console.log('Converted to numeric keys:', Object.keys(numericKeyMap).length, 'entries');
+        console.log('Sample numeric map:', Object.entries(numericKeyMap).slice(0, 3));
         
         setConnectedEntriesMap(numericKeyMap);
       } catch (error) {
@@ -565,7 +572,19 @@ export default function LibraryPage() {
 
                       {displayedEntries.map((entry) => {
                         // Only show database connections (no tag-based fallback)
-                        const databaseConnections = connectedEntriesMap[entry.id] || [];
+                        // Normalize the lookup key to ensure type consistency
+                        const entryKey = Number(entry.id);
+                        const databaseConnections = connectedEntriesMap[entryKey] ?? [];
+                        
+                        // DEBUG: Log first few entries to verify map population
+                        if (entry.id <= 25) {
+                          console.log(`Entry ${entry.id} (${entry.title}):`, {
+                            entryKey,
+                            hasKey: Object.prototype.hasOwnProperty.call(connectedEntriesMap, entryKey),
+                            connectionsCount: databaseConnections.length,
+                            sample: databaseConnections?.[0]?.title
+                          });
+                        }
 
                         const isSelected = selectedEntries.has(entry.id);
                         

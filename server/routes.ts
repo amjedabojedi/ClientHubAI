@@ -6304,6 +6304,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.json({});
       }
 
+      console.log(`[Bulk Connections] Fetching for ${entryIds.length} entries (sample:`, entryIds.slice(0, 3), ')');
+
       // Fetch connections for all provided entry IDs
       const connectionPromises = entryIds.map(async (id) => ({
         entryId: id,
@@ -6316,6 +6318,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         acc[entryId] = connections;
         return acc;
       }, {} as Record<number, any[]>);
+      
+      const nonEmptyCount = Object.values(connectionsMap).filter(c => c.length > 0).length;
+      console.log(`[Bulk Connections] Returning ${Object.keys(connectionsMap).length} entries, ${nonEmptyCount} with connections`);
       
       res.json(connectionsMap);
     } catch (error) {
