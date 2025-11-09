@@ -6290,6 +6290,37 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Bulk endpoint for fetching connections for multiple entries
+  app.post("/api/library/entries/connected-bulk", async (req, res) => {
+    try {
+      const entryIds = req.body.entryIds;
+      
+      if (!Array.isArray(entryIds)) {
+        return res.status(400).json({ message: "entryIds must be an array" });
+      }
+
+      // Handle empty array gracefully
+      if (entryIds.length === 0) {
+        return res.json([]);
+      }
+
+      // Fetch connections for all provided entry IDs
+      const connectionPromises = entryIds.map(id => storage.getConnectedEntries(id));
+      const results = await Promise.all(connectionPromises);
+      
+      // Flatten and deduplicate connected entry IDs
+      const allConnectedEntries = results.flat();
+      const uniqueEntries = Array.from(
+        new Map(allConnectedEntries.map(entry => [entry.id, entry])).values()
+      );
+      
+      res.json(uniqueEntries);
+    } catch (error) {
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.post("/api/library/connections", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {

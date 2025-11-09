@@ -26,6 +26,7 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useConnectedEntries } from "@/hooks/use-connected-entries";
 
 // Hooks and Data
 import { useState, useEffect } from "react";
@@ -938,7 +939,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showConnectedOnly, setShowConnectedOnly] = useState(false);
-    const [connectedEntryIds, setConnectedEntryIds] = useState<number[]>([]);
 
     // Category mapping
     const categoryIds = {
@@ -953,48 +953,18 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       queryKey: ['/api/library/entries'],
     });
 
-    // Fetch connections for previously selected entries
-    useEffect(() => {
-      const fetchConnections = async () => {
-        if (!showConnectedOnly) {
-          setConnectedEntryIds([]);
-          return;
-        }
+    // Get all previously selected entry IDs from other fields
+    const previouslySelectedIds = Object.entries(selectedLibraryEntries)
+      .filter(([key]) => key !== fieldType) // Exclude current field
+      .flatMap(([, ids]) => ids);
 
-        // Get all previously selected entry IDs from other fields
-        const allSelectedIds = Object.entries(selectedLibraryEntries)
-          .filter(([key]) => key !== fieldType) // Exclude current field
-          .flatMap(([, ids]) => ids);
+    // Fetch connected entries using the custom hook
+    const { data: connectedEntries = [], isLoading: isLoadingConnections } = useConnectedEntries(
+      showConnectedOnly ? previouslySelectedIds : []
+    );
 
-        if (allSelectedIds.length === 0) {
-          setConnectedEntryIds([]);
-          return;
-        }
-
-        try {
-          // Fetch connections for all selected entries
-          const connectionPromises = allSelectedIds.map(async (id) => {
-            const response = await fetch(`/api/library/entries/${id}/connected`);
-            if (response.ok) {
-              const connected = await response.json();
-              return connected.map((c: any) => c.id);
-            }
-            return [];
-          });
-
-          const results = await Promise.all(connectionPromises);
-          const allConnectedIds = Array.from(new Set(results.flat()));
-          setConnectedEntryIds(allConnectedIds);
-        } catch (error) {
-          console.error('Failed to fetch connections:', error);
-          setConnectedEntryIds([]);
-        }
-      };
-
-      if (isOpen) {
-        fetchConnections();
-      }
-    }, [isOpen, showConnectedOnly, selectedLibraryEntries, fieldType]);
+    // Extract connected entry IDs
+    const connectedEntryIds = connectedEntries.map((entry: LibraryEntry) => entry.id);
 
     // Filter entries by category, search, and connections
     const filteredEntries = Array.isArray(libraryEntries) ? libraryEntries.filter((entry: LibraryEntry) => {
@@ -1420,7 +1390,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             Session Focus
                             <LibraryPicker 
                               fieldType="session-focus" 
-                              onSelect={(content) => {
+                              onSelect={(content, entryId) => {
                                 const currentValue = field.value || '';
                                 const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
                                 field.onChange(newValue);
@@ -1449,7 +1419,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             Symptoms
                             <LibraryPicker 
                               fieldType="symptoms" 
-                              onSelect={(content) => {
+                              onSelect={(content, entryId) => {
                                 const currentValue = field.value || '';
                                 const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
                                 field.onChange(newValue);
@@ -1480,7 +1450,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             Short-term Goals
                             <LibraryPicker 
                               fieldType="short-term-goals" 
-                              onSelect={(content) => {
+                              onSelect={(content, entryId) => {
                                 const currentValue = field.value || '';
                                 const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
                                 field.onChange(newValue);
@@ -1508,7 +1478,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             Intervention
                             <LibraryPicker 
                               fieldType="interventions" 
-                              onSelect={(content) => {
+                              onSelect={(content, entryId) => {
                                 const currentValue = field.value || '';
                                 const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
                                 field.onChange(newValue);
@@ -1539,7 +1509,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             Progress
                             <LibraryPicker 
                               fieldType="progress" 
-                              onSelect={(content) => {
+                              onSelect={(content, entryId) => {
                                 const currentValue = field.value || '';
                                 const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
                                 field.onChange(newValue);
