@@ -1079,7 +1079,14 @@ export default function BillingDashboard() {
         <CardContent>
           <div className="overflow-x-auto relative">
             {isFetching && !isLoading && (
-              <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 pointer-events-none" />
+              <div className="absolute inset-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm z-10 pointer-events-none flex items-center justify-center">
+                <div className="bg-white dark:bg-slate-800 px-4 py-2 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 animate-spin text-blue-600" />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Loading billing data...</span>
+                  </div>
+                </div>
+              </div>
             )}
             <Table>
               <TableHeader>
