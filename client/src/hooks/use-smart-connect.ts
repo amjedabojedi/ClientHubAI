@@ -201,6 +201,11 @@ export function useSmartConnect({
     dispatch({ type: 'INIT', payload: suggestionBuckets });
   }, [suggestionBuckets]);
 
+  // Sync selections when parent updates (e.g., editing an entry, form reset)
+  useEffect(() => {
+    dispatch({ type: 'SYNC_SELECTIONS', payload: initialSelections });
+  }, [initialSelections]);
+
   // Build filtered & sorted display list
   const displayList = useMemo(() => {
     const { patternMatches, keywordMatches, manualCatalog } = state;

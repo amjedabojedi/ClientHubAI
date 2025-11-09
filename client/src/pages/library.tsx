@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload, CheckSquare, Square } from "lucide-react";
+import { SmartConnectPanel } from "@/components/library/SmartConnectPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1387,122 +1388,7 @@ function EntryForm({
     createdById: entry?.createdById || 6,
   });
   
-  const [suggestedConnections, setSuggestedConnections] = useState<LibraryEntryWithDetails[]>([]);
   const [selectedConnections, setSelectedConnections] = useState<number[]>([]);
-
-  // Helper: Get clinically related category names for smart connections
-  const getRelatedCategories = (categoryId: number): string[] => {
-    const currentCategory = categories.find(c => c.id === categoryId);
-    if (!currentCategory) return [];
-
-    const categoryName = currentCategory.name.toLowerCase();
-
-    // Define clinical relationships between categories
-    const relationships: Record<string, string[]> = {
-      'session focus': ['symptoms', 'short-term goals', 'interventions'],
-      'symptoms': ['session focus', 'interventions', 'progress'],
-      'short-term goals': ['session focus', 'interventions', 'progress'],
-      'interventions': ['session focus', 'symptoms', 'short-term goals', 'progress'],
-      'progress': ['symptoms', 'short-term goals', 'interventions']
-    };
-
-    return relationships[categoryName] || [];
-  };
-
-  // Auto-suggest connections using pattern-based matching + keyword fallback
-  useEffect(() => {
-    if (!formData.title) {
-      setSuggestedConnections([]);
-      return;
-    }
-
-    // Step 1: Try pattern-based matching (HIGHEST PRIORITY)
-    const currentPattern = parseLibraryPattern(formData.title);
-    
-    console.log('[Smart Connect] Current title:', formData.title, 'Parsed pattern:', currentPattern);
-    
-    if (currentPattern) {
-      // Pattern detected! Find all entries in same pathway
-      let debugCount = 0;
-      const patternMatches = allEntries
-        .filter(existing => {
-          if (existing.id === entry?.id) return false; // Don't suggest self
-          
-          const existingPattern = parseLibraryPattern(existing.title);
-          if (!existingPattern) return false;
-          
-          // DEBUG: Log first few matches for debugging
-          if (debugCount < 5) {
-            const isMatch = existingPattern.condition === currentPattern.condition && existingPattern.pathway === currentPattern.pathway;
-            console.log('[Smart Connect] Checking:', existing.title, 
-              '| Existing:', `${existingPattern.condition}${existingPattern.type}${existingPattern.pathway}`,
-              '| Current:', `${currentPattern.condition}${currentPattern.type}${currentPattern.pathway}`,
-              '| Match?', isMatch);
-            if (isMatch) debugCount++;
-          }
-          
-          // Same condition and pathway number
-          return existingPattern.condition === currentPattern.condition &&
-                 existingPattern.pathway === currentPattern.pathway;
-        })
-        .map(e => ({ 
-          ...e, 
-          confidence: 100, // Pattern match = 100% confidence
-          reason: `Same pathway #${currentPattern.pathway}` 
-        }));
-      
-      console.log('[Smart Connect] Pattern matches found:', patternMatches.length, 'entries');
-      
-      if (patternMatches.length > 0) {
-        console.log('[Smart Connect] Using pattern-based suggestions (100% confidence)');
-        setSuggestedConnections(patternMatches.slice(0, 10));
-        return;
-      }
-    }
-    
-    console.log('[Smart Connect] No pattern match, falling back to keyword matching');
-
-    // Step 2: Keyword-based matching (FALLBACK)
-    const keywords = [
-      ...formData.title.toLowerCase().split(' '),
-      ...formData.tags.toLowerCase().split(',').map(t => t.trim())
-    ].filter(k => k.length > 2);
-
-    if (keywords.length === 0) {
-      setSuggestedConnections([]);
-      return;
-    }
-
-    const relatedCategoryNames = getRelatedCategories(formData.categoryId);
-    
-    const keywordMatches = allEntries
-      .filter(existing => {
-        if (existing.id === entry?.id) return false;
-        if (existing.categoryId === formData.categoryId) return false;
-        
-        const existingCategoryName = existing.category.name.toLowerCase();
-        if (!relatedCategoryNames.includes(existingCategoryName)) return false;
-        
-        const existingKeywords = [
-          ...existing.title.toLowerCase().split(' '),
-          ...(existing.tags || []).map(t => t.toLowerCase())
-        ];
-        
-        return keywords.some(keyword => 
-          existingKeywords.some(existing => 
-            existing.includes(keyword) || keyword.includes(existing)
-          )
-        );
-      })
-      .map(e => ({ 
-        ...e, 
-        confidence: 60, // Keyword match = 60% confidence
-        reason: 'Shared keywords' 
-      }))
-      .slice(0, 5);
-    
-    setSuggestedConnections(keywordMatches);
-  }, [formData.title, formData.tags, formData.categoryId, allEntries, categories, entry]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1574,74 +1460,18 @@ function EntryForm({
           onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
         />
       </div>
-      {/* Auto-suggested Connections */}
-      {suggestedConnections.length > 0 && (
-        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-green-900 dark:text-green-100">
-              🔗 Smart Connect Suggestions
-            </h4>
-            {(suggestedConnections[0] as any)?.confidence === 100 && (
-              <Badge className="bg-green-600 text-white">Pattern Match</Badge>
-            )}
-          </div>
-          <p className="text-sm text-green-800 dark:text-green-200 mb-3">
-            {(suggestedConnections[0] as any)?.confidence === 100 
-              ? `Found ${suggestedConnections.length} entries in the same treatment pathway. Select to auto-connect:`
-              : `These entries share keywords with "${formData.title}". Select to connect:`
-            }
-          </p>
-          <div className="space-y-2">
-            {suggestedConnections.map(suggestion => {
-              const suggestionPattern = parseLibraryPattern(suggestion.title);
-              const currentPattern = parseLibraryPattern(formData.title);
-              
-              return (
-                <label key={suggestion.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedConnections.includes(suggestion.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedConnections([...selectedConnections, suggestion.id]);
-                      } else {
-                        setSelectedConnections(selectedConnections.filter(id => id !== suggestion.id));
-                      }
-                    }}
-                    className="rounded"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs">
-                        {categories.find(c => c.id === suggestion.categoryId)?.name}
-                      </Badge>
-                      <span className="font-medium">{suggestion.title}</span>
-                      {(suggestion as any).confidence === 100 && suggestionPattern && currentPattern && (
-                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          {getConnectionType(currentPattern.type, suggestionPattern.type)}
-                        </Badge>
-                      )}
-                      {(suggestion as any).confidence && (
-                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                          {(suggestion as any).confidence}%
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {suggestion.content.substring(0, 80)}...
-                    </p>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-          {selectedConnections.length > 0 && (
-            <p className="text-sm text-green-700 dark:text-green-300 mt-2">
-              ✓ {selectedConnections.length} connection(s) will be created automatically
-            </p>
-          )}
-        </div>
-      )}
+
+      {/* Unified Smart Connect Panel */}
+      <SmartConnectPanel
+        currentTitle={formData.title}
+        currentTags={formData.tags}
+        currentCategoryId={formData.categoryId}
+        currentEntryId={entry?.id}
+        allEntries={allEntries}
+        categories={categories}
+        selectedConnections={selectedConnections}
+        onSelectionChange={setSelectedConnections}
+      />
 
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={isLoading}>
