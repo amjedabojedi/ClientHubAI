@@ -452,16 +452,6 @@ export default function BillingDashboard() {
   const [selectedService, setSelectedService] = useState<string>('all');
   const [selectedClientType, setSelectedClientType] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
-  const [debouncedClientSearch, setDebouncedClientSearch] = useState<string>('');
-  
-  // Debounce client search to prevent excessive API calls
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedClientSearch(clientSearch);
-    }, 500); // 500ms delay
-    
-    return () => clearTimeout(timer);
-  }, [clientSearch]);
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -475,7 +465,7 @@ export default function BillingDashboard() {
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading, isFetching } = useQuery({
-    queryKey: ['billing', 'reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType, debouncedClientSearch],
+    queryKey: ['billing', 'reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType],
     queryFn: async () => {
       let url = '/api/billing/reports';
       const params = new URLSearchParams();
@@ -486,7 +476,6 @@ export default function BillingDashboard() {
       if (selectedStatus !== 'all') params.append('status', selectedStatus);
       if (selectedService !== 'all') params.append('serviceCode', selectedService);
       if (selectedClientType !== 'all') params.append('clientType', selectedClientType);
-      if (debouncedClientSearch.trim()) params.append('clientSearch', debouncedClientSearch.trim());
       
       // Role-based therapist filtering
       if (user?.role !== 'admin' && user?.role !== 'administrator' && user?.id) {
@@ -594,7 +583,15 @@ export default function BillingDashboard() {
 
   // All filtering is now done server-side, so we just use the returned data
   const allBillingRecords = Array.isArray(billingData) ? billingData : billingData?.billingRecords || [];
-  const filteredBillingRecords = allBillingRecords;
+  
+  // Client-side filtering by client name (instant, no API calls)
+  const filteredBillingRecords = allBillingRecords.filter((record: any) => {
+    if (!clientSearch.trim()) return true;
+    const client = record.client || {};
+    const clientName = (client.fullName || '').toLowerCase();
+    const searchLower = clientSearch.toLowerCase();
+    return clientName.includes(searchLower);
+  });
 
   // Summary stats are calculated server-side or based on filtered results
   const statsData = filteredBillingRecords;
