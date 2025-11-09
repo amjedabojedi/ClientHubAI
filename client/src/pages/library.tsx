@@ -1176,12 +1176,13 @@ interface ParsedPattern {
 function parseLibraryPattern(title: string): ParsedPattern | null {
   if (!title) return null;
   
-  // Pattern: [CONDITION][TYPE][NUMBER]_[VARIANT]
+  // Pattern: [CONDITION][TYPE][NUMBER]_[VARIANT] at the start of the title
   // CONDITION: 3-5 uppercase letters (ANX, DEPR, TRAUM, PTSD)
   // TYPE: Single letter (S, I, P, G)
   // NUMBER: 1-2 digits
   // VARIANT: Optional _1, _2, _3, etc.
-  const pattern = /^([A-Z]{3,5})([SIPG])(\d{1,2})(?:_(\d+))?$/;
+  // Now allows extra text after the pattern (e.g., "ANXS10 - General Anxiety")
+  const pattern = /^([A-Z]{3,5})([SIPG])(\d{1,2})(?:_(\d+))?/;
   const match = title.trim().match(pattern);
   
   if (!match) return null;
