@@ -6205,8 +6205,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
         }
       }
 
+      console.log('Bulk import results:', results);
       res.status(201).json(results);
     } catch (error) {
+      console.error('Bulk import error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
