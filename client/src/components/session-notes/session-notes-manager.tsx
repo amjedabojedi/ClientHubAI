@@ -1151,7 +1151,29 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               <FileText className="h-5 w-5 text-blue-600" />
               {editingNote ? 'Edit Session Note' : 'Add Session Note'}
             </DialogTitle>
-            <DialogDescription>Document therapy session details, assessments, and progress notes.</DialogDescription>
+            {(() => {
+              // Get session ID from either editing note or form watch
+              const sessionId = editingNote?.sessionId || form.watch('sessionId');
+              const session = sessions.find(s => s.id === sessionId);
+              if (session) {
+                return (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-100">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium text-blue-900">
+                        Session: {format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy')} - {session.sessionType}
+                      </span>
+                    </div>
+                    {clientData && (
+                      <div className="text-xs text-blue-700 mt-1">
+                        Client: {clientData.fullName}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return <DialogDescription>Document therapy session details, assessments, and progress notes.</DialogDescription>;
+            })()}
             
             {/* Workflow Instructions */}
             <Collapsible defaultOpen={true} className="mt-3">
@@ -1245,39 +1267,38 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Basic Session Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="sessionId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Session</FormLabel>
-                      <Select 
-                        onValueChange={(value) => field.onChange(parseInt(value))} 
-                        value={field.value?.toString()}
-                        disabled={isFromSessionClick} // Disable when came from session click
-                      >
-                        <FormControl>
-                          <SelectTrigger className={isFromSessionClick ? "opacity-75 cursor-not-allowed" : ""}>
-                            <SelectValue placeholder="Select a session" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {sessions.map((session) => (
-                            <SelectItem key={session.id} value={session.id.toString()}>
-                              {format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')} - {session.sessionType}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Note Type field removed as it's not in the form schema */}
-              </div>
+              {/* Basic Session Information - Only show dropdown if NOT pre-selected */}
+              {!isFromSessionClick && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="sessionId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Session</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(parseInt(value))} 
+                          value={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a session" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {sessions.map((session) => (
+                              <SelectItem key={session.id} value={session.id.toString()}>
+                                {format(parseSessionDate(session.sessionDate), 'MMM dd, yyyy')} - {session.sessionType}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
 
               {/* AI Template Controls */}
               <div className="flex items-center justify-between mb-4">
