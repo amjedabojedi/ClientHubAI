@@ -386,7 +386,8 @@ export default function LibraryPage() {
         const entryIds = allEntries.map(e => e.id);
         console.log('Fetching connections for entry IDs:', entryIds.slice(0, 5), '... (total:', entryIds.length, ')');
         
-        const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds }) as Record<string, any[]>;
+        const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds });
+        const connectionsMap = await response.json() as Record<string, any[]>;
         console.log('Received connections map:', Object.keys(connectionsMap).length, 'entries');
         console.log('Sample connection data:', Object.entries(connectionsMap).slice(0, 3));
         
