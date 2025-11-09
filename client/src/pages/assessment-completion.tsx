@@ -122,6 +122,10 @@ export default function AssessmentCompletionPage() {
     queryKey: [`/api/assessments/assignments/${assignmentId}/responses`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    staleTime: Infinity,
   });
 
   // Load existing responses into state ONLY on initial mount
