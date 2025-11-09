@@ -376,9 +376,10 @@ export default function LibraryPage() {
         const results = await response.json();
         
         // Transform bulk response into map keyed by entry ID
+        // Important: Each entry gets its connections array directly from the response
         const newMap: Record<number, any[]> = {};
-        results.forEach((item: any, index: number) => {
-          newMap[entryIds[index]] = item || [];
+        results.forEach((connections: any[], index: number) => {
+          newMap[entryIds[index]] = connections || [];
         });
         
         setConnectedEntriesMap(newMap);
