@@ -3965,25 +3965,45 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assessmentResponses.assignmentId, assignmentId))
       .orderBy(asc(assessmentResponses.createdAt));
 
-    // Load options for each question to enable proper response display
-    const responsesWithOptions = [];
-    for (const result of results) {
+    if (results.length === 0) {
+      return [];
+    }
+
+    // OPTIMIZATION: Load ALL question options in ONE query instead of N+1 queries
+    const questionIds = Array.from(new Set(results.map(r => r.assessment_questions!.id)));
+    const allOptions = await db
+      .select()
+      .from(assessmentQuestionOptions)
+      .where(inArray(assessmentQuestionOptions.questionId, questionIds))
+      .orderBy(asc(assessmentQuestionOptions.sortOrder));
+
+    // Group options by question ID for quick lookup
+    const optionsByQuestion = new Map<number, typeof allOptions>();
+    for (const option of allOptions) {
+      const questionId = option.questionId;
+      if (!optionsByQuestion.has(questionId)) {
+        optionsByQuestion.set(questionId, []);
+      }
+      optionsByQuestion.get(questionId)!.push(option);
+    }
+
+    // Build responses with options
+    const responsesWithOptions = results.map(result => {
       const question = result.assessment_questions!;
+      const options = optionsByQuestion.get(question.id) || [];
       
-      // Get options for this question
-      const options = await this.getAssessmentQuestionOptions(question.id);
       const questionWithOptions = {
         ...question,
         options: options.map(opt => opt.optionText),
         scoreValues: options.map(opt => Number(opt.optionValue) || 0)
       };
 
-      responsesWithOptions.push({
+      return {
         ...result.assessment_responses,
         question: questionWithOptions,
         responder: result.users!
-      });
-    }
+      };
+    });
 
     return responsesWithOptions;
   }
