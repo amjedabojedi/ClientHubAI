@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload, CheckSquare, Square } from "lucide-react";
+import { Plus, Search, FolderOpen, FileText, Edit, Trash2, ChevronRight, ChevronDown, Tag, Clock, Link2, X, Upload, CheckSquare, Square, Sparkles, Brain } from "lucide-react";
 import { SmartConnectPanel } from "@/components/library/SmartConnectPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1524,11 +1524,63 @@ function ConnectionForm({
   const availableCategories = categories.filter(cat => cat.id !== sourceEntry.categoryId);
   const currentCategory = availableCategories[currentStep];
 
-  // Get available target entries for current step's category
-  const availableTargets = currentCategory ? allEntries.filter(entry => 
-    entry.id !== sourceEntry.id && 
-    entry.categoryId === currentCategory.id
-  ) : [];
+  // Get available target entries for current step's category with INTELLIGENT SORTING
+  const availableTargets = useMemo(() => {
+    if (!currentCategory) return [];
+    
+    const categoryEntries = allEntries.filter(entry => 
+      entry.id !== sourceEntry.id && 
+      entry.categoryId === currentCategory.id
+    );
+
+    // Parse source entry pattern
+    const sourcePattern = parseLibraryPattern(sourceEntry.title);
+    
+    // Split entries into smart buckets
+    const patternMatches: LibraryEntryWithDetails[] = [];
+    const keywordMatches: LibraryEntryWithDetails[] = [];
+    const otherEntries: LibraryEntryWithDetails[] = [];
+
+    // Extract source keywords from tags and title
+    const sourceKeywords = [
+      ...(sourceEntry.tags || []),
+      ...sourceEntry.title.toLowerCase().split(/\s+/)
+    ].filter(k => k.length > 2);
+
+    categoryEntries.forEach(entry => {
+      // Check pattern match
+      if (sourcePattern) {
+        const entryPattern = parseLibraryPattern(entry.title);
+        if (entryPattern && 
+            entryPattern.condition === sourcePattern.condition && 
+            entryPattern.pathway === sourcePattern.pathway) {
+          patternMatches.push(entry);
+          return;
+        }
+      }
+
+      // Check keyword match
+      const entryKeywords = [
+        ...(entry.tags || []),
+        ...entry.title.toLowerCase().split(/\s+/)
+      ];
+      
+      const hasKeywordMatch = sourceKeywords.some(sourceKw => 
+        entryKeywords.some(entryKw => 
+          entryKw.includes(sourceKw) || sourceKw.includes(entryKw)
+        )
+      );
+
+      if (hasKeywordMatch) {
+        keywordMatches.push(entry);
+      } else {
+        otherEntries.push(entry);
+      }
+    });
+
+    // Return sorted: pattern matches first, then keyword matches, then others
+    return [...patternMatches, ...keywordMatches, ...otherEntries];
+  }, [currentCategory, allEntries, sourceEntry]);
 
   // Restore selections when returning to a previously visited category
   useEffect(() => {
@@ -1780,25 +1832,57 @@ function ConnectionForm({
           )}
           
           <div className="space-y-2">
-            {availableTargets.map(entry => (
-              <label
-                key={entry.id}
-                className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                data-testid={`checkbox-entry-${entry.id}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedTargetIds.includes(entry.id)}
-                  onChange={() => toggleTargetSelection(entry.id)}
-                  className="mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="outline" className="text-xs">
-                      {entry.category.name}
-                    </Badge>
-                    <span className="font-medium">{entry.title}</span>
-                  </div>
+            {availableTargets.map((entry, index) => {
+              // Determine if this entry is a smart suggestion
+              const sourcePattern = parseLibraryPattern(sourceEntry.title);
+              const entryPattern = parseLibraryPattern(entry.title);
+              const isPatternMatch = sourcePattern && entryPattern && 
+                entryPattern.condition === sourcePattern.condition && 
+                entryPattern.pathway === sourcePattern.pathway;
+              
+              const sourceKeywords = [
+                ...(sourceEntry.tags || []),
+                ...sourceEntry.title.toLowerCase().split(/\s+/)
+              ].filter(k => k.length > 2);
+              const entryKeywords = [...(entry.tags || []), ...entry.title.toLowerCase().split(/\s+/)];
+              const isKeywordMatch = !isPatternMatch && sourceKeywords.some(sourceKw => 
+                entryKeywords.some(entryKw => entryKw.includes(sourceKw) || sourceKw.includes(entryKw))
+              );
+
+              return (
+                <label
+                  key={entry.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                    isPatternMatch ? 'border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-900/10' : 
+                    isKeywordMatch ? 'border-l-4 border-l-purple-400 bg-purple-50/30 dark:bg-purple-900/10' : ''
+                  }`}
+                  data-testid={`checkbox-entry-${entry.id}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTargetIds.includes(entry.id)}
+                    onChange={() => toggleTargetSelection(entry.id)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs">
+                        {entry.category.name}
+                      </Badge>
+                      {isPatternMatch && (
+                        <Badge className="bg-blue-600 text-white text-xs flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Pattern Match
+                        </Badge>
+                      )}
+                      {isKeywordMatch && (
+                        <Badge className="bg-purple-600 text-white text-xs flex items-center gap-1">
+                          <Brain className="w-3 h-3" />
+                          Related
+                        </Badge>
+                      )}
+                      <span className="font-medium">{entry.title}</span>
+                    </div>
                   {entry.content && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                       {entry.content}
@@ -1819,7 +1903,8 @@ function ConnectionForm({
                   )}
                 </div>
               </label>
-            ))}
+            );
+            })}
           </div>
         </ScrollArea>
 
