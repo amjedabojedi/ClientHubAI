@@ -143,6 +143,15 @@ Intelligent filtering system for Library Picker in Session Notes based on previo
 - **Performance:** TanStack Query caching with 5-minute stale time to minimize API calls
 - **User Experience:** Shows accurate count messages like "Showing X entries (from Y total connections)"
 
+**Connection Duplicate Prevention (Added November 2025):**
+Robust system to prevent duplicate connection badges and ensure bidirectional connections:
+- **Canonical Ordering:** Database uses unique constraint on `(LEAST(from_entry_id, to_entry_id), GREATEST(from_entry_id, to_entry_id))` to store only one record per bidirectional relationship
+- **Batch Connection Endpoint:** POST `/api/library/connections/batch` creates multiple connections in single API call
+- **Graceful Duplicate Handling:** Catches unique constraint violations (PostgreSQL error 23505), counts as "skipped"
+- **Informative Feedback:** Returns `{created: N, skipped: M, total: X}` and shows toast messages like "4 connection(s) created, 2 already existed"
+- **Smart Connect Integration:** Create/update entry dialogs use batch endpoint, preventing duplicate connections when auto-connecting
+- **Performance:** Single API call for N connections instead of N separate calls
+
 ### Billing & Financial Tracking
 Automated workflow from service selection to invoice generation and payment tracking.
 **Key Tables:** `services`, `session_billing`, `invoices`, `payments`.

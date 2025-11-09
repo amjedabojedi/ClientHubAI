@@ -177,17 +177,23 @@ export default function LibraryPage() {
       
       // Create auto-connections if any were selected
       if (selectedConnections && selectedConnections.length > 0) {
-        const connectionPromises = selectedConnections.map(targetId => 
-          apiRequest("/api/library/connections", "POST", {
-            fromEntryId: entry.id,
-            toEntryId: targetId,
-            connectionType: "relates_to",
-            strength: 4, // Default strong connection for auto-detected (1-5 scale)
-            description: "Auto-connected based on shared keywords",
-            createdById: 6
-          })
-        );
-        await Promise.all(connectionPromises);
+        const connections = selectedConnections.map(targetId => ({
+          fromEntryId: entry.id,
+          toEntryId: targetId,
+          connectionType: "relates_to",
+          strength: 4, // Default strong connection for auto-detected (1-5 scale)
+          description: "Auto-connected based on shared keywords"
+        }));
+        
+        const result = await apiRequest("/api/library/connections/batch", "POST", { connections }) as any;
+        
+        // Show informative toast
+        if (result && result.skipped > 0) {
+          toast({ 
+            title: `${result.created} connection(s) created, ${result.skipped} already existed`,
+            description: "Duplicate connections were skipped"
+          });
+        }
       }
       
       return entry;
@@ -211,16 +217,22 @@ export default function LibraryPage() {
       
       // Create auto-connections if any were selected
       if (selectedConnections && selectedConnections.length > 0) {
-        const connectionPromises = selectedConnections.map(targetId => 
-          apiRequest("/api/library/connections", "POST", {
-            fromEntryId: id,
-            toEntryId: targetId,
-            connectionType: "relates_to",
-            strength: 4,
-          })
-        );
+        const connections = selectedConnections.map(targetId => ({
+          fromEntryId: id,
+          toEntryId: targetId,
+          connectionType: "relates_to",
+          strength: 4
+        }));
         
-        await Promise.all(connectionPromises);
+        const result = await apiRequest("/api/library/connections/batch", "POST", { connections }) as any;
+        
+        // Show informative toast with connection counts
+        if (result && result.skipped > 0) {
+          toast({ 
+            title: `${result.created} connection(s) created, ${result.skipped} already existed`,
+            description: "Duplicate connections were skipped"
+          });
+        }
       }
       
       return entry;

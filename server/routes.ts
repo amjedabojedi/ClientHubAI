@@ -6335,6 +6335,62 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Batch create connections endpoint with duplicate handling
+  app.post("/api/library/connections/batch", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const connections = req.body.connections as Array<{
+        fromEntryId: number;
+        toEntryId: number;
+        connectionType?: string;
+        strength?: number;
+        description?: string;
+      }>;
+
+      if (!Array.isArray(connections) || connections.length === 0) {
+        return res.status(400).json({ message: "connections must be a non-empty array" });
+      }
+
+      const created: any[] = [];
+      const skipped: any[] = [];
+
+      for (const conn of connections) {
+        try {
+          const connectionData = {
+            ...conn,
+            createdById: req.user.id,
+            connectionType: conn.connectionType || 'relates_to',
+            strength: conn.strength || 4,
+          };
+          
+          const result = await storage.createLibraryEntryConnection(connectionData);
+          created.push(result);
+        } catch (error: any) {
+          // If duplicate (unique constraint violation), add to skipped
+          if (error?.code === '23505' || error?.message?.includes('unique')) {
+            skipped.push({ fromEntryId: conn.fromEntryId, toEntryId: conn.toEntryId });
+          } else {
+            // Re-throw other errors
+            throw error;
+          }
+        }
+      }
+
+      res.status(201).json({
+        created: created.length,
+        skipped: skipped.length,
+        total: connections.length,
+        details: { created, skipped }
+      });
+    } catch (error) {
+      console.error("Error creating batch connections:", error);
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : "Unknown error" });
+    }
+  });
+
   app.put("/api/library/connections/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
