@@ -130,6 +130,19 @@ Intelligent auto-suggestion system for creating connections between library entr
 - Maintains sortOrder field priority, then applies natural sort to titles
 - Applied consistently to both entry lists and search results
 
+**Relationship-Based Filtering in Session Notes (Added November 2025):**
+Intelligent filtering system for Library Picker in Session Notes based on previously selected entries:
+- **Smart Field Relationships:** Each field filters based on logically related fields:
+  - Symptoms: No filtering (starting point)
+  - Short-term Goals: Filtered by selected Symptoms
+  - Interventions: Filtered by selected Symptoms + Goals
+  - Progress: Filtered by selected Symptoms + Goals + Interventions
+- **Category-Aware Filtering:** Only shows connected entries that belong to the current category
+- **Toggle UI:** "Show connected entries only" switch appears when previous selections exist
+- **Bulk Connection Endpoint:** POST `/api/library/entries/connected-bulk` fetches connections efficiently
+- **Performance:** TanStack Query caching with 5-minute stale time to minimize API calls
+- **User Experience:** Shows accurate count messages like "Showing X entries (from Y total connections)"
+
 ### Billing & Financial Tracking
 Automated workflow from service selection to invoice generation and payment tracking.
 **Key Tables:** `services`, `session_billing`, `invoices`, `payments`.
