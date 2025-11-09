@@ -6308,13 +6308,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const connectionPromises = entryIds.map(id => storage.getConnectedEntries(id));
       const results = await Promise.all(connectionPromises);
       
-      // Flatten and deduplicate connected entry IDs
-      const allConnectedEntries = results.flat();
-      const uniqueEntries = Array.from(
-        new Map(allConnectedEntries.map(entry => [entry.id, entry])).values()
-      );
-      
-      res.json(uniqueEntries);
+      // Return array of connections arrays, preserving order matching entryIds
+      res.json(results);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });

@@ -365,42 +365,30 @@ export default function LibraryPage() {
   const allSelected = displayedEntries.length > 0 && visibleSelectedCount === displayedEntries.length;
   const someSelected = visibleSelectedCount > 0 && visibleSelectedCount < displayedEntries.length;
 
-  // Memoize entry IDs to prevent infinite loop - only re-fetch when actual IDs change
-  const entryIds = useMemo(
-    () => displayedEntries.map(e => e.id).sort((a, b) => a - b).join(','),
-    [displayedEntries]
-  );
-
-  // Fetch connected entries for displayed entries
+  // Fetch connections for ALL entries at once (not just current tab)
   useEffect(() => {
-    const fetchConnections = async () => {
-      const ids = entryIds.split(',').filter(Boolean).map(Number);
-      if (ids.length === 0) return;
+    const fetchAllConnections = async () => {
+      if (allEntries.length === 0) return;
 
-      const connectionsPromises = ids.map(async (id) => {
-        try {
-          const response = await fetch(`/api/library/entries/${id}/connected`);
-          if (response.ok) {
-            const connected = await response.json();
-            return { entryId: id, connected };
-          }
-        } catch (error) {
-          // Connection fetch failed - ignore silently  
-        }
-        return { entryId: id, connected: [] };
-      });
-
-      const results = await Promise.all(connectionsPromises);
-      const newMap: Record<number, any[]> = {};
-      results.forEach(({ entryId, connected }) => {
-        newMap[entryId] = connected;
-      });
-      // Merge with existing data instead of replacing to preserve connections from other tabs
-      setConnectedEntriesMap(prev => ({ ...prev, ...newMap }));
+      try {
+        const entryIds = allEntries.map(e => e.id);
+        const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds });
+        const results = await response.json();
+        
+        // Transform bulk response into map keyed by entry ID
+        const newMap: Record<number, any[]> = {};
+        results.forEach((item: any, index: number) => {
+          newMap[entryIds[index]] = item || [];
+        });
+        
+        setConnectedEntriesMap(newMap);
+      } catch (error) {
+        console.error('Failed to fetch bulk connections:', error);
+      }
     };
 
-    fetchConnections();
-  }, [entryIds]);
+    fetchAllConnections();
+  }, [allEntries.length]); // Only re-fetch when number of entries changes
   
   // Initialize progressive disclosure state when connections are fetched or data changes
   useEffect(() => {

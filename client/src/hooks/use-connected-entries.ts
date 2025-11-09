@@ -10,7 +10,15 @@ export const useConnectedEntries = (selectedIds: number[]) => {
       const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { 
         entryIds: selectedIds 
       });
-      return (await response.json()) as LibraryEntry[];
+      const results = (await response.json()) as LibraryEntry[][];
+      
+      // Flatten and deduplicate the array of arrays
+      const allConnectedEntries = results.flat();
+      const uniqueEntries = Array.from(
+        new Map(allConnectedEntries.map(entry => [entry.id, entry])).values()
+      );
+      
+      return uniqueEntries as LibraryEntry[];
     },
     enabled: selectedIds.length > 0,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
