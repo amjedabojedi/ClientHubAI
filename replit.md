@@ -151,6 +151,8 @@ Robust system to prevent duplicate connection badges and ensure bidirectional co
 - **Informative Feedback:** Returns `{created: N, skipped: M, total: X}` and shows toast messages like "4 connection(s) created, 2 already existed"
 - **Smart Connect Integration:** Create/update entry dialogs use batch endpoint, preventing duplicate connections when auto-connecting
 - **Performance:** Single API call for N connections instead of N separate calls
+- **Bulk Fetch Endpoint:** POST `/api/library/entries/connected-bulk` returns object keyed by entry ID for reliable bidirectional badge display
+- **Object-Keyed Response:** Returns `{ entryId1: [connections], entryId2: [connections] }` instead of array to prevent order-dependent mapping errors
 
 ### Billing & Financial Tracking
 Automated workflow from service selection to invoice generation and payment tracking.

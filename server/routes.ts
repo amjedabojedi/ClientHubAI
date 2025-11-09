@@ -6301,15 +6301,23 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Handle empty array gracefully
       if (entryIds.length === 0) {
-        return res.json([]);
+        return res.json({});
       }
 
       // Fetch connections for all provided entry IDs
-      const connectionPromises = entryIds.map(id => storage.getConnectedEntries(id));
+      const connectionPromises = entryIds.map(async (id) => ({
+        entryId: id,
+        connections: await storage.getConnectedEntries(id)
+      }));
       const results = await Promise.all(connectionPromises);
       
-      // Return array of connections arrays, preserving order matching entryIds
-      res.json(results);
+      // Return object keyed by entry ID for reliable mapping
+      const connectionsMap = results.reduce((acc, { entryId, connections }) => {
+        acc[entryId] = connections;
+        return acc;
+      }, {} as Record<number, any[]>);
+      
+      res.json(connectionsMap);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });

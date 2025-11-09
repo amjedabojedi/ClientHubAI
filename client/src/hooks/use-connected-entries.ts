@@ -7,13 +7,14 @@ export const useConnectedEntries = (selectedIds: number[]) => {
     queryKey: ['/api/library/entries/connected-bulk', selectedIds.sort().join(',')],
     queryFn: async () => {
       if (selectedIds.length === 0) return [];
-      const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { 
+      const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { 
         entryIds: selectedIds 
-      });
-      const results = (await response.json()) as LibraryEntry[][];
+      }) as Record<number, LibraryEntry[]>;
       
-      // Flatten and deduplicate the array of arrays
-      const allConnectedEntries = results.flat();
+      // Flatten all connection arrays from the map
+      const allConnectedEntries = Object.values(connectionsMap).flat();
+      
+      // Deduplicate by entry ID
       const uniqueEntries = Array.from(
         new Map(allConnectedEntries.map(entry => [entry.id, entry])).values()
       );
