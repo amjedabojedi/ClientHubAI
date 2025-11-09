@@ -569,89 +569,193 @@ export default function LibraryPage() {
                                     </div>
                                   </div>
                                   
-                                  {/* Connections Section - Professional Badge Display */}
-                                  {databaseConnections.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                                      <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                          <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                          <span>
-                                            Connected Entries ({databaseConnections.length})
-                                          </span>
-                                        </div>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            deleteAllConnectionsMutation.mutate(entry.id);
-                                          }}
-                                          className="h-7 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                          title="Remove all connections"
-                                          data-testid={`button-remove-all-connections-${entry.id}`}
-                                        >
-                                          <Trash2 className="w-3 h-3 mr-1" />
-                                          Delete All
-                                        </Button>
-                                      </div>
-                                      <div className="flex flex-wrap gap-2">
-                                        {databaseConnections.map((related, idx) => (
-                                          <div 
-                                            key={`${entry.id}-${related.id}-${idx}`} 
-                                            className="group relative flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
-                                          >
-                                            <div className="flex flex-col gap-1">
-                                              <div className="flex items-center gap-1.5">
-                                                <Badge 
-                                                  variant="secondary" 
-                                                  className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium"
-                                                >
-                                                  {related.category.name}
-                                                </Badge>
-                                                <span 
-                                                  className="text-sm font-medium text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
-                                                  onClick={() => {
-                                                    const element = document.querySelector(`[data-entry-id="${related.id}"]`);
-                                                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                  }}
-                                                  title="Click to scroll to entry"
-                                                >
-                                                  {related.title}
-                                                </span>
-                                              </div>
-                                              {(related as any).strength && (
-                                                <div className="flex items-center gap-0.5" title={`Connection strength: ${(related as any).strength}/5`}>
-                                                  {Array.from({ length: 5 }).map((_, i) => (
-                                                    <div 
-                                                      key={i} 
-                                                      className={`w-1.5 h-1.5 rounded-full ${
-                                                        i < (related as any).strength 
-                                                          ? 'bg-green-500 dark:bg-green-400' 
-                                                          : 'bg-gray-300 dark:bg-gray-600'
-                                                      }`}
-                                                    />
-                                                  ))}
-                                                </div>
-                                              )}
-                                            </div>
-                                            {(related as any).connectionId && (
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  deleteConnectionMutation.mutate((related as any).connectionId);
-                                                }}
-                                                className="ml-2 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Remove connection"
-                                                data-testid={`button-remove-connection-${(related as any).connectionId}`}
-                                              >
-                                                <X className="w-3.5 h-3.5" />
-                                              </button>
-                                            )}
+                                  {/* Connections Section - Professional Badge Display with Progressive Disclosure */}
+                                  {(() => {
+                                    // Helper functions for per-entry state
+                                    const getVisibleCount = (entryId: number) => visibleConnectionsByEntry[entryId] || 10;
+                                    const getSearchTerm = (entryId: number) => connectionSearchTerm[entryId] || '';
+                                    const getCategoryFilter = (entryId: number) => connectionCategoryFilter[entryId];
+                                    
+                                    const setVisibleCount = (entryId: number, count: number) => {
+                                      setVisibleConnectionsByEntry(prev => ({ ...prev, [entryId]: count }));
+                                    };
+                                    const setSearchTerm = (entryId: number, term: string) => {
+                                      setConnectionSearchTerm(prev => ({ ...prev, [entryId]: term }));
+                                      setVisibleCount(entryId, 10); // Reset visible count on search
+                                    };
+                                    const setCategoryFilter = (entryId: number, categoryId: number | undefined) => {
+                                      setConnectionCategoryFilter(prev => ({ ...prev, [entryId]: categoryId }));
+                                      setVisibleCount(entryId, 10); // Reset visible count on filter
+                                    };
+                                    
+                                    // Filtering pipeline: search → category → limit
+                                    const searchTerm = getSearchTerm(entry.id).toLowerCase();
+                                    const categoryFilter = getCategoryFilter(entry.id);
+                                    const visibleCount = getVisibleCount(entry.id);
+                                    
+                                    const filteredConnections = databaseConnections
+                                      .filter(related => {
+                                        // Search by title
+                                        if (searchTerm && !related.title.toLowerCase().includes(searchTerm)) {
+                                          return false;
+                                        }
+                                        // Filter by category
+                                        if (categoryFilter !== undefined && related.category.id !== categoryFilter) {
+                                          return false;
+                                        }
+                                        return true;
+                                      });
+                                    
+                                    const visibleConnections = filteredConnections.slice(0, visibleCount);
+                                    const hasMore = filteredConnections.length > visibleCount;
+                                    const remainingCount = filteredConnections.length - visibleCount;
+                                    
+                                    // Get unique categories from all connections
+                                    const availableCategories = Array.from(
+                                      new Map(databaseConnections.map(c => [c.category.id, c.category])).values()
+                                    );
+                                    
+                                    return databaseConnections.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                        {/* Header with title and delete all button */}
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                            <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                            <span>
+                                              Connected Entries ({databaseConnections.length})
+                                            </span>
                                           </div>
-                                        ))}
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              deleteAllConnectionsMutation.mutate(entry.id);
+                                            }}
+                                            className="h-7 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                            title="Remove all connections"
+                                            data-testid={`button-remove-all-connections-${entry.id}`}
+                                          >
+                                            <Trash2 className="w-3 h-3 mr-1" />
+                                            Delete All
+                                          </Button>
+                                        </div>
+                                        
+                                        {/* Search and Filter Controls */}
+                                        {databaseConnections.length > 5 && (
+                                          <div className="flex gap-2 mb-3">
+                                            <Input
+                                              placeholder="Search connections..."
+                                              value={getSearchTerm(entry.id)}
+                                              onChange={(e) => setSearchTerm(entry.id, e.target.value)}
+                                              className="h-8 text-sm flex-1"
+                                              data-testid={`input-search-connections-${entry.id}`}
+                                            />
+                                            <Select
+                                              value={getCategoryFilter(entry.id)?.toString() || 'all'}
+                                              onValueChange={(val) => setCategoryFilter(entry.id, val === 'all' ? undefined : parseInt(val))}
+                                            >
+                                              <SelectTrigger className="h-8 text-sm w-40" data-testid={`select-category-filter-${entry.id}`}>
+                                                <SelectValue placeholder="All categories" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="all">All categories</SelectItem>
+                                                {availableCategories.map(cat => (
+                                                  <SelectItem key={cat.id} value={cat.id.toString()}>
+                                                    {cat.name}
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Connection Cards */}
+                                        {filteredConnections.length === 0 ? (
+                                          <div className="text-center py-6 text-sm text-gray-500 dark:text-gray-400">
+                                            No connections found matching your filters.
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <div className="flex flex-wrap gap-2">
+                                              {visibleConnections.map((related, idx) => (
+                                                <div 
+                                                  key={`${entry.id}-${related.id}-${idx}`} 
+                                                  className="group relative flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 hover:shadow-md transition-shadow"
+                                                >
+                                                  <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                      <Badge 
+                                                        variant="secondary" 
+                                                        className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium"
+                                                      >
+                                                        {related.category.name}
+                                                      </Badge>
+                                                      <span 
+                                                        className="text-sm font-medium text-blue-600 dark:text-blue-400 cursor-pointer hover:underline"
+                                                        onClick={() => {
+                                                          const element = document.querySelector(`[data-entry-id="${related.id}"]`);
+                                                          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                        }}
+                                                        title="Click to scroll to entry"
+                                                      >
+                                                        {related.title}
+                                                      </span>
+                                                    </div>
+                                                    {(related as any).strength && (
+                                                      <div className="flex items-center gap-0.5" title={`Connection strength: ${(related as any).strength}/5`}>
+                                                        {Array.from({ length: 5 }).map((_, i) => (
+                                                          <div 
+                                                            key={i} 
+                                                            className={`w-1.5 h-1.5 rounded-full ${
+                                                              i < (related as any).strength 
+                                                                ? 'bg-green-500 dark:bg-green-400' 
+                                                                : 'bg-gray-300 dark:bg-gray-600'
+                                                            }`}
+                                                          />
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                  {(related as any).connectionId && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteConnectionMutation.mutate((related as any).connectionId);
+                                                      }}
+                                                      className="ml-2 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      title="Remove connection"
+                                                      data-testid={`button-remove-connection-${(related as any).connectionId}`}
+                                                    >
+                                                      <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                            
+                                            {/* Show More Button */}
+                                            {hasMore && (
+                                              <div className="mt-3 text-center">
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setVisibleCount(entry.id, visibleCount + 10);
+                                                  }}
+                                                  className="text-xs"
+                                                  data-testid={`button-show-more-connections-${entry.id}`}
+                                                >
+                                                  Show {Math.min(10, remainingCount)} More ({remainingCount} remaining)
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
                                       </div>
-                                    </div>
-                                  )}
+                                    );
+                                  })()}
                                 </div>
 
                                 <div className="flex items-center gap-1">
