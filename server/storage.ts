@@ -3265,7 +3265,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(libraryEntries.createdById, users.id))
       .where(and(...whereConditions));
 
-    const results = await query.orderBy(asc(libraryEntries.sortOrder), asc(libraryEntries.title));
+    // Only sort by sortOrder - let frontend handle natural title sorting
+    const results = await query.orderBy(asc(libraryEntries.sortOrder));
     return results.map(result => ({ ...result.entry, category: result.category!, createdBy: result.createdBy! }));
   }
 
@@ -3316,7 +3317,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(libraryEntries.createdById, users.id))
       .where(and(...whereConditions));
 
-    const results = await dbQuery.orderBy(desc(libraryEntries.usageCount), asc(libraryEntries.title));
+    // Only sort by usageCount - let frontend handle natural title sorting
+    const results = await dbQuery.orderBy(desc(libraryEntries.usageCount));
     return results.map(result => ({ ...result.entry, category: result.category!, createdBy: result.createdBy! }));
   }
 
