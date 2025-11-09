@@ -384,10 +384,15 @@ export default function LibraryPage() {
 
       try {
         const entryIds = allEntries.map(e => e.id);
-        const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds }) as Record<number, any[]>;
+        const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds }) as Record<string, any[]>;
         
-        // Response is already keyed by entry ID, use it directly
-        setConnectedEntriesMap(connectionsMap);
+        // Convert string keys to number keys for easier lookup
+        const numericKeyMap: Record<number, any[]> = {};
+        Object.entries(connectionsMap).forEach(([key, value]) => {
+          numericKeyMap[parseInt(key)] = value;
+        });
+        
+        setConnectedEntriesMap(numericKeyMap);
       } catch (error) {
         console.error('Failed to fetch bulk connections:', error);
       }
