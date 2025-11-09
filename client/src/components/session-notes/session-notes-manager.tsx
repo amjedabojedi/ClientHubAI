@@ -979,18 +979,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     );
     const connectedEntryIdsInCategory = connectedEntriesInCategory.map((entry: any) => entry.id);
 
-    // Debug logging
-    if (showConnectedOnly && previouslySelectedIds.length > 0) {
-      console.log('🔍 Library Picker Debug:', {
-        fieldType,
-        categoryId: categoryIds[fieldType],
-        previouslySelectedIds,
-        totalConnectedEntries: connectedEntries.length,
-        connectedEntriesInThisCategory: connectedEntriesInCategory.length,
-        connectedEntryIdsInCategory
-      });
-    }
-
     // Filter entries by category, search, and connections
     const filteredEntries = Array.isArray(libraryEntries) ? libraryEntries.filter((entry: LibraryEntry) => {
       const matchesCategory = entry.categoryId === categoryIds[fieldType];
