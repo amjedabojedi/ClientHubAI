@@ -1293,13 +1293,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           ))}
                         </SelectContent>
                       </Select>
-                      {isFromSessionClick && field.value && (
-                        <p className="text-xs text-muted-foreground">
-                          Session pre-selected from client profile - {sessions.find(s => s.id === field.value) ? 
-                            `${format(parseSessionDate(sessions.find(s => s.id === field.value)!.sessionDate), 'MMM dd, yyyy')} - ${sessions.find(s => s.id === field.value)!.sessionType}` : 
-                            'Session details'}
-                        </p>
-                      )}
                       <FormMessage />
                     </FormItem>
                   )}
