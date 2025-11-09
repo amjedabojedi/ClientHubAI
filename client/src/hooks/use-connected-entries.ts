@@ -7,9 +7,10 @@ export const useConnectedEntries = (selectedIds: number[]) => {
     queryKey: ['/api/library/entries/connected-bulk', selectedIds.sort().join(',')],
     queryFn: async () => {
       if (selectedIds.length === 0) return [];
-      const connectionsMap = await apiRequest('/api/library/entries/connected-bulk', 'POST', { 
+      const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { 
         entryIds: selectedIds 
-      }) as Record<number, LibraryEntry[]>;
+      });
+      const connectionsMap = await response.json() as Record<number, LibraryEntry[]>;
       
       // Flatten all connection arrays from the map
       const allConnectedEntries = Object.values(connectionsMap).flat();

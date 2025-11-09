@@ -384,21 +384,16 @@ export default function LibraryPage() {
 
       try {
         const entryIds = allEntries.map(e => e.id);
-        console.log('Fetching connections for entry IDs:', entryIds.slice(0, 5), '... (total:', entryIds.length, ')');
         
         const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds });
         const connectionsMap = await response.json() as Record<string, any[]>;
-        console.log('Received connections map:', Object.keys(connectionsMap).length, 'entries');
-        console.log('Sample connection data:', Object.entries(connectionsMap).slice(0, 3));
         
         // Convert string keys to number keys for easier lookup
         const numericKeyMap: Record<number, any[]> = {};
         Object.entries(connectionsMap).forEach(([key, value]) => {
-          numericKeyMap[parseInt(key)] = value;
+          const numKey = parseInt(key);
+          numericKeyMap[numKey] = value;
         });
-        
-        console.log('Converted to numeric keys:', Object.keys(numericKeyMap).length, 'entries');
-        console.log('Sample numeric map:', Object.entries(numericKeyMap).slice(0, 3));
         
         setConnectedEntriesMap(numericKeyMap);
       } catch (error) {
@@ -573,19 +568,8 @@ export default function LibraryPage() {
 
                       {displayedEntries.map((entry) => {
                         // Only show database connections (no tag-based fallback)
-                        // Normalize the lookup key to ensure type consistency
                         const entryKey = Number(entry.id);
                         const databaseConnections = connectedEntriesMap[entryKey] ?? [];
-                        
-                        // DEBUG: Log first few entries to verify map population
-                        if (entry.id <= 25) {
-                          console.log(`Entry ${entry.id} (${entry.title}):`, {
-                            entryKey,
-                            hasKey: Object.prototype.hasOwnProperty.call(connectedEntriesMap, entryKey),
-                            connectionsCount: databaseConnections.length,
-                            sample: databaseConnections?.[0]?.title
-                          });
-                        }
 
                         const isSelected = selectedEntries.has(entry.id);
                         
@@ -1432,14 +1416,27 @@ function EntryForm({
     // Step 1: Try pattern-based matching (HIGHEST PRIORITY)
     const currentPattern = parseLibraryPattern(formData.title);
     
+    console.log('[Smart Connect] Current title:', formData.title, 'Parsed pattern:', currentPattern);
+    
     if (currentPattern) {
       // Pattern detected! Find all entries in same pathway
+      let debugCount = 0;
       const patternMatches = allEntries
         .filter(existing => {
           if (existing.id === entry?.id) return false; // Don't suggest self
           
           const existingPattern = parseLibraryPattern(existing.title);
           if (!existingPattern) return false;
+          
+          // DEBUG: Log first few matches for debugging
+          if (debugCount < 5) {
+            const isMatch = existingPattern.condition === currentPattern.condition && existingPattern.pathway === currentPattern.pathway;
+            console.log('[Smart Connect] Checking:', existing.title, 
+              '| Existing:', `${existingPattern.condition}${existingPattern.type}${existingPattern.pathway}`,
+              '| Current:', `${currentPattern.condition}${currentPattern.type}${currentPattern.pathway}`,
+              '| Match?', isMatch);
+            if (isMatch) debugCount++;
+          }
           
           // Same condition and pathway number
           return existingPattern.condition === currentPattern.condition &&
@@ -1451,11 +1448,16 @@ function EntryForm({
           reason: `Same pathway #${currentPattern.pathway}` 
         }));
       
+      console.log('[Smart Connect] Pattern matches found:', patternMatches.length, 'entries');
+      
       if (patternMatches.length > 0) {
+        console.log('[Smart Connect] Using pattern-based suggestions (100% confidence)');
         setSuggestedConnections(patternMatches.slice(0, 10));
         return;
       }
     }
+    
+    console.log('[Smart Connect] No pattern match, falling back to keyword matching');
 
     // Step 2: Keyword-based matching (FALLBACK)
     const keywords = [
