@@ -64,7 +64,6 @@ export default function LibraryPage() {
   const [showBulkAddDialog, setShowBulkAddDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LibraryCategoryWithChildren | null>(null);
   const [editingEntry, setEditingEntry] = useState<LibraryEntryWithDetails | null>(null);
-  const [connectingEntry, setConnectingEntry] = useState<LibraryEntryWithDetails | null>(null);
   const [connectedEntriesMap, setConnectedEntriesMap] = useState<Record<number, any[]>>({});
   const [selectedEntries, setSelectedEntries] = useState<Set<number>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
@@ -819,15 +818,8 @@ export default function LibraryPage() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setConnectingEntry(entry)}
-                                    title="Connect to other entries"
-                                  >
-                                    <Link2 className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
                                     onClick={() => setEditingEntry(entry)}
+                                    title="Edit entry and manage connections"
                                   >
                                     <Edit className="w-4 h-4" />
                                   </Button>
@@ -914,31 +906,6 @@ export default function LibraryPage() {
                 selectedCategoryId={editingEntry.categoryId}
                 isLoading={updateEntryMutation.isPending}
                 allEntries={allEntries}
-                onOpenManualConnect={() => {
-                  setConnectingEntry(editingEntry);
-                  setEditingEntry(null);
-                }}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Connect Entry Dialog */}
-        <Dialog open={!!connectingEntry} onOpenChange={() => setConnectingEntry(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Connect "{connectingEntry?.title}" to Other Entries</DialogTitle>
-            </DialogHeader>
-            {connectingEntry && (
-              <ConnectionForm
-                sourceEntry={connectingEntry}
-                allEntries={allEntries}
-                categories={categories}
-                onConnectionCreated={() => {
-                  // Close dialog and refresh entries
-                  setConnectingEntry(null);
-                  queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
-                }}
               />
             )}
           </DialogContent>
@@ -1382,8 +1349,7 @@ function EntryForm({
   categories, 
   selectedCategoryId,
   isLoading,
-  allEntries = [],
-  onOpenManualConnect
+  allEntries = []
 }: { 
   entry?: LibraryEntryWithDetails;
   onSubmit: (data: InsertLibraryEntry) => void;
@@ -1391,7 +1357,6 @@ function EntryForm({
   selectedCategoryId?: number | null;
   isLoading: boolean;
   allEntries?: LibraryEntryWithDetails[];
-  onOpenManualConnect?: () => void;
 }) {
   const [formData, setFormData] = useState({
     title: entry?.title || "",
@@ -1485,7 +1450,6 @@ function EntryForm({
         categories={categories}
         selectedConnections={selectedConnections}
         onSelectionChange={setSelectedConnections}
-        onOpenManualDialog={entry && onOpenManualConnect ? onOpenManualConnect : undefined}
       />
 
       <div className="flex justify-end gap-2">

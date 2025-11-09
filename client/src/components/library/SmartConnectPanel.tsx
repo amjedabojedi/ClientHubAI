@@ -27,7 +27,6 @@ interface SmartConnectPanelProps {
   categories: LibraryCategoryWithChildren[];
   selectedConnections: number[];
   onSelectionChange: (selectedIds: number[]) => void;
-  onOpenManualDialog?: () => void;
 }
 
 export function SmartConnectPanel({
@@ -38,8 +37,7 @@ export function SmartConnectPanel({
   allEntries,
   categories,
   selectedConnections,
-  onSelectionChange,
-  onOpenManualDialog
+  onSelectionChange
 }: SmartConnectPanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -102,17 +100,6 @@ export function SmartConnectPanel({
           <h4 className="font-semibold text-gray-900 dark:text-gray-100">
             Smart Connect
           </h4>
-          {onOpenManualDialog && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenManualDialog}
-              className="ml-2 text-xs h-7"
-              title="Switch to manual connection wizard"
-            >
-              Manual Mode
-            </Button>
-          )}
         </div>
         {state.selectedIds.length > 0 && (
           <Badge className="bg-blue-600 text-white">
@@ -123,13 +110,10 @@ export function SmartConnectPanel({
 
       {/* Category Tabs */}
       <Tabs
-        value={state.activeCategory || 'all'}
-        onValueChange={(val) => setCategory(val === 'all' ? null : val)}
+        value={state.activeCategory || availableCategories[0]}
+        onValueChange={(val) => setCategory(val)}
       >
         <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-1">
-          <TabsTrigger value="all" className="text-xs">
-            All {displayList.totalCount > 0 && `(${displayList.totalCount})`}
-          </TabsTrigger>
           {availableCategories.map(cat => {
             const count = allEntries.filter(e => e.category.name === cat).length;
             return (
