@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { sanitizeHtml } from '../lib/sanitize';
 
 // HTML escape function to prevent XSS attacks
 function escapeHtml(unsafe: string | null | undefined): string {
@@ -175,13 +176,13 @@ export function generateFormAssignmentHTML(
         currentInputFields = [];
       }
       
-      // Add info text
+      // Add info text (rich HTML content from editor, sanitized to prevent XSS)
       formSections.push(`
         <div style="margin: 16px 0; background-color: #f9fafb; padding: 16px; border-radius: 6px; border: 1px solid #e5e7eb;">
           ${field.label ? `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 8px 0;">${escapeHtml(field.label)}</h3>` : ''}
-          <p style="font-size: 13px; color: #4b5563; line-height: 1.6; margin: 0; white-space: pre-wrap;">
-            ${escapeHtml(field.helpText || '')}
-          </p>
+          <div style="font-size: 13px; color: #4b5563; line-height: 1.6;">
+            ${sanitizeHtml(field.helpText || '')}
+          </div>
         </div>
       `);
     } else if (field.fieldType !== 'signature') {

@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Send, Clock, CheckCircle2, PenTool } from "lucide-react";
 import { SignaturePad } from "@/components/forms/signature-pad";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
   let timeout: NodeJS.Timeout | null = null;
@@ -269,9 +270,12 @@ export default function PortalFormCompletion() {
               </h3>
             )}
             <div className="bg-muted/30 p-4 rounded-md border border-muted">
-              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                {field.helpText || ""}
-              </p>
+              <div 
+                className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert leading-relaxed"
+                dangerouslySetInnerHTML={{ 
+                  __html: sanitizeHtml(field.helpText || "")
+                }}
+              />
             </div>
           </div>
         );

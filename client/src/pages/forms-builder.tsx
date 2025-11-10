@@ -15,6 +15,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, Plus, Trash2, GripVertical, Eye, Edit2, MoveUp, MoveDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface FormField {
   id: number;
@@ -79,8 +82,14 @@ export default function FormsBuilder() {
   const createFieldMutation = useMutation({
     mutationFn: async (data: typeof fieldData) => {
       const sortOrder = template?.fields?.length || 0;
+      // Sanitize HTML content for info_text fields to prevent XSS
+      const sanitizedHelpText = data.fieldType === 'info_text' && data.helpText
+        ? sanitizeHtml(data.helpText)
+        : data.helpText;
+      
       return await apiRequest("/api/forms/fields", "POST", {
         ...data,
+        helpText: sanitizedHelpText,
         templateId: parseInt(templateId!),
         sortOrder,
         options: data.options ? data.options : null,
@@ -110,8 +119,14 @@ export default function FormsBuilder() {
 
   const updateFieldMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<typeof fieldData> }) => {
+      // Sanitize HTML content for info_text fields to prevent XSS
+      const sanitizedHelpText = data.updates.fieldType === 'info_text' && data.updates.helpText
+        ? sanitizeHtml(data.updates.helpText)
+        : data.updates.helpText;
+      
       return await apiRequest(`/api/forms/fields/${data.id}`, "PATCH", {
         ...data.updates,
+        helpText: sanitizedHelpText,
         options: data.updates.options || null,
       });
     },
@@ -181,11 +196,16 @@ export default function FormsBuilder() {
 
   const handleEditField = (field: FormField) => {
     setEditingField(field);
+    // Sanitize helpText when loading into editor to prevent stored XSS
+    const sanitizedHelpText = field.fieldType === 'info_text' && field.helpText
+      ? sanitizeHtml(field.helpText)
+      : field.helpText || "";
+    
     setFieldData({
       fieldType: field.fieldType,
       label: field.label,
       placeholder: field.placeholder || "",
-      helpText: field.helpText || "",
+      helpText: sanitizedHelpText,
       isRequired: field.isRequired,
       options: field.options || "",
     });
@@ -238,9 +258,12 @@ export default function FormsBuilder() {
       case "info_text":
         return (
           <div className="bg-muted/30 p-4 rounded-md border border-muted">
-            <p className="text-sm text-foreground whitespace-pre-wrap">
-              {field.helpText || "Information text will appear here..."}
-            </p>
+            <div 
+              className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ 
+                __html: sanitizeHtml(field.helpText || "<p>Information text will appear here...</p>")
+              }}
+            />
           </div>
         );
       case "text":
@@ -520,24 +543,38 @@ export default function FormsBuilder() {
               <Label htmlFor="helpText">
                 {fieldData.fieldType === 'info_text' ? 'Content Text *' : 'Help Text'}
               </Label>
-              <Textarea
-                id="helpText"
-                data-testid="input-help-text"
-                value={fieldData.helpText}
-                onChange={(e) =>
-                  setFieldData({ ...fieldData, helpText: e.target.value })
-                }
-                placeholder={
-                  fieldData.fieldType === 'info_text' 
-                    ? 'Enter the full text that clients will read (e.g., consent language, disclaimers, instructions)'
-                    : 'Optional help text for users'
-                }
-                rows={fieldData.fieldType === 'info_text' ? 8 : 3}
-              />
-              {fieldData.fieldType === 'info_text' && (
-                <p className="text-xs text-muted-foreground">
-                  This text will be displayed to clients as read-only information
-                </p>
+              {fieldData.fieldType === 'info_text' ? (
+                <>
+                  <ReactQuill
+                    value={fieldData.helpText}
+                    onChange={(value) => setFieldData({ ...fieldData, helpText: value })}
+                    placeholder="Enter the full text that clients will read (e.g., consent language, disclaimers, instructions)"
+                    className="bg-background"
+                    theme="snow"
+                    modules={{
+                      toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['clean']
+                      ]
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use the rich text editor to format your content with headings, bold text, lists, etc.
+                  </p>
+                </>
+              ) : (
+                <Textarea
+                  id="helpText"
+                  data-testid="input-help-text"
+                  value={fieldData.helpText}
+                  onChange={(e) =>
+                    setFieldData({ ...fieldData, helpText: e.target.value })
+                  }
+                  placeholder="Optional help text for users"
+                  rows={3}
+                />
               )}
             </div>
 
@@ -660,19 +697,37 @@ export default function FormsBuilder() {
               <Label htmlFor="edit-helpText">
                 {fieldData.fieldType === 'info_text' ? 'Content Text *' : 'Help Text'}
               </Label>
-              <Textarea
-                id="edit-helpText"
-                data-testid="input-edit-help-text"
-                value={fieldData.helpText}
-                onChange={(e) =>
-                  setFieldData({ ...fieldData, helpText: e.target.value })
-                }
-                rows={fieldData.fieldType === 'info_text' ? 8 : 3}
-              />
-              {fieldData.fieldType === 'info_text' && (
-                <p className="text-xs text-muted-foreground">
-                  This text will be displayed to clients as read-only information
-                </p>
+              {fieldData.fieldType === 'info_text' ? (
+                <>
+                  <ReactQuill
+                    value={fieldData.helpText}
+                    onChange={(value) => setFieldData({ ...fieldData, helpText: value })}
+                    placeholder="Enter the full text that clients will read (e.g., consent language, disclaimers, instructions)"
+                    className="bg-background"
+                    theme="snow"
+                    modules={{
+                      toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['clean']
+                      ]
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use the rich text editor to format your content with headings, bold text, lists, etc.
+                  </p>
+                </>
+              ) : (
+                <Textarea
+                  id="edit-helpText"
+                  data-testid="input-edit-help-text"
+                  value={fieldData.helpText}
+                  onChange={(e) =>
+                    setFieldData({ ...fieldData, helpText: e.target.value })
+                  }
+                  rows={3}
+                />
               )}
             </div>
 

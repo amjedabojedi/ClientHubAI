@@ -1867,6 +1867,12 @@ export const insertFormFieldSchema = createInsertSchema(formFields).omit({
   return data;
 });
 
+// Update schema without transform for PATCH operations
+export const updateFormFieldSchema = createInsertSchema(formFields).omit({
+  id: true,
+  createdAt: true,
+}).partial();
+
 export const insertFormAssignmentSchema = createInsertSchema(formAssignments).omit({
   id: true,
   createdAt: true,

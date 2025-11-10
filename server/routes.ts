@@ -52,6 +52,7 @@ import { AzureBlobStorage } from "./azure-blob-storage";
 import { zoomService } from "./zoom-service";
 import type { AuthenticatedRequest } from "./auth-middleware";
 import { requireAuth } from "./auth-middleware";
+import { sanitizeHtml } from "./lib/sanitize";
 
 // Database Schemas
 import { 
@@ -88,6 +89,7 @@ import {
   insertClientHistorySchema,
   insertFormTemplateSchema,
   insertFormFieldSchema,
+  updateFormFieldSchema,
   insertFormAssignmentSchema,
   insertFormResponseSchema,
   insertFormSignatureSchema
@@ -12393,6 +12395,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
 
       const validatedData = insertFormFieldSchema.parse(req.body);
+      
+      // Server-side sanitization: Sanitize HTML content for info_text fields to prevent XSS
+      if (validatedData.fieldType === 'info_text' && validatedData.helpText) {
+        validatedData.helpText = sanitizeHtml(validatedData.helpText);
+      }
 
       const [field] = await db
         .insert(formFields)
@@ -12422,7 +12429,32 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
 
       const id = parseInt(req.params.id);
-      const validatedData = insertFormFieldSchema.partial().parse(req.body);
+      
+      // Fetch existing field to determine type for proper sanitization
+      const [existingField] = await db
+        .select()
+        .from(formFields)
+        .where(eq(formFields.id, id));
+      
+      if (!existingField) {
+        return res.status(404).json({ message: "Form field not found" });
+      }
+      
+      // Validate update data with schema
+      const validatedData = updateFormFieldSchema.parse(req.body);
+      
+      // Determine the field type (use new type if provided, otherwise existing)
+      const fieldType = validatedData.fieldType || existingField.fieldType;
+      
+      // Server-side sanitization: Sanitize HTML content for info_text fields to prevent XSS
+      if (fieldType === 'info_text' && validatedData.helpText !== undefined) {
+        validatedData.helpText = sanitizeHtml(validatedData.helpText);
+      }
+      
+      // Enforce required=false for heading/info_text fields
+      if (fieldType === 'heading' || fieldType === 'info_text') {
+        validatedData.isRequired = false;
+      }
 
       const [updated] = await db
         .update(formFields)
