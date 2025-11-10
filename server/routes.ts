@@ -11712,6 +11712,301 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Portal - Get single form assignment with template and fields
+  app.get("/api/portal/forms/assignments/:id", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const assignmentId = parseInt(req.params.id);
+
+      const assignment = await db
+        .select()
+        .from(formAssignments)
+        .where(
+          and(
+            eq(formAssignments.id, assignmentId),
+            eq(formAssignments.clientId, session.clientId)
+          )
+        )
+        .limit(1);
+
+      if (!assignment.length) {
+        return res.status(404).json({ error: "Form assignment not found" });
+      }
+
+      const template = await db
+        .select()
+        .from(formTemplates)
+        .where(eq(formTemplates.id, assignment[0].templateId))
+        .limit(1);
+
+      if (!template.length) {
+        return res.status(404).json({ error: "Form template not found" });
+      }
+
+      const fields = await db
+        .select()
+        .from(formFields)
+        .where(eq(formFields.templateId, template[0].id))
+        .orderBy(asc(formFields.sortOrder));
+
+      const client = await storage.getClient(session.clientId);
+      
+      if (client) {
+        await AuditLogger.logAction({
+          userId: client.id,
+          userEmail: client.portalEmail || client.email || 'unknown',
+          action: 'form_viewed',
+          result: 'success',
+          resourceType: 'form_assignment',
+          resourceId: assignmentId.toString(),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          details: JSON.stringify({ portal: true, formName: template[0].name }),
+          accessReason: 'Client portal form view',
+        });
+      }
+
+      res.json({
+        ...assignment[0],
+        template: {
+          ...template[0],
+          fields
+        }
+      });
+    } catch (error) {
+      console.error("Portal form assignment error:", error);
+      res.status(500).json({ error: "Failed to fetch form assignment" });
+    }
+  });
+
+  // Portal - Get form responses for an assignment
+  app.get("/api/portal/forms/responses/:assignmentId", async (req, res) => {
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const assignmentId = parseInt(req.params.assignmentId);
+
+      const assignment = await db
+        .select()
+        .from(formAssignments)
+        .where(
+          and(
+            eq(formAssignments.id, assignmentId),
+            eq(formAssignments.clientId, session.clientId)
+          )
+        )
+        .limit(1);
+
+      if (!assignment.length) {
+        return res.status(404).json({ error: "Form assignment not found" });
+      }
+
+      const responses = await db
+        .select()
+        .from(formResponses)
+        .where(eq(formResponses.assignmentId, assignmentId));
+
+      res.json(responses);
+    } catch (error) {
+      console.error("Portal form responses error:", error);
+      res.status(500).json({ error: "Failed to fetch form responses" });
+    }
+  });
+
+  // Portal - Save/update form response (auto-save)
+  app.post("/api/portal/forms/responses", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const { assignmentId, fieldId, value } = req.body;
+
+      if (!assignmentId || !fieldId) {
+        return res.status(400).json({ error: "Assignment ID and field ID are required" });
+      }
+
+      const assignment = await db
+        .select()
+        .from(formAssignments)
+        .where(
+          and(
+            eq(formAssignments.id, assignmentId),
+            eq(formAssignments.clientId, session.clientId)
+          )
+        )
+        .limit(1);
+
+      if (!assignment.length) {
+        return res.status(404).json({ error: "Form assignment not found" });
+      }
+
+      const existingResponse = await db
+        .select()
+        .from(formResponses)
+        .where(
+          and(
+            eq(formResponses.assignmentId, assignmentId),
+            eq(formResponses.fieldId, fieldId)
+          )
+        )
+        .limit(1);
+
+      let response;
+      if (existingResponse.length) {
+        const updated = await db
+          .update(formResponses)
+          .set({ 
+            value,
+            updatedAt: new Date()
+          })
+          .where(eq(formResponses.id, existingResponse[0].id))
+          .returning();
+        response = updated[0];
+      } else {
+        const inserted = await db
+          .insert(formResponses)
+          .values({
+            assignmentId,
+            fieldId,
+            value
+          })
+          .returning();
+        response = inserted[0];
+      }
+
+      if (assignment[0].status === 'pending') {
+        await db
+          .update(formAssignments)
+          .set({ status: 'in_progress' })
+          .where(eq(formAssignments.id, assignmentId));
+      }
+
+      res.json(response);
+    } catch (error) {
+      console.error("Portal form response save error:", error);
+      res.status(500).json({ error: "Failed to save form response" });
+    }
+  });
+
+  // Portal - Submit completed form
+  app.post("/api/portal/forms/submit/:assignmentId", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const assignmentId = parseInt(req.params.assignmentId);
+
+      const assignment = await db
+        .select()
+        .from(formAssignments)
+        .where(
+          and(
+            eq(formAssignments.id, assignmentId),
+            eq(formAssignments.clientId, session.clientId)
+          )
+        )
+        .limit(1);
+
+      if (!assignment.length) {
+        return res.status(404).json({ error: "Form assignment not found" });
+      }
+
+      if (assignment[0].status === 'completed' || assignment[0].status === 'reviewed') {
+        return res.status(400).json({ error: "Form already submitted" });
+      }
+
+      const updated = await db
+        .update(formAssignments)
+        .set({ 
+          status: 'completed',
+          completedAt: new Date()
+        })
+        .where(eq(formAssignments.id, assignmentId))
+        .returning();
+
+      const client = await storage.getClient(session.clientId);
+      
+      if (client) {
+        await AuditLogger.logAction({
+          userId: client.id,
+          userEmail: client.portalEmail || client.email || 'unknown',
+          action: 'form_submitted',
+          result: 'success',
+          resourceType: 'form_assignment',
+          resourceId: assignmentId.toString(),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({ portal: true }),
+          accessReason: 'Client portal form submission',
+        });
+      }
+
+      res.json(updated[0]);
+    } catch (error) {
+      console.error("Portal form submit error:", error);
+      res.status(500).json({ error: "Failed to submit form" });
+    }
+  });
+
   // ===== CLINICAL FORMS SYSTEM ROUTES =====
   
   // Get all form templates (active only, excluding deleted)

@@ -37,6 +37,7 @@ import PortalBookAppointmentPage from "@/pages/portal-book-appointment";
 import PortalInvoicesPage from "@/pages/portal-invoices";
 import PortalDocumentsPage from "@/pages/portal-documents";
 import PortalFormsPage from "@/pages/portal-forms";
+import PortalFormCompletionPage from "@/pages/portal-form-completion";
 import PortalNotificationsPage from "@/pages/portal-notifications";
 import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
@@ -223,6 +224,7 @@ function Router() {
           <Route path="/portal/invoices" component={PortalInvoicesPage} />
           <Route path="/portal/documents" component={PortalDocumentsPage} />
           <Route path="/portal/forms" component={PortalFormsPage} />
+          <Route path="/portal/forms/:id" component={PortalFormCompletionPage} />
           <Route path="/portal/notifications" component={PortalNotificationsPage} />
           {/* Additional portal routes will be added here */}
           <Route component={NotFound} />

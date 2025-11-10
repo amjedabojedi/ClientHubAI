@@ -85,11 +85,7 @@ export default function PortalForms() {
   };
 
   const handleFormAction = (assignment: FormAssignment) => {
-    // Navigate to form completion page (to be implemented in next task)
-    toast({
-      title: "Coming Soon",
-      description: "Form completion will be available in the next update",
-    });
+    setLocation(`/portal/forms/${assignment.id}`);
   };
 
   const getActionButton = (assignment: FormAssignment) => {
