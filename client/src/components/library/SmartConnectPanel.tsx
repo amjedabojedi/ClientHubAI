@@ -141,14 +141,11 @@ export function SmartConnectPanel({
         onValueChange={(val) => setCategory(val)}
       >
         <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-1">
-          {availableCategories.map(cat => {
-            const count = allEntries.filter(e => e.category.name === cat).length;
-            return (
-              <TabsTrigger key={cat} value={cat} className="text-xs">
-                {cat} {count > 0 && `(${count})`}
-              </TabsTrigger>
-            );
-          })}
+          {availableCategories.map(cat => (
+            <TabsTrigger key={cat} value={cat} className="text-xs">
+              {cat}
+            </TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 
