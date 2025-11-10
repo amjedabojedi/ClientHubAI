@@ -180,6 +180,7 @@ export function SmartConnectPanel({
           </TabsList>
         </Tabs>
         <Button
+          type="button"
           variant="outline"
           size="sm"
           onClick={handleSelectAll}
