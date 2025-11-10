@@ -219,8 +219,8 @@ export function useSmartConnect({
       e.content.toLowerCase().includes(state.searchTerm.toLowerCase())
     );
 
-    // Keyword matches (only if no pattern matches)
-    const keywords = patternMatches.length === 0 
+    // Keyword matches (only if no FILTERED pattern matches)
+    const keywords = patterns.length === 0 
       ? keywordMatches.filter(e => 
           !state.activeCategory || e.category.name === state.activeCategory
         ).filter(e =>
