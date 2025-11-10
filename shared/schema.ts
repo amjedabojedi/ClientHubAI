@@ -969,10 +969,10 @@ export const formTemplates = pgTable("form_templates", {
 export const formFields = pgTable("form_fields", {
   id: serial("id").primaryKey(),
   templateId: integer("template_id").notNull().references(() => formTemplates.id, { onDelete: "restrict" }), // Prevent deletion of template with fields
-  fieldType: varchar("field_type", { length: 30 }).notNull(), // 'text', 'textarea', 'select', 'checkbox', 'checkbox_group', 'radio', 'date', 'signature', 'file'
+  fieldType: varchar("field_type", { length: 30 }).notNull(), // 'text', 'textarea', 'select', 'checkbox', 'checkbox_group', 'radio', 'date', 'signature', 'file', 'heading', 'info_text'
   label: varchar("label", { length: 255 }).notNull(),
   placeholder: varchar("placeholder", { length: 255 }),
-  helpText: text("help_text"),
+  helpText: text("help_text"), // For 'info_text' type, this stores the read-only content to display
   isRequired: boolean("is_required").notNull().default(false),
   options: text("options"), // JSON array for select/radio/checkbox_group
   validation: text("validation"), // JSON for validation rules (min/max length, regex, etc.)

@@ -37,6 +37,8 @@ interface FormTemplate {
 }
 
 const FIELD_TYPES = [
+  { value: "heading", label: "Heading (Read-Only)" },
+  { value: "info_text", label: "Information Text (Read-Only)" },
   { value: "text", label: "Short Text" },
   { value: "textarea", label: "Long Text" },
   { value: "select", label: "Dropdown" },
@@ -227,6 +229,20 @@ export default function FormsBuilder() {
     }
 
     switch (field.fieldType) {
+      case "heading":
+        return (
+          <h2 className="text-2xl font-bold text-foreground mt-4 mb-2">
+            {field.label}
+          </h2>
+        );
+      case "info_text":
+        return (
+          <div className="bg-muted/30 p-4 rounded-md border border-muted">
+            <p className="text-sm text-foreground whitespace-pre-wrap">
+              {field.helpText || "Information text will appear here..."}
+            </p>
+          </div>
+        );
       case "text":
         return (
           <Input
@@ -465,7 +481,11 @@ export default function FormsBuilder() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="label">Label *</Label>
+              <Label htmlFor="label">
+                {fieldData.fieldType === 'heading' ? 'Heading Text *' : 
+                 fieldData.fieldType === 'info_text' ? 'Section Title (Optional)' : 
+                 'Label *'}
+              </Label>
               <Input
                 id="label"
                 data-testid="input-label"
@@ -473,25 +493,33 @@ export default function FormsBuilder() {
                 onChange={(e) =>
                   setFieldData({ ...fieldData, label: e.target.value })
                 }
-                placeholder="Enter field label"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="placeholder">Placeholder</Label>
-              <Input
-                id="placeholder"
-                data-testid="input-placeholder"
-                value={fieldData.placeholder}
-                onChange={(e) =>
-                  setFieldData({ ...fieldData, placeholder: e.target.value })
+                placeholder={
+                  fieldData.fieldType === 'heading' ? 'e.g., INFORMED CONSENT FOR TREATMENT' :
+                  fieldData.fieldType === 'info_text' ? 'e.g., Important Information' :
+                  'Enter field label'
                 }
-                placeholder="Enter placeholder text"
               />
             </div>
 
+            {!['heading', 'info_text', 'signature', 'file'].includes(fieldData.fieldType) && (
+              <div className="grid gap-2">
+                <Label htmlFor="placeholder">Placeholder</Label>
+                <Input
+                  id="placeholder"
+                  data-testid="input-placeholder"
+                  value={fieldData.placeholder}
+                  onChange={(e) =>
+                    setFieldData({ ...fieldData, placeholder: e.target.value })
+                  }
+                  placeholder="Enter placeholder text"
+                />
+              </div>
+            )}
+
             <div className="grid gap-2">
-              <Label htmlFor="helpText">Help Text</Label>
+              <Label htmlFor="helpText">
+                {fieldData.fieldType === 'info_text' ? 'Content Text *' : 'Help Text'}
+              </Label>
               <Textarea
                 id="helpText"
                 data-testid="input-help-text"
@@ -499,8 +527,18 @@ export default function FormsBuilder() {
                 onChange={(e) =>
                   setFieldData({ ...fieldData, helpText: e.target.value })
                 }
-                placeholder="Optional help text for users"
+                placeholder={
+                  fieldData.fieldType === 'info_text' 
+                    ? 'Enter the full text that clients will read (e.g., consent language, disclaimers, instructions)'
+                    : 'Optional help text for users'
+                }
+                rows={fieldData.fieldType === 'info_text' ? 8 : 3}
               />
+              {fieldData.fieldType === 'info_text' && (
+                <p className="text-xs text-muted-foreground">
+                  This text will be displayed to clients as read-only information
+                </p>
+              )}
             </div>
 
             {needsOptions && (
@@ -523,19 +561,21 @@ export default function FormsBuilder() {
               </div>
             )}
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isRequired"
-                data-testid="checkbox-required"
-                checked={fieldData.isRequired}
-                onCheckedChange={(checked) =>
-                  setFieldData({ ...fieldData, isRequired: checked as boolean })
-                }
-              />
-              <Label htmlFor="isRequired" className="cursor-pointer">
-                Required field
-              </Label>
-            </div>
+            {!['heading', 'info_text'].includes(fieldData.fieldType) && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isRequired"
+                  data-testid="checkbox-required"
+                  checked={fieldData.isRequired}
+                  onCheckedChange={(checked) =>
+                    setFieldData({ ...fieldData, isRequired: checked as boolean })
+                  }
+                />
+                <Label htmlFor="isRequired" className="cursor-pointer">
+                  Required field
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -587,7 +627,11 @@ export default function FormsBuilder() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="edit-label">Label *</Label>
+              <Label htmlFor="edit-label">
+                {fieldData.fieldType === 'heading' ? 'Heading Text *' : 
+                 fieldData.fieldType === 'info_text' ? 'Section Title (Optional)' : 
+                 'Label *'}
+              </Label>
               <Input
                 id="edit-label"
                 data-testid="input-edit-label"
@@ -598,20 +642,24 @@ export default function FormsBuilder() {
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="edit-placeholder">Placeholder</Label>
-              <Input
-                id="edit-placeholder"
-                data-testid="input-edit-placeholder"
-                value={fieldData.placeholder}
-                onChange={(e) =>
-                  setFieldData({ ...fieldData, placeholder: e.target.value })
-                }
-              />
-            </div>
+            {!['heading', 'info_text', 'signature', 'file'].includes(fieldData.fieldType) && (
+              <div className="grid gap-2">
+                <Label htmlFor="edit-placeholder">Placeholder</Label>
+                <Input
+                  id="edit-placeholder"
+                  data-testid="input-edit-placeholder"
+                  value={fieldData.placeholder}
+                  onChange={(e) =>
+                    setFieldData({ ...fieldData, placeholder: e.target.value })
+                  }
+                />
+              </div>
+            )}
 
             <div className="grid gap-2">
-              <Label htmlFor="edit-helpText">Help Text</Label>
+              <Label htmlFor="edit-helpText">
+                {fieldData.fieldType === 'info_text' ? 'Content Text *' : 'Help Text'}
+              </Label>
               <Textarea
                 id="edit-helpText"
                 data-testid="input-edit-help-text"
@@ -619,7 +667,13 @@ export default function FormsBuilder() {
                 onChange={(e) =>
                   setFieldData({ ...fieldData, helpText: e.target.value })
                 }
+                rows={fieldData.fieldType === 'info_text' ? 8 : 3}
               />
+              {fieldData.fieldType === 'info_text' && (
+                <p className="text-xs text-muted-foreground">
+                  This text will be displayed to clients as read-only information
+                </p>
+              )}
             </div>
 
             {needsOptions && (
@@ -636,19 +690,21 @@ export default function FormsBuilder() {
               </div>
             )}
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="edit-isRequired"
-                data-testid="checkbox-edit-required"
-                checked={fieldData.isRequired}
-                onCheckedChange={(checked) =>
-                  setFieldData({ ...fieldData, isRequired: checked as boolean })
-                }
-              />
-              <Label htmlFor="edit-isRequired" className="cursor-pointer">
-                Required field
-              </Label>
-            </div>
+            {!['heading', 'info_text'].includes(fieldData.fieldType) && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit-isRequired"
+                  data-testid="checkbox-edit-required"
+                  checked={fieldData.isRequired}
+                  onCheckedChange={(checked) =>
+                    setFieldData({ ...fieldData, isRequired: checked as boolean })
+                  }
+                />
+                <Label htmlFor="edit-isRequired" className="cursor-pointer">
+                  Required field
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
