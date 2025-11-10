@@ -734,18 +734,31 @@ export default function FormsBuilder() {
           <Separator className="my-4" />
           <div className="space-y-6">
             {template.fields && template.fields.length > 0 ? (
-              template.fields.map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    {field.label}
-                    {field.isRequired && <span className="text-destructive">*</span>}
-                  </Label>
-                  {field.helpText && (
-                    <p className="text-sm text-muted-foreground">{field.helpText}</p>
-                  )}
-                  {renderFieldPreview(field)}
-                </div>
-              ))
+              template.fields.map((field) => {
+                // Heading and info_text fields render their own complete content
+                const isReadOnlyField = field.fieldType === 'heading' || field.fieldType === 'info_text';
+                
+                if (isReadOnlyField) {
+                  return (
+                    <div key={field.id}>
+                      {renderFieldPreview(field)}
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div key={field.id} className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      {field.label}
+                      {field.isRequired && <span className="text-destructive">*</span>}
+                    </Label>
+                    {field.helpText && (
+                      <p className="text-sm text-muted-foreground">{field.helpText}</p>
+                    )}
+                    {renderFieldPreview(field)}
+                  </div>
+                );
+              })
             ) : (
               <p className="text-center text-muted-foreground py-8">
                 No fields to preview
