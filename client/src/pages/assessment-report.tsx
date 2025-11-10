@@ -132,6 +132,13 @@ export default function AssessmentReportPage() {
     onSuccess: () => {
       toast({ title: "Draft saved successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 
@@ -144,6 +151,14 @@ export default function AssessmentReportPage() {
       toast({ title: "Report finalized successfully" });
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
+      setFinalizeModalOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Finalization Failed",
+        description: error.message || "Failed to finalize report. Please try again.",
+        variant: "destructive",
+      });
       setFinalizeModalOpen(false);
     }
   });
@@ -160,6 +175,13 @@ export default function AssessmentReportPage() {
       });
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Reopen Failed",
+        description: error.message || "Failed to reopen report. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 
