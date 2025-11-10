@@ -210,16 +210,15 @@ export function useSmartConnect({
   const displayList = useMemo(() => {
     const { patternMatches, keywordMatches, manualCatalog } = state;
 
-    // Pattern matches always visible (pinned to top)
-    const patterns = patternMatches.filter(e => 
-      !state.activeCategory || e.category.name === state.activeCategory
-    ).filter(e =>
+    // Pattern matches IGNORE category filter (clinically related across categories)
+    // Only honor search term
+    const patterns = patternMatches.filter(e =>
       !state.searchTerm || 
       e.title.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
       e.content.toLowerCase().includes(state.searchTerm.toLowerCase())
     );
 
-    // Keyword matches (only if no FILTERED pattern matches)
+    // Keyword matches (only if no pattern matches, respect category filter)
     const keywords = patterns.length === 0 
       ? keywordMatches.filter(e => 
           !state.activeCategory || e.category.name === state.activeCategory
