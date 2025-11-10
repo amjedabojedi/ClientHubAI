@@ -85,7 +85,7 @@ export function SmartConnectPanel({
     setSearch(value);
   };
 
-  // Handle Select All for current tab
+  // Handle Select All for current tab - REPLACES existing selections
   const handleSelectAll = () => {
     let entriesToSelect: any[] = [];
     
@@ -98,16 +98,23 @@ export function SmartConnectPanel({
       entriesToSelect = [...displayList.patterns, ...displayList.keywords, ...displayList.manual];
     }
     
-    const allIds = entriesToSelect.map(e => e.id);
-    const combinedIds = [...state.selectedIds, ...allIds];
-    const newSelections = Array.from(new Set(combinedIds));
+    const newSelections = entriesToSelect.map(e => e.id);
     
-    // Update both local state and parent
-    allIds.forEach(id => {
+    // Clear existing selections first, then select new ones
+    state.selectedIds.forEach(id => {
+      if (!newSelections.includes(id)) {
+        toggleSelection(id);
+      }
+    });
+    
+    // Add new selections
+    newSelections.forEach(id => {
       if (!state.selectedIds.includes(id)) {
         toggleSelection(id);
       }
     });
+    
+    // Update parent with the new selections only
     onSelectionChange(newSelections);
   };
 
