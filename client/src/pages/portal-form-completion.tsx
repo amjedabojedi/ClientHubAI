@@ -238,16 +238,42 @@ export default function PortalFormCompletion() {
 
   const calculateProgress = () => {
     const fields = assignment?.template?.fields || [];
-    const nonSignatureFields = fields.filter((f) => f.fieldType !== "signature");
-    if (nonSignatureFields.length === 0) return 0;
-    const filled = nonSignatureFields.filter((f) => formValues[f.id] && formValues[f.id].trim() !== "");
-    return Math.round((filled.length / nonSignatureFields.length) * 100);
+    // Exclude read-only fields (heading, info_text) and signature from progress calculation
+    const inputFields = fields.filter((f) => !['signature', 'heading', 'info_text'].includes(f.fieldType));
+    if (inputFields.length === 0) return 0;
+    const filled = inputFields.filter((f) => formValues[f.id] && formValues[f.id].trim() !== "");
+    return Math.round((filled.length / inputFields.length) * 100);
   };
 
   const renderField = (field: FormField, isCompleted: boolean) => {
     const value = formValues[field.id] || "";
 
     switch (field.fieldType) {
+      case "heading":
+        return (
+          <div key={field.id} className="mt-6 mb-4">
+            <h2 className="text-2xl font-bold text-foreground">
+              {field.label}
+            </h2>
+          </div>
+        );
+
+      case "info_text":
+        return (
+          <div key={field.id} className="my-4">
+            {field.label && (
+              <h3 className="text-lg font-semibold mb-2 text-foreground">
+                {field.label}
+              </h3>
+            )}
+            <div className="bg-muted/30 p-4 rounded-md border border-muted">
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {field.helpText || ""}
+              </p>
+            </div>
+          </div>
+        );
+
       case "text":
       case "email":
       case "phone":
