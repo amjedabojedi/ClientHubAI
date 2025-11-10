@@ -43,6 +43,7 @@ import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
+import FormsBuilderPage from "@/pages/forms-builder";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
@@ -300,6 +301,7 @@ function Router() {
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
           <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
           <Route path="/forms-management" component={FormsManagementPage} />
+          <Route path="/forms-builder/:templateId" component={FormsBuilderPage} />
           <Route path="/checklist-management" component={ChecklistManagementPage} />
           <Route path="/user-profiles" component={UserProfilesPage} />
           <Route path="/role-management" component={RoleManagementPage} />

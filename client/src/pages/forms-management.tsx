@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Archive, FileText } from "lucide-react";
+import { Plus, Pencil, Archive, FileText, Edit2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -69,6 +70,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function FormsManagementPage() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -327,12 +329,7 @@ export default function FormsManagementPage() {
                         variant="ghost"
                         size="sm"
                         data-testid={`button-edit-${template.id}`}
-                        onClick={() => {
-                          toast({
-                            title: "Coming Soon",
-                            description: "Form builder will be available in the next task",
-                          });
-                        }}
+                        onClick={() => navigate(`/forms-builder/${template.id}`)}
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
