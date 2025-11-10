@@ -271,9 +271,10 @@ export function SmartConnectPanel({
             </div>
           )}
 
-          {/* Load More */}
-          {hasMore && (
+          {/* Load More - only show in "All" tab for manual entries */}
+          {activeTab === 'all' && hasMore && (
             <Button
+              type="button"
               variant="outline"
               onClick={loadMore}
               className="w-full"
