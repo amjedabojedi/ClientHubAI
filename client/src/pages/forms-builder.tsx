@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { sanitizeHtml } from "@/lib/sanitize";
+import { SignaturePad } from "@/components/forms/signature-pad";
 
 interface FormField {
   id: number;
@@ -331,11 +332,7 @@ export default function FormsBuilder() {
           <Input type="date" disabled className="bg-muted/50" />
         );
       case "signature":
-        return (
-          <div className="border-2 border-dashed border-muted rounded-md h-32 flex items-center justify-center bg-muted/20">
-            <span className="text-sm text-muted-foreground">Signature Area</span>
-          </div>
-        );
+        return <SignaturePad onSave={() => {}} disabled />;
       case "file":
         return (
           <div className="border-2 border-dashed border-muted rounded-md h-24 flex items-center justify-center bg-muted/20">
