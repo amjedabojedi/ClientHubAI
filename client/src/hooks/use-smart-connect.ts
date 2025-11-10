@@ -1,3 +1,12 @@
+/**
+ * Smart Connect Hook
+ * 
+ * This hook provides intelligent library entry suggestions based on pattern matching
+ * and keyword analysis. It helps therapists quickly connect related clinical content.
+ * 
+ * @see SmartConnectPanel component for UI implementation
+ */
+
 import { useReducer, useMemo, useEffect } from 'react';
 import type { LibraryEntry, LibraryCategory } from '@shared/schema';
 
@@ -12,19 +21,63 @@ interface LibraryEntryWithDetails extends LibraryEntry {
   createdBy: { id: number; username: string };
 }
 
-// Parse library pattern: [CONDITION][TYPE][NUMBER]_[VARIANT]
+/**
+ * Parse Clinical Pattern Format
+ * 
+ * Clinical library entries follow a structured coding pattern:
+ * Format: [CONDITION][TYPE][NUMBER]_[VARIANT]
+ * 
+ * Components:
+ * - CONDITION: 3-5 letter code (ANX=Anxiety, DEPR=Depression, TRAUM=Trauma, PTSD, ADHD, etc.)
+ * - TYPE: Single letter identifying entry purpose
+ *   - S = Symptom (parent/root entry describing the clinical presentation)
+ *   - I = Intervention (treatment options and therapeutic techniques)
+ *   - P = Progress (outcome measures and progress indicators)
+ *   - G = Goal (target outcomes and treatment objectives)
+ * - NUMBER: Pathway number (1-99) linking related entries across categories
+ * - VARIANT: Optional variant number (_1, _2, _3) for multiple options within same pathway
+ * 
+ * Examples:
+ * - ANXS10 = Anxiety Symptom pathway 10
+ * - ANXI10_2 = Anxiety Intervention pathway 10, variant 2
+ * - ANXP10_1 = Anxiety Progress measure pathway 10, variant 1
+ * - ANXG10 = Anxiety Goal pathway 10
+ * 
+ * Clinical Rationale:
+ * Entries with the same CONDITION+PATHWAY are clinically related across categories.
+ * For instance, ANXS10 (symptom) connects to ANXI10_1 (intervention) and ANXP10_1
+ * (progress measure) to form a complete treatment pathway.
+ * 
+ * @param title - Library entry title to parse
+ * @returns Parsed pattern object or null if title doesn't match pattern
+ */
 function parseLibraryPattern(title: string) {
   const match = title.match(/^([A-Z]{3,5})([SIPG])(\d+)(?:_(\d+))?$/);
   if (!match) return null;
   return {
-    condition: match[1],
+    condition: match[1],    // e.g., "ANX", "DEPR"
     type: match[2] as 'S' | 'I' | 'P' | 'G',
-    pathway: match[3],
+    pathway: match[3],      // e.g., "10", "24"
     variant: match[4] || null
   };
 }
 
-// Get clinically related category names
+/**
+ * Get Clinically Related Categories
+ * 
+ * Defines which library categories are clinically related for keyword-based matching.
+ * Used when pattern matching doesn't find results, to suggest related content from
+ * appropriate categories.
+ * 
+ * Clinical Category Relationships:
+ * - Session Focus ↔ Symptoms, Goals, Interventions, Progress
+ * - Symptoms → Interventions (treatments for symptoms), Progress (tracking improvement)
+ * - Interventions → Progress (measuring intervention effectiveness)
+ * - Goals ↔ All (goals connect to all aspects of treatment)
+ * 
+ * @param categoryName - Name of the current category
+ * @returns Array of related category names for cross-category suggestions
+ */
 function getRelatedCategories(categoryName: string): string[] {
   const relationships: Record<string, string[]> = {
     'session focus': ['symptoms', 'short-term goals', 'interventions', 'progress'],
@@ -126,7 +179,31 @@ export function useSmartConnect({
     [categories, currentCategoryId]
   );
 
-  // Build suggestion buckets (memoized for performance)
+  /**
+   * Build Suggestion Buckets
+   * 
+   * Creates three types of suggestions with different confidence levels:
+   * 
+   * 1. Pattern Matches (100% confidence):
+   *    - Finds entries with same CONDITION + PATHWAY (e.g., ANX10)
+   *    - Clinically validated relationships across categories
+   *    - Example: Editing ANXS10 suggests ANXI10_1, ANXP10_1, ANXG10
+   * 
+   * 2. Keyword Matches (60% confidence):
+   *    - Used only when NO pattern matches exist
+   *    - Compares keywords from title and tags
+   *    - Only searches clinically related categories
+   *    - Example: "anxiety therapy" matches "anxiety coping" in Interventions
+   * 
+   * 3. Manual Catalog:
+   *    - All remaining entries not in pattern/keyword matches
+   *    - Allows manual browsing when automated suggestions insufficient
+   * 
+   * Architectural Decision:
+   * Pattern and keyword matches are mutually exclusive to prevent suggestion
+   * overload. Pattern matching (when available) is more clinically reliable
+   * than keyword matching.
+   */
   const suggestionBuckets = useMemo(() => {
     if (!currentTitle) {
       return { patternMatches: [], keywordMatches: [], manualCatalog: allEntries };
@@ -137,12 +214,14 @@ export function useSmartConnect({
     let keywordMatches: SuggestionEntry[] = [];
 
     // Step 1: Pattern-based matching (100% confidence)
+    // Finds entries in the same clinical pathway across all categories
     if (currentPattern) {
       patternMatches = allEntries
         .filter(existing => {
           if (existing.id === currentEntryId) return false;
           const existingPattern = parseLibraryPattern(existing.title);
           if (!existingPattern) return false;
+          // Match on condition AND pathway (e.g., ANX + 10)
           return existingPattern.condition === currentPattern.condition &&
                  existingPattern.pathway === currentPattern.pathway;
         })
@@ -153,7 +232,8 @@ export function useSmartConnect({
         }));
     }
 
-    // Step 2: Keyword-based matching (60% confidence) - only if no pattern matches
+    // Step 2: Keyword-based matching (60% confidence)
+    // Only used as fallback when pattern matching finds nothing
     if (patternMatches.length === 0 && currentCategory) {
       const keywords = [
         ...currentTitle.toLowerCase().split(' '),
@@ -206,7 +286,26 @@ export function useSmartConnect({
     dispatch({ type: 'SYNC_SELECTIONS', payload: initialSelections });
   }, [initialSelections]);
 
-  // Build filtered & sorted display list
+  /**
+   * Build Filtered Display List
+   * 
+   * Filtering Behavior:
+   * - Pattern matches: IGNORE category tabs (show across all categories)
+   *   Rationale: Clinical pathways span categories (ANXS10 in Symptoms relates
+   *   to ANXI10 in Interventions). Category filtering would hide valid matches.
+   * 
+   * - Keyword matches: RESPECT category filter
+   *   Rationale: Keyword matching is less precise, so category filtering helps
+   *   narrow results to relevant content.
+   * 
+   * - Manual catalog: RESPECT category filter
+   *   Rationale: Standard browsing behavior users expect.
+   * 
+   * Search Term: Applied to all lists equally (title and content search)
+   * 
+   * This asymmetric filtering (pattern vs keyword/manual) balances clinical
+   * accuracy with user control.
+   */
   const displayList = useMemo(() => {
     const { patternMatches, keywordMatches, manualCatalog } = state;
 
@@ -218,7 +317,7 @@ export function useSmartConnect({
       e.content.toLowerCase().includes(state.searchTerm.toLowerCase())
     );
 
-    // Keyword matches (only if no pattern matches, respect category filter)
+    // Keyword matches (only if no pattern matches, RESPECT category filter)
     const keywords = patterns.length === 0 
       ? keywordMatches.filter(e => 
           !state.activeCategory || e.category.name === state.activeCategory

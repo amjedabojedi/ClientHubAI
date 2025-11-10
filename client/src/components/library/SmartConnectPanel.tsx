@@ -1,3 +1,36 @@
+/**
+ * Smart Connect Panel Component
+ * 
+ * Provides intelligent connection suggestions when creating/editing library entries.
+ * Helps therapists discover and connect related clinical content quickly.
+ * 
+ * Features:
+ * - Pattern-based suggestions (100% confidence) for entries in same clinical pathway
+ * - Keyword-based suggestions (60% confidence) as fallback
+ * - Manual catalog browsing for all other entries
+ * - Category filtering (respects filter for keywords/manual, ignores for patterns)
+ * - Search across title and content
+ * - Select All functionality per tab
+ * - Connection badges showing existing relationships
+ * 
+ * UI Organization:
+ * - Top: Category tabs (Symptoms, Interventions, etc.)
+ * - Middle: Pattern/Other/All tabs for suggestion types
+ * - Bottom: Scrollable list of connection candidates
+ * 
+ * Connection Workflow:
+ * 1. User types entry title → Pattern matching activates
+ * 2. Suggestions appear in Pattern tab (or Other tab if no patterns)
+ * 3. User selects connections → Click "Update" to save
+ * 4. Connected entries show as badges on library cards
+ * 
+ * Note: Pattern tab shows NEW suggestions only. Existing connections display
+ * as badges on the entry card, not in the Smart Connect panel.
+ * 
+ * @see useSmartConnect hook for matching logic
+ * @see library.tsx for parent component integration
+ */
+
 import { useState } from 'react';
 import { Search, Sparkles, Target, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -88,7 +121,7 @@ export function SmartConnectPanel({
 
   // Handle Select All for current tab - REPLACES existing selections (no auto-save)
   const handleSelectAll = () => {
-    let entriesToSelect: any[] = [];
+    let entriesToSelect: SuggestionEntry[] = [];
     
     if (activeTab === 'pattern') {
       entriesToSelect = displayList.patterns;
@@ -207,7 +240,7 @@ export function SmartConnectPanel({
                   </Badge>
                 </h5>
               </div>
-              {displayList.patterns.map((entry: any) => (
+              {displayList.patterns.map((entry) => (
                 <SuggestionCard
                   key={entry.id}
                   entry={entry}
@@ -233,7 +266,7 @@ export function SmartConnectPanel({
                   </Badge>
                 </h5>
               </div>
-              {displayList.keywords.map((entry: any) => (
+              {displayList.keywords.map((entry) => (
                 <SuggestionCard
                   key={entry.id}
                   entry={entry}
@@ -326,8 +359,18 @@ export function SmartConnectPanel({
 }
 
 // Suggestion Card Component
+interface SuggestionEntry {
+  id: number;
+  title: string;
+  content: string;
+  category: LibraryCategory;
+  createdBy: { id: number; username: string };
+  confidence?: number;
+  reason?: string;
+}
+
 interface SuggestionCardProps {
-  entry: any;
+  entry: SuggestionEntry;
   isSelected: boolean;
   onToggle: (id: number) => void;
   confidence?: number;

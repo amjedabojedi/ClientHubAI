@@ -30,6 +30,14 @@ interface LibraryEntryWithDetails extends LibraryEntry {
   createdBy: { id: number; username: string };
 }
 
+// Type for connected entries returned from getConnectedEntries
+interface ConnectedEntry extends LibraryEntry {
+  connectionType: string;
+  connectionStrength: number;
+  connectionId: number;
+  category: LibraryCategory;
+}
+
 // Natural sort function to properly handle numbers in titles (ANX1, ANX2, ANX10 instead of ANX1, ANX10, ANX2)
 function naturalSort(a: string, b: string): number {
   const regex = /(\d+)|(\D+)/g;
@@ -64,7 +72,7 @@ export default function LibraryPage() {
   const [showBulkAddDialog, setShowBulkAddDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LibraryCategoryWithChildren | null>(null);
   const [editingEntry, setEditingEntry] = useState<LibraryEntryWithDetails | null>(null);
-  const [connectedEntriesMap, setConnectedEntriesMap] = useState<Record<number, any[]>>({});
+  const [connectedEntriesMap, setConnectedEntriesMap] = useState<Record<number, ConnectedEntry[]>>({});
   const [selectedEntries, setSelectedEntries] = useState<Set<number>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
@@ -95,7 +103,7 @@ export default function LibraryPage() {
   const currentCategoryId = categories.find(cat => cat.id.toString() === activeTab)?.id;
 
   // Fetch entries for current active tab category
-  const { data: entries = [], isLoading: loadingEntries } = useQuery<LibraryEntryWithDetails[]>({
+  const { data: entries = [], isLoading: loadingEntries, isError: entriesError } = useQuery<LibraryEntryWithDetails[]>({
     queryKey: ["/api/library/entries", currentCategoryId],
     queryFn: async () => {
       const url = currentCategoryId ? `/api/library/entries?categoryId=${currentCategoryId}` : "/api/library/entries";
@@ -106,7 +114,7 @@ export default function LibraryPage() {
   });
 
   // Fetch ALL entries for connections (regardless of active tab)
-  const { data: allEntries = [] } = useQuery<LibraryEntryWithDetails[]>({
+  const { data: allEntries = [], isError: allEntriesError } = useQuery<LibraryEntryWithDetails[]>({
     queryKey: ["/api/library/entries"],
     queryFn: async () => {
       const response = await fetch("/api/library/entries");
@@ -116,7 +124,7 @@ export default function LibraryPage() {
   });
 
   // Search entries
-  const { data: searchResults = [], isLoading: searching } = useQuery<LibraryEntryWithDetails[]>({
+  const { data: searchResults = [], isLoading: searching, isError: searchError } = useQuery<LibraryEntryWithDetails[]>({
     queryKey: ["/api/library/search", debouncedSearchQuery, currentCategoryId],
     queryFn: async () => {
       if (!debouncedSearchQuery.trim()) return [];
@@ -129,6 +137,37 @@ export default function LibraryPage() {
     },
     enabled: !!debouncedSearchQuery.trim(),
   });
+
+  // Show error toasts when queries fail
+  useEffect(() => {
+    if (entriesError) {
+      toast({ 
+        title: "Failed to load library entries", 
+        description: "Please refresh the page to try again.",
+        variant: "destructive" 
+      });
+    }
+  }, [entriesError, toast]);
+
+  useEffect(() => {
+    if (allEntriesError) {
+      toast({ 
+        title: "Failed to load library data", 
+        description: "Smart Connect suggestions may not be available.",
+        variant: "destructive" 
+      });
+    }
+  }, [allEntriesError, toast]);
+
+  useEffect(() => {
+    if (searchError) {
+      toast({ 
+        title: "Search failed", 
+        description: "Unable to search library entries. Please try again.",
+        variant: "destructive" 
+      });
+    }
+  }, [searchError, toast]);
 
   // Category mutations
   const createCategoryMutation = useMutation({
@@ -391,18 +430,27 @@ export default function LibraryPage() {
         const entryIds = allEntries.map(e => e.id);
         
         const response = await apiRequest('/api/library/entries/connected-bulk', 'POST', { entryIds });
-        const connectionsMap = await response.json() as Record<string, any[]>;
+        const connectionsMap = await response.json() as Record<string, ConnectedEntry[]>;
         
-        // Convert string keys to number keys for easier lookup
-        const numericKeyMap: Record<number, any[]> = {};
-        Object.entries(connectionsMap).forEach(([key, value]) => {
-          const numKey = parseInt(key);
-          numericKeyMap[numKey] = value;
-        });
+        // Convert string keys to number keys for easier lookup and validate data
+        const numericKeyMap: Record<number, ConnectedEntry[]> = {};
+        if (connectionsMap && typeof connectionsMap === 'object') {
+          Object.entries(connectionsMap).forEach(([key, value]) => {
+            const numKey = parseInt(key);
+            if (!isNaN(numKey) && Array.isArray(value)) {
+              numericKeyMap[numKey] = value;
+            }
+          });
+        }
         
         setConnectedEntriesMap(numericKeyMap);
       } catch (error) {
         console.error('Failed to fetch bulk connections:', error);
+        toast({
+          title: "Failed to load connection badges",
+          description: "Library entries will still work, but connections may not be visible.",
+          variant: "destructive"
+        });
       }
     };
 
