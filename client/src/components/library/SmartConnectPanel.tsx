@@ -27,7 +27,6 @@ interface SmartConnectPanelProps {
   categories: LibraryCategoryWithChildren[];
   selectedConnections: number[];
   onSelectionChange: (selectedIds: number[]) => void;
-  onAutoSave?: () => void;
 }
 
 export function SmartConnectPanel({
@@ -38,8 +37,7 @@ export function SmartConnectPanel({
   allEntries,
   categories,
   selectedConnections,
-  onSelectionChange,
-  onAutoSave
+  onSelectionChange
 }: SmartConnectPanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'pattern' | 'other' | 'all'>('all');
