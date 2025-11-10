@@ -1450,15 +1450,6 @@ function EntryForm({
         categories={categories}
         selectedConnections={selectedConnections}
         onSelectionChange={setSelectedConnections}
-        onAutoSave={() => {
-          // Auto-submit form when Select All is clicked
-          const entryData = {
-            ...formData,
-            tags: formData.tags.split(",").map(t => t.trim()).filter(t => t.length > 0),
-            selectedConnections: selectedConnections.length > 0 ? selectedConnections : undefined,
-          };
-          onSubmit(entryData);
-        }}
       />
 
       <div className="flex justify-end gap-2">

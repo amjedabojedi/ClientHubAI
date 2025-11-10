@@ -88,7 +88,7 @@ export function SmartConnectPanel({
     setSearch(value);
   };
 
-  // Handle Select All for current tab - REPLACES existing selections and auto-saves
+  // Handle Select All for current tab - REPLACES existing selections (no auto-save)
   const handleSelectAll = () => {
     let entriesToSelect: any[] = [];
     
@@ -103,16 +103,9 @@ export function SmartConnectPanel({
     
     const newSelections = entriesToSelect.map(e => e.id);
     
-    // Sync selections to local state and parent
+    // Sync selections to local state and parent (user clicks Update to save)
     syncSelections(newSelections);
     onSelectionChange(newSelections);
-    
-    // Auto-save after a brief delay to ensure state is updated
-    if (onAutoSave) {
-      setTimeout(() => {
-        onAutoSave();
-      }, 100);
-    }
   };
 
   // Empty state - show AFTER hooks are called
