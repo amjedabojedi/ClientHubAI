@@ -13,7 +13,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Send, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Save, Send, Clock, CheckCircle2, PenTool } from "lucide-react";
+import { SignaturePad } from "@/components/forms/signature-pad";
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
   let timeout: NodeJS.Timeout | null = null;
@@ -59,6 +60,13 @@ interface FormResponse {
   value: string;
 }
 
+interface FormSignature {
+  id: number;
+  assignmentId: number;
+  signatureDataUrl: string;
+  signedAt: Date;
+}
+
 export default function PortalFormCompletion() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -66,6 +74,7 @@ export default function PortalFormCompletion() {
   const [formValues, setFormValues] = useState<Record<number, string>>({});
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [signature, setSignature] = useState<string>("");
 
   const { data: assignment, isLoading: assignmentLoading } = useQuery<FormAssignment>({
     queryKey: ["/api/portal/forms/assignments", id],
@@ -91,6 +100,21 @@ export default function PortalFormCompletion() {
     enabled: !!id,
   });
 
+  const { data: existingSignature } = useQuery<FormSignature>({
+    queryKey: ["/api/portal/forms/signature", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/portal/forms/signature/${id}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error("Failed to fetch signature");
+      }
+      return res.json();
+    },
+    enabled: !!id,
+  });
+
   useEffect(() => {
     if (responses.length > 0) {
       const values: Record<number, string> = {};
@@ -100,6 +124,12 @@ export default function PortalFormCompletion() {
       setFormValues(values);
     }
   }, [responses]);
+
+  useEffect(() => {
+    if (existingSignature?.signatureDataUrl) {
+      setSignature(existingSignature.signatureDataUrl);
+    }
+  }, [existingSignature]);
 
   const saveResponseMutation = useMutation({
     mutationFn: async ({ fieldId, value }: { fieldId: number; value: string }) => {
@@ -141,6 +171,23 @@ export default function PortalFormCompletion() {
     debouncedSave(fieldId, value);
   };
 
+  const saveSignatureMutation = useMutation({
+    mutationFn: async (signatureDataUrl: string) => {
+      return await apiRequest("/api/portal/forms/signature", "POST", {
+        assignmentId: parseInt(id!),
+        signatureDataUrl,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/forms/signature", id] });
+    },
+  });
+
+  const handleSignatureSave = (dataUrl: string) => {
+    setSignature(dataUrl);
+    saveSignatureMutation.mutate(dataUrl);
+  };
+
   const submitFormMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest(`/api/portal/forms/submit/${id}`, "POST", {});
@@ -153,10 +200,10 @@ export default function PortalFormCompletion() {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/forms/assignments"] });
       setLocation("/portal/forms");
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to submit form. Please try again.",
+        description: error.message || "Failed to submit form. Please try again.",
         variant: "destructive",
       });
     },
@@ -164,7 +211,8 @@ export default function PortalFormCompletion() {
 
   const handleSubmit = () => {
     const fields = assignment?.template?.fields || [];
-    const requiredFields = fields.filter((f) => f.required);
+    const nonSignatureFields = fields.filter((f) => f.fieldType !== "signature");
+    const requiredFields = nonSignatureFields.filter((f) => f.required);
     const missingFields = requiredFields.filter((f) => !formValues[f.id] || formValues[f.id].trim() === "");
 
     if (missingFields.length > 0) {
@@ -176,14 +224,24 @@ export default function PortalFormCompletion() {
       return;
     }
 
+    if (!signature) {
+      toast({
+        title: "Signature Required",
+        description: "Please provide your signature before submitting the form",
+        variant: "destructive",
+      });
+      return;
+    }
+
     submitFormMutation.mutate();
   };
 
   const calculateProgress = () => {
     const fields = assignment?.template?.fields || [];
-    if (fields.length === 0) return 0;
-    const filled = fields.filter((f) => formValues[f.id] && formValues[f.id].trim() !== "");
-    return Math.round((filled.length / fields.length) * 100);
+    const nonSignatureFields = fields.filter((f) => f.fieldType !== "signature");
+    if (nonSignatureFields.length === 0) return 0;
+    const filled = nonSignatureFields.filter((f) => formValues[f.id] && formValues[f.id].trim() !== "");
+    return Math.round((filled.length / nonSignatureFields.length) * 100);
   };
 
   const renderField = (field: FormField, isCompleted: boolean) => {
@@ -345,18 +403,7 @@ export default function PortalFormCompletion() {
         );
 
       case "signature":
-        return (
-          <div key={field.id} className="space-y-2">
-            <Label htmlFor={`field-${field.id}`}>
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </Label>
-            <div className="text-sm text-gray-500 mb-2">Electronic signature will be added after form completion</div>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-400">
-              Signature field (to be implemented)
-            </div>
-          </div>
-        );
+        return null;
 
       default:
         return (
@@ -461,12 +508,31 @@ export default function PortalFormCompletion() {
                 .map((field) => renderField(field, isCompleted))}
             </div>
 
+            {progress === 100 && (
+              <div className="mt-8">
+                <div className="border-t pt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <PenTool className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Electronic Signature</h3>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Please sign below to certify that the information provided is accurate and complete.
+                  </p>
+                  <SignaturePad
+                    onSave={handleSignatureSave}
+                    initialSignature={signature}
+                    disabled={isCompleted}
+                  />
+                </div>
+              </div>
+            )}
+
             {!isCompleted && (
               <div className="mt-8 flex justify-end gap-4">
                 <Button
                   size="lg"
                   onClick={handleSubmit}
-                  disabled={submitFormMutation.isPending || progress < 100}
+                  disabled={submitFormMutation.isPending || progress < 100 || !signature}
                   data-testid="button-submit-form"
                   className="bg-green-600 hover:bg-green-700"
                 >
@@ -477,13 +543,26 @@ export default function PortalFormCompletion() {
             )}
 
             {isCompleted && (
-              <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                <p className="text-green-800 font-medium">This form has been completed and submitted</p>
-                <p className="text-green-600 text-sm mt-1">
-                  Your therapist will review your responses
-                </p>
-              </div>
+              <>
+                <div className="mt-8 border-t pt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <PenTool className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Electronic Signature</h3>
+                  </div>
+                  <SignaturePad
+                    onSave={handleSignatureSave}
+                    initialSignature={signature}
+                    disabled={true}
+                  />
+                </div>
+                <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                  <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                  <p className="text-green-800 font-medium">This form has been completed and submitted</p>
+                  <p className="text-green-600 text-sm mt-1">
+                    Your therapist will review your responses
+                  </p>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

@@ -11931,6 +11931,193 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Portal - Get form signature
+  app.get("/api/portal/forms/signature/:assignmentId", async (req, res) => {
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const assignmentId = parseInt(req.params.assignmentId);
+
+      const assignment = await db
+        .select()
+        .from(formAssignments)
+        .where(
+          and(
+            eq(formAssignments.id, assignmentId),
+            eq(formAssignments.clientId, session.clientId)
+          )
+        )
+        .limit(1);
+
+      if (!assignment.length) {
+        return res.status(404).json({ error: "Form assignment not found" });
+      }
+
+      const signature = await db
+        .select()
+        .from(formSignatures)
+        .where(eq(formSignatures.assignmentId, assignmentId))
+        .limit(1);
+
+      if (!signature.length) {
+        return res.status(404).json({ error: "Signature not found" });
+      }
+
+      res.json(signature[0]);
+    } catch (error) {
+      console.error("Portal form signature fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch signature" });
+    }
+  });
+
+  // Portal - Save form signature
+  app.post("/api/portal/forms/signature", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const { assignmentId, signatureDataUrl } = req.body;
+
+      if (!assignmentId) {
+        return res.status(400).json({ error: "Assignment ID is required" });
+      }
+
+      const assignment = await db
+        .select()
+        .from(formAssignments)
+        .where(
+          and(
+            eq(formAssignments.id, assignmentId),
+            eq(formAssignments.clientId, session.clientId)
+          )
+        )
+        .limit(1);
+
+      if (!assignment.length) {
+        return res.status(404).json({ error: "Form assignment not found" });
+      }
+
+      if (!signatureDataUrl || signatureDataUrl.trim() === "") {
+        const existingSignature = await db
+          .select()
+          .from(formSignatures)
+          .where(eq(formSignatures.assignmentId, assignmentId))
+          .limit(1);
+
+        if (existingSignature.length) {
+          await db
+            .delete(formSignatures)
+            .where(eq(formSignatures.id, existingSignature[0].id));
+
+          const client = await storage.getClient(session.clientId);
+          
+          if (client) {
+            await AuditLogger.logAction({
+              userId: client.id,
+              userEmail: client.portalEmail || client.email || 'unknown',
+              action: 'form_signature_cleared',
+              result: 'success',
+              resourceType: 'form_signature',
+              resourceId: existingSignature[0].id.toString(),
+              clientId: session.clientId,
+              ipAddress,
+              userAgent,
+              hipaaRelevant: true,
+              riskLevel: 'medium',
+              details: JSON.stringify({ portal: true, assignmentId }),
+              accessReason: 'Client portal form signature cleared',
+            });
+          }
+        }
+
+        return res.json({ deleted: true });
+      }
+
+      const existingSignature = await db
+        .select()
+        .from(formSignatures)
+        .where(eq(formSignatures.assignmentId, assignmentId))
+        .limit(1);
+
+      let signature;
+      if (existingSignature.length) {
+        const updated = await db
+          .update(formSignatures)
+          .set({
+            signatureDataUrl,
+            signedAt: new Date(),
+            clientIpAddress: ipAddress,
+            clientUserAgent: userAgent
+          })
+          .where(eq(formSignatures.id, existingSignature[0].id))
+          .returning();
+        signature = updated[0];
+      } else {
+        const inserted = await db
+          .insert(formSignatures)
+          .values({
+            assignmentId,
+            signatureDataUrl,
+            signedAt: new Date(),
+            clientIpAddress: ipAddress,
+            clientUserAgent: userAgent
+          })
+          .returning();
+        signature = inserted[0];
+      }
+
+      const client = await storage.getClient(session.clientId);
+      
+      if (client) {
+        await AuditLogger.logAction({
+          userId: client.id,
+          userEmail: client.portalEmail || client.email || 'unknown',
+          action: 'form_signed',
+          result: 'success',
+          resourceType: 'form_signature',
+          resourceId: signature.id.toString(),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({ portal: true, assignmentId }),
+          accessReason: 'Client portal form signature capture',
+        });
+      }
+
+      res.json(signature);
+    } catch (error) {
+      console.error("Portal form signature error:", error);
+      res.status(500).json({ error: "Failed to save signature" });
+    }
+  });
+
   // Portal - Submit completed form
   app.post("/api/portal/forms/submit/:assignmentId", async (req, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
@@ -11969,6 +12156,16 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       if (assignment[0].status === 'completed' || assignment[0].status === 'reviewed') {
         return res.status(400).json({ error: "Form already submitted" });
+      }
+
+      const signature = await db
+        .select()
+        .from(formSignatures)
+        .where(eq(formSignatures.assignmentId, assignmentId))
+        .limit(1);
+
+      if (!signature.length) {
+        return res.status(400).json({ error: "Signature required before submission" });
       }
 
       const updated = await db
