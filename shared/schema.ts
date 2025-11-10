@@ -943,6 +943,107 @@ export const notificationTemplates = pgTable("notification_templates", {
   activeIdx: index("notification_templates_active_idx").on(table.isActive),
 }));
 
+// Clinical Forms System - Informed consent, intake forms, ROI, treatment agreements
+// CRITICAL: This table contains PHI - subject to HIPAA retention requirements
+export const formTemplates = pgTable("form_templates", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 50 }).notNull(), // 'consent', 'intake', 'release', 'agreement', 'safety', 'discharge', 'custom'
+  instructions: text("instructions"), // Instructions shown to client
+  requiresSignature: boolean("requires_signature").notNull().default(true),
+  isActive: boolean("is_active").notNull().default(true),
+  isDeleted: boolean("is_deleted").notNull().default(false), // Soft delete for HIPAA compliance
+  isSystemTemplate: boolean("is_system_template").notNull().default(false), // Pre-built templates can't be deleted
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Track deletion timestamp
+}, (table) => ({
+  categoryIdx: index("form_templates_category_idx").on(table.category),
+  activeIdx: index("form_templates_active_idx").on(table.isActive),
+  deletedIdx: index("form_templates_deleted_idx").on(table.isDeleted),
+}));
+
+export const formFields = pgTable("form_fields", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => formTemplates.id, { onDelete: "restrict" }), // Prevent deletion of template with fields
+  fieldType: varchar("field_type", { length: 30 }).notNull(), // 'text', 'textarea', 'select', 'checkbox', 'checkbox_group', 'radio', 'date', 'signature', 'file'
+  label: varchar("label", { length: 255 }).notNull(),
+  placeholder: varchar("placeholder", { length: 255 }),
+  helpText: text("help_text"),
+  isRequired: boolean("is_required").notNull().default(false),
+  options: text("options"), // JSON array for select/radio/checkbox_group
+  validation: text("validation"), // JSON for validation rules (min/max length, regex, etc.)
+  defaultValue: text("default_value"),
+  autoPopulate: varchar("auto_populate", { length: 50 }), // 'client_name', 'client_dob', 'client_address', 'therapist_name', 'practice_name', etc.
+  conditionalDisplay: text("conditional_display"), // JSON rules for show/hide based on other field values
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  templateIdx: index("form_fields_template_idx").on(table.templateId),
+  sortIdx: index("form_fields_sort_idx").on(table.templateId, table.sortOrder),
+}));
+
+// CRITICAL: This table contains PHI - subject to HIPAA retention requirements
+export const formAssignments = pgTable("form_assignments", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => formTemplates.id, { onDelete: "restrict" }), // Preserve assignments even if template archived
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "restrict" }), // Preserve forms even if client record soft-deleted
+  assignedById: integer("assigned_by_id").notNull().references(() => users.id),
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // 'pending', 'in_progress', 'completed', 'expired'
+  dueDate: timestamp("due_date"),
+  instructions: text("instructions"), // Custom instructions from therapist to client
+  completedAt: timestamp("completed_at"),
+  submittedAt: timestamp("submitted_at"),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewedById: integer("reviewed_by_id").references(() => users.id),
+  reviewNotes: text("review_notes"),
+  remindersSent: integer("reminders_sent").notNull().default(0),
+  lastReminderAt: timestamp("last_reminder_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  clientIdx: index("form_assignments_client_idx").on(table.clientId),
+  statusIdx: index("form_assignments_status_idx").on(table.status),
+  dueIdx: index("form_assignments_due_idx").on(table.dueDate),
+  clientStatusIdx: index("form_assignments_client_status_idx").on(table.clientId, table.status),
+  templateClientIdx: index("form_assignments_template_client_idx").on(table.templateId, table.clientId),
+}));
+
+// CRITICAL: This table contains PHI (client responses) - subject to HIPAA retention requirements
+export const formResponses = pgTable("form_responses", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull().references(() => formAssignments.id, { onDelete: "restrict" }), // Never cascade delete responses
+  fieldId: integer("field_id").notNull().references(() => formFields.id, { onDelete: "restrict" }), // Preserve even if field definition changes
+  value: text("value"), // Stored as text, parsed based on field type (TODO: Consider encryption at rest)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  assignmentIdx: index("form_responses_assignment_idx").on(table.assignmentId),
+  fieldIdx: index("form_responses_field_idx").on(table.fieldId),
+  assignmentFieldIdx: index("form_responses_assignment_field_idx").on(table.assignmentId, table.fieldId),
+}));
+
+// CRITICAL: This table contains biometric data (signatures) - HIGHEST security requirements
+// TODO Phase 2: Move signatures to encrypted storage, store only reference/hash here
+export const formSignatures = pgTable("form_signatures", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull().references(() => formAssignments.id, { onDelete: "restrict" }), // Never delete legal signatures
+  signatureData: text("signature_data").notNull(), // Base64 encoded signature image (TODO: ENCRYPT or move to secure blob storage)
+  signerName: varchar("signer_name", { length: 255 }).notNull(),
+  signerRole: varchar("signer_role", { length: 50 }).notNull(), // 'client', 'guardian', 'therapist'
+  ipAddress: varchar("ip_address", { length: 45 }), // Legal audit trail
+  userAgent: text("user_agent"), // Device/browser fingerprint
+  signedAt: timestamp("signed_at").notNull().defaultNow(),
+  agreedToTerms: boolean("agreed_to_terms").notNull().default(false),
+}, (table) => ({
+  assignmentIdx: index("form_signatures_assignment_idx").on(table.assignmentId),
+  signedAtIdx: index("form_signatures_signed_at_idx").on(table.signedAt),
+  assignmentRoleIdx: index("form_signatures_assignment_role_idx").on(table.assignmentId, table.signerRole), // For PDF generation queries
+}));
+
 // HIPAA Audit Logging System
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
@@ -1080,6 +1181,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   roomBookings: many(roomBookings),
   auditLogs: many(auditLogs),
   userSessions: many(userSessions),
+  createdFormTemplates: many(formTemplates),
+  assignedFormAssignments: many(formAssignments),
 }));
 
 export const userProfilesRelations = relations(userProfiles, ({ one }) => ({
@@ -1120,6 +1223,7 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   documents: many(documents),
   sessionNotes: many(sessionNotes),
   history: many(clientHistory),
+  formAssignments: many(formAssignments),
 }));
 
 export const clientHistoryRelations = relations(clientHistory, ({ one }) => ({
@@ -1409,6 +1513,63 @@ export const notificationTemplatesRelations = relations(notificationTemplates, (
   triggers: many(notificationTriggers),
 }));
 
+// Clinical Forms Relations
+export const formTemplatesRelations = relations(formTemplates, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [formTemplates.createdById],
+    references: [users.id],
+  }),
+  fields: many(formFields),
+  assignments: many(formAssignments),
+}));
+
+export const formFieldsRelations = relations(formFields, ({ one, many }) => ({
+  template: one(formTemplates, {
+    fields: [formFields.templateId],
+    references: [formTemplates.id],
+  }),
+  responses: many(formResponses),
+}));
+
+export const formAssignmentsRelations = relations(formAssignments, ({ one, many }) => ({
+  template: one(formTemplates, {
+    fields: [formAssignments.templateId],
+    references: [formTemplates.id],
+  }),
+  client: one(clients, {
+    fields: [formAssignments.clientId],
+    references: [clients.id],
+  }),
+  assignedBy: one(users, {
+    fields: [formAssignments.assignedById],
+    references: [users.id],
+  }),
+  reviewedBy: one(users, {
+    fields: [formAssignments.reviewedById],
+    references: [users.id],
+  }),
+  responses: many(formResponses),
+  signatures: many(formSignatures),
+}));
+
+export const formResponsesRelations = relations(formResponses, ({ one }) => ({
+  assignment: one(formAssignments, {
+    fields: [formResponses.assignmentId],
+    references: [formAssignments.id],
+  }),
+  field: one(formFields, {
+    fields: [formResponses.fieldId],
+    references: [formFields.id],
+  }),
+}));
+
+export const formSignaturesRelations = relations(formSignatures, ({ one }) => ({
+  assignment: one(formAssignments, {
+    fields: [formSignatures.assignmentId],
+    references: [formAssignments.id],
+  }),
+}));
+
 // HIPAA Audit Logging Relations
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, {
@@ -1688,6 +1849,35 @@ export const insertNotificationTemplateSchema = createInsertSchema(notificationT
   updatedAt: true,
 });
 
+// Clinical Forms Schemas
+export const insertFormTemplateSchema = createInsertSchema(formTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFormFieldSchema = createInsertSchema(formFields).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFormAssignmentSchema = createInsertSchema(formAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFormResponseSchema = createInsertSchema(formResponses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFormSignatureSchema = createInsertSchema(formSignatures).omit({
+  id: true,
+  signedAt: true,
+});
+
 // HIPAA Audit Logging Schemas
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
@@ -1872,6 +2062,21 @@ export type InsertNotificationPreference = z.infer<typeof insertNotificationPref
 
 export type NotificationTemplate = typeof notificationTemplates.$inferSelect;
 export type InsertNotificationTemplate = z.infer<typeof insertNotificationTemplateSchema>;
+
+export type FormTemplate = typeof formTemplates.$inferSelect;
+export type InsertFormTemplate = z.infer<typeof insertFormTemplateSchema>;
+
+export type FormField = typeof formFields.$inferSelect;
+export type InsertFormField = z.infer<typeof insertFormFieldSchema>;
+
+export type FormAssignment = typeof formAssignments.$inferSelect;
+export type InsertFormAssignment = z.infer<typeof insertFormAssignmentSchema>;
+
+export type FormResponse = typeof formResponses.$inferSelect;
+export type InsertFormResponse = z.infer<typeof insertFormResponseSchema>;
+
+export type FormSignature = typeof formSignatures.$inferSelect;
+export type InsertFormSignature = z.infer<typeof insertFormSignatureSchema>;
 
 // Practice Configuration Types
 export type PracticeConfiguration = typeof practiceConfiguration.$inferSelect;

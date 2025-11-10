@@ -1,6 +1,6 @@
 # Overview
 
-SmartHub is a comprehensive therapy practice management application designed for mental health professionals. It offers end-to-end management including client handling, scheduling, session documentation, billing, assessments, and a client portal. The system focuses on clinical workflow automation, HIPAA compliance, and integrates AI (OpenAI GPT-4o) for intelligent features. It aims to serve therapists, administrators, and clients with role-based access, automated billing, AI-assisted documentation, and thorough audit logging.
+SmartHub is a comprehensive therapy practice management application for mental health professionals. It provides end-to-end management of client handling, scheduling, session documentation, billing, assessments, clinical forms, and a client portal. The system prioritizes clinical workflow automation, HIPAA compliance, and integrates AI (OpenAI GPT-4o) for intelligent features. SmartHub aims to serve therapists, administrators, and clients with role-based access, automated billing, AI-assisted documentation, and thorough audit logging.
 
 # User Preferences
 
@@ -10,198 +10,86 @@ Preferred communication style: Simple, everyday language.
 
 ## Technology Stack
 
-**Frontend:** React 18+ with TypeScript, Vite, Wouter for routing, TanStack Query for state management, Shadcn/ui (Radix UI primitives), Tailwind CSS.
-**Backend:** Node.js with Express, TypeScript, Drizzle ORM, PostgreSQL (Neon serverless), cookie-based authentication with bcrypt.
+**Frontend:** React 18+ (TypeScript, Vite, Wouter, TanStack Query, Shadcn/ui, Tailwind CSS).
+**Backend:** Node.js with Express (TypeScript, Drizzle ORM, PostgreSQL), cookie-based authentication.
 **Build & Deployment:** ESBuild for server bundling, separate client/server builds, environment-based configuration.
 
 ## Application Structure
 
-The codebase is a monorepo:
-- `/client`: Frontend React application.
-- `/server`: Backend Express API, including route definitions, database access, and PDF generation utilities.
-- `/shared`: Code shared between client and server, primarily database schema definitions.
-- `/migrations`: Database migration files.
+The codebase is a monorepo with distinct directories for `/client` (frontend), `/server` (backend API), `/shared` (common code, e.g., database schema), and `/migrations`.
 
 ## Core Architectural Decisions
 
 ### Database & ORM Strategy
-**Decision:** Drizzle ORM with PostgreSQL.
-**Rationale:** Type-safe queries, strong TypeScript integration, robust relational data modeling for healthcare records.
-**Implementation:** Schema in `/shared/schema.ts`, `PostgresStorage` class for abstraction, `drizzle-kit` for migrations, Neon serverless for connection pooling.
+Drizzle ORM with PostgreSQL (Neon serverless) for type-safe queries and robust relational data modeling.
 
 ### Authentication & Authorization
-**Decision:** Cookie-based session authentication with role-based access control.
-**Rationale:** Secure, stateless authentication suitable for healthcare; role-based permissions ensure HIPAA compliance.
-**Implementation:** bcrypt for password hashing, HTTP-only cookies for session tokens, JWT for session management, roles (admin, supervisor, therapist, billing, client), middleware for route protection.
+Cookie-based session authentication with role-based access control (admin, supervisor, therapist, billing, client) for security and HIPAA compliance.
 
 ### Client-Server Communication
-**Decision:** RESTful API with JSON payloads.
-**Rationale:** Well-understood, stateless pattern; JSON simplifies data serialization with TypeScript.
-**Implementation:** Routes organized by resource, consistent response format with error handling, Zod for request validation, TanStack Query for caching.
+RESTful API with JSON payloads and Zod for validation, utilizing TanStack Query for efficient data fetching and caching.
 
 ### File Storage
-**Decision:** Migration from Replit Object Storage to Azure Blob Storage for enterprise-grade scalability and compliance.
-**Implementation:** Uses `@azure/storage-blob` SDK, documents stored with `documents/{id}-{filename}` convention, metadata in `documents` table.
+Azure Blob Storage for scalable and compliant document storage, replacing previous solutions.
+
+### Clinical Forms System
+A digital form system for informed consent, intake, ROI, and treatment agreements, including electronic signatures. Forms utilize `formTemplates` (with soft delete), `formFields` (supporting 8 types), `formAssignments` with status tracking, `formResponses` (encrypted in Phase 2), and `formSignatures` with audit trails.
 
 ### PDF Generation
-**Decision:** Dual-strategy based on delivery method.
-**Implementation:**
-1.  **Browser Print Dialog:** For downloads/printing (session notes, reports, invoices). Server generates HTML, frontend opens in new window with print dialog. Benefits: Reliability, perfect formatting.
-2.  **Server-side Puppeteer:** For email attachments (invoice emails). Uses `puppeteer` to generate PDF buffer. Includes graceful degradation if PDF generation fails.
+A dual strategy using browser print dialogs for user downloads and server-side Puppeteer for automated PDF generation (e.g., email attachments).
 
 ### AI Integration
-**Decision:** OpenAI GPT-4o for clinical content generation.
-**Rationale:** Advanced language understanding for clinically appropriate documentation.
-**Use Cases:** AI-assisted session notes, assessment report interpretation, general report generation.
-**Implementation:** Custom prompts, human review workflow (draft → review → finalize).
+OpenAI GPT-4o is integrated for clinical content generation, including AI-assisted session notes and assessment report interpretation, with a human review workflow.
 
 ## Data Model Design
 
 ### Client Lifecycle Management
-Tracks clients through stages (intake, assessment, active_therapy, maintenance, discharged) and statuses (active, inactive, pending). Includes comprehensive profiles, onboarding checklists, and portal access. Features multi-level duplicate detection with AI-powered recommendations for merging records, and an "unmark" functionality.
-
-**Bulk Client Management (Added November 2025):**
-Comprehensive bulk operations system for mass client updates with role-based access control.
-
-**Permission Model:**
-- **Admin:** Full access to all bulk operations across all clients
-- **Supervisor:** Access to bulk operations for clients assigned to supervised therapists only (no portal access changes)
-- **Therapist:** No access to bulk operations (checkboxes hidden, actions disabled)
-
-**Bulk Operations:**
-1. **Stage Changes:** Update lifecycle stage for multiple clients simultaneously
-2. **Therapist Reassignment:** Reassign clients to one or multiple therapists with smart workload distribution
-3. **Portal Access Toggle:** Enable/disable client portal access (admin only, requires email validation)
-4. **Status Updates:** Change client status (active/inactive/pending) in bulk
-
-**Key Features:**
-- Filter-based client selection with select-all support
-- Database-driven options from `system_options` table (not hardcoded)
-- Smart workload distribution algorithm for balanced therapist assignment
-- Comprehensive audit logging for all bulk operations
-- Detailed success/skip/error reporting with user-friendly toast notifications
-- Input validation prevents empty submissions
-- Scope enforcement ensures supervisors only affect their team
+Comprehensive client management includes tracking through various stages and statuses, detailed profiles, onboarding, portal access, and multi-level duplicate detection. Features bulk client management with role-based access for stage changes, therapist reassignment, portal access toggling, and status updates, all with audit logging and detailed reporting.
 
 ### Clinical Documentation
-**Session Management:** `sessions` table links clients, therapists, services, rooms; auto-billing on completion.
-**Session Notes:** `session_notes` table for AI-generated drafts, progress tracking, goal documentation.
-**Assessments:** `assessment_templates`, `assessment_assignments`, `assessment_responses`, and AI-generated `assessment_reports`.
 
-**Clinical Content Library (Enhanced November 2025):**
-Comprehensive library system for reusable clinical content with smart connections and bulk import.
+**Session Management:** Tracks sessions linking clients, therapists, services, and rooms, with auto-billing.
+**Session Notes:** Stores AI-generated drafts and progress notes.
+**Assessments:** Manages assessment templates, assignments, responses, and AI-generated reports.
 
-**Title Pattern System:**
-Library entries follow a structured coding pattern: `[CONDITION][TYPE][NUMBER]_[VARIANT]`
-- **CONDITION:** 3-5 letter code (ANX=Anxiety, DEPR=Depression, TRAUM=Trauma, PTSD, ADHD, etc.)
-- **TYPE:** Single letter identifying entry purpose
-  - S = Symptom (parent/root entry)
-  - I = Intervention (treatment options)
-  - P = Progress (outcome measures)
-  - G = Goal (target outcomes)
-- **NUMBER:** Pathway number (1-99) linking related entries
-- **VARIANT:** Optional variant number (_1, _2, _3) for multiple options
+**Clinical Content Library:** A comprehensive system for reusable clinical content. It uses a structured title pattern (`[CONDITION][TYPE][NUMBER]_[VARIANT]`) for categorization. A "Smart Connect" feature auto-suggests connections between entries based on patterns and keywords, defining relationship types. The system supports bulk import from Excel with validation, natural sorting, and prevents duplicate entries.
 
-Examples: `ANXS10` (Anxiety Symptom #10), `ANXI10_2` (Anxiety Intervention for pathway 10, variant 2), `ANXP10_1` (Progress measure for pathway 10)
+**Relationship-Based Filtering:** The Library Picker in Session Notes intelligently filters content based on previously selected entries (Symptoms, Goals, Interventions, Progress), showing only relevant connected entries within the current category. This uses a bulk connection endpoint and TanStack Query for performance.
 
-**Smart Connect Feature:**
-Intelligent auto-suggestion system for creating connections between library entries:
-1. **Pattern-Based Matching (100% confidence):** Automatically detects entries in the same pathway by parsing title codes. If creating `ANXI10_2`, suggests connecting to `ANXS10`, `ANXI10_1`, `ANXI10_3`, `ANXP10_1`, `ANXG10`.
-2. **Keyword Fallback (60% confidence):** For non-pattern titles, uses keyword matching across titles and tags with category relationships.
-3. **Connection Types:** Automatically determines relationship type based on entry types (S→I = "treats", I→P = "measures", S→G = "targets", I→I = "alternative_to").
-
-**Bulk Import:**
-- Copy-paste from Excel with TAB or comma separator support
-- Two-column format: Title, Content
-- Real-time validation and preview with error detection
-- Batch creation with success/error reporting
-- Bulk entries accessible via "Bulk Add" button per category
-
-**Duplicate Prevention (Added November 2025):**
-- Case-insensitive title matching prevents duplicate library entries
-- Single entry creation returns 409 error if title already exists
-- Bulk import skips duplicates and reports them separately (successful/skipped/failed)
-- Database cleaned from 254 to 176 unique entries (78 duplicates removed)
-
-**Natural Sorting (Added November 2025):**
-- Intelligent alphanumeric sorting prevents confusion with pattern-based titles
-- Properly orders entries like ANX1, ANX2, ANX10 (not ANX1, ANX10, ANX2)
-- Algorithm splits titles into numeric and text segments, compares numbers as integers
-- Maintains sortOrder field priority, then applies natural sort to titles
-- Applied consistently to both entry lists and search results
-
-**Relationship-Based Filtering in Session Notes (Added November 2025):**
-Intelligent filtering system for Library Picker in Session Notes based on previously selected entries:
-- **Smart Field Relationships:** Each field filters based on logically related fields:
-  - Symptoms: No filtering (starting point)
-  - Short-term Goals: Filtered by selected Symptoms
-  - Interventions: Filtered by selected Symptoms + Goals
-  - Progress: Filtered by selected Symptoms + Goals + Interventions
-- **Category-Aware Filtering:** Only shows connected entries that belong to the current category
-- **Toggle UI:** "Show connected entries only" switch appears when previous selections exist
-- **Bulk Connection Endpoint:** POST `/api/library/entries/connected-bulk` fetches connections efficiently
-- **Performance:** TanStack Query caching with 5-minute stale time to minimize API calls
-- **User Experience:** Shows accurate count messages like "Showing X entries (from Y total connections)"
-
-**Connection Duplicate Prevention (Added November 2025):**
-Robust system to prevent duplicate connection badges and ensure bidirectional connections:
-- **Canonical Ordering:** Database uses unique constraint on `(LEAST(from_entry_id, to_entry_id), GREATEST(from_entry_id, to_entry_id))` to store only one record per bidirectional relationship
-- **Batch Connection Endpoint:** POST `/api/library/connections/batch` creates multiple connections in single API call
-- **Graceful Duplicate Handling:** Catches unique constraint violations (PostgreSQL error 23505), counts as "skipped"
-- **Informative Feedback:** Returns `{created: N, skipped: M, total: X}` and shows toast messages like "4 connection(s) created, 2 already existed"
-- **Smart Connect Integration:** Create/update entry dialogs use batch endpoint, preventing duplicate connections when auto-connecting
-- **Performance:** Single API call for N connections instead of N separate calls
-- **Bulk Fetch Endpoint:** POST `/api/library/entries/connected-bulk` returns object keyed by entry ID for reliable bidirectional badge display
-- **Object-Keyed Response:** Returns `{ entryId1: [connections], entryId2: [connections] }` instead of array to prevent order-dependent mapping errors
+**Connection Duplicate Prevention:** Ensures unique and bidirectional connections between library entries using canonical ordering and a batch connection endpoint, providing informative feedback on created and skipped connections.
 
 ### Billing & Financial Tracking
-Automated workflow from service selection to invoice generation and payment tracking.
-**Key Tables:** `services`, `session_billing`, `invoices`, `payments`.
-**Stripe Integration:** For online payments and webhook handling.
-
-**Discount Functionality (Added November 2025):**
-Flexible discount system for billing with two discount types:
-- **Percentage Discount:** Apply a percentage off the service amount (e.g., 10% off)
-- **Fixed Amount Discount:** Apply a fixed dollar amount off (e.g., $25 off)
-
-**Implementation:**
-- Three new fields in `session_billing`: `discount_type`, `discount_value`, `discount_amount`
-- Real-time discount calculation in payment recording UI
-- Discounts display on invoices in green between subtotal and insurance coverage
-- Invoice calculation order: Subtotal → Discount → Insurance Coverage → Copay → Payments → Total Due
-- Full persistence support: load existing discounts when editing, clear discounts when "No discount" selected
-- Both admin and client portal invoices show applied discounts
+Automated workflow from service selection to invoice generation and payment tracking, integrated with Stripe. Includes a flexible discount system supporting percentage and fixed-amount discounts, which are displayed on invoices.
 
 ### Audit & Compliance
-**Decision:** Comprehensive audit logging for HIPAA compliance.
-**Implementation:** `audit_logs` table captures significant actions (user, action type, resource, timestamp, IP).
+A robust `audit_logs` table captures significant user actions for HIPAA compliance.
 
 ## Scheduling & Availability
-Manages therapist working hours, blocked times, and room availability. Includes conflict prevention and capacity tracking.
+Manages therapist working hours, blocked times, and room availability, including conflict prevention.
 
 ## Client Portal
-Self-service interface for clients: appointment booking, document management (uploads/downloads), invoice viewing/payment, notification preferences. Separate authentication and limited data access.
+A self-service interface for clients to book appointments, manage documents, view/pay invoices, and manage notification preferences, with separate authentication.
 
 # External Dependencies
 
 ## Third-Party Services
--   **OpenAI API:** GPT-4o for clinical content generation (session notes, assessment reports).
--   **Stripe:** Payment processing for client invoices.
--   **SendGrid:** Transactional emails (reminders, notifications, invoices).
--   **Azure Blob Storage:** Document storage (replacing Replit Object Storage).
+-   **OpenAI API:** GPT-4o for AI-driven clinical content generation.
+-   **Stripe:** Payment processing.
+-   **SendGrid:** Transactional email services.
+-   **Azure Blob Storage:** Cloud storage for documents.
 
 ## Database
--   **Neon PostgreSQL:** Serverless PostgreSQL hosting with connection pooling.
+-   **Neon PostgreSQL:** Serverless PostgreSQL database hosting.
 
 ## UI Component Libraries
--   **Radix UI:** Headless accessible component primitives (Dialog, Dropdown, etc.).
--   **Shadcn/ui:** Pre-built component library built on Radix UI, themed with Tailwind CSS.
+-   **Radix UI:** Headless accessible UI component primitives.
+-   **Shadcn/ui:** Themed component library built on Radix UI and Tailwind CSS.
 
 ## Development Tools
 -   **PostHog:** Product analytics and user tracking.
 -   **Puppeteer/Chromium:** Server-side PDF generation.
 
 ## Build & Development
--   **Vite:** Frontend development server and build tool.
--   **TypeScript:** Type checking across client and server.
+-   **Vite:** Frontend build tool.
+-   **TypeScript:** Language for type-checking.
 -   **Drizzle Kit:** Database migration management.
