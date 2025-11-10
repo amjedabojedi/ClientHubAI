@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Clock, CheckCircle2, AlertCircle, Eye } from "lucide-react";
+import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download } from "lucide-react";
 import { formatDateDisplay } from "@/lib/datetime";
 
 interface FormTemplate {
@@ -193,6 +193,19 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      {assignment.status === 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          data-testid={`button-download-pdf-${assignment.id}`}
+                          onClick={() => {
+                            window.open(`/api/forms/assignments/${assignment.id}/download/pdf`, '_blank');
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

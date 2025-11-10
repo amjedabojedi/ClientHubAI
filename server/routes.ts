@@ -12721,6 +12721,163 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Download form assignment as PDF (HTML for browser print)
+  app.get("/api/forms/assignments/:id/download/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const assignmentId = parseInt(req.params.id);
+      if (isNaN(assignmentId)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+
+      // Fetch assignment with all related data
+      const [assignment] = await db
+        .select()
+        .from(formAssignments)
+        .where(eq(formAssignments.id, assignmentId))
+        .limit(1);
+
+      if (!assignment) {
+        return res.status(404).json({ message: "Form assignment not found" });
+      }
+
+      // Only allow PDF download for completed forms
+      if (assignment.status !== 'completed') {
+        return res.status(400).json({ message: "Form must be completed before generating PDF" });
+      }
+
+      // Fetch client
+      const client = await storage.getClient(assignment.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      // Authorization: admin, supervisor, assigned therapist, or supervising therapist
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      const isAssignedTherapist = assignment.assignedById === req.user.id;
+      
+      let isSupervisor = false;
+      if (!isAdmin && !isAssignedTherapist) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        isSupervisor = supervisorAssignments.some(
+          sa => sa.therapistId === assignment.assignedById
+        );
+      }
+
+      if (!isAdmin && !isAssignedTherapist && !isSupervisor) {
+        return res.status(403).json({ message: "You do not have permission to download this form" });
+      }
+
+      // Fetch template with fields
+      const [template] = await db
+        .select()
+        .from(formTemplates)
+        .where(eq(formTemplates.id, assignment.templateId))
+        .limit(1);
+
+      const fields = await db
+        .select()
+        .from(formFields)
+        .where(eq(formFields.templateId, assignment.templateId))
+        .orderBy(asc(formFields.sortOrder));
+
+      // Fetch responses
+      const responses = await db
+        .select()
+        .from(formResponses)
+        .where(eq(formResponses.assignmentId, assignmentId));
+
+      // Fetch signature
+      const [signature] = await db
+        .select()
+        .from(formSignatures)
+        .where(eq(formSignatures.assignmentId, assignmentId))
+        .limit(1);
+
+      // Fetch practice settings
+      let practiceSettings = {
+        name: 'Resilience Counseling Research & Consultation',
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'resiliencecrc@gmail.com',
+        website: 'www.resiliencec.com'
+      };
+
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      } catch (error) {
+        // Use defaults if practice settings not found
+      }
+
+      // Import HTML generation module
+      const { generateFormAssignmentHTML } = await import("./pdf/form-assignment-pdf");
+
+      // Prepare assignment data for PDF
+      const assignmentData = {
+        ...assignment,
+        client: {
+          id: client.id,
+          fullName: client.fullName,
+          clientId: client.clientId,
+          dateOfBirth: client.dateOfBirth,
+          email: client.portalEmail || client.email,
+          phoneNumber: client.phoneNumber
+        },
+        template: template ? {
+          id: template.id,
+          name: template.name,
+          description: template.description
+        } : undefined,
+        fields: fields || []
+      };
+
+      // Generate HTML
+      const html = generateFormAssignmentHTML(
+        assignmentData,
+        responses,
+        signature || null,
+        practiceSettings
+      );
+
+      // HIPAA Audit: Log PDF download
+      await AuditLogger.logDocumentAccess(
+        req.user.id,
+        req.user.username,
+        assignmentId,
+        assignment.clientId,
+        'document_downloaded',
+        ipAddress,
+        userAgent,
+        {
+          assignmentId,
+          templateId: assignment.templateId,
+          templateName: template?.name,
+          format: 'pdf',
+          documentType: 'form_assignment',
+          assignedById: assignment.assignedById
+        }
+      );
+
+      // Return HTML for browser print dialog
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+
+    } catch (error) {
+      console.error('Error generating form PDF:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
   // ===== ADMIN TEST ENDPOINTS =====
   
   // Test email endpoint (Admin only)
