@@ -30,6 +30,7 @@ interface FormField {
   fieldType: string;
   label: string;
   placeholder?: string;
+  helpText?: string;
   required: boolean;
   options?: string[];
   sortOrder: number;
@@ -211,8 +212,9 @@ export default function PortalFormCompletion() {
 
   const handleSubmit = () => {
     const fields = assignment?.template?.fields || [];
-    const nonSignatureFields = fields.filter((f) => f.fieldType !== "signature");
-    const requiredFields = nonSignatureFields.filter((f) => f.required);
+    // Exclude read-only fields (heading, info_text) and signature from required validation
+    const inputFields = fields.filter((f) => !['signature', 'heading', 'info_text'].includes(f.fieldType));
+    const requiredFields = inputFields.filter((f) => f.required);
     const missingFields = requiredFields.filter((f) => !formValues[f.id] || formValues[f.id].trim() === "");
 
     if (missingFields.length > 0) {

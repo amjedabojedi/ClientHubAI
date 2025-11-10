@@ -1859,6 +1859,12 @@ export const insertFormTemplateSchema = createInsertSchema(formTemplates).omit({
 export const insertFormFieldSchema = createInsertSchema(formFields).omit({
   id: true,
   createdAt: true,
+}).transform((data) => {
+  // Enforce that heading and info_text fields are never required
+  if (data.fieldType === 'heading' || data.fieldType === 'info_text') {
+    return { ...data, isRequired: false };
+  }
+  return data;
 });
 
 export const insertFormAssignmentSchema = createInsertSchema(formAssignments).omit({

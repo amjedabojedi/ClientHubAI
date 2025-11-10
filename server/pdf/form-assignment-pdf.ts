@@ -23,6 +23,7 @@ interface FormField {
   id: number;
   label: string;
   fieldType: string;
+  helpText?: string | null;
   required: boolean;
   options?: string[] | null;
   placeholder?: string | null;
@@ -98,25 +99,125 @@ export function generateFormAssignmentHTML(
     responseMap.set(r.fieldId, r.responseValue);
   });
 
-  // Generate field rows with HTML escaping
-  const fieldRows = assignment.fields
-    ?.filter(f => f.fieldType !== 'signature')
-    ?.sort((a, b) => a.sortOrder - b.sortOrder)
-    ?.map(field => {
-      const response = escapeHtml(responseMap.get(field.id) || '—');
-      const fieldTypeLabel = escapeHtml(field.fieldType.charAt(0).toUpperCase() + field.fieldType.slice(1));
+  // Generate form sections - process all fields in order
+  const formSections: string[] = [];
+  const sortedFields = assignment.fields?.sort((a, b) => a.sortOrder - b.sortOrder) || [];
+  
+  // Group consecutive input fields together for table rendering
+  let currentInputFields: typeof sortedFields = [];
+  
+  sortedFields.forEach((field, index) => {
+    const isLastField = index === sortedFields.length - 1;
+    
+    if (field.fieldType === 'heading') {
+      // Flush any pending input fields
+      if (currentInputFields.length > 0) {
+        const tableRows = currentInputFields.map(f => {
+          const response = escapeHtml(responseMap.get(f.id) || '—');
+          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
+          return `
+            <tr>
+              <td class="field-label">
+                ${escapeHtml(f.label)}
+                ${f.required ? '<span class="required-mark">*</span>' : ''}
+              </td>
+              <td class="field-type">${fieldTypeLabel}</td>
+              <td class="field-response">${response}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        formSections.push(`
+          <div class="form-fields">
+            <table class="fields-table">
+              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        `);
+        currentInputFields = [];
+      }
       
-      return `
-        <tr>
-          <td class="field-label">
+      // Add heading
+      formSections.push(`
+        <div style="margin-top: 24px; margin-bottom: 12px;">
+          <h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 0;">
             ${escapeHtml(field.label)}
-            ${field.required ? '<span class="required-mark">*</span>' : ''}
-          </td>
-          <td class="field-type">${fieldTypeLabel}</td>
-          <td class="field-response">${response}</td>
-        </tr>
-      `;
-    }).join('') || '<tr><td colspan="3" class="no-fields">No fields in this form</td></tr>';
+          </h2>
+        </div>
+      `);
+    } else if (field.fieldType === 'info_text') {
+      // Flush any pending input fields
+      if (currentInputFields.length > 0) {
+        const tableRows = currentInputFields.map(f => {
+          const response = escapeHtml(responseMap.get(f.id) || '—');
+          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
+          return `
+            <tr>
+              <td class="field-label">
+                ${escapeHtml(f.label)}
+                ${f.required ? '<span class="required-mark">*</span>' : ''}
+              </td>
+              <td class="field-type">${fieldTypeLabel}</td>
+              <td class="field-response">${response}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        formSections.push(`
+          <div class="form-fields">
+            <table class="fields-table">
+              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        `);
+        currentInputFields = [];
+      }
+      
+      // Add info text
+      formSections.push(`
+        <div style="margin: 16px 0; background-color: #f9fafb; padding: 16px; border-radius: 6px; border: 1px solid #e5e7eb;">
+          ${field.label ? `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 8px 0;">${escapeHtml(field.label)}</h3>` : ''}
+          <p style="font-size: 13px; color: #4b5563; line-height: 1.6; margin: 0; white-space: pre-wrap;">
+            ${escapeHtml(field.helpText || '')}
+          </p>
+        </div>
+      `);
+    } else if (field.fieldType !== 'signature') {
+      // Accumulate input fields
+      currentInputFields.push(field);
+      
+      // Flush if last field
+      if (isLastField && currentInputFields.length > 0) {
+        const tableRows = currentInputFields.map(f => {
+          const response = escapeHtml(responseMap.get(f.id) || '—');
+          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
+          return `
+            <tr>
+              <td class="field-label">
+                ${escapeHtml(f.label)}
+                ${f.required ? '<span class="required-mark">*</span>' : ''}
+              </td>
+              <td class="field-type">${fieldTypeLabel}</td>
+              <td class="field-response">${response}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        formSections.push(`
+          <div class="form-fields">
+            <table class="fields-table">
+              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        `);
+      }
+    }
+  });
+  
+  const formContent = formSections.join('');
 
   const html = `
     <!DOCTYPE html>
@@ -354,20 +455,7 @@ export function generateFormAssignmentHTML(
         </div>
       </div>
 
-      <div class="form-fields">
-        <table class="fields-table">
-          <thead>
-            <tr>
-              <th>Question</th>
-              <th>Type</th>
-              <th>Response</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${fieldRows}
-          </tbody>
-        </table>
-      </div>
+      ${formContent}
 
       ${signature && isValidSignatureDataUrl(signature.signatureDataUrl) ? `
         <div class="signature-section">
