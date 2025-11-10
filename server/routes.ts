@@ -44,7 +44,7 @@ function getChromiumExecutablePath(): string | undefined {
   // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
   return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -85,7 +85,12 @@ import {
   insertRolePermissionSchema,
   insertOptionCategorySchema,
   insertSystemOptionSchema,
-  insertClientHistorySchema
+  insertClientHistorySchema,
+  insertFormTemplateSchema,
+  insertFormFieldSchema,
+  insertFormAssignmentSchema,
+  insertFormResponseSchema,
+  insertFormSignatureSchema
 } from "@shared/schema";
 
 // Helper function to convert EST date/time to UTC
@@ -11641,6 +11646,523 @@ You can download a copy if you have it saved locally and re-upload it.`;
     } catch (error) {
       console.error("Portal document download error:", error);
       res.status(500).json({ error: "Failed to download document" });
+    }
+  });
+
+  // ===== CLINICAL FORMS SYSTEM ROUTES =====
+  
+  // Get all form templates (active only, excluding deleted)
+  app.get("/api/forms/templates", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const templates = await db
+        .select()
+        .from(formTemplates)
+        .where(
+          and(
+            eq(formTemplates.isDeleted, false),
+            eq(formTemplates.isActive, true)
+          )
+        )
+        .orderBy(asc(formTemplates.sortOrder), asc(formTemplates.name));
+
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching form templates:", error);
+      res.status(500).json({ message: "Failed to fetch form templates" });
+    }
+  });
+
+  // Get single form template with fields
+  app.get("/api/forms/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const template = await db
+        .select()
+        .from(formTemplates)
+        .where(
+          and(
+            eq(formTemplates.id, id),
+            eq(formTemplates.isDeleted, false)
+          )
+        )
+        .limit(1);
+
+      if (!template.length) {
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      const fields = await db
+        .select()
+        .from(formFields)
+        .where(eq(formFields.templateId, id))
+        .orderBy(asc(formFields.sortOrder));
+
+      res.json({ ...template[0], fields });
+    } catch (error) {
+      console.error("Error fetching form template:", error);
+      res.status(500).json({ message: "Failed to fetch form template" });
+    }
+  });
+
+  // Create new form template (Admin only)
+  app.post("/api/forms/templates", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const validatedData = insertFormTemplateSchema.parse({
+        ...req.body,
+        createdById: req.user.id
+      });
+
+      const [template] = await db
+        .insert(formTemplates)
+        .values(validatedData)
+        .returning();
+
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
+      console.error("Error creating form template:", error);
+      res.status(500).json({ message: "Failed to create form template" });
+    }
+  });
+
+  // Update form template (Admin only)
+  app.patch("/api/forms/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const validatedData = insertFormTemplateSchema.partial().parse(req.body);
+
+      const [updated] = await db
+        .update(formTemplates)
+        .set({ ...validatedData, updatedAt: new Date() })
+        .where(eq(formTemplates.id, id))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
+      console.error("Error updating form template:", error);
+      res.status(500).json({ message: "Failed to update form template" });
+    }
+  });
+
+  // Soft delete form template (Admin only)
+  app.delete("/api/forms/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      // Check if it's a system template
+      const [template] = await db
+        .select()
+        .from(formTemplates)
+        .where(eq(formTemplates.id, id))
+        .limit(1);
+
+      if (!template) {
+        return res.status(404).json({ message: "Form template not found" });
+      }
+
+      if (template.isSystemTemplate) {
+        return res.status(403).json({ message: "Cannot delete system templates" });
+      }
+
+      // Soft delete
+      await db
+        .update(formTemplates)
+        .set({ 
+          isDeleted: true, 
+          isActive: false, 
+          deletedAt: new Date() 
+        })
+        .where(eq(formTemplates.id, id));
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting form template:", error);
+      res.status(500).json({ message: "Failed to delete form template" });
+    }
+  });
+
+  // Create form field (Admin only)
+  app.post("/api/forms/fields", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const validatedData = insertFormFieldSchema.parse(req.body);
+
+      const [field] = await db
+        .insert(formFields)
+        .values(validatedData)
+        .returning();
+
+      res.status(201).json(field);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid field data", errors: error.errors });
+      }
+      console.error("Error creating form field:", error);
+      res.status(500).json({ message: "Failed to create form field" });
+    }
+  });
+
+  // Update form field (Admin only)
+  app.patch("/api/forms/fields/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      const validatedData = insertFormFieldSchema.partial().parse(req.body);
+
+      const [updated] = await db
+        .update(formFields)
+        .set(validatedData)
+        .where(eq(formFields.id, id))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "Form field not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid field data", errors: error.errors });
+      }
+      console.error("Error updating form field:", error);
+      res.status(500).json({ message: "Failed to update form field" });
+    }
+  });
+
+  // Delete form field (Admin only)
+  app.delete("/api/forms/fields/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      await db
+        .delete(formFields)
+        .where(eq(formFields.id, id));
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting form field:", error);
+      res.status(500).json({ message: "Failed to delete form field" });
+    }
+  });
+
+  // Get form assignments for a client
+  app.get("/api/forms/assignments/client/:clientId", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const clientId = parseInt(req.params.clientId);
+      
+      const assignments = await db
+        .select({
+          id: formAssignments.id,
+          status: formAssignments.status,
+          dueDate: formAssignments.dueDate,
+          assignedAt: formAssignments.createdAt,
+          completedAt: formAssignments.completedAt,
+          template: {
+            id: formTemplates.id,
+            name: formTemplates.name,
+            category: formTemplates.category,
+            requiresSignature: formTemplates.requiresSignature
+          }
+        })
+        .from(formAssignments)
+        .innerJoin(formTemplates, eq(formAssignments.templateId, formTemplates.id))
+        .where(eq(formAssignments.clientId, clientId))
+        .orderBy(desc(formAssignments.createdAt));
+
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching form assignments:", error);
+      res.status(500).json({ message: "Failed to fetch form assignments" });
+    }
+  });
+
+  // Assign form to client (Therapist/Admin)
+  app.post("/api/forms/assignments", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only therapists, supervisors, and admins can assign forms
+      const allowedRoles = ['therapist', 'supervisor', 'administrator', 'admin'];
+      if (!allowedRoles.includes(req.user.role.toLowerCase())) {
+        return res.status(403).json({ message: "Insufficient permissions to assign forms" });
+      }
+
+      const validatedData = insertFormAssignmentSchema.parse({
+        ...req.body,
+        assignedById: req.user.id
+      });
+
+      const [assignment] = await db
+        .insert(formAssignments)
+        .values(validatedData)
+        .returning();
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      console.error("Error creating form assignment:", error);
+      res.status(500).json({ message: "Failed to assign form" });
+    }
+  });
+
+  // Get single form assignment with template and fields
+  app.get("/api/forms/assignments/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      const [assignment] = await db
+        .select()
+        .from(formAssignments)
+        .where(eq(formAssignments.id, id))
+        .limit(1);
+
+      if (!assignment) {
+        return res.status(404).json({ message: "Form assignment not found" });
+      }
+
+      // Get template with fields
+      const [template] = await db
+        .select()
+        .from(formTemplates)
+        .where(eq(formTemplates.id, assignment.templateId))
+        .limit(1);
+
+      const fields = await db
+        .select()
+        .from(formFields)
+        .where(eq(formFields.templateId, assignment.templateId))
+        .orderBy(asc(formFields.sortOrder));
+
+      // Get existing responses
+      const responses = await db
+        .select()
+        .from(formResponses)
+        .where(eq(formResponses.assignmentId, id));
+
+      // Get signature if exists
+      const signatures = await db
+        .select()
+        .from(formSignatures)
+        .where(eq(formSignatures.assignmentId, id));
+
+      res.json({ 
+        ...assignment, 
+        template: { ...template, fields }, 
+        responses,
+        signatures
+      });
+    } catch (error) {
+      console.error("Error fetching form assignment:", error);
+      res.status(500).json({ message: "Failed to fetch form assignment" });
+    }
+  });
+
+  // Submit form responses (Client portal or therapist)
+  app.post("/api/forms/assignments/:id/responses", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const assignmentId = parseInt(req.params.id);
+      const { responses } = req.body;
+
+      if (!Array.isArray(responses)) {
+        return res.status(400).json({ message: "Responses must be an array" });
+      }
+
+      // Delete existing responses and insert new ones (upsert pattern)
+      await db
+        .delete(formResponses)
+        .where(eq(formResponses.assignmentId, assignmentId));
+
+      const validatedResponses = responses.map(r => 
+        insertFormResponseSchema.parse({ ...r, assignmentId })
+      );
+
+      const created = await db
+        .insert(formResponses)
+        .values(validatedResponses)
+        .returning();
+
+      // Update assignment status
+      await db
+        .update(formAssignments)
+        .set({ 
+          status: 'in_progress',
+          updatedAt: new Date()
+        })
+        .where(eq(formAssignments.id, assignmentId));
+
+      res.status(201).json(created);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid response data", errors: error.errors });
+      }
+      console.error("Error saving form responses:", error);
+      res.status(500).json({ message: "Failed to save form responses" });
+    }
+  });
+
+  // Submit signature and complete form
+  app.post("/api/forms/assignments/:id/signature", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const assignmentId = parseInt(req.params.id);
+      const validatedData = insertFormSignatureSchema.parse({
+        ...req.body,
+        assignmentId,
+        ipAddress,
+        userAgent
+      });
+
+      const [signature] = await db
+        .insert(formSignatures)
+        .values(validatedData)
+        .returning();
+
+      // Mark assignment as completed
+      await db
+        .update(formAssignments)
+        .set({ 
+          status: 'completed',
+          completedAt: new Date(),
+          submittedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(formAssignments.id, assignmentId));
+
+      res.status(201).json(signature);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid signature data", errors: error.errors });
+      }
+      console.error("Error saving signature:", error);
+      res.status(500).json({ message: "Failed to save signature" });
+    }
+  });
+
+  // Mark form as reviewed by therapist
+  app.patch("/api/forms/assignments/:id/review", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only therapists, supervisors, and admins can review forms
+      const allowedRoles = ['therapist', 'supervisor', 'administrator', 'admin'];
+      if (!allowedRoles.includes(req.user.role.toLowerCase())) {
+        return res.status(403).json({ message: "Insufficient permissions to review forms" });
+      }
+
+      const id = parseInt(req.params.id);
+      const { reviewNotes } = req.body;
+
+      const [updated] = await db
+        .update(formAssignments)
+        .set({ 
+          reviewedAt: new Date(),
+          reviewedById: req.user.id,
+          reviewNotes,
+          updatedAt: new Date()
+        })
+        .where(eq(formAssignments.id, id))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "Form assignment not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error reviewing form:", error);
+      res.status(500).json({ message: "Failed to review form" });
     }
   });
 

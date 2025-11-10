@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -42,6 +42,7 @@ import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
 import BillingDashboard from "@/pages/billing-dashboard";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
+import FormsManagementPage from "@/pages/forms-management";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
@@ -90,6 +91,7 @@ function Navigation() {
         submenu: [
           { path: "/library", label: "Library", icon: BookOpen },
           { path: "/assessments", label: "Assessments", icon: ClipboardList },
+          { path: "/forms-management", label: "Clinical Forms", icon: ClipboardCheck },
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/duplicate-detection", label: "Duplicate Detection", icon: Users },
           { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
@@ -297,6 +299,7 @@ function Router() {
           }} />
           <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
           <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
+          <Route path="/forms-management" component={FormsManagementPage} />
           <Route path="/checklist-management" component={ChecklistManagementPage} />
           <Route path="/user-profiles" component={UserProfilesPage} />
           <Route path="/role-management" component={RoleManagementPage} />
