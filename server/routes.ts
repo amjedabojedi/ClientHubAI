@@ -11649,6 +11649,69 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Portal - Get client form assignments
+  app.get("/api/portal/forms/assignments", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid or expired session" });
+      }
+
+      await storage.updatePortalSessionActivity(session.id);
+
+      const client = await storage.getClient(session.clientId);
+      
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
+      const results = await db
+        .select({
+          assignment: formAssignments,
+          template: formTemplates
+        })
+        .from(formAssignments)
+        .leftJoin(formTemplates, eq(formAssignments.templateId, formTemplates.id))
+        .where(eq(formAssignments.clientId, session.clientId))
+        .orderBy(desc(formAssignments.assignedAt));
+
+      const assignments = results.map(r => ({
+        ...r.assignment,
+        template: r.template
+      }));
+
+      await AuditLogger.logAction({
+        userId: client.id,
+        userEmail: client.portalEmail || client.email || 'unknown',
+        action: 'forms_list_viewed',
+        result: 'success',
+        resourceType: 'form_assignment',
+        resourceId: null,
+        clientId: session.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'low',
+        details: JSON.stringify({ portal: true, count: assignments.length }),
+        accessReason: 'Client portal forms list access',
+      });
+
+      res.json(assignments);
+    } catch (error) {
+      console.error("Portal forms assignments error:", error);
+      res.status(500).json({ error: "Failed to fetch form assignments" });
+    }
+  });
+
   // ===== CLINICAL FORMS SYSTEM ROUTES =====
   
   // Get all form templates (active only, excluding deleted)

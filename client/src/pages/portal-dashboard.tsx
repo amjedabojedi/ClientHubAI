@@ -305,7 +305,7 @@ export default function PortalDashboardPage() {
         </Collapsible>
 
         {/* Quick Actions Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid="card-book-appointment">
             <CardHeader>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
@@ -361,6 +361,26 @@ export default function PortalDashboardPage() {
                 data-testid="button-upload-documents"
               >
                 Upload Files
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid="card-clinical-forms">
+            <CardHeader>
+              <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-3">
+                <FileText className="w-6 h-6 text-indigo-600" />
+              </div>
+              <CardTitle className="text-lg">Clinical Forms</CardTitle>
+              <CardDescription>Complete assigned forms</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setLocation("/portal/forms")}
+                data-testid="button-clinical-forms"
+              >
+                View Forms
               </Button>
             </CardContent>
           </Card>
