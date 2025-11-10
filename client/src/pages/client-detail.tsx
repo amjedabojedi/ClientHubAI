@@ -162,6 +162,7 @@ import SessionNotesManager from "@/components/session-notes/session-notes-manage
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
 import EmailHistory from "@/components/communications/email-history";
+import { ClientFormsDisplay } from "@/components/forms/client-forms-display";
 
 // Client Checklists Display Component
 function ClientChecklistsDisplay({ clientId }: { clientId: number }) {
@@ -2147,7 +2148,7 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-10 gap-2 p-2">
+          <TabsList className="grid w-full grid-cols-11 gap-2 p-2">
             <TabsTrigger value="overview" className="flex items-center space-x-2 px-4">
               <UserIcon className="w-4 h-4" />
               <span>Overview</span>
@@ -2160,6 +2161,10 @@ export default function ClientDetailPage() {
             <TabsTrigger value="assessments" className="flex items-center space-x-2 px-4">
               <ClipboardList className="w-4 h-4" />
               <span>Assessments</span>
+            </TabsTrigger>
+            <TabsTrigger value="forms" className="flex items-center space-x-2 px-4">
+              <FileText className="w-4 h-4" />
+              <span>Forms</span>
             </TabsTrigger>
             <TabsTrigger value="documents" className="flex items-center space-x-2 px-4">
               <FolderOpen className="w-4 h-4" />
@@ -3505,6 +3510,21 @@ export default function ClientDetailPage() {
                     <p className="text-slate-400 text-sm">Use the dropdown above to assign an assessment template</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Forms Tab */}
+          <TabsContent value="forms" className="space-y-6">
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center space-x-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <span>Clinical Forms</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <ClientFormsDisplay clientId={clientId!} />
               </CardContent>
             </Card>
           </TabsContent>
