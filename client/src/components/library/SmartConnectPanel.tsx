@@ -250,8 +250,8 @@ export function SmartConnectPanel({
             </div>
           )}
 
-          {/* Manual Catalog - only show in "All" tab */}
-          {activeTab === 'all' && displayList.manual.length > 0 && (
+          {/* Manual Catalog - ONLY show in "All" tab (activeTab must equal 'all') */}
+          {activeTab === 'all' && displayList.manual.length > 0 ? (
             <div className="space-y-2">
               {(patternCount > 0 || keywordCount > 0) && (
                 <div className="border-t border-gray-200 dark:border-gray-700 my-4" />
@@ -269,7 +269,7 @@ export function SmartConnectPanel({
                 />
               ))}
             </div>
-          )}
+          ) : null}
 
           {/* Load More - only show in "All" tab for manual entries */}
           {activeTab === 'all' && hasMore && (
