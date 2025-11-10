@@ -51,7 +51,8 @@ export function SmartConnectPanel({
     setCategory,
     setSearch,
     loadMore,
-    hasMore
+    hasMore,
+    syncSelections
   } = useSmartConnect({
     currentTitle,
     currentTags,
@@ -100,21 +101,8 @@ export function SmartConnectPanel({
     
     const newSelections = entriesToSelect.map(e => e.id);
     
-    // Clear existing selections first, then select new ones
-    state.selectedIds.forEach(id => {
-      if (!newSelections.includes(id)) {
-        toggleSelection(id);
-      }
-    });
-    
-    // Add new selections
-    newSelections.forEach(id => {
-      if (!state.selectedIds.includes(id)) {
-        toggleSelection(id);
-      }
-    });
-    
-    // Update parent with the new selections only
+    // Sync selections to local state and parent
+    syncSelections(newSelections);
     onSelectionChange(newSelections);
   };
 
