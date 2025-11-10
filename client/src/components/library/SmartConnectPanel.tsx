@@ -27,6 +27,7 @@ interface SmartConnectPanelProps {
   categories: LibraryCategoryWithChildren[];
   selectedConnections: number[];
   onSelectionChange: (selectedIds: number[]) => void;
+  onAutoSave?: () => void;
 }
 
 export function SmartConnectPanel({
@@ -37,7 +38,8 @@ export function SmartConnectPanel({
   allEntries,
   categories,
   selectedConnections,
-  onSelectionChange
+  onSelectionChange,
+  onAutoSave
 }: SmartConnectPanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'pattern' | 'other' | 'all'>('all');
@@ -86,7 +88,7 @@ export function SmartConnectPanel({
     setSearch(value);
   };
 
-  // Handle Select All for current tab - REPLACES existing selections
+  // Handle Select All for current tab - REPLACES existing selections and auto-saves
   const handleSelectAll = () => {
     let entriesToSelect: any[] = [];
     
@@ -104,6 +106,13 @@ export function SmartConnectPanel({
     // Sync selections to local state and parent
     syncSelections(newSelections);
     onSelectionChange(newSelections);
+    
+    // Auto-save after a brief delay to ensure state is updated
+    if (onAutoSave) {
+      setTimeout(() => {
+        onAutoSave();
+      }, 100);
+    }
   };
 
   // Empty state - show AFTER hooks are called
