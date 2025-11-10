@@ -40,6 +40,7 @@ export function SmartConnectPanel({
   onSelectionChange
 }: SmartConnectPanelProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'pattern' | 'other' | 'all'>('all');
 
   // MUST call hooks before any conditional returns (Rules of Hooks)
   const {
@@ -61,7 +62,12 @@ export function SmartConnectPanel({
     initialSelections: selectedConnections
   });
 
-  const totalSuggestions = displayList.patterns.length + displayList.keywords.length;
+  // Calculate individual tab counts
+  const patternCount = displayList.patterns.length;
+  const keywordCount = displayList.keywords.length;
+  const manualCount = displayList.manual.length;
+  const allCount = patternCount + keywordCount + manualCount;
+  
   const showPanel = currentTitle.length > 0;
 
   // Sync selections with parent
@@ -77,6 +83,32 @@ export function SmartConnectPanel({
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     setSearch(value);
+  };
+
+  // Handle Select All for current tab
+  const handleSelectAll = () => {
+    let entriesToSelect: any[] = [];
+    
+    if (activeTab === 'pattern') {
+      entriesToSelect = displayList.patterns;
+    } else if (activeTab === 'other') {
+      entriesToSelect = displayList.keywords;
+    } else {
+      // All tab includes patterns, keywords, AND manual entries
+      entriesToSelect = [...displayList.patterns, ...displayList.keywords, ...displayList.manual];
+    }
+    
+    const allIds = entriesToSelect.map(e => e.id);
+    const combinedIds = [...state.selectedIds, ...allIds];
+    const newSelections = Array.from(new Set(combinedIds));
+    
+    // Update both local state and parent
+    allIds.forEach(id => {
+      if (!state.selectedIds.includes(id)) {
+        toggleSelection(id);
+      }
+    });
+    onSelectionChange(newSelections);
   };
 
   // Empty state - show AFTER hooks are called
@@ -137,11 +169,41 @@ export function SmartConnectPanel({
         />
       </div>
 
+      {/* Pattern/Other/All Tabs with Select All - always shown */}
+      <div className="flex items-center justify-between gap-3">
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="flex-1">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="pattern" className="text-xs">
+              Pattern {patternCount > 0 && `(${patternCount})`}
+            </TabsTrigger>
+            <TabsTrigger value="other" className="text-xs">
+              Other {keywordCount > 0 && `(${keywordCount})`}
+            </TabsTrigger>
+            <TabsTrigger value="all" className="text-xs">
+              All ({allCount})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSelectAll}
+          disabled={
+            (activeTab === 'pattern' && patternCount === 0) ||
+            (activeTab === 'other' && keywordCount === 0) ||
+            (activeTab === 'all' && allCount === 0)
+          }
+          data-testid="button-select-all"
+        >
+          Select All
+        </Button>
+      </div>
+
       {/* Suggestions List */}
       <ScrollArea className="h-[400px] rounded-lg border border-gray-200 dark:border-gray-800">
         <div className="p-4 space-y-4">
-          {/* Pattern Matches (always first, green highlight) */}
-          {displayList.patterns.length > 0 && (
+          {/* Pattern Matches - shown in Pattern and All tabs */}
+          {(activeTab === 'pattern' || activeTab === 'all') && displayList.patterns.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-3">
                 <Target className="w-4 h-4 text-green-600 dark:text-green-400" />
@@ -166,8 +228,8 @@ export function SmartConnectPanel({
             </div>
           )}
 
-          {/* Keyword Matches (shown if no pattern matches) */}
-          {displayList.keywords.length > 0 && (
+          {/* Keyword Matches - shown in Other and All tabs */}
+          {(activeTab === 'other' || activeTab === 'all') && displayList.keywords.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-3">
                 <Brain className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -192,10 +254,10 @@ export function SmartConnectPanel({
             </div>
           )}
 
-          {/* Manual Catalog */}
-          {displayList.manual.length > 0 && (
+          {/* Manual Catalog - only show in "All" tab */}
+          {activeTab === 'all' && displayList.manual.length > 0 && (
             <div className="space-y-2">
-              {totalSuggestions > 0 && (
+              {(patternCount > 0 || keywordCount > 0) && (
                 <div className="border-t border-gray-200 dark:border-gray-700 my-4" />
               )}
               <h5 className="font-medium text-gray-700 dark:text-gray-300 text-sm mb-3">
@@ -226,15 +288,34 @@ export function SmartConnectPanel({
           )}
 
           {/* Empty State */}
-          {displayList.patterns.length === 0 &&
-           displayList.keywords.length === 0 &&
-           displayList.manual.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No entries found matching your filters
-              </p>
-            </div>
-          )}
+          {(() => {
+            let hasContent = false;
+            
+            if (activeTab === 'pattern') {
+              hasContent = displayList.patterns.length > 0;
+            } else if (activeTab === 'other') {
+              hasContent = displayList.keywords.length > 0;
+            } else {
+              // All tab checks all three lists
+              hasContent = 
+                displayList.patterns.length > 0 ||
+                displayList.keywords.length > 0 ||
+                displayList.manual.length > 0;
+            }
+            
+            if (!hasContent) {
+              return (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {activeTab === 'pattern' && 'No pattern matches found'}
+                    {activeTab === 'other' && 'No keyword matches found'}
+                    {activeTab === 'all' && 'No entries found matching your filters'}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       </ScrollArea>
 
