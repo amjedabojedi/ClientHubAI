@@ -271,6 +271,45 @@ export function generateFormAssignmentHTML(
           </div>
         </div>
       `);
+    } else if (field.fieldType === 'fill_in_blank') {
+      // Flush any pending input fields
+      if (currentInputFields.length > 0) {
+        const tableRows = currentInputFields.map(f => {
+          const response = formatFieldResponse(f, responseMap, assignment);
+          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
+          return `
+            <tr>
+              <td class="field-label">
+                ${escapeHtml(f.label)}
+                ${f.required ? '<span class="required-mark">*</span>' : ''}
+              </td>
+              <td class="field-type">${fieldTypeLabel}</td>
+              <td class="field-response">${response}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        formSections.push(`
+          <div class="form-fields">
+            <table class="fields-table">
+              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        `);
+        currentInputFields = [];
+      }
+      
+      // Render fill-in-blank as paragraph text (like consent statements)
+      const formattedText = formatFieldResponse(field, responseMap, assignment);
+      formSections.push(`
+        <div style="margin: 16px 0; padding: 12px 0;">
+          ${field.label ? `<h3 style="font-size: 15px; font-weight: 600; color: #374151; margin: 0 0 8px 0;">${escapeHtml(field.label)}</h3>` : ''}
+          <p style="font-size: 14px; color: #1f2937; line-height: 1.7; margin: 0;">
+            ${formattedText}
+          </p>
+        </div>
+      `);
     } else if (field.fieldType !== 'signature') {
       // Accumulate input fields
       currentInputFields.push(field);
