@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download, X } from "lucide-react";
+import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download, X, Trash2 } from "lucide-react";
 import { formatDateDisplay } from "@/lib/datetime";
 import { sanitizeHtml } from "@/lib/sanitize";
 
@@ -107,6 +107,26 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
       toast({
         title: "Error",
         description: "Failed to assign form",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: async (assignmentId: number) => {
+      return await apiRequest(`/api/forms/assignments/${assignmentId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/forms/assignments/client", clientId] });
+      toast({
+        title: "Success",
+        description: "Form assignment deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete form assignment",
         variant: "destructive",
       });
     },
@@ -248,6 +268,21 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        data-testid={`button-delete-${assignment.id}`}
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this form assignment? This action cannot be undone.")) {
+                            deleteAssignmentMutation.mutate(assignment.id);
+                          }
+                        }}
+                        disabled={deleteAssignmentMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
                       </Button>
                     </div>
                   </div>
