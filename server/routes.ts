@@ -12921,6 +12921,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(404).json({ message: "Client not found" });
       }
 
+      // Fetch assigned therapist for form auto-fill placeholders
+      const therapist = await storage.getUser(assignment.assignedById);
+
       // Authorization: admin, supervisor, assigned therapist, or supervising therapist
       const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
       const isAssignedTherapist = assignment.assignedById === req.user.id;
@@ -12997,12 +13000,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
           email: client.portalEmail || client.email,
           phoneNumber: client.phoneNumber
         },
+        therapist: therapist ? {
+          id: therapist.id,
+          fullName: therapist.fullName,
+          email: therapist.email,
+          phoneNumber: therapist.phoneNumber || ''
+        } : undefined,
         template: template ? {
           id: template.id,
           name: template.name,
           description: template.description
         } : undefined,
-        fields: fields || []
+        fields: fields.map(f => ({
+          id: f.id,
+          label: f.label,
+          fieldType: f.fieldType,
+          helpText: f.helpText,
+          required: f.isRequired,
+          options: f.options ? (Array.isArray(f.options) ? f.options : JSON.parse(f.options as string)) : null,
+          placeholder: f.placeholder,
+          sortOrder: f.sortOrder
+        }))
       };
 
       // Generate HTML

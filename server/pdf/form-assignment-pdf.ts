@@ -20,6 +20,86 @@ function isValidSignatureDataUrl(dataUrl: string | null | undefined): boolean {
   return dataUrl.startsWith('data:image/png;base64,');
 }
 
+// Format field response based on field type for PDF rendering
+function formatFieldResponse(
+  field: FormField,
+  responseMap: Map<number, string>,
+  assignment: FormAssignment
+): string {
+  const rawValue = responseMap.get(field.id);
+  
+  // Handle checkbox_group: render as bullet list
+  if (field.fieldType === 'checkbox_group') {
+    if (!rawValue || rawValue.trim() === '') {
+      return '—';
+    }
+    const options = rawValue.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0);
+    if (options.length === 0) {
+      return '—';
+    }
+    const listItems = options.map(opt => `<li>${escapeHtml(opt)}</li>`).join('');
+    return `<ul style="margin: 0; padding-left: 20px; list-style-type: disc;">${listItems}</ul>`;
+  }
+  
+  // Handle fill_in_blank: substitute placeholders
+  if (field.fieldType === 'fill_in_blank') {
+    const template = field.helpText || '';
+    if (!template) {
+      return '—';
+    }
+    
+    // Auto-fill mapping from assignment data
+    const autoFillMap: Record<string, string> = {
+      'THERAPIST_NAME': assignment.therapist?.fullName || '',
+      'THERAPIST_FULL_NAME': assignment.therapist?.fullName || '',
+      'THERAPIST_EMAIL': assignment.therapist?.email || '',
+      'THERAPIST_PHONE': assignment.therapist?.phoneNumber || '',
+      'CLIENT_NAME': assignment.client?.fullName || '',
+      'CLIENT_FULL_NAME': assignment.client?.fullName || '',
+      'CLIENT_EMAIL': assignment.client?.email || '',
+      'CLIENT_PHONE': assignment.client?.phoneNumber || '',
+    };
+    
+    // Parse stored manual values (if any)
+    let manualValues: Record<string, string> = {};
+    if (rawValue) {
+      try {
+        manualValues = JSON.parse(rawValue);
+      } catch {
+        manualValues = {};
+      }
+    }
+    
+    // Replace all placeholders in template
+    let result = template;
+    
+    // Replace {{UPPERCASE}} auto-fill placeholders
+    result = result.replace(/\{\{([^}]+)\}\}/g, (match, placeholder) => {
+      const trimmed = placeholder.trim();
+      const value = autoFillMap[trimmed];
+      if (value) {
+        return `<strong>${escapeHtml(value)}</strong>`;
+      }
+      return `<strong>[${escapeHtml(trimmed)}]</strong>`;
+    });
+    
+    // Replace [lowercase] manual input placeholders
+    result = result.replace(/\[([^\]]+)\]/g, (match, placeholder) => {
+      const trimmed = placeholder.trim();
+      const value = manualValues[trimmed];
+      if (value && String(value).trim() !== '') {
+        return `<u>${escapeHtml(value)}</u>`;
+      }
+      return `<u>[${escapeHtml(trimmed)}]</u>`;
+    });
+    
+    return result;
+  }
+  
+  // Default: escape HTML and return
+  return escapeHtml(rawValue || '—');
+}
+
 interface FormField {
   id: number;
   label: string;
@@ -49,6 +129,12 @@ interface FormAssignment {
     fullName: string;
     clientId?: string | null;
     dateOfBirth?: Date | null;
+    email?: string | null;
+    phoneNumber?: string | null;
+  };
+  therapist?: {
+    id: number;
+    fullName: string;
     email?: string | null;
     phoneNumber?: string | null;
   };
@@ -114,7 +200,7 @@ export function generateFormAssignmentHTML(
       // Flush any pending input fields
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = escapeHtml(responseMap.get(f.id) || '—');
+          const response = formatFieldResponse(f, responseMap, assignment);
           const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
@@ -151,7 +237,7 @@ export function generateFormAssignmentHTML(
       // Flush any pending input fields
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = escapeHtml(responseMap.get(f.id) || '—');
+          const response = formatFieldResponse(f, responseMap, assignment);
           const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
@@ -192,7 +278,7 @@ export function generateFormAssignmentHTML(
       // Flush if last field
       if (isLastField && currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = escapeHtml(responseMap.get(f.id) || '—');
+          const response = formatFieldResponse(f, responseMap, assignment);
           const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
