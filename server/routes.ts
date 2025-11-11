@@ -5215,19 +5215,28 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const userId = parseInt(req.params.userId);
       
+      // Clean up date fields - convert empty strings to undefined
+      const cleanedData = { ...req.body };
+      if (cleanedData.licenseExpiry === '') {
+        cleanedData.licenseExpiry = undefined;
+      }
+      if (cleanedData.dateOfBirth === '') {
+        cleanedData.dateOfBirth = undefined;
+      }
+      
       // Check if profile already exists
       const existingProfile = await storage.getUserProfile(userId);
       
       if (existingProfile) {
         // Profile exists, update it instead
-        const validatedData = insertUserProfileSchema.partial().parse(req.body);
+        const validatedData = insertUserProfileSchema.partial().parse(cleanedData);
         const profile = await storage.updateUserProfile(userId, validatedData);
         return res.json(profile);
       }
       
       // Create new profile
       const validatedData = insertUserProfileSchema.parse({
-        ...req.body,
+        ...cleanedData,
         userId
       });
       const profile = await storage.createUserProfile(validatedData);
