@@ -18,40 +18,62 @@ import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { insertClientSchema } from "@shared/schema";
 import { Client } from "@/types/client";
 
-// Use insert schema but make clientId optional for edits since it already exists
-const clientFormSchema = insertClientSchema.extend({
-  assignedTherapistId: z.number().optional(),
+// Simplified form schema to avoid type inference issues
+const clientFormSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
+  maritalStatus: z.string().optional(),
+  preferredLanguage: z.string().optional(),
+  pronouns: z.string().optional(),
   emailNotifications: z.boolean().optional(),
-}).partial().refine(
-  (data) => {
-    // Validate start date is not in the future
-    if (data.startDate) {
-      const startDate = new Date(data.startDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return startDate <= today;
-    }
-    return true;
-  },
-  {
-    message: "Start date cannot be in the future",
-    path: ["startDate"],
-  }
-).refine(
-  (data) => {
-    // Validate referral date is before or equal to start date
-    if (data.referralDate && data.startDate) {
-      const referralDate = new Date(data.referralDate);
-      const startDate = new Date(data.startDate);
-      return referralDate <= startDate;
-    }
-    return true;
-  },
-  {
-    message: "Referral date must be before or equal to start date",
-    path: ["startDate"],
-  }
-);
+  hasPortalAccess: z.boolean().optional(),
+  portalEmail: z.string().optional(),
+  phone: z.string().optional(),
+  emergencyPhone: z.string().optional(),
+  email: z.string().optional(),
+  streetAddress1: z.string().optional(),
+  streetAddress2: z.string().optional(),
+  city: z.string().optional(),
+  province: z.string().optional(),
+  postalCode: z.string().optional(),
+  country: z.string().optional(),
+  startDate: z.string().optional(),
+  referrerName: z.string().optional(),
+  referralDate: z.string().optional(),
+  referenceNumber: z.string().optional(),
+  clientSource: z.string().optional(),
+  employmentStatus: z.string().optional(),
+  educationLevel: z.string().optional(),
+  dependents: z.number().optional(),
+  clientType: z.string().optional(),
+  status: z.enum(['active', 'inactive', 'pending']).optional(),
+  stage: z.enum(['intake', 'assessment', 'psychotherapy', 'closed']).optional(),
+  assignedTherapistId: z.number().optional(),
+  insuranceProvider: z.string().optional(),
+  policyNumber: z.string().optional(),
+  groupNumber: z.string().optional(),
+  insurancePhone: z.string().optional(),
+  copayAmount: z.string().optional(),
+  deductible: z.string().optional(),
+  serviceType: z.string().optional(),
+  serviceFrequency: z.string().optional(),
+  notes: z.string().optional(),
+  needsFollowUp: z.boolean().optional(),
+  followUpPriority: z.string().optional(),
+  followUpDate: z.string().optional(),
+  followUpNotes: z.string().optional(),
+  address: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  emergencyContactRelationship: z.string().optional(),
+  referralSource: z.string().optional(),
+  referralType: z.string().optional(),
+  referringPerson: z.string().optional(),
+  referralNotes: z.string().optional(),
+});
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
 
