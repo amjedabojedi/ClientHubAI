@@ -12093,15 +12093,24 @@ You can download a copy if you have it saved locally and re-upload it.`;
         .where(eq(formSignatures.assignmentId, assignmentId))
         .limit(1);
 
+      // Get client info for signature
+      const client = await storage.getClient(session.clientId);
+      
+      if (!client) {
+        return res.status(404).json({ error: "Client not found" });
+      }
+
       let signature;
       if (existingSignature.length) {
         const updated = await db
           .update(formSignatures)
           .set({
-            signatureDataUrl,
+            signatureData: signatureDataUrl,
+            signerName: client.fullName,
+            signerRole: 'client',
             signedAt: new Date(),
-            clientIpAddress: ipAddress,
-            clientUserAgent: userAgent
+            ipAddress,
+            userAgent
           })
           .where(eq(formSignatures.id, existingSignature[0].id))
           .returning();
@@ -12111,34 +12120,33 @@ You can download a copy if you have it saved locally and re-upload it.`;
           .insert(formSignatures)
           .values({
             assignmentId,
-            signatureDataUrl,
+            signatureData: signatureDataUrl,
+            signerName: client.fullName,
+            signerRole: 'client',
             signedAt: new Date(),
-            clientIpAddress: ipAddress,
-            clientUserAgent: userAgent
+            ipAddress,
+            userAgent,
+            agreedToTerms: true
           })
           .returning();
         signature = inserted[0];
       }
-
-      const client = await storage.getClient(session.clientId);
       
-      if (client) {
-        await AuditLogger.logAction({
-          userId: client.id,
-          userEmail: client.portalEmail || client.email || 'unknown',
-          action: 'form_signed',
-          result: 'success',
-          resourceType: 'form_signature',
-          resourceId: signature.id.toString(),
-          clientId: session.clientId,
-          ipAddress,
-          userAgent,
-          hipaaRelevant: true,
-          riskLevel: 'high',
-          details: JSON.stringify({ portal: true, assignmentId }),
-          accessReason: 'Client portal form signature capture',
-        });
-      }
+      await AuditLogger.logAction({
+        userId: client.id,
+        userEmail: client.portalEmail || client.email || 'unknown',
+        action: 'form_signed',
+        result: 'success',
+        resourceType: 'form_signature',
+        resourceId: signature.id.toString(),
+        clientId: session.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({ portal: true, assignmentId }),
+        accessReason: 'Client portal form signature capture',
+      });
 
       res.json(signature);
     } catch (error) {
