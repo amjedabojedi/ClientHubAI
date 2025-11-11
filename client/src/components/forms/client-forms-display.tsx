@@ -350,20 +350,30 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
                             </div>
                           )}
 
-                          {(field.fieldType === "select" || field.fieldType === "radio" || field.fieldType === "checkbox_group") && field.options && (
+                          {(field.fieldType === "select" || field.fieldType === "radio" || field.fieldType === "checkbox" || field.fieldType === "checkbox_group") && field.options && (
                             <div className="text-sm text-slate-600 space-y-1">
                               {(() => {
-                                try {
-                                  const opts = JSON.parse(field.options);
-                                  return opts.map((opt: string, idx: number) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                      <span className="w-4 h-4 border border-slate-300 rounded"></span>
-                                      {opt}
-                                    </div>
-                                  ));
-                                } catch {
-                                  return <div className="text-slate-400">Options: {field.options}</div>;
+                                let opts: string[] = [];
+                                if (Array.isArray(field.options)) {
+                                  opts = field.options;
+                                } else if (typeof field.options === 'string') {
+                                  try {
+                                    opts = JSON.parse(field.options);
+                                  } catch {
+                                    opts = [];
+                                  }
                                 }
+                                
+                                if (opts.length === 0) {
+                                  return <div className="text-slate-400">No options available</div>;
+                                }
+                                
+                                return opts.map((opt: string, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <span className="w-4 h-4 border border-slate-300 rounded"></span>
+                                    {opt}
+                                  </div>
+                                ));
                               })()}
                             </div>
                           )}
