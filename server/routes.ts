@@ -11766,10 +11766,21 @@ You can download a copy if you have it saved locally and re-upload it.`;
         .where(eq(formFields.templateId, template[0].id))
         .orderBy(asc(formFields.sortOrder));
 
-      const parsedFields = fields.map(field => ({
-        ...field,
-        options: field.options ? (typeof field.options === 'string' ? JSON.parse(field.options) : field.options) : undefined
-      }));
+      const parsedFields = fields.map(field => {
+        let parsedOptions = field.options;
+        if (field.options && typeof field.options === 'string') {
+          try {
+            parsedOptions = JSON.parse(field.options);
+          } catch {
+            // If parsing fails, keep as string (for fields that don't use JSON arrays)
+            parsedOptions = field.options;
+          }
+        }
+        return {
+          ...field,
+          options: parsedOptions
+        };
+      });
 
       const client = await storage.getClient(session.clientId);
       const therapist = await storage.getUser(assignment[0].assignedById);
