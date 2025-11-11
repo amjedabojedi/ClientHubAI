@@ -458,6 +458,7 @@ export default function PortalFormCompletion() {
 
       case "select":
       case "dropdown":
+        const selectOptions = Array.isArray(field.options) ? field.options : [];
         return (
           <div key={field.id} className="space-y-2">
             <Label htmlFor={`field-${field.id}`}>
@@ -469,7 +470,7 @@ export default function PortalFormCompletion() {
                 <SelectValue placeholder={field.placeholder || "Select an option..."} />
               </SelectTrigger>
               <SelectContent>
-                {field.options?.map((option, idx) => (
+                {selectOptions.map((option, idx) => (
                   <SelectItem key={idx} value={option}>
                     {option}
                   </SelectItem>
@@ -480,6 +481,7 @@ export default function PortalFormCompletion() {
         );
 
       case "radio":
+        const radioOptions = Array.isArray(field.options) ? field.options : [];
         return (
           <div key={field.id} className="space-y-2">
             <Label>
@@ -487,7 +489,7 @@ export default function PortalFormCompletion() {
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
             <RadioGroup value={value} onValueChange={(val) => handleFieldChange(field.id, val)} disabled={isCompleted}>
-              {field.options?.map((option, idx) => (
+              {radioOptions.map((option, idx) => (
                 <div key={idx} className="flex items-center space-x-2">
                   <RadioGroupItem value={option} id={`field-${field.id}-${idx}`} disabled={isCompleted} data-testid={`radio-field-${field.id}-${idx}`} />
                   <Label htmlFor={`field-${field.id}-${idx}`} className={`font-normal ${!isCompleted && 'cursor-pointer'}`}>
@@ -502,6 +504,7 @@ export default function PortalFormCompletion() {
       case "checkbox":
       case "checkbox_group":
         const checkboxValues = value ? value.split(",") : [];
+        const checkboxOptions = Array.isArray(field.options) ? field.options : [];
         return (
           <div key={field.id} className="space-y-2">
             <Label>
@@ -512,7 +515,7 @@ export default function PortalFormCompletion() {
               <p className="text-sm text-slate-500">{field.helpText}</p>
             )}
             <div className="space-y-2">
-              {field.options?.map((option, idx) => (
+              {checkboxOptions.map((option, idx) => (
                 <div key={idx} className="flex items-center space-x-2">
                   <Checkbox
                     id={`field-${field.id}-${idx}`}
