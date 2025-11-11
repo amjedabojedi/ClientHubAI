@@ -53,6 +53,16 @@ interface FormAssignment {
   assignedAt: Date;
   completedAt?: Date;
   template?: FormTemplate;
+  clientData?: {
+    fullName: string;
+    email: string;
+    phone: string;
+  };
+  therapistData?: {
+    fullName: string;
+    email: string;
+    phone: string;
+  };
 }
 
 interface FormResponse {
@@ -256,17 +266,44 @@ export default function PortalFormCompletion() {
     return matches.map(m => m.replace(/\{\{|\}\}/g, '').trim());
   };
 
+  // Helper function to check if placeholder is auto-fill (UPPERCASE) vs manual (lowercase)
+  const isAutoFillPlaceholder = (placeholder: string): boolean => {
+    return placeholder === placeholder.toUpperCase() && placeholder.match(/[A-Z]/);
+  };
+
+  // Helper function to get auto-fill value from client/therapist data
+  const getAutoFillValue = (placeholder: string): string => {
+    if (!assignment) return '';
+    
+    const autoFillMap: Record<string, string> = {
+      'THERAPIST_NAME': assignment.therapistData?.fullName || '',
+      'THERAPIST_EMAIL': assignment.therapistData?.email || '',
+      'THERAPIST_PHONE': assignment.therapistData?.phone || '',
+      'CLIENT_NAME': assignment.clientData?.fullName || '',
+      'CLIENT_EMAIL': assignment.clientData?.email || '',
+      'CLIENT_PHONE': assignment.clientData?.phone || '',
+    };
+    
+    return autoFillMap[placeholder] || '';
+  };
+
   // Helper function to validate fill-in-blank field is complete
   const isFillInBlankComplete = (field: FormField, value: string): boolean => {
-    if (!value || !field.helpText) return false;
+    if (!field.helpText) return false;
     
     const placeholders = extractPlaceholders(field.helpText);
-    if (placeholders.length === 0) return false;
+    // Filter to only manual (lowercase) placeholders that need client input
+    const manualPlaceholders = placeholders.filter(p => !isAutoFillPlaceholder(p));
+    
+    // If no manual placeholders, field is complete (all auto-fill)
+    if (manualPlaceholders.length === 0) return true;
+    
+    if (!value) return false;
     
     try {
       const values = JSON.parse(value);
-      // All placeholders must have non-empty trimmed values
-      return placeholders.every(placeholder => {
+      // Only manual placeholders must have non-empty trimmed values
+      return manualPlaceholders.every(placeholder => {
         const val = values[placeholder];
         return val && String(val).trim() !== "";
       });
@@ -346,6 +383,18 @@ export default function PortalFormCompletion() {
               {templateParts.map((part, idx) => {
                 if (part.match(/\{\{[^}]+\}\}/)) {
                   const placeholder = part.replace(/\{\{|\}\}/g, '').trim();
+                  
+                  // Check if this is an auto-fill placeholder (UPPERCASE)
+                  if (isAutoFillPlaceholder(placeholder)) {
+                    const autoValue = getAutoFillValue(placeholder);
+                    return (
+                      <span key={idx} className="font-semibold underline decoration-dotted" title={`Auto-filled: ${placeholder}`}>
+                        {autoValue || `[${placeholder}]`}
+                      </span>
+                    );
+                  }
+                  
+                  // Manual input placeholder (lowercase)
                   return (
                     <Input
                       key={idx}
