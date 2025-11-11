@@ -43,6 +43,7 @@ interface FormTemplate {
 const FIELD_TYPES = [
   { value: "heading", label: "Heading (Read-Only)" },
   { value: "info_text", label: "Information Text (Read-Only)" },
+  { value: "fill_in_blank", label: "Fill-in-the-Blank" },
   { value: "text", label: "Short Text" },
   { value: "textarea", label: "Long Text" },
   { value: "select", label: "Dropdown" },
@@ -265,6 +266,28 @@ export default function FormsBuilder() {
                 __html: sanitizeHtml(field.helpText || "<p>Information text will appear here...</p>")
               }}
             />
+          </div>
+        );
+      case "fill_in_blank":
+        const previewText = field.helpText || "I, {{name}}, hereby...";
+        const parts = previewText.split(/(\{\{[^}]+\}\})/g);
+        return (
+          <div className="text-sm text-foreground leading-relaxed flex flex-wrap items-center gap-1">
+            {parts.map((part, idx) => {
+              if (part.match(/\{\{[^}]+\}\}/)) {
+                const placeholder = part.replace(/\{\{|\}\}/g, '').trim();
+                return (
+                  <span key={idx} className="inline-flex items-center">
+                    <Input
+                      className="h-8 w-32 inline-block bg-muted/50"
+                      placeholder={placeholder}
+                      disabled
+                    />
+                  </span>
+                );
+              }
+              return <span key={idx}>{part}</span>;
+            })}
           </div>
         );
       case "text":
@@ -521,7 +544,7 @@ export default function FormsBuilder() {
               />
             </div>
 
-            {!['heading', 'info_text', 'signature', 'file'].includes(fieldData.fieldType) && (
+            {!['heading', 'info_text', 'fill_in_blank', 'signature', 'file'].includes(fieldData.fieldType) && (
               <div className="grid gap-2">
                 <Label htmlFor="placeholder">Placeholder</Label>
                 <Input
@@ -538,7 +561,9 @@ export default function FormsBuilder() {
 
             <div className="grid gap-2">
               <Label htmlFor="helpText">
-                {fieldData.fieldType === 'info_text' ? 'Content Text *' : 'Help Text'}
+                {fieldData.fieldType === 'info_text' ? 'Content Text *' : 
+                 fieldData.fieldType === 'fill_in_blank' ? 'Template Text *' :
+                 'Help Text'}
               </Label>
               {fieldData.fieldType === 'info_text' ? (
                 <>
@@ -559,6 +584,22 @@ export default function FormsBuilder() {
                   />
                   <p className="text-xs text-muted-foreground">
                     Use the rich text editor to format your content with headings, bold text, lists, etc.
+                  </p>
+                </>
+              ) : fieldData.fieldType === 'fill_in_blank' ? (
+                <>
+                  <Textarea
+                    id="helpText"
+                    data-testid="textarea-helptext"
+                    value={fieldData.helpText}
+                    onChange={(e) =>
+                      setFieldData({ ...fieldData, helpText: e.target.value })
+                    }
+                    rows={4}
+                    placeholder="I, {{name}}, hereby request and agree to participate in individual psychotherapy at {{practice_name}}."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use {`{{placeholder}}`} syntax to create fillable blanks. Example: I, {`{{name}}`}, hereby...
                   </p>
                 </>
               ) : (

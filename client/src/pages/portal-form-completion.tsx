@@ -216,7 +216,17 @@ export default function PortalFormCompletion() {
     // Exclude read-only fields (heading, info_text) and signature from required validation
     const inputFields = fields.filter((f) => !['signature', 'heading', 'info_text'].includes(f.fieldType));
     const requiredFields = inputFields.filter((f) => f.required);
-    const missingFields = requiredFields.filter((f) => !formValues[f.id] || formValues[f.id].trim() === "");
+    const missingFields = requiredFields.filter((f) => {
+      const value = formValues[f.id];
+      if (!value) return true;
+      
+      // For fill_in_blank fields, validate all placeholders are filled
+      if (f.fieldType === 'fill_in_blank') {
+        return !isFillInBlankComplete(f, value);
+      }
+      
+      return value.trim() === "";
+    });
 
     if (missingFields.length > 0) {
       toast({
@@ -239,12 +249,46 @@ export default function PortalFormCompletion() {
     submitFormMutation.mutate();
   };
 
+  // Helper function to extract placeholders from fill-in-blank template
+  const extractPlaceholders = (template: string): string[] => {
+    const matches = template.match(/\{\{([^}]+)\}\}/g);
+    if (!matches) return [];
+    return matches.map(m => m.replace(/\{\{|\}\}/g, '').trim());
+  };
+
+  // Helper function to validate fill-in-blank field is complete
+  const isFillInBlankComplete = (field: FormField, value: string): boolean => {
+    if (!value || !field.helpText) return false;
+    
+    const placeholders = extractPlaceholders(field.helpText);
+    if (placeholders.length === 0) return false;
+    
+    try {
+      const values = JSON.parse(value);
+      // All placeholders must have non-empty trimmed values
+      return placeholders.every(placeholder => {
+        const val = values[placeholder];
+        return val && String(val).trim() !== "";
+      });
+    } catch {
+      return false;
+    }
+  };
+
   const calculateProgress = () => {
     const fields = assignment?.template?.fields || [];
     // Exclude read-only fields (heading, info_text) and signature from progress calculation
     const inputFields = fields.filter((f) => !['signature', 'heading', 'info_text'].includes(f.fieldType));
     if (inputFields.length === 0) return 0;
-    const filled = inputFields.filter((f) => formValues[f.id] && formValues[f.id].trim() !== "");
+    const filled = inputFields.filter((f) => {
+      const value = formValues[f.id];
+      if (!value) return false;
+      // For fill_in_blank fields, check if all placeholders are filled
+      if (f.fieldType === 'fill_in_blank') {
+        return isFillInBlankComplete(f, value);
+      }
+      return value.trim() !== "";
+    });
     return Math.round((filled.length / inputFields.length) * 100);
   };
 
@@ -276,6 +320,49 @@ export default function PortalFormCompletion() {
                   __html: sanitizeHtml(field.helpText || "")
                 }}
               />
+            </div>
+          </div>
+        );
+
+      case "fill_in_blank":
+        const templateText = field.helpText || "";
+        const templateParts = templateText.split(/(\{\{[^}]+\}\})/g);
+        let fieldValues: Record<string, string> = {};
+        try {
+          fieldValues = value ? JSON.parse(value) : {};
+        } catch {
+          fieldValues = {};
+        }
+        
+        return (
+          <div key={field.id} className="space-y-2">
+            {field.label && (
+              <Label>
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </Label>
+            )}
+            <div className="text-base text-foreground leading-relaxed flex flex-wrap items-center gap-1 bg-muted/30 p-4 rounded-md border border-muted">
+              {templateParts.map((part, idx) => {
+                if (part.match(/\{\{[^}]+\}\}/)) {
+                  const placeholder = part.replace(/\{\{|\}\}/g, '').trim();
+                  return (
+                    <Input
+                      key={idx}
+                      className="h-9 w-40 inline-block"
+                      placeholder={placeholder}
+                      value={fieldValues[placeholder] || ""}
+                      onChange={(e) => {
+                        const newValues = { ...fieldValues, [placeholder]: e.target.value };
+                        handleFieldChange(field.id, JSON.stringify(newValues));
+                      }}
+                      disabled={isCompleted}
+                      data-testid={`input-fill-blank-${field.id}-${placeholder}`}
+                    />
+                  );
+                }
+                return <span key={idx} className="whitespace-pre-wrap">{part}</span>;
+              })}
             </div>
           </div>
         );
