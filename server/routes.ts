@@ -11684,7 +11684,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         .from(formAssignments)
         .leftJoin(formTemplates, eq(formAssignments.templateId, formTemplates.id))
         .where(eq(formAssignments.clientId, session.clientId))
-        .orderBy(desc(formAssignments.assignedAt));
+        .orderBy(desc(formAssignments.createdAt));
 
       const assignments = results.map(r => ({
         ...r.assignment,
