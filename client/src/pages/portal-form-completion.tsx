@@ -500,6 +500,7 @@ export default function PortalFormCompletion() {
         );
 
       case "checkbox":
+      case "checkbox_group":
         const checkboxValues = value ? value.split(",") : [];
         return (
           <div key={field.id} className="space-y-2">
@@ -507,6 +508,9 @@ export default function PortalFormCompletion() {
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
+            {field.helpText && (
+              <p className="text-sm text-slate-500">{field.helpText}</p>
+            )}
             <div className="space-y-2">
               {field.options?.map((option, idx) => (
                 <div key={idx} className="flex items-center space-x-2">
