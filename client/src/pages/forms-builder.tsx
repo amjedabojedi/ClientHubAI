@@ -223,29 +223,85 @@ export default function FormsBuilder() {
     });
   };
 
-  const handleMoveField = async (fieldId: number, direction: "up" | "down") => {
-    if (!template?.fields) return;
+  const moveFieldMutation = useMutation({
+    mutationFn: async ({ fieldId, direction }: { fieldId: number; direction: "up" | "down" }) => {
+      if (!template?.fields) throw new Error("No fields available");
 
-    const currentIndex = template.fields.findIndex((f) => f.id === fieldId);
-    if (currentIndex === -1) return;
+      const sortedFields = [...template.fields].sort((a, b) => a.sortOrder - b.sortOrder);
+      const currentIndex = sortedFields.findIndex((f) => f.id === fieldId);
+      if (currentIndex === -1) throw new Error("Field not found");
 
-    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= template.fields.length) return;
+      const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex < 0 || newIndex >= sortedFields.length) throw new Error("Invalid move");
 
-    const field1 = template.fields[currentIndex];
-    const field2 = template.fields[newIndex];
+      // Swap fields in the array
+      const reorderedFields = [...sortedFields];
+      [reorderedFields[currentIndex], reorderedFields[newIndex]] = [reorderedFields[newIndex], reorderedFields[currentIndex]];
 
-    try {
-      await apiRequest(`/api/forms/fields/${field1.id}`, "PATCH", { sortOrder: field2.sortOrder });
-      await apiRequest(`/api/forms/fields/${field2.id}`, "PATCH", { sortOrder: field1.sortOrder });
-      queryClient.invalidateQueries({ queryKey: ["/api/forms/templates", templateId] });
-    } catch (error) {
+      // Renumber all fields sequentially
+      const updates = reorderedFields.map((field, index) => ({
+        id: field.id,
+        sortOrder: index,
+      }));
+
+      // Batch update the two affected fields
+      await Promise.all([
+        apiRequest(`/api/forms/fields/${updates[currentIndex].id}`, "PATCH", { sortOrder: updates[currentIndex].sortOrder }),
+        apiRequest(`/api/forms/fields/${updates[newIndex].id}`, "PATCH", { sortOrder: updates[newIndex].sortOrder }),
+      ]);
+
+      return reorderedFields;
+    },
+    onMutate: async ({ fieldId, direction }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/forms/templates", templateId] });
+
+      // Snapshot the previous value
+      const previousTemplate = queryClient.getQueryData<FormTemplate>(["/api/forms/templates", templateId]);
+
+      // Optimistically update to the new value
+      if (previousTemplate?.fields) {
+        const sortedFields = [...previousTemplate.fields].sort((a, b) => a.sortOrder - b.sortOrder);
+        const currentIndex = sortedFields.findIndex((f) => f.id === fieldId);
+        const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+        if (currentIndex !== -1 && newIndex >= 0 && newIndex < sortedFields.length) {
+          const reorderedFields = [...sortedFields];
+          [reorderedFields[currentIndex], reorderedFields[newIndex]] = [reorderedFields[newIndex], reorderedFields[currentIndex]];
+          
+          // Renumber sequentially
+          const updatedFields = reorderedFields.map((field, index) => ({
+            ...field,
+            sortOrder: index,
+          }));
+
+          queryClient.setQueryData<FormTemplate>(["/api/forms/templates", templateId], {
+            ...previousTemplate,
+            fields: updatedFields,
+          });
+        }
+      }
+
+      return { previousTemplate };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousTemplate) {
+        queryClient.setQueryData(["/api/forms/templates", templateId], context.previousTemplate);
+      }
       toast({
         title: "Error",
         description: "Failed to reorder fields",
         variant: "destructive",
       });
-    }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/forms/templates", templateId] });
+    },
+  });
+
+  const handleMoveField = (fieldId: number, direction: "up" | "down") => {
+    moveFieldMutation.mutate({ fieldId, direction });
   };
 
   const renderFieldPreview = (field: FormField) => {
@@ -456,7 +512,7 @@ export default function FormsBuilder() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleMoveField(field.id, "up")}
-                      disabled={index === 0}
+                      disabled={index === 0 || moveFieldMutation.isPending}
                       data-testid={`button-move-up-${field.id}`}
                     >
                       <MoveUp className="h-4 w-4" />
@@ -465,7 +521,7 @@ export default function FormsBuilder() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleMoveField(field.id, "down")}
-                      disabled={index === template.fields.length - 1}
+                      disabled={index === template.fields.length - 1 || moveFieldMutation.isPending}
                       data-testid={`button-move-down-${field.id}`}
                     >
                       <MoveDown className="h-4 w-4" />
