@@ -258,9 +258,9 @@ export function generateFormAssignmentHTML(
       
       // Add info text (rich HTML content from editor, sanitized to prevent XSS)
       formSections.push(`
-        <div style="margin: 16px 0; background-color: #f9fafb; padding: 16px; border-radius: 6px; border: 1px solid #e5e7eb;">
+        <div style="margin: 16px 0; padding: 0;">
           ${field.label ? `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 8px 0;">${escapeHtml(field.label)}</h3>` : ''}
-          <div style="font-size: 13px; color: #4b5563; line-height: 1.6;">
+          <div style="font-size: 13px; color: #1f2937; line-height: 1.6;">
             ${sanitizeHtml(field.helpText || '')}
           </div>
         </div>
@@ -406,11 +406,12 @@ export function generateFormAssignmentHTML(
         h1 {
           color: #1e40af;
           margin: 0 0 6px 0;
-          font-size: 26px;
+          font-size: 22px;
+          text-align: center;
         }
         .form-title {
           color: #1e40af;
-          font-size: 22px;
+          font-size: 18px;
           margin: 15px 0 10px 0;
           font-weight: 700;
         }
@@ -569,7 +570,7 @@ export function generateFormAssignmentHTML(
         </div>
       </div>
 
-      <h1>Clinical Form</h1>
+      <h1>Informed Consent</h1>
       
       <div class="confidentiality-banner">
         CONFIDENTIAL PATIENT INFORMATION — HIPAA PROTECTED
