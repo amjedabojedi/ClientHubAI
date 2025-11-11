@@ -10,7 +10,8 @@ import {
   varchar,
   pgEnum,
   uuid,
-  index
+  index,
+  unique
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -1042,6 +1043,7 @@ export const formSignatures = pgTable("form_signatures", {
   assignmentIdx: index("form_signatures_assignment_idx").on(table.assignmentId),
   signedAtIdx: index("form_signatures_signed_at_idx").on(table.signedAt),
   assignmentRoleIdx: index("form_signatures_assignment_role_idx").on(table.assignmentId, table.signerRole), // For PDF generation queries
+  uniqueAssignmentRole: unique("form_signatures_assignment_role_unique").on(table.assignmentId, table.signerRole), // Prevent duplicate signatures for same assignment+role
 }));
 
 // HIPAA Audit Logging System

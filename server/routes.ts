@@ -12004,7 +12004,16 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(404).json({ error: "Signature not found" });
       }
 
-      res.json(signature[0]);
+      res.json({
+        id: signature[0].id,
+        assignmentId: signature[0].assignmentId,
+        signatureData: signature[0].signatureData,
+        signerName: signature[0].signerName,
+        signerRole: signature[0].signerRole,
+        signedAt: signature[0].signedAt,
+        ipAddress: signature[0].ipAddress,
+        userAgent: signature[0].userAgent
+      });
     } catch (error) {
       console.error("Portal form signature fetch error:", error);
       res.status(500).json({ error: "Failed to fetch signature" });
@@ -12030,7 +12039,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       await storage.updatePortalSessionActivity(session.id);
 
-      const { assignmentId, signatureDataUrl } = req.body;
+      const { assignmentId, signatureData } = req.body;
 
       if (!assignmentId) {
         return res.status(400).json({ error: "Assignment ID is required" });
@@ -12051,7 +12060,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(404).json({ error: "Form assignment not found" });
       }
 
-      if (!signatureDataUrl || signatureDataUrl.trim() === "") {
+      if (!signatureData || signatureData.trim() === "") {
         const existingSignature = await db
           .select()
           .from(formSignatures)
@@ -12105,7 +12114,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const updated = await db
           .update(formSignatures)
           .set({
-            signatureData: signatureDataUrl,
+            signatureData: signatureData,
             signerName: client.fullName,
             signerRole: 'client',
             signedAt: new Date(),
@@ -12120,7 +12129,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           .insert(formSignatures)
           .values({
             assignmentId,
-            signatureData: signatureDataUrl,
+            signatureData: signatureData,
             signerName: client.fullName,
             signerRole: 'client',
             signedAt: new Date(),

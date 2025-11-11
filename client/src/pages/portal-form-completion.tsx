@@ -75,8 +75,12 @@ interface FormResponse {
 interface FormSignature {
   id: number;
   assignmentId: number;
-  signatureDataUrl: string;
-  signedAt: Date;
+  signatureData: string;
+  signerName?: string;
+  signerRole?: string;
+  signedAt?: Date | string;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 export default function PortalFormCompletion() {
@@ -138,8 +142,8 @@ export default function PortalFormCompletion() {
   }, [responses]);
 
   useEffect(() => {
-    if (existingSignature?.signatureDataUrl) {
-      setSignature(existingSignature.signatureDataUrl);
+    if (existingSignature?.signatureData) {
+      setSignature(existingSignature.signatureData);
     }
   }, [existingSignature]);
 
@@ -184,10 +188,10 @@ export default function PortalFormCompletion() {
   };
 
   const saveSignatureMutation = useMutation({
-    mutationFn: async (signatureDataUrl: string) => {
+    mutationFn: async (signatureData: string) => {
       return await apiRequest("/api/portal/forms/signature", "POST", {
         assignmentId: parseInt(id!),
-        signatureDataUrl,
+        signatureData,
       });
     },
     onSuccess: () => {
@@ -707,14 +711,34 @@ export default function PortalFormCompletion() {
                     <PenTool className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">Electronic Signature</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Please sign below to certify that the information provided is accurate and complete.
-                  </p>
+                  {!isCompleted && (
+                    <p className="text-sm text-gray-600 mb-4">
+                      Please sign below to certify that the information provided is accurate and complete.
+                    </p>
+                  )}
                   <SignaturePad
                     onSave={handleSignatureSave}
                     initialSignature={signature}
                     disabled={isCompleted}
                   />
+                  {isCompleted && existingSignature && (
+                    <div className="mt-4 p-3 bg-slate-50 rounded-md border border-slate-200">
+                      <div className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium text-slate-700">Signed by:</span>{" "}
+                          <span className="text-slate-900">{existingSignature.signerName || 'Unknown'}</span>
+                        </div>
+                        <div>
+                          <Clock className="w-4 h-4 inline mr-1 text-slate-500" />
+                          <span className="text-slate-600">
+                            {existingSignature.signedAt 
+                              ? new Date(existingSignature.signedAt).toLocaleString()
+                              : 'No timestamp'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -735,26 +759,13 @@ export default function PortalFormCompletion() {
             )}
 
             {isCompleted && (
-              <>
-                <div className="mt-8 border-t pt-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <PenTool className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">Electronic Signature</h3>
-                  </div>
-                  <SignaturePad
-                    onSave={handleSignatureSave}
-                    initialSignature={signature}
-                    disabled={true}
-                  />
-                </div>
-                <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                  <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                  <p className="text-green-800 font-medium">This form has been completed and submitted</p>
-                  <p className="text-green-600 text-sm mt-1">
-                    Your therapist will review your responses
-                  </p>
-                </div>
-              </>
+              <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                <p className="text-green-800 font-medium">This form has been completed and submitted</p>
+                <p className="text-green-600 text-sm mt-1">
+                  Your therapist will review your responses
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

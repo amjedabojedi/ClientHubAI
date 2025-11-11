@@ -62,7 +62,7 @@ interface FormResponse {
 }
 
 interface FormSignature {
-  signatureDataUrl: string;
+  signatureData: string;
   signedAt: Date;
 }
 
@@ -458,11 +458,11 @@ export function generateFormAssignmentHTML(
 
       ${formContent}
 
-      ${signature && isValidSignatureDataUrl(signature.signatureDataUrl) ? `
+      ${signature && isValidSignatureDataUrl(signature.signatureData) ? `
         <div class="signature-section">
           <div class="signature-title">Electronic Signature</div>
           <div class="signature-image">
-            <img src="${signature.signatureDataUrl}" alt="Client Signature" />
+            <img src="${signature.signatureData}" alt="Client Signature" />
           </div>
           <div class="signature-date">
             Signed on ${escapeHtml(signedDate || '')}
@@ -474,7 +474,7 @@ export function generateFormAssignmentHTML(
       ` : `
         <div class="signature-section">
           <div class="signature-title">Electronic Signature</div>
-          <p style="color: #9ca3af; font-style: italic;">${signature && !isValidSignatureDataUrl(signature.signatureDataUrl) ? 'Invalid signature format' : 'No signature captured'}</p>
+          <p style="color: #9ca3af; font-style: italic;">${signature && !isValidSignatureDataUrl(signature.signatureData) ? 'Invalid signature format' : 'No signature captured'}</p>
         </div>
       `}
 
