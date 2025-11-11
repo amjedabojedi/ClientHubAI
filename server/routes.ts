@@ -12923,6 +12923,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Fetch assigned therapist for form auto-fill placeholders
       const therapist = await storage.getUser(assignment.assignedById);
+      
+      // Fetch therapist profile for additional contact info (emergency contact phone as fallback)
+      const therapistProfile = therapist ? await storage.getUserProfile(therapist.id) : null;
 
       // Authorization: admin, supervisor, assigned therapist, or supervising therapist
       const isAdmin = req.user.role === 'administrator' || req.user.role === 'admin';
@@ -13004,7 +13007,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           id: therapist.id,
           fullName: therapist.fullName,
           email: therapist.email,
-          phoneNumber: therapist.phone || ''
+          phoneNumber: therapist.phone || therapistProfile?.emergencyContactPhone || ''
         } : undefined,
         template: template ? {
           id: template.id,
