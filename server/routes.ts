@@ -5214,6 +5214,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.post("/api/users/:userId/profile", async (req, res) => {
     try {
       const userId = parseInt(req.params.userId);
+      
+      // Check if profile already exists
+      const existingProfile = await storage.getUserProfile(userId);
+      
+      if (existingProfile) {
+        // Profile exists, update it instead
+        const validatedData = insertUserProfileSchema.partial().parse(req.body);
+        const profile = await storage.updateUserProfile(userId, validatedData);
+        return res.json(profile);
+      }
+      
+      // Create new profile
       const validatedData = insertUserProfileSchema.parse({
         ...req.body,
         userId
@@ -5222,10 +5234,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       res.status(201).json(profile);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[USER PROFILE POST ERROR - Validation]', error.errors);
         return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
       }
-      // Error logged
-      res.status(500).json({ message: "Internal server error" });
+      console.error('[USER PROFILE POST ERROR]', error);
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
