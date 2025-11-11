@@ -11767,6 +11767,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         .orderBy(asc(formFields.sortOrder));
 
       const client = await storage.getClient(session.clientId);
+      const therapist = await storage.getUser(assignment[0].assignedById);
       
       if (client) {
         await AuditLogger.logAction({
@@ -11791,7 +11792,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
         template: {
           ...template[0],
           fields
-        }
+        },
+        clientData: client ? {
+          fullName: client.fullName,
+          email: client.email,
+          phone: client.phone,
+        } : null,
+        therapistData: therapist ? {
+          fullName: therapist.fullName,
+          email: therapist.email,
+          phone: therapist.phone,
+        } : null,
       });
     } catch (error) {
       console.error("Portal form assignment error:", error);
