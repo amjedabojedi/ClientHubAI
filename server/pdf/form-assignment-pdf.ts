@@ -28,7 +28,7 @@ function formatFieldResponse(
 ): string {
   const rawValue = responseMap.get(field.id);
   
-  // Handle checkbox_group: render as bullet list
+  // Handle checkbox_group: render as checkmark list
   if (field.fieldType === 'checkbox_group') {
     if (!rawValue || rawValue.trim() === '') {
       return '—';
@@ -37,8 +37,8 @@ function formatFieldResponse(
     if (options.length === 0) {
       return '—';
     }
-    const listItems = options.map(opt => `<li>${escapeHtml(opt)}</li>`).join('');
-    return `<ul style="margin: 0; padding-left: 20px; list-style-type: disc;">${listItems}</ul>`;
+    const listItems = options.map(opt => `<div style="margin: 6px 0; display: flex; align-items: flex-start;"><span style="margin-right: 8px; flex-shrink: 0;">✓</span><span>${escapeHtml(opt)}</span></div>`).join('');
+    return `<div style="margin: 0;">${listItems}</div>`;
   }
   
   // Handle fill_in_blank: substitute placeholders
@@ -201,14 +201,12 @@ export function generateFormAssignmentHTML(
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
           const response = formatFieldResponse(f, responseMap, assignment);
-          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
               <td class="field-label">
                 ${escapeHtml(f.label)}
                 ${f.required ? '<span class="required-mark">*</span>' : ''}
               </td>
-              <td class="field-type">${fieldTypeLabel}</td>
               <td class="field-response">${response}</td>
             </tr>
           `;
@@ -217,7 +215,6 @@ export function generateFormAssignmentHTML(
         formSections.push(`
           <div class="form-fields">
             <table class="fields-table">
-              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
               <tbody>${tableRows}</tbody>
             </table>
           </div>
@@ -238,14 +235,12 @@ export function generateFormAssignmentHTML(
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
           const response = formatFieldResponse(f, responseMap, assignment);
-          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
               <td class="field-label">
                 ${escapeHtml(f.label)}
                 ${f.required ? '<span class="required-mark">*</span>' : ''}
               </td>
-              <td class="field-type">${fieldTypeLabel}</td>
               <td class="field-response">${response}</td>
             </tr>
           `;
@@ -254,7 +249,6 @@ export function generateFormAssignmentHTML(
         formSections.push(`
           <div class="form-fields">
             <table class="fields-table">
-              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
               <tbody>${tableRows}</tbody>
             </table>
           </div>
@@ -276,14 +270,12 @@ export function generateFormAssignmentHTML(
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
           const response = formatFieldResponse(f, responseMap, assignment);
-          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
               <td class="field-label">
                 ${escapeHtml(f.label)}
                 ${f.required ? '<span class="required-mark">*</span>' : ''}
               </td>
-              <td class="field-type">${fieldTypeLabel}</td>
               <td class="field-response">${response}</td>
             </tr>
           `;
@@ -292,7 +284,6 @@ export function generateFormAssignmentHTML(
         formSections.push(`
           <div class="form-fields">
             <table class="fields-table">
-              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
               <tbody>${tableRows}</tbody>
             </table>
           </div>
@@ -310,22 +301,17 @@ export function generateFormAssignmentHTML(
           </p>
         </div>
       `);
-    } else if (field.fieldType !== 'signature') {
-      // Accumulate input fields
-      currentInputFields.push(field);
-      
-      // Flush if last field
-      if (isLastField && currentInputFields.length > 0) {
+    } else if (field.fieldType === 'checkbox_group') {
+      // Flush any pending input fields
+      if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
           const response = formatFieldResponse(f, responseMap, assignment);
-          const fieldTypeLabel = escapeHtml(f.fieldType.charAt(0).toUpperCase() + f.fieldType.slice(1));
           return `
             <tr>
               <td class="field-label">
                 ${escapeHtml(f.label)}
                 ${f.required ? '<span class="required-mark">*</span>' : ''}
               </td>
-              <td class="field-type">${fieldTypeLabel}</td>
               <td class="field-response">${response}</td>
             </tr>
           `;
@@ -334,7 +320,45 @@ export function generateFormAssignmentHTML(
         formSections.push(`
           <div class="form-fields">
             <table class="fields-table">
-              <thead><tr><th>Question</th><th>Type</th><th>Response</th></tr></thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        `);
+        currentInputFields = [];
+      }
+      
+      // Render checkbox_group as a standalone section with checkmarks
+      const formattedCheckboxes = formatFieldResponse(field, responseMap, assignment);
+      formSections.push(`
+        <div style="margin: 18px 0; padding: 12px 0;">
+          ${field.label ? `<h3 style="font-size: 15px; font-weight: 600; color: #374151; margin: 0 0 12px 0;">${escapeHtml(field.label)}</h3>` : ''}
+          <div style="font-size: 14px; color: #1f2937; line-height: 1.7;">
+            ${formattedCheckboxes}
+          </div>
+        </div>
+      `);
+    } else if (field.fieldType !== 'signature') {
+      // Accumulate input fields
+      currentInputFields.push(field);
+      
+      // Flush if last field
+      if (isLastField && currentInputFields.length > 0) {
+        const tableRows = currentInputFields.map(f => {
+          const response = formatFieldResponse(f, responseMap, assignment);
+          return `
+            <tr>
+              <td class="field-label">
+                ${escapeHtml(f.label)}
+                ${f.required ? '<span class="required-mark">*</span>' : ''}
+              </td>
+              <td class="field-response">${response}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        formSections.push(`
+          <div class="form-fields">
+            <table class="fields-table">
               <tbody>${tableRows}</tbody>
             </table>
           </div>
@@ -462,16 +486,11 @@ export function generateFormAssignmentHTML(
         .field-label {
           font-weight: 600;
           color: #374151;
-          width: 40%;
-        }
-        .field-type {
-          color: #6b7280;
-          font-size: 12px;
-          width: 15%;
+          width: 35%;
         }
         .field-response {
           color: #1f2937;
-          width: 45%;
+          width: 65%;
           white-space: pre-wrap;
         }
         .required-mark {
