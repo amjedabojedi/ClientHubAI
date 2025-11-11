@@ -506,10 +506,7 @@ export function generateFormAssignmentHTML(
         }
         .signature-section {
           margin: 30px 0 20px 0;
-          padding: 20px;
-          background-color: #f9fafb;
-          border: 1px solid #e5e7eb;
-          border-radius: 6px;
+          padding: 0;
         }
         .signature-title {
           font-size: 16px;
@@ -520,10 +517,6 @@ export function generateFormAssignmentHTML(
           border-bottom: 2px solid #dbeafe;
         }
         .signature-image {
-          border: 2px solid #d1d5db;
-          border-radius: 4px;
-          padding: 10px;
-          background-color: white;
           max-width: 400px;
           margin: 10px 0;
         }
@@ -536,17 +529,6 @@ export function generateFormAssignmentHTML(
           color: #6b7280;
           margin-top: 8px;
           font-style: italic;
-        }
-        .footer {
-          margin-top: 40px;
-          padding-top: 15px;
-          border-top: 2px solid #e5e7eb;
-          text-align: center;
-          font-size: 11px;
-          color: #9ca3af;
-        }
-        .footer p {
-          margin: 5px 0;
         }
         @media print {
           body {
@@ -622,12 +604,6 @@ export function generateFormAssignmentHTML(
           <p style="color: #9ca3af; font-style: italic;">${signature && !isValidSignatureDataUrl(signature.signatureData) ? 'Invalid signature format' : 'No signature captured'}</p>
         </div>
       `}
-
-      <div class="footer">
-        <p>This form was generated electronically and is valid without a physical signature.</p>
-        <p>${escapeHtml(practiceSettings.name)} | ${escapeHtml(practiceSettings.phone)} | ${escapeHtml(practiceSettings.email)}</p>
-        <p style="margin-top: 10px;">Generated on ${escapeHtml(formatInTimeZone(new Date(), PRACTICE_TIMEZONE, 'MMMM dd, yyyy \'at\' h:mm a'))}</p>
-      </div>
     </body>
     </html>
   `;
