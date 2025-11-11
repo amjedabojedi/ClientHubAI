@@ -321,11 +321,14 @@ export default function PortalFormCompletion() {
     if (inputFields.length === 0) return 0;
     const filled = inputFields.filter((f) => {
       const value = formValues[f.id];
-      if (!value) return false;
-      // For fill_in_blank fields, check if all placeholders are filled
+      
+      // For fill_in_blank fields, check if all placeholders are filled or if it's auto-fill only
       if (f.fieldType === 'fill_in_blank') {
         return isFillInBlankComplete(f, value);
       }
+      
+      // For other field types, require a non-empty value
+      if (!value) return false;
       return value.trim() !== "";
     });
     return Math.round((filled.length / inputFields.length) * 100);
