@@ -3284,11 +3284,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (existingBilling) {
             const newService = await storage.getServiceById(sessionData.serviceId);
             if (newService) {
+              const units = existingBilling.units ?? 1;
+              const ratePerUnit = newService.baseRate;
+              const totalAmount = (parseFloat(ratePerUnit) * units).toFixed(2);
+              
               await db.update(sessionBilling)
                 .set({
                   serviceCode: newService.serviceCode,
-                  ratePerUnit: newService.baseRate,
-                  totalAmount: newService.baseRate
+                  ratePerUnit: ratePerUnit,
+                  totalAmount: totalAmount
                 })
                 .where(eq(sessionBilling.sessionId, id));
             }

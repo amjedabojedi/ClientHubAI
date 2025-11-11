@@ -2446,12 +2446,14 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Create billing record
+      const units = 1;
+      const ratePerUnit = service.baseRate;
       const billingData = {
         sessionId: session.id,
         serviceCode: service.serviceCode,
-        units: 1,
-        ratePerUnit: service.baseRate,
-        totalAmount: service.baseRate,
+        units: units,
+        ratePerUnit: ratePerUnit,
+        totalAmount: (parseFloat(ratePerUnit) * units).toFixed(2),
         insuranceCovered: !!client.insuranceProvider,
         copayAmount: client.copayAmount || null,
         billingDate: new Date().toISOString().split('T')[0], // Current date
@@ -4396,12 +4398,14 @@ export class DatabaseStorage implements IStorage {
     const copayAmount = sessionData.client?.copayAmount || null;
     
     // Create billing record with client insurance information
+    const units = 1;
+    const ratePerUnit = sessionData.service.baseRate;
     const billingData: InsertSessionBilling = {
       sessionId: sessionId,
       serviceCode: sessionData.service.serviceCode,
-      units: 1,
-      ratePerUnit: sessionData.service.baseRate,
-      totalAmount: sessionData.service.baseRate,
+      units: units,
+      ratePerUnit: ratePerUnit,
+      totalAmount: (parseFloat(ratePerUnit) * units).toFixed(2),
       insuranceCovered: hasInsurance,
       copayAmount: copayAmount,
       paymentStatus: 'pending',
