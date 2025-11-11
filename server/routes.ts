@@ -13023,10 +13023,16 @@ You can download a copy if you have it saved locally and re-upload it.`;
         }))
       };
 
+      // Map responses to expected format (database uses 'value', PDF generator expects 'responseValue')
+      const formattedResponses = responses.map(r => ({
+        fieldId: r.fieldId,
+        responseValue: r.value
+      }));
+
       // Generate HTML
       const html = generateFormAssignmentHTML(
         assignmentData,
-        responses,
+        formattedResponses,
         signature || null,
         practiceSettings
       );
