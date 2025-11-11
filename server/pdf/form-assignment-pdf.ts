@@ -558,9 +558,6 @@ export function generateFormAssignmentHTML(
         CONFIDENTIAL PATIENT INFORMATION — HIPAA PROTECTED
       </div>
 
-      <div class="form-title">${escapeHtml(assignment.template?.name || 'Untitled Form')}</div>
-      ${assignment.template?.description ? `<p style="color: #6b7280; margin: 5px 0 15px 0;">${escapeHtml(assignment.template.description)}</p>` : ''}
-
       <div class="client-info">
         <div class="client-info-title">Client Information</div>
         <div class="info-grid">
