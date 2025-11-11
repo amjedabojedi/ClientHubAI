@@ -11,15 +11,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download } from "lucide-react";
+import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download, X } from "lucide-react";
 import { formatDateDisplay } from "@/lib/datetime";
+import { sanitizeHtml } from "@/lib/sanitize";
+
+interface FormField {
+  id: number;
+  templateId: number;
+  fieldType: string;
+  label: string;
+  placeholder?: string;
+  helpText?: string;
+  required: boolean;
+  options?: string;
+  sortOrder: number;
+}
 
 interface FormTemplate {
   id: number;
   name: string;
   category: string;
   description?: string;
+  fields?: FormField[];
 }
 
 interface FormAssignment {
@@ -40,6 +61,7 @@ interface ClientFormsDisplayProps {
 export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
   const { toast } = useToast();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [previewAssignmentId, setPreviewAssignmentId] = useState<number | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<FormTemplate[]>({
     queryKey: ["/api/forms/templates"],
@@ -52,6 +74,18 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
       if (!res.ok) throw new Error("Failed to fetch form assignments");
       return res.json();
     },
+  });
+
+  const { data: previewData, isLoading: previewLoading } = useQuery<FormTemplate>({
+    queryKey: ["/api/forms/templates", previewAssignmentId],
+    queryFn: async () => {
+      const assignment = assignments.find(a => a.id === previewAssignmentId);
+      if (!assignment) throw new Error("Assignment not found");
+      const res = await fetch(`/api/forms/templates/${assignment.templateId}`);
+      if (!res.ok) throw new Error("Failed to fetch form template");
+      return res.json();
+    },
+    enabled: !!previewAssignmentId,
   });
 
   const assignFormMutation = useMutation({
@@ -210,12 +244,7 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
                         variant="outline"
                         size="sm"
                         data-testid={`button-view-${assignment.id}`}
-                        onClick={() => {
-                          toast({
-                            title: "Coming Soon",
-                            description: "Form viewing will be available in the next update",
-                          });
-                        }}
+                        onClick={() => setPreviewAssignmentId(assignment.id)}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         View
@@ -234,6 +263,100 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
           </div>
         )}
       </div>
+
+      <Dialog open={!!previewAssignmentId} onOpenChange={() => setPreviewAssignmentId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{previewData?.name || "Form Preview"}</DialogTitle>
+            <DialogDescription>
+              {previewData?.description || "Preview of assigned form template"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {previewLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="space-y-6 py-4">
+              {previewData?.fields && previewData.fields.length > 0 ? (
+                previewData.fields
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .map((field) => (
+                    <div key={field.id} className="space-y-2">
+                      {field.fieldType === "heading" ? (
+                        <h2 className="text-2xl font-bold text-slate-900 mt-6 mb-2">
+                          {field.label}
+                        </h2>
+                      ) : field.fieldType === "info_text" ? (
+                        <div className="bg-slate-50 p-4 rounded-md border border-slate-200">
+                          {field.label && (
+                            <h3 className="font-semibold text-slate-900 mb-2">{field.label}</h3>
+                          )}
+                          <div 
+                            className="text-sm text-slate-700 prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(field.helpText || "") }}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <label className="text-sm font-medium text-slate-700">
+                            {field.label}
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          
+                          {field.helpText && field.fieldType !== "fill_in_blank" && (
+                            <p className="text-sm text-slate-500">{field.helpText}</p>
+                          )}
+
+                          {field.fieldType === "fill_in_blank" && field.helpText && (
+                            <div className="bg-slate-50 p-3 rounded-md border border-slate-200 text-sm text-slate-700">
+                              {field.helpText}
+                            </div>
+                          )}
+
+                          {(field.fieldType === "select" || field.fieldType === "radio" || field.fieldType === "checkbox_group") && field.options && (
+                            <div className="text-sm text-slate-600 space-y-1">
+                              {(() => {
+                                try {
+                                  const opts = JSON.parse(field.options);
+                                  return opts.map((opt: string, idx: number) => (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <span className="w-4 h-4 border border-slate-300 rounded"></span>
+                                      {opt}
+                                    </div>
+                                  ));
+                                } catch {
+                                  return <div className="text-slate-400">Options: {field.options}</div>;
+                                }
+                              })()}
+                            </div>
+                          )}
+
+                          {field.fieldType === "signature" && (
+                            <div className="border-2 border-dashed border-slate-300 rounded-md h-32 flex items-center justify-center text-slate-400">
+                              Signature field
+                            </div>
+                          )}
+
+                          {field.fieldType === "file" && (
+                            <div className="border-2 border-dashed border-slate-300 rounded-md h-24 flex items-center justify-center text-slate-400">
+                              File upload field
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  No fields found in this form template
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
