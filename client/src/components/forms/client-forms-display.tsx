@@ -80,12 +80,12 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
     queryKey: ["/api/forms/templates", previewAssignmentId],
     queryFn: async () => {
       const assignment = assignments.find(a => a.id === previewAssignmentId);
-      if (!assignment) throw new Error("Assignment not found");
-      const res = await fetch(`/api/forms/templates/${assignment.templateId}`);
+      if (!assignment || !assignment.template) throw new Error("Assignment not found");
+      const res = await fetch(`/api/forms/templates/${assignment.template.id}`);
       if (!res.ok) throw new Error("Failed to fetch form template");
       return res.json();
     },
-    enabled: !!previewAssignmentId,
+    enabled: !!previewAssignmentId && assignments.length > 0,
   });
 
   const assignFormMutation = useMutation({
