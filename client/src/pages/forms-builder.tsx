@@ -854,7 +854,7 @@ export default function FormsBuilder() {
                       {field.label}
                       {field.isRequired && <span className="text-destructive">*</span>}
                     </Label>
-                    {field.helpText && field.fieldType !== 'fill_in_blank' && (
+                    {field.helpText && field.fieldType !== 'fill_in_blank' && field.fieldType !== 'info_text' && (
                       <p className="text-sm text-muted-foreground">{field.helpText}</p>
                     )}
                     {renderFieldPreview(field)}
