@@ -12652,6 +12652,70 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Delete form assignment
+  app.delete("/api/forms/assignments/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Only therapists, supervisors, and admins can delete form assignments
+      const allowedRoles = ['therapist', 'supervisor', 'administrator', 'admin'];
+      if (!allowedRoles.includes(req.user.role.toLowerCase())) {
+        return res.status(403).json({ message: "Insufficient permissions to delete form assignments" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      // Get assignment info for audit log before deletion
+      const [assignment] = await db
+        .select()
+        .from(formAssignments)
+        .where(eq(formAssignments.id, id))
+        .limit(1);
+
+      if (!assignment) {
+        return res.status(404).json({ message: "Form assignment not found" });
+      }
+
+      // Delete related data first
+      await db.delete(formResponses).where(eq(formResponses.assignmentId, id));
+      await db.delete(formSignatures).where(eq(formSignatures.assignmentId, id));
+      
+      // Delete the assignment
+      await db.delete(formAssignments).where(eq(formAssignments.id, id));
+
+      // Audit log
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        action: 'form_assignment_deleted',
+        result: 'success',
+        resourceType: 'form_assignment',
+        resourceId: id.toString(),
+        clientId: assignment.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'medium',
+        details: JSON.stringify({ 
+          assignmentId: id,
+          clientId: assignment.clientId,
+          templateId: assignment.templateId,
+          status: assignment.status
+        }),
+        accessReason: 'Form assignment deletion',
+      });
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting form assignment:", error);
+      res.status(500).json({ message: "Failed to delete form assignment" });
+    }
+  });
+
   // Submit form responses (Client portal or therapist)
   app.post("/api/forms/assignments/:id/responses", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
