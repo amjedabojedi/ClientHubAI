@@ -223,7 +223,7 @@ export default function FormsBuilder() {
     });
   };
 
-  const handleMoveField = (fieldId: number, direction: "up" | "down") => {
+  const handleMoveField = async (fieldId: number, direction: "up" | "down") => {
     if (!template?.fields) return;
 
     const currentIndex = template.fields.findIndex((f) => f.id === fieldId);
@@ -235,8 +235,17 @@ export default function FormsBuilder() {
     const field1 = template.fields[currentIndex];
     const field2 = template.fields[newIndex];
 
-    reorderFieldMutation.mutate({ fieldId: field1.id, newSortOrder: field2.sortOrder });
-    reorderFieldMutation.mutate({ fieldId: field2.id, newSortOrder: field1.sortOrder });
+    try {
+      await apiRequest(`/api/forms/fields/${field1.id}`, "PATCH", { sortOrder: field2.sortOrder });
+      await apiRequest(`/api/forms/fields/${field2.id}`, "PATCH", { sortOrder: field1.sortOrder });
+      queryClient.invalidateQueries({ queryKey: ["/api/forms/templates", templateId] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reorder fields",
+        variant: "destructive",
+      });
+    }
   };
 
   const renderFieldPreview = (field: FormField) => {
