@@ -828,10 +828,10 @@ export default function FormsBuilder() {
           <div className="space-y-6">
             {template.fields && template.fields.length > 0 ? (
               template.fields.map((field) => {
-                // Heading, info_text, and fill_in_blank fields render their own complete content
-                const isContentField = field.fieldType === 'heading' || field.fieldType === 'info_text' || field.fieldType === 'fill_in_blank';
+                // Only heading fields render without a label
+                const isHeadingField = field.fieldType === 'heading';
                 
-                if (isContentField) {
+                if (isHeadingField) {
                   return (
                     <div key={field.id}>
                       {renderFieldPreview(field)}
@@ -845,7 +845,7 @@ export default function FormsBuilder() {
                       {field.label}
                       {field.isRequired && <span className="text-destructive">*</span>}
                     </Label>
-                    {field.helpText && (
+                    {field.helpText && field.fieldType !== 'fill_in_blank' && (
                       <p className="text-sm text-muted-foreground">{field.helpText}</p>
                     )}
                     {renderFieldPreview(field)}
