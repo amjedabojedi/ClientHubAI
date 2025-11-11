@@ -268,7 +268,7 @@ export default function PortalFormCompletion() {
 
   // Helper function to check if placeholder is auto-fill (UPPERCASE) vs manual (lowercase)
   const isAutoFillPlaceholder = (placeholder: string): boolean => {
-    return placeholder === placeholder.toUpperCase() && placeholder.match(/[A-Z]/);
+    return placeholder === placeholder.toUpperCase() && /[A-Z]/.test(placeholder);
   };
 
   // Helper function to get auto-fill value from client/therapist data
