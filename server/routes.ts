@@ -13004,7 +13004,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           id: therapist.id,
           fullName: therapist.fullName,
           email: therapist.email,
-          phoneNumber: therapist.phoneNumber || ''
+          phoneNumber: therapist.phone || ''
         } : undefined,
         template: template ? {
           id: template.id,
