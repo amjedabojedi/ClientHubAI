@@ -277,9 +277,11 @@ export default function PortalFormCompletion() {
     
     const autoFillMap: Record<string, string> = {
       'THERAPIST_NAME': assignment.therapistData?.fullName || '',
+      'THERAPIST_FULL_NAME': assignment.therapistData?.fullName || '',
       'THERAPIST_EMAIL': assignment.therapistData?.email || '',
       'THERAPIST_PHONE': assignment.therapistData?.phone || '',
       'CLIENT_NAME': assignment.clientData?.fullName || '',
+      'CLIENT_FULL_NAME': assignment.clientData?.fullName || '',
       'CLIENT_EMAIL': assignment.clientData?.email || '',
       'CLIENT_PHONE': assignment.clientData?.phone || '',
     };
