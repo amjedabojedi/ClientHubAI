@@ -11807,6 +11807,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const client = await storage.getClient(session.clientId);
       const therapist = await storage.getUser(assignment[0].assignedById);
       
+      // Fetch therapist profile for additional contact info (emergency contact phone as fallback)
+      const therapistProfile = therapist ? await storage.getUserProfile(therapist.id) : null;
+      
       if (client) {
         await AuditLogger.logAction({
           userId: client.id,
@@ -11839,7 +11842,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         therapistData: therapist ? {
           fullName: therapist.fullName,
           email: therapist.email,
-          phone: therapist.phone,
+          phone: therapist.phone || therapistProfile?.emergencyContactPhone || '',
         } : null,
       });
     } catch (error) {
