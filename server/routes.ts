@@ -12428,6 +12428,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
         validatedData.helpText = sanitizeHtml(validatedData.helpText);
       }
 
+      // Convert comma-separated options to JSON array for fields that need options
+      if (validatedData.options && typeof validatedData.options === 'string') {
+        const optionsString = validatedData.options.trim();
+        // Check if it's already JSON array format
+        if (!optionsString.startsWith('[')) {
+          // Convert comma-separated to JSON array
+          const optionsArray = optionsString.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0);
+          validatedData.options = JSON.stringify(optionsArray);
+        }
+        // If it's already JSON array format, keep it as-is
+      }
+
       const [field] = await db
         .insert(formFields)
         .values(validatedData)
@@ -12481,6 +12493,18 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Enforce required=false for heading/info_text fields
       if (fieldType === 'heading' || fieldType === 'info_text') {
         validatedData.isRequired = false;
+      }
+
+      // Convert comma-separated options to JSON array for fields that need options
+      if (validatedData.options !== undefined && validatedData.options && typeof validatedData.options === 'string') {
+        const optionsString = validatedData.options.trim();
+        // Check if it's already JSON array format
+        if (!optionsString.startsWith('[')) {
+          // Convert comma-separated to JSON array
+          const optionsArray = optionsString.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0);
+          validatedData.options = JSON.stringify(optionsArray);
+        }
+        // If it's already JSON array format, keep it as-is
       }
 
       const [updated] = await db

@@ -506,9 +506,6 @@ export default function PortalFormCompletion() {
         const checkboxValues = value ? value.split(",") : [];
         let checkboxOptions: string[] = [];
         
-        // Debug logging
-        console.log('Field:', field.label, 'Options type:', typeof field.options, 'Options:', field.options);
-        
         if (Array.isArray(field.options)) {
           checkboxOptions = field.options;
         } else if (typeof field.options === 'string') {
@@ -516,12 +513,9 @@ export default function PortalFormCompletion() {
             const parsed = JSON.parse(field.options);
             checkboxOptions = Array.isArray(parsed) ? parsed : [];
           } catch {
-            console.error('Failed to parse options for field:', field.label);
             checkboxOptions = [];
           }
         }
-        
-        console.log('Parsed checkboxOptions:', checkboxOptions);
         
         return (
           <div key={field.id} className="space-y-2">
@@ -533,9 +527,6 @@ export default function PortalFormCompletion() {
               <p className="text-sm text-slate-500">{field.helpText}</p>
             )}
             <div className="space-y-2">
-              {checkboxOptions.length === 0 && (
-                <p className="text-sm text-amber-600">Debug: No options available for this field</p>
-              )}
               {checkboxOptions.map((option, idx) => (
                 <div key={idx} className="flex items-center space-x-2">
                   <Checkbox
