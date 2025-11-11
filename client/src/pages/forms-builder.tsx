@@ -837,10 +837,10 @@ export default function FormsBuilder() {
           <div className="space-y-6">
             {template.fields && template.fields.length > 0 ? (
               template.fields.map((field) => {
-                // Heading and info_text fields render without a label (they're self-contained)
-                const isContentOnlyField = field.fieldType === 'heading' || field.fieldType === 'info_text';
+                // Only heading fields render without a label
+                const isHeading = field.fieldType === 'heading';
                 
-                if (isContentOnlyField) {
+                if (isHeading) {
                   return (
                     <div key={field.id}>
                       {renderFieldPreview(field)}
