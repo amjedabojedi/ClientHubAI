@@ -4423,13 +4423,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
       
-      // Get document info from database
-      const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      // Validate parameters
+      if (isNaN(id) || isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid document or client ID" });
+      }
       
-      if (!document) {
+      // Query document directly by ID and clientId for better reliability
+      // This ensures we get the document even if it was just created
+      const results = await db
+        .select({
+          document: documents,
+          uploadedBy: users
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.uploadedById, users.id))
+        .where(and(
+          eq(documents.id, id),
+          eq(documents.clientId, clientId)
+        ))
+        .limit(1);
+      
+      if (results.length === 0) {
+        console.warn(`[Document Preview] Document not found:`, { documentId: id, clientId });
         return res.status(404).json({ message: "Document not found" });
       }
+      
+      const document = {
+        ...results[0].document,
+        uploadedBy: results[0].uploadedBy || null
+      };
       
       // HIPAA Audit Log: Document viewed
       if (req.user) {
@@ -4453,10 +4475,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isPDF) {
         // For PDFs, check if file exists in Azure Blob Storage
         try {
-          const blobName = azureStorage.generateBlobName(document.id, document.fileName);
-          const fileExists = await azureStorage.fileExists(blobName);
+          // Try to find the blob using multiple name variations
+          const blobName = await azureStorage.findBlobName(document.id, document.fileName, document.originalName);
           
-          if (fileExists) {
+          if (blobName) {
             // File exists in Azure - return PDF URL for the browser to display
             res.setHeader('Content-Type', 'application/json');
             res.json({
@@ -4469,6 +4491,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               viewerUrl: `/api/clients/${clientId}/documents/${id}/viewer`
             });
           } else {
+            // Log the issue for debugging
+            console.warn(`[Document Preview] PDF not found in Azure Storage:`, {
+              documentId: document.id,
+              fileName: document.fileName,
+              originalName: document.originalName,
+              expectedBlobName: azureStorage.generateBlobName(document.id, document.fileName)
+            });
+            
             // File doesn't exist in storage - return helpful message
             const pdfContent = `PDF file not found in storage.
 
@@ -4495,19 +4525,52 @@ You can download a copy if you have it saved locally and re-upload it.`;
             });
           }
         } catch (error) {
+          console.error('[Document Preview] Error processing PDF:', error);
           res.status(500).json({ error: 'Failed to process PDF content: ' + (error instanceof Error ? error.message : 'Unknown error') });
         }
       } else if (isImage) {
         // For images, serve from Azure Blob Storage
         try {
-          const blobName = azureStorage.generateBlobName(document.id, document.fileName);
-          const downloadResult = await azureStorage.downloadFile(blobName);
+          // Try to find the blob using multiple name variations
+          const blobName = await azureStorage.findBlobName(document.id, document.fileName, document.originalName);
           
-          if (downloadResult.success) {
-            res.setHeader('Content-Type', document.mimeType || 'image/jpeg');
-            res.send(downloadResult.data);
+          if (blobName) {
+            const downloadResult = await azureStorage.downloadFile(blobName);
+            
+            if (downloadResult.success) {
+              res.setHeader('Content-Type', document.mimeType || 'image/jpeg');
+              res.send(downloadResult.data);
+            } else {
+              // Fallback to icon if file not found
+              console.warn(`[Document Preview] Image download failed:`, {
+                documentId: document.id,
+                fileName: document.fileName,
+                blobName: blobName
+              });
+              res.setHeader('Content-Type', 'image/svg+xml');
+              res.send(`
+                <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="400" height="300" fill="#ffffff" stroke="#d1d5db" stroke-width="2" rx="8"/>
+                  <rect x="20" y="20" width="360" height="220" fill="#f3f4f6" rx="4"/>
+                  
+                  <!-- Image Icon -->
+                  <circle cx="120" cy="80" r="15" fill="#10b981"/>
+                  <rect x="150" y="120" width="100" height="60" fill="#34d399" rx="8"/>
+                  <polygon points="200,140 220,120 240,140 240,160 200,160" fill="#059669"/>
+                  
+                  <!-- File Info -->
+                  <text x="200" y="270" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#374151">${document.fileName}</text>
+                  <text x="200" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#6b7280">${Math.round(document.fileSize / 1024)} KB • Image (File Not Found)</text>
+                </svg>
+              `);
+            }
           } else {
-            // Fallback to icon if file not found
+            // Blob not found - show placeholder
+            console.warn(`[Document Preview] Image not found in Azure Storage:`, {
+              documentId: document.id,
+              fileName: document.fileName,
+              originalName: document.originalName
+            });
             res.setHeader('Content-Type', 'image/svg+xml');
             res.send(`
               <svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
@@ -4601,13 +4664,29 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Invalid document or client ID" });
       }
       
-      // Get document info from database
-      const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      // Query document directly by ID and clientId for better reliability
+      const results = await db
+        .select({
+          document: documents,
+          uploadedBy: users
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.uploadedById, users.id))
+        .where(and(
+          eq(documents.id, id),
+          eq(documents.clientId, clientId)
+        ))
+        .limit(1);
       
-      if (!document) {
+      if (results.length === 0) {
+        console.warn(`[Document File] Document not found:`, { documentId: id, clientId });
         return res.status(404).json({ message: "Document not found" });
       }
+      
+      const document = {
+        ...results[0].document,
+        uploadedBy: results[0].uploadedBy || null
+      };
       
       // Only serve PDF files through this endpoint
       if (document.mimeType !== 'application/pdf') {
@@ -4615,7 +4694,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       // Download from Azure Blob Storage (only)
-      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      // Try to find the blob using multiple name variations
+      let blobName = await azureStorage.findBlobName(document.id, document.fileName, document.originalName);
+      
+      // Fallback to standard blob name if findBlobName didn't find it
+      if (!blobName) {
+        blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      }
+      
       const downloadResult = await azureStorage.downloadFile(blobName);
       
       if (downloadResult.success) {
@@ -4701,13 +4787,29 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Invalid document or client ID" });
       }
       
-      // Get document info from database
-      const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      // Query document directly by ID and clientId for better reliability
+      const results = await db
+        .select({
+          document: documents,
+          uploadedBy: users
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.uploadedById, users.id))
+        .where(and(
+          eq(documents.id, id),
+          eq(documents.clientId, clientId)
+        ))
+        .limit(1);
       
-      if (!document) {
+      if (results.length === 0) {
+        console.warn(`[Document DOCX Viewer] Document not found:`, { documentId: id, clientId });
         return res.status(404).json({ message: "Document not found" });
       }
+      
+      const document = {
+        ...results[0].document,
+        uploadedBy: results[0].uploadedBy || null
+      };
       
       // Only serve Word documents through this endpoint
       const isDocx = document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
@@ -4719,7 +4821,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       // Download from Azure Blob Storage
-      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      // Try to find the blob using multiple name variations
+      let blobName = await azureStorage.findBlobName(document.id, document.fileName, document.originalName);
+      
+      // Fallback to standard blob name if findBlobName didn't find it
+      if (!blobName) {
+        blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      }
+      
       const downloadResult = await azureStorage.downloadFile(blobName);
       
       if (downloadResult.success) {
@@ -4748,16 +4857,44 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
       
-      // Get document info from database
-      const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      // Validate parameters
+      if (isNaN(id) || isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid document or client ID" });
+      }
       
-      if (!document) {
+      // Query document directly by ID and clientId for better reliability
+      const results = await db
+        .select({
+          document: documents,
+          uploadedBy: users
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.uploadedById, users.id))
+        .where(and(
+          eq(documents.id, id),
+          eq(documents.clientId, clientId)
+        ))
+        .limit(1);
+      
+      if (results.length === 0) {
+        console.warn(`[Document Download] Document not found:`, { documentId: id, clientId });
         return res.status(404).json({ message: "Document not found" });
       }
       
+      const document = {
+        ...results[0].document,
+        uploadedBy: results[0].uploadedBy || null
+      };
+      
       // Download from Azure Blob Storage (only)
-      const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      // Try to find the blob using multiple name variations
+      let blobName = await azureStorage.findBlobName(document.id, document.fileName, document.originalName);
+      
+      // Fallback to standard blob name if findBlobName didn't find it
+      if (!blobName) {
+        blobName = azureStorage.generateBlobName(document.id, document.fileName);
+      }
+      
       const downloadResult = await azureStorage.downloadFile(blobName);
       
       if (downloadResult.success) {
@@ -11760,7 +11897,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Download from Azure Blob Storage (only)
       try {
-        const blobName = azureStorage.generateBlobName(document.id, document.fileName);
+        // Try to find the blob using multiple name variations
+        let blobName = await azureStorage.findBlobName(document.id, document.fileName, document.originalName);
+        
+        // Fallback to standard blob name if findBlobName didn't find it
+        if (!blobName) {
+          blobName = azureStorage.generateBlobName(document.id, document.fileName);
+        }
+        
         const downloadResult = await azureStorage.downloadFile(blobName);
         
         if (downloadResult.success) {
