@@ -40,6 +40,8 @@ interface QuickTaskFormProps {
   defaultAssigneeId?: number;
   trigger?: React.ReactNode;
   onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export default function QuickTaskForm({ 
@@ -47,9 +49,15 @@ export default function QuickTaskForm({
   clientName, 
   defaultAssigneeId, 
   trigger,
-  onSuccess 
+  onSuccess,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange
 }: QuickTaskFormProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Support both controlled and uncontrolled mode
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -123,9 +131,12 @@ export default function QuickTaskForm({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
+      {/* Only render trigger in uncontrolled mode */}
+      {controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          {trigger || defaultTrigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

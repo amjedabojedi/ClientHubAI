@@ -68,6 +68,9 @@ export default function ClientDataGrid({
   const [showPortalModal, setShowPortalModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   
+  // Quick task form state
+  const [quickTaskClient, setQuickTaskClient] = useState<{ id: number; name: string; therapistId?: number } | null>(null);
+  
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Map activeTab to stage filter
@@ -472,17 +475,20 @@ export default function ClientDataGrid({
                               <Edit className="w-4 h-4 mr-2" />
                               Edit Client
                             </DropdownMenuItem>
-                            <QuickTaskForm
-                              clientId={client.id}
-                              clientName={client.fullName}
-                              defaultAssigneeId={client.assignedTherapistId}
-                              trigger={
-                                <DropdownMenuItem data-testid={`action-task-${client.id}`}>
-                                  <Plus className="w-4 h-4 mr-2" />
-                                  Create Task
-                                </DropdownMenuItem>
-                              }
-                            />
+                            <DropdownMenuItem 
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setQuickTaskClient({
+                                  id: client.id,
+                                  name: client.fullName,
+                                  therapistId: client.assignedTherapistId
+                                });
+                              }}
+                              data-testid={`action-task-${client.id}`}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Create Task
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -542,6 +548,19 @@ export default function ClientDataGrid({
         selectedClientIds={selectedClients}
         onSuccess={handleBulkActionSuccess}
       />
+
+      {/* Quick Task Form - Controlled Mode */}
+      {quickTaskClient && (
+        <QuickTaskForm
+          clientId={quickTaskClient.id}
+          clientName={quickTaskClient.name}
+          defaultAssigneeId={quickTaskClient.therapistId}
+          open={!!quickTaskClient}
+          onOpenChange={(open) => {
+            if (!open) setQuickTaskClient(null);
+          }}
+        />
+      )}
     </div>
   );
 }
