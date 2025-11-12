@@ -7,9 +7,9 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
@@ -180,12 +180,12 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
       <div className="bg-slate-50 rounded-lg p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-slate-600" />
-          <span className="text-sm font-medium text-slate-700">Filters</span>
+          <span className="text-sm font-medium text-slate-700">Filter Notes by Date Range or Type</span>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <Label className="text-xs text-slate-600">Type</Label>
+            <Label className="text-xs text-slate-600">Filter by Type</Label>
             <div className="flex gap-3 mt-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -346,32 +346,33 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex gap-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="call" id="call" data-testid="radio-call" />
-                          <Label htmlFor="call" className="flex items-center gap-2 cursor-pointer">
-                            <Phone className="w-4 h-4" /> Call
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="email" id="email" data-testid="radio-email" />
-                          <Label htmlFor="email" className="flex items-center gap-2 cursor-pointer">
-                            <Mail className="w-4 h-4" /> Email
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="note" id="note" data-testid="radio-note" />
-                          <Label htmlFor="note" className="flex items-center gap-2 cursor-pointer">
-                            <FileText className="w-4 h-4" /> Note
-                          </Label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-note-type">
+                          <SelectValue placeholder="Select communication type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="call" data-testid="option-call">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4" />
+                            <span>Phone Call</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="email" data-testid="option-email">
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4" />
+                            <span>Email</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="note" data-testid="option-note">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            <span>General Note</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -382,7 +383,7 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                 name="eventDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Date</FormLabel>
+                    <FormLabel>Communication Date</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -405,6 +406,9 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                         />
                       </PopoverContent>
                     </Popover>
+                    <FormDescription>
+                      When did this communication happen?
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
