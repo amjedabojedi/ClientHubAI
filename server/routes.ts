@@ -4151,6 +4151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'notes_viewed',
+        result: 'success',
         resourceType: 'client_notes',
         resourceId: clientId.toString(),
         details: `Viewed notes for client ${clientId}`,
@@ -4177,6 +4178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_viewed',
+        result: 'success',
         resourceType: 'note',
         resourceId: noteId.toString(),
         clientId: note.clientId,
@@ -4207,6 +4209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_created',
+        result: 'success',
         resourceType: 'note',
         resourceId: note.id.toString(),
         clientId: validatedData.clientId,
@@ -4238,6 +4241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_updated',
+        result: 'success',
         resourceType: 'note',
         resourceId: note.id.toString(),
         clientId: note.clientId,
@@ -4270,6 +4274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_deleted',
+        result: 'success',
         resourceType: 'note',
         resourceId: noteId.toString(),
         clientId: note.clientId,
