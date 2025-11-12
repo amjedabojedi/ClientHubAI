@@ -274,12 +274,49 @@ export function generateFormAssignmentHTML(
         currentInputFields = [];
       }
       
-      // Add info text (rich HTML content from editor, sanitized to prevent XSS)
+      // Build autofill data for variable replacement in info text
+      const autofillData: AutofillData = {
+        client: assignment.client ? {
+          fullName: assignment.client.fullName || '',
+          clientId: assignment.client.clientId || '',
+          email: assignment.client.email || '',
+          phone: assignment.client.phoneNumber || '',
+          dateOfBirth: assignment.client.dateOfBirth 
+            ? format(new Date(assignment.client.dateOfBirth), 'MM/dd/yyyy')
+            : '',
+        } : undefined,
+        therapist: assignment.therapist ? {
+          fullName: assignment.therapist.fullName || '',
+          email: assignment.therapist.email || '',
+          phone: assignment.therapist.phoneNumber || '',
+        } : undefined,
+        practice: {
+          name: practiceSettings.name || '',
+          address: practiceSettings.address || '',
+          phone: practiceSettings.phone || '',
+          email: practiceSettings.email || '',
+          website: practiceSettings.website || '',
+        },
+      };
+      const autoFillMap = buildAutofillMap(autofillData);
+      
+      // Replace autofill variables in the info text HTML content
+      let infoTextContent = field.helpText || '';
+      Object.keys(autoFillMap).forEach(key => {
+        const value = autoFillMap[key];
+        if (value) {
+          // Replace {{VARIABLE}} with the actual value
+          const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+          infoTextContent = infoTextContent.replace(regex, value);
+        }
+      });
+      
+      // Add info text (rich HTML content from editor with autofill variables replaced, sanitized to prevent XSS)
       formSections.push(`
         <div style="margin: 16px 0; padding: 0;">
           ${field.label ? `<h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 8px 0;">${escapeHtml(field.label)}</h3>` : ''}
           <div style="font-size: 13px; color: #1f2937; line-height: 1.6;">
-            ${sanitizeHtml(field.helpText || '')}
+            ${sanitizeHtml(infoTextContent)}
           </div>
         </div>
       `);

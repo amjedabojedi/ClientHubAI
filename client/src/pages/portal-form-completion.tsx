@@ -376,6 +376,41 @@ export default function PortalFormCompletion() {
         );
 
       case "info_text":
+        // Build autofill data and replace variables in info text
+        const autofillDataInfo: AutofillData = {
+          client: assignment?.clientData ? {
+            fullName: assignment.clientData.fullName,
+            clientId: assignment.clientData.clientId,
+            email: assignment.clientData.email,
+            phone: assignment.clientData.phone,
+            dateOfBirth: assignment.clientData.dateOfBirth ? new Date(assignment.clientData.dateOfBirth).toLocaleDateString() : '',
+          } : undefined,
+          therapist: assignment?.therapistData ? {
+            fullName: assignment.therapistData.fullName,
+            email: assignment.therapistData.email,
+            phone: assignment.therapistData.phone,
+          } : undefined,
+          practice: assignment?.practiceData ? {
+            name: assignment.practiceData.name,
+            address: assignment.practiceData.address,
+            phone: assignment.practiceData.phone,
+            email: assignment.practiceData.email,
+            website: assignment.practiceData.website,
+          } : undefined,
+        };
+        const autofillMapInfo = buildAutofillMap(autofillDataInfo);
+        
+        // Replace autofill variables in the HTML content
+        let infoTextContent = field.helpText || "";
+        Object.keys(autofillMapInfo).forEach(key => {
+          const value = autofillMapInfo[key];
+          if (value) {
+            // Replace {{VARIABLE}} with the actual value
+            const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+            infoTextContent = infoTextContent.replace(regex, value);
+          }
+        });
+        
         return (
           <div key={field.id} className="my-4">
             {field.label && (
@@ -387,7 +422,7 @@ export default function PortalFormCompletion() {
               <div 
                 className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert leading-relaxed"
                 dangerouslySetInnerHTML={{ 
-                  __html: sanitizeHtml(field.helpText || "")
+                  __html: sanitizeHtml(infoTextContent)
                 }}
               />
             </div>
