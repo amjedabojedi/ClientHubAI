@@ -4158,7 +4158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(notes);
     } catch (error) {
-      // Error logged
+      console.error('Error fetching client notes:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
