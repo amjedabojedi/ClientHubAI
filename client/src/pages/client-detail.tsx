@@ -4016,7 +4016,7 @@ export default function ClientDetailPage() {
                 <Tabs defaultValue="notes" className="w-full">
                   <TabsList className="grid w-full grid-cols-2 mb-6">
                     <TabsTrigger value="notes" data-testid="tab-client-notes">
-                      Client Notes
+                      Communications
                     </TabsTrigger>
                     <TabsTrigger value="emails" data-testid="tab-email-history">
                       Email History
