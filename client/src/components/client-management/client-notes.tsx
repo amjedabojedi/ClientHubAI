@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Phone, Mail, FileText, CalendarIcon, Plus, Filter } from "lucide-react";
+import { Phone, Mail, FileText, CalendarIcon, Plus, Filter, Edit, Trash2 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
@@ -50,6 +50,9 @@ interface Note {
 
 export default function ClientNotes({ clientId }: ClientNotesProps) {
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
+  const [isEditNoteOpen, setIsEditNoteOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [filterType, setFilterType] = useState<string[]>(["call", "email", "note"]);
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
@@ -91,7 +94,6 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
         ...data,
         eventDate: data.eventDate.toISOString(),
       };
-      console.log('Sending note data:', noteData);
       return apiRequest("/api/notes", "POST", noteData);
     },
     onSuccess: () => {
@@ -113,10 +115,80 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
     },
   });
 
+  const updateNoteMutation = useMutation({
+    mutationFn: async (data: NoteFormData & { id: number }) => {
+      const { id, ...noteData } = data;
+      return apiRequest(`/api/notes/${id}`, "PATCH", {
+        ...noteData,
+        eventDate: noteData.eventDate.toISOString(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "notes"] });
+      toast({
+        title: "Success",
+        description: "Note updated successfully",
+      });
+      setIsEditNoteOpen(false);
+      setEditingNote(null);
+      form.reset();
+    },
+    onError: (error) => {
+      console.error('Note update error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update note",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: number) => {
+      return apiRequest(`/api/notes/${noteId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "notes"] });
+      toast({
+        title: "Success",
+        description: "Note deleted successfully",
+      });
+      setDeletingNoteId(null);
+    },
+    onError: (error) => {
+      console.error('Note deletion error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete note",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: NoteFormData) => {
-    console.log('Form data before submit:', data);
-    console.log('Form errors:', form.formState.errors);
-    createNoteMutation.mutate(data);
+    if (editingNote) {
+      updateNoteMutation.mutate({ ...data, id: editingNote.id });
+    } else {
+      createNoteMutation.mutate(data);
+    }
+  };
+
+  const handleEditNote = (note: Note) => {
+    setEditingNote(note);
+    form.reset({
+      clientId: note.clientId,
+      noteType: note.noteType as "call" | "email" | "note",
+      eventDate: new Date(note.eventDate),
+      title: note.title || "",
+      content: note.content,
+    });
+    setIsEditNoteOpen(true);
+  };
+
+  const handleDeleteNote = (noteId: number) => {
+    if (confirm("Are you sure you want to delete this note? This action cannot be undone.")) {
+      deleteNoteMutation.mutate(noteId);
+    }
   };
 
   const getNoteIcon = (type: string) => {
@@ -302,7 +374,7 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-2">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-slate-900">
                           {getNoteLabel(note.noteType)}
@@ -318,8 +390,28 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                         By: {note.author.fullName}
                       </div>
                     </div>
-                    <div className="text-right text-sm">
-                      {formatEventDate(note.eventDate, note.createdAt)}
+                    <div className="flex items-start gap-4">
+                      <div className="text-right text-sm">
+                        {formatEventDate(note.eventDate, note.createdAt)}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditNote(note)}
+                          data-testid={`button-edit-note-${note.id}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteNote(note.id)}
+                          data-testid={`button-delete-note-${note.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   <div
@@ -334,7 +426,10 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
         </div>
       )}
 
-      <Dialog open={isAddNoteOpen} onOpenChange={setIsAddNoteOpen}>
+      <Dialog open={isAddNoteOpen} onOpenChange={(open) => {
+        setIsAddNoteOpen(open);
+        if (!open) form.reset();
+      }}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Add Client Note</DialogTitle>
@@ -475,6 +570,164 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                   data-testid="button-save-note"
                 >
                   {createNoteMutation.isPending ? "Saving..." : "Save Note"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditNoteOpen} onOpenChange={(open) => {
+        setIsEditNoteOpen(open);
+        if (!open) {
+          setEditingNote(null);
+          form.reset();
+        }
+      }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit Client Note</DialogTitle>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="noteType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-note-type-edit">
+                          <SelectValue placeholder="Select communication type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="call" data-testid="option-call-edit">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4" />
+                            <span>Phone Call</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="email" data-testid="option-email-edit">
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4" />
+                            <span>Email</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="note" data-testid="option-note-edit">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            <span>General Note</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="eventDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Communication Date</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                            data-testid="input-event-date-edit"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? format(field.value, "PPP") : "Pick a date"}
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) => date > new Date()}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormDescription>
+                      When did this communication happen?
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subject (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Brief description..."
+                        {...field}
+                        data-testid="input-title-edit"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Details</FormLabel>
+                    <FormControl>
+                      <ReactQuill
+                        theme="snow"
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="bg-white"
+                        modules={{
+                          toolbar: [
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['clean']
+                          ],
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditNoteOpen(false);
+                    setEditingNote(null);
+                    form.reset();
+                  }}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateNoteMutation.isPending}
+                  data-testid="button-save-note-edit"
+                >
+                  {updateNoteMutation.isPending ? "Saving..." : "Update Note"}
                 </Button>
               </div>
             </form>
