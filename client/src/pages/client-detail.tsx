@@ -162,6 +162,7 @@ import SessionNotesManager from "@/components/session-notes/session-notes-manage
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
 import EmailHistory from "@/components/communications/email-history";
+import ClientNotes from "@/components/client-management/client-notes";
 import { ClientFormsDisplay } from "@/components/forms/client-forms-display";
 
 // Client Checklists Display Component
@@ -4008,11 +4009,28 @@ export default function ClientDetailPage() {
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center space-x-2">
                   <Mail className="w-5 h-5 text-blue-600" />
-                  <span>Email Communications</span>
+                  <span>Communications</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <EmailHistory clientId={clientId!} />
+                <Tabs defaultValue="notes" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="notes" data-testid="tab-client-notes">
+                      Client Notes
+                    </TabsTrigger>
+                    <TabsTrigger value="emails" data-testid="tab-email-history">
+                      Email History
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="notes" data-testid="content-client-notes">
+                    <ClientNotes clientId={clientId!} />
+                  </TabsContent>
+                  
+                  <TabsContent value="emails" data-testid="content-email-history">
+                    <EmailHistory clientId={clientId!} />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </TabsContent>
