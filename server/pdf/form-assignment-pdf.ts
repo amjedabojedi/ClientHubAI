@@ -446,17 +446,19 @@ export function generateFormAssignmentHTML(
         }
         .header-left {
           flex: 1;
+          font-size: 11px;
+          line-height: 1.4;
         }
         .header-right {
           text-align: right;
           color: #4b5563;
-          font-size: 13px;
+          font-size: 11px;
         }
         .practice-name {
           font-weight: 600;
           color: #1e40af;
-          font-size: 16px;
-          margin-bottom: 8px;
+          font-size: 13px;
+          margin-bottom: 4px;
         }
         h1 {
           color: #1e40af;
