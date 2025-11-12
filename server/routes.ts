@@ -11943,8 +11943,25 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Fetch therapist profile for additional contact info (emergency contact phone as fallback)
       const therapistProfile = therapist ? await storage.getUserProfile(therapist.id) : null;
       
-      // Fetch practice configuration for autofill variables
-      const practiceConfig = await storage.getPracticeConfiguration();
+      // Fetch practice settings for autofill variables
+      let practiceSettings = {
+        name: 'Resilience Counseling Research & Consultation',
+        address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+        phone: '+1 (548)866-0366',
+        email: 'resiliencecrc@gmail.com',
+        website: 'www.resiliencec.com'
+      };
+      
+      try {
+        const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+        practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+        practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+        practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+        practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+        practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+      } catch (error) {
+        // Use defaults if practice settings not found
+      }
       
       if (client) {
         await AuditLogger.logAction({
@@ -11982,13 +11999,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
           email: therapist.email,
           phone: therapist.phone || therapistProfile?.emergencyContactPhone || '',
         } : null,
-        practiceData: practiceConfig ? {
-          name: practiceConfig.practiceName,
-          address: `${practiceConfig.address || ''}, ${practiceConfig.city || ''}, ${practiceConfig.province || ''} ${practiceConfig.postalCode || ''}`.trim(),
-          phone: practiceConfig.phone,
-          email: practiceConfig.email,
-          website: practiceConfig.website,
-        } : null,
+        practiceData: {
+          name: practiceSettings.name,
+          address: practiceSettings.address,
+          phone: practiceSettings.phone,
+          email: practiceSettings.email,
+          website: practiceSettings.website,
+        },
       });
     } catch (error) {
       console.error("Portal form assignment error:", error);
