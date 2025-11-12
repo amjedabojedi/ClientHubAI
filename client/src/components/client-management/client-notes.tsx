@@ -87,17 +87,12 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: NoteFormData) => {
-      console.log('Sending note data:', {
+      const noteData = {
         ...data,
         eventDate: data.eventDate.toISOString(),
-      });
-      return apiRequest("/api/notes", {
-        method: "POST",
-        body: JSON.stringify({
-          ...data,
-          eventDate: data.eventDate.toISOString(),
-        }),
-      });
+      };
+      console.log('Sending note data:', noteData);
+      return apiRequest("/api/notes", "POST", noteData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId, "notes"] });
