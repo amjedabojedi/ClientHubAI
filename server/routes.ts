@@ -4138,8 +4138,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/clients/:clientId/notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
-      const notes = await storage.getNotesByClient(clientId);
+      const { noteType, startDate, endDate } = req.query;
+      
+      const params: any = { clientId };
+      if (noteType) params.noteType = noteType as string;
+      if (startDate) params.startDate = new Date(startDate as string);
+      if (endDate) params.endDate = new Date(endDate as string);
+      
+      const notes = await storage.getNotesByClient(params);
+      
+      // HIPAA audit trail for accessing client notes
+      await storage.logAudit({
+        userId: req.user!.id,
+        action: 'notes_viewed',
+        entityType: 'client',
+        entityId: clientId,
+        details: `Viewed notes for client ${clientId}`,
+      });
+      
       res.json(notes);
+    } catch (error) {
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const note = await storage.getNote(noteId);
+      
+      if (!note) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+      
+      // HIPAA audit trail for accessing specific note
+      await storage.logAudit({
+        userId: req.user!.id,
+        action: 'note_viewed',
+        entityType: 'note',
+        entityId: noteId,
+        details: `Viewed note ${noteId} for client ${note.clientId}`,
+      });
+      
+      res.json(note);
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -4149,12 +4191,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notes", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertNoteSchema.parse(req.body);
-      const note = await storage.createNote(validatedData);
+      
+      // Security: Derive authorId from authenticated user, never trust client
+      const noteData = {
+        ...validatedData,
+        authorId: req.user!.id,
+      };
+      
+      const note = await storage.createNote(noteData);
+      
+      // Log audit trail
+      await storage.logAudit({
+        userId: req.user!.id,
+        action: 'note_created',
+        entityType: 'note',
+        entityId: note.id,
+        details: `Created ${validatedData.noteType} note for client ${validatedData.clientId}`,
+      });
+      
       res.status(201).json(note);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid note data", errors: error.errors });
       }
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const validatedData = insertNoteSchema.partial().parse(req.body);
+      
+      // Security: Prevent client from changing authorId
+      const { authorId, ...safeData } = validatedData as any;
+      
+      const note = await storage.updateNote(noteId, safeData);
+      
+      // Log audit trail
+      await storage.logAudit({
+        userId: req.user!.id,
+        action: 'note_updated',
+        entityType: 'note',
+        entityId: note.id,
+        details: `Updated note ${note.id}`,
+      });
+      
+      res.json(note);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid note data", errors: error.errors });
+      }
+      // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const noteId = parseInt(req.params.id);
+      const note = await storage.getNote(noteId);
+      
+      if (!note) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+      
+      await storage.deleteNote(noteId);
+      
+      // Log audit trail
+      await storage.logAudit({
+        userId: req.user!.id,
+        action: 'note_deleted',
+        entityType: 'note',
+        entityId: noteId,
+        details: `Deleted note ${noteId} for client ${note.clientId}`,
+      });
+      
+      res.status(204).send();
+    } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
     }

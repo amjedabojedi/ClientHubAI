@@ -181,6 +181,14 @@ export type TaskQueryParams = {
   createdDateTo?: Date;
 };
 
+// Note query parameters for filtering
+export type NoteQueryParams = {
+  clientId: number;
+  noteType?: string;
+  startDate?: Date;
+  endDate?: Date;
+};
+
 // Session filtering parameters for secure, database-level filtering
 export type SessionFilterParams = {
   therapistId?: number;
@@ -359,7 +367,8 @@ export interface IStorage {
   deleteTaskComment(id: number): Promise<void>;
 
   // Note Management
-  getNotesByClient(clientId: number): Promise<(Note & { author: User })[]>;
+  getNotesByClient(params: NoteQueryParams): Promise<(Note & { author: User })[]>;
+  getNote(id: number): Promise<(Note & { author: User }) | undefined>;
   createNote(note: InsertNote): Promise<Note>;
   updateNote(id: number, note: Partial<InsertNote>): Promise<Note>;
   deleteNote(id: number): Promise<void>;
@@ -2999,7 +3008,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Note methods
-  async getNotesByClient(clientId: number): Promise<(Note & { author: User })[]> {
+  async getNotesByClient(params: NoteQueryParams): Promise<(Note & { author: User })[]> {
+    const conditions = [eq(notes.clientId, params.clientId)];
+    
+    if (params.noteType) {
+      conditions.push(eq(notes.noteType, params.noteType));
+    }
+    
+    if (params.startDate) {
+      conditions.push(gte(notes.eventDate, params.startDate));
+    }
+    
+    if (params.endDate) {
+      conditions.push(lte(notes.eventDate, params.endDate));
+    }
+    
     const results = await db
       .select({
         note: notes,
@@ -3007,10 +3030,26 @@ export class DatabaseStorage implements IStorage {
       })
       .from(notes)
       .innerJoin(users, eq(notes.authorId, users.id))
-      .where(eq(notes.clientId, clientId))
-      .orderBy(desc(notes.createdAt));
+      .where(and(...conditions))
+      .orderBy(desc(notes.eventDate), desc(notes.createdAt));
 
     return results.map(r => ({ ...r.note, author: r.author }));
+  }
+
+  async getNote(id: number): Promise<(Note & { author: User }) | undefined> {
+    const results = await db
+      .select({
+        note: notes,
+        author: users
+      })
+      .from(notes)
+      .innerJoin(users, eq(notes.authorId, users.id))
+      .where(eq(notes.id, id));
+
+    if (results.length === 0) return undefined;
+    
+    const r = results[0];
+    return { ...r.note, author: r.author };
   }
 
   async createNote(note: InsertNote): Promise<Note> {

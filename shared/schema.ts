@@ -534,11 +534,16 @@ export const notes = pgTable("notes", {
   authorId: integer("author_id").notNull().references(() => users.id),
   title: text("title"),
   content: text("content").notNull(),
-  noteType: varchar("note_type", { length: 50 }).notNull().default('general'), // session, general, clinical, communication, supervisor
+  noteType: varchar("note_type", { length: 50 }).notNull().default('note'), // call, email, note, general, clinical, supervisor
+  eventDate: timestamp("event_date").notNull(), // When the interaction actually happened (HIPAA compliance)
   isPrivate: boolean("is_private").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  clientIdIdx: index("notes_client_id_idx").on(table.clientId),
+  eventDateIdx: index("notes_event_date_idx").on(table.eventDate),
+  noteTypeIdx: index("notes_note_type_idx").on(table.noteType),
+}));
 
 // Documents table
 export const documents = pgTable("documents", {
@@ -1739,8 +1744,11 @@ export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
 
 export const insertNoteSchema = createInsertSchema(notes).omit({
   id: true,
+  authorId: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  eventDate: z.coerce.date(),
 });
 
 export const insertDocumentSchema = createInsertSchema(documents).omit({

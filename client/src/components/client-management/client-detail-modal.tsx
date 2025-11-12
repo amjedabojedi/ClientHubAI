@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Client } from "@/types/client";
+import ClientNotes from "./client-notes";
 
 interface ClientDetailModalProps {
   client: Client;
@@ -276,10 +277,7 @@ export default function ClientDetailModal({ client, onClose }: ClientDetailModal
           </TabsContent>
 
           <TabsContent value="notes" className="mt-6">
-            <div className="text-center py-8">
-              <i className="fas fa-sticky-note text-4xl text-slate-400 mb-4"></i>
-              <p className="text-slate-600">Notes management will be implemented in a future update.</p>
-            </div>
+            <ClientNotes clientId={client.id} />
           </TabsContent>
 
           <TabsContent value="billing" className="mt-6">
