@@ -11943,6 +11943,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Fetch therapist profile for additional contact info (emergency contact phone as fallback)
       const therapistProfile = therapist ? await storage.getUserProfile(therapist.id) : null;
       
+      // Fetch practice configuration for autofill variables
+      const practiceConfig = await storage.getPracticeConfiguration();
+      
       if (client) {
         await AuditLogger.logAction({
           userId: client.id,
@@ -11969,13 +11972,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
         },
         clientData: client ? {
           fullName: client.fullName,
+          clientId: client.clientId,
           email: client.email,
           phone: client.phone,
+          dateOfBirth: client.dateOfBirth,
         } : null,
         therapistData: therapist ? {
           fullName: therapist.fullName,
           email: therapist.email,
           phone: therapist.phone || therapistProfile?.emergencyContactPhone || '',
+        } : null,
+        practiceData: practiceConfig ? {
+          name: practiceConfig.practiceName,
+          address: `${practiceConfig.address || ''}, ${practiceConfig.city || ''}, ${practiceConfig.province || ''} ${practiceConfig.postalCode || ''}`.trim(),
+          phone: practiceConfig.phone,
+          email: practiceConfig.email,
+          website: practiceConfig.website,
         } : null,
       });
     } catch (error) {

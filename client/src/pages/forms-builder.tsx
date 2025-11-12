@@ -661,11 +661,24 @@ export default function FormsBuilder() {
                       setFieldData({ ...fieldData, helpText: e.target.value })
                     }
                     rows={4}
-                    placeholder="I, {{name}}, hereby request and agree to participate in individual psychotherapy at {{practice_name}}."
+                    placeholder="I, {{CLIENT_NAME}}, hereby consent to services at {{PRACTICE_NAME}}. Use [field_name] for manual input."
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Use {`{{placeholder}}`} syntax to create fillable blanks. Example: I, {`{{name}}`}, hereby...
-                  </p>
+                  <div className="text-xs space-y-2">
+                    <p className="text-muted-foreground">
+                      Use {`{{VARIABLE_NAME}}`} for auto-filled data (UPPERCASE) or {`[field_name]`} for manual input (lowercase).
+                    </p>
+                    <details className="text-muted-foreground">
+                      <summary className="cursor-pointer font-medium">Available autofill variables (click to expand)</summary>
+                      <div className="mt-2 pl-4 space-y-1 text-xs">
+                        <p className="font-semibold">Client Information:</p>
+                        <p>• {`{{CLIENT_NAME}}`}, {`{{CLIENT_ID}}`}, {`{{CLIENT_EMAIL}}`}, {`{{CLIENT_PHONE}}`}, {`{{CLIENT_DOB}}`}</p>
+                        <p className="font-semibold mt-2">Therapist Information:</p>
+                        <p>• {`{{THERAPIST_NAME}}`}, {`{{THERAPIST_EMAIL}}`}, {`{{THERAPIST_PHONE}}`}</p>
+                        <p className="font-semibold mt-2">Practice Information:</p>
+                        <p>• {`{{PRACTICE_NAME}}`}, {`{{PRACTICE_ADDRESS}}`}, {`{{PRACTICE_PHONE}}`}, {`{{PRACTICE_EMAIL}}`}, {`{{PRACTICE_WEBSITE}}`}</p>
+                      </div>
+                    </details>
+                  </div>
                 </>
               ) : (
                 <Textarea

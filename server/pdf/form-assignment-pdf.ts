@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { sanitizeHtml } from '../lib/sanitize';
+import { buildAutofillMap, type AutofillData } from '@shared/autofill';
 
 // HTML escape function to prevent XSS attacks
 function escapeHtml(unsafe: string | null | undefined): string {
@@ -24,7 +25,8 @@ function isValidSignatureDataUrl(dataUrl: string | null | undefined): boolean {
 function formatFieldResponse(
   field: FormField,
   responseMap: Map<number, string>,
-  assignment: FormAssignment
+  assignment: FormAssignment,
+  practiceSettings: PracticeSettings
 ): string {
   const rawValue = responseMap.get(field.id);
   
@@ -48,17 +50,33 @@ function formatFieldResponse(
       return '—';
     }
     
-    // Auto-fill mapping from assignment data
-    const autoFillMap: Record<string, string> = {
-      'THERAPIST_NAME': assignment.therapist?.fullName || '',
-      'THERAPIST_FULL_NAME': assignment.therapist?.fullName || '',
-      'THERAPIST_EMAIL': assignment.therapist?.email || '',
-      'THERAPIST_PHONE': assignment.therapist?.phoneNumber || '',
-      'CLIENT_NAME': assignment.client?.fullName || '',
-      'CLIENT_FULL_NAME': assignment.client?.fullName || '',
-      'CLIENT_EMAIL': assignment.client?.email || '',
-      'CLIENT_PHONE': assignment.client?.phoneNumber || '',
+    // Build autofill data from available sources
+    const autofillData: AutofillData = {
+      client: assignment.client ? {
+        fullName: assignment.client.fullName || '',
+        clientId: assignment.client.clientId || '',
+        email: assignment.client.email || '',
+        phone: assignment.client.phoneNumber || '',
+        dateOfBirth: assignment.client.dateOfBirth 
+          ? format(new Date(assignment.client.dateOfBirth), 'MM/dd/yyyy')
+          : '',
+      } : undefined,
+      therapist: assignment.therapist ? {
+        fullName: assignment.therapist.fullName || '',
+        email: assignment.therapist.email || '',
+        phone: assignment.therapist.phoneNumber || '',
+      } : undefined,
+      practice: {
+        name: practiceSettings.name || '',
+        address: practiceSettings.address || '',
+        phone: practiceSettings.phone || '',
+        email: practiceSettings.email || '',
+        website: practiceSettings.website || '',
+      },
     };
+    
+    // Build autofill map using shared utility
+    const autoFillMap = buildAutofillMap(autofillData);
     
     // Parse stored manual values (if any)
     let manualValues: Record<string, string> = {};
@@ -200,7 +218,7 @@ export function generateFormAssignmentHTML(
       // Flush any pending input fields
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = formatFieldResponse(f, responseMap, assignment);
+          const response = formatFieldResponse(f, responseMap, assignment, practiceSettings);
           return `
             <tr>
               <td class="field-label">
@@ -234,7 +252,7 @@ export function generateFormAssignmentHTML(
       // Flush any pending input fields
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = formatFieldResponse(f, responseMap, assignment);
+          const response = formatFieldResponse(f, responseMap, assignment, practiceSettings);
           return `
             <tr>
               <td class="field-label">
@@ -269,7 +287,7 @@ export function generateFormAssignmentHTML(
       // Flush any pending input fields
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = formatFieldResponse(f, responseMap, assignment);
+          const response = formatFieldResponse(f, responseMap, assignment, practiceSettings);
           return `
             <tr>
               <td class="field-label">
@@ -292,7 +310,7 @@ export function generateFormAssignmentHTML(
       }
       
       // Render fill-in-blank as paragraph text (like consent statements)
-      const formattedText = formatFieldResponse(field, responseMap, assignment);
+      const formattedText = formatFieldResponse(field, responseMap, assignment, practiceSettings);
       formSections.push(`
         <div style="margin: 16px 0; padding: 12px 0;">
           ${field.label ? `<h3 style="font-size: 15px; font-weight: 600; color: #374151; margin: 0 0 8px 0;">${escapeHtml(field.label)}</h3>` : ''}
@@ -305,7 +323,7 @@ export function generateFormAssignmentHTML(
       // Flush any pending input fields
       if (currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = formatFieldResponse(f, responseMap, assignment);
+          const response = formatFieldResponse(f, responseMap, assignment, practiceSettings);
           return `
             <tr>
               <td class="field-label">
@@ -328,7 +346,7 @@ export function generateFormAssignmentHTML(
       }
       
       // Render checkbox_group as a standalone section with checkmarks
-      const formattedCheckboxes = formatFieldResponse(field, responseMap, assignment);
+      const formattedCheckboxes = formatFieldResponse(field, responseMap, assignment, practiceSettings);
       formSections.push(`
         <div style="margin: 18px 0; padding: 12px 0;">
           ${field.label ? `<h3 style="font-size: 15px; font-weight: 600; color: #374151; margin: 0 0 12px 0;">${escapeHtml(field.label)}</h3>` : ''}
@@ -344,7 +362,7 @@ export function generateFormAssignmentHTML(
       // Flush if last field
       if (isLastField && currentInputFields.length > 0) {
         const tableRows = currentInputFields.map(f => {
-          const response = formatFieldResponse(f, responseMap, assignment);
+          const response = formatFieldResponse(f, responseMap, assignment, practiceSettings);
           return `
             <tr>
               <td class="field-label">

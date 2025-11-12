@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Send, Clock, CheckCircle2, PenTool } from "lucide-react";
 import { SignaturePad } from "@/components/forms/signature-pad";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { buildAutofillMap, type AutofillData } from "@shared/autofill";
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
   let timeout: NodeJS.Timeout | null = null;
@@ -55,13 +56,22 @@ interface FormAssignment {
   template?: FormTemplate;
   clientData?: {
     fullName: string;
+    clientId?: string;
     email: string;
     phone: string;
+    dateOfBirth?: string;
   };
   therapistData?: {
     fullName: string;
     email: string;
     phone: string;
+  };
+  practiceData?: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    website?: string;
   };
 }
 
@@ -275,21 +285,35 @@ export default function PortalFormCompletion() {
     return placeholder === placeholder.toUpperCase() && /[A-Z]/.test(placeholder);
   };
 
-  // Helper function to get auto-fill value from client/therapist data
+  // Helper function to get auto-fill value from client/therapist/practice data
   const getAutoFillValue = (placeholder: string): string => {
     if (!assignment) return '';
     
-    const autoFillMap: Record<string, string> = {
-      'THERAPIST_NAME': assignment.therapistData?.fullName || '',
-      'THERAPIST_FULL_NAME': assignment.therapistData?.fullName || '',
-      'THERAPIST_EMAIL': assignment.therapistData?.email || '',
-      'THERAPIST_PHONE': assignment.therapistData?.phone || '',
-      'CLIENT_NAME': assignment.clientData?.fullName || '',
-      'CLIENT_FULL_NAME': assignment.clientData?.fullName || '',
-      'CLIENT_EMAIL': assignment.clientData?.email || '',
-      'CLIENT_PHONE': assignment.clientData?.phone || '',
+    // Build autofill data from assignment
+    const autofillData: AutofillData = {
+      client: assignment.clientData ? {
+        fullName: assignment.clientData.fullName,
+        clientId: assignment.clientData.clientId,
+        email: assignment.clientData.email,
+        phone: assignment.clientData.phone,
+        dateOfBirth: assignment.clientData.dateOfBirth ? new Date(assignment.clientData.dateOfBirth).toLocaleDateString() : '',
+      } : undefined,
+      therapist: assignment.therapistData ? {
+        fullName: assignment.therapistData.fullName,
+        email: assignment.therapistData.email,
+        phone: assignment.therapistData.phone,
+      } : undefined,
+      practice: assignment.practiceData ? {
+        name: assignment.practiceData.name,
+        address: assignment.practiceData.address,
+        phone: assignment.practiceData.phone,
+        email: assignment.practiceData.email,
+        website: assignment.practiceData.website,
+      } : undefined,
     };
     
+    // Use shared autofill utility
+    const autoFillMap = buildAutofillMap(autofillData);
     return autoFillMap[placeholder] || '';
   };
 
