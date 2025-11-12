@@ -143,7 +143,7 @@ export class AzureBlobStorage {
 
       const chunks: Buffer[] = [];
       for await (const chunk of downloadResult.readableStreamBody) {
-        chunks.push(chunk);
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       }
       
       const buffer = Buffer.concat(chunks);
@@ -167,6 +167,12 @@ export class AzureBlobStorage {
    * Delete file from Azure Blob Storage
    */
   async deleteFile(blobName: string): Promise<AzureBlobResult> {
+    if (!this.isConfigured || !this.containerClient) {
+      return {
+        success: false,
+        error: 'Azure Blob Storage not configured'
+      };
+    }
     try {
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
       await blockBlobClient.delete();
@@ -185,6 +191,9 @@ export class AzureBlobStorage {
    * Get file URL for direct access
    */
   getFileUrl(blobName: string): string {
+    if (!this.isConfigured || !this.containerClient) {
+      throw new Error('Azure Blob Storage not configured');
+    }
     const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
     return blockBlobClient.url;
   }
@@ -200,6 +209,9 @@ export class AzureBlobStorage {
    * List all files in the container
    */
   async listFiles(): Promise<string[]> {
+    if (!this.isConfigured || !this.containerClient) {
+      return [];
+    }
     try {
       const files: string[] = [];
       for await (const blob of this.containerClient.listBlobsFlat()) {
@@ -215,6 +227,9 @@ export class AzureBlobStorage {
    * Get file metadata
    */
   async getFileMetadata(blobName: string): Promise<Record<string, string> | null> {
+    if (!this.isConfigured || !this.containerClient) {
+      return null;
+    }
     try {
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
       const properties = await blockBlobClient.getProperties();
@@ -228,6 +243,9 @@ export class AzureBlobStorage {
    * Check if file exists
    */
   async fileExists(blobName: string): Promise<boolean> {
+    if (!this.isConfigured || !this.containerClient) {
+      return false;
+    }
     try {
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
       await blockBlobClient.getProperties();
@@ -238,6 +256,46 @@ export class AzureBlobStorage {
   }
 
   /**
+   * Find blob by trying multiple name variations
+   * This helps handle cases where blob names might differ from database fileName
+   */
+  async findBlobName(documentId: number, fileName: string, originalName?: string): Promise<string | null> {
+    if (!this.isConfigured || !this.containerClient) {
+      return null;
+    }
+
+    // Try different variations of the blob name
+    const variations = [
+      `documents/${documentId}-${fileName}`, // Standard format
+      `documents/${documentId}-${originalName || fileName}`, // Using original name
+      `documents/${documentId}-${fileName.replace(/_/g, ' ')}`, // Replace underscores with spaces
+      `documents/${documentId}-${fileName.replace(/ /g, '_')}`, // Replace spaces with underscores
+    ];
+
+    // Remove duplicates
+    const uniqueVariations = Array.from(new Set(variations));
+
+    for (const blobName of uniqueVariations) {
+      if (await this.fileExists(blobName)) {
+        return blobName;
+      }
+    }
+
+    // If not found, try to search for blobs starting with the document ID
+    try {
+      const prefix = `documents/${documentId}-`;
+      for await (const blob of this.containerClient.listBlobsFlat({ prefix })) {
+        // Return the first blob that matches (could be refined further)
+        return blob.name;
+      }
+    } catch (error) {
+      // Ignore search errors
+    }
+
+    return null;
+  }
+
+  /**
    * Get storage statistics
    */
   async getStorageStats(): Promise<{
@@ -245,6 +303,13 @@ export class AzureBlobStorage {
     totalSize: number;
     containerName: string;
   }> {
+    if (!this.isConfigured || !this.containerClient) {
+      return {
+        totalFiles: 0,
+        totalSize: 0,
+        containerName: this.containerName
+      };
+    }
     try {
       let totalFiles = 0;
       let totalSize = 0;
