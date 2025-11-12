@@ -87,6 +87,10 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: NoteFormData) => {
+      console.log('Sending note data:', {
+        ...data,
+        eventDate: data.eventDate.toISOString(),
+      });
       return apiRequest("/api/notes", {
         method: "POST",
         body: JSON.stringify({
@@ -104,7 +108,8 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
       setIsAddNoteOpen(false);
       form.reset();
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Note creation error:', error);
       toast({
         title: "Error",
         description: "Failed to create note",
@@ -114,6 +119,8 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
   });
 
   const onSubmit = (data: NoteFormData) => {
+    console.log('Form data before submit:', data);
+    console.log('Form errors:', form.formState.errors);
     createNoteMutation.mutate(data);
   };
 
