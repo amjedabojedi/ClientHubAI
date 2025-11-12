@@ -4148,12 +4148,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const notes = await storage.getNotesByClient(params);
       
       // HIPAA audit trail for accessing client notes
-      await storage.logAudit({
+      await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'notes_viewed',
-        entityType: 'client',
-        entityId: clientId,
+        resourceType: 'client_notes',
+        resourceId: clientId.toString(),
         details: `Viewed notes for client ${clientId}`,
+        ...getRequestInfo(req),
       });
       
       res.json(notes);
@@ -4173,17 +4174,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // HIPAA audit trail for accessing specific note
-      await storage.logAudit({
+      await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_viewed',
-        entityType: 'note',
-        entityId: noteId,
+        resourceType: 'note',
+        resourceId: noteId.toString(),
+        clientId: note.clientId,
         details: `Viewed note ${noteId} for client ${note.clientId}`,
+        ...getRequestInfo(req),
       });
       
       res.json(note);
     } catch (error) {
-      // Error logged
+      console.error('Error fetching note:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -4201,12 +4204,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const note = await storage.createNote(noteData);
       
       // Log audit trail
-      await storage.logAudit({
+      await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_created',
-        entityType: 'note',
-        entityId: note.id,
+        resourceType: 'note',
+        resourceId: note.id.toString(),
+        clientId: validatedData.clientId,
         details: `Created ${validatedData.noteType} note for client ${validatedData.clientId}`,
+        ...getRequestInfo(req),
       });
       
       res.status(201).json(note);
@@ -4214,7 +4219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid note data", errors: error.errors });
       }
-      // Error logged
+      console.error('Error creating note:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -4230,12 +4235,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const note = await storage.updateNote(noteId, safeData);
       
       // Log audit trail
-      await storage.logAudit({
+      await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_updated',
-        entityType: 'note',
-        entityId: note.id,
+        resourceType: 'note',
+        resourceId: note.id.toString(),
+        clientId: note.clientId,
         details: `Updated note ${note.id}`,
+        ...getRequestInfo(req),
       });
       
       res.json(note);
@@ -4243,7 +4250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid note data", errors: error.errors });
       }
-      // Error logged
+      console.error('Error updating note:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -4260,17 +4267,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteNote(noteId);
       
       // Log audit trail
-      await storage.logAudit({
+      await AuditLogger.logAction({
         userId: req.user!.id,
         action: 'note_deleted',
-        entityType: 'note',
-        entityId: noteId,
+        resourceType: 'note',
+        resourceId: noteId.toString(),
+        clientId: note.clientId,
         details: `Deleted note ${noteId} for client ${note.clientId}`,
+        ...getRequestInfo(req),
       });
       
       res.status(204).send();
     } catch (error) {
-      // Error logged
+      console.error('Error deleting note:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
