@@ -73,7 +73,7 @@
     "framer-motion": "^11.13.1",
     "html-pdf-node": "^1.0.8",
     "input-otp": "^1.4.2",
-    "isomorphic-dompurify": "^2.30.0",
+    "isomorphic-dompurify": "^2.2.0",
     "lucide-react": "^0.453.0",
     "mammoth": "^1.10.0",
     "memoizee": "^0.4.17",
