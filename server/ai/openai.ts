@@ -621,8 +621,12 @@ ASSESSMENT SECTIONS TO GENERATE:
             userPrompt += response.responseText || 'No response provided';
           } else if (question.questionType === 'multiple_choice') {
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              // selectedOptions contains OPTION IDs, need to map to option texts
               const selectedTexts = response.selectedOptions
-                .map(index => question.options?.[index])
+                .map(optionId => {
+                  const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
+                  return option?.optionText;
+                })
                 .filter(Boolean);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
             } else if (response.responseText) {
@@ -632,8 +636,12 @@ ASSESSMENT SECTIONS TO GENERATE:
             }
           } else if (question.questionType === 'checkbox') {
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              // selectedOptions contains OPTION IDs, need to map to option texts
               const selectedTexts = response.selectedOptions
-                .map(index => question.options?.[index])
+                .map(optionId => {
+                  const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
+                  return option?.optionText;
+                })
                 .filter(Boolean);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selections made';
             } else if (response.responseText) {
@@ -687,8 +695,12 @@ ASSESSMENT SECTIONS TO GENERATE:
             userPrompt += response.responseText || 'No response provided';
           } else if (question.questionType === 'multiple_choice') {
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              // selectedOptions contains OPTION IDs, need to map to option texts
               const selectedTexts = response.selectedOptions
-                .map(index => question.options?.[index])
+                .map(optionId => {
+                  const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
+                  return option?.optionText;
+                })
                 .filter(Boolean);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
             } else if (response.responseText) {
@@ -698,8 +710,12 @@ ASSESSMENT SECTIONS TO GENERATE:
             }
           } else if (question.questionType === 'checkbox') {
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+              // selectedOptions contains OPTION IDs, need to map to option texts
               const selectedTexts = response.selectedOptions
-                .map(index => question.options?.[index])
+                .map(optionId => {
+                  const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
+                  return option?.optionText;
+                })
                 .filter(Boolean);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selections made';
             } else if (response.responseText) {

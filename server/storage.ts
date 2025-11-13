@@ -3901,18 +3901,24 @@ export class DatabaseStorage implements IStorage {
 
     // For multiple choice/checkbox questions - use option values
     if (responseData.selectedOptions && responseData.selectedOptions.length > 0) {
-      // selectedOptions contains ARRAY INDICES (0, 1, 2...), not option IDs
-      // Get ALL options for this question in sort order
-      const allOptions = await db
+      // selectedOptions contains OPTION IDs from the frontend (not indices)
+      // Convert to numbers to ensure type safety
+      const optionIds = responseData.selectedOptions.map((id: any) => Number(id));
+      
+      // Get the selected options by their IDs
+      const selectedOptions = await db
         .select()
         .from(assessmentQuestionOptions)
-        .where(eq(assessmentQuestionOptions.questionId, responseData.questionId))
-        .orderBy(asc(assessmentQuestionOptions.sortOrder));
+        .where(
+          and(
+            eq(assessmentQuestionOptions.questionId, responseData.questionId),
+            inArray(assessmentQuestionOptions.id, optionIds)
+          )
+        );
 
-      // Map indices to actual options and sum their values
+      // Sum up the values from selected options
       let totalScore = 0;
-      for (const index of responseData.selectedOptions) {
-        const option = allOptions[index];
+      for (const option of selectedOptions) {
         if (option && option.optionValue !== null) {
           totalScore += Number(option.optionValue) || 0;
         }
