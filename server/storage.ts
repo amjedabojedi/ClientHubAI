@@ -4191,7 +4191,8 @@ export class DatabaseStorage implements IStorage {
           questionsWithOptions.push({
             ...question,
             options: options.map(opt => opt.optionText),
-            scoreValues: options.map(opt => Number(opt.optionValue) || 0)
+            scoreValues: options.map(opt => Number(opt.optionValue) || 0),
+            allOptions: options  // Include full option objects for AI report generation
           });
         }
 

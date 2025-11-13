@@ -1,6 +1,4 @@
-import { PostgresStorage } from './server/storage';
-
-const storage = new PostgresStorage();
+import { storage } from './server/storage';
 
 async function recalculate() {
   const assignmentId = process.argv[2] ? parseInt(process.argv[2]) : null;
