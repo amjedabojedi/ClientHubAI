@@ -87,7 +87,7 @@ function Navigation() {
 
     // Only show Administration menu to supervisors and admins
     if (isAdminOrSupervisor(user)) {
-      baseItems.push({
+      baseItems.push({asasas
         path: "/administration", 
         label: "Administration", 
         icon: Cog,
