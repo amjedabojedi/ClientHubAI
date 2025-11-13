@@ -29,8 +29,8 @@ jobs:
                 "from": {
                   "email": "${{ secrets.EMAIL_FROM }}"
                 },
-                "subject": "🚨 Build Failed on GitHub Actions",
-                "html": "<h2>Build Failed</h2><p>Your CI build failed on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>Please check <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
+                "subject": "🚨 Build Failed - Client Hub AI",
+                "html": "<h2>Build Failed - Client Hub AI</h2><p>Your CI build failed on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>Please check <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
               },
               "recipients": [
                 {
@@ -80,8 +80,8 @@ jobs:
                 "from": {
                   "email": "${{ secrets.EMAIL_FROM }}"
                 },
-                "subject": "🚨 Deployment Failed on GitHub Actions",
-                "html": "<h2>Deployment Failed</h2><p>Your deployment to production failed on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>Please check <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
+                "subject": "🚨 Deployment Failed - Client Hub AI",
+                "html": "<h2>Deployment Failed - Client Hub AI</h2><p>Your deployment to production failed on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>Please check <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
               },
               "recipients": [
                 {
