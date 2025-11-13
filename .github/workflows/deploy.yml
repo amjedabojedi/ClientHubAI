@@ -12,11 +12,34 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18.19.1
+          node-version: 20
       - name: Install Dependencies
         run: npm ci
       - name: Build Project
         run: npm run build
+      - name: Send email if build failed
+        if: failure()
+        run: |
+          curl -X POST \
+            https://api.sparkpost.com/api/v1/transmissions \
+            -H "Authorization: ${{ secrets.SPARKPOST_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "content": {
+                "from": {
+                  "email": "${{ secrets.EMAIL_FROM }}"
+                },
+                "subject": "🚨 Build Failed on GitHub Actions",
+                "html": "<h2>Build Failed</h2><p>Your CI build failed on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>Please check <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
+              },
+              "recipients": [
+                {
+                  "address": {
+                    "email": "${{ secrets.NOTIFICATION_EMAIL }}"
+                  }
+                }
+              ]
+            }'
   deploy-production:
     runs-on: ubuntu-latest
     needs: build
@@ -45,3 +68,26 @@ jobs:
             sudo systemctl reload nginx
             echo "Deployment complete!"
           EOF
+      - name: Send email if deployment failed
+        if: failure()
+        run: |
+          curl -X POST \
+            https://api.sparkpost.com/api/v1/transmissions \
+            -H "Authorization: ${{ secrets.SPARKPOST_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "content": {
+                "from": {
+                  "email": "${{ secrets.EMAIL_FROM }}"
+                },
+                "subject": "🚨 Deployment Failed on GitHub Actions",
+                "html": "<h2>Deployment Failed</h2><p>Your deployment to production failed on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>Please check <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
+              },
+              "recipients": [
+                {
+                  "address": {
+                    "email": "${{ secrets.NOTIFICATION_EMAIL }}"
+                  }
+                }
+              ]
+            }'
