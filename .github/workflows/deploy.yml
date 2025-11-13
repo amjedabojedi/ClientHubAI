@@ -68,6 +68,29 @@ jobs:
             sudo systemctl reload nginx
             echo "Deployment complete!"
           EOF
+      - name: Send email if deployment successful
+        if: success()
+        run: |
+          curl -X POST \
+            https://api.sparkpost.com/api/v1/transmissions \
+            -H "Authorization: ${{ secrets.SPARKPOST_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "content": {
+                "from": {
+                  "email": "${{ secrets.EMAIL_FROM }}"
+                },
+                "subject": "✅ Deployment Successful - Client Hub AI",
+                "html": "<h2>Deployment Successful - Client Hub AI</h2><p>Your deployment to production completed successfully on branch: <strong>${{ github.ref_name }}</strong></p><p>Commit: <strong>${{ github.sha }}</strong></p><p>Author: <strong>${{ github.actor }}</strong></p><p>View <a href=\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\">GitHub Actions logs</a> for details.</p>"
+              },
+              "recipients": [
+                {
+                  "address": {
+                    "email": "${{ secrets.NOTIFICATION_EMAIL }}"
+                  }
+                }
+              ]
+            }'
       - name: Send email if deployment failed
         if: failure()
         run: |
