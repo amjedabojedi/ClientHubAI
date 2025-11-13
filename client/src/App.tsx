@@ -53,7 +53,7 @@ import { PostHogProvider } from "@/lib/posthog";
 
 
 // Helper function to check if user has admin or supervisor privileges
-function isAdminOrSupervisor(user: any): boolean {seses
+function isAdminOrSupervisor(user: any): boolean {
   if (!user?.role) return false;
   const normalizedRole = user.role.toLowerCase().trim();
   return ['administrator', 'admin', 'supervisor'].includes(normalizedRole);
