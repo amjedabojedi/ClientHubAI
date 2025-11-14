@@ -3829,8 +3829,67 @@ export class DatabaseStorage implements IStorage {
     return sectionsWithQuestions;
   }
 
+  // Normalize selectedOptions from legacy indices to option IDs
+  private async normalizeSelectedOptions(questionId: number, selectedOptions: number[]): Promise<number[]> {
+    if (!selectedOptions || selectedOptions.length === 0) {
+      return selectedOptions;
+    }
+
+    // Get all options for this question
+    const allOptions = await db
+      .select()
+      .from(assessmentQuestionOptions)
+      .where(eq(assessmentQuestionOptions.questionId, questionId))
+      .orderBy(assessmentQuestionOptions.sortOrder);
+
+    if (allOptions.length === 0) {
+      return selectedOptions;
+    }
+
+    // Check if values are already option IDs (they match existing option IDs)
+    const optionIds = allOptions.map(opt => opt.id);
+    const allAreIds = selectedOptions.every(val => optionIds.includes(val));
+    
+    if (allAreIds) {
+      // Already normalized, return as is
+      return selectedOptions;
+    }
+
+    // Legacy format detected: convert indices/score values to option IDs
+    const normalized: number[] = [];
+    
+    for (const value of selectedOptions) {
+      // Try to match by sort order (for index-based)
+      let matched = allOptions.find(opt => (opt.sortOrder ?? 0) === value);
+      
+      // If not found, try to match by score value (for BDI-II where scores are 0,1,2,3)
+      if (!matched) {
+        matched = allOptions.find(opt => Number(opt.optionValue) === value);
+      }
+      
+      if (matched) {
+        normalized.push(matched.id);
+      } else {
+        // If still not matched and value is a valid array index, use it
+        if (value >= 0 && value < allOptions.length) {
+          normalized.push(allOptions[value].id);
+        }
+      }
+    }
+
+    return normalized;
+  }
+
   // Save or update assessment response
   async saveAssessmentResponse(responseData: any): Promise<AssessmentResponse> {
+    // Normalize selectedOptions from legacy indices to option IDs if needed
+    if (responseData.selectedOptions) {
+      responseData.selectedOptions = await this.normalizeSelectedOptions(
+        responseData.questionId,
+        responseData.selectedOptions
+      );
+    }
+
     // Calculate score value for this response
     const scoreValue = await this.calculateResponseScore(responseData);
 
