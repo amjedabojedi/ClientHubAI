@@ -406,8 +406,10 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'multiple_choice':
-        // Provide default options when question.options is null or empty
-        let questionOptions = question.options;
+        // Use allOptions from database (includes option IDs) for proper response saving
+        // Fall back to question.options (text only) if allOptions not available
+        const allOptions = question.allOptions || [];
+        let questionOptions = allOptions.length > 0 ? allOptions.map((opt: any) => opt.optionText) : question.options;
         
         if (!questionOptions || questionOptions.length === 0) {
           // Special handling for session format question
@@ -492,12 +494,16 @@ export default function AssessmentCompletionPage() {
               setTimeout(() => saveResponse(question.id), 100);
             }}
           >
-            {questionOptions.map((option, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <RadioGroupItem value={index.toString()} id={`q${question.id}_${index}`} />
-                <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
-              </div>
-            ))}
+            {questionOptions.map((option, index) => {
+              // Use option ID if available from allOptions, otherwise fall back to index for legacy questions
+              const optionId = allOptions[index]?.id || index;
+              return (
+                <div key={index} className="flex items-center space-x-2">
+                  <RadioGroupItem value={optionId.toString()} id={`q${question.id}_${optionId}`} />
+                  <Label htmlFor={`q${question.id}_${optionId}`}>{option}</Label>
+                </div>
+              );
+            })}
           </RadioGroup>
         );
 
@@ -537,8 +543,9 @@ export default function AssessmentCompletionPage() {
         );
 
       case 'checkbox':
-        // Use options from database template OR provide defaults when question.options is null or empty
-        let checkboxOptions = question.options;
+        // Use allOptions from database (includes option IDs) for proper response saving
+        const checkboxAllOptions = question.allOptions || [];
+        let checkboxOptions = checkboxAllOptions.length > 0 ? checkboxAllOptions.map((opt: any) => opt.optionText) : question.options;
         
         if (!checkboxOptions || checkboxOptions.length === 0) {
           // Provide sensible defaults based on question text
@@ -565,24 +572,28 @@ export default function AssessmentCompletionPage() {
         // ALWAYS render ALL checkbox questions in 2-column layout (database options AND fallback options)
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {checkboxOptions.map((option, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`q${question.id}_${index}`}
-                  checked={response.selectedOptions?.includes(index) || false}
-                  onCheckedChange={(checked) => {
-                    const currentOptions = response.selectedOptions || [];
-                    const newOptions = checked
-                      ? [...currentOptions, index]
-                      : currentOptions.filter((opt: number) => opt !== index);
-                    handleResponseChange(question.id, newOptions, 'selectedOptions');
-                    // Debounced save with longer delay to prevent too many API calls
-                    setTimeout(() => saveResponse(question.id), 500);
-                  }}
-                />
-                <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
-              </div>
-            ))}
+            {checkboxOptions.map((option, index) => {
+              // Use option ID if available from allOptions, otherwise fall back to index
+              const optionId = checkboxAllOptions[index]?.id || index;
+              return (
+                <div key={index} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`q${question.id}_${optionId}`}
+                    checked={response.selectedOptions?.includes(optionId) || false}
+                    onCheckedChange={(checked) => {
+                      const currentOptions = response.selectedOptions || [];
+                      const newOptions = checked
+                        ? [...currentOptions, optionId]
+                        : currentOptions.filter((opt: number) => opt !== optionId);
+                      handleResponseChange(question.id, newOptions, 'selectedOptions');
+                      // Debounced save with longer delay to prevent too many API calls
+                      setTimeout(() => saveResponse(question.id), 500);
+                    }}
+                  />
+                  <Label htmlFor={`q${question.id}_${optionId}`}>{option}</Label>
+                </div>
+              );
+            })}
           </div>
         );
 
