@@ -160,15 +160,93 @@ export default function AssessmentCompletionPage() {
     }
   }, [existingResponses]);
 
+  // Batch save state - collect responses to save together
+  const pendingSaves = useRef<Set<number>>(new Set());
+  const batchSaveTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Batch save mutation - saves multiple responses at once
+  const batchSaveMutation = useMutation({
+    mutationFn: async (responsesData: any[]) => {
+      return apiRequest("/api/assessments/responses/batch", "POST", { responses: responsesData });
+    },
+    onSuccess: () => {
+      // Only invalidate cache once after batch completes
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
+      pendingSaves.current.clear();
+    }
+  });
+
+  // Save response mutation (fallback for single saves)
+  const saveResponseMutation = useMutation({
+    mutationFn: async (responseData: any) => {
+      return apiRequest("/api/assessments/responses", "POST", responseData);
+    },
+    onSuccess: () => {
+      // Invalidate queries to refresh data after save
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
+    }
+  });
+
+  // Trigger batch save with debouncing
+  const triggerBatchSave = () => {
+    // Clear existing timer
+    if (batchSaveTimer.current) {
+      clearTimeout(batchSaveTimer.current);
+    }
+
+    // Set new timer to batch saves
+    batchSaveTimer.current = setTimeout(() => {
+      if (pendingSaves.current.size === 0) return;
+
+      // Collect all pending responses
+      const responsesToSave = Array.from(pendingSaves.current)
+        .map(questionId => {
+          const response = responses[questionId];
+          if (!response) return null;
+
+          // Only include if there's actual data
+          const hasData = response.responseText || 
+                         (response.selectedOptions && response.selectedOptions.length > 0) || 
+                         response.ratingValue !== null;
+          
+          if (!hasData) return null;
+
+          return {
+            assignmentId,
+            questionId,
+            responderId: user?.id,
+            responseText: response.responseText || null,
+            selectedOptions: (response.selectedOptions && response.selectedOptions.length > 0) ? response.selectedOptions : null,
+            ratingValue: response.ratingValue || null
+          };
+        })
+        .filter(Boolean);
+
+      if (responsesToSave.length > 0) {
+        batchSaveMutation.mutate(responsesToSave);
+      } else {
+        pendingSaves.current.clear();
+      }
+    }, 1000); // Wait 1 second to batch multiple changes
+  };
+
   // Auto-save functionality - save responses every 30 seconds
   useEffect(() => {
-    if (Object.keys(responses).length === 0) return; // Don't auto-save if no responses
+    if (Object.keys(responses).length === 0) return;
 
     const autoSaveInterval = setInterval(() => {
+      // Add all responses to pending saves
       Object.keys(responses).forEach((questionId) => {
-        saveResponse(parseInt(questionId));
+        pendingSaves.current.add(parseInt(questionId));
       });
-    }, 30000); // Save every 30 seconds
+      // Trigger immediate batch save
+      if (batchSaveTimer.current) {
+        clearTimeout(batchSaveTimer.current);
+      }
+      triggerBatchSave();
+    }, 30000); // Every 30 seconds
 
     return () => clearInterval(autoSaveInterval);
   }, [responses]);
@@ -176,10 +254,11 @@ export default function AssessmentCompletionPage() {
   // Save progress on page unload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Save all current responses
-      Object.keys(responses).forEach((questionId) => {
-        saveResponse(parseInt(questionId));
-      });
+      // Trigger immediate save on unload
+      if (pendingSaves.current.size > 0 && batchSaveTimer.current) {
+        clearTimeout(batchSaveTimer.current);
+        triggerBatchSave();
+      }
       
       // Show warning if there are unsaved changes
       if (Object.keys(responses).length > 0) {
@@ -191,18 +270,6 @@ export default function AssessmentCompletionPage() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
-
-  // Save response mutation
-  const saveResponseMutation = useMutation({
-    mutationFn: async (responseData: any) => {
-      return apiRequest("/api/assessments/responses", "POST", responseData);
-    },
-    onSuccess: () => {
-      // Invalidate queries to refresh data after save
-      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
-    }
-  });
 
   // Note: Completing questions does NOT finalize the assessment
   // Status changes only happen when:
@@ -241,14 +308,14 @@ export default function AssessmentCompletionPage() {
     }));
   };
 
-  const saveResponse = async (questionId: number) => {
+  const saveResponse = (questionId: number) => {
     const response = responses[questionId];
     if (!response) return;
 
     // Only save if there's actually some data
     const hasData = response.responseText || 
                    (response.selectedOptions && response.selectedOptions.length > 0) || 
-                   response.ratingValue;
+                   response.ratingValue !== null;
     
     if (!hasData) return; // Don't save empty responses
 
@@ -262,18 +329,9 @@ export default function AssessmentCompletionPage() {
       return;
     }
 
-    try {
-      await saveResponseMutation.mutateAsync({
-        assignmentId,
-        questionId,
-        responderId: user.id,
-        responseText: response.responseText || null,
-        selectedOptions: (response.selectedOptions && response.selectedOptions.length > 0) ? response.selectedOptions : null,
-        ratingValue: response.ratingValue || null
-      });
-    } catch (error) {
-      console.error('Failed to save response:', error);
-    }
+    // Add to pending saves and trigger batch save
+    pendingSaves.current.add(questionId);
+    triggerBatchSave();
   };
 
   // Calculate completion stats
