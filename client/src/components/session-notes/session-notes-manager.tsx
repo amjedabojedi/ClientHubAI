@@ -24,6 +24,7 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 
 // Voice Recording
 import { VoiceRecorder } from "@/components/voice-recorder";
+import { TranscriptionReviewDialog } from "./transcription-review-dialog";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -190,6 +191,21 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [internalIsAddNoteOpen, setInternalIsAddNoteOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
   const [isFromSessionClick, setIsFromSessionClick] = useState(false); // Track if came from session click
+  
+  // Voice transcription review state
+  const [pendingTranscription, setPendingTranscription] = useState<{
+    rawTranscription: string;
+    mappedFields: {
+      sessionFocus?: string;
+      symptoms?: string;
+      shortTermGoals?: string;
+      intervention?: string;
+      progress?: string;
+      remarks?: string;
+      recommendations?: string;
+    };
+  } | null>(null);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
   
   // Use external open state if provided, otherwise use internal state
   const isAddNoteOpen = open !== undefined ? open : internalIsAddNoteOpen;
@@ -669,6 +685,60 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       sessionId,
       formData: formValues,
       customInstructions: savedTemplate
+    });
+  };
+
+  // Handle applying transcription after review
+  const handleApplyTranscription = (selectedFields: {
+    [key: string]: { value: string; mergeMode: 'append' | 'replace' };
+  }) => {
+    Object.keys(selectedFields).forEach((fieldKey) => {
+      const { value: newValue, mergeMode } = selectedFields[fieldKey];
+      
+      // Skip empty values
+      if (!newValue?.trim()) return;
+      
+      // Get current field value
+      const currentValue = form.getValues(fieldKey as any) as string | undefined;
+      
+      // Determine final value based on merge mode
+      let finalValue: string;
+      if (mergeMode === 'append' && currentValue?.trim()) {
+        // Append with double newline separator
+        finalValue = `${currentValue.trim()}\n\n${newValue.trim()}`;
+      } else {
+        // Replace or set if empty
+        finalValue = newValue.trim();
+      }
+      
+      // Update form field
+      form.setValue(fieldKey as any, finalValue, { 
+        shouldDirty: true, 
+        shouldTouch: true 
+      });
+    });
+    
+    // Store raw transcript for audit trail
+    if (pendingTranscription?.rawTranscription) {
+      form.setValue('voiceTranscription', pendingTranscription.rawTranscription);
+    }
+    
+    // Clear pending state
+    setPendingTranscription(null);
+    
+    // Show success message
+    const fieldCount = Object.keys(selectedFields).length;
+    toast({
+      title: "Transcription applied!",
+      description: `${fieldCount} field${fieldCount !== 1 ? 's' : ''} updated. Review and save your changes.`
+    });
+  };
+  
+  const handleDiscardTranscription = () => {
+    setPendingTranscription(null);
+    toast({
+      title: "Transcription discarded",
+      description: "No changes were made to your session note"
     });
   };
 
@@ -1400,20 +1470,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         <VoiceRecorder 
                           sessionNoteId={editingNote.id}
                           onTranscriptionComplete={(data) => {
-                            // Auto-fill form fields with transcription data
-                            if (data.mappedFields.sessionFocus) form.setValue('sessionFocus', data.mappedFields.sessionFocus);
-                            if (data.mappedFields.symptoms) form.setValue('symptoms', data.mappedFields.symptoms);
-                            if (data.mappedFields.shortTermGoals) form.setValue('shortTermGoals', data.mappedFields.shortTermGoals);
-                            if (data.mappedFields.intervention) form.setValue('intervention', data.mappedFields.intervention);
-                            if (data.mappedFields.progress) form.setValue('progress', data.mappedFields.progress);
-                            if (data.mappedFields.remarks) form.setValue('remarks', data.mappedFields.remarks);
-                            if (data.mappedFields.recommendations) form.setValue('recommendations', data.mappedFields.recommendations);
-                            
-                            // Show success message
-                            toast({
-                              title: "Fields auto-filled!",
-                              description: "Review the auto-filled content below and make any adjustments"
-                            });
+                            // Store transcription data and open review dialog
+                            setPendingTranscription(data);
+                            setShowReviewDialog(true);
                           }}
                         />
                       </CardContent>
@@ -2189,6 +2248,16 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Voice Transcription Review Dialog */}
+      <TranscriptionReviewDialog
+        open={showReviewDialog}
+        onOpenChange={setShowReviewDialog}
+        transcriptionData={pendingTranscription}
+        currentFieldValues={form.getValues()}
+        onApply={handleApplyTranscription}
+        onDiscard={handleDiscardTranscription}
+      />
     </div>
   );
 }

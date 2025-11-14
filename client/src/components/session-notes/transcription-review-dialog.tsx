@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,7 +74,7 @@ export function TranscriptionReviewDialog({
   const [fieldSelections, setFieldSelections] = useState<{ [key: string]: FieldSelection }>({});
 
   // Initialize selections when transcription data changes
-  useState(() => {
+  useEffect(() => {
     if (transcriptionData?.mappedFields) {
       const initialSelections: { [key: string]: FieldSelection } = {};
       
@@ -93,7 +93,7 @@ export function TranscriptionReviewDialog({
       
       setFieldSelections(initialSelections);
     }
-  });
+  }, [transcriptionData, currentFieldValues]);
 
   const handleToggleField = (fieldKey: string) => {
     setFieldSelections(prev => ({
