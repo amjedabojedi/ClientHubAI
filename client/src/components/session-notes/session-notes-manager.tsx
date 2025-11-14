@@ -692,23 +692,31 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const handleApplyTranscription = (selectedFields: {
     [key: string]: { value: string; mergeMode: 'append' | 'replace' };
   }) => {
+    // Get fresh current values from form to avoid stale data
+    const currentFormValues = form.getValues();
+    
     Object.keys(selectedFields).forEach((fieldKey) => {
       const { value: newValue, mergeMode } = selectedFields[fieldKey];
       
-      // Skip empty values
-      if (!newValue?.trim()) return;
+      // Skip empty new values
+      const newValueTrimmed = newValue?.trim();
+      if (!newValueTrimmed) return;
       
-      // Get current field value
-      const currentValue = form.getValues(fieldKey as any) as string | undefined;
+      // Get current field value (fresh from form)
+      const currentValue = currentFormValues[fieldKey as keyof typeof currentFormValues] as string | null | undefined;
       
-      // Determine final value based on merge mode
+      // Check if current has actual content (not just whitespace)
+      const hasCurrentContent = currentValue && currentValue.trim().length > 0;
+      
+      // Determine final value based on merge mode and current content
       let finalValue: string;
-      if (mergeMode === 'append' && currentValue?.trim()) {
-        // Append with double newline separator
-        finalValue = `${currentValue.trim()}\n\n${newValue.trim()}`;
+      
+      if (mergeMode === 'append' && hasCurrentContent) {
+        // Append: preserve original formatting of current value, add separator, then new content
+        finalValue = `${currentValue}\n\n${newValueTrimmed}`;
       } else {
-        // Replace or set if empty
-        finalValue = newValue.trim();
+        // Replace: either explicitly requested OR current field is empty/whitespace
+        finalValue = newValueTrimmed;
       }
       
       // Update form field
@@ -2250,14 +2258,24 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       </Dialog>
 
       {/* Voice Transcription Review Dialog */}
-      <TranscriptionReviewDialog
-        open={showReviewDialog}
-        onOpenChange={setShowReviewDialog}
-        transcriptionData={pendingTranscription}
-        currentFieldValues={form.getValues()}
-        onApply={handleApplyTranscription}
-        onDiscard={handleDiscardTranscription}
-      />
+      {showReviewDialog && (
+        <TranscriptionReviewDialog
+          open={showReviewDialog}
+          onOpenChange={setShowReviewDialog}
+          transcriptionData={pendingTranscription}
+          currentFieldValues={{
+            sessionFocus: form.getValues('sessionFocus') || undefined,
+            symptoms: form.getValues('symptoms') || undefined,
+            shortTermGoals: form.getValues('shortTermGoals') || undefined,
+            intervention: form.getValues('intervention') || undefined,
+            progress: form.getValues('progress') || undefined,
+            remarks: form.getValues('remarks') || undefined,
+            recommendations: form.getValues('recommendations') || undefined,
+          }}
+          onApply={handleApplyTranscription}
+          onDiscard={handleDiscardTranscription}
+        />
+      )}
     </div>
   );
 }
