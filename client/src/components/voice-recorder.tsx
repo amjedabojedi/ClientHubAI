@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 interface VoiceRecorderProps {
-  sessionNoteId: number;
+  sessionNoteId?: number | null;
   onTranscriptionComplete: (data: {
     rawTranscription: string;
     mappedFields: {
@@ -129,10 +129,15 @@ export function VoiceRecorder({ sessionNoteId, onTranscriptionComplete }: VoiceR
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('audio', audioBlob, `recording-${Date.now()}.webm`);
+      
+      // Include sessionNoteId if available (for existing notes)
+      if (sessionNoteId) {
+        formData.append('sessionNoteId', sessionNoteId.toString());
+      }
 
       // Send to backend
       const result = await apiRequest(
-        `/api/session-notes/${sessionNoteId}/transcribe`,
+        '/api/session-notes/transcribe',
         {
           method: 'POST',
           body: formData
@@ -141,10 +146,10 @@ export function VoiceRecorder({ sessionNoteId, onTranscriptionComplete }: VoiceR
 
       toast({
         title: "Transcription complete!",
-        description: "Session note fields have been auto-filled"
+        description: "Review the AI suggestions before applying"
       });
 
-      // Pass results to parent component
+      // Pass results to parent component (opens review dialog)
       onTranscriptionComplete(result);
     } catch (error: any) {
       console.error('Transcription error:', error);

@@ -6116,7 +6116,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/session-notes/:id/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+  app.post("/api/session-notes/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -6124,20 +6124,37 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      const id = parseInt(req.params.id);
+      // Optional session note ID (may not exist for new unsaved notes)
+      const sessionNoteId = req.body.sessionNoteId ? parseInt(req.body.sessionNoteId) : null;
       
-      // Get existing note to check permissions and get client info
-      const note = await storage.getSessionNote(id);
-      if (!note) {
-        return res.status(404).json({ message: "Session note not found" });
-      }
+      let clientName: string | undefined;
+      let sessionDate: string | undefined;
+      let noteClientId: number | undefined;
+      let noteSessionId: number | undefined;
+      
+      // If sessionNoteId provided, verify permissions and get context
+      if (sessionNoteId) {
+        const note = await storage.getSessionNote(sessionNoteId);
+        if (!note) {
+          return res.status(404).json({ message: "Session note not found" });
+        }
 
-      // Permission check: Only assigned therapist or admin can transcribe
-      const isAssignedTherapist = note.therapistId === req.user.id;
-      const isAdmin = req.user.role === 'administrator';
-      
-      if (!isAssignedTherapist && !isAdmin) {
-        return res.status(403).json({ message: "You do not have permission to transcribe audio for this session note" });
+        // Permission check: Only assigned therapist or admin can transcribe
+        const isAssignedTherapist = note.therapistId === req.user.id;
+        const isAdmin = req.user.role === 'administrator';
+        
+        if (!isAssignedTherapist && !isAdmin) {
+          return res.status(403).json({ message: "You do not have permission to transcribe audio for this session note" });
+        }
+
+        noteClientId = note.clientId;
+        noteSessionId = note.sessionId;
+
+        // Get client and session info for better AI context
+        const client = await storage.getClient(note.clientId);
+        const session = await storage.getSession(note.sessionId);
+        clientName = client?.fullName;
+        sessionDate = session?.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined;
       }
 
       // Check if audio file was uploaded
@@ -6145,54 +6162,53 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "No audio file uploaded" });
       }
 
-      console.log(`[API] Processing voice transcription for session note ${id}. File size: ${req.file.size} bytes`);
-
-      // Get client and session info for context
-      const client = await storage.getClient(note.clientId);
-      const session = await storage.getSession(note.sessionId);
-      const sessionDate = session?.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined;
+      console.log(`[API] Processing voice transcription${sessionNoteId ? ` for session note ${sessionNoteId}` : ' for new note'}. File size: ${req.file.size} bytes`);
 
       // Transcribe and map audio using AI
       const result = await transcribeAndMapAudio(
         req.file.buffer,
         req.file.originalname,
-        client?.fullName,
+        clientName,
         sessionDate
       );
 
-      // Update session note with transcription and mapped fields
-      await storage.updateSessionNote(id, {
-        voiceTranscription: result.rawTranscription,
-        // Only update fields if they have values from the transcription
-        ...(result.mappedFields.sessionFocus && { sessionFocus: result.mappedFields.sessionFocus }),
-        ...(result.mappedFields.symptoms && { symptoms: result.mappedFields.symptoms }),
-        ...(result.mappedFields.shortTermGoals && { shortTermGoals: result.mappedFields.shortTermGoals }),
-        ...(result.mappedFields.intervention && { intervention: result.mappedFields.intervention }),
-        ...(result.mappedFields.progress && { progress: result.mappedFields.progress }),
-        ...(result.mappedFields.remarks && { remarks: result.mappedFields.remarks }),
-        ...(result.mappedFields.recommendations && { recommendations: result.mappedFields.recommendations })
-      });
-
       // HIPAA Audit Log: Voice transcription processed
-      await AuditLogger.logSessionNoteAccess(
-        req.user.id,
-        req.user.username,
-        id,
-        note.clientId,
-        'voice_transcription_processed',
-        ipAddress,
-        userAgent,
-        { 
-          sessionId: note.sessionId,
-          audioFileSize: req.file.size,
-          transcriptionLength: result.rawTranscription.length,
-          fieldsExtracted: Object.keys(result.mappedFields).filter(k => result.mappedFields[k])
-        }
-      );
+      if (sessionNoteId && noteClientId) {
+        await AuditLogger.logSessionNoteAccess(
+          req.user.id,
+          req.user.username,
+          sessionNoteId,
+          noteClientId,
+          'voice_transcription_processed',
+          ipAddress,
+          userAgent,
+          { 
+            sessionId: noteSessionId,
+            audioFileSize: req.file.size,
+            transcriptionLength: result.rawTranscription.length,
+            fieldsExtracted: Object.keys(result.mappedFields).filter(k => result.mappedFields[k])
+          }
+        );
+      } else {
+        // Log for new note (no client/session ID yet)
+        await storage.logUserActivity({
+          userId: req.user.id,
+          action: 'voice_transcription_new_note',
+          resourceType: 'session_note',
+          resourceId: null,
+          details: 'Processed voice transcription for new unsaved session note',
+          ipAddress,
+          userAgent,
+          metadata: {
+            audioFileSize: req.file.size,
+            transcriptionLength: result.rawTranscription.length
+          }
+        });
+      }
 
-      console.log(`[API] Voice transcription completed for session note ${id}`);
+      console.log(`[API] Voice transcription completed${sessionNoteId ? ` for session note ${sessionNoteId}` : ' for new note'}`);
 
-      // Return the transcription result (audio buffer is automatically garbage collected)
+      // Return the transcription result for review dialog (don't auto-update database)
       res.json({
         success: true,
         rawTranscription: result.rawTranscription,
@@ -6202,11 +6218,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
       console.error('[API] Voice transcription error:', error);
       
       // Log failed attempt for audit trail
-      if (req.user) {
+      if (req.user && req.body.sessionNoteId) {
+        const noteId = parseInt(req.body.sessionNoteId);
         await AuditLogger.logSessionNoteAccess(
           req.user.id,
           req.user.username,
-          parseInt(req.params.id),
+          noteId,
           0, // clientId not available in error case
           'voice_transcription_failed',
           ipAddress,

@@ -1465,8 +1465,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
                 {/* Clinical Documentation Tab */}
                 <TabsContent value="clinical" className="space-y-4">
-                  {/* Voice Recording Section */}
-                  {editingNote?.id && (
+                  {/* Voice Recording Section - Available for both new and existing notes */}
+                  {editingNote && (
                     <Card className="border-blue-200 bg-blue-50/50">
                       <CardHeader className="py-3">
                         <CardTitle className="text-sm">Voice Recording (Beta)</CardTitle>
@@ -1476,7 +1476,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       </CardHeader>
                       <CardContent className="py-3">
                         <VoiceRecorder 
-                          sessionNoteId={editingNote.id}
+                          sessionNoteId={editingNote?.id || null}
                           onTranscriptionComplete={(data) => {
                             // Store transcription data and open review dialog
                             setPendingTranscription(data);
