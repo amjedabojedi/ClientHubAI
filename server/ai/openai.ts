@@ -593,7 +593,7 @@ ASSESSMENT SECTIONS TO GENERATE:
         userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
         // Add section total score for scoring sections
         if (sectionTotal !== null) {
-          userPrompt += `SECTION TOTAL SCORE: ${sectionTotal}\n`;
+          userPrompt += `CRITICAL - USE EXACT SCORE: This section's total score is ${sectionTotal} out of ${sectionResponses.length * (section.questions?.[0]?.allOptions?.length ? section.questions[0].allOptions.length - 1 : 0)}. You MUST report this EXACT score - do not recalculate or interpret it.\n`;
           userPrompt += `Number of items: ${sectionResponses.length}\n\n`;
         }
       } else {
@@ -793,7 +793,7 @@ Client Response Data: Base recommendations on the assessment findings and clinic
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.6,
+      temperature: 0,
       max_tokens: 4000,
     });
 
