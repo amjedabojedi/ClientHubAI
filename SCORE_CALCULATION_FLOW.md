@@ -147,6 +147,13 @@ SET contributes_to_score = true
 WHERE section_id IN (SELECT id FROM assessment_sections WHERE is_scoring = true);
 ```
 
+### Issue: Scores are doubled or outside expected range
+**Cause**: Multiple responders answering the same assessment, and system was summing ALL responses instead of using latest per question
+**Fix**: 
+- Modified `getAssessmentResponses` in `server/storage.ts` to deduplicate responses
+- Keeps only the LATEST response per question (by `created_at` timestamp)
+- Code now properly handles multi-responder scenarios
+
 ### Issue: Scores change each regeneration
 **Cause**: AI temperature > 0 or AI is recalculating instead of using provided scores
 **Fix**: 

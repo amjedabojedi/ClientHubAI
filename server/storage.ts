@@ -4079,8 +4079,24 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
 
+    // DEDUPLICATE: Keep only the latest response per question (handles multiple responders)
+    // Group by questionId and keep the response with the most recent createdAt
+    const latestResponsesByQuestion = new Map<number, typeof results[0]>();
+    for (const result of results) {
+      const questionId = result.assessment_responses.questionId;
+      const existing = latestResponsesByQuestion.get(questionId);
+      
+      // Keep the response with the latest createdAt timestamp
+      if (!existing || result.assessment_responses.createdAt > existing.assessment_responses.createdAt) {
+        latestResponsesByQuestion.set(questionId, result);
+      }
+    }
+    
+    // Convert back to array
+    const deduplicatedResults = Array.from(latestResponsesByQuestion.values());
+
     // OPTIMIZATION: Load ALL question options in ONE query instead of N+1 queries
-    const questionIds = Array.from(new Set(results.map(r => r.assessment_questions!.id)));
+    const questionIds = Array.from(new Set(deduplicatedResults.map(r => r.assessment_questions!.id)));
     const allOptions = await db
       .select()
       .from(assessmentQuestionOptions)
@@ -4097,8 +4113,8 @@ export class DatabaseStorage implements IStorage {
       optionsByQuestion.get(questionId)!.push(option);
     }
 
-    // Build responses with options
-    const responsesWithOptions = results.map(result => {
+    // Build responses with options (using deduplicated results)
+    const responsesWithOptions = deduplicatedResults.map(result => {
       const question = result.assessment_questions!;
       const options = optionsByQuestion.get(question.id) || [];
       
