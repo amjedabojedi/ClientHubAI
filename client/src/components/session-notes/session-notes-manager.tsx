@@ -22,6 +22,9 @@ import 'react-quill/dist/quill.snow.css';
 // Icons
 import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown } from "lucide-react";
 
+// Voice Recording
+import { VoiceRecorder } from "@/components/voice-recorder";
+
 // Utils
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -1384,6 +1387,39 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
                 {/* Clinical Documentation Tab */}
                 <TabsContent value="clinical" className="space-y-4">
+                  {/* Voice Recording Section */}
+                  {note?.id && (
+                    <Card className="border-blue-200 bg-blue-50/50">
+                      <CardHeader className="py-3">
+                        <CardTitle className="text-sm">Voice Recording (Beta)</CardTitle>
+                        <CardDescription className="text-xs">
+                          Record your session notes and AI will automatically structure them into the fields below
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="py-3">
+                        <VoiceRecorder 
+                          sessionNoteId={note.id}
+                          onTranscriptionComplete={(data) => {
+                            // Auto-fill form fields with transcription data
+                            if (data.mappedFields.sessionFocus) form.setValue('sessionFocus', data.mappedFields.sessionFocus);
+                            if (data.mappedFields.symptoms) form.setValue('symptoms', data.mappedFields.symptoms);
+                            if (data.mappedFields.shortTermGoals) form.setValue('shortTermGoals', data.mappedFields.shortTermGoals);
+                            if (data.mappedFields.intervention) form.setValue('intervention', data.mappedFields.intervention);
+                            if (data.mappedFields.progress) form.setValue('progress', data.mappedFields.progress);
+                            if (data.mappedFields.remarks) form.setValue('remarks', data.mappedFields.remarks);
+                            if (data.mappedFields.recommendations) form.setValue('recommendations', data.mappedFields.recommendations);
+                            
+                            // Show success message
+                            toast({
+                              title: "Fields auto-filled!",
+                              description: "Review the auto-filled content below and make any adjustments"
+                            });
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}

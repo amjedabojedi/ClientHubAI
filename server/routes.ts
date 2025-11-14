@@ -20,7 +20,7 @@ import { z } from "zod";
 // Internal Services
 import { storage, type TaskQueryParams } from "./storage";
 // Auth will be implemented later, for now removing to test audit logging
-import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport } from "./ai/openai";
+import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
@@ -6097,6 +6097,128 @@ You can download a copy if you have it saved locally and re-upload it.`;
     } catch (error) {
       console.error('Error finalizing session note:', error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Voice transcription endpoint for session notes
+  const audioUpload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 25 * 1024 * 1024 // 25MB max (OpenAI Whisper limit)
+    },
+    fileFilter: (req, file, cb) => {
+      // Accept audio files only
+      if (file.mimetype.startsWith('audio/') || file.mimetype === 'video/webm') {
+        cb(null, true);
+      } else {
+        cb(new Error('Only audio files are allowed'));
+      }
+    }
+  });
+
+  app.post("/api/session-notes/:id/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+      
+      // Get existing note to check permissions and get client info
+      const note = await storage.getSessionNote(id);
+      if (!note) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+
+      // Permission check: Only assigned therapist or admin can transcribe
+      const isAssignedTherapist = note.therapistId === req.user.id;
+      const isAdmin = req.user.role === 'administrator';
+      
+      if (!isAssignedTherapist && !isAdmin) {
+        return res.status(403).json({ message: "You do not have permission to transcribe audio for this session note" });
+      }
+
+      // Check if audio file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ message: "No audio file uploaded" });
+      }
+
+      console.log(`[API] Processing voice transcription for session note ${id}. File size: ${req.file.size} bytes`);
+
+      // Get client and session info for context
+      const client = await storage.getClient(note.clientId);
+      const session = await storage.getSession(note.sessionId);
+      const sessionDate = session?.sessionDate ? formatInTimeZone(new Date(session.sessionDate), 'America/New_York', "MMM dd, yyyy 'at' h:mm a") : undefined;
+
+      // Transcribe and map audio using AI
+      const result = await transcribeAndMapAudio(
+        req.file.buffer,
+        req.file.originalname,
+        client?.fullName,
+        sessionDate
+      );
+
+      // Update session note with transcription and mapped fields
+      await storage.updateSessionNote(id, {
+        voiceTranscription: result.rawTranscription,
+        // Only update fields if they have values from the transcription
+        ...(result.mappedFields.sessionFocus && { sessionFocus: result.mappedFields.sessionFocus }),
+        ...(result.mappedFields.symptoms && { symptoms: result.mappedFields.symptoms }),
+        ...(result.mappedFields.shortTermGoals && { shortTermGoals: result.mappedFields.shortTermGoals }),
+        ...(result.mappedFields.intervention && { intervention: result.mappedFields.intervention }),
+        ...(result.mappedFields.progress && { progress: result.mappedFields.progress }),
+        ...(result.mappedFields.remarks && { remarks: result.mappedFields.remarks }),
+        ...(result.mappedFields.recommendations && { recommendations: result.mappedFields.recommendations })
+      });
+
+      // HIPAA Audit Log: Voice transcription processed
+      await AuditLogger.logSessionNoteAccess(
+        req.user.id,
+        req.user.username,
+        id,
+        note.clientId,
+        'voice_transcription_processed',
+        ipAddress,
+        userAgent,
+        { 
+          sessionId: note.sessionId,
+          audioFileSize: req.file.size,
+          transcriptionLength: result.rawTranscription.length,
+          fieldsExtracted: Object.keys(result.mappedFields).filter(k => result.mappedFields[k])
+        }
+      );
+
+      console.log(`[API] Voice transcription completed for session note ${id}`);
+
+      // Return the transcription result (audio buffer is automatically garbage collected)
+      res.json({
+        success: true,
+        rawTranscription: result.rawTranscription,
+        mappedFields: result.mappedFields
+      });
+    } catch (error: any) {
+      console.error('[API] Voice transcription error:', error);
+      
+      // Log failed attempt for audit trail
+      if (req.user) {
+        await AuditLogger.logSessionNoteAccess(
+          req.user.id,
+          req.user.username,
+          parseInt(req.params.id),
+          0, // clientId not available in error case
+          'voice_transcription_failed',
+          ipAddress,
+          userAgent,
+          { error: error.message }
+        );
+      }
+      
+      res.status(500).json({ 
+        message: error.message || "Voice transcription failed",
+        error: error.message 
+      });
     }
   });
 
