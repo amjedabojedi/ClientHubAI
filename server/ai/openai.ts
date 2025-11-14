@@ -574,7 +574,7 @@ ASSESSMENT SECTIONS TO GENERATE:
   // Add each section with its responses and AI prompt
   sections.forEach(section => {
     const sectionResponses = responses.filter(r => 
-      section.questions?.some(q => q.id === r.questionId)
+      section.questions?.some(q => Number(q.id) === Number(r.questionId))
     );
 
     if (sectionResponses.length > 0) {
