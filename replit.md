@@ -50,7 +50,7 @@ Comprehensive client management includes tracking through various stages and sta
 
 **Session Management:** Tracks sessions linking clients, therapists, services, and rooms, with auto-billing.
 **Session Notes:** Stores AI-generated drafts and progress notes.
-**Assessments:** Manages assessment templates, assignments, responses, and AI-generated reports.
+**Assessments:** Manages assessment templates, assignments, responses, and AI-generated reports. Assessment responses use option IDs (not array indices) for proper scoring and AI report generation. Backend normalization layer handles legacy index-based data during transition.
 
 **Clinical Content Library:** A comprehensive system for reusable clinical content. It uses a structured title pattern (`[CONDITION][TYPE][NUMBER]_[VARIANT]`) for categorization. A "Smart Connect" feature auto-suggests connections between entries based on patterns and keywords, defining relationship types. The system supports bulk import from Excel with validation, natural sorting, and prevents duplicate entries.
 

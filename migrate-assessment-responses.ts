@@ -53,7 +53,9 @@ async function migrateAssessmentResponses() {
         
         // Check if values are already option IDs
         const optionIds = allOptions.map(opt => opt.id);
-        const allAreIds = response.selectedOptions.every(val => optionIds.includes(val));
+        // Coerce to numbers to handle both string and number IDs
+        const numericValues = response.selectedOptions.map(val => Number(val));
+        const allAreIds = numericValues.every(val => optionIds.includes(val));
         
         if (allAreIds) {
           // Already normalized
@@ -64,7 +66,7 @@ async function migrateAssessmentResponses() {
         // Convert indices to option IDs
         const normalized: number[] = [];
         
-        for (const value of response.selectedOptions) {
+        for (const value of numericValues) {
           // Try to match by sort order (for index-based)
           let matched = allOptions.find(opt => (opt.sortOrder ?? 0) === value);
           

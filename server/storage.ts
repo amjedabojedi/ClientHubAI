@@ -3848,17 +3848,19 @@ export class DatabaseStorage implements IStorage {
 
     // Check if values are already option IDs (they match existing option IDs)
     const optionIds = allOptions.map(opt => opt.id);
-    const allAreIds = selectedOptions.every(val => optionIds.includes(val));
+    // Coerce to numbers to handle both string and number IDs
+    const numericValues = selectedOptions.map(val => Number(val));
+    const allAreIds = numericValues.every(val => optionIds.includes(val));
     
     if (allAreIds) {
       // Already normalized, return as is
-      return selectedOptions;
+      return numericValues;
     }
 
     // Legacy format detected: convert indices/score values to option IDs
     const normalized: number[] = [];
     
-    for (const value of selectedOptions) {
+    for (const value of numericValues) {
       // Try to match by sort order (for index-based)
       let matched = allOptions.find(opt => (opt.sortOrder ?? 0) === value);
       
