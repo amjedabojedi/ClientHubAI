@@ -9079,6 +9079,42 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Batch save multiple assessment responses
+  app.post('/api/assessments/responses/batch', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { responses } = req.body;
+      
+      if (!Array.isArray(responses) || responses.length === 0) {
+        return res.status(400).json({ message: 'Invalid request: responses array is required' });
+      }
+
+      // Save all responses
+      const savedResponses = [];
+      for (const responseData of responses) {
+        const response = await storage.saveAssessmentResponse(responseData);
+        savedResponses.push(response);
+      }
+      
+      // Update assessment status to 'client_in_progress' if it's currently 'pending'
+      if (responses[0]?.assignmentId) {
+        const assignment = await storage.getAssessmentAssignmentById(responses[0].assignmentId);
+        if (assignment && assignment.status === 'pending') {
+          await storage.updateAssessmentAssignment(responses[0].assignmentId, {
+            status: 'client_in_progress'
+          });
+        }
+      }
+      
+      res.json({ 
+        message: `Successfully saved ${savedResponses.length} responses`,
+        responses: savedResponses 
+      });
+    } catch (error) {
+      console.error('Batch save error:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
   // Update assignment status
   app.patch('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
