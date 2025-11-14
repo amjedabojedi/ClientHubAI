@@ -876,6 +876,140 @@ ${sessionNoteData.recommendations ? `Treatment Recommendations: ${sessionNoteDat
   }
 }
 
+// Voice Transcription and Mapping for Session Notes
+interface TranscriptionResult {
+  rawTranscription: string;
+  mappedFields: {
+    sessionFocus?: string;
+    symptoms?: string;
+    shortTermGoals?: string;
+    intervention?: string;
+    progress?: string;
+    remarks?: string;
+    recommendations?: string;
+  };
+}
+
+export async function transcribeAndMapAudio(
+  audioBuffer: Buffer,
+  fileName: string,
+  clientName?: string,
+  sessionDate?: string
+): Promise<TranscriptionResult> {
+  try {
+    console.log('[AI] Starting voice transcription...');
+    const startTime = Date.now();
+
+    // Step 1: Transcribe audio using OpenAI Whisper
+    const transcription = await openai.audio.transcriptions.create({
+      file: new File([audioBuffer], fileName, { type: 'audio/webm' }),
+      model: 'whisper-1',
+      language: 'en', // Can be auto-detected by removing this
+      response_format: 'text'
+    });
+
+    const rawTranscription = transcription as unknown as string;
+    const transcriptionDuration = Date.now() - startTime;
+    console.log(`[AI] Transcription completed in ${transcriptionDuration}ms. Length: ${rawTranscription.length} chars`);
+
+    // Step 2: Map transcription to session note fields using GPT
+    console.log('[AI] Mapping transcription to session note fields...');
+    const mappingStartTime = Date.now();
+
+    const systemPrompt = `You are a professional clinical therapist AI assistant specializing in structuring voice-recorded session notes into formal documentation.
+
+Your task is to analyze the voice transcription of a therapy session and extract/structure it into specific clinical documentation fields.`;
+
+    const userPrompt = `VOICE TRANSCRIPTION FROM THERAPY SESSION:
+${clientName ? `Client: ${clientName}` : ''}
+${sessionDate ? `Session Date: ${sessionDate}` : ''}
+
+TRANSCRIPT:
+${rawTranscription}
+
+---
+
+Please analyze this transcription and structure it into the following clinical documentation fields. Extract relevant information from the transcript and present it in professional clinical language:
+
+1. SESSION FOCUS: Main topics/goals addressed in the session (2-3 sentences)
+2. SYMPTOMS: Client's reported symptoms, concerns, or presenting issues
+3. SHORT-TERM GOALS: Specific goals discussed or identified for the client
+4. INTERVENTION: Therapeutic techniques, interventions, or approaches used
+5. PROGRESS: Client's progress, insights gained, or improvements noted
+6. REMARKS: Additional clinical observations or noteworthy points
+7. RECOMMENDATIONS: Follow-up actions, homework, or recommendations for next session
+
+IMPORTANT RULES:
+- Use professional clinical language (third-person perspective preferred)
+- Be concise but comprehensive
+- If a field has no relevant information from the transcript, write "Not addressed in this session"
+- Focus on clinically relevant information
+- Maintain confidentiality and professional tone
+- Do not invent information not present in the transcript
+
+FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+SESSION FOCUS: [your text here]
+
+SYMPTOMS: [your text here]
+
+SHORT-TERM GOALS: [your text here]
+
+INTERVENTION: [your text here]
+
+PROGRESS: [your text here]
+
+REMARKS: [your text here]
+
+RECOMMENDATIONS: [your text here]`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3, // Low temperature for consistent extraction
+      max_tokens: 2000
+    });
+
+    const mappedContent = response.choices[0].message.content || '';
+    const mappingDuration = Date.now() - mappingStartTime;
+    console.log(`[AI] Mapping completed in ${mappingDuration}ms`);
+
+    // Step 3: Parse the structured response
+    const mappedFields: TranscriptionResult['mappedFields'] = {};
+    
+    const extractField = (label: string): string | undefined => {
+      const regex = new RegExp(`${label}:\\s*(.+?)(?=\\n\\n[A-Z]|$)`, 's');
+      const match = mappedContent.match(regex);
+      if (match && match[1]) {
+        const value = match[1].trim();
+        return value !== 'Not addressed in this session' ? value : undefined;
+      }
+      return undefined;
+    };
+
+    mappedFields.sessionFocus = extractField('SESSION FOCUS');
+    mappedFields.symptoms = extractField('SYMPTOMS');
+    mappedFields.shortTermGoals = extractField('SHORT-TERM GOALS');
+    mappedFields.intervention = extractField('INTERVENTION');
+    mappedFields.progress = extractField('PROGRESS');
+    mappedFields.remarks = extractField('REMARKS');
+    mappedFields.recommendations = extractField('RECOMMENDATIONS');
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`[AI] Complete transcription + mapping in ${totalDuration}ms`);
+
+    return {
+      rawTranscription,
+      mappedFields
+    };
+  } catch (error: any) {
+    console.error('[AI] Voice transcription error:', error);
+    throw new Error(`Voice transcription failed: ${error.message || 'Unknown error'}`);
+  }
+}
+
 // Generate content using connected templates
 export async function generateFromTemplate(templateId: string, field: string, context?: string): Promise<string> {
   const template = clinicalTemplates[templateId];

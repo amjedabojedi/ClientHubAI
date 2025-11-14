@@ -609,6 +609,9 @@ export const sessionNotes = pgTable("session_notes", {
   customAiPrompt: text("custom_ai_prompt"),
   aiProcessingStatus: varchar("ai_processing_status", { length: 50 }).default('idle'), // idle, processing, completed, error
   
+  // Voice transcription
+  voiceTranscription: text("voice_transcription"), // Raw transcript from audio recording (audit trail)
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
