@@ -1388,7 +1388,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 {/* Clinical Documentation Tab */}
                 <TabsContent value="clinical" className="space-y-4">
                   {/* Voice Recording Section */}
-                  {note?.id && (
+                  {editingNote?.id && (
                     <Card className="border-blue-200 bg-blue-50/50">
                       <CardHeader className="py-3">
                         <CardTitle className="text-sm">Voice Recording (Beta)</CardTitle>
@@ -1398,7 +1398,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       </CardHeader>
                       <CardContent className="py-3">
                         <VoiceRecorder 
-                          sessionNoteId={note.id}
+                          sessionNoteId={editingNote.id}
                           onTranscriptionComplete={(data) => {
                             // Auto-fill form fields with transcription data
                             if (data.mappedFields.sessionFocus) form.setValue('sessionFocus', data.mappedFields.sessionFocus);
