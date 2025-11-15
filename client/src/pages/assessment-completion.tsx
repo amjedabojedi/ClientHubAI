@@ -38,6 +38,7 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { AssessmentVoiceRecorder } from "@/components/assessment-voice-recorder";
+import { AssessmentSectionSummary } from "@/components/assessment-section-summary";
 
 interface AssessmentQuestion {
   id: number;
@@ -101,6 +102,7 @@ export default function AssessmentCompletionPage() {
   const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
   const [isSectionLoading, setIsSectionLoading] = useState(false);
   const [activeVoiceRecorder, setActiveVoiceRecorder] = useState<number | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
   const initialLoadDone = useRef(false);
   
   const queryClient = useQueryClient();
@@ -381,6 +383,24 @@ export default function AssessmentCompletionPage() {
 
   const handleGenerateReport = () => {
     generateReportMutation.mutate();
+  };
+
+  const handleEditSection = (sectionIndex: number) => {
+    setShowSummary(false);
+    setCurrentSection(sectionIndex);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleShowSummary = async () => {
+    // Save all responses before showing summary
+    setIsSectionLoading(true);
+    const savePromises = Object.keys(responses).map((questionId) => 
+      saveResponse(parseInt(questionId))
+    );
+    await Promise.all(savePromises);
+    setShowSummary(true);
+    setTimeout(() => setIsSectionLoading(false), 300);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleVoiceTranscription = (questionId: number, transcribedText: string) => {
@@ -885,37 +905,48 @@ export default function AssessmentCompletionPage() {
           </Card>
         </Collapsible>
 
-        {/* Section Navigation */}
-        {sections.length > 1 && (
-          <div className="flex space-x-2 mb-6 overflow-x-auto">
-            {sections.map((section, index) => (
-              <Button
-                key={section.id}
-                variant={currentSection === index ? "default" : "outline"}
-                size="sm"
-                onClick={async () => {
-                  if (currentSection !== index) {
-                    // Save all current responses before switching sections
-                    setIsSectionLoading(true);
-                    const savePromises = Object.keys(responses).map((questionId) => 
-                      saveResponse(parseInt(questionId))
-                    );
-                    await Promise.all(savePromises);
-                    setCurrentSection(index);
-                    setTimeout(() => setIsSectionLoading(false), 300);
-                  }
-                }}
-                className="whitespace-nowrap"
-                disabled={isSectionLoading}
-              >
-                {index + 1}. {section.title}
-              </Button>
-            ))}
-          </div>
-        )}
+        {/* Summary View */}
+        {showSummary ? (
+          <AssessmentSectionSummary
+            sections={sections}
+            responses={responses}
+            onEditSection={handleEditSection}
+            onGenerateReport={handleGenerateReport}
+            isGenerating={generateReportMutation.isPending}
+          />
+        ) : (
+          <>
+            {/* Section Navigation */}
+            {sections.length > 1 && (
+              <div className="flex space-x-2 mb-6 overflow-x-auto">
+                {sections.map((section, index) => (
+                  <Button
+                    key={section.id}
+                    variant={currentSection === index ? "default" : "outline"}
+                    size="sm"
+                    onClick={async () => {
+                      if (currentSection !== index) {
+                        // Save all current responses before switching sections
+                        setIsSectionLoading(true);
+                        const savePromises = Object.keys(responses).map((questionId) => 
+                          saveResponse(parseInt(questionId))
+                        );
+                        await Promise.all(savePromises);
+                        setCurrentSection(index);
+                        setTimeout(() => setIsSectionLoading(false), 300);
+                      }
+                    }}
+                    className="whitespace-nowrap"
+                    disabled={isSectionLoading}
+                  >
+                    {index + 1}. {section.title}
+                  </Button>
+                ))}
+              </div>
+            )}
 
-        {/* Current Section */}
-        {currentSectionData && (
+            {/* Current Section */}
+            {currentSectionData && (
           <Card className={isSectionLoading ? "opacity-50 pointer-events-none" : ""}>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -1035,7 +1066,10 @@ export default function AssessmentCompletionPage() {
             )}
           </div>
         </div>
-      </div>
+      </Card>
+            )}
+          </>
+        )}
 
       {/* Completion Summary Dialog */}
       <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
