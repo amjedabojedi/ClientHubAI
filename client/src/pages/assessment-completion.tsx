@@ -121,15 +121,28 @@ export default function AssessmentCompletionPage() {
   // DEBUG: Check if allOptions is present in sections data
   useEffect(() => {
     if (sections.length > 0) {
-      const sampleQuestion = sections[0]?.questions?.[0];
-      if (sampleQuestion) {
-        console.log('[SECTIONS DEBUG] Sample question:', {
-          id: sampleQuestion.id,
-          questionText: sampleQuestion.questionText,
-          hasAllOptions: !!sampleQuestion.allOptions,
-          allOptionsLength: sampleQuestion.allOptions?.length
-        });
-      }
+      // Check ALL questions, especially 36-40 which should have options
+      const allQuestions = sections.flatMap(s => s.questions);
+      const q36 = allQuestions.find(q => Number(q.id) === 36);
+      const q37 = allQuestions.find(q => Number(q.id) === 37);
+      
+      console.log('[FRONTEND DEBUG] Question 36:', {
+        found: !!q36,
+        id: q36?.id,
+        questionText: q36?.questionText?.substring(0, 50),
+        hasAllOptions: !!q36?.allOptions,
+        allOptionsLength: q36?.allOptions?.length,
+        allOptions: q36?.allOptions
+      });
+      
+      console.log('[FRONTEND DEBUG] Question 37:', {
+        found: !!q37,
+        id: q37?.id,
+        questionText: q37?.questionText?.substring(0, 50),
+        hasAllOptions: !!q37?.allOptions,
+        allOptionsLength: q37?.allOptions?.length,
+        allOptions: q37?.allOptions
+      });
     }
   }, [sections]);
 
