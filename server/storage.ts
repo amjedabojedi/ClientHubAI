@@ -3589,12 +3589,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Assessment Question Options Management
+  
+  /**
+   * Normalize option IDs to numbers for consistent typing across the application.
+   * Drizzle ORM sometimes returns IDs as strings, causing type mismatches.
+   * This helper ensures all option data uses numeric IDs.
+   */
+  private normalizeOptionIds(options: any[]): AssessmentQuestionOption[] {
+    return options.map(opt => ({
+      ...opt,
+      id: typeof opt.id === 'string' ? parseInt(opt.id) : opt.id,
+      questionId: typeof opt.questionId === 'string' ? parseInt(opt.questionId) : opt.questionId
+    }));
+  }
+  
   async createAssessmentQuestionOption(optionData: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption> {
     const [option] = await db
       .insert(assessmentQuestionOptions)
       .values(optionData)
       .returning();
-    return option;
+    return this.normalizeOptionIds([option])[0];
   }
 
   async createAssessmentQuestionOptionsBulk(options: InsertAssessmentQuestionOption[]): Promise<AssessmentQuestionOption[]> {
@@ -3604,15 +3618,16 @@ export class DatabaseStorage implements IStorage {
       .insert(assessmentQuestionOptions)
       .values(options)
       .returning();
-    return createdOptions;
+    return this.normalizeOptionIds(createdOptions);
   }
 
   async getAssessmentQuestionOptions(questionId: number): Promise<AssessmentQuestionOption[]> {
-    return await db
+    const options = await db
       .select()
       .from(assessmentQuestionOptions)
       .where(eq(assessmentQuestionOptions.questionId, questionId))
       .orderBy(asc(assessmentQuestionOptions.sortOrder));
+    return this.normalizeOptionIds(options);
   }
 
   async updateAssessmentQuestionOption(id: number, optionData: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption> {
@@ -3621,7 +3636,7 @@ export class DatabaseStorage implements IStorage {
       .set(optionData)
       .where(eq(assessmentQuestionOptions.id, id))
       .returning();
-    return option;
+    return this.normalizeOptionIds([option])[0];
   }
 
   async deleteAssessmentQuestionOption(id: number): Promise<void> {
@@ -4101,11 +4116,14 @@ export class DatabaseStorage implements IStorage {
       const id = r.assessment_questions!.id;
       return typeof id === 'string' ? parseInt(id) : id;
     })));
-    const allOptions = await db
+    const rawOptions = await db
       .select()
       .from(assessmentQuestionOptions)
       .where(inArray(assessmentQuestionOptions.questionId, questionIds))
       .orderBy(asc(assessmentQuestionOptions.sortOrder));
+    
+    // Normalize option IDs using centralized helper
+    const allOptions = this.normalizeOptionIds(rawOptions);
 
     // Group options by question ID for quick lookup
     // CRITICAL FIX: Convert option questionId to string to match question.id type
@@ -4123,18 +4141,11 @@ export class DatabaseStorage implements IStorage {
       const question = result.assessment_questions!;
       const options = optionsByQuestion.get(question.id) || [];
       
-      // Normalize option IDs to numbers for consistent type matching with selectedOptions
-      const normalizedOptions = options.map(opt => ({
-        ...opt,
-        id: typeof opt.id === 'string' ? parseInt(opt.id) : opt.id,
-        questionId: typeof opt.questionId === 'string' ? parseInt(opt.questionId) : opt.questionId
-      }));
-      
       const questionWithOptions = {
         ...question,
         options: options.map(opt => opt.optionText),
         scoreValues: options.map(opt => Number(opt.optionValue) || 0),
-        allOptions: normalizedOptions  // Normalized option objects with numeric IDs
+        allOptions: options  // Already normalized by normalizeOptionIds helper
       };
 
       return {
