@@ -247,9 +247,20 @@ export default function AssessmentReportPage() {
 
   // Group responses by section
   const responsesBySection = responses.reduce((acc: any, response: any) => {
-    const question = sections
+    // Response already includes question object from backend
+    // But we need to merge it with section question to get allOptions
+    const question = response.question || sections
       .flatMap(s => s.questions || [])
-      .find(q => q.id === response.questionId);
+      .find(q => Number(q.id) === Number(response.questionId));
+    
+    // DEBUG: Check if questions 36-40 have allOptions in responsesBySection
+    if (question && [36, 37, 38, 39, 40].includes(Number(question.id))) {
+      console.log(`[RESPONSES BY SECTION DEBUG] Question ${question.id}:`, {
+        hasAllOptionsFromResponse: !!response.question?.allOptions,
+        hasAllOptionsFromSections: !!question.allOptions,
+        allOptionsLength: question.allOptions?.length || response.question?.allOptions?.length
+      });
+    }
     
     if (question) {
       const sectionId = question.sectionId;
