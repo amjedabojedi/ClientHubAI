@@ -11,6 +11,27 @@ const openai = new OpenAI({
   maxRetries: 2
 });
 
+// Separate client for Whisper audio transcription (requires direct OpenAI API access)
+// Replit's AI Integration proxy doesn't support the /audio/transcriptions endpoint
+let whisperClient: OpenAI | null = null;
+
+function getWhisperClient(): OpenAI {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('Voice transcription requires an OpenAI API key. Please set OPENAI_API_KEY in your environment.');
+  }
+  
+  if (!whisperClient) {
+    whisperClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 120000,
+      maxRetries: 2
+      // No baseURL - uses direct OpenAI API
+    });
+  }
+  
+  return whisperClient;
+}
+
 // Clinical Content Library - Connected templates for intelligent field suggestions
 export const clinicalTemplates = {
   'cognitive_behavioral': {
@@ -900,9 +921,16 @@ export async function transcribeAndMapAudio(
     console.log('[AI] Starting voice transcription...');
     const startTime = Date.now();
 
-    // Step 1: Transcribe audio using OpenAI Whisper
-    const transcription = await openai.audio.transcriptions.create({
-      file: new File([audioBuffer], fileName, { type: 'audio/webm' }),
+    // Step 1: Transcribe audio using OpenAI Whisper (direct API, not proxy)
+    const whisper = getWhisperClient();
+    
+    // Create a File-like object for the OpenAI SDK (Node.js doesn't have File constructor)
+    const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
+      type: 'audio/webm'
+    });
+    
+    const transcription = await whisper.audio.transcriptions.create({
+      file: audioFile,
       model: 'whisper-1',
       language: 'en', // Can be auto-detected by removing this
       response_format: 'text'
