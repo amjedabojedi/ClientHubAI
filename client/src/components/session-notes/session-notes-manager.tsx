@@ -2058,8 +2058,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             </form>
           </Form>
 
-          {/* Floating Voice Recording Button - Inside Dialog */}
-          {editingNote && (() => {
+          {/* Floating Voice Recording Button - Inside Dialog (for both new and existing notes) */}
+          {(() => {
             const sessionId = form.getValues('sessionId');
             const session = sessions.find(s => s.id === sessionId);
             const sessionDateFormatted = session 

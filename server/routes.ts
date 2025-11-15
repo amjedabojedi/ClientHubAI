@@ -5810,7 +5810,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         res.json(sessionNotes);
       }
     } catch (error) {
-      // Error logged
+      console.error('Error fetching session notes for client:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
