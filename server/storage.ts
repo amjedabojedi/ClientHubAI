@@ -4096,7 +4096,11 @@ export class DatabaseStorage implements IStorage {
     const deduplicatedResults = Array.from(latestResponsesByQuestion.values());
 
     // OPTIMIZATION: Load ALL question options in ONE query instead of N+1 queries
-    const questionIds = Array.from(new Set(deduplicatedResults.map(r => r.assessment_questions!.id)));
+    // CRITICAL FIX: Convert question IDs to numbers for database query
+    const questionIds = Array.from(new Set(deduplicatedResults.map(r => {
+      const id = r.assessment_questions!.id;
+      return typeof id === 'string' ? parseInt(id) : id;
+    })));
     const allOptions = await db
       .select()
       .from(assessmentQuestionOptions)
@@ -4104,10 +4108,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(assessmentQuestionOptions.sortOrder));
 
     // Group options by question ID for quick lookup
-    // CRITICAL FIX: Use string keys to match question.id type from database
-    const optionsByQuestion = new Map<string | number, any[]>();
+    // CRITICAL FIX: Convert option questionId to string to match question.id type
+    const optionsByQuestion = new Map<string, any[]>();
     for (const option of allOptions) {
-      const questionId = option.questionId;  // Keep as-is (string or number)
+      const questionId = String(option.questionId);  // Convert to string to match question.id
       if (!optionsByQuestion.has(questionId)) {
         optionsByQuestion.set(questionId, []);
       }
