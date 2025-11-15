@@ -52,6 +52,12 @@ Comprehensive client management includes tracking through various stages and sta
 **Session Notes:** Stores AI-generated drafts and progress notes.
 **Assessments:** Manages assessment templates, assignments, responses, and AI-generated reports. Assessment responses use option IDs (not array indices) for proper scoring and AI report generation. Backend normalization layer handles legacy index-based data during transition.
 
+**Assessment Completion Enhancements:**
+- **Voice Recording with Transcription:** Text field responses support optional voice recording using OpenAI Whisper for transcription, with optional Arabic-to-English translation. Users can record, transcribe, and insert text directly into assessment fields.
+- **Section-by-Section Review:** Users can review a comprehensive summary of all sections before finalizing, with "Review Summary" button opening a modal dialog showing completion stats for each section (total questions, answered, required completion status).
+- **Quick Section Editing:** "Edit Section" buttons in the summary modal allow jumping directly to specific sections for modifications without losing progress.
+- **Draft Report Editing:** Assessment report page includes "Edit Assessment Responses" button (visible when report is in draft status) to easily navigate back and modify responses, supporting iterative refinement of assessments.
+
 **Clinical Content Library:** A comprehensive system for reusable clinical content. It uses a structured title pattern (`[CONDITION][TYPE][NUMBER]_[VARIANT]`) for categorization. A "Smart Connect" feature auto-suggests connections between entries based on patterns and keywords, defining relationship types. The system supports bulk import from Excel with validation, natural sorting, and prevents duplicate entries.
 
 **Relationship-Based Filtering:** The Library Picker in Session Notes intelligently filters content based on previously selected entries (Symptoms, Goals, Interventions, Progress), showing only relevant connected entries within the current category. This uses a bulk connection endpoint and TanStack Query for performance.
