@@ -80,6 +80,31 @@ export default function AssessmentReportPage() {
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignmentId,
   });
+  
+  // DEBUG: Log responses for questions 36-40
+  useEffect(() => {
+    if (responses.length > 0) {
+      const q36Response = responses.find(r => Number(r.question?.id) === 36);
+      const q37Response = responses.find(r => Number(r.question?.id) === 37);
+      
+      console.log('[REPORT PAGE DEBUG] Question 36 response:', {
+        found: !!q36Response,
+        selectedOptions: q36Response?.selectedOptions,
+        hasQuestion: !!q36Response?.question,
+        hasAllOptions: !!q36Response?.question?.allOptions,
+        allOptionsLength: q36Response?.question?.allOptions?.length,
+        questionId: q36Response?.question?.id
+      });
+      
+      console.log('[REPORT PAGE DEBUG] Question 37 response:', {
+        found: !!q37Response,
+        selectedOptions: q37Response?.selectedOptions,
+        hasQuestion: !!q37Response?.question,
+        hasAllOptions: !!q37Response?.question?.allOptions,
+        allOptionsLength: q37Response?.question?.allOptions?.length
+      });
+    }
+  }, [responses]);
 
   // Fetch template sections for structure
   const { data: sections = [] } = useQuery<any[]>({
