@@ -1456,6 +1456,37 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </div>
               </div>
 
+              {/* Voice Transcription Display (if exists) */}
+              {editingNote?.voiceTranscription && (
+                <Collapsible className="mb-4">
+                  <Card className="border-purple-200 bg-purple-50">
+                    <CollapsibleTrigger className="w-full">
+                      <CardHeader className="cursor-pointer hover:bg-purple-100 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Mic className="w-5 h-5 text-purple-600" />
+                            <CardTitle className="text-base">Voice Transcription (Original Recording)</CardTitle>
+                          </div>
+                          <ChevronDown className="w-5 h-5 text-purple-600" />
+                        </div>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0">
+                        <div className="p-3 bg-white rounded border border-purple-200">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                            {editingNote.voiceTranscription}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          This is the raw text from your voice recording before AI field mapping
+                        </p>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
+
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
