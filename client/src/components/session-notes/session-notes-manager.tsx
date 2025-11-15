@@ -1460,17 +1460,34 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               {editingNote?.voiceTranscription && (
                 <Collapsible className="mb-4">
                   <Card className="border-purple-200 bg-purple-50">
-                    <CollapsibleTrigger className="w-full">
-                      <CardHeader className="cursor-pointer hover:bg-purple-100 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Mic className="w-5 h-5 text-purple-600" />
-                            <CardTitle className="text-base">Voice Transcription (Original Recording)</CardTitle>
-                          </div>
-                          <ChevronDown className="w-5 h-5 text-purple-600" />
-                        </div>
-                      </CardHeader>
-                    </CollapsibleTrigger>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CollapsibleTrigger className="flex items-center gap-2 hover:bg-purple-100 transition-colors rounded px-2 py-1 -ml-2">
+                          <Mic className="w-5 h-5 text-purple-600" />
+                          <CardTitle className="text-base">Voice Transcription (Original Recording)</CardTitle>
+                          <ChevronDown className="w-4 h-4 text-purple-600" />
+                        </CollapsibleTrigger>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm("Delete this voice transcription? The session note fields will not be affected.")) {
+                              form.setValue('voiceTranscription', null);
+                              setEditingNote(prev => prev ? { ...prev, voiceTranscription: null } : null);
+                              toast({
+                                title: "Transcription deleted",
+                                description: "The raw voice transcription has been removed"
+                              });
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
                     <CollapsibleContent>
                       <CardContent className="pt-0">
                         <div className="p-3 bg-white rounded border border-purple-200">
