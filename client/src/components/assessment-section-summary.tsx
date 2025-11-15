@@ -45,7 +45,7 @@ export function AssessmentSectionSummary({
     
     const requiredQuestions = section.questions.filter(q => q.isRequired).length;
     const answeredRequired = section.questions.filter(q => {
-      if (!q.isRequired) return true;
+      if (!q.isRequired) return false; // Only count required questions
       const response = responses[q.id];
       return response?.responseText || 
              (response?.selectedOptions && response.selectedOptions.length > 0) ||

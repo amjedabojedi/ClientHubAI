@@ -30,7 +30,8 @@ import {
   ClipboardList,
   MoreVertical,
   ChevronDown,
-  HelpCircle
+  HelpCircle,
+  Edit
 } from "lucide-react";
 
 // Utils
@@ -266,6 +267,18 @@ export default function AssessmentReportPage() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
+              {!report?.isFinalized && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setLocation(`/assessments/${assignmentId}/complete`)}
+                  className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                  data-testid="button-edit-assessment-responses"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Assessment Responses
+                </Button>
+              )}
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">Assessment Report</h1>
               </div>
