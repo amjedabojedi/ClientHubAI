@@ -4123,11 +4123,18 @@ export class DatabaseStorage implements IStorage {
       const question = result.assessment_questions!;
       const options = optionsByQuestion.get(question.id) || [];
       
+      // Normalize option IDs to numbers for consistent type matching with selectedOptions
+      const normalizedOptions = options.map(opt => ({
+        ...opt,
+        id: typeof opt.id === 'string' ? parseInt(opt.id) : opt.id,
+        questionId: typeof opt.questionId === 'string' ? parseInt(opt.questionId) : opt.questionId
+      }));
+      
       const questionWithOptions = {
         ...question,
         options: options.map(opt => opt.optionText),
         scoreValues: options.map(opt => Number(opt.optionValue) || 0),
-        allOptions: options  // Include full option objects with IDs for frontend matching
+        allOptions: normalizedOptions  // Normalized option objects with numeric IDs
       };
 
       return {
