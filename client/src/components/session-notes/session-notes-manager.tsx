@@ -1461,11 +1461,11 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 <Collapsible className="mb-4">
                   <Card className="border-purple-200 bg-purple-50">
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CollapsibleTrigger className="flex items-center gap-2 hover:bg-purple-100 transition-colors rounded px-2 py-1 -ml-2">
-                          <Mic className="w-5 h-5 text-purple-600" />
-                          <CardTitle className="text-base">Voice Transcription (Original Recording)</CardTitle>
-                          <ChevronDown className="w-4 h-4 text-purple-600" />
+                      <div className="flex items-center justify-between gap-2">
+                        <CollapsibleTrigger className="flex items-center gap-2 hover:bg-purple-100 transition-colors rounded px-2 py-1 -ml-2 flex-1 min-w-0">
+                          <Mic className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                          <CardTitle className="text-base truncate">Voice Transcription (Original Recording)</CardTitle>
+                          <ChevronDown className="w-4 h-4 text-purple-600 flex-shrink-0" />
                         </CollapsibleTrigger>
                         <Button
                           type="button"
@@ -1482,7 +1482,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                               });
                             }
                           }}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
