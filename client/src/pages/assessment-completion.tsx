@@ -102,7 +102,7 @@ export default function AssessmentCompletionPage() {
   const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
   const [isSectionLoading, setIsSectionLoading] = useState(false);
   const [activeVoiceRecorder, setActiveVoiceRecorder] = useState<number | null>(null);
-  const [showSummary, setShowSummary] = useState(false);
+  const [showSummaryDialog, setShowSummaryDialog] = useState(false);
   const initialLoadDone = useRef(false);
   
   const queryClient = useQueryClient();
@@ -386,7 +386,7 @@ export default function AssessmentCompletionPage() {
   };
 
   const handleEditSection = (sectionIndex: number) => {
-    setShowSummary(false);
+    setShowSummaryDialog(false);
     setCurrentSection(sectionIndex);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -398,9 +398,8 @@ export default function AssessmentCompletionPage() {
       saveResponse(parseInt(questionId))
     );
     await Promise.all(savePromises);
-    setShowSummary(true);
+    setShowSummaryDialog(true);
     setTimeout(() => setIsSectionLoading(false), 300);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleVoiceTranscription = (questionId: number, transcribedText: string) => {
@@ -905,18 +904,7 @@ export default function AssessmentCompletionPage() {
           </Card>
         </Collapsible>
 
-        {/* Summary View */}
-        {showSummary ? (
-          <AssessmentSectionSummary
-            sections={sections}
-            responses={responses}
-            onEditSection={handleEditSection}
-            onGenerateReport={handleGenerateReport}
-            isGenerating={generateReportMutation.isPending}
-          />
-        ) : (
-          <>
-            {/* Section Navigation */}
+        {/* Section Navigation */}
             {sections.length > 1 && (
               <div className="flex space-x-2 mb-6 overflow-x-auto">
                 {sections.map((section, index) => (
@@ -1076,8 +1064,26 @@ export default function AssessmentCompletionPage() {
             )}
           </div>
         </div>
-          </>
-        )}
+      </div>
+
+      {/* Section Summary Dialog */}
+      <Dialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assessment Summary</DialogTitle>
+            <DialogDescription>
+              Review your responses across all sections
+            </DialogDescription>
+          </DialogHeader>
+          <AssessmentSectionSummary
+            sections={sections}
+            responses={responses}
+            onEditSection={handleEditSection}
+            onGenerateReport={handleGenerateReport}
+            isGenerating={generateReportMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Completion Summary Dialog */}
       <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
