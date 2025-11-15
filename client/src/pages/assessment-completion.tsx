@@ -116,9 +116,12 @@ export default function AssessmentCompletionPage() {
     queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignment?.templateId,
-    onSuccess: (data) => {
-      // DEBUG: Check if allOptions is present in sections data
-      const sampleQuestion = data[0]?.questions?.[0];
+  });
+  
+  // DEBUG: Check if allOptions is present in sections data
+  useEffect(() => {
+    if (sections.length > 0) {
+      const sampleQuestion = sections[0]?.questions?.[0];
       if (sampleQuestion) {
         console.log('[SECTIONS DEBUG] Sample question:', {
           id: sampleQuestion.id,
@@ -128,7 +131,7 @@ export default function AssessmentCompletionPage() {
         });
       }
     }
-  });
+  }, [sections]);
 
   // Fetch existing responses if any
   const { data: existingResponses = [], isLoading: responsesLoading } = useQuery<any[]>({
