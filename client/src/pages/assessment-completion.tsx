@@ -1047,6 +1047,16 @@ export default function AssessmentCompletionPage() {
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
+                  onClick={handleShowSummary}
+                  disabled={isSectionLoading}
+                  className="border-purple-600 text-purple-600 hover:bg-purple-50"
+                  data-testid="button-review-summary"
+                >
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  {isSectionLoading ? 'Saving...' : 'Review Summary'}
+                </Button>
+                <Button
+                  variant="outline"
                   onClick={handleGenerateReport}
                   disabled={generateReportMutation.isPending}
                   className="border-blue-600 text-blue-600 hover:bg-blue-50"
@@ -1066,8 +1076,6 @@ export default function AssessmentCompletionPage() {
             )}
           </div>
         </div>
-      </Card>
-            )}
           </>
         )}
 
