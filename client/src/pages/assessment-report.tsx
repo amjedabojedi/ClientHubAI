@@ -387,7 +387,8 @@ export default function AssessmentReportPage() {
 
       case 'checkbox':
         const checkboxOptions = question.allOptions || [];
-        const selectedIds = (editedResp.selectedOptions || []).map((o: any) => o.id);
+        // selectedOptions is an array of option IDs (numbers), not objects
+        const selectedIds = editedResp.selectedOptions || [];
         
         return (
           <div className="space-y-2" data-testid={`checkbox-group-response-${question.id}`}>
@@ -397,15 +398,13 @@ export default function AssessmentReportPage() {
                   id={`checkbox-${question.id}-${option.id}`}
                   checked={selectedIds.includes(option.id)}
                   onCheckedChange={(checked) => {
-                    let newSelectedOptions;
+                    let newSelectedIds;
                     if (checked) {
-                      newSelectedOptions = [...(editedResp.selectedOptions || []), option];
+                      newSelectedIds = [...selectedIds, option.id];
                     } else {
-                      newSelectedOptions = (editedResp.selectedOptions || []).filter(
-                        (o: any) => o.id !== option.id
-                      );
+                      newSelectedIds = selectedIds.filter((id: number) => id !== option.id);
                     }
-                    handleResponseChange({ selectedOptions: newSelectedOptions });
+                    handleResponseChange({ selectedOptions: newSelectedIds });
                   }}
                   data-testid={`checkbox-response-${question.id}-${option.id}`}
                 />
