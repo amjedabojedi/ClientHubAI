@@ -258,12 +258,31 @@ export default function AssessmentReportPage() {
     
     // Show selected options using database options
     if (response.selectedOptions && response.selectedOptions.length > 0) {
+      // DEBUG: Log for questions 36-40
+      if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
+        console.log(`[REPORT DEBUG] Question ${question.id}:`, {
+          selectedOptions: response.selectedOptions,
+          hasAllOptions: !!question.allOptions,
+          allOptionsLength: question.allOptions?.length,
+          allOptions: question.allOptions
+        });
+      }
+      
       // PREFERRED: Use allOptions from database (includes option IDs for proper matching)
       if (question.allOptions && question.allOptions.length > 0) {
         const selectedTexts = response.selectedOptions
           .map((optionId: number) => {
             // Backend normalizes option IDs to numbers for type consistency
             const option = question.allOptions.find((opt: any) => opt.id === optionId);
+            
+            // DEBUG: Log matching process for questions 36-40
+            if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
+              console.log(`[REPORT DEBUG] Matching optionId ${optionId} in question ${question.id}:`, {
+                found: !!option,
+                optionText: option?.optionText
+              });
+            }
+            
             return option?.optionText;
           })
           .filter(Boolean);
