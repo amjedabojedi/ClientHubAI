@@ -262,7 +262,8 @@ export default function AssessmentReportPage() {
       if (question.allOptions && question.allOptions.length > 0) {
         const selectedTexts = response.selectedOptions
           .map((optionId: number) => {
-            const option = question.allOptions.find((opt: any) => opt.id === optionId);
+            // FIX: Convert both to strings for type-safe comparison (opt.id is string, optionId is number)
+            const option = question.allOptions.find((opt: any) => String(opt.id) === String(optionId));
             return option?.optionText;
           })
           .filter(Boolean);
