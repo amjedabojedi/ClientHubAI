@@ -118,33 +118,6 @@ export default function AssessmentCompletionPage() {
     enabled: !!assignment?.templateId,
   });
   
-  // DEBUG: Check if allOptions is present in sections data
-  useEffect(() => {
-    if (sections.length > 0) {
-      // Check ALL questions, especially 36-40 which should have options
-      const allQuestions = sections.flatMap(s => s.questions);
-      const q36 = allQuestions.find(q => Number(q.id) === 36);
-      const q37 = allQuestions.find(q => Number(q.id) === 37);
-      
-      console.log('[FRONTEND DEBUG] Question 36:', {
-        found: !!q36,
-        id: q36?.id,
-        questionText: q36?.questionText?.substring(0, 50),
-        hasAllOptions: !!q36?.allOptions,
-        allOptionsLength: q36?.allOptions?.length,
-        allOptions: q36?.allOptions
-      });
-      
-      console.log('[FRONTEND DEBUG] Question 37:', {
-        found: !!q37,
-        id: q37?.id,
-        questionText: q37?.questionText?.substring(0, 50),
-        hasAllOptions: !!q37?.allOptions,
-        allOptionsLength: q37?.allOptions?.length,
-        allOptions: q37?.allOptions
-      });
-    }
-  }, [sections]);
 
   // Fetch existing responses if any
   const { data: existingResponses = [], isLoading: responsesLoading } = useQuery<any[]>({
@@ -437,14 +410,6 @@ export default function AssessmentCompletionPage() {
       case 'multiple_choice':
         // Use allOptions from database (includes option IDs) for proper response saving
         const allOptions = question.allOptions || [];
-        
-        // DEBUG: Log what allOptions contains for questions 36-40
-        if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
-          console.log(`[RENDER DEBUG] Question ${question.id} allOptions:`, {
-            length: allOptions.length,
-            data: allOptions
-          });
-        }
         
         // If allOptions is available from database, use it (this is the preferred path)
         if (allOptions.length > 0) {

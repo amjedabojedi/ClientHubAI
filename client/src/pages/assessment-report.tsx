@@ -81,30 +81,6 @@ export default function AssessmentReportPage() {
     enabled: !!assignmentId,
   });
   
-  // DEBUG: Log responses for questions 36-40
-  useEffect(() => {
-    if (responses.length > 0) {
-      const q36Response = responses.find(r => Number(r.question?.id) === 36);
-      const q37Response = responses.find(r => Number(r.question?.id) === 37);
-      
-      console.log('[REPORT PAGE DEBUG] Question 36 response:', {
-        found: !!q36Response,
-        selectedOptions: q36Response?.selectedOptions,
-        hasQuestion: !!q36Response?.question,
-        hasAllOptions: !!q36Response?.question?.allOptions,
-        allOptionsLength: q36Response?.question?.allOptions?.length,
-        questionId: q36Response?.question?.id
-      });
-      
-      console.log('[REPORT PAGE DEBUG] Question 37 response:', {
-        found: !!q37Response,
-        selectedOptions: q37Response?.selectedOptions,
-        hasQuestion: !!q37Response?.question,
-        hasAllOptions: !!q37Response?.question?.allOptions,
-        allOptionsLength: q37Response?.question?.allOptions?.length
-      });
-    }
-  }, [responses]);
 
   // Fetch template sections for structure
   const { data: sections = [] } = useQuery<any[]>({
@@ -248,19 +224,9 @@ export default function AssessmentReportPage() {
   // Group responses by section
   const responsesBySection = responses.reduce((acc: any, response: any) => {
     // Response already includes question object from backend
-    // But we need to merge it with section question to get allOptions
     const question = response.question || sections
       .flatMap(s => s.questions || [])
       .find(q => Number(q.id) === Number(response.questionId));
-    
-    // DEBUG: Check if questions 36-40 have allOptions in responsesBySection
-    if (question && [36, 37, 38, 39, 40].includes(Number(question.id))) {
-      console.log(`[RESPONSES BY SECTION DEBUG] Question ${question.id}:`, {
-        hasAllOptionsFromResponse: !!response.question?.allOptions,
-        hasAllOptionsFromSections: !!question.allOptions,
-        allOptionsLength: question.allOptions?.length || response.question?.allOptions?.length
-      });
-    }
     
     if (question) {
       const sectionId = question.sectionId;
@@ -294,31 +260,12 @@ export default function AssessmentReportPage() {
     
     // Show selected options using database options
     if (response.selectedOptions && response.selectedOptions.length > 0) {
-      // DEBUG: Log for questions 36-40
-      if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
-        console.log(`[REPORT DEBUG] Question ${question.id}:`, {
-          selectedOptions: response.selectedOptions,
-          hasAllOptions: !!question.allOptions,
-          allOptionsLength: question.allOptions?.length,
-          allOptions: question.allOptions
-        });
-      }
-      
       // PREFERRED: Use allOptions from database (includes option IDs for proper matching)
       if (question.allOptions && question.allOptions.length > 0) {
         const selectedTexts = response.selectedOptions
           .map((optionId: number) => {
             // Backend normalizes option IDs to numbers for type consistency
             const option = question.allOptions.find((opt: any) => opt.id === optionId);
-            
-            // DEBUG: Log matching process for questions 36-40
-            if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
-              console.log(`[REPORT DEBUG] Matching optionId ${optionId} in question ${question.id}:`, {
-                found: !!option,
-                optionText: option?.optionText
-              });
-            }
-            
             return option?.optionText;
           })
           .filter(Boolean);
@@ -732,18 +679,6 @@ export default function AssessmentReportPage() {
                       <div className="space-y-6 pt-4">
                         {section.questions?.map((question: any, questionIndex: number) => {
                           const response = sectionResponses.find((r: any) => Number(r.questionId) === Number(question.id));
-                          
-                          // DEBUG: Log for questions 36-40
-                          if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
-                            console.log(`[RENDER RESPONSE DEBUG] Question ${question.id}:`, {
-                              foundResponse: !!response,
-                              questionId: question.id,
-                              sectionResponsesCount: sectionResponses.length,
-                              responseQuestionId: response?.questionId,
-                              selectedOptions: response?.selectedOptions,
-                              displayValue: response ? getResponseDisplay(response) : 'NO RESPONSE'
-                            });
-                          }
                           
                           return (
                             <div key={question.id} className="space-y-2">
