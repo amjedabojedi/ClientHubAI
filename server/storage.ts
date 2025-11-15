@@ -4103,27 +4103,15 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(assessmentQuestionOptions.questionId, questionIds))
       .orderBy(asc(assessmentQuestionOptions.sortOrder));
 
-    console.log('DEBUG: Total question IDs:', questionIds.length);
-    console.log('DEBUG: Total options loaded:', allOptions.length);
-    if (questionIds.includes(60)) {
-      console.log('DEBUG: Question 60 (Sadness) in questionIds');
-      const q60Options = allOptions.filter(o => o.questionId === 60);
-      console.log('DEBUG: Options for question 60:', q60Options.length);
-    }
-
     // Group options by question ID for quick lookup
-    const optionsByQuestion = new Map<number, any[]>();
+    // CRITICAL FIX: Use string keys to match question.id type from database
+    const optionsByQuestion = new Map<string | number, any[]>();
     for (const option of allOptions) {
-      const questionId = option.questionId;
+      const questionId = option.questionId;  // Keep as-is (string or number)
       if (!optionsByQuestion.has(questionId)) {
         optionsByQuestion.set(questionId, []);
       }
       optionsByQuestion.get(questionId)!.push(option);
-    }
-
-    console.log('DEBUG: optionsByQuestion size:', optionsByQuestion.size);
-    if (optionsByQuestion.has(60)) {
-      console.log('DEBUG: Question 60 has options:', optionsByQuestion.get(60)?.length);
     }
 
     // Build responses with options (using deduplicated results)
@@ -4131,26 +4119,12 @@ export class DatabaseStorage implements IStorage {
       const question = result.assessment_questions!;
       const options = optionsByQuestion.get(question.id) || [];
       
-      // DEBUG: Log what's happening for question 60
-      if (question.id === 60) {
-        console.log('DEBUG: Building response for question 60');
-        console.log('DEBUG: options array:', options);
-        console.log('DEBUG: options length:', options.length);
-        console.log('DEBUG: First option:', options[0]);
-      }
-      
       const questionWithOptions = {
         ...question,
         options: options.map(opt => opt.optionText),
         scoreValues: options.map(opt => Number(opt.optionValue) || 0),
         allOptions: options  // Include full option objects with IDs for frontend matching
       };
-
-      // DEBUG: Log the final questionWithOptions for question 60
-      if (question.id === 60) {
-        console.log('DEBUG: questionWithOptions.allOptions:', questionWithOptions.allOptions);
-        console.log('DEBUG: questionWithOptions.allOptions length:', questionWithOptions.allOptions.length);
-      }
 
       return {
         ...result.assessment_responses,
