@@ -23,7 +23,7 @@ import 'react-quill/dist/quill.snow.css';
 import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown } from "lucide-react";
 
 // Voice Recording
-import { VoiceRecorder } from "@/components/voice-recorder";
+import { FloatingVoiceButton } from "./floating-voice-button";
 import { TranscriptionReviewDialog } from "./transcription-review-dialog";
 
 // Utils
@@ -1465,28 +1465,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
                 {/* Clinical Documentation Tab */}
                 <TabsContent value="clinical" className="space-y-4">
-                  {/* Voice Recording Section - Available for both new and existing notes */}
-                  {editingNote && (
-                    <Card className="border-blue-200 bg-blue-50/50">
-                      <CardHeader className="py-3">
-                        <CardTitle className="text-sm">Voice Recording (Beta)</CardTitle>
-                        <CardDescription className="text-xs">
-                          Record your session notes and AI will automatically structure them into the fields below
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="py-3">
-                        <VoiceRecorder 
-                          sessionNoteId={editingNote?.id || null}
-                          onTranscriptionComplete={(data) => {
-                            // Store transcription data and open review dialog
-                            setPendingTranscription(data);
-                            setShowReviewDialog(true);
-                          }}
-                        />
-                      </CardContent>
-                    </Card>
-                  )}
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -2276,6 +2254,27 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           onDiscard={handleDiscardTranscription}
         />
       )}
+
+      {/* Floating Voice Recording Button */}
+      {editingNote && (() => {
+        const sessionId = form.getValues('sessionId');
+        const session = sessions.find(s => s.id === sessionId);
+        const sessionDateFormatted = session 
+          ? format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy') + ' - ' + session.sessionType
+          : 'Session date not available';
+        
+        return (
+          <FloatingVoiceButton
+            sessionNoteId={editingNote?.id || null}
+            clientName={clientData?.fullName || 'Client'}
+            sessionDate={sessionDateFormatted}
+            onTranscriptionComplete={(data) => {
+              setPendingTranscription(data);
+              setShowReviewDialog(true);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
