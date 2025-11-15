@@ -13,6 +13,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
@@ -68,6 +74,8 @@ export default function AssessmentReportPage() {
   const [editorContent, setEditorContent] = useState('');
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedResponses, setEditedResponses] = useState<Record<number, any>>({});
 
   // Fetch assessment assignment details
   const { data: assignment, isLoading: assignmentLoading } = useQuery<any>({
@@ -188,6 +196,68 @@ export default function AssessmentReportPage() {
     }
   });
 
+  // Save edited responses mutation
+  const saveResponsesMutation = useMutation({
+    mutationFn: async () => {
+      // Filter only changed responses
+      const changedResponses = Object.values(editedResponses).filter((editedResp: any) => {
+        const originalResp = responses.find((r: any) => r.questionId === editedResp.questionId);
+        if (!originalResp) return true; // New response
+        
+        // Compare based on question type
+        const question = editedResp.question;
+        if (!question) return false;
+
+        switch (question.questionType) {
+          case 'short_text':
+          case 'long_text':
+            return editedResp.responseText !== originalResp.responseText;
+          case 'multiple_choice':
+            return editedResp.selectedOptions?.[0]?.id !== originalResp.selectedOptions?.[0]?.id;
+          case 'checkbox':
+            const editedIds = (editedResp.selectedOptions || []).map((o: any) => o.id).sort();
+            const originalIds = (originalResp.selectedOptions || []).map((o: any) => o.id).sort();
+            return JSON.stringify(editedIds) !== JSON.stringify(originalIds);
+          case 'rating_scale':
+            return editedResp.ratingValue !== originalResp.ratingValue;
+          case 'number':
+            return editedResp.numericValue !== originalResp.numericValue;
+          case 'date':
+            return editedResp.dateValue !== originalResp.dateValue;
+          default:
+            return false;
+        }
+      });
+
+      if (changedResponses.length === 0) {
+        throw new Error("No changes to save");
+      }
+
+      return apiRequest(
+        `/api/assessments/assignments/${assignmentId}/responses`, 
+        "PATCH", 
+        { responses: changedResponses }
+      );
+    },
+    onSuccess: () => {
+      toast({ 
+        title: "Responses Saved", 
+        description: "Assessment responses have been updated successfully."
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
+      setIsEditMode(false);
+      setEditedResponses({});
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save responses. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Handle Save & Finalize
   const handleSaveAndFinalize = async () => {
     // First save draft
@@ -250,6 +320,160 @@ export default function AssessmentReportPage() {
     }
     
     return result.primaryText;
+  };
+
+  // Render editable response based on question type
+  const renderEditableResponse = (question: any, response: any) => {
+    const editedResp = editedResponses[question.id] || response || {};
+    
+    const handleResponseChange = (value: any) => {
+      setEditedResponses(prev => ({
+        ...prev,
+        [question.id]: {
+          ...editedResp,
+          questionId: question.id,
+          question,
+          ...value
+        }
+      }));
+    };
+
+    switch (question.questionType) {
+      case 'short_text':
+        return (
+          <Input
+            value={editedResp.responseText || ''}
+            onChange={(e) => handleResponseChange({ responseText: e.target.value })}
+            placeholder="Enter your response"
+            data-testid={`input-response-${question.id}`}
+          />
+        );
+
+      case 'long_text':
+        return (
+          <Textarea
+            value={editedResp.responseText || ''}
+            onChange={(e) => handleResponseChange({ responseText: e.target.value })}
+            placeholder="Enter your response"
+            rows={4}
+            data-testid={`textarea-response-${question.id}`}
+          />
+        );
+
+      case 'multiple_choice':
+        const allOptions = question.allOptions || [];
+        return (
+          <Select
+            value={editedResp.selectedOptions?.[0]?.id?.toString() || ''}
+            onValueChange={(value) => {
+              const selectedOption = allOptions.find((opt: any) => opt.id.toString() === value);
+              handleResponseChange({ 
+                selectedOptions: selectedOption ? [selectedOption] : [] 
+              });
+            }}
+          >
+            <SelectTrigger data-testid={`select-response-${question.id}`}>
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              {allOptions.map((option: any) => (
+                <SelectItem key={option.id} value={option.id.toString()}>
+                  {option.optionText}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+
+      case 'checkbox':
+        const checkboxOptions = question.allOptions || [];
+        const selectedIds = (editedResp.selectedOptions || []).map((o: any) => o.id);
+        
+        return (
+          <div className="space-y-2" data-testid={`checkbox-group-response-${question.id}`}>
+            {checkboxOptions.map((option: any) => (
+              <div key={option.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`checkbox-${question.id}-${option.id}`}
+                  checked={selectedIds.includes(option.id)}
+                  onCheckedChange={(checked) => {
+                    let newSelectedOptions;
+                    if (checked) {
+                      newSelectedOptions = [...(editedResp.selectedOptions || []), option];
+                    } else {
+                      newSelectedOptions = (editedResp.selectedOptions || []).filter(
+                        (o: any) => o.id !== option.id
+                      );
+                    }
+                    handleResponseChange({ selectedOptions: newSelectedOptions });
+                  }}
+                  data-testid={`checkbox-response-${question.id}-${option.id}`}
+                />
+                <Label 
+                  htmlFor={`checkbox-${question.id}-${option.id}`}
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {option.optionText}
+                </Label>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'rating_scale':
+        const ratingOptions = question.allOptions || [];
+        return (
+          <RadioGroup
+            value={editedResp.ratingValue?.toString() || ''}
+            onValueChange={(value) => handleResponseChange({ ratingValue: parseInt(value) })}
+            data-testid={`radio-group-response-${question.id}`}
+          >
+            {ratingOptions.map((option: any) => (
+              <div key={option.id} className="flex items-center space-x-2">
+                <RadioGroupItem 
+                  value={option.ratingValue.toString()} 
+                  id={`rating-${question.id}-${option.ratingValue}`}
+                  data-testid={`radio-response-${question.id}-${option.ratingValue}`}
+                />
+                <Label 
+                  htmlFor={`rating-${question.id}-${option.ratingValue}`}
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {option.ratingValue} - {option.ratingLabel}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        );
+
+      case 'number':
+        return (
+          <Input
+            type="number"
+            value={editedResp.numericValue ?? ''}
+            onChange={(e) => handleResponseChange({ 
+              numericValue: e.target.value ? parseFloat(e.target.value) : null 
+            })}
+            placeholder="Enter a number"
+            data-testid={`input-number-response-${question.id}`}
+          />
+        );
+
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={editedResp.dateValue || ''}
+            onChange={(e) => handleResponseChange({ dateValue: e.target.value })}
+            data-testid={`input-date-response-${question.id}`}
+          />
+        );
+
+      default:
+        return (
+          <p className="text-slate-500 italic">Unsupported question type: {question.questionType}</p>
+        );
+    }
   };
 
   return (
@@ -568,11 +792,43 @@ export default function AssessmentReportPage() {
         {/* Assessment Responses by Section - Collapsible */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <ClipboardList className="w-5 h-5 text-blue-600" />
-              <span>Assessment Responses</span>
-            </CardTitle>
-            <p className="text-sm text-slate-600 mt-1">Click on each section to view detailed responses</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center space-x-2">
+                  <ClipboardList className="w-5 h-5 text-blue-600" />
+                  <span>Assessment Responses</span>
+                </CardTitle>
+                <p className="text-sm text-slate-600 mt-1">
+                  {isEditMode ? 'Edit responses directly below' : 'Click on each section to view detailed responses'}
+                </p>
+              </div>
+              {!report?.isFinalized && (
+                <Button
+                  variant={isEditMode ? "outline" : "default"}
+                  size="sm"
+                  onClick={() => {
+                    if (isEditMode) {
+                      // Cancel edit mode
+                      setIsEditMode(false);
+                      setEditedResponses({});
+                    } else {
+                      // Enter edit mode - initialize with current responses
+                      const initialEdits: Record<number, any> = {};
+                      responses.forEach((r: any) => {
+                        initialEdits[r.questionId] = r;
+                      });
+                      setEditedResponses(initialEdits);
+                      setIsEditMode(true);
+                    }
+                  }}
+                  className={isEditMode ? "" : "bg-purple-600 hover:bg-purple-700"}
+                  data-testid="button-edit-responses-mode"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  {isEditMode ? 'Cancel Edit' : 'Edit Responses'}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <Accordion type="multiple" className="w-full">
@@ -613,13 +869,19 @@ export default function AssessmentReportPage() {
                                     {question.questionText}
                                     {question.isRequired && <span className="text-red-500 ml-1">*</span>}
                                   </div>
-                                  <div className="bg-slate-50 rounded-lg p-3">
-                                    {response ? (
-                                      <p className="text-slate-700">{getResponseDisplay(response)}</p>
-                                    ) : (
-                                      <p className="text-slate-500 italic">No response provided</p>
-                                    )}
-                                  </div>
+                                  {isEditMode ? (
+                                    <div className="space-y-2">
+                                      {renderEditableResponse(question, response)}
+                                    </div>
+                                  ) : (
+                                    <div className="bg-slate-50 rounded-lg p-3">
+                                      {response ? (
+                                        <p className="text-slate-700">{getResponseDisplay(response)}</p>
+                                      ) : (
+                                        <p className="text-slate-500 italic">No response provided</p>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               {questionIndex < (section.questions?.length || 0) - 1 && (
@@ -640,6 +902,30 @@ export default function AssessmentReportPage() {
                 );
               })}
             </Accordion>
+            
+            {isEditMode && (
+              <div className="mt-6 flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditMode(false);
+                    setEditedResponses({});
+                  }}
+                  data-testid="button-cancel-save-responses"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => saveResponsesMutation.mutate()}
+                  disabled={saveResponsesMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  data-testid="button-save-all-responses"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {saveResponsesMutation.isPending ? 'Saving...' : 'Save All Responses'}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
