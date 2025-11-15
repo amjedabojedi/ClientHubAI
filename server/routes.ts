@@ -7010,6 +7010,24 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
 
       const responses = await storage.getAssessmentResponses(assignmentId);
+      
+      // DEBUG: Log sample response to verify allOptions is included
+      if (responses.length > 0) {
+        const sampleResponse = responses.find(r => r.question.questionText?.toLowerCase().includes('sadness'));
+        if (sampleResponse) {
+          console.log('=== BACKEND DEBUG: Sample Sadness Response ===');
+          console.log('Question ID:', sampleResponse.question.id);
+          console.log('Question Text:', sampleResponse.question.questionText);
+          console.log('Selected Options:', sampleResponse.selectedOptions);
+          console.log('Has allOptions:', !!sampleResponse.question.allOptions);
+          console.log('allOptions count:', sampleResponse.question.allOptions?.length || 0);
+          if (sampleResponse.question.allOptions) {
+            console.log('First option:', sampleResponse.question.allOptions[0]);
+          }
+          console.log('============================================');
+        }
+      }
+      
       res.json(responses);
     } catch (error) {
       // Error logged

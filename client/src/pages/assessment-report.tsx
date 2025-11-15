@@ -81,6 +81,26 @@ export default function AssessmentReportPage() {
     enabled: !!assignmentId,
   });
 
+  // DEBUG: Log responses to see what we're receiving
+  useEffect(() => {
+    if (responses.length > 0) {
+      console.log('=== ASSESSMENT RESPONSES DEBUG ===');
+      console.log('Total responses:', responses.length);
+      const sampleResponse = responses.find(r => r.question?.questionText?.toLowerCase().includes('sadness'));
+      if (sampleResponse) {
+        console.log('Sample Sadness response:', {
+          questionId: sampleResponse.questionId,
+          questionText: sampleResponse.question?.questionText,
+          selectedOptions: sampleResponse.selectedOptions,
+          hasAllOptions: !!sampleResponse.question?.allOptions,
+          allOptionsCount: sampleResponse.question?.allOptions?.length || 0,
+          allOptions: sampleResponse.question?.allOptions
+        });
+      }
+      console.log('=================================');
+    }
+  }, [responses]);
+
   // Fetch template sections for structure
   const { data: sections = [] } = useQuery<any[]>({
     queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
