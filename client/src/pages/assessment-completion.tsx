@@ -49,6 +49,7 @@ interface AssessmentQuestion {
   ratingMax?: number;
   ratingLabels?: string[];
   sortOrder: number;
+  allOptions?: Array<{ id: number; optionText: string; optionValue: string | number; sortOrder: number }>;
 }
 
 interface AssessmentSection {
@@ -407,9 +408,30 @@ export default function AssessmentCompletionPage() {
 
       case 'multiple_choice':
         // Use allOptions from database (includes option IDs) for proper response saving
-        // Fall back to question.options (text only) if allOptions not available
         const allOptions = question.allOptions || [];
-        let questionOptions = allOptions.length > 0 ? allOptions.map((opt: any) => opt.optionText) : question.options;
+        
+        // If allOptions is available from database, use it (this is the preferred path)
+        if (allOptions.length > 0) {
+          return (
+            <RadioGroup
+              value={response.selectedOptions?.[0]?.toString() || ''}
+              onValueChange={(value) => {
+                handleResponseChange(question.id, [parseInt(value)], 'selectedOptions');
+                setTimeout(() => saveResponse(question.id), 100);
+              }}
+            >
+              {allOptions.map((option) => (
+                <div key={option.id} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option.id.toString()} id={`q${question.id}_${option.id}`} />
+                  <Label htmlFor={`q${question.id}_${option.id}`}>{option.optionText}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          );
+        }
+        
+        // FALLBACK ONLY: For legacy questions without database options
+        let questionOptions = question.options;
         
         if (!questionOptions || questionOptions.length === 0) {
           // Special handling for session format question
@@ -486,6 +508,10 @@ export default function AssessmentCompletionPage() {
           }
         }
         
+        // WARNING: This fallback path uses array indices as option IDs
+        // This will not properly match saved responses that have real database IDs
+        console.warn(`Question ${question.id} missing database options (allOptions), using fallback with indices`);
+        
         return (
           <RadioGroup
             value={response.selectedOptions?.[0]?.toString() || ''}
@@ -494,16 +520,12 @@ export default function AssessmentCompletionPage() {
               setTimeout(() => saveResponse(question.id), 100);
             }}
           >
-            {questionOptions.map((option, index) => {
-              // Use option ID if available from allOptions, otherwise fall back to index for legacy questions
-              const optionId = allOptions[index]?.id || index;
-              return (
-                <div key={index} className="flex items-center space-x-2">
-                  <RadioGroupItem value={optionId.toString()} id={`q${question.id}_${optionId}`} />
-                  <Label htmlFor={`q${question.id}_${optionId}`}>{option}</Label>
-                </div>
-              );
-            })}
+            {questionOptions.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <RadioGroupItem value={index.toString()} id={`q${question.id}_${index}`} />
+                <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
+              </div>
+            ))}
           </RadioGroup>
         );
 
@@ -545,7 +567,34 @@ export default function AssessmentCompletionPage() {
       case 'checkbox':
         // Use allOptions from database (includes option IDs) for proper response saving
         const checkboxAllOptions = question.allOptions || [];
-        let checkboxOptions = checkboxAllOptions.length > 0 ? checkboxAllOptions.map((opt: any) => opt.optionText) : question.options;
+        
+        // If allOptions is available from database, use it (this is the preferred path)
+        if (checkboxAllOptions.length > 0) {
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+              {checkboxAllOptions.map((option) => (
+                <div key={option.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`q${question.id}_${option.id}`}
+                    checked={response.selectedOptions?.includes(option.id) || false}
+                    onCheckedChange={(checked) => {
+                      const currentOptions = response.selectedOptions || [];
+                      const newOptions = checked
+                        ? [...currentOptions, option.id]
+                        : currentOptions.filter((opt: number) => opt !== option.id);
+                      handleResponseChange(question.id, newOptions, 'selectedOptions');
+                      setTimeout(() => saveResponse(question.id), 500);
+                    }}
+                  />
+                  <Label htmlFor={`q${question.id}_${option.id}`}>{option.optionText}</Label>
+                </div>
+              ))}
+            </div>
+          );
+        }
+        
+        // FALLBACK ONLY: For legacy questions without database options
+        let checkboxOptions = question.options;
         
         if (!checkboxOptions || checkboxOptions.length === 0) {
           // Provide sensible defaults based on question text
@@ -569,31 +618,29 @@ export default function AssessmentCompletionPage() {
           }
         }
         
-        // ALWAYS render ALL checkbox questions in 2-column layout (database options AND fallback options)
+        // WARNING: This fallback path uses array indices as option IDs
+        // This will not properly match saved responses that have real database IDs
+        console.warn(`Question ${question.id} missing database options (allOptions), using fallback with indices`);
+        
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-            {checkboxOptions.map((option, index) => {
-              // Use option ID if available from allOptions, otherwise fall back to index
-              const optionId = checkboxAllOptions[index]?.id || index;
-              return (
-                <div key={index} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`q${question.id}_${optionId}`}
-                    checked={response.selectedOptions?.includes(optionId) || false}
-                    onCheckedChange={(checked) => {
-                      const currentOptions = response.selectedOptions || [];
-                      const newOptions = checked
-                        ? [...currentOptions, optionId]
-                        : currentOptions.filter((opt: number) => opt !== optionId);
-                      handleResponseChange(question.id, newOptions, 'selectedOptions');
-                      // Debounced save with longer delay to prevent too many API calls
-                      setTimeout(() => saveResponse(question.id), 500);
-                    }}
-                  />
-                  <Label htmlFor={`q${question.id}_${optionId}`}>{option}</Label>
-                </div>
-              );
-            })}
+            {checkboxOptions.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`q${question.id}_${index}`}
+                  checked={response.selectedOptions?.includes(index) || false}
+                  onCheckedChange={(checked) => {
+                    const currentOptions = response.selectedOptions || [];
+                    const newOptions = checked
+                      ? [...currentOptions, index]
+                      : currentOptions.filter((opt: number) => opt !== index);
+                    handleResponseChange(question.id, newOptions, 'selectedOptions');
+                    setTimeout(() => saveResponse(question.id), 500);
+                  }}
+                />
+                <Label htmlFor={`q${question.id}_${index}`}>{option}</Label>
+              </div>
+            ))}
           </div>
         );
 
