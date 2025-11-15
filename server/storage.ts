@@ -3594,13 +3594,34 @@ export class DatabaseStorage implements IStorage {
    * Normalize option IDs to numbers for consistent typing across the application.
    * Drizzle ORM sometimes returns IDs as strings, causing type mismatches.
    * This helper ensures all option data uses numeric IDs.
+   * Handles edge cases: null, undefined, NaN, and invalid data gracefully.
    */
   private normalizeOptionIds(options: any[]): AssessmentQuestionOption[] {
-    return options.map(opt => ({
-      ...opt,
-      id: typeof opt.id === 'string' ? parseInt(opt.id) : opt.id,
-      questionId: typeof opt.questionId === 'string' ? parseInt(opt.questionId) : opt.questionId
-    }));
+    if (!options || !Array.isArray(options)) {
+      return [];
+    }
+    
+    return options.map(opt => {
+      // Safely convert ID to number
+      let normalizedId = opt.id;
+      if (typeof opt.id === 'string') {
+        const parsed = parseInt(opt.id, 10);
+        normalizedId = isNaN(parsed) ? opt.id : parsed;
+      }
+      
+      // Safely convert questionId to number
+      let normalizedQuestionId = opt.questionId;
+      if (typeof opt.questionId === 'string') {
+        const parsed = parseInt(opt.questionId, 10);
+        normalizedQuestionId = isNaN(parsed) ? opt.questionId : parsed;
+      }
+      
+      return {
+        ...opt,
+        id: normalizedId,
+        questionId: normalizedQuestionId
+      };
+    });
   }
   
   async createAssessmentQuestionOption(optionData: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption> {
