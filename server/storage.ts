@@ -4131,12 +4131,26 @@ export class DatabaseStorage implements IStorage {
       const question = result.assessment_questions!;
       const options = optionsByQuestion.get(question.id) || [];
       
+      // DEBUG: Log what's happening for question 60
+      if (question.id === 60) {
+        console.log('DEBUG: Building response for question 60');
+        console.log('DEBUG: options array:', options);
+        console.log('DEBUG: options length:', options.length);
+        console.log('DEBUG: First option:', options[0]);
+      }
+      
       const questionWithOptions = {
         ...question,
         options: options.map(opt => opt.optionText),
         scoreValues: options.map(opt => Number(opt.optionValue) || 0),
         allOptions: options  // Include full option objects with IDs for frontend matching
       };
+
+      // DEBUG: Log the final questionWithOptions for question 60
+      if (question.id === 60) {
+        console.log('DEBUG: questionWithOptions.allOptions:', questionWithOptions.allOptions);
+        console.log('DEBUG: questionWithOptions.allOptions length:', questionWithOptions.allOptions.length);
+      }
 
       return {
         ...result.assessment_responses,
