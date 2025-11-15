@@ -438,6 +438,14 @@ export default function AssessmentCompletionPage() {
         // Use allOptions from database (includes option IDs) for proper response saving
         const allOptions = question.allOptions || [];
         
+        // DEBUG: Log what allOptions contains for questions 36-40
+        if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
+          console.log(`[RENDER DEBUG] Question ${question.id} allOptions:`, {
+            length: allOptions.length,
+            data: allOptions
+          });
+        }
+        
         // If allOptions is available from database, use it (this is the preferred path)
         if (allOptions.length > 0) {
           return (
