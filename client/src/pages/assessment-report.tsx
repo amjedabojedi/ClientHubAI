@@ -258,7 +258,19 @@ export default function AssessmentReportPage() {
     
     // Show selected options using database options
     if (response.selectedOptions && response.selectedOptions.length > 0) {
-      // Try database options first
+      // PREFERRED: Use allOptions from database (includes option IDs for proper matching)
+      if (question.allOptions && question.allOptions.length > 0) {
+        const selectedTexts = response.selectedOptions
+          .map((optionId: number) => {
+            const option = question.allOptions.find((opt: any) => opt.id === optionId);
+            return option?.optionText;
+          })
+          .filter(Boolean);
+        
+        return selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
+      }
+      
+      // FALLBACK: Try legacy array-based options (for old data)
       let questionOptions = question.options;
       
       // If no options in database, use same hardcoded fallbacks as assessment completion form
@@ -316,7 +328,7 @@ export default function AssessmentReportPage() {
         }
       }
       
-      // Map selected indices to actual option text
+      // Map selected indices to actual option text (LEGACY - only for old data without IDs)
       const selectedTexts = response.selectedOptions
         .map((idx: number) => questionOptions[idx])
         .filter(Boolean);
