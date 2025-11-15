@@ -3597,31 +3597,33 @@ export class DatabaseStorage implements IStorage {
    * Handles edge cases: null, undefined, NaN, and invalid data gracefully.
    */
   private normalizeOptionIds(options: any[]): AssessmentQuestionOption[] {
-    if (!options || !Array.isArray(options)) {
+    if (!options || !Array.isArray(options) || options.length === 0) {
       return [];
     }
     
-    return options.map(opt => {
-      // Safely convert ID to number
-      let normalizedId = opt.id;
-      if (typeof opt.id === 'string') {
-        const parsed = parseInt(opt.id, 10);
-        normalizedId = isNaN(parsed) ? opt.id : parsed;
-      }
-      
-      // Safely convert questionId to number
-      let normalizedQuestionId = opt.questionId;
-      if (typeof opt.questionId === 'string') {
-        const parsed = parseInt(opt.questionId, 10);
-        normalizedQuestionId = isNaN(parsed) ? opt.questionId : parsed;
-      }
-      
-      return {
-        ...opt,
-        id: normalizedId,
-        questionId: normalizedQuestionId
-      };
-    });
+    return options
+      .filter(opt => opt && opt.id != null) // Filter out null/undefined entries
+      .map(opt => {
+        // Safely convert ID to number
+        let normalizedId = opt.id;
+        if (typeof opt.id === 'string') {
+          const parsed = parseInt(opt.id, 10);
+          normalizedId = isNaN(parsed) ? opt.id : parsed;
+        }
+        
+        // Safely convert questionId to number
+        let normalizedQuestionId = opt.questionId;
+        if (typeof opt.questionId === 'string') {
+          const parsed = parseInt(opt.questionId, 10);
+          normalizedQuestionId = isNaN(parsed) ? opt.questionId : parsed;
+        }
+        
+        return {
+          ...opt,
+          id: normalizedId,
+          questionId: normalizedQuestionId
+        };
+      });
   }
   
   async createAssessmentQuestionOption(optionData: InsertAssessmentQuestionOption): Promise<AssessmentQuestionOption> {
