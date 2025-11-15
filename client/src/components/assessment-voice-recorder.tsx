@@ -123,10 +123,9 @@ export function AssessmentVoiceRecorder({
       formData.append('questionId', String(questionId));
       formData.append('translateToEnglish', String(translateToEnglish));
 
-      // Upload to backend
-      const result = await apiRequest('/api/assessments/transcribe', 'POST', formData, {
-        headers: {} // Let browser set Content-Type with boundary
-      });
+      // Upload to backend (apiRequest automatically handles FormData)
+      const response = await apiRequest('/api/assessments/transcribe', 'POST', formData);
+      const result = await response.json();
 
       toast({
         title: "Transcription complete",
