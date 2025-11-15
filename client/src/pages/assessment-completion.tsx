@@ -116,6 +116,18 @@ export default function AssessmentCompletionPage() {
     queryKey: [`/api/assessments/templates/${assignment?.templateId}/sections`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!assignment?.templateId,
+    onSuccess: (data) => {
+      // DEBUG: Check if allOptions is present in sections data
+      const sampleQuestion = data[0]?.questions?.[0];
+      if (sampleQuestion) {
+        console.log('[SECTIONS DEBUG] Sample question:', {
+          id: sampleQuestion.id,
+          questionText: sampleQuestion.questionText,
+          hasAllOptions: !!sampleQuestion.allOptions,
+          allOptionsLength: sampleQuestion.allOptions?.length
+        });
+      }
+    }
   });
 
   // Fetch existing responses if any
