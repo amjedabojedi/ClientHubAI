@@ -1461,31 +1461,37 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 <Collapsible className="mb-4">
                   <Card className="border-purple-200 bg-purple-50">
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <CollapsibleTrigger className="flex items-center gap-2 hover:bg-purple-100 transition-colors rounded px-2 py-1 -ml-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
                           <Mic className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                          <CardTitle className="text-base truncate">Voice Transcription (Original Recording)</CardTitle>
-                          <ChevronDown className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                        </CollapsibleTrigger>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm("Delete this voice transcription? The session note fields will not be affected.")) {
-                              form.setValue('voiceTranscription', null);
-                              setEditingNote(prev => prev ? { ...prev, voiceTranscription: null } : null);
-                              toast({
-                                title: "Transcription deleted",
-                                description: "The raw voice transcription has been removed"
-                              });
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          <CardTitle className="text-base">Voice Transcription (Original Recording)</CardTitle>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm("Delete this voice transcription? The session note fields will not be affected.")) {
+                                form.setValue('voiceTranscription', null);
+                                setEditingNote(prev => prev ? { ...prev, voiceTranscription: null } : null);
+                                toast({
+                                  title: "Transcription deleted",
+                                  description: "The raw voice transcription has been removed"
+                                });
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-1">
+                              <ChevronDown className="w-4 h-4 text-purple-600" />
+                            </Button>
+                          </CollapsibleTrigger>
+                        </div>
                       </div>
                     </CardHeader>
                     <CollapsibleContent>
