@@ -3920,12 +3920,21 @@ export class DatabaseStorage implements IStorage {
 
   // Save or update assessment response
   async saveAssessmentResponse(responseData: any): Promise<AssessmentResponse> {
+    // DEBUG: Log what we're receiving
+    console.log('[SAVE DEBUG] Received responseData:', JSON.stringify({
+      questionId: responseData.questionId,
+      selectedOptions: responseData.selectedOptions,
+      selectedOptionsType: typeof responseData.selectedOptions,
+      selectedOptionsIsArray: Array.isArray(responseData.selectedOptions)
+    }));
+    
     // Normalize selectedOptions from legacy indices to option IDs if needed
     if (responseData.selectedOptions) {
       responseData.selectedOptions = await this.normalizeSelectedOptions(
         responseData.questionId,
         responseData.selectedOptions
       );
+      console.log('[SAVE DEBUG] After normalization:', responseData.selectedOptions);
     }
 
     // Calculate score value for this response
