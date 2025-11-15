@@ -3828,6 +3828,15 @@ export class DatabaseStorage implements IStorage {
             
             // Normalize option IDs to ensure consistent number types
             const options = this.normalizeOptionIds(rawOptions);
+            
+            // DEBUG: Log for questions 36-40
+            if ([36, 37, 38, 39, 40].includes(Number(q.id))) {
+              console.log(`[BACKEND DEBUG] Question ${q.id}:`, {
+                rawOptionsCount: rawOptions.length,
+                normalizedOptionsCount: options.length,
+                sampleOption: options[0]
+              });
+            }
 
             return {
               id: q.id,
