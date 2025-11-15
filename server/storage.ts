@@ -3883,13 +3883,13 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Check if values are already option IDs (they match existing option IDs)
-    const optionIds = allOptions.map(opt => opt.id);
-    // Coerce to numbers to handle both string and number IDs
+    // Convert both to numbers for proper comparison (Drizzle may return IDs as strings)
+    const optionIds = allOptions.map(opt => Number(opt.id));
     const numericValues = selectedOptions.map(val => Number(val));
     const allAreIds = numericValues.every(val => optionIds.includes(val));
     
     if (allAreIds) {
-      // Already normalized, return as is
+      // Already normalized option IDs, return as numbers
       return numericValues;
     }
 
@@ -3920,21 +3920,12 @@ export class DatabaseStorage implements IStorage {
 
   // Save or update assessment response
   async saveAssessmentResponse(responseData: any): Promise<AssessmentResponse> {
-    // DEBUG: Log what we're receiving
-    console.log('[SAVE DEBUG] Received responseData:', JSON.stringify({
-      questionId: responseData.questionId,
-      selectedOptions: responseData.selectedOptions,
-      selectedOptionsType: typeof responseData.selectedOptions,
-      selectedOptionsIsArray: Array.isArray(responseData.selectedOptions)
-    }));
-    
     // Normalize selectedOptions from legacy indices to option IDs if needed
     if (responseData.selectedOptions) {
       responseData.selectedOptions = await this.normalizeSelectedOptions(
         responseData.questionId,
         responseData.selectedOptions
       );
-      console.log('[SAVE DEBUG] After normalization:', responseData.selectedOptions);
     }
 
     // Calculate score value for this response
