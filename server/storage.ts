@@ -4103,14 +4103,27 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(assessmentQuestionOptions.questionId, questionIds))
       .orderBy(asc(assessmentQuestionOptions.sortOrder));
 
+    console.log('DEBUG: Total question IDs:', questionIds.length);
+    console.log('DEBUG: Total options loaded:', allOptions.length);
+    if (questionIds.includes(60)) {
+      console.log('DEBUG: Question 60 (Sadness) in questionIds');
+      const q60Options = allOptions.filter(o => o.questionId === 60);
+      console.log('DEBUG: Options for question 60:', q60Options.length);
+    }
+
     // Group options by question ID for quick lookup
-    const optionsByQuestion = new Map<number, typeof allOptions>();
+    const optionsByQuestion = new Map<number, any[]>();
     for (const option of allOptions) {
       const questionId = option.questionId;
       if (!optionsByQuestion.has(questionId)) {
         optionsByQuestion.set(questionId, []);
       }
       optionsByQuestion.get(questionId)!.push(option);
+    }
+
+    console.log('DEBUG: optionsByQuestion size:', optionsByQuestion.size);
+    if (optionsByQuestion.has(60)) {
+      console.log('DEBUG: Question 60 has options:', optionsByQuestion.get(60)?.length);
     }
 
     // Build responses with options (using deduplicated results)
