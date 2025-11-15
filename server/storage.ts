@@ -4121,7 +4121,8 @@ export class DatabaseStorage implements IStorage {
       const questionWithOptions = {
         ...question,
         options: options.map(opt => opt.optionText),
-        scoreValues: options.map(opt => Number(opt.optionValue) || 0)
+        scoreValues: options.map(opt => Number(opt.optionValue) || 0),
+        allOptions: options  // Include full option objects with IDs for frontend matching
       };
 
       return {
