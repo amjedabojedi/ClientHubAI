@@ -227,7 +227,7 @@ export default function AssessmentReportPage() {
     // Response already includes question object from backend
     const question = response.question || sections
       .flatMap(s => s.questions || [])
-      .find(q => Number(q.id) === Number(response.questionId));
+      .find(q => q.id === response.questionId || Number(q.id) === Number(response.questionId));
     
     if (question) {
       const sectionId = question.sectionId;
@@ -587,7 +587,7 @@ export default function AssessmentReportPage() {
                     <AccordionContent>
                       <div className="space-y-6 pt-4">
                         {section.questions?.map((question: any, questionIndex: number) => {
-                          const response = sectionResponses.find((r: any) => Number(r.questionId) === Number(question.id));
+                          const response = sectionResponses.find((r: any) => r.questionId === question.id || Number(r.questionId) === Number(question.id));
                           
                           return (
                             <div key={question.id} className="space-y-2">
