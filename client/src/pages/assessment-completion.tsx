@@ -29,13 +29,15 @@ import {
   FileText,
   Edit,
   HelpCircle,
-  ChevronDown
+  ChevronDown,
+  Mic
 } from "lucide-react";
 
 // Utils and Types
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { AssessmentVoiceRecorder } from "@/components/assessment-voice-recorder";
 
 interface AssessmentQuestion {
   id: number;
@@ -98,6 +100,7 @@ export default function AssessmentCompletionPage() {
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
   const [isSectionLoading, setIsSectionLoading] = useState(false);
+  const [activeVoiceRecorder, setActiveVoiceRecorder] = useState<number | null>(null);
   const initialLoadDone = useRef(false);
   
   const queryClient = useQueryClient();
@@ -380,31 +383,92 @@ export default function AssessmentCompletionPage() {
     generateReportMutation.mutate();
   };
 
+  const handleVoiceTranscription = (questionId: number, transcribedText: string) => {
+    // Update the response with transcribed text
+    handleResponseChange(questionId, transcribedText, 'responseText');
+    
+    // Save the response
+    setTimeout(() => {
+      saveResponse(questionId);
+    }, 100);
+    
+    // Close the voice recorder
+    setActiveVoiceRecorder(null);
+    
+    toast({
+      title: "Voice transcribed",
+      description: "Text has been added to the field",
+    });
+  };
+
   const renderQuestion = (question: AssessmentQuestion) => {
     const response = responses[question.id] || {};
+    const isVoiceRecorderActive = activeVoiceRecorder === question.id;
 
     switch (question.questionType) {
       case 'short_text':
         return (
-          <Input
-            value={response.responseText || ''}
-            onChange={(e) => handleResponseChange(question.id, e.target.value, 'responseText')}
-            onBlur={() => saveResponse(question.id)}
-            placeholder="Enter your response..."
-            className="w-full"
-          />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={response.responseText || ''}
+                onChange={(e) => handleResponseChange(question.id, e.target.value, 'responseText')}
+                onBlur={() => saveResponse(question.id)}
+                placeholder="Enter your response..."
+                className="flex-1"
+                data-testid={`input-question-${question.id}`}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setActiveVoiceRecorder(isVoiceRecorderActive ? null : question.id)}
+                data-testid={`button-voice-${question.id}`}
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+            </div>
+            {isVoiceRecorderActive && (
+              <AssessmentVoiceRecorder
+                questionId={question.id}
+                onTranscriptionComplete={(text) => handleVoiceTranscription(question.id, text)}
+                onCancel={() => setActiveVoiceRecorder(null)}
+              />
+            )}
+          </div>
         );
 
       case 'long_text':
         return (
-          <Textarea
-            value={response.responseText || ''}
-            onChange={(e) => handleResponseChange(question.id, e.target.value, 'responseText')}
-            onBlur={() => saveResponse(question.id)}
-            placeholder="Enter your detailed response..."
-            rows={4}
-            className="w-full"
-          />
+          <div className="space-y-2">
+            <div className="flex gap-2 items-start">
+              <Textarea
+                value={response.responseText || ''}
+                onChange={(e) => handleResponseChange(question.id, e.target.value, 'responseText')}
+                onBlur={() => saveResponse(question.id)}
+                placeholder="Enter your detailed response..."
+                rows={4}
+                className="flex-1"
+                data-testid={`textarea-question-${question.id}`}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setActiveVoiceRecorder(isVoiceRecorderActive ? null : question.id)}
+                data-testid={`button-voice-${question.id}`}
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+            </div>
+            {isVoiceRecorderActive && (
+              <AssessmentVoiceRecorder
+                questionId={question.id}
+                onTranscriptionComplete={(text) => handleVoiceTranscription(question.id, text)}
+                onCancel={() => setActiveVoiceRecorder(null)}
+              />
+            )}
+          </div>
         );
 
       case 'multiple_choice':
