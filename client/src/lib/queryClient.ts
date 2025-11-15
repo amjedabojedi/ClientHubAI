@@ -48,9 +48,7 @@ export async function apiRequest(
 
   // Add headers for non-GET/HEAD requests
   if (method !== 'GET' && method !== 'HEAD') {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    };
+    const headers: Record<string, string> = {};
     
     // Add CSRF token for non-GET requests
     const csrfToken = getCsrfToken();
@@ -58,11 +56,22 @@ export async function apiRequest(
       headers['x-csrf-token'] = csrfToken;
     }
     
-    options.headers = headers;
+    // Check if data is FormData (for file uploads)
+    const isFormData = data instanceof FormData;
     
-    if (data) {
-      options.body = JSON.stringify(data);
+    if (isFormData) {
+      // For FormData, let the browser set the Content-Type (it will include boundary)
+      // Do not set Content-Type manually
+      options.body = data as FormData;
+    } else {
+      // For JSON data, set Content-Type and stringify
+      headers["Content-Type"] = "application/json";
+      if (data) {
+        options.body = JSON.stringify(data);
+      }
     }
+    
+    options.headers = headers;
   }
 
   // Add cache busting for GET requests to prevent 304 responses

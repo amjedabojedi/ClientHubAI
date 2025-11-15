@@ -135,14 +135,14 @@ export function VoiceRecorder({ sessionNoteId, onTranscriptionComplete }: VoiceR
         formData.append('sessionNoteId', sessionNoteId.toString());
       }
 
-      // Send to backend
-      const result = await apiRequest(
+      // Send to backend (apiRequest signature: url, method, data)
+      const response = await apiRequest(
         '/api/session-notes/transcribe',
-        {
-          method: 'POST',
-          body: formData
-        }
+        'POST',
+        formData
       );
+      
+      const result = await response.json();
 
       toast({
         title: "Transcription complete!",
