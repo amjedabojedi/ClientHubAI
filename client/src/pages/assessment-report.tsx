@@ -731,7 +731,19 @@ export default function AssessmentReportPage() {
                     <AccordionContent>
                       <div className="space-y-6 pt-4">
                         {section.questions?.map((question: any, questionIndex: number) => {
-                          const response = sectionResponses.find((r: any) => r.questionId === question.id);
+                          const response = sectionResponses.find((r: any) => Number(r.questionId) === Number(question.id));
+                          
+                          // DEBUG: Log for questions 36-40
+                          if ([36, 37, 38, 39, 40].includes(Number(question.id))) {
+                            console.log(`[RENDER RESPONSE DEBUG] Question ${question.id}:`, {
+                              foundResponse: !!response,
+                              questionId: question.id,
+                              sectionResponsesCount: sectionResponses.length,
+                              responseQuestionId: response?.questionId,
+                              selectedOptions: response?.selectedOptions,
+                              displayValue: response ? getResponseDisplay(response) : 'NO RESPONSE'
+                            });
+                          }
                           
                           return (
                             <div key={question.id} className="space-y-2">
