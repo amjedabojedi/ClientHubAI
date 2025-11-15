@@ -2057,6 +2057,27 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               </DialogFooter>
             </form>
           </Form>
+
+          {/* Floating Voice Recording Button - Inside Dialog */}
+          {editingNote && (() => {
+            const sessionId = form.getValues('sessionId');
+            const session = sessions.find(s => s.id === sessionId);
+            const sessionDateFormatted = session 
+              ? format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy') + ' - ' + session.sessionType
+              : 'Session date not available';
+            
+            return (
+              <FloatingVoiceButton
+                sessionNoteId={editingNote?.id || null}
+                clientName={clientData?.fullName || 'Client'}
+                sessionDate={sessionDateFormatted}
+                onTranscriptionComplete={(data) => {
+                  setPendingTranscription(data);
+                  setShowReviewDialog(true);
+                }}
+              />
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
@@ -2254,27 +2275,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
           onDiscard={handleDiscardTranscription}
         />
       )}
-
-      {/* Floating Voice Recording Button */}
-      {editingNote && (() => {
-        const sessionId = form.getValues('sessionId');
-        const session = sessions.find(s => s.id === sessionId);
-        const sessionDateFormatted = session 
-          ? format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy') + ' - ' + session.sessionType
-          : 'Session date not available';
-        
-        return (
-          <FloatingVoiceButton
-            sessionNoteId={editingNote?.id || null}
-            clientName={clientData?.fullName || 'Client'}
-            sessionDate={sessionDateFormatted}
-            onTranscriptionComplete={(data) => {
-              setPendingTranscription(data);
-              setShowReviewDialog(true);
-            }}
-          />
-        );
-      })()}
     </div>
   );
 }
