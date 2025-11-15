@@ -20,7 +20,7 @@ import { z } from "zod";
 // Internal Services
 import { storage, type TaskQueryParams } from "./storage";
 // Auth will be implemented later, for now removing to test audit logging
-import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio } from "./ai/openai";
+import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
@@ -7025,6 +7025,42 @@ You can download a copy if you have it saved locally and re-upload it.`;
     } catch (error) {
       console.error('Error saving assessment response:', error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Assessment Voice Transcription
+  app.post("/api/assessments/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      // Check if audio file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ message: "No audio file uploaded" });
+      }
+
+      // Get translation preference from request
+      const translateToEnglish = req.body.translateToEnglish === 'true';
+      
+      console.log(`[API] Processing assessment voice transcription. Translation: ${translateToEnglish ? 'enabled' : 'disabled'}. File size: ${req.file.size} bytes`);
+
+      // Transcribe audio (with optional translation)
+      const transcription = await transcribeAssessmentAudio(
+        req.file.buffer,
+        req.file.originalname,
+        translateToEnglish
+      );
+
+      console.log(`[API] Assessment transcription successful. Length: ${transcription.length} chars`);
+
+      res.json({ transcription });
+    } catch (error: any) {
+      console.error('[API] Assessment transcription error:', error);
+      res.status(500).json({ 
+        message: error.message || "Voice transcription failed",
+        error: error.message 
+      });
     }
   });
 
