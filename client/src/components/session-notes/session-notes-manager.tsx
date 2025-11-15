@@ -20,7 +20,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 // Icons
-import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown, Mic } from "lucide-react";
 
 // Voice Recording
 import { FloatingVoiceButton } from "./floating-voice-button";
