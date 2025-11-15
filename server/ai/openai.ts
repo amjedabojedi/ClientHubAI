@@ -1124,6 +1124,70 @@ export function getAllTemplates() {
   return clinicalTemplates;
 }
 
+// Voice Transcription for Assessment Text Fields
+export async function transcribeAssessmentAudio(
+  audioBuffer: Buffer,
+  fileName: string,
+  translateToEnglish: boolean = false
+): Promise<string> {
+  try {
+    console.log('[AI] Starting assessment audio transcription...');
+    const startTime = Date.now();
+
+    const whisper = getWhisperClient();
+    
+    // Create a File-like object for the OpenAI SDK
+    const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
+      type: 'audio/webm'
+    });
+    
+    // Transcribe audio
+    const transcription = await whisper.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      response_format: 'text'
+    });
+
+    let result = transcription as unknown as string;
+    const transcriptionDuration = Date.now() - startTime;
+    console.log(`[AI] Assessment transcription completed in ${transcriptionDuration}ms. Length: ${result.length} chars`);
+
+    // Optional: Translate to English
+    if (translateToEnglish) {
+      console.log('[AI] Translating to English...');
+      const translationStartTime = Date.now();
+      
+      const translationResponse = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a professional translator. Translate the following text to English. If it is already in English, return it as-is. Preserve the meaning and tone accurately.' 
+          },
+          { 
+            role: 'user', 
+            content: result 
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000
+      });
+
+      result = translationResponse.choices[0].message.content || result;
+      const translationDuration = Date.now() - translationStartTime;
+      console.log(`[AI] Translation completed in ${translationDuration}ms`);
+    }
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`[AI] Assessment transcription complete in ${totalDuration}ms`);
+
+    return result;
+  } catch (error: any) {
+    console.error('[AI] Assessment transcription error:', error);
+    throw new Error(`Voice transcription failed: ${error.message || 'Unknown error'}`);
+  }
+}
+
 // Export the assessment report generation function
 export { generateAssessmentReport };
 
