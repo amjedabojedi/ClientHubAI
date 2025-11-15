@@ -3820,11 +3820,14 @@ export class DatabaseStorage implements IStorage {
         // Fetch options for each question
         const questionsWithOptions = await Promise.all(
           questions.map(async (q) => {
-            const options = await db
+            const rawOptions = await db
               .select()
               .from(assessmentQuestionOptions)
               .where(eq(assessmentQuestionOptions.questionId, q.id))
               .orderBy(asc(assessmentQuestionOptions.sortOrder));
+            
+            // Normalize option IDs to ensure consistent number types
+            const options = this.normalizeOptionIds(rawOptions);
 
             return {
               id: q.id,
@@ -3840,7 +3843,8 @@ export class DatabaseStorage implements IStorage {
               createdAt: q.createdAt,
               updatedAt: q.updatedAt,
               options: options.map(opt => opt.optionText),
-              scoreValues: options.map(opt => Number(opt.optionValue) || 0)
+              scoreValues: options.map(opt => Number(opt.optionValue) || 0),
+              allOptions: options  // CRITICAL: Include full option objects for proper ID-based saves
             };
           })
         );
