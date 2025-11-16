@@ -135,10 +135,11 @@ export default function AssessmentCompletionPage() {
     staleTime: Infinity,
   });
 
-  // Load existing responses into state ONLY on initial mount
-  // This prevents overwriting user's current selections when switching sections
+  // Load existing responses into state
+  // On initial mount: load all responses
+  // After saves: update state with server data to ensure consistency
   useEffect(() => {
-    if (existingResponses.length > 0 && !initialLoadDone.current) {
+    if (existingResponses.length > 0) {
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
         // Handle selectedOptions - database may return as JSON array or null
