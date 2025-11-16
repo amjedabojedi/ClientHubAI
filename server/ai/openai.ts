@@ -650,61 +650,68 @@ ASSESSMENT SECTIONS TO GENERATE:
       userPrompt += `Client Data (use ALL details below to fill the template completely):\n\n`;
       
       console.log(`[AI DEBUG] Processing ${sectionResponses.length} responses for section "${section.title}"`);
+      console.log(`[AI DEBUG] Section has ${section.questions?.length || 0} questions available`);
       
-      sectionResponses.forEach(response => {
+      sectionResponses.forEach((response, idx) => {
+        console.log(`[AI DEBUG] Response ${idx + 1}: questionId=${response.questionId}`);
         const question = section.questions?.find(q => q.id === response.questionId);
-        if (question) {
-          console.log(`[AI DEBUG] Q${question.id}: ${question.questionText}`);
-          console.log(`[AI DEBUG] Response:`, JSON.stringify(response, null, 2));
-          
-          // Extract answer text based on question type
-          let answerText = '';
-          
-          if (question.questionType === 'short_text' || question.questionType === 'long_text') {
-            answerText = response.responseText || 'Not provided';
-          } else if (question.questionType === 'multiple_choice') {
-            if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
-              const selectedTexts = response.selectedOptions
-                .map(optionId => {
-                  const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
-                  return option?.optionText;
-                })
-                .filter(Boolean);
-              answerText = selectedTexts.length > 0 ? selectedTexts.join(', ') : 'Not selected';
-            } else {
-              answerText = response.responseText || 'Not selected';
-            }
-          } else if (question.questionType === 'checkbox') {
-            if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
-              const selectedTexts = response.selectedOptions
-                .map(optionId => {
-                  const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
-                  return option?.optionText;
-                })
-                .filter(Boolean);
-              answerText = selectedTexts.length > 0 ? selectedTexts.join('; ') : 'None selected';
-            } else {
-              answerText = response.responseText || 'None selected';
-            }
-          } else if (question.questionType === 'rating_scale' && response.ratingValue !== null && response.ratingValue !== undefined) {
-            const rating = response.ratingValue;
-            const minLabel = question.ratingLabels?.[0] || 'Low';
-            const maxLabel = question.ratingLabels?.[1] || 'High';
-            const min = question.ratingMin || 1;
-            const max = question.ratingMax || 10;
-            answerText = `${rating}/${max} (${minLabel} to ${maxLabel} scale)`;
-          } else if (question.questionType === 'number' && response.responseValue !== null && response.responseValue !== undefined) {
-            answerText = response.responseValue.toString();
-          } else if (question.questionType === 'date' && response.responseText) {
-            answerText = response.responseText;
-          } else {
-            answerText = response.responseText || 'Not provided';
-          }
-          
-          // Format: Question → Answer (clear mapping for AI)
-          userPrompt += `• ${question.questionText}\n  → ${answerText}\n\n`;
+        
+        if (!question) {
+          console.log(`[AI DEBUG] WARNING: Question not found for questionId ${response.questionId}`);
+          console.log(`[AI DEBUG] Available question IDs:`, section.questions?.map(q => q.id));
+          return; // Skip this response
         }
-      })
+        
+        console.log(`[AI DEBUG] Found Q${question.id}: ${question.questionText}`);
+        console.log(`[AI DEBUG] Response data:`, JSON.stringify(response, null, 2));
+        
+        // Extract answer text based on question type
+        let answerText = '';
+        
+        if (question.questionType === 'short_text' || question.questionType === 'long_text') {
+          answerText = response.responseText || 'Not provided';
+        } else if (question.questionType === 'multiple_choice') {
+          if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+            const selectedTexts = response.selectedOptions
+              .map(optionId => {
+                const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
+                return option?.optionText;
+              })
+              .filter(Boolean);
+            answerText = selectedTexts.length > 0 ? selectedTexts.join(', ') : 'Not selected';
+          } else {
+            answerText = response.responseText || 'Not selected';
+          }
+        } else if (question.questionType === 'checkbox') {
+          if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
+            const selectedTexts = response.selectedOptions
+              .map(optionId => {
+                const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
+                return option?.optionText;
+              })
+              .filter(Boolean);
+            answerText = selectedTexts.length > 0 ? selectedTexts.join('; ') : 'None selected';
+          } else {
+            answerText = response.responseText || 'None selected';
+          }
+        } else if (question.questionType === 'rating_scale' && response.ratingValue !== null && response.ratingValue !== undefined) {
+          const rating = response.ratingValue;
+          const minLabel = question.ratingLabels?.[0] || 'Low';
+          const maxLabel = question.ratingLabels?.[1] || 'High';
+          const min = question.ratingMin || 1;
+          const max = question.ratingMax || 10;
+          answerText = `${rating}/${max} (${minLabel} to ${maxLabel} scale)`;
+        } else if (question.questionType === 'number' && response.responseValue !== null && response.responseValue !== undefined) {
+          answerText = response.responseValue.toString();
+        } else if (question.questionType === 'date' && response.responseText) {
+          answerText = response.responseText;
+        } else {
+          answerText = response.responseText || 'Not provided';
+        }
+        
+        // Format: Question → Answer (clear mapping for AI)
+        userPrompt += `• ${question.questionText}\n  → ${answerText}\n\n`;
+      });
       
       userPrompt += `\nREMINDER: Transform the answers above into professional narrative following the template format. Use the actual client answers - do not invent information not provided.\n\n`;
     }
