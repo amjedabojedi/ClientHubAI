@@ -136,18 +136,13 @@ export default function AssessmentCompletionPage() {
     staleTime: Infinity,
   });
 
-  // Track when we should reload from server (after saves complete)
-  const shouldReloadFromServer = useRef(false);
-
-  // Load existing responses into state
-  // Only on initial load OR after a save completes
+  // Load existing responses into state ONLY on initial page load
   useEffect(() => {
     if (existingResponses.length === 0) return;
     
-    // Only update state if:
-    // 1. Initial load (first time), OR
-    // 2. After a save completes (shouldReloadFromServer flag is true)
-    if (!initialLoadDone.current || shouldReloadFromServer.current) {
+    // Only load from server on very first page load
+    // After that, local state is the source of truth
+    if (!initialLoadDone.current) {
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
         // Handle selectedOptions - database may return as JSON array or null
@@ -174,7 +169,6 @@ export default function AssessmentCompletionPage() {
       setResponses(responseMap);
       responsesRef.current = responseMap; // Keep ref in sync
       initialLoadDone.current = true;
-      shouldReloadFromServer.current = false; // Reset the flag
     }
   }, [existingResponses]);
 
@@ -188,12 +182,11 @@ export default function AssessmentCompletionPage() {
       return apiRequest("/api/assessments/responses/batch", "POST", { responses: responsesData });
     },
     onSuccess: () => {
-      // Mark that we should reload from server on next data fetch
-      shouldReloadFromServer.current = true;
-      // Invalidate cache to trigger refetch
-      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
+      // DON'T reload from server - local state already has correct data
+      // Just clear the pending saves list
       pendingSaves.current.clear();
+      // Update assignment status in background (don't reload responses)
+      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
     }
   });
 
@@ -203,10 +196,8 @@ export default function AssessmentCompletionPage() {
       return apiRequest("/api/assessments/responses", "POST", responseData);
     },
     onSuccess: () => {
-      // Mark that we should reload from server on next data fetch
-      shouldReloadFromServer.current = true;
-      // Invalidate queries to refresh data after save
-      queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/responses`] });
+      // DON'T reload from server - local state already has correct data
+      // Update assignment status in background (don't reload responses)
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}`] });
     }
   });
