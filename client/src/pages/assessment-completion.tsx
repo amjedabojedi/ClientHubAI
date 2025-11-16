@@ -406,17 +406,15 @@ export default function AssessmentCompletionPage() {
   };
 
   const handleShowSummary = async () => {
-    // Save all responses before showing summary
+    // Save all responses before showing summary using responsesRef to get latest data
     setIsSectionLoading(true);
-    const savePromises = Object.keys(responses).map((questionId) => 
+    const savePromises = Object.keys(responsesRef.current).map((questionId) => 
       saveResponse(parseInt(questionId))
     );
     await Promise.all(savePromises);
     
-    // Debug: Log current responses to see what data we have
-    console.log('=== SUMMARY RESPONSES DEBUG ===');
-    console.log('Total responses:', Object.keys(responses).length);
-    console.log('Responses data:', JSON.stringify(responses, null, 2));
+    // Sync state with ref to ensure summary shows latest data
+    setResponses({ ...responsesRef.current });
     
     setShowSummaryDialog(true);
     setTimeout(() => setIsSectionLoading(false), 300);
