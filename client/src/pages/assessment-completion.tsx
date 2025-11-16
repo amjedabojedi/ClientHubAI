@@ -148,12 +148,6 @@ export default function AssessmentCompletionPage() {
     // 1. Initial load (first time), OR
     // 2. After a save completes (shouldReloadFromServer flag is true)
     if (!initialLoadDone.current || shouldReloadFromServer.current) {
-      console.log('🔄 Loading responses from server', { 
-        initialLoad: !initialLoadDone.current, 
-        afterSave: shouldReloadFromServer.current,
-        count: existingResponses.length 
-      });
-      
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
         // Handle selectedOptions - database may return as JSON array or null
@@ -177,13 +171,10 @@ export default function AssessmentCompletionPage() {
         };
       });
       
-      console.log('✅ Responses loaded into state', { questionIds: Object.keys(responseMap) });
       setResponses(responseMap);
       responsesRef.current = responseMap; // Keep ref in sync
       initialLoadDone.current = true;
       shouldReloadFromServer.current = false; // Reset the flag
-    } else {
-      console.log('⏭️ Skipping response reload (not initial load or after save)');
     }
   }, [existingResponses]);
 
@@ -234,30 +225,20 @@ export default function AssessmentCompletionPage() {
       // Collect all pending responses
       // CRITICAL: Use responsesRef.current to get the LATEST state, not the closure's captured state
       const latestResponses = responsesRef.current;
-      console.log('💫 Preparing batch save', { 
-        pendingQuestions: Array.from(pendingSaves.current),
-        currentResponsesState: latestResponses 
-      });
       
       const responsesToSave = Array.from(pendingSaves.current)
         .map(questionId => {
           const response = latestResponses[questionId];
-          if (!response) {
-            console.warn(`⚠️ No response found for questionId ${questionId}`);
-            return null;
-          }
+          if (!response) return null;
 
           // Only include if there's actual data
           const hasData = response.responseText || 
                          (response.selectedOptions && response.selectedOptions.length > 0) || 
                          response.ratingValue !== null;
           
-          if (!hasData) {
-            console.warn(`⚠️ No data for questionId ${questionId}`);
-            return null;
-          }
+          if (!hasData) return null;
 
-          const dataToSave = {
+          return {
             assignmentId,
             questionId,
             responderId: user?.id,
@@ -265,17 +246,12 @@ export default function AssessmentCompletionPage() {
             selectedOptions: (response.selectedOptions && response.selectedOptions.length > 0) ? response.selectedOptions : null,
             ratingValue: response.ratingValue || null
           };
-          
-          console.log(`📦 Including in batch save:`, dataToSave);
-          return dataToSave;
         })
         .filter(Boolean);
 
       if (responsesToSave.length > 0) {
-        console.log('🚀 Sending batch save request', { count: responsesToSave.length, data: responsesToSave });
         batchSaveMutation.mutate(responsesToSave);
       } else {
-        console.log('⏭️ No responses to save, clearing pending');
         pendingSaves.current.clear();
       }
     }, 1000); // Wait 1 second to batch multiple changes
@@ -546,24 +522,11 @@ export default function AssessmentCompletionPage() {
           const selectedOptionId = response.selectedOptions?.[0];
           const currentValue = selectedOptionId ? selectedOptionId.toString() : '';
           
-          console.log('🔘 Rendering radio group', {
-            questionId: question.id,
-            selectedOptionId,
-            currentValue,
-            responseState: response
-          });
-          
           return (
             <RadioGroup
               value={currentValue}
               onValueChange={(value) => {
-                console.log('📝 Radio button changed', { 
-                  questionId: question.id, 
-                  newOptionId: value,
-                  currentSelection: response.selectedOptions 
-                });
                 const optionId = parseInt(value);
-                console.log('💾 Updating local state with new option:', [optionId]);
                 handleResponseChange(question.id, [optionId], 'selectedOptions');
                 // Mark as pending to save in the next batch
                 pendingSaves.current.add(question.id);
@@ -733,17 +696,10 @@ export default function AssessmentCompletionPage() {
                       id={`q${question.id}_${option.id}`}
                       checked={selectedIds.includes(optionId)}
                       onCheckedChange={(checked) => {
-                        console.log('📝 Checkbox changed', { 
-                          questionId: question.id, 
-                          optionId, 
-                          checked, 
-                          currentOptions: selectedIds 
-                        });
                         const currentOptions = selectedIds;
                         const newOptions = checked
                           ? [...currentOptions, optionId]
                           : currentOptions.filter((opt: number) => opt !== optionId);
-                        console.log('💾 Updating local state with new options:', newOptions);
                         handleResponseChange(question.id, newOptions, 'selectedOptions');
                         // Mark as pending to save in the next batch
                         pendingSaves.current.add(question.id);
