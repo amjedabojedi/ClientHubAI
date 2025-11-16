@@ -96,6 +96,7 @@ export default function AssessmentCompletionPage() {
   const assignmentId = params?.assignmentId ? parseInt(params.assignmentId) : null;
   
   const [responses, setResponses] = useState<Record<number, any>>({});
+  const responsesRef = useRef<Record<number, any>>({});  // Always track latest responses
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
@@ -178,6 +179,7 @@ export default function AssessmentCompletionPage() {
       
       console.log('✅ Responses loaded into state', { questionIds: Object.keys(responseMap) });
       setResponses(responseMap);
+      responsesRef.current = responseMap; // Keep ref in sync
       initialLoadDone.current = true;
       shouldReloadFromServer.current = false; // Reset the flag
     } else {
@@ -230,14 +232,16 @@ export default function AssessmentCompletionPage() {
       if (pendingSaves.current.size === 0) return;
 
       // Collect all pending responses
+      // CRITICAL: Use responsesRef.current to get the LATEST state, not the closure's captured state
+      const latestResponses = responsesRef.current;
       console.log('💫 Preparing batch save', { 
         pendingQuestions: Array.from(pendingSaves.current),
-        currentResponsesState: responses 
+        currentResponsesState: latestResponses 
       });
       
       const responsesToSave = Array.from(pendingSaves.current)
         .map(questionId => {
-          const response = responses[questionId];
+          const response = latestResponses[questionId];
           if (!response) {
             console.warn(`⚠️ No response found for questionId ${questionId}`);
             return null;
@@ -344,13 +348,18 @@ export default function AssessmentCompletionPage() {
   });
 
   const handleResponseChange = (questionId: number, value: any, type: string) => {
-    setResponses(prev => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        [type]: value
-      }
-    }));
+    setResponses(prev => {
+      const updated = {
+        ...prev,
+        [questionId]: {
+          ...prev[questionId],
+          [type]: value
+        }
+      };
+      // Always keep ref in sync with state
+      responsesRef.current = updated;
+      return updated;
+    });
   };
 
   const saveResponse = (questionId: number) => {
