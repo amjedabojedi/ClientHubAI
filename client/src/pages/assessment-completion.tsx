@@ -656,23 +656,29 @@ export default function AssessmentCompletionPage() {
         if (checkboxAllOptions.length > 0) {
           return (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-              {checkboxAllOptions.map((option) => (
-                <div key={option.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`q${question.id}_${option.id}`}
-                    checked={response.selectedOptions?.includes(option.id) || false}
-                    onCheckedChange={(checked) => {
-                      const currentOptions = response.selectedOptions || [];
-                      const newOptions = checked
-                        ? [...currentOptions, option.id]
-                        : currentOptions.filter((opt: number) => opt !== option.id);
-                      handleResponseChange(question.id, newOptions, 'selectedOptions');
-                      setTimeout(() => saveResponse(question.id), 500);
-                    }}
-                  />
-                  <Label htmlFor={`q${question.id}_${option.id}`}>{option.optionText}</Label>
-                </div>
-              ))}
+              {checkboxAllOptions.map((option) => {
+                // Ensure both option.id and selectedOptions items are numbers for comparison
+                const optionId = typeof option.id === 'string' ? parseInt(option.id) : option.id;
+                const selectedIds = (response.selectedOptions || []).map((id: any) => typeof id === 'string' ? parseInt(id) : id);
+                
+                return (
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`q${question.id}_${option.id}`}
+                      checked={selectedIds.includes(optionId)}
+                      onCheckedChange={(checked) => {
+                        const currentOptions = selectedIds;
+                        const newOptions = checked
+                          ? [...currentOptions, optionId]
+                          : currentOptions.filter((opt: number) => opt !== optionId);
+                        handleResponseChange(question.id, newOptions, 'selectedOptions');
+                        setTimeout(() => saveResponse(question.id), 500);
+                      }}
+                    />
+                    <Label htmlFor={`q${question.id}_${option.id}`}>{option.optionText}</Label>
+                  </div>
+                );
+              })}
             </div>
           );
         }
