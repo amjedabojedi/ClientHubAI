@@ -230,19 +230,30 @@ export default function AssessmentCompletionPage() {
       if (pendingSaves.current.size === 0) return;
 
       // Collect all pending responses
+      console.log('💫 Preparing batch save', { 
+        pendingQuestions: Array.from(pendingSaves.current),
+        currentResponsesState: responses 
+      });
+      
       const responsesToSave = Array.from(pendingSaves.current)
         .map(questionId => {
           const response = responses[questionId];
-          if (!response) return null;
+          if (!response) {
+            console.warn(`⚠️ No response found for questionId ${questionId}`);
+            return null;
+          }
 
           // Only include if there's actual data
           const hasData = response.responseText || 
                          (response.selectedOptions && response.selectedOptions.length > 0) || 
                          response.ratingValue !== null;
           
-          if (!hasData) return null;
+          if (!hasData) {
+            console.warn(`⚠️ No data for questionId ${questionId}`);
+            return null;
+          }
 
-          return {
+          const dataToSave = {
             assignmentId,
             questionId,
             responderId: user?.id,
@@ -250,12 +261,17 @@ export default function AssessmentCompletionPage() {
             selectedOptions: (response.selectedOptions && response.selectedOptions.length > 0) ? response.selectedOptions : null,
             ratingValue: response.ratingValue || null
           };
+          
+          console.log(`📦 Including in batch save:`, dataToSave);
+          return dataToSave;
         })
         .filter(Boolean);
 
       if (responsesToSave.length > 0) {
+        console.log('🚀 Sending batch save request', { count: responsesToSave.length, data: responsesToSave });
         batchSaveMutation.mutate(responsesToSave);
       } else {
+        console.log('⏭️ No responses to save, clearing pending');
         pendingSaves.current.clear();
       }
     }, 1000); // Wait 1 second to batch multiple changes
@@ -540,7 +556,9 @@ export default function AssessmentCompletionPage() {
                 const optionId = parseInt(value);
                 console.log('💾 Updating local state with new option:', [optionId]);
                 handleResponseChange(question.id, [optionId], 'selectedOptions');
-                setTimeout(() => saveResponse(question.id), 100);
+                // Mark as pending to save in the next batch
+                pendingSaves.current.add(question.id);
+                triggerBatchSave();
               }}
             >
               {allOptions.map((option) => (
@@ -718,7 +736,9 @@ export default function AssessmentCompletionPage() {
                           : currentOptions.filter((opt: number) => opt !== optionId);
                         console.log('💾 Updating local state with new options:', newOptions);
                         handleResponseChange(question.id, newOptions, 'selectedOptions');
-                        setTimeout(() => saveResponse(question.id), 500);
+                        // Mark as pending to save in the next batch
+                        pendingSaves.current.add(question.id);
+                        triggerBatchSave();
                       }}
                     />
                     <Label htmlFor={`q${question.id}_${option.id}`}>{option.optionText}</Label>
