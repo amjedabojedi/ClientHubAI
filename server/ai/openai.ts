@@ -521,14 +521,13 @@ async function generateAssessmentReport(
   
   const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts.
 
-⚠️ CRITICAL SAFETY RULE - NEVER FABRICATE INFORMATION:
-- ONLY use information explicitly provided in the client data below
-- If specific information is missing or shows "Not provided", write "information not available" in your narrative
-- DO NOT make up names, addresses, dates, assessment tools, clinic names, or any other clinical details
-- DO NOT use examples from template instructions as if they were real data
-- Template examples (like "Dr. Sarah Thompson" or "123 Main Street, Oakville") are FORMAT examples ONLY
-- When information is incomplete, acknowledge the gap (e.g., "specific referral details not available") rather than inventing details
-- This is a clinical document - accuracy is mandatory, fabrication is dangerous
+⚠️ CRITICAL SAFETY RULES:
+1. USE the client data provided in bullet points (• Question → Answer format)
+2. Transform this data into professional clinical narrative following the template format
+3. If a specific answer says "Not provided" or is missing, write "information not available" in your narrative
+4. Template examples in instructions (like "Dr. Sarah Thompson" or "123 Main Street") show the FORMAT only - replace them with actual client answers
+5. NEVER invent details not present in the client's actual answers
+6. This is real clinical documentation - use actual data provided, acknowledge gaps when data is missing
 
 CRITICAL: Generate properly formatted HTML that will display correctly in a rich text editor.
 
@@ -698,7 +697,7 @@ ASSESSMENT SECTIONS TO GENERATE:
         }
       })
       
-      userPrompt += `\nREMINDER: Use ONLY the information provided above. If any detail is missing or says "Not provided", write that information is not available. DO NOT invent or make up any clinical details, names, addresses, dates, or assessment tools. Follow the template FORMAT but use ONLY actual client data.\n\n`;
+      userPrompt += `\nREMINDER: Transform the answers above into professional narrative following the template format. Use the actual client answers - do not invent information not provided.\n\n`;
     }
   });
 
@@ -820,8 +819,8 @@ Client Response Data: Base recommendations on the assessment findings and clinic
     console.log('[AI] Starting assessment report generation...');
     console.log('[AI DEBUG] ==== DATA BEING SENT TO AI ====');
     console.log('[AI DEBUG] Prompt length:', userPrompt.length, 'characters');
-    console.log('[AI DEBUG] First 2000 chars of user prompt:');
-    console.log(userPrompt.substring(0, 2000));
+    console.log('[AI DEBUG] First section with data (chars 2000-4000):');
+    console.log(userPrompt.substring(2000, 4000));
     console.log('[AI DEBUG] ================================');
     
     const startTime = Date.now();
