@@ -412,6 +412,12 @@ export default function AssessmentCompletionPage() {
       saveResponse(parseInt(questionId))
     );
     await Promise.all(savePromises);
+    
+    // Debug: Log current responses to see what data we have
+    console.log('=== SUMMARY RESPONSES DEBUG ===');
+    console.log('Total responses:', Object.keys(responses).length);
+    console.log('Responses data:', JSON.stringify(responses, null, 2));
+    
     setShowSummaryDialog(true);
     setTimeout(() => setIsSectionLoading(false), 300);
   };

@@ -34,13 +34,31 @@ export function AssessmentSectionSummary({
   isGenerating = false
 }: AssessmentSectionSummaryProps) {
   
+  // Debug: Log what responses we're receiving
+  console.log('=== SUMMARY COMPONENT RECEIVED ===');
+  console.log('Total responses received:', Object.keys(responses).length);
+  console.log('Sample responses:', Object.entries(responses).slice(0, 5));
+  
   const getSectionProgress = (section: AssessmentSection) => {
     const totalQuestions = section.questions.length;
     const answeredQuestions = section.questions.filter(q => {
       const response = responses[q.id];
-      return response?.responseText || 
-             (response?.selectedOptions && response.selectedOptions.length > 0) ||
-             response?.ratingValue !== null;
+      const hasResponse = response?.responseText || 
+                         (response?.selectedOptions && response.selectedOptions.length > 0) ||
+                         response?.ratingValue !== null;
+      
+      // Debug: Log for first few questions to understand the issue
+      if (section.questions.indexOf(q) < 3) {
+        console.log(`Question ${q.id} (${q.questionText.substring(0, 30)}...):`, {
+          hasResponse: response ? 'exists' : 'missing',
+          responseText: response?.responseText,
+          selectedOptions: response?.selectedOptions,
+          ratingValue: response?.ratingValue,
+          isAnswered: hasResponse
+        });
+      }
+      
+      return hasResponse;
     }).length;
     
     const requiredQuestions = section.questions.filter(q => q.isRequired).length;
