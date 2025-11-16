@@ -521,6 +521,15 @@ async function generateAssessmentReport(
   
   const systemPrompt = `You are a licensed clinical psychologist generating a professional assessment report. Create a comprehensive clinical report using the assessment responses and section-specific prompts.
 
+⚠️ CRITICAL SAFETY RULE - NEVER FABRICATE INFORMATION:
+- ONLY use information explicitly provided in the client data below
+- If specific information is missing or shows "Not provided", write "information not available" in your narrative
+- DO NOT make up names, addresses, dates, assessment tools, clinic names, or any other clinical details
+- DO NOT use examples from template instructions as if they were real data
+- Template examples (like "Dr. Sarah Thompson" or "123 Main Street, Oakville") are FORMAT examples ONLY
+- When information is incomplete, acknowledge the gap (e.g., "specific referral details not available") rather than inventing details
+- This is a clinical document - accuracy is mandatory, fabrication is dangerous
+
 CRITICAL: Generate properly formatted HTML that will display correctly in a rich text editor.
 
 HTML Formatting Requirements:
@@ -689,7 +698,7 @@ ASSESSMENT SECTIONS TO GENERATE:
         }
       })
       
-      userPrompt += `\nIMPORTANT: Use EVERY piece of information above. Do not omit any details. Follow the template instructions exactly and include all data points in your narrative.\n\n`;
+      userPrompt += `\nREMINDER: Use ONLY the information provided above. If any detail is missing or says "Not provided", write that information is not available. DO NOT invent or make up any clinical details, names, addresses, dates, or assessment tools. Follow the template FORMAT but use ONLY actual client data.\n\n`;
     }
   });
 
@@ -809,6 +818,12 @@ Client Response Data: Base recommendations on the assessment findings and clinic
     }
 
     console.log('[AI] Starting assessment report generation...');
+    console.log('[AI DEBUG] ==== DATA BEING SENT TO AI ====');
+    console.log('[AI DEBUG] Prompt length:', userPrompt.length, 'characters');
+    console.log('[AI DEBUG] First 2000 chars of user prompt:');
+    console.log(userPrompt.substring(0, 2000));
+    console.log('[AI DEBUG] ================================');
+    
     const startTime = Date.now();
     
     const response = await openai.chat.completions.create({
