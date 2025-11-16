@@ -648,9 +648,15 @@ ASSESSMENT SECTIONS TO GENERATE:
       }
 
       userPrompt += `Client Data (use ALL details below to fill the template completely):\n\n`;
+      
+      console.log(`[AI DEBUG] Processing ${sectionResponses.length} responses for section "${section.title}"`);
+      
       sectionResponses.forEach(response => {
         const question = section.questions?.find(q => q.id === response.questionId);
         if (question) {
+          console.log(`[AI DEBUG] Q${question.id}: ${question.questionText}`);
+          console.log(`[AI DEBUG] Response:`, JSON.stringify(response, null, 2));
+          
           // Extract answer text based on question type
           let answerText = '';
           
