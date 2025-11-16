@@ -654,7 +654,7 @@ ASSESSMENT SECTIONS TO GENERATE:
       
       sectionResponses.forEach((response, idx) => {
         console.log(`[AI DEBUG] Response ${idx + 1}: questionId=${response.questionId}`);
-        const question = section.questions?.find(q => q.id === response.questionId);
+        const question = section.questions?.find(q => Number(q.id) === Number(response.questionId));
         
         if (!question) {
           console.log(`[AI DEBUG] WARNING: Question not found for questionId ${response.questionId}`);
