@@ -534,10 +534,10 @@ CRITICAL: Generate properly formatted HTML that will display correctly in a rich
 HTML Formatting Requirements:
 - Use <h2> tags for main section headings (no inline styles)
 - Use <h3> tags for subsections (no inline styles)
-- Wrap all paragraph content in <p> tags
+- Wrap ALL narrative content in <p> tags - every sentence should be in a paragraph
 - Add a blank line (<p><br></p>) between paragraphs for better readability
 - Use <strong> tags for emphasis on key clinical terms
-- Use <ul> and <li> for lists when appropriate
+- DO NOT use <ul>, <li>, or bullet points - write everything as flowing narrative paragraphs
 - Keep all HTML properly formatted and closed
 - DO NOT use inline styles - they will be stripped by the editor
 
@@ -545,22 +545,24 @@ Clinical Content Requirements:
 - Use professional clinical language appropriate for healthcare documentation
 - Write in third-person narrative style (e.g., "The client reported..." or "Ms./Mr. [Name] indicated...")
 - Transform raw responses into clinical observations and professional assessments
-- Follow each section's specific instructions for content and focus
-- Create flowing narrative prose, not bullet points or raw Q&A format
+- CRITICAL: Follow each section's detailed template instructions EXACTLY
+- The template shows you the exact format and structure - follow it precisely
+- Create flowing narrative PARAGRAPHS ONLY - absolutely NO bullet points, NO lists, NO Q&A format
+- Each section's template example shows the style - match that style exactly
 - Include relevant clinical terminology and evidence-based observations
 - Structure content logically within each section
-- Synthesize information rather than simply listing responses
+- Synthesize information into coherent narrative paragraphs
 - Break content into digestible paragraphs (3-5 sentences each)
 
 For each section:
 1. Start with an <h2> heading for the section title
 2. Add a blank paragraph (<p><br></p>) after the heading
-3. Follow the specific instructions provided for that section
-4. Transform client responses into professional clinical narrative in <p> tags
-5. Separate paragraphs with blank lines for readability
-6. Focus on clinically relevant information and observations
-7. Use appropriate clinical terminology for the section's focus area
-8. Create coherent paragraphs that flow naturally`;
+3. Read the section's template instructions and example output carefully
+4. Transform client data into narrative paragraphs matching the template example format
+5. Write ONLY in paragraph format using <p> tags - never use bullet points or lists
+6. Separate paragraphs with blank lines (<p><br></p>) for readability
+7. Use the template example as your guide for tone, structure, and level of detail
+8. Create coherent, flowing clinical narrative paragraphs`;
 
   // Build client information header with validated fields only
   const clientInfo = `
@@ -624,7 +626,8 @@ ASSESSMENT SECTIONS TO GENERATE:
       }
       
       if (section.aiReportPrompt) {
-        userPrompt += `Instructions: ${section.aiReportPrompt}\n\n`;
+        userPrompt += `Section Template Instructions:\n${section.aiReportPrompt}\n\n`;
+        userPrompt += `CRITICAL: The template above shows the EXACT format you should follow. Write flowing narrative paragraphs matching that example style. Do NOT use bullet points or lists.\n\n`;
         // Add section total score for scoring sections
         if (sectionTotal !== null) {
           userPrompt += `CRITICAL - USE EXACT SCORE: This section's total score is ${sectionTotal} out of ${sectionResponses.length * (section.questions?.[0]?.allOptions?.length ? section.questions[0].allOptions.length - 1 : 0)}. You MUST report this EXACT score - do not recalculate or interpret it.\n`;
