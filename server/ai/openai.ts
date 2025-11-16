@@ -598,6 +598,11 @@ ASSESSMENT SECTIONS TO GENERATE:
       section.questions?.some(q => Number(q.id) === Number(r.questionId))
     );
 
+    // DEBUG: Log section and response data
+    console.log(`[AI DEBUG] Section: ${section.title}`);
+    console.log(`[AI DEBUG] Section has ${section.questions?.length || 0} questions`);
+    console.log(`[AI DEBUG] Found ${sectionResponses.length} responses for this section`);
+
     if (sectionResponses.length > 0) {
       userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
       
@@ -643,12 +648,15 @@ ASSESSMENT SECTIONS TO GENERATE:
           } else if (question.questionType === 'multiple_choice') {
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
               // selectedOptions contains OPTION IDs, need to map to option texts
+              console.log(`[AI DEBUG] Multiple choice Q${question.id}: selectedOptions =`, response.selectedOptions);
+              console.log(`[AI DEBUG] Available allOptions =`, question.allOptions?.map((o: any) => ({ id: o.id, text: o.optionText })));
               const selectedTexts = response.selectedOptions
                 .map(optionId => {
                   const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
                   return option?.optionText;
                 })
                 .filter(Boolean);
+              console.log(`[AI DEBUG] Mapped to texts:`, selectedTexts);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selection made';
             } else if (response.responseText) {
               userPrompt += response.responseText;
@@ -658,12 +666,15 @@ ASSESSMENT SECTIONS TO GENERATE:
           } else if (question.questionType === 'checkbox') {
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
               // selectedOptions contains OPTION IDs, need to map to option texts
+              console.log(`[AI DEBUG] Checkbox Q${question.id}: selectedOptions =`, response.selectedOptions);
+              console.log(`[AI DEBUG] Available allOptions =`, question.allOptions?.map((o: any) => ({ id: o.id, text: o.optionText })));
               const selectedTexts = response.selectedOptions
                 .map(optionId => {
                   const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
                   return option?.optionText;
                 })
                 .filter(Boolean);
+              console.log(`[AI DEBUG] Mapped to texts:`, selectedTexts);
               userPrompt += selectedTexts.length > 0 ? selectedTexts.join(', ') : 'No selections made';
             } else if (response.responseText) {
               userPrompt += response.responseText;
