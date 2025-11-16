@@ -518,11 +518,28 @@ export default function AssessmentCompletionPage() {
         
         // If allOptions is available from database, use it (this is the preferred path)
         if (allOptions.length > 0) {
+          const selectedOptionId = response.selectedOptions?.[0];
+          const currentValue = selectedOptionId ? selectedOptionId.toString() : '';
+          
+          console.log('🔘 Rendering radio group', {
+            questionId: question.id,
+            selectedOptionId,
+            currentValue,
+            responseState: response
+          });
+          
           return (
             <RadioGroup
-              value={response.selectedOptions?.[0]?.toString() || ''}
+              value={currentValue}
               onValueChange={(value) => {
-                handleResponseChange(question.id, [parseInt(value)], 'selectedOptions');
+                console.log('📝 Radio button changed', { 
+                  questionId: question.id, 
+                  newOptionId: value,
+                  currentSelection: response.selectedOptions 
+                });
+                const optionId = parseInt(value);
+                console.log('💾 Updating local state with new option:', [optionId]);
+                handleResponseChange(question.id, [optionId], 'selectedOptions');
                 setTimeout(() => saveResponse(question.id), 100);
               }}
             >
