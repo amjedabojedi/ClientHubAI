@@ -147,6 +147,12 @@ export default function AssessmentCompletionPage() {
     // 1. Initial load (first time), OR
     // 2. After a save completes (shouldReloadFromServer flag is true)
     if (!initialLoadDone.current || shouldReloadFromServer.current) {
+      console.log('🔄 Loading responses from server', { 
+        initialLoad: !initialLoadDone.current, 
+        afterSave: shouldReloadFromServer.current,
+        count: existingResponses.length 
+      });
+      
       const responseMap: Record<number, any> = {};
       existingResponses.forEach((response: any) => {
         // Handle selectedOptions - database may return as JSON array or null
@@ -170,9 +176,12 @@ export default function AssessmentCompletionPage() {
         };
       });
       
+      console.log('✅ Responses loaded into state', { questionIds: Object.keys(responseMap) });
       setResponses(responseMap);
       initialLoadDone.current = true;
       shouldReloadFromServer.current = false; // Reset the flag
+    } else {
+      console.log('⏭️ Skipping response reload (not initial load or after save)');
     }
   }, [existingResponses]);
 
@@ -680,10 +689,17 @@ export default function AssessmentCompletionPage() {
                       id={`q${question.id}_${option.id}`}
                       checked={selectedIds.includes(optionId)}
                       onCheckedChange={(checked) => {
+                        console.log('📝 Checkbox changed', { 
+                          questionId: question.id, 
+                          optionId, 
+                          checked, 
+                          currentOptions: selectedIds 
+                        });
                         const currentOptions = selectedIds;
                         const newOptions = checked
                           ? [...currentOptions, optionId]
                           : currentOptions.filter((opt: number) => opt !== optionId);
+                        console.log('💾 Updating local state with new options:', newOptions);
                         handleResponseChange(question.id, newOptions, 'selectedOptions');
                         setTimeout(() => saveResponse(question.id), 500);
                       }}
