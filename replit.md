@@ -41,6 +41,9 @@ A dual strategy using browser print dialogs for user downloads and server-side P
 ### AI Integration
 OpenAI GPT-4o is integrated for clinical content generation, including AI-assisted session notes and assessment report interpretation, with a human review workflow.
 
+### GDPR Consent Management
+A comprehensive consent system allows clients to control AI processing of their data through the client portal. Clients can grant or withdraw consent for four categories: AI processing, data sharing, research participation, and marketing communications. The system uses fail-closed validation (denies processing on errors) to ensure GDPR compliance. All consent changes are logged with comprehensive audit metadata including IP address, consent version, and timestamps. Backend enforcement prevents AI processing without explicit consent - when clients opt out, therapists can still use all SmartHub features but must document manually instead of using AI assistance. Consent is enforced at 4 major AI endpoints: template generation, session note regeneration, assessment report generation, and voice transcription. All blocked AI processing attempts are logged with full audit trails for HIPAA compliance.
+
 ## Data Model Design
 
 ### Client Lifecycle Management
