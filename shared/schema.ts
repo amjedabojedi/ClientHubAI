@@ -362,6 +362,35 @@ export const clients = pgTable("clients", {
   createdAtIdx: index("clients_created_at_idx").on(table.createdAt),
 }));
 
+// GDPR Patient Consent Management - Track explicit consent for data processing
+export const patientConsents = pgTable("patient_consents", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  
+  // Consent Purpose/Type
+  consentType: varchar("consent_type", { length: 100 }).notNull(), // ai_processing, insurance_sharing, research, etc.
+  consentVersion: varchar("consent_version", { length: 20 }).notNull(), // Track version of consent form (e.g., "1.0", "2.0")
+  
+  // Consent Status
+  granted: boolean("granted").notNull(), // true = consented, false = withdrawn
+  grantedAt: timestamp("granted_at").notNull().defaultNow(), // When consent was given
+  withdrawnAt: timestamp("withdrawn_at"), // When consent was withdrawn (if applicable)
+  
+  // Audit Trail
+  ipAddress: varchar("ip_address", { length: 45 }), // IP when consent was given
+  userAgent: text("user_agent"), // Browser/device information
+  
+  // Additional context
+  notes: text("notes"), // Any additional context (e.g., "Consent given during portal activation")
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  clientConsentTypeIdx: index("patient_consents_client_consent_type_idx").on(table.clientId, table.consentType),
+  grantedIdx: index("patient_consents_granted_idx").on(table.granted),
+  consentTypeIdx: index("patient_consents_type_idx").on(table.consentType),
+}));
+
 // Services table - Healthcare service codes and billing rates
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
@@ -1664,6 +1693,13 @@ export const insertClientSchema = createInsertSchema(clients).omit({
   stage: z.enum(['intake', 'assessment', 'psychotherapy', 'closed']).optional(),
 });
 
+export const insertPatientConsentSchema = createInsertSchema(patientConsents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  grantedAt: true, // Set automatically on the backend
+});
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
   createdAt: true,
@@ -1970,6 +2006,9 @@ export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;
+
+export type PatientConsent = typeof patientConsents.$inferSelect;
+export type InsertPatientConsent = z.infer<typeof insertPatientConsentSchema>;
 
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;

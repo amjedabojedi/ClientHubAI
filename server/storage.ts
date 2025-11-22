@@ -43,7 +43,8 @@ import {
   notifications,
   notificationTriggers,
   notificationPreferences,
-  notificationTemplates
+  notificationTemplates,
+  patientConsents
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -123,6 +124,8 @@ import type {
   SelectSystemOption,
   InsertSystemOption,
   Notification,
+  PatientConsent,
+  InsertPatientConsent,
   InsertNotification,
   NotificationTrigger,
   InsertNotificationTrigger,
@@ -298,6 +301,14 @@ export interface IStorage {
   deletePortalSession(id: number): Promise<void>;
   deleteClientPortalSessions(clientId: number): Promise<void>;
   cleanupExpiredPortalSessions(): Promise<void>;
+
+  // ===== PATIENT CONSENT MANAGEMENT (GDPR) =====
+  getClientConsents(clientId: number): Promise<PatientConsent[]>;
+  getClientConsent(clientId: number, consentType: string): Promise<PatientConsent | undefined>;
+  createClientConsent(consent: InsertPatientConsent): Promise<PatientConsent>;
+  updateClientConsent(id: number, consent: Partial<InsertPatientConsent>): Promise<PatientConsent>;
+  withdrawClientConsent(clientId: number, consentType: string): Promise<PatientConsent>;
+  hasClientConsent(clientId: number, consentType: string): Promise<boolean>;
 
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<SessionWithRelations[]>;
@@ -1488,6 +1499,76 @@ export class DatabaseStorage implements IStorage {
         eq(clientPortalSessions.isActive, false),
         lte(clientPortalSessions.expiresAt, new Date())
       ));
+  }
+
+  // Patient Consent Management (GDPR)
+  async getClientConsents(clientId: number): Promise<PatientConsent[]> {
+    const consents = await db
+      .select()
+      .from(patientConsents)
+      .where(eq(patientConsents.clientId, clientId))
+      .orderBy(desc(patientConsents.createdAt));
+    return consents;
+  }
+
+  async getClientConsent(clientId: number, consentType: string): Promise<PatientConsent | undefined> {
+    const [consent] = await db
+      .select()
+      .from(patientConsents)
+      .where(and(
+        eq(patientConsents.clientId, clientId),
+        eq(patientConsents.consentType, consentType),
+        eq(patientConsents.granted, true),
+        isNull(patientConsents.withdrawnAt)
+      ))
+      .orderBy(desc(patientConsents.createdAt))
+      .limit(1);
+    return consent || undefined;
+  }
+
+  async createClientConsent(consent: InsertPatientConsent): Promise<PatientConsent> {
+    const [newConsent] = await db
+      .insert(patientConsents)
+      .values({
+        ...consent,
+        grantedAt: new Date()
+      })
+      .returning();
+    return newConsent;
+  }
+
+  async updateClientConsent(id: number, consent: Partial<InsertPatientConsent>): Promise<PatientConsent> {
+    const [updated] = await db
+      .update(patientConsents)
+      .set({
+        ...consent,
+        updatedAt: new Date()
+      })
+      .where(eq(patientConsents.id, id))
+      .returning();
+    return updated;
+  }
+
+  async withdrawClientConsent(clientId: number, consentType: string): Promise<PatientConsent> {
+    const [withdrawn] = await db
+      .update(patientConsents)
+      .set({
+        granted: false,
+        withdrawnAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(patientConsents.clientId, clientId),
+        eq(patientConsents.consentType, consentType),
+        eq(patientConsents.granted, true)
+      ))
+      .returning();
+    return withdrawn;
+  }
+
+  async hasClientConsent(clientId: number, consentType: string): Promise<boolean> {
+    const consent = await this.getClientConsent(clientId, consentType);
+    return consent !== undefined && consent.granted;
   }
 
   // Session methods
