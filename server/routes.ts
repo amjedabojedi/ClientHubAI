@@ -10371,6 +10371,162 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // ===== PATIENT CONSENT MANAGEMENT (GDPR) =====
+
+  // Get all consents for current client
+  app.get("/api/portal/consents", async (req, res) => {
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const consents = await storage.getClientConsents(session.clientId);
+      res.json(consents);
+    } catch (error) {
+      console.error("Error fetching consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  // Grant or update consent
+  app.post("/api/portal/consents", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const { consentType, granted, consentVersion } = req.body;
+
+      if (!consentType || typeof granted !== 'boolean' || !consentVersion) {
+        return res.status(400).json({ error: "Consent type, granted status, and version are required" });
+      }
+
+      // Create new consent record
+      const consent = await storage.createClientConsent({
+        clientId: session.clientId,
+        consentType,
+        granted,
+        consentVersion,
+        ipAddress: ipAddress || '',
+        userAgent: userAgent || '',
+        notes: granted ? 'Consent granted via client portal' : 'Consent withdrawn via client portal'
+      });
+
+      // Audit the consent change
+      await AuditLogger.logAction({
+        userId: session.clientId, // Client ID in portal context
+        username: 'Portal User',
+        action: granted ? 'consent_granted' : 'consent_withdrawn',
+        result: 'success',
+        resourceType: 'patient_consent',
+        resourceId: consent.id.toString(),
+        clientId: session.clientId,
+        ipAddress: ipAddress || '',
+        userAgent: userAgent || '',
+        hipaaRelevant: true,
+        riskLevel: 'high', // GDPR consent is high-risk
+        details: JSON.stringify({
+          consentType,
+          consentVersion,
+          portal: true
+        }),
+        accessReason: 'GDPR consent management'
+      });
+
+      res.json(consent);
+    } catch (error) {
+      console.error("Error creating consent:", error);
+      res.status(500).json({ error: "Failed to create consent" });
+    }
+  });
+
+  // Withdraw specific consent
+  app.post("/api/portal/consents/withdraw", async (req, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+
+      if (!sessionToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const session = await storage.getPortalSessionByToken(sessionToken);
+      
+      if (!session) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const { consentType } = req.body;
+
+      if (!consentType) {
+        return res.status(400).json({ error: "Consent type is required" });
+      }
+
+      const withdrawn = await storage.withdrawClientConsent(session.clientId, consentType);
+
+      // Audit the consent withdrawal
+      await AuditLogger.logAction({
+        userId: session.clientId, // Client ID in portal context
+        username: 'Portal User',
+        action: 'consent_withdrawn',
+        result: 'success',
+        resourceType: 'patient_consent',
+        resourceId: withdrawn.id.toString(),
+        clientId: session.clientId,
+        ipAddress: ipAddress || '',
+        userAgent: userAgent || '',
+        hipaaRelevant: true,
+        riskLevel: 'high', // GDPR consent is high-risk
+        details: JSON.stringify({
+          consentType,
+          portal: true
+        }),
+        accessReason: 'GDPR consent management'
+      });
+
+      res.json(withdrawn);
+    } catch (error) {
+      console.error("Error withdrawing consent:", error);
+      res.status(500).json({ error: "Failed to withdraw consent" });
+    }
+  });
+
+  // Admin: Get consents for a specific client
+  app.get("/api/admin/clients/:clientId/consents", requireAuth, async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+
+      if (isNaN(clientId)) {
+        return res.status(400).json({ error: "Invalid client ID" });
+      }
+
+      const consents = await storage.getClientConsents(clientId);
+      res.json(consents);
+    } catch (error) {
+      console.error("Error fetching client consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
   // Portal activation - validate token and set password
   app.post("/api/portal/activate", async (req, res) => {
     try {
