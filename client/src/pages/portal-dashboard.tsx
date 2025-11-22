@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, FileText, CreditCard, Upload, Clock, MapPin, User, Bell, HelpCircle, ChevronDown } from "lucide-react";
+import { Calendar, FileText, CreditCard, Upload, Clock, MapPin, User, Bell, Shield, HelpCircle, ChevronDown } from "lucide-react";
 import { formatDateDisplay, formatDateTimeDisplay } from "@/lib/datetime";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
@@ -433,6 +433,28 @@ export default function PortalDashboardPage() {
                 data-testid="button-view-notifications"
               >
                 View Notifications
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid="card-privacy-settings">
+            <CardHeader>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                <Shield className="w-6 h-6 text-blue-600" />
+              </div>
+              <CardTitle className="text-lg">Privacy & Consent</CardTitle>
+              <CardDescription>
+                Manage your data privacy preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setLocation("/portal/privacy")}
+                data-testid="button-privacy-settings"
+              >
+                Privacy Settings
               </Button>
             </CardContent>
           </Card>

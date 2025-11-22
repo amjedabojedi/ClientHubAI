@@ -39,6 +39,7 @@ import PortalDocumentsPage from "@/pages/portal-documents";
 import PortalFormsPage from "@/pages/portal-forms";
 import PortalFormCompletionPage from "@/pages/portal-form-completion";
 import PortalNotificationsPage from "@/pages/portal-notifications";
+import PortalPrivacyPage from "@/pages/portal-privacy";
 import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
@@ -226,6 +227,7 @@ function Router() {
           <Route path="/portal/forms" component={PortalFormsPage} />
           <Route path="/portal/forms/:id" component={PortalFormCompletionPage} />
           <Route path="/portal/notifications" component={PortalNotificationsPage} />
+          <Route path="/portal/privacy" component={PortalPrivacyPage} />
           {/* Additional portal routes will be added here */}
           <Route component={NotFound} />
         </Switch>

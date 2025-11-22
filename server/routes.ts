@@ -10430,7 +10430,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         notes: granted ? 'Consent granted via client portal' : 'Consent withdrawn via client portal'
       });
 
-      // Audit the consent change
+      // Audit the consent change with comprehensive metadata for GDPR compliance
       await AuditLogger.logAction({
         userId: session.clientId, // Client ID in portal context
         username: 'Portal User',
@@ -10445,8 +10445,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
         riskLevel: 'high', // GDPR consent is high-risk
         details: JSON.stringify({
           consentType,
+          granted,
+          withdrawn: !granted,
           consentVersion,
-          portal: true
+          consentId: consent.id,
+          grantedAt: granted ? new Date().toISOString() : null,
+          withdrawnAt: !granted ? new Date().toISOString() : null,
+          portal: true,
+          source: 'client_portal'
         }),
         accessReason: 'GDPR consent management'
       });
@@ -10483,7 +10489,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       const withdrawn = await storage.withdrawClientConsent(session.clientId, consentType);
 
-      // Audit the consent withdrawal
+      // Audit the consent withdrawal with comprehensive metadata for GDPR compliance
       await AuditLogger.logAction({
         userId: session.clientId, // Client ID in portal context
         username: 'Portal User',
@@ -10498,7 +10504,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
         riskLevel: 'high', // GDPR consent is high-risk
         details: JSON.stringify({
           consentType,
-          portal: true
+          granted: false,
+          withdrawn: true,
+          consentVersion: withdrawn.consentVersion,
+          consentId: withdrawn.id,
+          grantedAt: withdrawn.grantedAt?.toISOString() || null,
+          withdrawnAt: new Date().toISOString(),
+          portal: true,
+          source: 'client_portal',
+          previouslyGranted: withdrawn.grantedAt !== null
         }),
         accessReason: 'GDPR consent management'
       });
