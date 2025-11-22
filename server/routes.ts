@@ -160,6 +160,48 @@ function getBaseUrl(req: any): string {
   return `${protocol}://${host}`;
 }
 
+// GDPR Consent Validation: Check if client has granted consent for AI processing
+// FAIL-CLOSED: Returns false on errors to comply with GDPR "no processing without consent" requirement
+async function checkAIProcessingConsent(clientId: number): Promise<{ hasConsent: boolean; message?: string; error?: string }> {
+  try {
+    const consents = await storage.getClientConsents(clientId);
+    
+    // Find the most recent AI processing consent
+    const aiConsents = consents.filter(c => c.consentType === 'ai_processing');
+    
+    if (aiConsents.length === 0) {
+      return { 
+        hasConsent: false, 
+        message: 'AI processing consent has not been granted. Please update your privacy settings in the client portal.' 
+      };
+    }
+    
+    // Get the most recent consent
+    const latestConsent = aiConsents.sort((a, b) => 
+      new Date(b.grantedAt || 0).getTime() - new Date(a.grantedAt || 0).getTime()
+    )[0];
+    
+    // Check if consent is granted and not withdrawn
+    if (!latestConsent.granted || latestConsent.withdrawnAt) {
+      return { 
+        hasConsent: false, 
+        message: 'AI processing consent has been withdrawn. To use AI features, please grant consent in your privacy settings.' 
+      };
+    }
+    
+    return { hasConsent: true };
+  } catch (error) {
+    console.error('[GDPR CRITICAL] Error checking AI consent:', error);
+    // FAIL-CLOSED: Deny processing on errors to comply with GDPR
+    // This prevents database outages or bugs from bypassing consent requirements
+    return { 
+      hasConsent: false, 
+      message: 'Unable to verify AI processing consent due to a system error. Please try again later or contact support.',
+      error: (error as Error).message
+    };
+  }
+}
+
 // Helper function to send portal activation email
 async function sendActivationEmail(clientEmail: string, clientName: string, activationToken: string, baseUrl?: string) {
   if (!process.env.SPARKPOST_API_KEY) {
@@ -6162,6 +6204,36 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "No audio file uploaded" });
       }
 
+      // GDPR: Check AI processing consent before transcribing
+      if (noteClientId) {
+        const consentCheck = await checkAIProcessingConsent(noteClientId);
+        if (!consentCheck.hasConsent) {
+          await AuditLogger.logAction({
+            userId: req.user.id,
+            username: req.user.username,
+            action: 'ai_processing_blocked',
+            result: 'denied',
+            resourceType: 'voice_transcription',
+            resourceId: sessionNoteId ? `session_note_${sessionNoteId}` : 'new_note',
+            clientId: noteClientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'medium',
+            details: JSON.stringify({
+              reason: 'consent_not_granted',
+              endpoint: '/api/session-notes/transcribe',
+              consentType: 'ai_processing',
+              sessionNoteId,
+              error: consentCheck.error
+            }),
+            accessReason: 'Voice transcription attempted without consent'
+          });
+          
+          return res.status(403).json({ message: consentCheck.message });
+        }
+      }
+
       console.log(`[API] Processing voice transcription${sessionNoteId ? ` for session note ${sessionNoteId}` : ' for new note'}. File size: ${req.file.size} bytes`);
 
       // Transcribe and map audio using AI
@@ -6319,6 +6391,33 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ error: "Custom instructions are required" });
       }
       
+      // GDPR: Check AI processing consent before generating content
+      const consentCheck = await checkAIProcessingConsent(clientId);
+      if (!consentCheck.hasConsent) {
+        // Log blocked AI processing attempt
+        await AuditLogger.logAction({
+          userId: (req as any).user?.id || 0,
+          username: (req as any).user?.username || 'system',
+          action: 'ai_processing_blocked',
+          result: 'denied',
+          resourceType: 'ai_generation',
+          resourceId: `client_${clientId}`,
+          clientId,
+          ipAddress: req.ip || '',
+          userAgent: req.headers['user-agent'] || '',
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          details: JSON.stringify({
+            reason: 'consent_not_granted',
+            endpoint: '/api/ai/generate-template',
+            consentType: 'ai_processing'
+          }),
+          accessReason: 'AI processing attempted without consent'
+        });
+        
+        return res.status(403).json({ error: consentCheck.message });
+      }
+      
       // Get client and session data
       const clientData = await storage.getClient(clientId);
       
@@ -6435,6 +6534,37 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const sessionNote = await storage.getSessionNote(sessionNoteId);
       if (!sessionNote) {
         return res.status(404).json({ error: "Session note not found" });
+      }
+      
+      // GDPR: Check AI processing consent before regenerating content
+      const clientId = sessionNote.session?.clientId || sessionNote.clientId;
+      if (clientId) {
+        const consentCheck = await checkAIProcessingConsent(clientId);
+        if (!consentCheck.hasConsent) {
+          // Log blocked AI processing attempt
+          await AuditLogger.logAction({
+            userId: (req as any).user?.id || 0,
+            username: (req as any).user?.username || 'system',
+            action: 'ai_processing_blocked',
+            result: 'denied',
+            resourceType: 'ai_regeneration',
+            resourceId: `session_note_${sessionNoteId}`,
+            clientId,
+            ipAddress: req.ip || '',
+            userAgent: req.headers['user-agent'] || '',
+            hipaaRelevant: true,
+            riskLevel: 'medium',
+            details: JSON.stringify({
+              reason: 'consent_not_granted',
+              endpoint: '/api/ai/regenerate-content',
+              consentType: 'ai_processing',
+              sessionNoteId
+            }),
+            accessReason: 'AI processing attempted without consent'
+          });
+          
+          return res.status(403).json({ error: consentCheck.message });
+        }
       }
       
       // Update status to processing
@@ -7317,6 +7447,40 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ 
           message: "AI features not available. Please configure OPENAI_API_KEY environment variable." 
+        });
+      }
+
+      // GDPR: Check AI processing consent before generating report
+      const clientId = assignment.clientId;
+      const consentCheck = await checkAIProcessingConsent(clientId);
+      if (!consentCheck.hasConsent) {
+        // Log blocked AI processing attempt
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'ai_processing_blocked',
+          result: 'denied',
+          resourceType: 'assessment_report',
+          resourceId: `assignment_${assignmentId}`,
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high', // Assessment reports are high-risk PHI
+          details: JSON.stringify({
+            reason: 'consent_not_granted',
+            endpoint: '/api/assessments/assignments/:assignmentId/generate-report',
+            consentType: 'ai_processing',
+            assignmentId,
+            templateId: assignment.templateId
+          }),
+          accessReason: 'AI assessment report generation attempted without consent'
+        });
+        
+        return res.status(403).json({ 
+          message: consentCheck.message,
+          consentRequired: true,
+          consentType: 'ai_processing'
         });
       }
 
