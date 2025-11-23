@@ -43,7 +43,8 @@ export default function AdminConsentPage() {
   const { data: clients, isLoading, refetch } = useQuery<ClientConsent[]>({
     queryKey: ["/api/admin/consents", consentTypeFilter, grantedFilter],
     queryFn: async () => {
-      const url = `/api/admin/consents${queryParams.toString() ? `?${queryParams}` : ''}`;
+      const queryString = queryParams.toString();
+      const url = `/api/admin/consents${queryString ? `?${queryString}` : ''}`;
       const response = await fetch(url, {
         credentials: 'include'
       });
