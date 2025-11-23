@@ -43,6 +43,7 @@ import PortalPrivacyPage from "@/pages/portal-privacy";
 import PortalAppointmentsPage from "@/pages/portal-appointments";
 import NotificationsPage from "@/pages/notifications";
 import HIPAAAuditPage from "@/pages/hipaa-audit";
+import AdminConsentPage from "@/pages/admin-consent";
 import BillingDashboard from "@/pages/billing-dashboard";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
@@ -102,6 +103,7 @@ function Navigation() {
           { path: "/role-management", label: "Role Management", icon: Shield },
           { path: "/notifications", label: "Notifications", icon: Bell },
           { path: "/hipaa-audit", label: "HIPAA Audit", icon: Shield },
+          { path: "/admin-consent", label: "Privacy & Consent", icon: Shield },
           { path: "/settings", label: "Settings", icon: Settings },
         ]
       });
@@ -351,6 +353,24 @@ function Router() {
           }} />
           <Route path="/my-profile" component={MyProfilePage} />
           <Route path="/hipaa-audit" component={HIPAAAuditPage} />
+          <Route path="/admin-consent" component={() => {
+            // Check if user is admin or supervisor
+            if (isAdminOrSupervisor(user)) {
+              return <AdminConsentPage />;
+            }
+            
+            return (
+              <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-sm border">
+                <div className="text-center">
+                  <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+                  <p className="text-gray-600 mb-4">
+                    This page is restricted to administrators and supervisors only.
+                  </p>
+                </div>
+              </div>
+            );
+          }} />
           <Route component={NotFound} />
         </Switch>
       </main>

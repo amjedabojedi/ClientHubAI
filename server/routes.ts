@@ -6476,9 +6476,44 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/ai/connected-suggestions", async (req, res) => {
+  app.post("/api/ai/connected-suggestions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { templateId, sourceField, sourceValue } = req.body;
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { templateId, sourceField, sourceValue, clientId } = req.body;
+
+      // GDPR: Check AI processing consent if clientId provided
+      if (clientId) {
+        const consentCheck = await checkAIProcessingConsent(clientId);
+        if (!consentCheck.hasConsent) {
+          const { ipAddress, userAgent } = getRequestInfo(req);
+          await AuditLogger.logAction({
+            userId: req.user.id,
+            username: req.user.username,
+            action: 'ai_processing_blocked',
+            result: 'denied',
+            resourceType: 'ai_suggestions',
+            resourceId: templateId,
+            clientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'low',
+            details: JSON.stringify({
+              reason: 'consent_not_granted',
+              endpoint: '/api/ai/connected-suggestions',
+              consentType: 'ai_processing',
+              error: consentCheck.error
+            }),
+            accessReason: 'AI connected suggestions attempted without consent'
+          });
+          
+          return res.status(403).json({ error: consentCheck.message });
+        }
+      }
+      
       const { getConnectedSuggestions } = await import("./ai/openai");
       const suggestions = await getConnectedSuggestions(templateId, sourceField, sourceValue);
       res.json({ suggestions });
@@ -6487,12 +6522,47 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/ai/generate-suggestions", async (req, res) => {
+  app.post("/api/ai/generate-suggestions", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { field, context } = req.body;
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { field, context, clientId } = req.body;
       
       if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
+      }
+
+      // GDPR: Check AI processing consent if clientId provided
+      if (clientId) {
+        const consentCheck = await checkAIProcessingConsent(clientId);
+        if (!consentCheck.hasConsent) {
+          const { ipAddress, userAgent } = getRequestInfo(req);
+          await AuditLogger.logAction({
+            userId: req.user.id,
+            username: req.user.username,
+            action: 'ai_processing_blocked',
+            result: 'denied',
+            resourceType: 'ai_suggestions',
+            resourceId: field,
+            clientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'low',
+            details: JSON.stringify({
+              reason: 'consent_not_granted',
+              endpoint: '/api/ai/generate-suggestions',
+              consentType: 'ai_processing',
+              field,
+              error: consentCheck.error
+            }),
+            accessReason: 'AI suggestions generation attempted without consent'
+          });
+          
+          return res.status(403).json({ error: consentCheck.message });
+        }
       }
       
       const suggestions = await generateSmartSuggestions(field, context);
@@ -6502,12 +6572,47 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/ai/generate-clinical-report", async (req, res) => {
+  app.post("/api/ai/generate-clinical-report", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
       const sessionNoteData = req.body;
       
       if (!process.env.OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
+      }
+
+      // GDPR: Check AI processing consent before generating clinical report
+      const clientId = sessionNoteData.clientId;
+      if (clientId) {
+        const consentCheck = await checkAIProcessingConsent(clientId);
+        if (!consentCheck.hasConsent) {
+          const { ipAddress, userAgent } = getRequestInfo(req);
+          await AuditLogger.logAction({
+            userId: req.user.id,
+            username: req.user.username,
+            action: 'ai_processing_blocked',
+            result: 'denied',
+            resourceType: 'clinical_report',
+            resourceId: sessionNoteData.sessionNoteId || 'new_note',
+            clientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'high',
+            details: JSON.stringify({
+              reason: 'consent_not_granted',
+              endpoint: '/api/ai/generate-clinical-report',
+              consentType: 'ai_processing',
+              error: consentCheck.error
+            }),
+            accessReason: 'Clinical report generation attempted without consent'
+          });
+          
+          return res.status(403).json({ error: consentCheck.message });
+        }
       }
       
       // Format session date with time for AI prompt in EST
@@ -7160,6 +7265,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   // Assessment Voice Transcription
   app.post("/api/assessments/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -7168,6 +7275,45 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Check if audio file was uploaded
       if (!req.file) {
         return res.status(400).json({ message: "No audio file uploaded" });
+      }
+
+      // Get assignmentId to look up client context for consent checking
+      const assignmentId = req.body.assignmentId ? parseInt(req.body.assignmentId) : null;
+      let clientId: number | null = null;
+
+      if (assignmentId) {
+        const assignment = await storage.getAssessmentAssignment(assignmentId);
+        if (assignment) {
+          clientId = assignment.clientId;
+          
+          // GDPR: Check AI processing consent before transcribing
+          const consentCheck = await checkAIProcessingConsent(clientId);
+          if (!consentCheck.hasConsent) {
+            await AuditLogger.logAction({
+              userId: req.user.id,
+              username: req.user.username,
+              action: 'ai_processing_blocked',
+              result: 'denied',
+              resourceType: 'assessment_transcription',
+              resourceId: assignmentId,
+              clientId,
+              ipAddress,
+              userAgent,
+              hipaaRelevant: true,
+              riskLevel: 'medium',
+              details: JSON.stringify({
+                reason: 'consent_not_granted',
+                endpoint: '/api/assessments/transcribe',
+                consentType: 'ai_processing',
+                assignmentId,
+                error: consentCheck.error
+              }),
+              accessReason: 'Assessment voice transcription attempted without consent'
+            });
+            
+            return res.status(403).json({ message: consentCheck.message });
+          }
+        }
       }
 
       // Get translation preference from request
@@ -7183,6 +7329,29 @@ You can download a copy if you have it saved locally and re-upload it.`;
       );
 
       console.log(`[API] Assessment transcription successful. Length: ${transcription.length} chars`);
+
+      // Audit log successful transcription
+      if (clientId && assignmentId) {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'assessment_voice_transcribed',
+          result: 'success',
+          resourceType: 'assessment',
+          resourceId: assignmentId,
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'low',
+          details: JSON.stringify({
+            audioFileSize: req.file.size,
+            transcriptionLength: transcription.length,
+            translationEnabled: translateToEnglish
+          }),
+          accessReason: 'Voice transcription for assessment response'
+        });
+      }
 
       res.json({ transcription });
     } catch (error: any) {
@@ -10701,6 +10870,100 @@ You can download a copy if you have it saved locally and re-upload it.`;
       res.json(consents);
     } catch (error) {
       console.error("Error fetching client consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  // Admin: Get all client consents with client details
+  app.get("/api/admin/consents", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Only admins and supervisors can view all consents
+      if (!['administrator', 'supervisor'].includes(req.user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Get filter parameters
+      const consentType = req.query.consentType as string | undefined;
+      const granted = req.query.granted === 'true' ? true : req.query.granted === 'false' ? false : undefined;
+
+      // Get all clients with their consents
+      const clientsWithConsents = await db
+        .select({
+          id: clients.id,
+          clientId: clients.clientId,
+          fullName: clients.fullName,
+          email: clients.email,
+          hasPortalAccess: clients.hasPortalAccess,
+          consentId: patientConsents.id,
+          consentType: patientConsents.consentType,
+          granted: patientConsents.granted,
+          grantedAt: patientConsents.grantedAt,
+          withdrawnAt: patientConsents.withdrawnAt,
+          consentVersion: patientConsents.consentVersion,
+          createdAt: patientConsents.createdAt,
+          updatedAt: patientConsents.updatedAt,
+        })
+        .from(clients)
+        .leftJoin(patientConsents, eq(clients.id, patientConsents.clientId))
+        .orderBy(clients.fullName, patientConsents.consentType);
+
+      // Group consents by client
+      const clientConsentMap = new Map<number, any>();
+      
+      for (const row of clientsWithConsents) {
+        if (!clientConsentMap.has(row.id)) {
+          clientConsentMap.set(row.id, {
+            id: row.id,
+            clientId: row.clientId,
+            fullName: row.fullName,
+            email: row.email,
+            hasPortalAccess: row.hasPortalAccess,
+            consents: []
+          });
+        }
+
+        if (row.consentId) {
+          const consent = {
+            id: row.consentId,
+            consentType: row.consentType,
+            granted: row.granted,
+            grantedAt: row.grantedAt,
+            withdrawnAt: row.withdrawnAt,
+            consentVersion: row.consentVersion,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+          };
+
+          // Apply filters
+          let includeConsent = true;
+          if (consentType && consent.consentType !== consentType) {
+            includeConsent = false;
+          }
+          if (granted !== undefined && consent.granted !== granted) {
+            includeConsent = false;
+          }
+
+          if (includeConsent) {
+            clientConsentMap.get(row.id)!.consents.push(consent);
+          }
+        }
+      }
+
+      // Convert map to array
+      const result = Array.from(clientConsentMap.values());
+
+      // If filtering by consent type or granted status, only return clients that match
+      const filtered = (consentType || granted !== undefined) 
+        ? result.filter(c => c.consents.length > 0)
+        : result;
+
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error fetching all consents:", error);
       res.status(500).json({ error: "Failed to fetch consents" });
     }
   });

@@ -8,12 +8,14 @@ import { Switch } from "@/components/ui/switch";
 
 interface AssessmentVoiceRecorderProps {
   questionId: number;
+  assignmentId?: number;
   onTranscriptionComplete: (text: string) => void;
   onCancel?: () => void;
 }
 
 export function AssessmentVoiceRecorder({ 
-  questionId, 
+  questionId,
+  assignmentId,
   onTranscriptionComplete,
   onCancel 
 }: AssessmentVoiceRecorderProps) {
@@ -122,6 +124,9 @@ export function AssessmentVoiceRecorder({
       formData.append('audio', audioBlob, 'recording.webm');
       formData.append('questionId', String(questionId));
       formData.append('translateToEnglish', String(translateToEnglish));
+      if (assignmentId) {
+        formData.append('assignmentId', String(assignmentId));
+      }
 
       // Upload to backend (apiRequest automatically handles FormData)
       const response = await apiRequest('/api/assessments/transcribe', 'POST', formData);

@@ -468,6 +468,7 @@ export default function AssessmentCompletionPage() {
             {isVoiceRecorderActive && (
               <AssessmentVoiceRecorder
                 questionId={question.id}
+                assignmentId={assignmentId || undefined}
                 onTranscriptionComplete={(text) => handleVoiceTranscription(question.id, text)}
                 onCancel={() => setActiveVoiceRecorder(null)}
               />
@@ -501,6 +502,7 @@ export default function AssessmentCompletionPage() {
             {isVoiceRecorderActive && (
               <AssessmentVoiceRecorder
                 questionId={question.id}
+                assignmentId={assignmentId || undefined}
                 onTranscriptionComplete={(text) => handleVoiceTranscription(question.id, text)}
                 onCancel={() => setActiveVoiceRecorder(null)}
               />
