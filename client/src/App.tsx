@@ -354,6 +354,7 @@ function Router() {
           <Route path="/my-profile" component={MyProfilePage} />
           <Route path="/hipaa-audit" component={HIPAAAuditPage} />
           <Route path="/admin-consent" component={() => {
+            const { user } = useAuth();
             // Check if user is admin or supervisor
             if (isAdminOrSupervisor(user)) {
               return <AdminConsentPage />;
