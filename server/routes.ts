@@ -10882,7 +10882,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
 
       // Only admins and supervisors can view all consents
-      if (!['administrator', 'supervisor'].includes(req.user.role)) {
+      if (!['administrator', 'admin', 'supervisor'].includes(req.user.role)) {
         return res.status(403).json({ error: "Access denied" });
       }
 
