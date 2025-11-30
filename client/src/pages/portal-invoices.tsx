@@ -244,7 +244,7 @@ export default function PortalInvoices() {
               <CardTitle className="text-lg sm:text-xl">Invoices</CardTitle>
             </div>
             <CardDescription className="text-xs sm:text-sm">
-              View your billing history and payment status
+              Showing invoices from the last 6 months. For older records, please contact your therapist.
             </CardDescription>
           </CardHeader>
           <CardContent>

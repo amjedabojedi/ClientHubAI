@@ -11179,6 +11179,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const client = await storage.getClient(session.clientId);
       
       // Get client's sessions with all details (excluding sensitive clinical notes)
+      // Filter to last 6 months - older records can be requested from therapist
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
       const clientSessionsRaw = await db
         .select({
           id: sessions.id,
@@ -11194,7 +11198,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
         })
         .from(sessions)
         .leftJoin(users, eq(sessions.therapistId, users.id))
-        .where(eq(sessions.clientId, session.clientId))
+        .where(and(
+          eq(sessions.clientId, session.clientId),
+          gte(sessions.sessionDate, sixMonthsAgo)
+        ))
         .orderBy(desc(sessions.sessionDate))
         .limit(100);
 
@@ -11830,7 +11837,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
       await storage.updatePortalSessionActivity(session.id);
 
       // Get invoices for this client with service information
-      const rawInvoices = await storage.getClientInvoices(session.clientId);
+      const allInvoices = await storage.getClientInvoices(session.clientId);
+      
+      // Filter to last 6 months - older records can be requested from therapist
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
+      const rawInvoices = allInvoices.filter(inv => {
+        const invoiceDate = inv.billingDate ? new Date(inv.billingDate) : 
+                           inv.sessionDate ? new Date(inv.sessionDate) : null;
+        return invoiceDate && invoiceDate >= sixMonthsAgo;
+      });
       
       // Fetch services for service names
       const allServices = await storage.getServices();

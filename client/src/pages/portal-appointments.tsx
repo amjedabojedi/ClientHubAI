@@ -216,8 +216,8 @@ export default function PortalAppointmentsPage() {
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-6 h-6 bg-amber-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
                   <div>
-                    <p className="font-medium text-sm">View All Your Sessions</p>
-                    <p className="text-xs text-gray-600">This page shows your complete appointment history. Use the tabs to switch between upcoming sessions and past sessions.</p>
+                    <p className="font-medium text-sm">View Your Recent Sessions</p>
+                    <p className="text-xs text-gray-600">This page shows your appointments from the last 6 months. Use the tabs to switch between upcoming sessions and past sessions.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -265,9 +265,10 @@ export default function PortalAppointmentsPage() {
             </div>
             <CardDescription>
               {upcomingAppointments.length > 0 
-                ? `${upcomingAppointments.length} upcoming, ${pastAppointments.length} past`
-                : `${pastAppointments.length} total appointment${pastAppointments.length === 1 ? '' : 's'}`
+                ? `${upcomingAppointments.length} upcoming, ${pastAppointments.length} past (last 6 months)`
+                : `${pastAppointments.length} appointment${pastAppointments.length === 1 ? '' : 's'} (last 6 months)`
               }
+              <span className="block mt-1 text-gray-500">For older records, please contact your therapist.</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
