@@ -126,10 +126,13 @@ export default function AssessmentReportPage() {
       // Refresh the report data
       queryClient.invalidateQueries({ queryKey: [`/api/assessments/assignments/${assignmentId}/report`] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "There was an error generating the assessment report. Please try again.";
+      const isConsentError = errorMessage.toLowerCase().includes('consent');
+      
       toast({
-        title: "Report Generation Failed",
-        description: "There was an error generating the assessment report. Please try again.",
+        title: isConsentError ? "AI Processing Consent Required" : "Report Generation Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }

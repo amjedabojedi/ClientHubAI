@@ -305,10 +305,13 @@ export default function AssessmentCompletionPage() {
       // Navigate to the report view
       setLocation(`/assessments/${assignmentId}/report`);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "There was an error generating the assessment report. Please try again.";
+      const isConsentError = errorMessage.toLowerCase().includes('consent');
+      
       toast({
-        title: "Report Generation Failed",
-        description: "There was an error generating the assessment report. Please try again.",
+        title: isConsentError ? "AI Processing Consent Required" : "Report Generation Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
