@@ -106,8 +106,8 @@ interface TaskStats {
 const taskFormSchema = z.object({
   title: z.string().min(1, "Title is required"),                    // Task name - required field
   description: z.string().optional(),                               // Optional detailed description
-  clientId: z.number().min(1, "Client is required"),               // Links task to a specific client - required
-  assignedToId: z.number().optional().nullable(),                  // Which therapist/staff member handles this task (can be null for unassigned)
+  clientId: z.coerce.number().min(1, "Client is required"),        // Links task to a specific client - required (coerce handles string/number)
+  assignedToId: z.coerce.number().optional().nullable(),           // Which therapist/staff member handles this task (can be null for unassigned)
   priority: z.enum(["low", "medium", "high", "urgent"]),          // Task importance level
   status: z.enum(["pending", "in_progress", "completed", "overdue"]), // Current task state
   dueDate: z.string().optional(),                                  // When task should be completed (HTML date input format)

@@ -27,7 +27,7 @@ import type { User as UserType } from "@shared/schema";
 const quickTaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  assignedToId: z.number().optional(),
+  assignedToId: z.coerce.number().optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]),
   dueDate: z.string().optional(),
 });
