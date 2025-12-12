@@ -139,9 +139,11 @@ export default function PortalBookAppointmentPage() {
 
     try {
       // Find selected service to get duration
-      const service = services.find(s => s.id === selectedService);
+      // Use Number() comparison to handle potential type mismatches
+      const service = services.find(s => Number(s.id) === Number(selectedService));
       if (!service) {
-        setError("Invalid service selected");
+        console.error('Service lookup failed:', { selectedService, services: services.map(s => ({ id: s.id, name: s.serviceName })) });
+        setError("Invalid service selected. Please select a service again.");
         setIsBooking(false);
         return;
       }
@@ -567,11 +569,11 @@ export default function PortalBookAppointmentPage() {
 
                 <Button
                   onClick={handleBookAppointment}
-                  disabled={isBooking}
+                  disabled={isBooking || isLoadingServices || !selectedService || !selectedTime || !selectedDate}
                   className="w-full mt-4"
                   data-testid="button-confirm-booking"
                 >
-                  {isBooking ? "Booking..." : "Confirm Appointment"}
+                  {isBooking ? "Booking..." : isLoadingServices ? "Loading services..." : "Confirm Appointment"}
                 </Button>
               </div>
             </CardContent>
