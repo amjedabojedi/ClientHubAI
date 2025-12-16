@@ -442,6 +442,7 @@ export default function MyProfilePage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      console.log("Submitting profile data:", data);
       // Update user basic info
       await updateUserMutation.mutateAsync({
         fullName: data.fullName,
