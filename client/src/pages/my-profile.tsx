@@ -192,8 +192,8 @@ function PhysicalRoomsMultiSelect({
   value?: number[] | null;
   onChange: (value: number[]) => void;
 }) {
-  // Ensure value is always an array (handles undefined, null, or invalid values)
-  const safeValue = Array.isArray(value) ? value : [];
+  // Ensure value is always an array of numbers (handles undefined, null, strings, or invalid values)
+  const safeValue = Array.isArray(value) ? value.map(v => Number(v)) : [];
 
   const { data: rooms = [] } = useQuery<
     Array<{
@@ -211,31 +211,34 @@ function PhysicalRoomsMultiSelect({
   );
 
   const toggleRoom = (roomId: number) => {
-    console.log("roomId ", roomId);
-    if (safeValue.includes(roomId)) {
-      onChange(safeValue.filter((id) => id !== roomId));
+    const numericRoomId = Number(roomId);
+    if (safeValue.includes(numericRoomId)) {
+      onChange(safeValue.filter((id) => id !== numericRoomId));
     } else {
-      onChange([...safeValue, roomId]);
+      onChange([...safeValue, numericRoomId]);
     }
   };
 
   return (
     <div className="space-y-2">
-      {physicalRooms.map((room) => (
-        <div key={room.id} className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            id={`room-${room.id}`}
-            checked={safeValue.includes(room.id)}
-            onChange={() => toggleRoom(room.id)}
-            className="h-4 w-4 rounded border-gray-300"
-            data-testid={`checkbox-room-${room.id}`}
-          />
-          <label htmlFor={`room-${room.id}`} className="text-sm cursor-pointer">
-            {room.roomNumber} - {room.roomName}
-          </label>
-        </div>
-      ))}
+      {physicalRooms.map((room) => {
+        const numericRoomId = Number(room.id);
+        return (
+          <div key={room.id} className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id={`room-${room.id}`}
+              checked={safeValue.includes(numericRoomId)}
+              onChange={() => toggleRoom(numericRoomId)}
+              className="h-4 w-4 rounded border-gray-300"
+              data-testid={`checkbox-room-${room.id}`}
+            />
+            <label htmlFor={`room-${room.id}`} className="text-sm cursor-pointer">
+              {room.roomNumber} - {room.roomName}
+            </label>
+          </div>
+        );
+      })}
       {physicalRooms.length === 0 && (
         <p className="text-sm text-muted-foreground">
           No physical rooms available
@@ -250,7 +253,7 @@ export default function MyProfilePage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("basic");
   const [isHelpOpen, setIsHelpOpen] = useState(true);
-  console.log("my profile components");
+
   // Get current logged-in user
   const { user: authUser } = useAuth();
   const userId = authUser?.id;
@@ -321,7 +324,8 @@ export default function MyProfilePage() {
       professionalReferences: [],
     },
   });
-
+console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
+  console.log("form virtualRoomId", form.watch('virtualRoomId'))
   // Password change form setup
   const passwordForm = useForm<PasswordChangeData>({
     resolver: zodResolver(passwordChangeSchema),
@@ -539,6 +543,8 @@ export default function MyProfilePage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
+      console.log("form virtualRoomId", form.watch('virtualRoomId'))
       // Update user basic info
       await updateUserMutation.mutateAsync({
         fullName: data.fullName,
