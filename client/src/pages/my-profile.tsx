@@ -122,7 +122,10 @@ function VirtualRoomSelect({ value, onChange }: { value?: number; onChange: (val
 }
 
 // Multi-select physical rooms component (only physical rooms)
-function PhysicalRoomsMultiSelect({ value = [], onChange }: { value?: number[]; onChange: (value: number[]) => void }) {
+function PhysicalRoomsMultiSelect({ value, onChange }: { value?: number[] | null; onChange: (value: number[]) => void }) {
+  // Ensure value is always an array (handles undefined, null, or invalid values)
+  const safeValue = Array.isArray(value) ? value : [];
+  
   const { data: rooms = [] } = useQuery<Array<{ id: number; roomNumber: string; roomName: string; isActive: boolean }>>({
     queryKey: ["/api/rooms"],
   });
@@ -130,10 +133,10 @@ function PhysicalRoomsMultiSelect({ value = [], onChange }: { value?: number[]; 
   const physicalRooms = rooms.filter(room => room.isActive && !room.roomName.toLowerCase().includes('online'));
 
   const toggleRoom = (roomId: number) => {
-    if (value.includes(roomId)) {
-      onChange(value.filter(id => id !== roomId));
+    if (safeValue.includes(roomId)) {
+      onChange(safeValue.filter(id => id !== roomId));
     } else {
-      onChange([...value, roomId]);
+      onChange([...safeValue, roomId]);
     }
   };
 
@@ -144,7 +147,7 @@ function PhysicalRoomsMultiSelect({ value = [], onChange }: { value?: number[]; 
           <input
             type="checkbox"
             id={`room-${room.id}`}
-            checked={value.includes(room.id)}
+            checked={safeValue.includes(room.id)}
             onChange={() => toggleRoom(room.id)}
             className="h-4 w-4 rounded border-gray-300"
             data-testid={`checkbox-room-${room.id}`}
