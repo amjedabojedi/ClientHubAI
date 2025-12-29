@@ -1209,6 +1209,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.stage = 'closed';
       }
       
+      // SYNC PORTAL EMAIL: If client has portal access and email is being updated,
+      // also update the portalEmail to keep login credentials in sync
+      if (validatedData.email && originalClient.hasPortalAccess && originalClient.portalEmail) {
+        // Only sync if the original portalEmail matched the old email (i.e., they were using their main email for portal)
+        if (originalClient.portalEmail === originalClient.email) {
+          (validatedData as any).portalEmail = validatedData.email;
+          console.log(`[PORTAL_SYNC] Syncing portalEmail for client ${id}: ${originalClient.portalEmail} -> ${validatedData.email}`);
+        }
+      }
+      
       const client = await storage.updateClient(id, validatedData);
       
       // Track client history for important changes
