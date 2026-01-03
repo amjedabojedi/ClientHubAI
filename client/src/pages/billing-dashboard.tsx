@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
+import { formatDateDisplay } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { PracticeHeader } from "@/components/shared/practice-header";
 
@@ -1123,7 +1124,7 @@ export default function BillingDashboard() {
                       <TableCell>{billing.serviceCode}</TableCell>
                       <TableCell>
                         {session.sessionDate 
-                          ? format(new Date(session.sessionDate), 'MMM dd, yyyy')
+                          ? formatDateDisplay(session.sessionDate)
                           : 'N/A'
                         }
                       </TableCell>
@@ -1346,8 +1347,8 @@ export default function BillingDashboard() {
                       <div>
                         <h2 className="text-2xl font-bold text-slate-900 mb-2">INVOICE</h2>
                         <p className="text-slate-600">Invoice #: INV-{client.clientId}-{billing.id}</p>
-                        <p className="text-slate-600">Invoice Date: {billing.billingDate ? format(new Date(billing.billingDate), 'MMM dd, yyyy') : 'N/A'}</p>
-                        <p className="text-slate-600">Service Date: {billing.billingDate ? format(new Date(billing.billingDate), 'MMM dd, yyyy') : 'N/A'}</p>
+                        <p className="text-slate-600">Invoice Date: {billing.billingDate ? formatDateDisplay(billing.billingDate) : 'N/A'}</p>
+                        <p className="text-slate-600">Service Date: {billing.billingDate ? formatDateDisplay(billing.billingDate) : 'N/A'}</p>
                       </div>
                       <div className="text-right">
                         <PracticeHeader variant="invoice" align="right" />
@@ -1386,7 +1387,7 @@ export default function BillingDashboard() {
                           <tr>
                             <td className="border border-slate-200 px-4 py-2">{session.service?.serviceName || 'Professional Service'}</td>
                             <td className="border border-slate-200 px-4 py-2">{billing.serviceCode}</td>
-                            <td className="border border-slate-200 px-4 py-2">{billing.billingDate ? format(new Date(billing.billingDate), 'MMM dd, yyyy') : 'N/A'}</td>
+                            <td className="border border-slate-200 px-4 py-2">{billing.billingDate ? formatDateDisplay(billing.billingDate) : 'N/A'}</td>
                             <td className="border border-slate-200 px-4 py-2 text-right">${Number(billing.totalAmount).toFixed(2)}</td>
                           </tr>
                         </tbody>
