@@ -7497,9 +7497,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Helper function to convert option data types
+  const convertOptionData = (option: any) => ({
+    ...option,
+    questionId: typeof option.questionId === 'string' ? parseInt(option.questionId, 10) : option.questionId,
+    sortOrder: typeof option.sortOrder === 'string' ? parseInt(option.sortOrder, 10) : option.sortOrder
+  });
+
   app.post("/api/assessments/question-options", async (req, res) => {
     try {
-      const validatedData = insertAssessmentQuestionOptionSchema.parse(req.body);
+      const body = convertOptionData(req.body);
+      const validatedData = insertAssessmentQuestionOptionSchema.parse(body);
       const option = await storage.createAssessmentQuestionOption(validatedData);
       res.status(201).json(option);
     } catch (error) {
@@ -7520,7 +7528,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       const validatedOptions = options.map(option => 
-        insertAssessmentQuestionOptionSchema.parse(option)
+        insertAssessmentQuestionOptionSchema.parse(convertOptionData(option))
       );
       
       const createdOptions = await Promise.all(
@@ -7539,7 +7547,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.patch("/api/assessments/question-options/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertAssessmentQuestionOptionSchema.partial().parse(req.body);
+      const body = convertOptionData(req.body);
+      const validatedData = insertAssessmentQuestionOptionSchema.partial().parse(body);
       const option = await storage.updateAssessmentQuestionOption(id, validatedData);
       res.json(option);
     } catch (error) {
