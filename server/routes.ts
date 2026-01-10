@@ -7388,8 +7388,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   app.post("/api/assessments/sections", async (req, res) => {
     try {
-      console.log('[DEBUG] Creating section with body:', JSON.stringify(req.body, null, 2));
-      const validatedData = insertAssessmentSectionSchema.parse(req.body);
+      // Convert templateId to number if it's a string
+      const body = {
+        ...req.body,
+        templateId: typeof req.body.templateId === 'string' ? parseInt(req.body.templateId, 10) : req.body.templateId,
+        sortOrder: typeof req.body.sortOrder === 'string' ? parseInt(req.body.sortOrder, 10) : req.body.sortOrder
+      };
+      const validatedData = insertAssessmentSectionSchema.parse(body);
       const section = await storage.createAssessmentSection(validatedData);
       res.status(201).json(section);
     } catch (error) {
