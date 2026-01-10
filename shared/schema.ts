@@ -1841,11 +1841,13 @@ export const insertAssessmentTemplateSchema = createInsertSchema(assessmentTempl
 export const insertAssessmentSectionSchema = createInsertSchema(assessmentSections).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertAssessmentQuestionSchema = createInsertSchema(assessmentQuestions).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export const insertAssessmentQuestionOptionSchema = createInsertSchema(assessmentQuestionOptions).omit({
