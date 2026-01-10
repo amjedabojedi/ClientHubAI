@@ -801,6 +801,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None (Regular Section)</SelectItem>
+                      <SelectItem value="informed_consent">Informed Consent</SelectItem>
                       <SelectItem value="referral_reason">Referral Reason</SelectItem>
                       <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
                       <SelectItem value="background_history">Background History</SelectItem>
