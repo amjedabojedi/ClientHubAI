@@ -745,7 +745,7 @@ export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'cli
 export const reportSectionEnum = pgEnum('report_section', [
   'informed_consent', 'referral_reason', 'presenting_symptoms', 'background_history', 'mental_status_exam', 
   'risk_assessment', 'treatment_recommendations', 'goals_objectives', 'summary_impressions',
-  'objective_findings'
+  'objective_findings', 'sources_of_information'
 ]);
 
 export const libraryEntryConnections = pgTable("library_entry_connections", {
