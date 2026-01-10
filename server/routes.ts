@@ -7388,11 +7388,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   app.post("/api/assessments/sections", async (req, res) => {
     try {
+      console.log('[DEBUG] Creating section with body:', JSON.stringify(req.body, null, 2));
       const validatedData = insertAssessmentSectionSchema.parse(req.body);
       const section = await storage.createAssessmentSection(validatedData);
       res.status(201).json(section);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[DEBUG] Section validation errors:', JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid section data", errors: error.errors });
       }
       console.error('Assessment section creation error:', error);
