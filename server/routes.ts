@@ -7409,7 +7409,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.patch("/api/assessments/sections/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertAssessmentSectionSchema.partial().parse(req.body);
+      // Convert templateId and sortOrder to numbers if they're strings
+      const body = {
+        ...req.body,
+        templateId: typeof req.body.templateId === 'string' ? parseInt(req.body.templateId, 10) : req.body.templateId,
+        sortOrder: typeof req.body.sortOrder === 'string' ? parseInt(req.body.sortOrder, 10) : req.body.sortOrder
+      };
+      const validatedData = insertAssessmentSectionSchema.partial().parse(body);
       const section = await storage.updateAssessmentSection(id, validatedData);
       res.json(section);
     } catch (error) {
@@ -7435,7 +7441,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Assessment questions routes
   app.post("/api/assessments/questions", async (req, res) => {
     try {
-      const questionData = req.body;
+      // Convert sectionId and sortOrder to numbers if they're strings
+      const questionData = {
+        ...req.body,
+        sectionId: typeof req.body.sectionId === 'string' ? parseInt(req.body.sectionId, 10) : req.body.sectionId,
+        sortOrder: typeof req.body.sortOrder === 'string' ? parseInt(req.body.sortOrder, 10) : req.body.sortOrder
+      };
       const question = await storage.createAssessmentQuestion(questionData);
       
       // Debug: ensure question has ID
@@ -7457,7 +7468,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Invalid question ID" });
       }
       
-      const questionData = req.body;
+      // Convert sectionId and sortOrder to numbers if they're strings
+      const questionData = {
+        ...req.body,
+        sectionId: typeof req.body.sectionId === 'string' ? parseInt(req.body.sectionId, 10) : req.body.sectionId,
+        sortOrder: typeof req.body.sortOrder === 'string' ? parseInt(req.body.sortOrder, 10) : req.body.sortOrder
+      };
       const question = await storage.updateAssessmentQuestion(id, questionData);
       res.json(question);
     } catch (error) {
