@@ -743,7 +743,7 @@ export const questionTypeEnum = pgEnum('question_type', ['short_text', 'long_tex
 export const sectionAccessEnum = pgEnum('section_access', ['therapist_only', 'client_only', 'shared']);
 export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'client_in_progress', 'waiting_for_therapist', 'therapist_completed', 'completed']);
 export const reportSectionEnum = pgEnum('report_section', [
-  'informed_consent', 'referral_reason', 'presenting_symptoms', 'relevant_background_information', 'behavioral_observation', 
+  'informed_consent', 'referral_reason', 'presenting_concerns', 'relevant_background_information', 'behavioral_observation', 
   'risk_factors', 'treatment_recommendations', 'goals_objectives', 'summary_impressions',
   'objective_findings', 'sources_of_information'
 ]);
