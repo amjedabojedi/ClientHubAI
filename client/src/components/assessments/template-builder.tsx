@@ -807,7 +807,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
                       <SelectItem value="background_history">Background History</SelectItem>
                       <SelectItem value="behavioral_observation">Behavioral Observation</SelectItem>
-                      <SelectItem value="risk_assessment">Risk Assessment</SelectItem>
+                      <SelectItem value="risk_factors">Risk Factors</SelectItem>
                       <SelectItem value="treatment_recommendations">Treatment Recommendations</SelectItem>
                       <SelectItem value="goals_objectives">Goals & Objectives</SelectItem>
                       <SelectItem value="summary_impressions">Summary & Impressions</SelectItem>

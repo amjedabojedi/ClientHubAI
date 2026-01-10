@@ -744,7 +744,7 @@ export const sectionAccessEnum = pgEnum('section_access', ['therapist_only', 'cl
 export const assessmentStatusEnum = pgEnum('assessment_status', ['pending', 'client_in_progress', 'waiting_for_therapist', 'therapist_completed', 'completed']);
 export const reportSectionEnum = pgEnum('report_section', [
   'informed_consent', 'referral_reason', 'presenting_symptoms', 'background_history', 'behavioral_observation', 
-  'risk_assessment', 'treatment_recommendations', 'goals_objectives', 'summary_impressions',
+  'risk_factors', 'treatment_recommendations', 'goals_objectives', 'summary_impressions',
   'objective_findings', 'sources_of_information'
 ]);
 
