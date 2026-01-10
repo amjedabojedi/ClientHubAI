@@ -803,6 +803,7 @@ export function TemplateBuilder({ templateId, onBack }: TemplateBuilderProps) {
                       <SelectItem value="none">None (Regular Section)</SelectItem>
                       <SelectItem value="informed_consent">Informed Consent</SelectItem>
                       <SelectItem value="referral_reason">Referral Reason</SelectItem>
+                      <SelectItem value="sources_of_information">Sources of Information</SelectItem>
                       <SelectItem value="presenting_symptoms">Presenting Symptoms</SelectItem>
                       <SelectItem value="background_history">Background History</SelectItem>
                       <SelectItem value="mental_status_exam">Mental Status Exam</SelectItem>
