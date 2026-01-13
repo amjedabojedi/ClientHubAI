@@ -445,6 +445,8 @@ export interface IStorage {
   updateAssessmentQuestionOption(id: number, option: Partial<InsertAssessmentQuestionOption>): Promise<AssessmentQuestionOption>;
   deleteAssessmentQuestionOption(id: number): Promise<void>;
   deleteAllAssessmentQuestionOptions(questionId: number): Promise<void>;
+  checkOptionHasResponses(optionId: number): Promise<boolean>;
+  checkQuestionHasResponses(questionId: number): Promise<boolean>;
 
   // Assessment Assignments Management
   getAssessmentAssignments(clientId?: number): Promise<(AssessmentAssignment & { template: AssessmentTemplate; client: Client; assignedBy: User })[]>;
@@ -3749,6 +3751,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllAssessmentQuestionOptions(questionId: number): Promise<void> {
     await db.delete(assessmentQuestionOptions).where(eq(assessmentQuestionOptions.questionId, questionId));
+  }
+
+  async checkOptionHasResponses(optionId: number): Promise<boolean> {
+    const responses = await db
+      .select({ id: assessmentResponses.id })
+      .from(assessmentResponses)
+      .where(sql`${optionId} = ANY(${assessmentResponses.selectedOptions})`)
+      .limit(1);
+    return responses.length > 0;
+  }
+
+  async checkQuestionHasResponses(questionId: number): Promise<boolean> {
+    const responses = await db
+      .select({ id: assessmentResponses.id })
+      .from(assessmentResponses)
+      .where(eq(assessmentResponses.questionId, questionId))
+      .limit(1);
+    return responses.length > 0;
   }
 
   // Assessment Assignments Management

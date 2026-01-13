@@ -7563,6 +7563,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.delete("/api/assessments/question-options/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // Check if any responses reference this option
+      const responsesExist = await storage.checkOptionHasResponses(id);
+      if (responsesExist) {
+        return res.status(409).json({ 
+          message: "Cannot delete this option because completed assessments reference it. This protects existing client data." 
+        });
+      }
+      
       await storage.deleteAssessmentQuestionOption(id);
       res.status(204).send();
     } catch (error) {
@@ -7574,6 +7583,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.delete("/api/assessments/questions/:questionId/options", async (req, res) => {
     try {
       const questionId = parseInt(req.params.questionId);
+      
+      // Check if any responses exist for this question
+      const responsesExist = await storage.checkQuestionHasResponses(questionId);
+      if (responsesExist) {
+        return res.status(409).json({ 
+          message: "Cannot delete options because completed assessments reference this question. This protects existing client data." 
+        });
+      }
+      
       await storage.deleteAllAssessmentQuestionOptions(questionId);
       res.status(204).send();
     } catch (error) {
@@ -7588,6 +7606,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (isNaN(questionId)) {
         return res.status(400).json({ message: "Invalid question ID" });
       }
+      
+      // Check if any responses exist for this question
+      const responsesExist = await storage.checkQuestionHasResponses(questionId);
+      if (responsesExist) {
+        return res.status(409).json({ 
+          message: "Cannot delete this question because completed assessments reference it. This protects existing client data." 
+        });
+      }
+      
       // First delete all options for this question
       await storage.deleteAllAssessmentQuestionOptions(questionId);
       // Then delete the question itself
