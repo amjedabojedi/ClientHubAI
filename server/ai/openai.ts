@@ -732,7 +732,18 @@ ASSESSMENT SECTIONS TO GENERATE:
         }
         
         // Format: Question → Answer (clear mapping for AI)
-        userPrompt += `• ${question.questionText}\n  → ${answerText}\n\n`;
+        // For scoring sections, include the score value so AI can group by severity
+        if (section.isScoring && response.scoreValue !== null && response.scoreValue !== undefined) {
+          const score = Number(response.scoreValue);
+          let severityLabel = '';
+          if (score === 0) severityLabel = 'Not endorsed';
+          else if (score === 1) severityLabel = 'Mild';
+          else if (score === 2) severityLabel = 'Moderate';
+          else if (score >= 3) severityLabel = 'Severe';
+          userPrompt += `• ${question.questionText}\n  → ${answerText} (Score: ${score} - ${severityLabel})\n\n`;
+        } else {
+          userPrompt += `• ${question.questionText}\n  → ${answerText}\n\n`;
+        }
       });
       
       userPrompt += `\nREMINDER: Transform the answers above into professional narrative following the template format. Use the actual client answers - do not invent information not provided.\n\n`;
