@@ -4212,16 +4212,37 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
 
-    // DEDUPLICATE: Keep only the latest response per question (handles multiple responders)
-    // Group by questionId and keep the response with the most recent createdAt
+    // DEDUPLICATE: Keep the BEST response per question (prefers data over empty)
+    // Priority: response with data > empty response, then use timestamp as tiebreaker
     const latestResponsesByQuestion = new Map<number, typeof results[0]>();
+    
+    const hasData = (resp: any): boolean => {
+      return (resp.selectedOptions && resp.selectedOptions.length > 0) || 
+             resp.responseText || 
+             (resp.scoreValue !== null && resp.scoreValue !== undefined);
+    };
+    
     for (const result of results) {
       const questionId = result.assessment_responses.questionId;
       const existing = latestResponsesByQuestion.get(questionId);
       
-      // Keep the response with the latest createdAt timestamp
-      if (!existing || result.assessment_responses.createdAt > existing.assessment_responses.createdAt) {
+      if (!existing) {
         latestResponsesByQuestion.set(questionId, result);
+      } else {
+        const newHasData = hasData(result.assessment_responses);
+        const existingHasData = hasData(existing.assessment_responses);
+        
+        if (newHasData && !existingHasData) {
+          // New has data, existing is empty → use new
+          latestResponsesByQuestion.set(questionId, result);
+        } else if (!newHasData && existingHasData) {
+          // New is empty, existing has data → keep existing (do nothing)
+        } else {
+          // Both have data OR both empty → use most recent
+          if (result.assessment_responses.createdAt > existing.assessment_responses.createdAt) {
+            latestResponsesByQuestion.set(questionId, result);
+          }
+        }
       }
     }
     
