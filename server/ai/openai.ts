@@ -604,14 +604,36 @@ ASSESSMENT SECTIONS TO GENERATE:
 
   // Add each section with its responses and AI prompt
   sections.forEach(section => {
-    const sectionResponses = responses.filter(r => 
+    let sectionResponses = responses.filter(r => 
       section.questions?.some(q => Number(q.id) === Number(r.questionId))
     );
+
+    // DEDUPLICATE: If multiple responders answered the same question, use only ONE response per question
+    // Prefer the response with a score value, or the most recent one
+    const uniqueResponses = new Map<number, any>();
+    sectionResponses.forEach(resp => {
+      const questionId = Number(resp.questionId);
+      const existing = uniqueResponses.get(questionId);
+      if (!existing) {
+        uniqueResponses.set(questionId, resp);
+      } else {
+        // Prefer response with score value, or with actual data, or more recent
+        const hasScore = resp.scoreValue !== null && resp.scoreValue !== undefined;
+        const existingHasScore = existing.scoreValue !== null && existing.scoreValue !== undefined;
+        const hasData = (resp.selectedOptions?.length > 0) || resp.responseText;
+        const existingHasData = (existing.selectedOptions?.length > 0) || existing.responseText;
+        
+        if ((hasScore && !existingHasScore) || (hasData && !existingHasData)) {
+          uniqueResponses.set(questionId, resp);
+        }
+      }
+    });
+    sectionResponses = Array.from(uniqueResponses.values());
 
     // DEBUG: Log section and response data
     console.log(`[AI DEBUG] Section: ${section.title}`);
     console.log(`[AI DEBUG] Section has ${section.questions?.length || 0} questions`);
-    console.log(`[AI DEBUG] Found ${sectionResponses.length} responses for this section`);
+    console.log(`[AI DEBUG] Found ${sectionResponses.length} unique responses for this section`);
 
     if (sectionResponses.length > 0) {
       userPrompt += `\n<h2>${section.title.toUpperCase()}</h2>\n<p><br></p>\n`;
