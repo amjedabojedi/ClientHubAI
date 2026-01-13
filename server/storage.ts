@@ -4073,14 +4073,24 @@ export class DatabaseStorage implements IStorage {
 
   // Calculate score value for an individual response
   async calculateResponseScore(responseData: any): Promise<number | null> {
-    // Get the question to check if it contributes to scoring
-    const [question] = await db
-      .select()
+    // Get the question AND its section to check if it contributes to scoring
+    const [result] = await db
+      .select({
+        question: assessmentQuestions,
+        section: assessmentSections
+      })
       .from(assessmentQuestions)
+      .leftJoin(assessmentSections, eq(assessmentQuestions.sectionId, assessmentSections.id))
       .where(eq(assessmentQuestions.id, responseData.questionId));
 
-    if (!question || !question.contributesToScore) {
-      return null; // This question doesn't contribute to scoring
+    if (!result || !result.question) {
+      return null;
+    }
+
+    // Check if scoring is enabled: either question.contributesToScore OR section.isScoring
+    const shouldScore = result.question.contributesToScore || result.section?.isScoring;
+    if (!shouldScore) {
+      return null; // Neither question nor section enables scoring
     }
 
     // For multiple choice/checkbox questions - use option values
