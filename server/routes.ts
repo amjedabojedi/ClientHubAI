@@ -428,11 +428,11 @@ async function checkAssessmentEditPermission(
   assignmentId: number,
   userId: number,
   userRole: string
-): Promise<{ allowed: boolean; message?: string; assignment?: any }> {
+): Promise<{ allowed: boolean; notFound?: boolean; message?: string; assignment?: any }> {
   const assignment = await storage.getAssessmentAssignmentById(assignmentId);
   
   if (!assignment) {
-    return { allowed: false, message: 'Assessment assignment not found' };
+    return { allowed: false, notFound: true, message: 'Assessment assignment not found' };
   }
   
   // Admin can only VIEW, not edit
@@ -7305,16 +7305,19 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       const responseData = req.body;
       
+      // Require assignmentId for authorization
+      if (!responseData.assignmentId) {
+        return res.status(400).json({ message: "Assignment ID is required" });
+      }
+      
       // Authorization: Only creator can save responses
-      if (responseData.assignmentId) {
-        const permCheck = await checkAssessmentEditPermission(
-          responseData.assignmentId,
-          req.user.id,
-          req.user.role
-        );
-        if (!permCheck.allowed) {
-          return res.status(403).json({ message: permCheck.message });
-        }
+      const permCheck = await checkAssessmentEditPermission(
+        responseData.assignmentId,
+        req.user.id,
+        req.user.role
+      );
+      if (!permCheck.allowed) {
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
       
       // Skip empty responses (same validation as batch endpoint)
@@ -7718,9 +7721,24 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/assessments/reports", async (req, res) => {
+  app.post("/api/assessments/reports", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const reportData = req.body;
+      
+      // Authorization: Only creator can create reports
+      if (reportData.assignmentId) {
+        const permCheck = await checkAssessmentEditPermission(reportData.assignmentId, req.user.id, req.user.role);
+        if (!permCheck.allowed) {
+          return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
+        }
+      } else {
+        return res.status(400).json({ message: "Assignment ID is required" });
+      }
+      
       const report = await storage.createAssessmentReport(reportData);
       res.status(201).json(report);
     } catch (error) {
@@ -7746,7 +7764,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Authorization: Only creator can generate reports
       const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
       if (!permCheck.allowed) {
-        return res.status(403).json({ message: permCheck.message });
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
 
       // Get assignment details, responses, and sections
@@ -7895,7 +7913,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Authorization: Only creator can update reports
       const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
       if (!permCheck.allowed) {
-        return res.status(403).json({ message: permCheck.message });
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
 
       // Get existing report
@@ -7962,7 +7980,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Authorization: Only creator can finalize reports
       const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
       if (!permCheck.allowed) {
-        return res.status(403).json({ message: permCheck.message });
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
 
       // Finalize report (copy draft/generated content to final)
@@ -8031,7 +8049,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Authorization: Only creator can unfinalize reports
       const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
       if (!permCheck.allowed) {
-        return res.status(403).json({ message: permCheck.message });
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
 
       // Unfinalize report (move final content back to draft for editing)
@@ -9709,17 +9727,26 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: 'Invalid request: responses array is required' });
       }
 
-      // Authorization: Only creator can save responses
+      // Require assignmentId and ensure all responses belong to the same assignment
       const assignmentId = responses[0]?.assignmentId;
-      if (assignmentId) {
-        const permCheck = await checkAssessmentEditPermission(
-          assignmentId,
-          req.user.id,
-          req.user.role
-        );
-        if (!permCheck.allowed) {
-          return res.status(403).json({ message: permCheck.message });
-        }
+      if (!assignmentId) {
+        return res.status(400).json({ message: 'Assignment ID is required for all responses' });
+      }
+      
+      // Verify all responses have the same assignmentId
+      const allSameAssignment = responses.every(r => r.assignmentId === assignmentId);
+      if (!allSameAssignment) {
+        return res.status(400).json({ message: 'All responses must belong to the same assessment assignment' });
+      }
+
+      // Authorization: Only creator can save responses
+      const permCheck = await checkAssessmentEditPermission(
+        assignmentId,
+        req.user.id,
+        req.user.role
+      );
+      if (!permCheck.allowed) {
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
 
       // Helper to check if response has actual data
@@ -9775,7 +9802,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Authorization: Only creator can update assignments
       const permCheck = await checkAssessmentEditPermission(parseInt(assignmentId), req.user.id, req.user.role);
       if (!permCheck.allowed) {
-        return res.status(403).json({ message: permCheck.message });
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
       
       // Convert ISO string dates to Date objects for database
@@ -9824,7 +9851,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Authorization: Only creator can delete assignments
       const permCheck = await checkAssessmentEditPermission(parseInt(assignmentId), req.user.id, req.user.role);
       if (!permCheck.allowed) {
-        return res.status(403).json({ message: permCheck.message });
+        return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
       }
       
       await storage.deleteAssessmentAssignment(parseInt(assignmentId));
