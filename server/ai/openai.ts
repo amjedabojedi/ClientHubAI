@@ -1196,7 +1196,16 @@ export async function transcribeAssessmentAudio(
       response_format: 'json'
     });
 
-    let result = transcription.text;
+    // Debug: log full response to understand structure
+    console.log('[AI] Transcription response:', JSON.stringify(transcription, null, 2));
+
+    // Extract text from response - handle different response formats
+    let result = '';
+    if (typeof transcription === 'string') {
+      result = transcription;
+    } else if (transcription && typeof transcription === 'object') {
+      result = (transcription as any).text || (transcription as any).transcript || '';
+    }
     const transcriptionDuration = Date.now() - startTime;
     console.log(`[AI] Assessment transcription completed in ${transcriptionDuration}ms. Length: ${result.length} chars`);
 
