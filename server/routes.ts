@@ -7299,7 +7299,23 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Single assessment response endpoint - uses atomic upsert and filters empty responses
   app.post("/api/assessments/responses", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const responseData = req.body;
+      
+      // Authorization: Only creator can save responses
+      if (responseData.assignmentId) {
+        const permCheck = await checkAssessmentEditPermission(
+          responseData.assignmentId,
+          req.user.id,
+          req.user.role
+        );
+        if (!permCheck.allowed) {
+          return res.status(403).json({ message: permCheck.message });
+        }
+      }
       
       // Skip empty responses (same validation as batch endpoint)
       const hasText = responseData.responseText && responseData.responseText.trim() !== '';
@@ -9695,10 +9711,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Batch save multiple assessment responses
   app.post('/api/assessments/responses/batch', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const { responses } = req.body;
       
       if (!Array.isArray(responses) || responses.length === 0) {
         return res.status(400).json({ message: 'Invalid request: responses array is required' });
+      }
+
+      // Authorization: Only creator can save responses
+      const assignmentId = responses[0]?.assignmentId;
+      if (assignmentId) {
+        const permCheck = await checkAssessmentEditPermission(
+          assignmentId,
+          req.user.id,
+          req.user.role
+        );
+        if (!permCheck.allowed) {
+          return res.status(403).json({ message: permCheck.message });
+        }
       }
 
       // Helper to check if response has actual data
