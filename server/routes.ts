@@ -422,6 +422,40 @@ async function trackClientHistory(params: {
   }
 }
 
+// Helper function to check assessment authorization
+// Rule: Only the creator (assignedById) can update. Admin can only view.
+async function checkAssessmentEditPermission(
+  assignmentId: number,
+  userId: number,
+  userRole: string
+): Promise<{ allowed: boolean; message?: string; assignment?: any }> {
+  const assignment = await storage.getAssessmentAssignmentById(assignmentId);
+  
+  if (!assignment) {
+    return { allowed: false, message: 'Assessment assignment not found' };
+  }
+  
+  // Admin can only VIEW, not edit
+  if (userRole === 'administrator' || userRole === 'admin') {
+    return { 
+      allowed: false, 
+      message: 'Administrators can view assessments but cannot edit them. Only the creator can make changes.',
+      assignment 
+    };
+  }
+  
+  // Only the creator (assignedById) can edit
+  if (assignment.assignedById !== userId) {
+    return { 
+      allowed: false, 
+      message: 'Access denied. Only the user who created this assessment can make changes.',
+      assignment 
+    };
+  }
+  
+  return { allowed: true, assignment };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize notification service
   const notificationService = new NotificationService();
