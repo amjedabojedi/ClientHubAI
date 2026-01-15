@@ -9664,9 +9664,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: 'Invalid request: responses array is required' });
       }
 
-      // Save all responses
+      // Helper to check if response has actual data
+      const hasActualData = (r: any): boolean => {
+        const hasText = r.responseText && r.responseText.trim() !== '';
+        const hasOptions = Array.isArray(r.selectedOptions) && r.selectedOptions.length > 0;
+        const hasRating = r.ratingValue !== null && r.ratingValue !== undefined;
+        return hasText || hasOptions || hasRating;
+      };
+
+      // Filter to only responses with actual data - skip empty ones
+      const responsesWithData = responses.filter(hasActualData);
+      
+      // Save only responses that have actual data
       const savedResponses = [];
-      for (const responseData of responses) {
+      for (const responseData of responsesWithData) {
         const response = await storage.saveAssessmentResponse(responseData);
         savedResponses.push(response);
       }
@@ -9681,9 +9692,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
         }
       }
       
+      const skippedCount = responses.length - responsesWithData.length;
       res.json({ 
-        message: `Successfully saved ${savedResponses.length} responses`,
-        responses: savedResponses 
+        message: `Successfully saved ${savedResponses.length} responses${skippedCount > 0 ? ` (${skippedCount} empty responses skipped)` : ''}`,
+        responses: savedResponses,
+        savedCount: savedResponses.length,
+        skippedCount: skippedCount
       });
     } catch (error) {
       console.error('Batch save error:', error);
