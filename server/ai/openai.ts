@@ -1,6 +1,13 @@
 import OpenAI from "openai";
 import { format } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
+import { exec } from "child_process";
+import { promisify } from "util";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+
+const execAsync = promisify(exec);
 
 // This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -1172,6 +1179,35 @@ export function getAllTemplates() {
   return clinicalTemplates;
 }
 
+// Convert WebM audio to WAV format using ffmpeg
+// Required for Replit AI Integration transcription
+async function convertWebmToWav(inputBuffer: Buffer): Promise<Buffer> {
+  const tempDir = os.tmpdir();
+  const inputPath = path.join(tempDir, `input_${Date.now()}.webm`);
+  const outputPath = path.join(tempDir, `output_${Date.now()}.wav`);
+  
+  try {
+    // Write input buffer to temp file
+    await fs.promises.writeFile(inputPath, inputBuffer);
+    
+    // Convert using ffmpeg
+    await execAsync(`ffmpeg -i "${inputPath}" -ar 16000 -ac 1 -f wav "${outputPath}" -y`);
+    
+    // Read output file
+    const wavBuffer = await fs.promises.readFile(outputPath);
+    
+    return wavBuffer;
+  } finally {
+    // Cleanup temp files
+    try {
+      await fs.promises.unlink(inputPath).catch(() => {});
+      await fs.promises.unlink(outputPath).catch(() => {});
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 // Voice Transcription for Assessment Text Fields
 // Uses Replit's AI Integration with gpt-4o-mini-transcribe model
 export async function transcribeAssessmentAudio(
@@ -1183,9 +1219,14 @@ export async function transcribeAssessmentAudio(
     console.log('[AI] Starting assessment audio transcription using Replit AI Integration...');
     const startTime = Date.now();
     
+    // Convert WebM to WAV format (required for Replit AI Integration)
+    console.log('[AI] Converting WebM to WAV format...');
+    const wavBuffer = await convertWebmToWav(audioBuffer);
+    console.log(`[AI] Conversion complete. WAV size: ${wavBuffer.length} bytes`);
+    
     // Create a File-like object for the OpenAI SDK
-    const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
-      type: 'audio/webm'
+    const audioFile = await OpenAI.toFile(wavBuffer, 'audio.wav', {
+      type: 'audio/wav'
     });
     
     // Transcribe audio using Replit's AI Integration (gpt-4o-mini-transcribe)
@@ -1199,7 +1240,7 @@ export async function transcribeAssessmentAudio(
     // Debug: log full response to understand structure
     console.log('[AI] Transcription response:', JSON.stringify(transcription, null, 2));
 
-    // Extract text from response - handle different response formats
+    // Extract text from response
     let result = '';
     if (typeof transcription === 'string') {
       result = transcription;
