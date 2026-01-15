@@ -11,7 +11,8 @@ import {
   pgEnum,
   uuid,
   index,
-  unique
+  unique,
+  uniqueIndex
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -843,7 +844,10 @@ export const assessmentResponses = pgTable("assessment_responses", {
   scoreValue: decimal("score_value", { precision: 10, scale: 2 }), // Calculated score for this response
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Prevent duplicate responses for same question/assignment/responder combination
+  uniqueResponseIdx: uniqueIndex("unique_response_idx").on(table.assignmentId, table.questionId, table.responderId),
+}));
 
 export const assessmentReports = pgTable("assessment_reports", {
   id: serial("id").primaryKey(),
