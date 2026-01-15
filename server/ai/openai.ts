@@ -11,28 +11,8 @@ const openai = new OpenAI({
   maxRetries: 2
 });
 
-// Separate client for Whisper audio transcription (requires direct OpenAI API access)
-// Replit's AI Integration proxy doesn't support the /audio/transcriptions endpoint
-// IMPORTANT: Must use OPENAI_WHISPER_API_KEY because Replit overrides OPENAI_API_KEY with its service account key
-function getWhisperClient(): OpenAI {
-  const whisperApiKey = process.env.OPENAI_WHISPER_API_KEY;
-  
-  if (!whisperApiKey) {
-    console.error('[AI] OPENAI_WHISPER_API_KEY is not set. Voice transcription requires a personal OpenAI API key.');
-    throw new Error('Voice transcription requires a personal OpenAI API key. Please set OPENAI_WHISPER_API_KEY in Replit Secrets.');
-  }
-  
-  // Log key prefix for debugging (never log full key)
-  console.log(`[AI] Using Whisper API key starting with: ${whisperApiKey.substring(0, 10)}...`);
-  
-  // Always create a fresh client to ensure we use the current API key from environment
-  return new OpenAI({
-    apiKey: whisperApiKey,
-    timeout: 120000,
-    maxRetries: 2
-    // No baseURL - uses direct OpenAI API (not Replit proxy)
-  });
-}
+// Audio transcription uses Replit's AI Integration with gpt-4o-mini-transcribe model
+// No separate API key needed - uses the same integration as chat
 
 // Clinical Content Library - Connected templates for intelligent field suggestions
 export const clinicalTemplates = {
@@ -1193,30 +1173,30 @@ export function getAllTemplates() {
 }
 
 // Voice Transcription for Assessment Text Fields
+// Uses Replit's AI Integration with gpt-4o-mini-transcribe model
 export async function transcribeAssessmentAudio(
   audioBuffer: Buffer,
   fileName: string,
   translateToEnglish: boolean = false
 ): Promise<string> {
   try {
-    console.log('[AI] Starting assessment audio transcription...');
+    console.log('[AI] Starting assessment audio transcription using Replit AI Integration...');
     const startTime = Date.now();
-
-    const whisper = getWhisperClient();
     
     // Create a File-like object for the OpenAI SDK
     const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
       type: 'audio/webm'
     });
     
-    // Transcribe audio
-    const transcription = await whisper.audio.transcriptions.create({
+    // Transcribe audio using Replit's AI Integration (gpt-4o-mini-transcribe)
+    // response_format must be 'json' for this model
+    const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
-      model: 'whisper-1',
-      response_format: 'text'
+      model: 'gpt-4o-mini-transcribe',
+      response_format: 'json'
     });
 
-    let result = transcription as unknown as string;
+    let result = transcription.text;
     const transcriptionDuration = Date.now() - startTime;
     console.log(`[AI] Assessment transcription completed in ${transcriptionDuration}ms. Length: ${result.length} chars`);
 
