@@ -13,18 +13,24 @@ const openai = new OpenAI({
 
 // Separate client for Whisper audio transcription (requires direct OpenAI API access)
 // Replit's AI Integration proxy doesn't support the /audio/transcriptions endpoint
-// Create a fresh client each time to always pick up the current environment variable value
+// IMPORTANT: Must use OPENAI_WHISPER_API_KEY because Replit overrides OPENAI_API_KEY with its service account key
 function getWhisperClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('Voice transcription requires an OpenAI API key. Please set OPENAI_API_KEY in your environment.');
+  const whisperApiKey = process.env.OPENAI_WHISPER_API_KEY;
+  
+  if (!whisperApiKey) {
+    console.error('[AI] OPENAI_WHISPER_API_KEY is not set. Voice transcription requires a personal OpenAI API key.');
+    throw new Error('Voice transcription requires a personal OpenAI API key. Please set OPENAI_WHISPER_API_KEY in Replit Secrets.');
   }
+  
+  // Log key prefix for debugging (never log full key)
+  console.log(`[AI] Using Whisper API key starting with: ${whisperApiKey.substring(0, 10)}...`);
   
   // Always create a fresh client to ensure we use the current API key from environment
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: whisperApiKey,
     timeout: 120000,
     maxRetries: 2
-    // No baseURL - uses direct OpenAI API
+    // No baseURL - uses direct OpenAI API (not Replit proxy)
   });
 }
 
