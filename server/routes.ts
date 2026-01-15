@@ -7743,6 +7743,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Invalid assignment ID" });
       }
 
+      // Authorization: Only creator can generate reports
+      const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
+      if (!permCheck.allowed) {
+        return res.status(403).json({ message: permCheck.message });
+      }
+
       // Get assignment details, responses, and sections
       const assignment = await storage.getAssessmentAssignment(assignmentId);
       if (!assignment) {
@@ -7886,6 +7892,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Draft content is required" });
       }
 
+      // Authorization: Only creator can update reports
+      const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
+      if (!permCheck.allowed) {
+        return res.status(403).json({ message: permCheck.message });
+      }
+
       // Get existing report
       const existingReport = await storage.getAssessmentReport(assignmentId);
       if (!existingReport) {
@@ -7947,22 +7959,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Report is already finalized" });
       }
 
-      // Permission check: Only assigned therapist, supervisor, or admin
-      const assignment = await storage.getAssessmentAssignment(assignmentId);
-      const isAssignedTherapist = assignment?.assignedById === req.user.id;
-      const isAdmin = req.user.role === 'administrator';
-
-      // Check if user is a supervisor of the assigned therapist
-      let isSupervisor = false;
-      if (!isAssignedTherapist && !isAdmin && assignment) {
-        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
-        isSupervisor = supervisorAssignments.some(
-          sa => sa.therapistId === assignment.assignedById
-        );
-      }
-
-      if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
-        return res.status(403).json({ message: "You do not have permission to finalize this report" });
+      // Authorization: Only creator can finalize reports
+      const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
+      if (!permCheck.allowed) {
+        return res.status(403).json({ message: permCheck.message });
       }
 
       // Finalize report (copy draft/generated content to final)
@@ -8028,22 +8028,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Report is not finalized" });
       }
 
-      // Permission check: Only assigned therapist, supervisor, or admin
-      const assignment = await storage.getAssessmentAssignment(assignmentId);
-      const isAssignedTherapist = assignment?.assignedById === req.user.id;
-      const isAdmin = req.user.role === 'administrator';
-
-      // Check if user is a supervisor of the assigned therapist
-      let isSupervisor = false;
-      if (!isAssignedTherapist && !isAdmin && assignment) {
-        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
-        isSupervisor = supervisorAssignments.some(
-          sa => sa.therapistId === assignment.assignedById
-        );
-      }
-
-      if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
-        return res.status(403).json({ message: "You do not have permission to unfinalize this report" });
+      // Authorization: Only creator can unfinalize reports
+      const permCheck = await checkAssessmentEditPermission(assignmentId, req.user.id, req.user.role);
+      if (!permCheck.allowed) {
+        return res.status(403).json({ message: permCheck.message });
       }
 
       // Unfinalize report (move final content back to draft for editing)
@@ -9783,28 +9771,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       const { assignmentId } = req.params;
-      const existingAssignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       
-      if (!existingAssignment) {
-        return res.status(404).json({ message: 'Assessment assignment not found' });
-      }
-      
-      // Role-based authorization: therapists can only update assessments for their assigned clients
-      if (req.user.role === 'therapist') {
-        const client = await storage.getClient(existingAssignment.clientId);
-        if (!client || client.assignedTherapistId !== req.user.id) {
-          return res.status(403).json({ message: "Access denied. You can only update assessments for your assigned clients." });
-        }
-      } else if (req.user.role === 'supervisor') {
-        const client = await storage.getClient(existingAssignment.clientId);
-        if (!client) {
-          return res.status(404).json({ message: 'Client not found' });
-        }
-        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
-        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
-        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
-          return res.status(403).json({ message: "Access denied. You can only update assessments for clients of therapists you supervise." });
-        }
+      // Authorization: Only creator can update assignments
+      const permCheck = await checkAssessmentEditPermission(parseInt(assignmentId), req.user.id, req.user.role);
+      if (!permCheck.allowed) {
+        return res.status(403).json({ message: permCheck.message });
       }
       
       // Convert ISO string dates to Date objects for database
@@ -9849,28 +9820,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       const { assignmentId } = req.params;
-      const existingAssignment = await storage.getAssessmentAssignmentById(parseInt(assignmentId));
       
-      if (!existingAssignment) {
-        return res.status(404).json({ message: 'Assessment assignment not found' });
-      }
-      
-      // Role-based authorization: therapists can only delete assessments for their assigned clients
-      if (req.user.role === 'therapist') {
-        const client = await storage.getClient(existingAssignment.clientId);
-        if (!client || client.assignedTherapistId !== req.user.id) {
-          return res.status(403).json({ message: "Access denied. You can only delete assessments for your assigned clients." });
-        }
-      } else if (req.user.role === 'supervisor') {
-        const client = await storage.getClient(existingAssignment.clientId);
-        if (!client) {
-          return res.status(404).json({ message: 'Client not found' });
-        }
-        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
-        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
-        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
-          return res.status(403).json({ message: "Access denied. You can only delete assessments for clients of therapists you supervise." });
-        }
+      // Authorization: Only creator can delete assignments
+      const permCheck = await checkAssessmentEditPermission(parseInt(assignmentId), req.user.id, req.user.role);
+      if (!permCheck.allowed) {
+        return res.status(403).json({ message: permCheck.message });
       }
       
       await storage.deleteAssessmentAssignment(parseInt(assignmentId));
