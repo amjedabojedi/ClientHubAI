@@ -7263,7 +7263,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Single assessment response endpoint - uses atomic upsert and filters empty responses
-  app.post("/api/assessments/responses", async (req, res) => {
+  app.post("/api/assessments/responses", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const responseData = req.body;
       
