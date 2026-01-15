@@ -4025,7 +4025,7 @@ export class DatabaseStorage implements IStorage {
     return normalized;
   }
 
-  // Save or update assessment response
+  // Save or update assessment response using atomic upsert
   async saveAssessmentResponse(responseData: any): Promise<AssessmentResponse> {
     // Normalize selectedOptions from legacy indices to option IDs if needed
     if (responseData.selectedOptions) {
@@ -4038,52 +4038,31 @@ export class DatabaseStorage implements IStorage {
     // Calculate score value for this response
     const scoreValue = await this.calculateResponseScore(responseData);
 
-    // Check if response already exists
-    const [existingResponse] = await db
-      .select()
-      .from(assessmentResponses)
-      .where(
-        and(
-          eq(assessmentResponses.assignmentId, responseData.assignmentId),
-          eq(assessmentResponses.questionId, responseData.questionId),
-          eq(assessmentResponses.responderId, responseData.responderId)
-        )
-      );
-
-    let savedResponse: AssessmentResponse;
-
-    if (existingResponse) {
-      // Update existing response
-      const [updatedResponse] = await db
-        .update(assessmentResponses)
-        .set({
+    // Use atomic upsert with ON CONFLICT to handle concurrent requests safely
+    const [savedResponse] = await db
+      .insert(assessmentResponses)
+      .values({
+        assignmentId: responseData.assignmentId,
+        questionId: responseData.questionId,
+        responderId: responseData.responderId,
+        responseText: responseData.responseText,
+        selectedOptions: responseData.selectedOptions,
+        ratingValue: responseData.ratingValue,
+        scoreValue: scoreValue !== null ? scoreValue.toString() : null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: [assessmentResponses.assignmentId, assessmentResponses.questionId, assessmentResponses.responderId],
+        set: {
           responseText: responseData.responseText,
           selectedOptions: responseData.selectedOptions,
           ratingValue: responseData.ratingValue,
           scoreValue: scoreValue !== null ? scoreValue.toString() : null,
           updatedAt: new Date()
-        })
-        .where(eq(assessmentResponses.id, existingResponse.id))
-        .returning();
-      savedResponse = updatedResponse;
-    } else {
-      // Create new response
-      const [newResponse] = await db
-        .insert(assessmentResponses)
-        .values({
-          assignmentId: responseData.assignmentId,
-          questionId: responseData.questionId,
-          responderId: responseData.responderId,
-          responseText: responseData.responseText,
-          selectedOptions: responseData.selectedOptions,
-          ratingValue: responseData.ratingValue,
-          scoreValue: scoreValue !== null ? scoreValue.toString() : null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
-        .returning();
-      savedResponse = newResponse;
-    }
+        }
+      })
+      .returning();
 
     // Update the overall assessment total score
     await this.updateAssessmentTotalScore(responseData.assignmentId);

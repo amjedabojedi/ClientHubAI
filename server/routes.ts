@@ -7262,10 +7262,32 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Single assessment response endpoint - uses atomic upsert and filters empty responses
   app.post("/api/assessments/responses", async (req, res) => {
     try {
       const responseData = req.body;
+      
+      // Skip empty responses (same validation as batch endpoint)
+      const hasText = responseData.responseText && responseData.responseText.trim() !== '';
+      const hasOptions = Array.isArray(responseData.selectedOptions) && responseData.selectedOptions.length > 0;
+      const hasRating = responseData.ratingValue !== null && responseData.ratingValue !== undefined;
+      
+      if (!hasText && !hasOptions && !hasRating) {
+        return res.status(200).json({ message: 'Empty response skipped', skipped: true });
+      }
+      
       const response = await storage.saveAssessmentResponse(responseData);
+      
+      // Automatically update assessment status to 'client_in_progress' if it's currently 'pending'
+      if (responseData.assignmentId) {
+        const assignment = await storage.getAssessmentAssignmentById(responseData.assignmentId);
+        if (assignment && assignment.status === 'pending') {
+          await storage.updateAssessmentAssignment(responseData.assignmentId, {
+            status: 'client_in_progress'
+          });
+        }
+      }
+      
       res.status(201).json(response);
     } catch (error) {
       console.error('Error saving assessment response:', error);
@@ -9633,27 +9655,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  // Save assessment response
-  app.post('/api/assessments/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      const response = await storage.saveAssessmentResponse(req.body);
-      
-      // Automatically update assessment status to 'client_in_progress' if it's currently 'pending'
-      // This ensures the UI shows "Continue Assessment" after saving any data
-      if (req.body.assignmentId) {
-        const assignment = await storage.getAssessmentAssignmentById(req.body.assignmentId);
-        if (assignment && assignment.status === 'pending') {
-          await storage.updateAssessmentAssignment(req.body.assignmentId, {
-            status: 'client_in_progress'
-          });
-        }
-      }
-      
-      res.json(response);
-    } catch (error) {
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
+  // Save assessment response (authenticated version with status update)
+  // Note: Duplicate route removed - see endpoint at line ~7271
 
   // Batch save multiple assessment responses
   app.post('/api/assessments/responses/batch', requireAuth, async (req: AuthenticatedRequest, res) => {
