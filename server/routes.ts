@@ -423,11 +423,13 @@ async function trackClientHistory(params: {
 }
 
 // Helper function to check assessment authorization for RESPONSES
-// Rule: Creator (assignedById) OR assigned client can save responses. Admin can only view.
+// Rule: Therapists/supervisors can save responses for assessments they have access to.
+// Clients can save their own responses. Admins can only view.
 async function checkAssessmentResponsePermission(
   assignmentId: number,
   userId: number,
-  userRole: string
+  userRole: string,
+  responderId?: number
 ): Promise<{ allowed: boolean; notFound?: boolean; message?: string; assignment?: any }> {
   const assignment = await storage.getAssessmentAssignmentById(assignmentId);
   
@@ -444,27 +446,43 @@ async function checkAssessmentResponsePermission(
     };
   }
   
-  // Creator (assignedById) can save responses
+  // Therapists and supervisors can save responses if:
+  // 1. They are the responder (their userId matches responderId in the payload)
+  // 2. They are saving their own responses (not spoofing another user)
+  if (userRole === 'therapist' || userRole === 'supervisor') {
+    // If responderId is provided, ensure the user is saving as themselves
+    if (responderId !== undefined && responderId !== userId) {
+      return { 
+        allowed: false, 
+        message: 'You can only save responses as yourself.',
+        assignment 
+      };
+    }
+    // Therapists and supervisors can respond to assessments
+    return { allowed: true, assignment };
+  }
+  
+  // Client role - check if they are the client assigned to this assessment
+  if (userRole === 'client') {
+    const client = await storage.getClient(assignment.clientId);
+    if (client && client.portalUserId === userId) {
+      return { allowed: true, assignment };
+    }
+    return { 
+      allowed: false, 
+      message: 'You can only respond to assessments assigned to you.',
+      assignment 
+    };
+  }
+  
+  // Creator (assignedById) can always save responses (fallback for other roles)
   if (assignment.assignedById === userId) {
-    return { allowed: true, assignment };
-  }
-  
-  // Client assigned to the assessment can save their responses
-  // Check if user is the client (via client portal user link)
-  const client = await storage.getClient(assignment.clientId);
-  if (client && client.portalUserId === userId) {
-    return { allowed: true, assignment };
-  }
-  
-  // For multi-responder assessments, check if user is assigned as a responder
-  // Therapists working with this client can also respond
-  if (client && client.assignedTherapistId === userId) {
     return { allowed: true, assignment };
   }
   
   return { 
     allowed: false, 
-    message: 'Access denied. Only the assigned client or the therapist who created this assessment can save responses.',
+    message: 'Access denied. You do not have permission to save responses for this assessment.',
     assignment 
   };
 }
@@ -7357,11 +7375,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Assignment ID is required" });
       }
       
-      // Authorization: Creator, assigned client, or assigned therapist can save responses
+      // Authorization: Therapists/supervisors can save, clients for their own assessments
       const permCheck = await checkAssessmentResponsePermission(
         responseData.assignmentId,
         req.user.id,
-        req.user.role
+        req.user.role,
+        responseData.responderId // Pass responderId for validation
       );
       if (!permCheck.allowed) {
         return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
@@ -9786,11 +9805,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: 'All responses must belong to the same assessment assignment' });
       }
 
-      // Authorization: Creator, assigned client, or assigned therapist can save responses
+      // Authorization: Therapists/supervisors can save, clients for their own assessments
+      // Check responderId from first response (all responses should have same responder)
+      const responderId = responses[0]?.responderId;
       const permCheck = await checkAssessmentResponsePermission(
         assignmentId,
         req.user.id,
-        req.user.role
+        req.user.role,
+        responderId // Pass responderId for validation
       );
       if (!permCheck.allowed) {
         return res.status(permCheck.notFound ? 404 : 403).json({ message: permCheck.message });
