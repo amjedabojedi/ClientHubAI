@@ -422,8 +422,55 @@ async function trackClientHistory(params: {
   }
 }
 
-// Helper function to check assessment authorization
-// Rule: Only the creator (assignedById) can update. Admin can only view.
+// Helper function to check assessment authorization for RESPONSES
+// Rule: Creator (assignedById) OR assigned client can save responses. Admin can only view.
+async function checkAssessmentResponsePermission(
+  assignmentId: number,
+  userId: number,
+  userRole: string
+): Promise<{ allowed: boolean; notFound?: boolean; message?: string; assignment?: any }> {
+  const assignment = await storage.getAssessmentAssignmentById(assignmentId);
+  
+  if (!assignment) {
+    return { allowed: false, notFound: true, message: 'Assessment assignment not found' };
+  }
+  
+  // Admin can only VIEW, not edit responses
+  if (userRole === 'administrator' || userRole === 'admin') {
+    return { 
+      allowed: false, 
+      message: 'Administrators can view assessments but cannot edit them.',
+      assignment 
+    };
+  }
+  
+  // Creator (assignedById) can save responses
+  if (assignment.assignedById === userId) {
+    return { allowed: true, assignment };
+  }
+  
+  // Client assigned to the assessment can save their responses
+  // Check if user is the client (via client portal user link)
+  const client = await storage.getClient(assignment.clientId);
+  if (client && client.portalUserId === userId) {
+    return { allowed: true, assignment };
+  }
+  
+  // For multi-responder assessments, check if user is assigned as a responder
+  // Therapists working with this client can also respond
+  if (client && client.assignedTherapistId === userId) {
+    return { allowed: true, assignment };
+  }
+  
+  return { 
+    allowed: false, 
+    message: 'Access denied. Only the assigned client or the therapist who created this assessment can save responses.',
+    assignment 
+  };
+}
+
+// Helper function to check assessment authorization for MANAGEMENT (delete, report generation, etc.)
+// Rule: Only the creator (assignedById) can manage. Admin can only view.
 async function checkAssessmentEditPermission(
   assignmentId: number,
   userId: number,
@@ -444,7 +491,7 @@ async function checkAssessmentEditPermission(
     };
   }
   
-  // Only the creator (assignedById) can edit
+  // Only the creator (assignedById) can edit/manage
   if (assignment.assignedById !== userId) {
     return { 
       allowed: false, 
@@ -7310,8 +7357,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "Assignment ID is required" });
       }
       
-      // Authorization: Only creator can save responses
-      const permCheck = await checkAssessmentEditPermission(
+      // Authorization: Creator, assigned client, or assigned therapist can save responses
+      const permCheck = await checkAssessmentResponsePermission(
         responseData.assignmentId,
         req.user.id,
         req.user.role
@@ -9739,8 +9786,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: 'All responses must belong to the same assessment assignment' });
       }
 
-      // Authorization: Only creator can save responses
-      const permCheck = await checkAssessmentEditPermission(
+      // Authorization: Creator, assigned client, or assigned therapist can save responses
+      const permCheck = await checkAssessmentResponsePermission(
         assignmentId,
         req.user.id,
         req.user.role
