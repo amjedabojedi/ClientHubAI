@@ -7645,10 +7645,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
     sortOrder: typeof option.sortOrder === 'string' ? parseInt(option.sortOrder, 10) : option.sortOrder
   });
 
+  // FIXED: Prevents duplicates by checking existing options first
   app.post("/api/assessments/question-options", async (req, res) => {
     try {
       const body = convertOptionData(req.body);
       const validatedData = insertAssessmentQuestionOptionSchema.parse(body);
+      
+      // Check if option with same text already exists for this question
+      const existingOptions = await storage.getAssessmentQuestionOptions(validatedData.questionId);
+      const existingMatch = existingOptions.find(
+        (existing: any) => existing.optionText === validatedData.optionText
+      );
+      
+      if (existingMatch) {
+        // Update existing option instead of creating duplicate
+        const updated = await storage.updateAssessmentQuestionOption(existingMatch.id, {
+          optionValue: validatedData.optionValue,
+          sortOrder: validatedData.sortOrder
+        });
+        return res.status(200).json(updated);
+      }
+      
       const option = await storage.createAssessmentQuestionOption(validatedData);
       res.status(201).json(option);
     } catch (error) {
@@ -7661,6 +7678,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Bulk create question options for performance
+  // FIXED: Prevents duplicates by checking existing options first
   app.post("/api/assessments/question-options/bulk", async (req, res) => {
     try {
       const { options } = req.body;
@@ -7672,9 +7690,43 @@ You can download a copy if you have it saved locally and re-upload it.`;
         insertAssessmentQuestionOptionSchema.parse(convertOptionData(option))
       );
       
-      const createdOptions = await Promise.all(
-        validatedOptions.map(option => storage.createAssessmentQuestionOption(option))
-      );
+      // Group options by questionId to check for existing options
+      const optionsByQuestion = new Map<number, typeof validatedOptions>();
+      for (const option of validatedOptions) {
+        const qId = option.questionId;
+        if (!optionsByQuestion.has(qId)) {
+          optionsByQuestion.set(qId, []);
+        }
+        optionsByQuestion.get(qId)!.push(option);
+      }
+      
+      const createdOptions: any[] = [];
+      
+      for (const [questionId, newOptions] of optionsByQuestion) {
+        // Get existing options for this question
+        const existingOptions = await storage.getAssessmentQuestionOptions(questionId);
+        
+        for (const newOption of newOptions) {
+          // Check if an option with the same text already exists
+          const existingMatch = existingOptions.find(
+            (existing: any) => existing.optionText === newOption.optionText
+          );
+          
+          if (existingMatch) {
+            // Update existing option instead of creating duplicate
+            const updated = await storage.updateAssessmentQuestionOption(existingMatch.id, {
+              optionValue: newOption.optionValue,
+              sortOrder: newOption.sortOrder
+            });
+            createdOptions.push(updated);
+          } else {
+            // Create new option only if it doesn't exist
+            const created = await storage.createAssessmentQuestionOption(newOption);
+            createdOptions.push(created);
+          }
+        }
+      }
+      
       res.status(201).json(createdOptions);
     } catch (error) {
       if (error instanceof z.ZodError) {
