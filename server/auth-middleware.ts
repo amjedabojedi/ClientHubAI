@@ -117,6 +117,16 @@ export function optionalAuth(req: AuthenticatedRequest, res: Response, next: Nex
 }
 
 /**
+ * Middleware to block accountant role from accessing client-confidential endpoints
+ */
+export function blockAccountant(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (req.user?.role?.toLowerCase() === 'accountant') {
+    return res.status(403).json({ error: "Access restricted. Your role does not have permission to access client information." });
+  }
+  next();
+}
+
+/**
  * CSRF protection middleware
  */
 export function csrfProtection(req: AuthenticatedRequest, res: Response, next: NextFunction) {

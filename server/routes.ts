@@ -51,7 +51,7 @@ import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAc
 import { AzureBlobStorage } from "./azure-blob-storage";
 import { zoomService } from "./zoom-service";
 import type { AuthenticatedRequest } from "./auth-middleware";
-import { requireAuth } from "./auth-middleware";
+import { requireAuth, blockAccountant } from "./auth-middleware";
 import { sanitizeHtml } from "./lib/sanitize";
 
 // Database Schemas
@@ -521,6 +521,58 @@ async function checkAssessmentEditPermission(
   return { allowed: true, assignment };
 }
 
+// Helper to redact client data from any object for accountant role
+function redactClientData(clientObj: any): any {
+  if (!clientObj) return clientObj;
+  return {
+    ...clientObj,
+    fullName: `Client #${clientObj.id}`,
+    firstName: `Client`,
+    lastName: `#${clientObj.id}`,
+    email: undefined,
+    phone: undefined,
+    dateOfBirth: undefined,
+    address: undefined,
+    postalCode: undefined,
+    gender: undefined,
+    maritalStatus: undefined,
+    emergencyContact: undefined,
+    emergencyContactName: undefined,
+    emergencyContactPhone: undefined,
+    emergencyContactRelationship: undefined,
+    notes: undefined,
+    nationality: undefined,
+    civilId: undefined,
+    insuranceProvider: undefined,
+    insurancePhone: undefined,
+    referrerName: undefined,
+    referralDate: undefined,
+    referralSource: undefined,
+    referralType: undefined,
+    referringPerson: undefined,
+    referralNotes: undefined,
+  };
+}
+
+// Helper to redact client data from session objects for accountant role
+function redactSessionClient(session: any): any {
+  if (!session) return session;
+  return {
+    ...session,
+    client: redactClientData(session.client),
+  };
+}
+
+// Helper to redact client data from billing report objects for accountant role
+function redactBillingClient(record: any): any {
+  if (!record) return record;
+  return {
+    ...record,
+    clientName: record.clientId ? `Client #${record.clientId}` : record.clientName,
+    client: redactClientData(record.client),
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize notification service
   const notificationService = new NotificationService();
@@ -700,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client routes with role-based access control
-  app.get("/api/clients", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -772,7 +824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client stats - moved before the :id route to avoid conflicts
-  app.get("/api/clients/stats", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/stats", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -806,7 +858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client export endpoint - moved before the :id route to avoid conflicts  
-  app.get("/api/clients/export", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/export", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     if (!req.user) {
@@ -956,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Duplicate Detection API endpoints
-  app.get("/api/clients/duplicates", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/duplicates", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1120,7 +1172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Unmark duplicate endpoint
-  app.post("/api/clients/:id/unmark-duplicate", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/:id/unmark-duplicate", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1147,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:id", requireAuth, auditClientAccess('client_viewed'), async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:id", requireAuth, blockAccountant, auditClientAccess('client_viewed'), async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -1183,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients", requireAuth, auditClientAccess('client_created'), async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients", requireAuth, blockAccountant, auditClientAccess('client_created'), async (req: AuthenticatedRequest, res) => {
     try {
       const clientData = { ...req.body };
       delete clientData.id; // Remove any id field if present
@@ -1271,7 +1323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/clients/:id", requireAuth, auditClientAccess('client_updated'), async (req: AuthenticatedRequest, res) => {
+  app.put("/api/clients/:id", requireAuth, blockAccountant, auditClientAccess('client_updated'), async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1429,7 +1481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/clients/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/clients/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     const clientId = parseInt(req.params.id);
     
@@ -1464,7 +1516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Portal Access Management Endpoints
   
   // PUT /api/clients/:id/portal-access - Enable/disable portal access
-  app.put("/api/clients/:id/portal-access", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/clients/:id/portal-access", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1549,7 +1601,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/clients/:id/send-portal-activation - Resend activation email
-  app.post("/api/clients/:id/send-portal-activation", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/:id/send-portal-activation", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -1610,7 +1662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Client History Endpoints
   
   // GET /api/clients/:id/history - Fetch client history timeline
-  app.get("/api/clients/:id/history", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:id/history", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.id);
       
@@ -1637,7 +1689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // GET /api/clients/:id/stage-durations - Calculate time spent in each stage
-  app.get("/api/clients/:id/stage-durations", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:id/stage-durations", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.id);
       
@@ -1996,7 +2048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk upload endpoint
-  app.post("/api/clients/bulk-upload", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/bulk-upload", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const { clients } = req.body;
       
@@ -2159,7 +2211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk update stage endpoint
-  app.post("/api/clients/bulk-update-stage", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/bulk-update-stage", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -2244,7 +2296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk reassign therapist endpoint
-  app.post("/api/clients/bulk-reassign-therapist", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/bulk-reassign-therapist", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -2379,7 +2431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk portal access toggle endpoint
-  app.post("/api/clients/bulk-portal-access", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/bulk-portal-access", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -2463,7 +2515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk status update endpoint
-  app.post("/api/clients/bulk-update-status", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/bulk-update-status", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -2600,6 +2652,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (userRole === "administrator" || userRole === "admin") {
         // Admins can filter by specific therapist from UI
         therapistIdFilter = filters.therapistId;
+      } else if (userRole === "accountant") {
+        // Accountant can see all sessions (no therapist filter) for scheduling purposes
+        therapistIdFilter = filters.therapistId;
       }
 
       // PERFORMANCE: Database-level filtering with service visibility
@@ -2616,6 +2671,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: filters.limit,
         includeHiddenServices: isAdmin
       });
+      
+      // Redact client names for accountant role
+      if (userRole === "accountant") {
+        sessions.sessions = sessions.sessions.map((s: any) => redactSessionClient(s));
+      }
       
       // Return database-filtered results with pagination already applied
       res.json({
@@ -3604,7 +3664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:clientId/sessions", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/sessions", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -3624,7 +3684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get session conflicts for a client
-  app.get("/api/clients/:clientId/session-conflicts", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/session-conflicts", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -3678,6 +3738,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let sessions = await storage.getSessionsByMonth(year, month, therapistIdFilter, supervisedTherapistIds, includeHiddenServices);
       
+      // Redact client names for accountant role
+      if (req.user!.role === "accountant") {
+        sessions = sessions.map((s: any) => redactSessionClient(s));
+      }
+      
       res.json(sessions);
     } catch (error) {
 
@@ -3709,7 +3774,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
       
       // Call storage method with role-based parameters - storage handles filtering
-      const recentSessions = await storage.getRecentSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
+      let recentSessions = await storage.getRecentSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
+      
+      if (req.user!.role === "accountant") {
+        recentSessions = recentSessions.map((s: any) => redactSessionClient(s));
+      }
       
       res.json(recentSessions);
     } catch (error) {
@@ -3742,7 +3811,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
       
       // Call storage method with role-based parameters - storage handles filtering
-      const upcomingSessions = await storage.getUpcomingSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
+      let upcomingSessions = await storage.getUpcomingSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
+      
+      if (req.user!.role === "accountant") {
+        upcomingSessions = upcomingSessions.map((s: any) => redactSessionClient(s));
+      }
       
       res.json(upcomingSessions);
     } catch (error) {
@@ -3775,7 +3848,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const includeHiddenServices = req.user.role === 'admin' || req.user.role === 'administrator';
       
       // Call storage method with role-based parameters - storage handles filtering
-      const overdueSessions = await storage.getOverdueSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
+      let overdueSessions = await storage.getOverdueSessions(limit, therapistId, supervisedTherapistIds, includeHiddenServices);
+      
+      if (req.user!.role === "accountant") {
+        overdueSessions = overdueSessions.map((s: any) => redactSessionClient(s));
+      }
       
       res.json(overdueSessions);
     } catch (error) {
@@ -3887,7 +3964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tasks routes
-  app.get("/api/clients/:clientId/tasks", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/tasks", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const tasks = await storage.getTasksByClient(clientId);
@@ -3997,9 +4074,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
       
+      // Redact client data for accountant role
+      let finalTasks = tasksWithComments;
+      if (req.user!.role === "accountant") {
+        finalTasks = tasksWithComments.map((task: any) => ({
+          ...task,
+          client: redactClientData(task.client),
+        }));
+      }
+      
       res.json({
         ...result,
-        tasks: tasksWithComments
+        tasks: finalTasks
       });
     } catch (error) {
 
@@ -4055,7 +4141,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Call storage method with role-based parameters - storage handles filtering
       const recentTasks = await storage.getRecentTasks(limit, therapistId, supervisedTherapistIds);
       
-      res.json(recentTasks);
+      if (req.user!.role === "accountant") {
+        res.json(recentTasks.map((task: any) => ({ ...task, client: redactClientData(task.client) })));
+      } else {
+        res.json(recentTasks);
+      }
     } catch (error) {
       console.error("Error fetching recent tasks:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -4084,7 +4174,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Call storage method with role-based parameters - storage handles filtering
       const upcomingTasks = await storage.getUpcomingTasks(limit, therapistId, supervisedTherapistIds);
       
-      res.json(upcomingTasks);
+      if (req.user!.role === "accountant") {
+        res.json(upcomingTasks.map((task: any) => ({ ...task, client: redactClientData(task.client) })));
+      } else {
+        res.json(upcomingTasks);
+      }
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -4100,7 +4194,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      res.json(task);
+      if (req.user!.role === "accountant") {
+        res.json({ ...task, client: redactClientData((task as any).client) });
+      } else {
+        res.json(task);
+      }
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -4286,7 +4384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notes routes
-  app.get("/api/clients/:clientId/notes", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/notes", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const { noteType, startDate, endDate } = req.query;
@@ -4441,7 +4539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Documents routes
-  app.get("/api/clients/:clientId/documents", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/documents", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const documents = await storage.getDocumentsByClient(clientId);
@@ -4453,7 +4551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client Assessment Assignment routes
-  app.get("/api/clients/:clientId/assessments", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/assessments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const assessments = await storage.getClientAssessments(clientId);
@@ -4464,7 +4562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:clientId/assessments", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/:clientId/assessments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const { templateId, assignedBy, status = 'assigned' } = req.body;
@@ -4488,7 +4586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/clients/:clientId/documents", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/:clientId/documents", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
 
       const clientId = parseInt(req.params.clientId);
@@ -4567,7 +4665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/clients/:clientId/documents/:id/preview", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/documents/:id/preview", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -4803,7 +4901,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Serve PDF file directly for viewing  
-  app.get("/api/clients/:clientId/documents/:id/file", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/documents/:id/file", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -4887,7 +4985,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // PDF viewer endpoint
-  app.get("/api/clients/:clientId/documents/:id/viewer", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/documents/:id/viewer", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -4928,7 +5026,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Docx viewer endpoint
-  app.get("/api/clients/:clientId/documents/:id/docx-viewer", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/documents/:id/docx-viewer", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const clientId = parseInt(req.params.clientId);
@@ -5001,7 +5099,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/clients/:clientId/documents/:id/download", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/documents/:id/download", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -5080,7 +5178,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/clients/:clientId/documents/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/clients/:clientId/documents/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -5138,7 +5236,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Toggle document sharing in portal
-  app.patch("/api/clients/:clientId/documents/:id/share", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/clients/:clientId/documents/:id/share", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -5936,7 +6034,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/clients/:clientId/session-notes", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/session-notes", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -5966,7 +6064,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/session-notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/session-notes/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -5996,7 +6094,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/session-notes", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/session-notes", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -6093,7 +6191,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.put("/api/session-notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/session-notes/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -6143,7 +6241,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/session-notes/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/session-notes/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -6190,7 +6288,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Finalize session note
-  app.post("/api/session-notes/:id/finalize", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/session-notes/:id/finalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -6267,7 +6365,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/session-notes/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+  app.post("/api/session-notes/transcribe", requireAuth, blockAccountant, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -6421,7 +6519,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Generate PDF HTML for session note (for preview only)
-  app.get("/api/session-notes/:id/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/session-notes/:id/pdf", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -6814,7 +6912,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Library routes
-  app.get("/api/library/categories", async (req, res) => {
+  app.get("/api/library/categories", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const categories = await storage.getLibraryCategories();
       res.json(categories);
@@ -6824,7 +6922,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/library/categories/:id", async (req, res) => {
+  app.get("/api/library/categories/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const category = await storage.getLibraryCategory(id);
@@ -6838,7 +6936,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/library/categories", async (req, res) => {
+  app.post("/api/library/categories", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertLibraryCategorySchema.parse(req.body);
       const category = await storage.createLibraryCategory(validatedData);
@@ -6852,7 +6950,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.put("/api/library/categories/:id", async (req, res) => {
+  app.put("/api/library/categories/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertLibraryCategorySchema.partial().parse(req.body);
@@ -6867,7 +6965,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/library/categories/:id", async (req, res) => {
+  app.delete("/api/library/categories/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteLibraryCategory(id);
@@ -6878,7 +6976,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/library/entries", async (req, res) => {
+  app.get("/api/library/entries", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
       const entries = await storage.getLibraryEntries(categoryId);
@@ -6889,7 +6987,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/library/entries/:id", async (req, res) => {
+  app.get("/api/library/entries/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const entry = await storage.getLibraryEntry(id);
@@ -6903,7 +7001,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/library/entries", async (req, res) => {
+  app.post("/api/library/entries", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertLibraryEntrySchema.parse(req.body);
       
@@ -6930,7 +7028,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Bulk create library entries
-  app.post("/api/library/bulk-entries", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/library/bulk-entries", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const { categoryId, entries } = req.body;
       
@@ -6995,7 +7093,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.put("/api/library/entries/:id", async (req, res) => {
+  app.put("/api/library/entries/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertLibraryEntrySchema.partial().parse(req.body);
@@ -7010,7 +7108,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/library/entries/:id", async (req, res) => {
+  app.delete("/api/library/entries/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteLibraryEntry(id);
@@ -7021,7 +7119,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/library/search", async (req, res) => {
+  app.get("/api/library/search", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const query = req.query.q as string;
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
@@ -7038,7 +7136,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/library/entries/:id/increment-usage", async (req, res) => {
+  app.post("/api/library/entries/:id/increment-usage", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.incrementLibraryEntryUsage(id);
@@ -7050,7 +7148,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Library entry connections routes
-  app.get("/api/library/connections", async (req, res) => {
+  app.get("/api/library/connections", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const entryId = req.query.entryId ? parseInt(req.query.entryId as string) : undefined;
       const connections = await storage.getLibraryEntryConnections(entryId);
@@ -7061,7 +7159,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/library/entries/:id/connected", async (req, res) => {
+  app.get("/api/library/entries/:id/connected", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const connectedEntries = await storage.getConnectedEntries(id);
@@ -7073,7 +7171,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Bulk endpoint for fetching connections for multiple entries
-  app.post("/api/library/entries/connected-bulk", async (req, res) => {
+  app.post("/api/library/entries/connected-bulk", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const entryIds = req.body.entryIds;
       
@@ -7111,7 +7209,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/library/connections", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/library/connections", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -7131,7 +7229,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Batch create connections endpoint with duplicate handling
-  app.post("/api/library/connections/batch", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/library/connections/batch", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -7186,7 +7284,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.put("/api/library/connections/:id", async (req, res) => {
+  app.put("/api/library/connections/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const connection = await storage.updateLibraryEntryConnection(id, req.body);
@@ -7197,7 +7295,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/library/connections/:id", async (req, res) => {
+  app.delete("/api/library/connections/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteLibraryEntryConnection(id);
@@ -7208,7 +7306,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/library/entries/:entryId/connections", async (req, res) => {
+  app.delete("/api/library/entries/:entryId/connections", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const entryId = parseInt(req.params.entryId);
       await storage.deleteAllLibraryEntryConnections(entryId);
@@ -7220,7 +7318,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assessment Template Routes
-  app.get("/api/assessments/templates", async (req, res) => {
+  app.get("/api/assessments/templates", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const templates = await storage.getAssessmentTemplates();
       res.json(templates);
@@ -7230,7 +7328,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/assessments/templates/:id", async (req, res) => {
+  app.get("/api/assessments/templates/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7249,7 +7347,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/assessments/templates", async (req, res) => {
+  app.post("/api/assessments/templates", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const validatedData = insertAssessmentTemplateSchema.parse(req.body);
       const template = await storage.createAssessmentTemplate(validatedData);
@@ -7262,7 +7360,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.patch("/api/assessments/templates/:id", async (req, res) => {
+  app.patch("/api/assessments/templates/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7278,7 +7376,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/assessments/templates/:id", async (req, res) => {
+  app.delete("/api/assessments/templates/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7302,7 +7400,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assessment Assignment Routes
-  app.get("/api/assessments/assignments", async (req, res) => {
+  app.get("/api/assessments/assignments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
       const assignments = await storage.getAssessmentAssignments(clientId);
@@ -7313,7 +7411,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/assessments/assignments/:id", async (req, res) => {
+  app.get("/api/assessments/assignments/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7332,7 +7430,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/assessments/assignments", async (req, res) => {
+  app.post("/api/assessments/assignments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const assignmentData = req.body;
       const assignment = await storage.createAssessmentAssignment(assignmentData);
@@ -7346,7 +7444,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // NOTE: PATCH route moved to line 6803 with proper authentication and authorization
 
   // Assessment Response Routes
-  app.get("/api/assessments/assignments/:assignmentId/responses", async (req, res) => {
+  app.get("/api/assessments/assignments/:assignmentId/responses", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const assignmentId = parseInt(req.params.assignmentId);
       if (isNaN(assignmentId)) {
@@ -7362,7 +7460,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Single assessment response endpoint - uses atomic upsert and filters empty responses
-  app.post("/api/assessments/responses", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/assessments/responses", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -7415,7 +7513,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assessment Voice Transcription
-  app.post("/api/assessments/transcribe", requireAuth, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+  app.post("/api/assessments/transcribe", requireAuth, blockAccountant, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -7515,7 +7613,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Recalculate scores for an assessment (useful for fixing existing assessments)
-  app.post("/api/assessments/:assignmentId/recalculate-scores", async (req, res) => {
+  app.post("/api/assessments/:assignmentId/recalculate-scores", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const assignmentId = parseInt(req.params.assignmentId);
       await storage.recalculateAssessmentScores(assignmentId);
@@ -7527,7 +7625,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
 
-  app.post("/api/assessments/sections", async (req, res) => {
+  app.post("/api/assessments/sections", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       // Convert templateId to number if it's a string
       const body = {
@@ -7547,7 +7645,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.patch("/api/assessments/sections/:id", async (req, res) => {
+  app.patch("/api/assessments/sections/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       // Convert templateId and sortOrder to numbers if they're strings
@@ -7568,7 +7666,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/assessments/sections/:id", async (req, res) => {
+  app.delete("/api/assessments/sections/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteAssessmentSection(id);
@@ -7580,7 +7678,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assessment questions routes
-  app.post("/api/assessments/questions", async (req, res) => {
+  app.post("/api/assessments/questions", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       // Convert sectionId and sortOrder to numbers if they're strings
       const questionData = {
@@ -7602,7 +7700,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.patch("/api/assessments/questions/:id", async (req, res) => {
+  app.patch("/api/assessments/questions/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7624,7 +7722,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assessment Question Options Routes
-  app.get("/api/assessments/questions/:questionId/options", async (req, res) => {
+  app.get("/api/assessments/questions/:questionId/options", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const questionId = parseInt(req.params.questionId);
       if (isNaN(questionId)) {
@@ -7646,7 +7744,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // FIXED: Prevents duplicates by checking existing options first
-  app.post("/api/assessments/question-options", async (req, res) => {
+  app.post("/api/assessments/question-options", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const body = convertOptionData(req.body);
       const validatedData = insertAssessmentQuestionOptionSchema.parse(body);
@@ -7679,7 +7777,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   // Bulk create question options for performance
   // FIXED: Prevents duplicates by checking existing options first
-  app.post("/api/assessments/question-options/bulk", async (req, res) => {
+  app.post("/api/assessments/question-options/bulk", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const { options } = req.body;
       if (!Array.isArray(options)) {
@@ -7737,7 +7835,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.patch("/api/assessments/question-options/:id", async (req, res) => {
+  app.patch("/api/assessments/question-options/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       const body = convertOptionData(req.body);
@@ -7753,7 +7851,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/assessments/question-options/:id", async (req, res) => {
+  app.delete("/api/assessments/question-options/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -7773,7 +7871,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/assessments/questions/:questionId/options", async (req, res) => {
+  app.delete("/api/assessments/questions/:questionId/options", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const questionId = parseInt(req.params.questionId);
       
@@ -7793,7 +7891,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.delete("/api/assessments/questions/:questionId", async (req, res) => {
+  app.delete("/api/assessments/questions/:questionId", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const questionId = parseInt(req.params.questionId);
       if (isNaN(questionId)) {
@@ -7820,7 +7918,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assessment Report Routes
-  app.get("/api/assessments/assignments/:assignmentId/report", async (req, res) => {
+  app.get("/api/assessments/assignments/:assignmentId/report", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const assignmentId = parseInt(req.params.assignmentId);
       if (isNaN(assignmentId)) {
@@ -7839,7 +7937,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.post("/api/assessments/reports", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/assessments/reports", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -7866,7 +7964,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Generate AI assessment report
-  app.post("/api/assessments/assignments/:assignmentId/generate-report", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/assessments/assignments/:assignmentId/generate-report", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -8010,7 +8108,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Update assessment report draft (save edited content)
-  app.put("/api/assessments/assignments/:assignmentId/report", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.put("/api/assessments/assignments/:assignmentId/report", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -8071,7 +8169,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Finalize assessment report (matching session notes pattern)
-  app.post("/api/assessments/assignments/:assignmentId/report/finalize", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/assessments/assignments/:assignmentId/report/finalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -8140,7 +8238,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Unfinalize assessment report (allows reopening for regeneration/editing)
-  app.post("/api/assessments/assignments/:assignmentId/report/unfinalize", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/assessments/assignments/:assignmentId/report/unfinalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -8210,7 +8308,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Download assessment report as PDF
-  app.get("/api/assessments/assignments/:assignmentId/download/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/assessments/assignments/:assignmentId/download/pdf", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -8305,7 +8403,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Download assessment report as Word document
-  app.get("/api/assessments/assignments/:assignmentId/download/docx", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/assessments/assignments/:assignmentId/download/docx", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -8836,7 +8934,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { startDate, endDate, therapistId, status, serviceCode, clientSearch, clientType } = req.query;
       
-      const reports = await storage.getBillingReports({
+      let reports = await storage.getBillingReports({
         startDate: startDate as string,
         endDate: endDate as string,
         therapistId: therapistId ? parseInt(therapistId as string) : undefined,
@@ -8845,6 +8943,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         clientSearch: clientSearch as string,
         clientType: clientType as string
       });
+      
+      // Redact client names for accountant role
+      if (req.user?.role === "accountant" && Array.isArray(reports)) {
+        reports = reports.map((r: any) => redactBillingClient(r));
+      }
       
       res.json(reports);
     } catch (error) {
@@ -8884,7 +8987,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/clients/:clientId/billing", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/billing", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       
@@ -8919,7 +9022,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
-  app.get("/api/clients/:clientId/communications", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/clients/:clientId/communications", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -9053,7 +9156,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Invoice Generation Routes
-  app.post("/api/clients/:clientId/invoice", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/:clientId/invoice", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const { action, billingId } = req.body;
@@ -9739,7 +9842,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Assessment completion workflow endpoints
   
   // Get assignment details with full relationships
-  app.get('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/assessments/assignments/:assignmentId', requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -9779,7 +9882,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Get template sections with questions
-  app.get('/api/assessments/templates/:templateId/sections', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/assessments/templates/:templateId/sections', requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const { templateId } = req.params;
       const sections = await storage.getAssessmentTemplateSections(parseInt(templateId));
@@ -9791,7 +9894,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Get assignment responses
-  app.get('/api/assessments/assignments/:assignmentId/responses', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/assessments/assignments/:assignmentId/responses', requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -9833,7 +9936,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Note: Duplicate route removed - see endpoint at line ~7271
 
   // Batch save multiple assessment responses
-  app.post('/api/assessments/responses/batch', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post('/api/assessments/responses/batch', requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -9912,7 +10015,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Update assignment status
-  app.patch('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch('/api/assessments/assignments/:assignmentId', requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -9961,7 +10064,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Delete assessment assignment
-  app.delete('/api/assessments/assignments/:assignmentId', requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete('/api/assessments/assignments/:assignmentId', requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13663,7 +13766,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // ===== CLINICAL FORMS SYSTEM ROUTES =====
   
   // Get all form templates (active only, excluding deleted)
-  app.get("/api/forms/templates", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/forms/templates", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13688,7 +13791,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Get single form template with fields
-  app.get("/api/forms/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/forms/templates/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13724,7 +13827,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Create new form template (Admin only)
-  app.post("/api/forms/templates", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forms/templates", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13756,7 +13859,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Update form template (Admin only)
-  app.patch("/api/forms/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/forms/templates/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13791,7 +13894,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Soft delete form template (Admin only)
-  app.delete("/api/forms/templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/forms/templates/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13837,7 +13940,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Create form field (Admin only)
-  app.post("/api/forms/fields", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forms/fields", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13883,7 +13986,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Update form field (Admin only)
-  app.patch("/api/forms/fields/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/forms/fields/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13955,7 +14058,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Delete form field (Admin only)
-  app.delete("/api/forms/fields/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/forms/fields/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -13980,7 +14083,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Get form assignments for a client
-  app.get("/api/forms/assignments/client/:clientId", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/forms/assignments/client/:clientId", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -14015,7 +14118,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Assign form to client (Therapist/Admin)
-  app.post("/api/forms/assignments", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forms/assignments", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -14048,7 +14151,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Get single form assignment with template and fields
-  app.get("/api/forms/assignments/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/forms/assignments/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -14104,7 +14207,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Delete form assignment
-  app.delete("/api/forms/assignments/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.delete("/api/forms/assignments/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -14168,7 +14271,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Submit form responses (Client portal or therapist)
-  app.post("/api/forms/assignments/:id/responses", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forms/assignments/:id/responses", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -14215,7 +14318,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Submit signature and complete form
-  app.post("/api/forms/assignments/:id/signature", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/forms/assignments/:id/signature", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {
@@ -14258,7 +14361,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Mark form as reviewed by therapist
-  app.patch("/api/forms/assignments/:id/review", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.patch("/api/forms/assignments/:id/review", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ message: "Authentication required" });
@@ -14296,7 +14399,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Download form assignment as PDF (HTML for browser print)
-  app.get("/api/forms/assignments/:id/download/pdf", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get("/api/forms/assignments/:id/download/pdf", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
     try {

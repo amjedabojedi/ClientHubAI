@@ -201,10 +201,12 @@ export default function DashboardPage() {
     return false;
   };
 
-  // Data Fetching
+  const isAccountantRole = user?.role?.toLowerCase() === 'accountant';
+
+  // Data Fetching - skip client stats for accountant role
   const { data: clientStats } = useQuery<DashboardStats>({
     queryKey: ["/api/clients/stats"],
-    enabled: !!user && !!user?.id,
+    enabled: !!user && !!user?.id && !isAccountantRole,
   });
 
   const { data: taskStats } = useQuery<TaskStats>({
@@ -357,29 +359,50 @@ export default function DashboardPage() {
 
       {/* Key Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Active Clients */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/clients")}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-600">Active Clients</p>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <p className="text-2xl font-bold text-blue-600">{clientStats?.activeClients || 0}</p>
-                  <div className="flex items-center gap-1 text-xs">
-                    <TrendingUp className="w-3 h-3 text-green-600" />
-                    <span className="text-green-600 font-medium">
-                      {clientStats?.totalClients ? Math.round(((clientStats.activeClients || 0) / clientStats.totalClients) * 100) : 0}%
-                    </span>
+        {/* Active Clients - hidden from accountant */}
+        {!isAccountantRole ? (
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/clients")}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-600">Active Clients</p>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <p className="text-2xl font-bold text-blue-600">{clientStats?.activeClients || 0}</p>
+                    <div className="flex items-center gap-1 text-xs">
+                      <TrendingUp className="w-3 h-3 text-green-600" />
+                      <span className="text-green-600 font-medium">
+                        {clientStats?.totalClients ? Math.round(((clientStats.activeClients || 0) / clientStats.totalClients) * 100) : 0}%
+                      </span>
+                    </div>
                   </div>
+                  <p className="text-xs text-slate-500 mt-1">of {clientStats?.totalClients || 0} total</p>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">of {clientStats?.totalClients || 0} total</p>
+                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
-              <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/billing")}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-600">Billing</p>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <p className="text-2xl font-bold text-purple-600">
+                      ${(todaySessions.filter(s => s.status === 'completed').length * 150).toLocaleString()}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">today's completed sessions</p>
+                </div>
+                <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-purple-600" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Today's Sessions */}
         <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/scheduling")}>
@@ -430,8 +453,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Billing Summary - Admin/Supervisor only */}
-        {(user?.role === 'admin' || user?.role === 'supervisor') && (
+        {/* Billing Summary - Admin/Supervisor/Accountant */}
+        {(user?.role === 'admin' || user?.role === 'supervisor' || isAccountantRole) && !isAccountantRole && (
           <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/billing")}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">

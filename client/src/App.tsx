@@ -61,6 +61,39 @@ function isAdminOrSupervisor(user: any): boolean {
   return ['administrator', 'admin', 'supervisor'].includes(normalizedRole);
 }
 
+function isAccountant(user: any): boolean {
+  if (!user?.role) return false;
+  return user.role.toLowerCase().trim() === 'accountant';
+}
+
+function AccessRestricted({ message, redirectPath = "/", redirectLabel = "Go to Dashboard" }: { message: string; redirectPath?: string; redirectLabel?: string }) {
+  return (
+    <div className="max-w-2xl mx-auto mt-8">
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <Shield className="h-5 w-5 text-yellow-400" />
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-yellow-800">Access Restricted</h3>
+            <div className="mt-2 text-sm text-yellow-700">
+              <p>{message}</p>
+            </div>
+            <div className="mt-4">
+              <Link href={redirectPath}>
+                <Button variant="outline" size="sm">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  {redirectLabel}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Redirect component for old session-notes URL
 function SessionNotesRedirect({ params }: { params: { id: string } }) {
   const [, setLocation] = useLocation();
@@ -81,13 +114,20 @@ function Navigation() {
       submenu?: Array<{ path: string; label: string; icon: any }>;
     }> = [
       { path: "/", label: "Dashboard", icon: LayoutDashboard },
-      { path: "/clients", label: "Clients", icon: Users },
+    ];
+
+    // Accountant role: only sees Dashboard, Scheduling, Billing, Tasks (no Clients)
+    if (!isAccountant(user)) {
+      baseItems.push({ path: "/clients", label: "Clients", icon: Users });
+    }
+
+    baseItems.push(
       { path: "/scheduling", label: "Scheduling", icon: Calendar },
       { path: "/billing", label: "Billing", icon: CreditCard },
       { path: "/tasks", label: "Tasks", icon: CheckSquare },
-    ];
+    );
 
-    // Only show Administration menu to supervisors and admins
+    // Only show Administration menu to supervisors and admins (not accountant)
     if (isAdminOrSupervisor(user)) {
       baseItems.push({
         path: "/administration", 
@@ -261,116 +301,136 @@ function Router() {
       <main className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Switch key={isAuthenticated ? 'authenticated' : 'unauthenticated'}>
           <Route path="/" component={DashboardPage} />
-          <Route path="/clients" component={ClientsPage} />
-          <Route path="/clients/:id/session-notes" component={SessionNotesRedirect} />
-          <Route path="/clients/:id" component={ClientDetailPage} />
+          <Route path="/clients" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Client information is restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <ClientsPage />;
+          }} />
+          <Route path="/clients/:id/session-notes" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Client information is restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <SessionNotesRedirect params={{ id: '' }} />;
+          }} />
+          <Route path="/clients/:id" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Client information is restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <ClientDetailPage />;
+          }} />
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/billing" component={BillingDashboard} />
           <Route path="/billing-dashboard" component={BillingDashboard} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
-          <Route path="/library" component={LibraryPage} />
+          <Route path="/library" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="The clinical library is restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            if (!isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="The clinical library is restricted to administrators and supervisors." />;
+            }
+            return <LibraryPage />;
+          }} />
           <Route path="/assessments" component={() => {
             const { user } = useAuth();
-            if (isAdminOrSupervisor(user)) {
-              return <AssessmentsPage />;
-            } else {
-              // Redirect therapists to dashboard with a message
-              return (
-                <div className="max-w-2xl mx-auto mt-8">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Shield className="h-5 w-5 text-yellow-400" />
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-yellow-800">
-                          Access Restricted
-                        </h3>
-                        <div className="mt-2 text-sm text-yellow-700">
-                          <p>Assessment template management is restricted to administrators and supervisors.</p>
-                          <p className="mt-2">You can still assign assessments to clients through their individual profiles.</p>
-                        </div>
-                        <div className="mt-4">
-                          <Link href="/clients">
-                            <Button variant="outline" size="sm">
-                              <Users className="h-4 w-4 mr-2" />
-                              Go to Clients
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Assessments are restricted. Your role only has access to scheduling, billing, and tasks." />;
             }
+            if (!isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Assessment template management is restricted to administrators and supervisors. You can still assign assessments to clients through their individual profiles." redirectPath="/clients" redirectLabel="Go to Clients" />;
+            }
+            return <AssessmentsPage />;
           }} />
-          <Route path="/assessments/:assignmentId/complete" component={AssessmentCompletionPage} />
-          <Route path="/assessments/:assignmentId/report" component={AssessmentReportPage} />
-          <Route path="/forms-management" component={FormsManagementPage} />
-          <Route path="/forms-builder/:templateId" component={FormsBuilderPage} />
-          <Route path="/checklist-management" component={ChecklistManagementPage} />
-          <Route path="/user-profiles" component={UserProfilesPage} />
-          <Route path="/role-management" component={RoleManagementPage} />
-          <Route path="/duplicate-detection" component={DuplicateDetectionPage} />
-          <Route path="/notifications" component={NotificationsPage} />
+          <Route path="/assessments/:assignmentId/complete" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Assessments are restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <AssessmentCompletionPage />;
+          }} />
+          <Route path="/assessments/:assignmentId/report" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Assessments are restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <AssessmentReportPage />;
+          }} />
+          <Route path="/forms-management" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Clinical forms management is restricted to administrators and supervisors." />;
+            }
+            return <FormsManagementPage />;
+          }} />
+          <Route path="/forms-builder/:templateId" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Clinical forms management is restricted to administrators and supervisors." />;
+            }
+            return <FormsBuilderPage />;
+          }} />
+          <Route path="/checklist-management" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Process checklists management is restricted to administrators and supervisors." />;
+            }
+            return <ChecklistManagementPage />;
+          }} />
+          <Route path="/user-profiles" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="User profile management is restricted to administrators and supervisors." />;
+            }
+            return <UserProfilesPage />;
+          }} />
+          <Route path="/role-management" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Role management is restricted to administrators and supervisors." />;
+            }
+            return <RoleManagementPage />;
+          }} />
+          <Route path="/duplicate-detection" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Duplicate detection is restricted to administrators and supervisors." />;
+            }
+            return <DuplicateDetectionPage />;
+          }} />
+          <Route path="/notifications" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Notification management is restricted to administrators and supervisors." />;
+            }
+            return <NotificationsPage />;
+          }} />
           <Route path="/settings" component={() => {
             const { user } = useAuth();
-            if (isAdminOrSupervisor(user)) {
-              return <SettingsPage />;
-            } else {
-              // Redirect therapists to dashboard with a message
-              return (
-                <div className="max-w-2xl mx-auto mt-8">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <Shield className="h-5 w-5 text-yellow-400" />
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-yellow-800">
-                          Access Restricted
-                        </h3>
-                        <div className="mt-2 text-sm text-yellow-700">
-                          <p>Settings management is restricted to administrators and supervisors.</p>
-                          <p className="mt-2">Please contact your administrator if you need to modify system settings.</p>
-                        </div>
-                        <div className="mt-4">
-                          <Link href="/">
-                            <Button variant="outline" size="sm">
-                              <LayoutDashboard className="h-4 w-4 mr-2" />
-                              Go to Dashboard
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Settings management is restricted to administrators and supervisors." />;
             }
+            return <SettingsPage />;
           }} />
           <Route path="/my-profile" component={MyProfilePage} />
-          <Route path="/hipaa-audit" component={HIPAAAuditPage} />
+          <Route path="/hipaa-audit" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="HIPAA audit logs are restricted to administrators and supervisors." />;
+            }
+            return <HIPAAAuditPage />;
+          }} />
           <Route path="/admin-consent" component={() => {
             const { user } = useAuth();
-            // Check if user is admin or supervisor
-            if (isAdminOrSupervisor(user)) {
-              return <AdminConsentPage />;
+            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
+              return <AccessRestricted message="Privacy & consent management is restricted to administrators and supervisors." />;
             }
-            
-            return (
-              <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-sm border">
-                <div className="text-center">
-                  <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-                  <p className="text-gray-600 mb-4">
-                    This page is restricted to administrators and supervisors only.
-                  </p>
-                </div>
-              </div>
-            );
+            return <AdminConsentPage />;
           }} />
           <Route component={NotFound} />
         </Switch>
