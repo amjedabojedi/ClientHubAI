@@ -521,14 +521,22 @@ async function checkAssessmentEditPermission(
   return { allowed: true, assignment };
 }
 
+// Generate a professional client identifier for accountant view (e.g. CL-2026-0053)
+function formatClientCode(clientObj: any): string {
+  const year = clientObj.createdAt ? new Date(clientObj.createdAt).getFullYear() : new Date().getFullYear();
+  const paddedId = String(clientObj.id).padStart(4, '0');
+  return `CL-${year}-${paddedId}`;
+}
+
 // Helper to redact client data from any object for accountant role
 function redactClientData(clientObj: any): any {
   if (!clientObj) return clientObj;
+  const clientCode = formatClientCode(clientObj);
   return {
     ...clientObj,
-    fullName: `Client #${clientObj.id}`,
-    firstName: `Client`,
-    lastName: `#${clientObj.id}`,
+    fullName: clientCode,
+    firstName: clientCode,
+    lastName: '',
     email: undefined,
     phone: undefined,
     dateOfBirth: undefined,
@@ -568,7 +576,7 @@ function redactBillingClient(record: any): any {
   if (!record) return record;
   return {
     ...record,
-    clientName: record.clientId ? `Client #${record.clientId}` : record.clientName,
+    clientName: record.clientId ? `CL-${new Date().getFullYear()}-${String(record.clientId).padStart(4, '0')}` : record.clientName,
     client: redactClientData(record.client),
   };
 }

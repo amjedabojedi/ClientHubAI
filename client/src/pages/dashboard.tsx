@@ -454,7 +454,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Billing Summary - Admin/Supervisor/Accountant */}
-        {(user?.role === 'admin' || user?.role === 'supervisor' || isAccountantRole) && !isAccountantRole && (
+        {(user?.role === 'admin' || user?.role === 'supervisor' || isAccountantRole) && (
           <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setLocation("/billing")}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
