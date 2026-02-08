@@ -332,11 +332,14 @@ export default function SchedulingPage() {
 
   const allSessions = allSessionsData?.sessions || [];
 
-  // Fetch clients and therapists for dropdowns
+  const isAccountantRole = user?.role?.toLowerCase() === 'accountant';
+
+  // Fetch clients and therapists for dropdowns (skip for accountant - no client access)
   const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
     queryKey: ["/api/clients"],
     queryFn: getQueryFn({ on401: "throw" }),
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes - clients don't change often
+    staleTime: 5 * 60 * 1000,
+    enabled: !isAccountantRole,
   });
 
   const { data: therapists = [] } = useQuery<TherapistData[]>({
@@ -584,6 +587,11 @@ export default function SchedulingPage() {
     
     // Therapists can only see their own clients' names
     if (user?.role === 'therapist' && user?.id === session.therapistId) {
+      return session.client?.fullName || 'Unknown Client';
+    }
+    
+    // Accountant sees redacted client code (CL-YYYY-NNNN from backend)
+    if (isAccountantRole) {
       return session.client?.fullName || 'Unknown Client';
     }
     
@@ -1010,7 +1018,7 @@ export default function SchedulingPage() {
                   All Sessions
                 </Button>
               </div>
-              {user?.role !== 'therapist' && (
+              {user?.role !== 'therapist' && !isAccountantRole && (
                 <SessionBulkUploadModal
                   trigger={
                     <Button variant="outline">
@@ -1020,7 +1028,7 @@ export default function SchedulingPage() {
                   }
                 />
               )}
-              <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
+              {!isAccountantRole && <Dialog open={isNewSessionModalOpen} onOpenChange={(open) => {
                 setIsNewSessionModalOpen(open);
                 if (!open) {
                   // Reset form when modal is closed
@@ -1498,7 +1506,7 @@ export default function SchedulingPage() {
                     </form>
                   </Form>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </div>
         </div>

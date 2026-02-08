@@ -479,11 +479,14 @@ export default function BillingDashboard() {
       if (selectedClientType !== 'all') params.append('clientType', selectedClientType);
       
       // Role-based therapist filtering
-      if (user?.role !== 'admin' && user?.role !== 'administrator' && user?.id) {
+      // Admin and accountant can see all billing data and filter by therapist
+      if (user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'accountant') {
+        if (selectedTherapist !== 'all') {
+          params.append('therapistId', selectedTherapist);
+        }
+      } else if (user?.id) {
+        // Other roles (therapist, supervisor) see only their own data
         params.append('therapistId', user.id.toString());
-      } else if (selectedTherapist !== 'all') {
-        // Admin users can filter by specific therapist
-        params.append('therapistId', selectedTherapist);
       }
       
       if (params.toString()) {
@@ -917,7 +920,7 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            {(user?.role === 'admin' || user?.role === 'administrator') && (
+            {(user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'accountant') && (
               <div>
                 <Label htmlFor="therapist-filter">Therapist</Label>
                 <Select value={selectedTherapist} onValueChange={setSelectedTherapist}>
