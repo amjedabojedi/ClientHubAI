@@ -1807,8 +1807,8 @@ export default function SchedulingPage() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                  {/* Therapist filter - only for admin and supervisor roles */}
-                  {(user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'supervisor') && (
+                  {/* Therapist filter - for admin, supervisor, and accountant roles */}
+                  {(user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'supervisor' || isAccountantRole) && (
                     <div className="lg:flex-1 lg:min-w-48">
                       <label className="text-xs font-medium text-slate-700 mb-1 block">Therapist</label>
                       <Select 
