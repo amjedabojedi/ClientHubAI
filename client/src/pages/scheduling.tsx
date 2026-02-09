@@ -972,7 +972,7 @@ export default function SchedulingPage() {
                   className="w-64"
                 />
               </div>
-              {user?.role !== 'therapist' && (
+              {user?.role !== 'therapist' && viewMode !== 'list' && (
                 <SearchableSelect
                   value={selectedTherapist}
                   onValueChange={setSelectedTherapist}
