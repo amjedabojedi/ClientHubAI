@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { 
   Edit, User, MapPin, FileText, MoreVertical, AlertCircle, 
-  CalendarDays, CheckCircle, X, RotateCw, Video
+  CalendarDays, CheckCircle, X, RotateCw, Video, Trash2
 } from "lucide-react";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useLocation } from "wouter";
@@ -67,6 +67,7 @@ interface SessionCardProps {
   trackSessionViewed: (session: Session) => void;
   openEditSessionForm: (session: Session) => void;
   updateSessionStatus: (id: number, status: string) => void;
+  onDeleteSession?: (session: Session) => void;
 }
 
 export function SessionCard({
@@ -79,7 +80,8 @@ export function SessionCard({
   getSessionConflictStyle,
   trackSessionViewed,
   openEditSessionForm,
-  updateSessionStatus
+  updateSessionStatus,
+  onDeleteSession
 }: SessionCardProps) {
   const [, setLocation] = useLocation();
   const conflictInfo = getSessionConflictStyle(session);
@@ -206,6 +208,18 @@ export function SessionCard({
                 <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
                 Mark No-Show
               </DropdownMenuItem>
+              {onDeleteSession && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => onDeleteSession(session)}
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Session
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

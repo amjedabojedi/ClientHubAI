@@ -188,6 +188,8 @@ export default function SchedulingPage() {
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60); // Quick duration for preview
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState<boolean>(false); // Track conflict confirmation
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { addRecentSession } = useRecentItems();
@@ -564,6 +566,33 @@ export default function SchedulingPage() {
 
   const updateSessionStatus = (sessionId: number, status: string) => {
     updateSessionMutation.mutate({ sessionId, status });
+  };
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (sessionId: number) => {
+      await apiRequest("DELETE", `/api/sessions/${sessionId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
+      toast({ title: "Session deleted", description: "The session has been permanently deleted." });
+      setIsDeleteDialogOpen(false);
+      setSessionToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete session", variant: "destructive" });
+    },
+  });
+
+  const handleDeleteSession = (session: Session) => {
+    setSessionToDelete(session);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSession = () => {
+    if (sessionToDelete) {
+      deleteSessionMutation.mutate(sessionToDelete.id);
+    }
   };
 
   // Utility Functions
@@ -1936,6 +1965,7 @@ export default function SchedulingPage() {
                         trackSessionViewed={trackSessionViewed}
                         openEditSessionForm={openEditSessionForm}
                         updateSessionStatus={updateSessionStatus}
+                        onDeleteSession={!isAccountantRole ? handleDeleteSession : undefined}
                       />
                       ))}
                   </div>
@@ -2078,6 +2108,7 @@ export default function SchedulingPage() {
                             trackSessionViewed={trackSessionViewed}
                             openEditSessionForm={openEditSessionForm}
                             updateSessionStatus={updateSessionStatus}
+                            onDeleteSession={!isAccountantRole ? handleDeleteSession : undefined}
                           />
                         ))}
                     </div>
@@ -2088,6 +2119,57 @@ export default function SchedulingPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Session Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteDialogOpen(false);
+          setSessionToDelete(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="w-5 h-5" />
+              Delete Session
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-700 mb-4">
+              Are you sure you want to permanently delete this session? This action cannot be undone.
+            </p>
+            {sessionToDelete && (
+              <div className="bg-slate-50 border rounded-lg p-3 space-y-1 text-sm">
+                <p><strong>Client:</strong> {getDisplayClientName(sessionToDelete)}</p>
+                <p><strong>Therapist:</strong> {sessionToDelete.therapist?.fullName || 'N/A'}</p>
+                <p><strong>Date:</strong> {sessionToDelete.sessionDate ? format(new Date(sessionToDelete.sessionDate), 'MMM dd, yyyy') : 'N/A'}</p>
+                <p><strong>Status:</strong> {sessionToDelete.status}</p>
+              </div>
+            )}
+            <p className="text-xs text-red-500 mt-3">
+              All related billing records and session notes will also be deleted.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setSessionToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteSession}
+              disabled={deleteSessionMutation.isPending}
+            >
+              {deleteSessionMutation.isPending ? "Deleting..." : "Delete Session"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

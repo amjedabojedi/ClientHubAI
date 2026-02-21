@@ -44,7 +44,7 @@ function getChromiumExecutablePath(): string | undefined {
   // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
   return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -3708,6 +3708,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       // Error logged
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Delete a session - with related data cleanup in a transaction
+  app.delete("/api/sessions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+
+      const role = req.user.role?.toLowerCase();
+      const allowedRoles = ['admin', 'administrator', 'supervisor', 'therapist'];
+      if (!allowedRoles.includes(role)) {
+        return res.status(403).json({ message: "You do not have permission to delete sessions" });
+      }
+
+      // Single session lookup
+      const sessionResult = await db.select().from(sessions).where(eq(sessions.id, id));
+      if (!sessionResult || sessionResult.length === 0) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      const session = sessionResult[0];
+
+      // Therapists can only delete their own sessions
+      if (role === 'therapist' && session.therapistId !== req.user.id) {
+        return res.status(403).json({ message: "You can only delete your own sessions" });
+      }
+
+      // Transactional deletion of session and all related records
+      await db.transaction(async (tx) => {
+        await tx.delete(sessionBilling).where(eq(sessionBilling.sessionId, id));
+        await tx.delete(sessionNotes).where(eq(sessionNotes.sessionId, id));
+        await tx.delete(sessions).where(eq(sessions.id, id));
+      });
+
+      // Audit log (outside transaction - non-critical)
+      await storage.createAuditLog({
+        userId: req.user.id,
+        action: 'delete',
+        entityType: 'session',
+        entityId: id,
+        details: JSON.stringify({
+          sessionId: id,
+          clientId: session.clientId,
+          therapistId: session.therapistId,
+          sessionDate: session.sessionDate,
+          status: session.status,
+        }),
+        ipAddress,
+        userAgent,
+      });
+
+      res.json({ message: "Session deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      res.status(500).json({ message: "Failed to delete session" });
     }
   });
 
