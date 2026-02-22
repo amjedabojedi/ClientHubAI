@@ -3752,18 +3752,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Audit log (outside transaction - non-critical)
-      await storage.createAuditLog({
+      await AuditLogger.logAction({
         userId: req.user.id,
-        action: 'delete',
-        entityType: 'session',
-        entityId: id,
-        details: JSON.stringify({
-          sessionId: id,
-          clientId: session.clientId,
-          therapistId: session.therapistId,
-          sessionDate: session.sessionDate,
-          status: session.status,
-        }),
+        action: 'session_deleted',
+        result: 'success',
+        resourceType: 'session',
+        resourceId: id.toString(),
+        details: `Deleted session #${id} for client ${session.clientId} on ${session.sessionDate}`,
         ipAddress,
         userAgent,
       });
