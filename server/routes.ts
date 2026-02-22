@@ -9223,7 +9223,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Invoice Generation Routes
-  app.post("/api/clients/:clientId/invoice", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/clients/:clientId/invoice", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const clientId = parseInt(req.params.clientId);
       const { action, billingId } = req.body;
@@ -9890,9 +9890,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const billingId = parseInt(req.params.billingId);
       const { discountType, discountValue, discountAmount } = req.body;
       
-      // Authorization check: Allow administrators and billing roles
-      if (!['administrator', 'admin', 'billing'].includes(req.user?.role || '')) {
-        return res.status(403).json({ message: "Access denied. Only administrators and billing staff can apply discounts." });
+      // Authorization check: Allow administrators, supervisors, therapists, accountants, and billing roles
+      if (!['administrator', 'admin', 'supervisor', 'therapist', 'accountant', 'billing'].includes(req.user?.role || '')) {
+        return res.status(403).json({ message: "Access denied. Insufficient privileges to apply discounts." });
       }
       
       // Update the billing record with discount
