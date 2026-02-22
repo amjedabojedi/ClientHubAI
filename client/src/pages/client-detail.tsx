@@ -1047,6 +1047,8 @@ export default function ClientDetailPage() {
   const [selectedChecklistId, setSelectedChecklistId] = useState<number | null>(null);
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isEditSessionModalOpen, setIsEditSessionModalOpen] = useState(false);
+  const [isDeleteSessionDialogOpen, setIsDeleteSessionDialogOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [selectedSessionForModal, setSelectedSessionForModal] = useState<Session | null>(null);
   const [isFullEditModalOpen, setIsFullEditModalOpen] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
@@ -1124,6 +1126,42 @@ export default function ClientDetailPage() {
 
   const updateSessionStatus = (sessionId: number, status: string) => {
     updateSessionMutation.mutate({ sessionId, status });
+  };
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (sessionId: number) => {
+      await apiRequest(`/api/sessions/${sessionId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/sessions`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
+      const now = new Date();
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${now.getFullYear()}/${now.getMonth() + 1}/month`] });
+      toast({ title: "Session deleted", description: "The session has been permanently deleted." });
+      setIsDeleteSessionDialogOpen(false);
+      setSessionToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete session", variant: "destructive" });
+    },
+  });
+
+  const handleDeleteSession = (session: Session) => {
+    setSessionToDelete(session);
+    setIsDeleteSessionDialogOpen(true);
+  };
+
+  const confirmDeleteSession = () => {
+    if (sessionToDelete) {
+      deleteSessionMutation.mutate(sessionToDelete.id);
+    }
+  };
+
+  const canDeleteSession = (session: Session) => {
+    const role = user?.role;
+    if (role === 'admin' || role === 'administrator' || role === 'supervisor') return true;
+    if (role === 'therapist') return (session as any).therapistId === user?.id;
+    return false;
   };
 
   // Client Status Update Mutation (Close/Reopen File)
@@ -2992,6 +3030,33 @@ export default function ClientDetailPage() {
                                             <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
                                             Mark No-Show
                                           </DropdownMenuItem>
+                                          {canDeleteSession(session) && (
+                                            <>
+                                              <div className="border-t my-1"></div>
+                                              <DropdownMenuItem
+                                                className="text-red-600 focus:text-red-600"
+                                                onClick={() => handleDeleteSession(session)}
+                                              >
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                Delete Session
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                        </>
+                                      )}
+                                      {isNoteFinalized && canDeleteSession(session) && (
+                                        <>
+                                          <div className="border-t my-1"></div>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-slate-500">
+                                            Danger Zone
+                                          </div>
+                                          <DropdownMenuItem
+                                            className="text-red-600 focus:text-red-600"
+                                            onClick={() => handleDeleteSession(session)}
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete Session
+                                          </DropdownMenuItem>
                                         </>
                                       )}
                                     </>
@@ -4067,6 +4132,56 @@ export default function ClientDetailPage() {
         onClose={() => setIsDeleteDialogOpen(false)}
         onDeleteSuccess={handleDeleteSuccess}
       />
+
+      {/* Delete Session Confirmation Dialog */}
+      <Dialog open={isDeleteSessionDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteSessionDialogOpen(false);
+          setSessionToDelete(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="w-5 h-5" />
+              Delete Session
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-slate-700 mb-4">
+              Are you sure you want to permanently delete this session? This action cannot be undone.
+            </p>
+            {sessionToDelete && (
+              <div className="bg-slate-50 border rounded-lg p-3 space-y-1 text-sm">
+                <p><strong>Client:</strong> {client?.fullName}</p>
+                <p><strong>Date:</strong> {sessionToDelete.sessionDate ? format(new Date(sessionToDelete.sessionDate), 'MMM dd, yyyy') : 'N/A'}</p>
+                <p><strong>Status:</strong> {sessionToDelete.status}</p>
+              </div>
+            )}
+            <p className="text-xs text-red-500 mt-3">
+              All related billing records and session notes will also be deleted.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteSessionDialogOpen(false);
+                setSessionToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteSession}
+              disabled={deleteSessionMutation.isPending}
+            >
+              {deleteSessionMutation.isPending ? "Deleting..." : "Delete Session"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Upload Document Dialog */}
       <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
