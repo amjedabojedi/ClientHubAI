@@ -44,7 +44,7 @@ function getChromiumExecutablePath(): string | undefined {
   // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
   return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -3746,6 +3746,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.transaction(async (tx) => {
         await tx.delete(sessionBilling).where(eq(sessionBilling.sessionId, id));
         await tx.delete(sessionNotes).where(eq(sessionNotes.sessionId, id));
+        await tx.delete(scheduledNotifications).where(eq(scheduledNotifications.sessionId, id));
+        await tx.delete(roomBookings).where(eq(roomBookings.sessionId, id));
         await tx.delete(sessions).where(eq(sessions.id, id));
       });
 
