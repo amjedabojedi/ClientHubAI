@@ -9848,12 +9848,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(404).json({ message: "Billing record not found" });
       }
 
-      // Authorization check: Allow administrators or therapists assigned to the client
-      if (req.user?.role === 'administrator' || req.user?.role === 'admin') {
-        // Admins can record any payment
-      } else if (req.user?.role === 'therapist') {
+      // Authorization check: Allow administrators, supervisors, accountants, or therapists assigned to the client
+      const userRole = req.user?.role?.toLowerCase();
+      if (userRole === 'administrator' || userRole === 'admin' || userRole === 'supervisor') {
+        // Admins and supervisors can record any payment
+      } else if (userRole === 'accountant') {
+        // Accountants can record payments (billing access)
+      } else if (userRole === 'therapist') {
         // Therapists can only record payments for their assigned clients
-        if (invoiceData.client.assignedTherapistId !== req.user.id) {
+        if (invoiceData.client.assignedTherapistId !== req.user!.id) {
           return res.status(403).json({ message: "Access denied. You can only record payments for your assigned clients." });
         }
       } else {
