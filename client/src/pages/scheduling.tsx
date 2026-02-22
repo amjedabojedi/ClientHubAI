@@ -570,7 +570,7 @@ export default function SchedulingPage() {
 
   const deleteSessionMutation = useMutation({
     mutationFn: async (sessionId: number) => {
-      await apiRequest("DELETE", `/api/sessions/${sessionId}`);
+      await apiRequest(`/api/sessions/${sessionId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
