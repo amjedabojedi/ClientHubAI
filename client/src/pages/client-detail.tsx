@@ -1021,8 +1021,14 @@ export default function ClientDetailPage() {
   const [documentForm, setDocumentForm] = useState({
     name: '',
     category: 'uploaded',
-    description: ''
+    description: '',
+    requiresTherapistReview: false,
+    requiresSupervisorReview: false,
   });
+  const [docReviewFilter, setDocReviewFilter] = useState<string>('all');
+  const [reviewDialogDoc, setReviewDialogDoc] = useState<Document | null>(null);
+  const [reviewAction, setReviewAction] = useState<'reviewed' | 'rejected'>('reviewed');
+  const [reviewNotes, setReviewNotes] = useState('');
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(
@@ -1254,9 +1260,23 @@ export default function ClientDetailPage() {
     setDocumentForm({
       name: '',
       category: 'uploaded',
-      description: ''
+      description: '',
+      requiresTherapistReview: false,
+      requiresSupervisorReview: false,
     });
     setIsUploadDialogOpen(true);
+  };
+
+  const CLINICAL_CATEGORIES = ['referral', 'insurance', 'medical', 'assessment', 'legal', 'consent', 'authorization', 'lab', 'imaging', 'prescription'];
+
+  const handleCategoryChange = (value: string) => {
+    const isClinical = CLINICAL_CATEGORIES.includes(value);
+    setDocumentForm(prev => ({
+      ...prev,
+      category: value,
+      requiresTherapistReview: isClinical ? true : prev.requiresTherapistReview,
+      requiresSupervisorReview: isClinical && therapistSupervisors.length > 0 ? true : prev.requiresSupervisorReview,
+    }));
   };
 
   const handleFileSelect = (file: File) => {
@@ -1303,7 +1323,9 @@ export default function ClientDetailPage() {
           fileSize: selectedFile.size,
           category: documentForm.category,
           description: documentForm.description.trim(),
-          fileContent // Include actual file content
+          fileContent,
+          requiresTherapistReview: documentForm.requiresTherapistReview,
+          requiresSupervisorReview: documentForm.requiresSupervisorReview,
         });
       } catch (error) {
         toast({
@@ -1324,7 +1346,9 @@ export default function ClientDetailPage() {
     setDocumentForm({
       name: '',
       category: 'uploaded',
-      description: ''
+      description: '',
+      requiresTherapistReview: false,
+      requiresSupervisorReview: false,
     });
     setIsUploadDialogOpen(false);
   };
@@ -1535,6 +1559,8 @@ export default function ClientDetailPage() {
       category: string; 
       description?: string;
       fileContent?: string;
+      requiresTherapistReview?: boolean;
+      requiresSupervisorReview?: boolean;
     }) => {
       const response = await apiRequest(`/api/clients/${clientId}/documents`, "POST", {
         fileName: data.fileName,
@@ -1542,7 +1568,9 @@ export default function ClientDetailPage() {
         mimeType: data.fileType,
         fileSize: data.fileSize,
         category: data.category,
-        fileContent: data.fileContent // Include file content for server storage
+        fileContent: data.fileContent,
+        requiresTherapistReview: data.requiresTherapistReview,
+        requiresSupervisorReview: data.requiresSupervisorReview,
       });
       return await response.json();
     },
@@ -1561,6 +1589,23 @@ export default function ClientDetailPage() {
         description: `Failed to upload document: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
+    }
+  });
+
+  // Document review mutation
+  const reviewDocumentMutation = useMutation({
+    mutationFn: async ({ docId, action, notes }: { docId: number; action: 'reviewed' | 'rejected'; notes: string }) => {
+      const response = await apiRequest(`/api/clients/${clientId}/documents/${docId}/review`, 'PATCH', { action, reviewNotes: notes });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/documents`] });
+      toast({ title: "Document updated", description: `Document has been marked as ${reviewAction}.` });
+      setReviewDialogDoc(null);
+      setReviewNotes('');
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update document review status.", variant: "destructive" });
     }
   });
 
@@ -1818,6 +1863,17 @@ export default function ClientDetailPage() {
     queryKey: [`/api/clients/${clientId}/documents`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
+  });
+
+  const { data: therapistSupervisors = [] } = useQuery<User[]>({
+    queryKey: ['/api/users', user?.id, 'supervisors'],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/users/${user.id}/supervisors`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
   });
 
   const { data: billingRecords = [] } = useQuery<any[]>({
@@ -3605,83 +3661,134 @@ export default function ClientDetailPage() {
               </Button>
             </div>
 
+            {/* Review filter */}
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-slate-600">Filter:</Label>
+              {['all', 'pending_review', 'reviewed', 'rejected'].map(f => (
+                <Button
+                  key={f}
+                  variant={docReviewFilter === f ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDocReviewFilter(f)}
+                >
+                  {f === 'all' ? 'All' : f === 'pending_review' ? 'Pending Review' : f === 'reviewed' ? 'Reviewed' : 'Rejected'}
+                </Button>
+              ))}
+            </div>
+
             <Card>
               <CardContent className="p-6">
-                {documents.length > 0 ? (
-                  <div className="space-y-4">
-                    {documents.map((doc: Document) => (
-                      <div key={doc.id} className="flex items-center justify-between gap-4 border rounded-lg p-4">
-                        <div className="flex items-center space-x-3 min-w-0 flex-1">
-                          {doc.mimeType?.startsWith('image/') ? (
-                            <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
-                              <img 
-                                src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
-                                alt={doc.fileName}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  const sibling = e.currentTarget.nextElementSibling as HTMLElement;
-                                  if (sibling) sibling.classList.remove('hidden');
+                {(() => {
+                  const filtered = documents.filter((doc: any) => {
+                    if (docReviewFilter === 'all') return true;
+                    if (docReviewFilter === 'pending_review') return doc.reviewStatus === 'pending_review';
+                    if (docReviewFilter === 'reviewed') return doc.reviewStatus === 'reviewed';
+                    if (docReviewFilter === 'rejected') return doc.reviewStatus === 'rejected';
+                    return true;
+                  });
+                  return filtered.length > 0 ? (
+                    <div className="space-y-4">
+                      {filtered.map((doc: any) => (
+                        <div key={doc.id} className="flex items-center justify-between gap-4 border rounded-lg p-4">
+                          <div className="flex items-center space-x-3 min-w-0 flex-1">
+                            {doc.mimeType?.startsWith('image/') ? (
+                              <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
+                                <img 
+                                  src={`/api/clients/${clientId}/documents/${doc.id}/preview`} 
+                                  alt={doc.fileName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (sibling) sibling.classList.remove('hidden');
+                                  }}
+                                />
+                                <FolderOpen className="w-5 h-5 text-slate-400 hidden" />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 flex-shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                                <FolderOpen className="w-5 h-5 text-slate-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium text-slate-900 truncate">{doc.fileName}</p>
+                                {doc.reviewStatus === 'pending_review' && (
+                                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">Pending Review</Badge>
+                                )}
+                                {doc.reviewStatus === 'reviewed' && (
+                                  <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">Reviewed</Badge>
+                                )}
+                                {doc.reviewStatus === 'rejected' && (
+                                  <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Rejected</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-500">
+                                {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : ''} • 
+                                Uploaded {doc.createdAt ? formatDateDisplay(doc.createdAt) : 'Unknown date'}
+                              </p>
+                              {doc.reviewNotes && (
+                                <p className="text-xs text-slate-500 mt-1 italic">Note: {doc.reviewNotes}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={doc.isSharedInPortal || false}
+                                onCheckedChange={(checked) => {
+                                  toggleDocumentShare.mutate({ docId: doc.id, isShared: checked });
                                 }}
+                                data-testid={`switch-share-portal-${doc.id}`}
                               />
-                              <FolderOpen className="w-5 h-5 text-slate-400 hidden" />
+                              <Label className="text-sm cursor-pointer whitespace-nowrap">
+                                Share in Portal
+                              </Label>
                             </div>
-                          ) : (
-                            <div className="w-12 h-12 flex-shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
-                              <FolderOpen className="w-5 h-5 text-slate-400" />
+                            <div className="flex items-center gap-2">
+                              {doc.reviewStatus === 'pending_review' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-green-700 border-green-300 hover:bg-green-50"
+                                  onClick={() => { setReviewDialogDoc(doc); setReviewAction('reviewed'); setReviewNotes(''); }}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Mark Reviewed
+                                </Button>
+                              )}
+                              <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
+                              >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteDocument(doc)}
+                                disabled={deleteDocumentMutation.isPending}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-slate-900 truncate">{doc.fileName}</p>
-                            <p className="text-sm text-slate-500">
-                              {doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : ''} • 
-                              Uploaded {doc.createdAt ? formatDateDisplay(doc.createdAt) : 'Unknown date'}
-                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 flex-shrink-0">
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={doc.isSharedInPortal || false}
-                              onCheckedChange={(checked) => {
-                                toggleDocumentShare.mutate({ docId: doc.id, isShared: checked });
-                              }}
-                              data-testid={`switch-share-portal-${doc.id}`}
-                            />
-                            <Label className="text-sm cursor-pointer whitespace-nowrap">
-                              Share in Portal
-                            </Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Preview
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              Download
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleDeleteDocument(doc)}
-                              disabled={deleteDocumentMutation.isPending}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-600 text-center py-8">No documents uploaded yet.</p>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-600 text-center py-8">
+                      {docReviewFilter === 'all' ? 'No documents uploaded yet.' : `No ${docReviewFilter.replace('_', ' ')} documents.`}
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -4242,7 +4349,7 @@ export default function ClientDetailPage() {
                 </Label>
                 <SearchableSelect
                   value={documentForm.category}
-                  onValueChange={(value) => setDocumentForm(prev => ({ ...prev, category: value }))}
+                  onValueChange={handleCategoryChange}
                   disabled={uploadDocumentMutation.isPending}
                   placeholder="Search and select document type"
                   options={[
@@ -4286,6 +4393,34 @@ export default function ClientDetailPage() {
                   rows={3}
                 />
               </div>
+
+              {/* Review flags */}
+              <div className="space-y-2 border rounded-lg p-3 bg-amber-50 border-amber-200">
+                <p className="text-sm font-medium text-amber-800">Review Required?</p>
+                <p className="text-xs text-amber-700">Clinical documents are pre-selected. You can change this.</p>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="review-therapist"
+                    checked={documentForm.requiresTherapistReview}
+                    onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, requiresTherapistReview: !!checked }))}
+                    disabled={uploadDocumentMutation.isPending}
+                  />
+                  <Label htmlFor="review-therapist" className="text-sm cursor-pointer">Therapist must review this document</Label>
+                </div>
+                {therapistSupervisors.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="review-supervisor"
+                      checked={documentForm.requiresSupervisorReview}
+                      onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, requiresSupervisorReview: !!checked }))}
+                      disabled={uploadDocumentMutation.isPending}
+                    />
+                    <Label htmlFor="review-supervisor" className="text-sm cursor-pointer">
+                      Supervisor must review ({therapistSupervisors.map(s => s.fullName).join(', ')})
+                    </Label>
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* File Preview */}
@@ -4327,6 +4462,58 @@ export default function ClientDetailPage() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               {uploadDocumentMutation.isPending ? "Uploading..." : "Upload Document"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Review Dialog */}
+      <Dialog open={!!reviewDialogDoc} onOpenChange={(open) => { if (!open) { setReviewDialogDoc(null); setReviewNotes(''); } }}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Review Document</DialogTitle>
+            <DialogDescription>
+              {reviewDialogDoc?.fileName} — choose an action and optionally add notes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex gap-3">
+              <Button
+                variant={reviewAction === 'reviewed' ? 'default' : 'outline'}
+                className={reviewAction === 'reviewed' ? 'bg-green-600 hover:bg-green-700' : ''}
+                onClick={() => setReviewAction('reviewed')}
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Mark as Reviewed
+              </Button>
+              <Button
+                variant={reviewAction === 'rejected' ? 'destructive' : 'outline'}
+                onClick={() => setReviewAction('rejected')}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Reject
+              </Button>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Notes (optional)</Label>
+              <Textarea
+                placeholder="Add any notes about this review..."
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReviewDialogDoc(null); setReviewNotes(''); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => { if (reviewDialogDoc) reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: reviewAction, notes: reviewNotes }); }}
+              disabled={reviewDocumentMutation.isPending}
+              className={reviewAction === 'reviewed' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+            >
+              {reviewDocumentMutation.isPending ? 'Saving...' : reviewAction === 'reviewed' ? 'Confirm Review' : 'Confirm Rejection'}
             </Button>
           </DialogFooter>
         </DialogContent>

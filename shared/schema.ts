@@ -587,6 +587,12 @@ export const documents = pgTable("documents", {
   category: varchar("category", { length: 50 }).notNull(), // uploaded, shared, generated, forms, insurance
   isSharedInPortal: boolean("is_shared_in_portal").notNull().default(false),
   downloadCount: integer("download_count").notNull().default(0),
+  requiresTherapistReview: boolean("requires_therapist_review").notNull().default(false),
+  requiresSupervisorReview: boolean("requires_supervisor_review").notNull().default(false),
+  reviewStatus: varchar("review_status", { length: 20 }),
+  reviewedById: integer("reviewed_by_id").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   clientIdIdx: index("documents_client_id_idx").on(table.clientId),
@@ -1797,6 +1803,10 @@ export const insertNoteSchema = createInsertSchema(notes).omit({
 export const insertDocumentSchema = createInsertSchema(documents).omit({
   id: true,
   createdAt: true,
+  reviewedAt: true,
+  reviewedById: true,
+  reviewStatus: true,
+  reviewNotes: true,
 });
 
 export const insertSessionNoteSchema = createInsertSchema(sessionNotes).omit({

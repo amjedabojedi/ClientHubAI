@@ -4661,7 +4661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
 
       const clientId = parseInt(req.params.clientId);
-      const { fileContent, ...documentData } = req.body;
+      const { fileContent, requiresTherapistReview, requiresSupervisorReview, ...documentData } = req.body;
       
       // Get authenticated user from request
       const authenticatedUser = req.user;
@@ -4669,10 +4669,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required for document upload" });
       }
 
+      const needsReview = !!requiresTherapistReview || !!requiresSupervisorReview;
+
       const validatedData = insertDocumentSchema.parse({
         ...documentData,
         clientId,
-        uploadedById: authenticatedUser.id
+        uploadedById: authenticatedUser.id,
+        requiresTherapistReview: !!requiresTherapistReview,
+        requiresSupervisorReview: !!requiresSupervisorReview,
+        reviewStatus: needsReview ? 'pending_review' : null,
       });
 
       
@@ -4711,19 +4716,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get client data for notification
       const client = await storage.getClient(clientId);
       if (client) {
-        // Trigger document upload notification
-        const notificationData = {
+        const clientName = client.fullName;
+        const docName = document.originalName || document.fileName;
+        const actionUrl = `/clients/${clientId}?tab=documents`;
+
+        // Notify therapist if requested
+        if (requiresTherapistReview && client.assignedTherapistId) {
+          await storage.createNotification({
+            userId: client.assignedTherapistId,
+            type: 'document_review',
+            title: 'Document Needs Your Review',
+            message: `A new document "${docName}" has been uploaded for ${clientName} and requires your review.`,
+            priority: 'high',
+            actionUrl,
+            actionLabel: 'Review Document',
+            relatedEntityType: 'document',
+            relatedEntityId: document.id,
+          });
+        }
+
+        // Notify supervisor(s) if requested
+        if (requiresSupervisorReview && client.assignedTherapistId) {
+          const supervisorAssignment = await storage.getTherapistSupervisor(client.assignedTherapistId);
+          if (supervisorAssignment) {
+            await storage.createNotification({
+              userId: supervisorAssignment.supervisorId,
+              type: 'document_review',
+              title: 'Document Pending Supervisor Review',
+              message: `Document "${docName}" for ${clientName} requires your supervisor review.`,
+              priority: 'high',
+              actionUrl,
+              actionLabel: 'Review Document',
+              relatedEntityType: 'document',
+              relatedEntityId: document.id,
+            });
+          }
+        }
+
+        // Always fire the generic document_uploaded event for audit/history
+        await notificationService.processEvent('document_uploaded', {
           id: document.id,
           clientId: client.id,
-          clientName: client.fullName,
+          clientName,
           documentType: document.category || 'Document',
           documentId: document.id,
           assignedTherapistId: client.assignedTherapistId,
           uploadedBy: document.uploadedById,
           fileName: document.fileName
-        };
-
-        await notificationService.processEvent('document_uploaded', notificationData);
+        });
       }
       
       res.status(201).json(document);
@@ -4733,6 +4773,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Document upload error:', error);
       res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  // Review a document (mark as reviewed or rejected)
+  app.patch("/api/clients/:clientId/documents/:id/review", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const docId = parseInt(req.params.id);
+      const { action, reviewNotes } = req.body;
+      const userId = req.user?.id;
+
+      if (!userId) return res.status(401).json({ message: "Authentication required" });
+      if (!['reviewed', 'rejected'].includes(action)) {
+        return res.status(400).json({ message: "Action must be 'reviewed' or 'rejected'" });
+      }
+
+      const updated = await db
+        .update(documents)
+        .set({
+          reviewStatus: action,
+          reviewedById: userId,
+          reviewedAt: new Date(),
+          reviewNotes: reviewNotes || null,
+        })
+        .where(and(eq(documents.id, docId), eq(documents.clientId, clientId)))
+        .returning();
+
+      if (!updated.length) return res.status(404).json({ message: "Document not found" });
+
+      res.json(updated[0]);
+    } catch (error) {
+      console.error('Document review error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get supervisors assigned to a therapist
+  app.get("/api/users/:therapistId/supervisors", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const therapistId = parseInt(req.params.therapistId);
+      const assignment = await storage.getTherapistSupervisor(therapistId);
+      if (!assignment) return res.json([]);
+      const supervisor = await storage.getUser(assignment.supervisorId);
+      res.json(supervisor ? [supervisor] : []);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

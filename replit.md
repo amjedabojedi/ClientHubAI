@@ -35,6 +35,9 @@ Azure Blob Storage for scalable and compliant document storage, replacing previo
 ### Clinical Forms System
 A digital form system for informed consent, intake, ROI, and treatment agreements, including electronic signatures. Forms utilize `formTemplates` (with soft delete), `formFields` (supporting 8 types), `formAssignments` with status tracking, `formResponses` (encrypted in Phase 2), and `formSignatures` with audit trails.
 
+### Document Review Workflow
+When uploading a document, users can flag it for therapist review, supervisor review, or both. Clinical categories (referral, insurance, consent, lab, etc.) are auto-suggested for review. On upload, targeted in-app notifications and emails are sent only to flagged reviewers. Each document displays a Pending Review / Reviewed / Rejected status badge. A "Mark as Reviewed" button opens a dialog where reviewers choose Approve or Reject and add optional notes. A background job runs hourly to send 24-hour reminders for unreviewed documents. Supervisor assignments are pulled from the existing `supervisorAssignments` table.
+
 ### PDF Generation
 A dual strategy using browser print dialogs for user downloads and server-side Puppeteer for automated PDF generation (e.g., email attachments).
 

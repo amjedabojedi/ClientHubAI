@@ -11,6 +11,9 @@ import { optionalAuth, csrfProtection } from "./auth-middleware";
 import { storage } from "./storage";
 import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
+import { db } from "./db";
+import { documents, clients } from "@shared/schema";
+import { eq, and, isNotNull, lt, sql } from "drizzle-orm";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -177,7 +180,58 @@ process.on("SIGUSR2", () => gracefulShutdown("SIGUSR2")); // For nodemon
       log("Scheduled notification processor started (runs every 60 seconds)");
     } catch (cronError) {
       log(`Warning: Failed to start notification processor: ${cronError}`);
-      // Don't throw - allow app to start even if cron fails
+    }
+
+    // 24-hour reminder for unreviewed documents (runs every hour)
+    try {
+      setInterval(async () => {
+        try {
+          const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const pending = await db
+            .select({ doc: documents, client: clients })
+            .from(documents)
+            .innerJoin(clients, eq(documents.clientId, clients.id))
+            .where(and(eq(documents.reviewStatus, 'pending_review'), lt(documents.createdAt, cutoff)));
+
+          for (const { doc, client } of pending) {
+            const docName = doc.originalName || doc.fileName;
+            const actionUrl = `/clients/${client.id}?tab=documents`;
+            if (doc.requiresTherapistReview && client.assignedTherapistId) {
+              await storage.createNotification({
+                userId: client.assignedTherapistId,
+                type: 'document_review_reminder',
+                title: 'Document Still Awaiting Your Review',
+                message: `Reminder: "${docName}" for ${client.fullName} has been waiting for your review for over 24 hours.`,
+                priority: 'high',
+                actionUrl,
+                actionLabel: 'Review Now',
+                relatedEntityType: 'document',
+                relatedEntityId: doc.id,
+              });
+            }
+            if (doc.requiresSupervisorReview && client.assignedTherapistId) {
+              const supervisorAssignment = await storage.getTherapistSupervisor(client.assignedTherapistId);
+              if (supervisorAssignment) {
+                await storage.createNotification({
+                  userId: supervisorAssignment.supervisorId,
+                  type: 'document_review_reminder',
+                  title: 'Document Still Awaiting Supervisor Review',
+                  message: `Reminder: "${docName}" for ${client.fullName} has been waiting for your review for over 24 hours.`,
+                  priority: 'high',
+                  actionUrl,
+                  actionLabel: 'Review Now',
+                  relatedEntityType: 'document',
+                  relatedEntityId: doc.id,
+                });
+              }
+            }
+          }
+        } catch (err) {
+          console.error("[CRON] Error sending document review reminders:", err);
+        }
+      }, 60 * 60 * 1000); // Every hour
+    } catch (cronError) {
+      log(`Warning: Failed to start document review reminder: ${cronError}`);
     }
 
     log("Registering routes...");
