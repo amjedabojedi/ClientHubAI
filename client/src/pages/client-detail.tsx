@@ -1866,14 +1866,14 @@ export default function ClientDetailPage() {
   });
 
   const { data: therapistSupervisors = [] } = useQuery<User[]>({
-    queryKey: ['/api/users', user?.id, 'supervisors'],
+    queryKey: ['/api/users', client?.assignedTherapistId, 'supervisors'],
     queryFn: async () => {
-      if (!user?.id) return [];
-      const res = await fetch(`/api/users/${user.id}/supervisors`);
+      if (!client?.assignedTherapistId) return [];
+      const res = await fetch(`/api/users/${client.assignedTherapistId}/supervisors`);
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!user?.id,
+    enabled: !!client?.assignedTherapistId,
   });
 
   const { data: billingRecords = [] } = useQuery<any[]>({
@@ -4395,32 +4395,43 @@ export default function ClientDetailPage() {
               </div>
 
               {/* Review flags */}
-              <div className="space-y-2 border rounded-lg p-3 bg-amber-50 border-amber-200">
-                <p className="text-sm font-medium text-amber-800">Review Required?</p>
-                <p className="text-xs text-amber-700">Clinical documents are pre-selected. You can change this.</p>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="review-therapist"
-                    checked={documentForm.requiresTherapistReview}
-                    onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, requiresTherapistReview: !!checked }))}
-                    disabled={uploadDocumentMutation.isPending}
-                  />
-                  <Label htmlFor="review-therapist" className="text-sm cursor-pointer">Therapist must review this document</Label>
+              {client?.assignedTherapistId && (
+                <div className="space-y-2 border rounded-lg p-3 bg-amber-50 border-amber-200">
+                  <p className="text-sm font-medium text-amber-800">Send for Review?</p>
+                  <p className="text-xs text-amber-700">Clinical documents are pre-selected. You can change this.</p>
+                  {(() => {
+                    const assignedTherapist = therapists.find(t => t.id === client.assignedTherapistId);
+                    return (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="review-therapist"
+                            checked={documentForm.requiresTherapistReview}
+                            onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, requiresTherapistReview: !!checked }))}
+                            disabled={uploadDocumentMutation.isPending}
+                          />
+                          <Label htmlFor="review-therapist" className="text-sm cursor-pointer">
+                            Notify {assignedTherapist?.fullName || 'assigned therapist'} to review
+                          </Label>
+                        </div>
+                        {therapistSupervisors.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="review-supervisor"
+                              checked={documentForm.requiresSupervisorReview}
+                              onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, requiresSupervisorReview: !!checked }))}
+                              disabled={uploadDocumentMutation.isPending}
+                            />
+                            <Label htmlFor="review-supervisor" className="text-sm cursor-pointer">
+                              Notify {therapistSupervisors.map(s => s.fullName).join(', ')} (supervisor) to review
+                            </Label>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
-                {therapistSupervisors.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="review-supervisor"
-                      checked={documentForm.requiresSupervisorReview}
-                      onCheckedChange={(checked) => setDocumentForm(prev => ({ ...prev, requiresSupervisorReview: !!checked }))}
-                      disabled={uploadDocumentMutation.isPending}
-                    />
-                    <Label htmlFor="review-supervisor" className="text-sm cursor-pointer">
-                      Supervisor must review ({therapistSupervisors.map(s => s.fullName).join(', ')})
-                    </Label>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
             
             {/* File Preview */}
