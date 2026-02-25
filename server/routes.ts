@@ -5514,7 +5514,6 @@ You can download a copy if you have it saved locally and re-upload it.`;
       res.status(201).json(sanitizeUser(user));
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
       }
       
@@ -5526,10 +5525,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         if (error.constraint === 'users_username_unique') {
           return res.status(400).json({ message: "Username already exists. Please choose a different username." });
         }
+        return res.status(400).json({ message: "A user with these details already exists." });
       }
       
-
-      res.status(500).json({ message: "Failed to create user. Please try again." });
+      console.error('Create user error:', error?.message || error);
+      res.status(500).json({ message: error?.message || "Failed to create user. Please try again." });
     }
   });
 
