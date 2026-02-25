@@ -523,11 +523,13 @@ async function checkAssessmentEditPermission(
 
 // Format client name for accountant view: first name + last initial (e.g. "John D.")
 function formatClientInitial(clientObj: any): string {
-  const first = (clientObj.firstName || '').trim();
-  const last = (clientObj.lastName || '').trim();
-  if (!first && !last) return 'Client';
-  if (!last) return first;
-  return `${first} ${last.charAt(0).toUpperCase()}.`;
+  const full = (clientObj.fullName || clientObj.firstName || '').trim();
+  if (!full) return 'Unknown';
+  const parts = full.split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  const first = parts[0];
+  const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+  return `${first} ${lastInitial}.`;
 }
 
 // Helper to redact client data from any object for accountant role
