@@ -1805,7 +1805,6 @@ export const insertDocumentSchema = createInsertSchema(documents).omit({
   createdAt: true,
   reviewedAt: true,
   reviewedById: true,
-  reviewStatus: true,
   reviewNotes: true,
 });
 

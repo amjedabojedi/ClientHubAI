@@ -44,6 +44,23 @@ export const NOTIFICATION_TRIGGER_SEEDS = [
     isActive: true
   },
   {
+    name: "Document Uploaded Notification",
+    description: "Notify assigned therapist when a new document is added to a client file",
+    eventType: "document_uploaded",
+    entityType: "document",
+    conditionRules: "{}",
+    recipientRules: JSON.stringify({
+      assignedTherapist: true,
+      roles: ["administrator"]
+    }),
+    templateId: null,
+    priority: "medium",
+    delayMinutes: 0,
+    batchWindowMinutes: null,
+    maxBatchSize: null,
+    isActive: true
+  },
+  {
     name: "Session 24hr Advance Reminder",
     description: "Remind client 24 hours before their session",
     eventType: "session_scheduled",
