@@ -5154,7 +5154,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       // Get document info from database
       const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      const document = documents.find(doc => Number(doc.id) === id);
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
@@ -5348,7 +5348,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       // Get document info before deleting from database
       const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      const document = documents.find(doc => Number(doc.id) === id);
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
@@ -5407,7 +5407,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Get all documents for this client and find the specific one
       const documents = await storage.getDocumentsByClient(clientId);
-      const document = documents.find(doc => doc.id === id);
+      const document = documents.find(doc => Number(doc.id) === id);
       
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
