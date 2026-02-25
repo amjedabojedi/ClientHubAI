@@ -47,6 +47,7 @@ import {
   CheckSquare, 
   ChevronDown,
   Clock,
+  ClipboardCheck,
   ClipboardList, 
   CreditCard, 
   Download, 
@@ -1025,10 +1026,11 @@ export default function ClientDetailPage() {
     requiresTherapistReview: false,
     requiresSupervisorReview: false,
   });
-  const [docReviewFilter, setDocReviewFilter] = useState<string>('all');
+  const [docReviewFilter, setDocReviewFilter] = useState<string>(initialTab === 'documents' ? 'pending_review' : 'all');
   const [reviewDialogDoc, setReviewDialogDoc] = useState<Document | null>(null);
   const [reviewAction, setReviewAction] = useState<'reviewed' | 'rejected'>('reviewed');
   const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewChecklist, setReviewChecklist] = useState<Record<string, boolean>>({});
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [preSelectedSessionId, setPreSelectedSessionId] = useState<number | null>(
@@ -3661,6 +3663,37 @@ export default function ClientDetailPage() {
               </Button>
             </div>
 
+            {/* Pending review alert banner */}
+            {(() => {
+              const pendingDocs = documents.filter((d: any) => d.reviewStatus === 'pending_review');
+              if (pendingDocs.length === 0) return null;
+              return (
+                <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-lg p-4">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-amber-800">
+                      {pendingDocs.length} document{pendingDocs.length > 1 ? 's' : ''} waiting for your review
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {pendingDocs.map((d: any) => (
+                        <li key={d.id} className="text-sm text-amber-700 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                          <span className="font-medium">{d.originalName || d.fileName}</span>
+                          <span className="text-amber-600 text-xs">— uploaded {d.createdAt ? formatDateDisplay(d.createdAt) : ''}</span>
+                          <button
+                            className="ml-1 text-xs underline text-amber-800 hover:text-amber-900 font-semibold"
+                            onClick={() => { setReviewDialogDoc(d); setReviewAction('reviewed'); setReviewNotes(''); setReviewChecklist({}); }}
+                          >
+                            Review now →
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Review filter */}
             <div className="flex items-center gap-2">
               <Label className="text-sm text-slate-600">Filter:</Label>
@@ -3689,7 +3722,7 @@ export default function ClientDetailPage() {
                   return filtered.length > 0 ? (
                     <div className="space-y-4">
                       {filtered.map((doc: any) => (
-                        <div key={doc.id} className="flex items-center justify-between gap-4 border rounded-lg p-4">
+                        <div key={doc.id} className={`flex items-center justify-between gap-4 border rounded-lg p-4 ${doc.reviewStatus === 'pending_review' ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : ''}`}>
                           <div className="flex items-center space-x-3 min-w-0 flex-1">
                             {doc.mimeType?.startsWith('image/') ? (
                               <div className="w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -3748,13 +3781,13 @@ export default function ClientDetailPage() {
                             <div className="flex items-center gap-2">
                               {doc.reviewStatus === 'pending_review' && (
                                 <Button
-                                  variant="outline"
+                                  variant="default"
                                   size="sm"
-                                  className="text-green-700 border-green-300 hover:bg-green-50"
-                                  onClick={() => { setReviewDialogDoc(doc); setReviewAction('reviewed'); setReviewNotes(''); }}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                                  onClick={() => { setReviewDialogDoc(doc); setReviewAction('reviewed'); setReviewNotes(''); setReviewChecklist({}); }}
                                 >
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Mark Reviewed
+                                  <ClipboardCheck className="w-4 h-4 mr-1" />
+                                  Review Now
                                 </Button>
                               )}
                               <Button variant="outline" size="sm" onClick={() => handlePreviewDocument(doc)}>
@@ -4479,52 +4512,110 @@ export default function ClientDetailPage() {
       </Dialog>
 
       {/* Document Review Dialog */}
-      <Dialog open={!!reviewDialogDoc} onOpenChange={(open) => { if (!open) { setReviewDialogDoc(null); setReviewNotes(''); } }}>
-        <DialogContent className="sm:max-w-[480px]">
+      <Dialog open={!!reviewDialogDoc} onOpenChange={(open) => { if (!open) { setReviewDialogDoc(null); setReviewNotes(''); setReviewChecklist({}); } }}>
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Review Document</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-amber-600" />
+              Document Review
+            </DialogTitle>
             <DialogDescription>
-              {reviewDialogDoc?.fileName} — choose an action and optionally add notes.
+              Complete the checklist below before approving or rejecting this document.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex gap-3">
-              <Button
-                variant={reviewAction === 'reviewed' ? 'default' : 'outline'}
-                className={reviewAction === 'reviewed' ? 'bg-green-600 hover:bg-green-700' : ''}
-                onClick={() => setReviewAction('reviewed')}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Mark as Reviewed
-              </Button>
-              <Button
-                variant={reviewAction === 'rejected' ? 'destructive' : 'outline'}
-                onClick={() => setReviewAction('rejected')}
-              >
-                <X className="w-4 h-4 mr-2" />
-                Reject
-              </Button>
+
+          {/* Document info */}
+          <div className="bg-slate-50 border rounded-lg p-3 space-y-1">
+            <p className="font-semibold text-slate-900 text-sm">{reviewDialogDoc?.originalName || reviewDialogDoc?.fileName}</p>
+            <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+              <span>Category: <span className="font-medium text-slate-700">{reviewDialogDoc?.category || 'Uncategorized'}</span></span>
+              <span>Size: <span className="font-medium text-slate-700">{reviewDialogDoc?.fileSize ? `${Math.round(reviewDialogDoc.fileSize / 1024)} KB` : '—'}</span></span>
+              <span>Uploaded: <span className="font-medium text-slate-700">{reviewDialogDoc?.createdAt ? formatDateDisplay(reviewDialogDoc.createdAt) : '—'}</span></span>
             </div>
-            <div className="space-y-1">
-              <Label className="text-sm">Notes (optional)</Label>
-              <Textarea
-                placeholder="Add any notes about this review..."
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                rows={3}
-              />
+            <div className="flex gap-2 pt-1">
+              <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => reviewDialogDoc && window.open(`/api/clients/${clientId}/documents/${reviewDialogDoc.id}/download`, '_blank')}>
+                <Download className="w-3 h-3 mr-1" /> Download to review
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (reviewDialogDoc) { setPreviewDocument(reviewDialogDoc); setIsPreviewDialogOpen(true); } }}>
+                <Eye className="w-3 h-3 mr-1" /> Preview
+              </Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setReviewDialogDoc(null); setReviewNotes(''); }}>
+
+          {/* Medical best-practice checklist */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-slate-800">Review Checklist <span className="text-xs font-normal text-slate-500">(all items required to approve)</span></p>
+            {[
+              { id: 'type',      label: 'Document type is correctly identified (e.g. referral, lab result, consent, insurance)' },
+              { id: 'client',    label: "Client name or ID in the document matches this client's file" },
+              { id: 'date',      label: 'Date of document is present and legible' },
+              { id: 'signature', label: 'Signature or authorization is verified (if applicable)' },
+              { id: 'complete',  label: 'Document is legible and complete — no missing pages or cut-off text' },
+              { id: 'sensitive', label: 'Sensitive information noted: insurance details, diagnosis codes, medications' },
+              { id: 'category',  label: 'Document is filed under the correct category' },
+            ].map(item => (
+              <div key={item.id} className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer transition-colors ${reviewChecklist[item.id] ? 'bg-green-50 border-green-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}
+                onClick={() => setReviewChecklist(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+              >
+                <Checkbox
+                  checked={!!reviewChecklist[item.id]}
+                  onCheckedChange={(checked) => setReviewChecklist(prev => ({ ...prev, [item.id]: !!checked }))}
+                  onClick={e => e.stopPropagation()}
+                  className="mt-0.5"
+                />
+                <Label className={`text-sm cursor-pointer leading-snug ${reviewChecklist[item.id] ? 'text-green-800' : 'text-slate-700'}`}>
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+            {(() => {
+              const total = 7;
+              const done = Object.values(reviewChecklist).filter(Boolean).length;
+              return (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-green-500 h-1.5 rounded-full transition-all" style={{ width: `${(done / total) * 100}%` }} />
+                  </div>
+                  <span className="text-xs text-slate-500">{done}/{total} checked</span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1">
+            <Label className="text-sm font-medium">Review Notes <span className="text-slate-400 font-normal">(optional for approve, required for reject)</span></Label>
+            <Textarea
+              placeholder="Add notes about this document review..."
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          <DialogFooter className="flex gap-2 flex-wrap sm:flex-nowrap">
+            <Button variant="outline" onClick={() => { setReviewDialogDoc(null); setReviewNotes(''); setReviewChecklist({}); }}>
               Cancel
             </Button>
             <Button
-              onClick={() => { if (reviewDialogDoc) reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: reviewAction, notes: reviewNotes }); }}
-              disabled={reviewDocumentMutation.isPending}
-              className={reviewAction === 'reviewed' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+              variant="destructive"
+              disabled={reviewDocumentMutation.isPending || !reviewNotes.trim()}
+              onClick={() => { if (reviewDialogDoc) { setReviewAction('rejected'); reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: 'rejected', notes: reviewNotes }); } }}
             >
-              {reviewDocumentMutation.isPending ? 'Saving...' : reviewAction === 'reviewed' ? 'Confirm Review' : 'Confirm Rejection'}
+              <X className="w-4 h-4 mr-2" />
+              Reject
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              disabled={reviewDocumentMutation.isPending || Object.values(reviewChecklist).filter(Boolean).length < 7}
+              onClick={() => { if (reviewDialogDoc) { setReviewAction('reviewed'); reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: 'reviewed', notes: reviewNotes }); } }}
+            >
+              {reviewDocumentMutation.isPending ? 'Saving...' : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {Object.values(reviewChecklist).filter(Boolean).length < 7 ? `Approve (${Object.values(reviewChecklist).filter(Boolean).length}/7 checked)` : 'Approve Document'}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
