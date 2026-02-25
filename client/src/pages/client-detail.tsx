@@ -4517,10 +4517,10 @@ export default function ClientDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="w-5 h-5 text-amber-600" />
-              Document Review
+              Review Document
             </DialogTitle>
             <DialogDescription>
-              Complete the checklist below before approving or rejecting this document.
+              Review the document then approve or reject it.
             </DialogDescription>
           </DialogHeader>
 
@@ -4534,7 +4534,7 @@ export default function ClientDetailPage() {
             </div>
             <div className="flex gap-2 pt-1">
               <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => reviewDialogDoc && window.open(`/api/clients/${clientId}/documents/${reviewDialogDoc.id}/download`, '_blank')}>
-                <Download className="w-3 h-3 mr-1" /> Download to review
+                <Download className="w-3 h-3 mr-1" /> Download
               </Button>
               <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (reviewDialogDoc) { setPreviewDocument(reviewDialogDoc); setIsPreviewDialogOpen(true); } }}>
                 <Eye className="w-3 h-3 mr-1" /> Preview
@@ -4542,51 +4542,11 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Medical best-practice checklist */}
-          <div className="space-y-3">
-            <p className="text-sm font-semibold text-slate-800">Review Checklist <span className="text-xs font-normal text-slate-500">(all items required to approve)</span></p>
-            {[
-              { id: 'type',      label: 'Document type is correctly identified (e.g. referral, lab result, consent, insurance)' },
-              { id: 'client',    label: "Client name or ID in the document matches this client's file" },
-              { id: 'date',      label: 'Date of document is present and legible' },
-              { id: 'signature', label: 'Signature or authorization is verified (if applicable)' },
-              { id: 'complete',  label: 'Document is legible and complete — no missing pages or cut-off text' },
-              { id: 'sensitive', label: 'Sensitive information noted: insurance details, diagnosis codes, medications' },
-              { id: 'category',  label: 'Document is filed under the correct category' },
-            ].map(item => (
-              <div key={item.id} className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer transition-colors ${reviewChecklist[item.id] ? 'bg-green-50 border-green-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}
-                onClick={() => setReviewChecklist(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
-              >
-                <Checkbox
-                  checked={!!reviewChecklist[item.id]}
-                  onCheckedChange={(checked) => setReviewChecklist(prev => ({ ...prev, [item.id]: !!checked }))}
-                  onClick={e => e.stopPropagation()}
-                  className="mt-0.5"
-                />
-                <Label className={`text-sm cursor-pointer leading-snug ${reviewChecklist[item.id] ? 'text-green-800' : 'text-slate-700'}`}>
-                  {item.label}
-                </Label>
-              </div>
-            ))}
-            {(() => {
-              const total = 7;
-              const done = Object.values(reviewChecklist).filter(Boolean).length;
-              return (
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-slate-200 rounded-full h-1.5">
-                    <div className="bg-green-500 h-1.5 rounded-full transition-all" style={{ width: `${(done / total) * 100}%` }} />
-                  </div>
-                  <span className="text-xs text-slate-500">{done}/{total} checked</span>
-                </div>
-              );
-            })()}
-          </div>
-
           {/* Notes */}
           <div className="space-y-1">
-            <Label className="text-sm font-medium">Review Notes <span className="text-slate-400 font-normal">(optional for approve, required for reject)</span></Label>
+            <Label className="text-sm font-medium">Notes <span className="text-slate-400 font-normal">(optional)</span></Label>
             <Textarea
-              placeholder="Add notes about this document review..."
+              placeholder="Add any notes about this review..."
               value={reviewNotes}
               onChange={(e) => setReviewNotes(e.target.value)}
               rows={3}
@@ -4599,7 +4559,7 @@ export default function ClientDetailPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={reviewDocumentMutation.isPending || !reviewNotes.trim()}
+              disabled={reviewDocumentMutation.isPending}
               onClick={() => { if (reviewDialogDoc) { setReviewAction('rejected'); reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: 'rejected', notes: reviewNotes }); } }}
             >
               <X className="w-4 h-4 mr-2" />
@@ -4607,13 +4567,13 @@ export default function ClientDetailPage() {
             </Button>
             <Button
               className="bg-green-600 hover:bg-green-700"
-              disabled={reviewDocumentMutation.isPending || Object.values(reviewChecklist).filter(Boolean).length < 7}
+              disabled={reviewDocumentMutation.isPending}
               onClick={() => { if (reviewDialogDoc) { setReviewAction('reviewed'); reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: 'reviewed', notes: reviewNotes }); } }}
             >
               {reviewDocumentMutation.isPending ? 'Saving...' : (
                 <>
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  {Object.values(reviewChecklist).filter(Boolean).length < 7 ? `Approve (${Object.values(reviewChecklist).filter(Boolean).length}/7 checked)` : 'Approve Document'}
+                  Approve
                 </>
               )}
             </Button>
