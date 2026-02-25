@@ -4781,13 +4781,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const clientId = parseInt(req.params.clientId);
       const docId = parseInt(req.params.id);
-      const { action, reviewNotes } = req.body;
+      const { action, reviewNotes, reviewChecklist } = req.body;
       const userId = req.user?.id;
 
       if (!userId) return res.status(401).json({ message: "Authentication required" });
       if (!['reviewed', 'rejected'].includes(action)) {
         return res.status(400).json({ message: "Action must be 'reviewed' or 'rejected'" });
       }
+
+      const existing = await db.select().from(documents).where(and(eq(documents.id, docId), eq(documents.clientId, clientId))).limit(1);
+      if (!existing.length) return res.status(404).json({ message: "Document not found" });
+      const previousStatus = existing[0].reviewStatus;
 
       const updated = await db
         .update(documents)
@@ -4796,11 +4800,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reviewedById: userId,
           reviewedAt: new Date(),
           reviewNotes: reviewNotes || null,
+          reviewChecklist: reviewChecklist || null,
         })
         .where(and(eq(documents.id, docId), eq(documents.clientId, clientId)))
         .returning();
 
       if (!updated.length) return res.status(404).json({ message: "Document not found" });
+
+      const reviewer = await db.select({ username: users.username }).from(users).where(eq(users.id, userId)).limit(1);
+      const reviewerName = reviewer[0]?.username || 'unknown';
+
+      await db.insert(auditLogs).values({
+        userId,
+        username: reviewerName,
+        action: action === 'reviewed' ? 'document_approved' : 'document_rejected',
+        result: 'success',
+        resourceType: 'document',
+        resourceId: String(docId),
+        clientId,
+        details: JSON.stringify({
+          documentName: existing[0].originalName || existing[0].fileName,
+          previousStatus,
+          newStatus: action,
+          reviewNotes: reviewNotes || null,
+          checklistCompleted: reviewChecklist ? Object.values(reviewChecklist as Record<string, boolean>).every(Boolean) : false,
+          checklistItems: reviewChecklist || null,
+        }),
+        ipAddress: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+        riskLevel: 'low',
+        hipaaRelevant: true,
+      });
 
       res.json(updated[0]);
     } catch (error) {

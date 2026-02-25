@@ -30,7 +30,8 @@ import {
   Edit3,
   HelpCircle,
   ChevronDown,
-  BookOpen
+  BookOpen,
+  Shield
 } from "lucide-react";
 
 // Utils & Types
@@ -288,9 +289,29 @@ export default function DashboardPage() {
       <div className="w-full">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Practice Dashboard</h1>
-          <p className="text-slate-600 mt-1">Overview of your therapy practice management system</p>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {user?.role === 'supervisor' ? 'Supervisor Dashboard' : 'Practice Dashboard'}
+          </h1>
+          <p className="text-slate-600 mt-1">
+            {user?.role === 'supervisor'
+              ? 'Viewing clients and sessions for therapists you supervise'
+              : 'Overview of your therapy practice management system'}
+          </p>
         </div>
+
+        {/* Supervisor context banner */}
+        {user?.role === 'supervisor' && (
+          <div className="mb-6 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-blue-800 text-sm">You are logged in as a Supervisor</p>
+              <p className="text-blue-700 text-sm mt-0.5">
+                All stats, clients, and sessions shown here belong only to therapists assigned to you.
+                To manage your therapist assignments, go to <strong>Administration → User Profiles → Supervision</strong>.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Help Section */}
         <Collapsible

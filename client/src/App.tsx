@@ -127,8 +127,24 @@ function Navigation() {
       { path: "/tasks", label: "Tasks", icon: CheckSquare },
     );
 
-    // Only show Administration menu to supervisors and admins (not accountant)
-    if (isAdminOrSupervisor(user)) {
+    // Supervisor: limited Administration menu (clinical tools only, no system admin)
+    if (user?.role?.toLowerCase() === 'supervisor') {
+      baseItems.push({
+        path: "/administration",
+        label: "Administration",
+        icon: Cog,
+        submenu: [
+          { path: "/library", label: "Library", icon: BookOpen },
+          { path: "/assessments", label: "Assessments", icon: ClipboardList },
+          { path: "/forms-management", label: "Clinical Forms", icon: ClipboardCheck },
+          { path: "/checklist-management", label: "Process Checklists", icon: FileText },
+          { path: "/user-profiles", label: "User Profiles", icon: UserCheck },
+        ]
+      });
+    }
+
+    // Admin only: full Administration menu
+    if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'administrator') {
       baseItems.push({
         path: "/administration", 
         label: "Administration", 

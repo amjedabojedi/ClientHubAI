@@ -12,7 +12,8 @@ import {
   uuid,
   index,
   unique,
-  uniqueIndex
+  uniqueIndex,
+  jsonb
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -593,6 +594,7 @@ export const documents = pgTable("documents", {
   reviewedById: integer("reviewed_by_id").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
   reviewNotes: text("review_notes"),
+  reviewChecklist: jsonb("review_checklist"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   clientIdIdx: index("documents_client_id_idx").on(table.clientId),
