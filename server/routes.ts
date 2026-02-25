@@ -521,21 +521,23 @@ async function checkAssessmentEditPermission(
   return { allowed: true, assignment };
 }
 
-// Generate a professional client identifier for accountant view (e.g. CL-2026-0053)
-function formatClientCode(clientObj: any): string {
-  const year = clientObj.createdAt ? new Date(clientObj.createdAt).getFullYear() : new Date().getFullYear();
-  const paddedId = String(clientObj.id).padStart(4, '0');
-  return `CL-${year}-${paddedId}`;
+// Format client name for accountant view: first name + last initial (e.g. "John D.")
+function formatClientInitial(clientObj: any): string {
+  const first = (clientObj.firstName || '').trim();
+  const last = (clientObj.lastName || '').trim();
+  if (!first && !last) return 'Client';
+  if (!last) return first;
+  return `${first} ${last.charAt(0).toUpperCase()}.`;
 }
 
 // Helper to redact client data from any object for accountant role
 function redactClientData(clientObj: any): any {
   if (!clientObj) return clientObj;
-  const clientCode = formatClientCode(clientObj);
+  const displayName = formatClientInitial(clientObj);
   return {
     ...clientObj,
-    fullName: clientCode,
-    firstName: clientCode,
+    fullName: displayName,
+    firstName: displayName,
     lastName: '',
     email: undefined,
     phone: undefined,
@@ -576,7 +578,7 @@ function redactBillingClient(record: any): any {
   if (!record) return record;
   return {
     ...record,
-    clientName: record.clientId ? `CL-${new Date().getFullYear()}-${String(record.clientId).padStart(4, '0')}` : record.clientName,
+    clientName: record.client ? formatClientInitial(record.client) : record.clientName,
     client: redactClientData(record.client),
   };
 }
