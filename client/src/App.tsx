@@ -61,6 +61,13 @@ function isAdminOrSupervisor(user: any): boolean {
   return ['administrator', 'admin', 'supervisor'].includes(normalizedRole);
 }
 
+// Admin-only check (excludes supervisors)
+function isAdminOnly(user: any): boolean {
+  if (!user?.role) return false;
+  const normalizedRole = user.role.toLowerCase().trim();
+  return ['administrator', 'admin'].includes(normalizedRole);
+}
+
 function isAccountant(user: any): boolean {
   if (!user?.role) return false;
   return user.role.toLowerCase().trim() === 'accountant';
@@ -407,44 +414,44 @@ function Router() {
           }} />
           <Route path="/role-management" component={() => {
             const { user } = useAuth();
-            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
-              return <AccessRestricted message="Role management is restricted to administrators and supervisors." />;
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Role management is restricted to administrators only." />;
             }
             return <RoleManagementPage />;
           }} />
           <Route path="/duplicate-detection" component={() => {
             const { user } = useAuth();
-            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
-              return <AccessRestricted message="Duplicate detection is restricted to administrators and supervisors." />;
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Duplicate detection is restricted to administrators only." />;
             }
             return <DuplicateDetectionPage />;
           }} />
           <Route path="/notifications" component={() => {
             const { user } = useAuth();
-            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
-              return <AccessRestricted message="Notification management is restricted to administrators and supervisors." />;
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Notification management is restricted to administrators only." />;
             }
             return <NotificationsPage />;
           }} />
           <Route path="/settings" component={() => {
             const { user } = useAuth();
-            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
-              return <AccessRestricted message="Settings management is restricted to administrators and supervisors." />;
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Settings management is restricted to administrators only." />;
             }
             return <SettingsPage />;
           }} />
           <Route path="/my-profile" component={MyProfilePage} />
           <Route path="/hipaa-audit" component={() => {
             const { user } = useAuth();
-            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
-              return <AccessRestricted message="HIPAA audit logs are restricted to administrators and supervisors." />;
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="HIPAA audit logs are restricted to administrators only." />;
             }
             return <HIPAAAuditPage />;
           }} />
           <Route path="/admin-consent" component={() => {
             const { user } = useAuth();
-            if (isAccountant(user) || !isAdminOrSupervisor(user)) {
-              return <AccessRestricted message="Privacy & consent management is restricted to administrators and supervisors." />;
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Privacy & consent management is restricted to administrators only." />;
             }
             return <AdminConsentPage />;
           }} />

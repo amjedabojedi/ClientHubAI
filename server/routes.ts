@@ -3838,6 +3838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         therapistId = req.user.id;
       } else if (req.user.role === "supervisor") {
         const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        if (supervisorAssignments.length === 0) return res.json([]);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -3912,6 +3913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         therapistId = req.user.id;
       } else if (req.user.role === "supervisor") {
         const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        if (supervisorAssignments.length === 0) return res.json([]);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -4179,6 +4181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         therapistId = req.user.id;
       } else if (req.user.role === "supervisor") {
         const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        if (supervisorAssignments.length === 0) return res.json({ total: 0, pending: 0, inProgress: 0, completed: 0, overdue: 0 });
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -4206,6 +4209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         therapistId = req.user.id;
       } else if (req.user.role === "supervisor" || req.user.role === "clinical_supervisor") {
         const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        if (supervisorAssignments.length === 0) return res.json([]);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
@@ -4239,6 +4243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         therapistId = req.user.id;
       } else if (req.user.role === "supervisor") {
         const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        if (supervisorAssignments.length === 0) return res.json([]);
         supervisedTherapistIds = supervisorAssignments.map(assignment => assignment.therapistId);
       }
       
