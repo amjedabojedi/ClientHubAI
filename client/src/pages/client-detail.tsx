@@ -1835,11 +1835,14 @@ export default function ClientDetailPage() {
     return sessionNotes.find((note: any) => note.sessionId === sessionId);
   };
 
-  // SRS session ratings query — builds a map by sessionId for O(1) lookup
+  // SRS session ratings query — always fetch fresh (ratings arrive from client portal externally)
   const { data: sessionRatingsData = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/session-ratings`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!clientId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000,
   });
   const sessionRatingsMap = new Map<number, any>(sessionRatingsData.map((r: any) => [r.sessionId, r]));
 
