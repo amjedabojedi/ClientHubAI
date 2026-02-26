@@ -479,14 +479,20 @@ export default function BillingDashboard() {
       if (selectedClientType !== 'all') params.append('clientType', selectedClientType);
       
       // Role-based therapist filtering
-      // Admin and accountant can see all billing data and filter by therapist
-      if (user?.role === 'admin' || user?.role === 'administrator' || user?.role === 'accountant') {
+      if (user?.role === 'therapist') {
+        // Therapists always see only their own billing
+        params.append('therapistId', user.id.toString());
+      } else if (user?.role === 'supervisor') {
+        // Supervisors: backend handles filtering to their assigned therapists.
+        // Optionally pass a specific therapist filter chosen from the dropdown.
         if (selectedTherapist !== 'all') {
           params.append('therapistId', selectedTherapist);
         }
-      } else if (user?.id) {
-        // Other roles (therapist, supervisor) see only their own data
-        params.append('therapistId', user.id.toString());
+      } else {
+        // Admin / accountant: can filter by any therapist
+        if (selectedTherapist !== 'all') {
+          params.append('therapistId', selectedTherapist);
+        }
       }
       
       if (params.toString()) {

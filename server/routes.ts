@@ -9124,12 +9124,35 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
   app.get("/api/billing/reports", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
       const { startDate, endDate, therapistId, status, serviceCode, clientSearch, clientType } = req.query;
-      
+
+      let resolvedTherapistId: number | undefined;
+      let supervisedTherapistIds: number[] | undefined;
+
+      if (req.user.role === "supervisor") {
+        const assignments = await storage.getSupervisorAssignments(req.user.id);
+        if (assignments.length === 0) return res.json([]);
+        supervisedTherapistIds = assignments.map(a => a.therapistId);
+        // Allow supervisor to further filter by one of their therapists
+        if (therapistId && therapistId !== 'all') {
+          const tid = parseInt(therapistId as string);
+          if (supervisedTherapistIds.includes(tid)) {
+            supervisedTherapistIds = [tid];
+          }
+        }
+      } else if (req.user.role === "therapist") {
+        resolvedTherapistId = req.user.id;
+      } else {
+        // admin / accountant: use the UI filter if provided
+        resolvedTherapistId = therapistId ? parseInt(therapistId as string) : undefined;
+      }
+
       let reports = await storage.getBillingReports({
         startDate: startDate as string,
         endDate: endDate as string,
-        therapistId: therapistId ? parseInt(therapistId as string) : undefined,
+        therapistId: resolvedTherapistId,
+        supervisedTherapistIds,
         status: status as string,
         serviceCode: serviceCode as string,
         clientSearch: clientSearch as string,
@@ -9137,7 +9160,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       });
       
       // Redact client names for accountant role
-      if (req.user?.role === "accountant" && Array.isArray(reports)) {
+      if (req.user.role === "accountant" && Array.isArray(reports)) {
         reports = reports.map((r: any) => redactBillingClient(r));
       }
       

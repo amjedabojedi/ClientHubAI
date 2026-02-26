@@ -4717,6 +4717,7 @@ export class DatabaseStorage implements IStorage {
     startDate?: string;
     endDate?: string;
     therapistId?: number;
+    supervisedTherapistIds?: number[];
     status?: string;
     serviceCode?: string;
     clientSearch?: string;
@@ -4745,7 +4746,9 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`DATE(${sessions.sessionDate}) <= ${params.endDate}`);
     }
     
-    if (params.therapistId) {
+    if (params.supervisedTherapistIds && params.supervisedTherapistIds.length > 0) {
+      conditions.push(inArray(sessions.therapistId, params.supervisedTherapistIds));
+    } else if (params.therapistId) {
       conditions.push(eq(sessions.therapistId, params.therapistId));
     }
     
