@@ -2927,10 +2927,10 @@ export default function ClientDetailPage() {
                                   const rating = sessionRatingsMap.get(session.id);
                                   if (!rating) return null;
                                   const score = parseFloat(rating.totalScore);
-                                  const color = score >= 36 ? 'bg-green-100 text-green-700 border-green-200' : score >= 30 ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200';
+                                  const totalColor = score >= 36 ? 'bg-green-100 text-green-700 border-green-200' : score >= 30 ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200';
                                   return (
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${color}`} title={`SRS: Relationship ${parseFloat(rating.relationship)}, Goals ${parseFloat(rating.goalsTopics)}, Approach ${parseFloat(rating.approachMethod)}, Overall ${parseFloat(rating.overall)}`}>
-                                      ★ {score}/40
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${totalColor}`}>
+                                      ★ SRS {score}/40
                                     </span>
                                   );
                                 })()}
@@ -2964,6 +2964,51 @@ export default function ClientDetailPage() {
                                   </div>
                                 )}
                               </div>
+
+                              {/* SRS Breakdown Panel */}
+                              {(() => {
+                                const rating = sessionRatingsMap.get(session.id);
+                                if (!rating) return null;
+                                const dims = [
+                                  { label: 'Relationship', value: parseFloat(rating.relationship) },
+                                  { label: 'Goals & Topics', value: parseFloat(rating.goalsTopics) },
+                                  { label: 'Approach/Method', value: parseFloat(rating.approachMethod) },
+                                  { label: 'Overall', value: parseFloat(rating.overall) },
+                                ];
+                                const total = parseFloat(rating.totalScore);
+                                const totalBarColor = total >= 36 ? 'bg-green-500' : total >= 30 ? 'bg-amber-500' : 'bg-red-500';
+                                return (
+                                  <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Client Session Rating (SRS)</p>
+                                    {dims.map(d => {
+                                      const barColor = d.value >= 8 ? 'bg-green-400' : d.value >= 6 ? 'bg-amber-400' : 'bg-red-400';
+                                      return (
+                                        <div key={d.label} className="flex items-center gap-2">
+                                          <span className="text-xs text-slate-500 w-32 flex-shrink-0">{d.label}</span>
+                                          <div className="flex-1 h-1.5 rounded-full bg-slate-200">
+                                            <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${(d.value / 10) * 100}%` }} />
+                                          </div>
+                                          <span className={`text-xs font-semibold w-8 text-right ${d.value >= 8 ? 'text-green-700' : d.value >= 6 ? 'text-amber-700' : 'text-red-700'}`}>{d.value}/10</span>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="flex items-center gap-2 pt-1 border-t border-slate-200 mt-1">
+                                      <span className="text-xs font-semibold text-slate-600 w-32 flex-shrink-0">Total</span>
+                                      <div className="flex-1 h-2 rounded-full bg-slate-200">
+                                        <div className={`h-2 rounded-full ${totalBarColor}`} style={{ width: `${(total / 40) * 100}%` }} />
+                                      </div>
+                                      <span className={`text-xs font-bold w-8 text-right ${total >= 36 ? 'text-green-700' : total >= 30 ? 'text-amber-700' : 'text-red-700'}`}>{total}/40</span>
+                                    </div>
+                                    {total < 36 && (
+                                      <p className="text-xs text-amber-700 mt-1">
+                                        {total < 30
+                                          ? 'Score below 30 — consider addressing alliance concerns before next session.'
+                                          : 'Score below 36 — worth checking in with the client about their experience.'}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                           {/* Simplified action layout: One primary button + One menu */}
