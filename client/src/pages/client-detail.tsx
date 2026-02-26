@@ -4520,7 +4520,7 @@ export default function ClientDetailPage() {
               Review Document
             </DialogTitle>
             <DialogDescription>
-              Complete the checklist before approving. You can reject without completing the checklist.
+              Review the document then approve or reject it.
             </DialogDescription>
           </DialogHeader>
 
@@ -4541,49 +4541,6 @@ export default function ClientDetailPage() {
               </Button>
             </div>
           </div>
-
-          {/* Medical Review Checklist */}
-          {(() => {
-            const CHECKLIST_ITEMS: { key: string; label: string }[] = [
-              { key: 'type_identified', label: 'Document type correctly identified (e.g. referral, lab result, consent, insurance)' },
-              { key: 'client_match', label: 'Client name / ID matches the file' },
-              { key: 'date_present', label: 'Date of document is present and legible' },
-              { key: 'signature_verified', label: 'Signature / authorization verified (if required)' },
-              { key: 'legible_complete', label: 'Document is legible and complete — no missing pages' },
-              { key: 'sensitive_noted', label: 'Sensitive information noted (insurance, diagnosis codes, medications)' },
-              { key: 'correct_category', label: 'Filed under the correct category' },
-            ];
-            const allChecked = CHECKLIST_ITEMS.every(item => reviewChecklist[item.key]);
-            const checkedCount = CHECKLIST_ITEMS.filter(item => reviewChecklist[item.key]).length;
-            return (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Review Checklist</Label>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${allChecked ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {checkedCount}/{CHECKLIST_ITEMS.length} completed
-                  </span>
-                </div>
-                <div className="border rounded-lg divide-y">
-                  {CHECKLIST_ITEMS.map((item) => (
-                    <label key={item.key} className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors ${reviewChecklist[item.key] ? 'bg-green-50' : ''}`}>
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-green-600 flex-shrink-0"
-                        checked={!!reviewChecklist[item.key]}
-                        onChange={(e) => setReviewChecklist(prev => ({ ...prev, [item.key]: e.target.checked }))}
-                      />
-                      <span className={`text-sm leading-snug ${reviewChecklist[item.key] ? 'text-green-800 line-through' : 'text-slate-700'}`}>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-                {!allChecked && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1">
-                    <span>⚠</span> Complete all checklist items to enable Approve.
-                  </p>
-                )}
-              </div>
-            );
-          })()}
 
           {/* Notes */}
           <div className="space-y-1">
@@ -4610,7 +4567,7 @@ export default function ClientDetailPage() {
             </Button>
             <Button
               className="bg-green-600 hover:bg-green-700"
-              disabled={reviewDocumentMutation.isPending || !(['type_identified','client_match','date_present','signature_verified','legible_complete','sensitive_noted','correct_category'].every(k => reviewChecklist[k]))}
+              disabled={reviewDocumentMutation.isPending}
               onClick={() => { if (reviewDialogDoc) { setReviewAction('reviewed'); reviewDocumentMutation.mutate({ docId: reviewDialogDoc.id, action: 'reviewed', notes: reviewNotes, checklist: reviewChecklist }); } }}
             >
               {reviewDocumentMutation.isPending ? 'Saving...' : (
