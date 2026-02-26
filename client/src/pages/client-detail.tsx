@@ -1835,6 +1835,14 @@ export default function ClientDetailPage() {
     return sessionNotes.find((note: any) => note.sessionId === sessionId);
   };
 
+  // SRS session ratings query — builds a map by sessionId for O(1) lookup
+  const { data: sessionRatingsData = [] } = useQuery<any[]>({
+    queryKey: [`/api/clients/${clientId}/session-ratings`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+  const sessionRatingsMap = new Map<number, any>(sessionRatingsData.map((r: any) => [r.sessionId, r]));
+
   // Session conflicts query
   const { data: sessionConflicts } = useQuery<{
     conflictDates: string[];
@@ -2908,10 +2916,21 @@ export default function ClientDetailPage() {
                             </div>
                             
                             <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
+                              <div className="flex items-center flex-wrap gap-2 mb-1">
                                 <h4 className="font-medium text-slate-900">
                                   {(session as any).service?.serviceName || 'Session'}
                                 </h4>
+                                {(() => {
+                                  const rating = sessionRatingsMap.get(session.id);
+                                  if (!rating) return null;
+                                  const score = parseFloat(rating.totalScore);
+                                  const color = score >= 36 ? 'bg-green-100 text-green-700 border-green-200' : score >= 30 ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200';
+                                  return (
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${color}`} title={`SRS: Relationship ${parseFloat(rating.relationship)}, Goals ${parseFloat(rating.goalsTopics)}, Approach ${parseFloat(rating.approachMethod)}, Overall ${parseFloat(rating.overall)}`}>
+                                      ★ {score}/40
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="space-y-1 text-sm text-slate-600">
                                 {(session as any).therapistName && (

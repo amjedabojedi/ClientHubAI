@@ -497,6 +497,24 @@ export const sessions = pgTable("sessions", {
   serviceIdIdx: index("sessions_service_id_idx").on(table.serviceId),
 }));
 
+// Session Rating Scale (SRS V.3.0) — one per session, submitted by client via portal
+export const sessionRatings = pgTable("session_ratings", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id, { onDelete: 'cascade' }).unique(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+  relationship: decimal("relationship", { precision: 4, scale: 1 }).notNull(),
+  goalsTopics: decimal("goals_topics", { precision: 4, scale: 1 }).notNull(),
+  approachMethod: decimal("approach_method", { precision: 4, scale: 1 }).notNull(),
+  overall: decimal("overall", { precision: 4, scale: 1 }).notNull(),
+  totalScore: decimal("total_score", { precision: 5, scale: 1 }).notNull(),
+  completedAt: timestamp("completed_at").notNull().defaultNow(),
+});
+
+export const insertSessionRatingSchema = createInsertSchema(sessionRatings).omit({ id: true, completedAt: true });
+export type InsertSessionRating = z.infer<typeof insertSessionRatingSchema>;
+export type SessionRating = typeof sessionRatings.$inferSelect;
+
 // Session billing table - Comprehensive billing records
 export const sessionBilling = pgTable("session_billing", {
   id: serial("id").primaryKey(),

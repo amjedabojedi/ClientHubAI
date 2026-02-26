@@ -44,7 +44,7 @@ function getChromiumExecutablePath(): string | undefined {
   // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
   return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -3691,6 +3691,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sessions);
     } catch (error) {
       // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get all SRS ratings for a client's sessions (therapist/supervisor/admin view)
+  app.get("/api/clients/:clientId/session-ratings", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      const ratings = await db
+        .select()
+        .from(sessionRatings)
+        .where(eq(sessionRatings.clientId, clientId))
+        .orderBy(desc(sessionRatings.completedAt));
+      res.json(ratings);
+    } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -11730,6 +11745,69 @@ You can download a copy if you have it saved locally and re-upload it.`;
   });
 
   // Portal - Get client's appointments
+  // Portal - Submit SRS V.3.0 rating for a completed session (one-time, locked after submit)
+  app.post("/api/portal/sessions/:sessionId/rating", async (req, res) => {
+    try {
+      const sessionToken = req.cookies.portalSessionToken;
+      if (!sessionToken) return res.status(401).json({ error: "Not authenticated" });
+      const portalSession = await storage.getPortalSessionByToken(sessionToken);
+      if (!portalSession) return res.status(401).json({ error: "Invalid or expired session" });
+
+      const sessionId = parseInt(req.params.sessionId);
+      if (isNaN(sessionId)) return res.status(400).json({ error: "Invalid session ID" });
+
+      // Verify the session belongs to this client and is completed
+      const sessionResult = await db.select().from(sessions)
+        .where(and(eq(sessions.id, sessionId), eq(sessions.clientId, portalSession.clientId)))
+        .limit(1);
+      if (!sessionResult.length) return res.status(404).json({ error: "Session not found" });
+      if (sessionResult[0].status !== 'completed') return res.status(400).json({ error: "Can only rate completed sessions" });
+
+      // Block re-submission
+      const existing = await db.select().from(sessionRatings).where(eq(sessionRatings.sessionId, sessionId)).limit(1);
+      if (existing.length) return res.status(409).json({ error: "Rating already submitted for this session" });
+
+      const { relationship, goalsTopics, approachMethod, overall } = req.body;
+      const r = parseFloat(relationship), g = parseFloat(goalsTopics), a = parseFloat(approachMethod), o = parseFloat(overall);
+      if ([r, g, a, o].some(v => isNaN(v) || v < 0 || v > 10)) {
+        return res.status(400).json({ error: "Each score must be between 0 and 10" });
+      }
+      const totalScore = parseFloat((r + g + a + o).toFixed(1));
+
+      const [rating] = await db.insert(sessionRatings).values({
+        sessionId,
+        clientId: portalSession.clientId,
+        therapistId: sessionResult[0].therapistId,
+        relationship: r.toFixed(1),
+        goalsTopics: g.toFixed(1),
+        approachMethod: a.toFixed(1),
+        overall: o.toFixed(1),
+        totalScore: totalScore.toFixed(1),
+      }).returning();
+
+      // Low score alert: if total < 36, create a task for the therapist
+      if (totalScore < 36) {
+        const client = await storage.getClient(portalSession.clientId);
+        const initials = client ? `${client.firstName} ${client.lastName?.charAt(0)}.` : 'Client';
+        const sessionDate = sessionResult[0].sessionDate ? new Date(sessionResult[0].sessionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'recent session';
+        await storage.createTask({
+          title: `Review SRS feedback — ${initials} — ${sessionDate}`,
+          description: `Client rated their session ${totalScore}/40. Scores below 36 suggest the therapeutic alliance may need attention. Please review before the next session.`,
+          assignedToId: sessionResult[0].therapistId,
+          clientId: portalSession.clientId,
+          priority: totalScore < 30 ? 'high' : 'medium',
+          status: 'pending',
+          dueDate: null,
+        });
+      }
+
+      res.status(201).json(rating);
+    } catch (error) {
+      console.error("SRS rating submission error:", error);
+      res.status(500).json({ error: "Failed to submit rating" });
+    }
+  });
+
   app.get("/api/portal/appointments", async (req, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
@@ -11788,11 +11866,19 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const allServices = await storage.getServices();
       const serviceMap = new Map(allServices.map(s => [s.id, s]));
 
+      // Fetch SRS ratings for all returned sessions in one query
+      const sessionIds = clientSessionsRaw.map(s => s.id);
+      const ratingsResult = sessionIds.length > 0
+        ? await db.select().from(sessionRatings).where(inArray(sessionRatings.sessionId, sessionIds))
+        : [];
+      const ratingMap = new Map(ratingsResult.map(r => [r.sessionId, r]));
+
       // Format sessions for portal display in America/New_York timezone
       const { formatInTimeZone } = await import('date-fns-tz');
       const formattedSessions = clientSessionsRaw.map(s => {
         const room = s.roomId ? roomMap.get(s.roomId) : null;
         const service = s.serviceId ? serviceMap.get(s.serviceId) : null;
+        const rating = ratingMap.get(s.id) || null;
         
         return {
           id: s.id,
@@ -11808,6 +11894,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
           serviceName: service?.serviceName,
           serviceRate: service?.baseRate,
           therapistName: s.therapistName,
+          srsRating: rating ? {
+            relationship: parseFloat(rating.relationship),
+            goalsTopics: parseFloat(rating.goalsTopics),
+            approachMethod: parseFloat(rating.approachMethod),
+            overall: parseFloat(rating.overall),
+            totalScore: parseFloat(rating.totalScore),
+            completedAt: rating.completedAt,
+          } : null,
         };
       });
 
