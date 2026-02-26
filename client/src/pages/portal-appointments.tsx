@@ -36,10 +36,10 @@ interface Appointment {
 }
 
 const SRS_DIMENSIONS = [
-  { key: "relationship", label: "Relationship", left: "I did not feel heard, understood, or respected", right: "I felt heard, understood, and respected" },
-  { key: "goalsTopics", label: "Goals & Topics", left: "We did not work on what I wanted to work on", right: "We worked on what I wanted to work on" },
-  { key: "approachMethod", label: "Approach or Method", left: "The therapist's approach is not a good fit for me", right: "The therapist's approach is a good fit for me" },
-  { key: "overall", label: "Overall", left: "There was something missing in the session today", right: "Overall, today's session was right for me" },
+  { key: "relationship", label: "Relationship", left: "I did not feel heard, understood, and respected.", right: "I felt heard, understood, and respected." },
+  { key: "goalsTopics", label: "Goals and Topics", left: "We did not work on or talk about what I wanted to work on and talk about.", right: "We worked on and talked about what I wanted to work on and talk about." },
+  { key: "approachMethod", label: "Approach or Method", left: "The therapist's approach is not a good fit for me.", right: "The therapist's approach is a good fit for me." },
+  { key: "overall", label: "Overall", left: "There was something missing in the session today.", right: "Overall, today's session was right for me." },
 ] as const;
 
 function ScoreBadge({ score }: { score: number }) {
