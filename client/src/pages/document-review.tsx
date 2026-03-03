@@ -103,13 +103,13 @@ export default function DocumentReviewPage() {
   const filtered = filterDocs(activeTab);
 
   const renderRow = (doc: PendingDocument) => (
-    <div key={doc.id} className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-lg ${doc.isOverdue ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'} hover:shadow-sm transition-shadow`}>
+    <div key={doc.id} className={`flex flex-col sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto] sm:items-center gap-3 p-4 border rounded-lg ${doc.isOverdue ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'} hover:shadow-sm transition-shadow`}>
       {/* File icon + name */}
-      <div className="flex items-start gap-3 flex-1 min-w-0">
+      <div className="flex items-start gap-3 min-w-0">
         <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${doc.isOverdue ? 'bg-red-100' : 'bg-slate-100'}`}>
           <FileText className={`w-4 h-4 ${doc.isOverdue ? 'text-red-600' : 'text-slate-500'}`} />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           <p className="font-medium text-slate-900 text-sm truncate" title={doc.originalName}>{doc.originalName}</p>
           <div className="flex flex-wrap items-center gap-2 mt-0.5">
             <span className="text-xs text-slate-500 capitalize">{doc.category}</span>
@@ -120,21 +120,21 @@ export default function DocumentReviewPage() {
       </div>
 
       {/* Client link */}
-      <div className="flex-shrink-0 w-52">
+      <div className="min-w-0">
         <Link href={`/clients/${doc.clientId}?tab=documents`}>
           <span className="flex items-start gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium leading-snug">
             <User className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-            <span>{doc.clientFirstName} {doc.clientLastName}</span>
+            <span className="break-words">{doc.clientFirstName} {doc.clientLastName}</span>
             <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
           </span>
         </Link>
         {doc.uploadedByName && (
-          <p className="text-xs text-slate-400 mt-1 pl-5">by {doc.uploadedByName}</p>
+          <p className="text-xs text-slate-400 mt-1 pl-5 truncate">by {doc.uploadedByName}</p>
         )}
       </div>
 
       {/* Waiting time */}
-      <div className="flex-shrink-0 w-24">
+      <div className="flex-shrink-0">
         <WaitingBadge hours={doc.waitingHours} isOverdue={doc.isOverdue} />
       </div>
 
