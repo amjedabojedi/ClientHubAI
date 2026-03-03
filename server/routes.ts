@@ -3742,21 +3742,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           requiresSupervisorReview: documents.requiresSupervisorReview,
           createdAt: documents.createdAt,
           clientId: documents.clientId,
-          clientFirstName: clients.firstName,
-          clientLastName: clients.lastName,
-          uploadedByName: sql<string>`(SELECT full_name FROM users WHERE id = ${documents.uploadedById})`,
+          clientFullName: clients.fullName,
+          uploadedById: documents.uploadedById,
         })
         .from(documents)
         .leftJoin(clients, eq(documents.clientId, clients.id))
         .where(and(...conditions))
         .orderBy(asc(documents.createdAt));
 
+      // Batch-fetch uploader names
+      const uploaderIds = [...new Set(rows.map(r => r.uploadedById).filter(Boolean))] as number[];
+      const uploaderMap: Record<number, string> = {};
+      if (uploaderIds.length) {
+        const uploaders = await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, uploaderIds));
+        uploaders.forEach(u => { uploaderMap[u.id] = u.fullName; });
+      }
+
       const now = new Date();
-      const result = rows.map(r => ({
-        ...r,
-        waitingHours: Math.floor((now.getTime() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60)),
-        isOverdue: (now.getTime() - new Date(r.createdAt).getTime()) > 24 * 60 * 60 * 1000,
-      }));
+      const result = rows.map(r => {
+        const nameParts = (r.clientFullName || '').trim().split(' ');
+        const clientFirstName = nameParts[0] || '';
+        const clientLastName = nameParts.slice(1).join(' ') || '';
+        return {
+          ...r,
+          clientFirstName,
+          clientLastName,
+          uploadedByName: r.uploadedById ? (uploaderMap[r.uploadedById] || null) : null,
+          waitingHours: Math.floor((now.getTime() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60)),
+          isOverdue: (now.getTime() - new Date(r.createdAt).getTime()) > 24 * 60 * 60 * 1000,
+        };
+      });
 
       res.json(result);
     } catch (error) {
