@@ -45,7 +45,7 @@ function getChromiumExecutablePath(): string | undefined {
   return undefined;
 }
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings } from "@shared/schema";
-import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count, aliasedTable } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
@@ -3702,8 +3702,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const role = req.user.role?.toLowerCase();
       const userId = req.user.id;
 
-      const uploader = aliasedTable(users, "uploader");
-
       let conditions: any[] = [eq(documents.reviewStatus, 'pending_review')];
 
       if (role === 'therapist') {
@@ -3746,11 +3744,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           clientId: documents.clientId,
           clientFirstName: clients.firstName,
           clientLastName: clients.lastName,
-          uploadedByName: uploader.fullName,
+          uploadedByName: sql<string>`(SELECT full_name FROM users WHERE id = ${documents.uploadedById})`,
         })
         .from(documents)
         .leftJoin(clients, eq(documents.clientId, clients.id))
-        .leftJoin(uploader, eq(documents.uploadedById, uploader.id))
         .where(and(...conditions))
         .orderBy(asc(documents.createdAt));
 
