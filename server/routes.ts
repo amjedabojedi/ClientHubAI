@@ -45,7 +45,7 @@ function getChromiumExecutablePath(): string | undefined {
   return undefined;
 }
 import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings } from "@shared/schema";
-import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count, aliasedTable } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
 import { AzureBlobStorage } from "./azure-blob-storage";
@@ -3691,6 +3691,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sessions);
     } catch (error) {
       // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Global document review hub — returns all pending-review documents scoped by role
+  app.get("/api/documents/pending-review", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const role = req.user.role?.toLowerCase();
+      const userId = req.user.id;
+
+      const uploader = aliasedTable(users, "uploader");
+
+      let conditions: any[] = [eq(documents.reviewStatus, 'pending_review')];
+
+      if (role === 'therapist') {
+        // Therapist sees only their own clients' documents flagged for therapist review
+        const therapistClients = await db
+          .select({ id: clients.id })
+          .from(clients)
+          .where(eq(clients.assignedTherapistId, userId));
+        const clientIds = therapistClients.map(c => c.id);
+        if (!clientIds.length) return res.json([]);
+        conditions.push(inArray(documents.clientId, clientIds));
+        conditions.push(eq(documents.requiresTherapistReview, true));
+      } else if (role === 'supervisor') {
+        // Supervisor sees documents from supervised therapists' clients flagged for supervisor review
+        const assignments = await storage.getSupervisorAssignments(userId);
+        const therapistIds = assignments.map(a => a.therapistId);
+        if (!therapistIds.length) return res.json([]);
+        const supervisedClients = await db
+          .select({ id: clients.id })
+          .from(clients)
+          .where(inArray(clients.assignedTherapistId, therapistIds));
+        const clientIds = supervisedClients.map(c => c.id);
+        if (!clientIds.length) return res.json([]);
+        conditions.push(inArray(documents.clientId, clientIds));
+        conditions.push(eq(documents.requiresSupervisorReview, true));
+      }
+      // admin sees all pending documents (no extra conditions)
+
+      const rows = await db
+        .select({
+          id: documents.id,
+          fileName: documents.fileName,
+          originalName: documents.originalName,
+          fileSize: documents.fileSize,
+          category: documents.category,
+          reviewStatus: documents.reviewStatus,
+          requiresTherapistReview: documents.requiresTherapistReview,
+          requiresSupervisorReview: documents.requiresSupervisorReview,
+          createdAt: documents.createdAt,
+          clientId: documents.clientId,
+          clientFirstName: clients.firstName,
+          clientLastName: clients.lastName,
+          uploadedByName: uploader.fullName,
+        })
+        .from(documents)
+        .leftJoin(clients, eq(documents.clientId, clients.id))
+        .leftJoin(uploader, eq(documents.uploadedById, uploader.id))
+        .where(and(...conditions))
+        .orderBy(asc(documents.createdAt));
+
+      const now = new Date();
+      const result = rows.map(r => ({
+        ...r,
+        waitingHours: Math.floor((now.getTime() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60)),
+        isOverdue: (now.getTime() - new Date(r.createdAt).getTime()) > 24 * 60 * 60 * 1000,
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Pending review fetch error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

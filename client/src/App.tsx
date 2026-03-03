@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, BookOpen, ClipboardList, CheckSquare, UserCheck, LogOut, User, ChevronDown, Settings, Shield, FileText, Cog, Bell, CreditCard, ClipboardCheck, FolderOpen } from "lucide-react";
 import NotFound from "@/pages/not-found";
 import DashboardPage from "@/pages/dashboard";
 import ClientsPage from "@/pages/clients";
@@ -48,6 +48,7 @@ import BillingDashboard from "@/pages/billing-dashboard";
 import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
 import FormsBuilderPage from "@/pages/forms-builder";
+import DocumentReviewPage from "@/pages/document-review";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
@@ -133,6 +134,10 @@ function Navigation() {
       { path: "/billing", label: "Billing", icon: CreditCard },
       { path: "/tasks", label: "Tasks", icon: CheckSquare },
     );
+
+    if (!isAccountant(user)) {
+      baseItems.push({ path: "/document-review", label: "Doc Review", icon: FolderOpen });
+    }
 
     // Supervisor: limited Administration menu (clinical tools only, no system admin)
     if (user?.role?.toLowerCase() === 'supervisor') {
@@ -350,6 +355,13 @@ function Router() {
           <Route path="/billing-dashboard" component={BillingDashboard} />
           <Route path="/tasks" component={TasksPage} />
           <Route path="/tasks/history" component={TaskHistoryPage} />
+          <Route path="/document-review" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Document review is restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <DocumentReviewPage />;
+          }} />
           <Route path="/library" component={() => {
             const { user } = useAuth();
             if (isAccountant(user)) {
