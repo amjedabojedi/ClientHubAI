@@ -120,16 +120,16 @@ export default function DocumentReviewPage() {
       </div>
 
       {/* Client link */}
-      <div className="flex-shrink-0 w-40">
+      <div className="flex-shrink-0 w-52">
         <Link href={`/clients/${doc.clientId}?tab=documents`}>
-          <span className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium">
-            <User className="w-3.5 h-3.5" />
-            {doc.clientFirstName} {doc.clientLastName}
-            <ExternalLink className="w-3 h-3" />
+          <span className="flex items-start gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium leading-snug">
+            <User className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>{doc.clientFirstName} {doc.clientLastName}</span>
+            <ExternalLink className="w-3 h-3 flex-shrink-0 mt-0.5" />
           </span>
         </Link>
         {doc.uploadedByName && (
-          <p className="text-xs text-slate-400 mt-0.5">by {doc.uploadedByName}</p>
+          <p className="text-xs text-slate-400 mt-1 pl-5">by {doc.uploadedByName}</p>
         )}
       </div>
 
