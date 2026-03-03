@@ -73,17 +73,19 @@ export default function DocumentReviewPage() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: ({ docId, clientId, action, notes }: { docId: number; clientId: number; action: string; notes: string }) =>
-      apiRequest(`/api/clients/${clientId}/documents/${docId}/review`, "PATCH", { action, reviewNotes: notes }),
-    onSuccess: () => {
+    mutationFn: async ({ docId, clientId, action, notes }: { docId: number; clientId: number; action: 'reviewed' | 'rejected'; notes: string }) => {
+      const response = await apiRequest(`/api/clients/${clientId}/documents/${docId}/review`, "PATCH", { action, reviewNotes: notes, reviewChecklist: {} });
+      return await response.json();
+    },
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents/pending-review"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/clients/${reviewDoc?.clientId}/documents`] });
-      toast({ title: "Review saved", description: "Document status has been updated." });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${variables.clientId}/documents`] });
+      toast({ title: "Document updated", description: `Document has been marked as ${variables.action}.` });
       setReviewDoc(null);
       setReviewNotes("");
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to save review. Please try again.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update document review status.", variant: "destructive" });
     },
   });
 
@@ -288,6 +290,14 @@ export default function DocumentReviewPage() {
                     onClick={() => window.open(`/api/clients/${reviewDoc.clientId}/documents/${reviewDoc.id}/download`, '_blank')}
                   >
                     <Download className="w-3 h-3 mr-1" /> Download
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7"
+                    onClick={() => window.open(`/api/clients/${reviewDoc.clientId}/documents/${reviewDoc.id}/preview`, '_blank')}
+                  >
+                    <Eye className="w-3 h-3 mr-1" /> Preview
                   </Button>
                 </div>
               </div>
