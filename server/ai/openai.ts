@@ -886,7 +886,7 @@ Client Response Data: Base recommendations on the assessment findings and clinic
         { role: "user", content: userPrompt }
       ],
       temperature: 0,
-      max_tokens: 4000,
+      max_tokens: 16000,
     });
 
     const duration = Date.now() - startTime;
