@@ -9225,7 +9225,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.get("/api/billing/reports", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       if (!req.user) return res.status(401).json({ message: "Authentication required" });
-      const { startDate, endDate, therapistId, status, serviceCode, clientSearch, clientType } = req.query;
+      const { startDate, endDate, therapistId, status, serviceCode, clientSearch, clientType, sessionStatus } = req.query;
 
       let resolvedTherapistId: number | undefined;
       let supervisedTherapistIds: number[] | undefined;
@@ -9256,7 +9256,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         status: status as string,
         serviceCode: serviceCode as string,
         clientSearch: clientSearch as string,
-        clientType: clientType as string
+        clientType: clientType as string,
+        sessionStatus: sessionStatus as string
       });
       
       // Redact client names for accountant role

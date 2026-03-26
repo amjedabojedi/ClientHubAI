@@ -4722,6 +4722,7 @@ export class DatabaseStorage implements IStorage {
     serviceCode?: string;
     clientSearch?: string;
     clientType?: string;
+    sessionStatus?: string;
   }): Promise<any[]> {
     let query = db.select({
       billing: sessionBilling,
@@ -4766,6 +4767,10 @@ export class DatabaseStorage implements IStorage {
     
     if (params.clientType) {
       conditions.push(eq(clients.clientType, params.clientType));
+    }
+
+    if (params.sessionStatus) {
+      conditions.push(eq(sessions.status, params.sessionStatus as any));
     }
     
     if (conditions.length > 0) {

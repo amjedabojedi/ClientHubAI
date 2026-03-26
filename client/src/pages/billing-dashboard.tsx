@@ -452,6 +452,7 @@ export default function BillingDashboard() {
   const [selectedTherapist, setSelectedTherapist] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [selectedClientType, setSelectedClientType] = useState<string>('all');
+  const [selectedSessionStatus, setSelectedSessionStatus] = useState<string>('all');
   const [clientSearch, setClientSearch] = useState<string>('');
   const [startDate, setStartDate] = useState<string>(firstDayOfMonth.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(lastDayOfMonth.toISOString().split('T')[0]);
@@ -466,7 +467,7 @@ export default function BillingDashboard() {
 
   // Fetch billing data with role-based filtering and default current month range
   const { data: billingData, isLoading, isFetching } = useQuery({
-    queryKey: ['billing', 'reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType],
+    queryKey: ['billing', 'reports', user?.id, startDate, endDate, selectedStatus, selectedTherapist, selectedService, selectedClientType, selectedSessionStatus],
     queryFn: async () => {
       let url = '/api/billing/reports';
       const params = new URLSearchParams();
@@ -477,6 +478,7 @@ export default function BillingDashboard() {
       if (selectedStatus !== 'all') params.append('status', selectedStatus);
       if (selectedService !== 'all') params.append('serviceCode', selectedService);
       if (selectedClientType !== 'all') params.append('clientType', selectedClientType);
+      if (selectedSessionStatus !== 'all') params.append('sessionStatus', selectedSessionStatus);
       
       // Role-based therapist filtering
       if (user?.role === 'therapist') {
@@ -979,6 +981,19 @@ export default function BillingDashboard() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label htmlFor="session-status-filter">Session Type</Label>
+              <Select value={selectedSessionStatus} onValueChange={setSelectedSessionStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sessions</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="no_show">No Show</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Date Range Pickers */}
@@ -1132,10 +1147,17 @@ export default function BillingDashboard() {
                       </TableCell>
                       <TableCell>{billing.serviceCode}</TableCell>
                       <TableCell>
-                        {session.sessionDate 
-                          ? formatDateDisplay(session.sessionDate)
-                          : 'N/A'
-                        }
+                        <div className="flex flex-col gap-1">
+                          {session.sessionDate 
+                            ? formatDateDisplay(session.sessionDate)
+                            : 'N/A'
+                          }
+                          {session.status === 'no_show' && (
+                            <Badge className="text-xs px-1.5 py-0 h-5 bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-400 w-fit">
+                              No Show
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{therapist.fullName || 'N/A'}</TableCell>
                       <TableCell>
