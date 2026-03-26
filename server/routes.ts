@@ -3580,8 +3580,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Trigger billing when session status changes to completed
-      if (sessionData.status === 'completed') {
+      // Trigger billing when session status changes to completed or no_show
+      if (sessionData.status === 'completed' || sessionData.status === 'no_show') {
         try {
           // Check if billing already exists
           const existingBilling = await storage.getSessionBilling(id);
@@ -9133,8 +9133,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Update session status
       const updatedSession = await storage.updateSessionStatus(sessionId, status);
       
-      // Trigger billing when session is completed
-      if (status === 'completed') {
+      // Trigger billing when session is completed or no_show
+      if (status === 'completed' || status === 'no_show') {
         try {
           // Check if billing already exists
           const existingBilling = await storage.getSessionBilling(sessionId);
