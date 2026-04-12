@@ -107,7 +107,6 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const { toast} = useToast();
   const queryClient = useQueryClient();
 
-  // Calculate amount after discount
   const discountAmount = useMemo(() => {
     if (!billingRecord?.discountAmount) return 0;
     return Number(billingRecord.discountAmount);
@@ -118,17 +117,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     return Number(billingRecord.totalAmount) - discountAmount;
   }, [billingRecord?.totalAmount, discountAmount]);
 
-  // Reset form when dialog opens or billingRecord changes
+  const hasInsurance = billingRecord?.insuranceCovered && billingRecord?.copayAmount != null;
+  const copayValue = hasInsurance ? Number(billingRecord.copayAmount) : 0;
+  const insuranceCoverage = hasInsurance ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
+  const clientAmountDue = hasInsurance ? copayValue : Math.max(amountAfterDiscount, 0);
+  const alreadyPaid = Number(billingRecord?.paymentAmount || 0);
+  const remainingDue = Math.max(clientAmountDue - alreadyPaid, 0);
+
   useEffect(() => {
     if (isOpen && billingRecord) {
-      // Set payment amount to the amount after discount, clamped at 0 for full discounts
-      const finalAmount = Math.max(amountAfterDiscount, 0);
-      setPaymentAmount(finalAmount.toFixed(2));
+      setPaymentAmount(remainingDue.toFixed(2));
       setPaymentMethod('');
       setPaymentReference('');
       setPaymentNotes('');
     }
-  }, [isOpen, billingRecord, amountAfterDiscount]);
+  }, [isOpen, billingRecord, remainingDue]);
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -173,9 +176,12 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       return;
     }
 
+    const enteredAmount = parseFloat(paymentAmount);
+    const cumulativeAmount = alreadyPaid + enteredAmount;
+
     recordPaymentMutation.mutate({
-      status: 'paid',
-      amount: parseFloat(paymentAmount),
+      status: enteredAmount >= remainingDue ? 'paid' : 'billed',
+      amount: cumulativeAmount,
       method: paymentMethod,
       reference: paymentReference,
       notes: paymentNotes,
@@ -199,27 +205,37 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           {/* Amount Summary Section */}
           <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600 dark:text-slate-400">Original Amount</span>
+              <span className="text-slate-600 dark:text-slate-400">Service Amount</span>
               <span className="font-semibold text-slate-900 dark:text-slate-100">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
             </div>
             {discountAmount > 0 && (
+              <div className="flex items-center justify-between text-sm text-green-700 dark:text-green-500">
+                <span>Discount Applied</span>
+                <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {hasInsurance && (
               <>
-                <div className="flex items-center justify-between text-sm text-green-700 dark:text-green-500">
-                  <span>Discount Applied</span>
-                  <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
+                <div className="flex items-center justify-between text-sm text-blue-700 dark:text-blue-400">
+                  <span>Insurance Coverage</span>
+                  <span className="font-semibold">-${insuranceCoverage.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">Amount Due</span>
-                  <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${Math.max(amountAfterDiscount, 0).toFixed(2)}</span>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600 dark:text-slate-400">Client Copay</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">${copayValue.toFixed(2)}</span>
                 </div>
               </>
             )}
-            {discountAmount === 0 && (
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-                <span className="font-medium text-slate-900 dark:text-slate-100">Amount Due</span>
-                <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${Number(billingRecord.totalAmount || 0).toFixed(2)}</span>
+            {alreadyPaid > 0 && (
+              <div className="flex items-center justify-between text-sm text-emerald-700 dark:text-emerald-400">
+                <span>Already Paid</span>
+                <span className="font-semibold">-${alreadyPaid.toFixed(2)}</span>
               </div>
             )}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+              <span className="font-medium text-slate-900 dark:text-slate-100">Amount Due</span>
+              <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${remainingDue.toFixed(2)}</span>
+            </div>
           </div>
 
           {/* Payment Details Section */}
@@ -616,7 +632,12 @@ export default function BillingDashboard() {
       })
       .reduce((sum: number, r: any) => {
         const billing = r.billing || r;
-        return sum + (Number(billing.totalAmount) - Number(billing.paymentAmount || 0));
+        const total = Number(billing.totalAmount || 0);
+        const discount = Number(billing.discountAmount || 0);
+        const afterDiscount = Math.max(total - discount, 0);
+        const hasCopay = billing.insuranceCovered && billing.copayAmount != null;
+        const clientDue = hasCopay ? Number(billing.copayAmount) : afterDiscount;
+        return sum + Math.max(clientDue - Number(billing.paymentAmount || 0), 0);
       }, 0),
     totalPaid: statsData
       .filter((r: any) => {
@@ -1161,19 +1182,31 @@ export default function BillingDashboard() {
                       </TableCell>
                       <TableCell>{therapist.fullName || 'N/A'}</TableCell>
                       <TableCell>
-                        {billing.discountAmount && Number(billing.discountAmount) > 0 ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-green-700 dark:text-green-500 font-semibold">
-                              ${Math.max(Number(billing.totalAmount) - Number(billing.discountAmount), 0).toFixed(2)}
-                            </span>
-                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
-                              <Percent className="h-3 w-3 mr-0.5" />
-                              Discount
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span>${Number(billing.totalAmount).toFixed(2)}</span>
-                        )}
+                        {(() => {
+                          const total = Number(billing.totalAmount || 0);
+                          const discount = Number(billing.discountAmount || 0);
+                          const afterDiscount = Math.max(total - discount, 0);
+                          const hasCopay = billing.insuranceCovered && billing.copayAmount != null;
+                          const copay = hasCopay ? Number(billing.copayAmount) : 0;
+                          const clientDue = hasCopay ? copay : afterDiscount;
+
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold">${clientDue.toFixed(2)}</span>
+                              {hasCopay && (
+                                <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800 w-fit">
+                                  Copay
+                                </Badge>
+                              )}
+                              {discount > 0 && (
+                                <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800 w-fit">
+                                  <Percent className="h-3 w-3 mr-0.5" />
+                                  Discount
+                                </Badge>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>${Number(billing.paymentAmount || 0).toFixed(2)}</TableCell>
                       <TableCell>
