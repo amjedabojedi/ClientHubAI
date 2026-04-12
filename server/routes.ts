@@ -9582,19 +9582,33 @@ You can download a copy if you have it saved locally and re-upload it.`;
       } catch (error) {
       }
       
-      // Generate invoice HTML
       const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0);
-      // Calculate insurance coverage from actual copay amounts, not hardcoded 80%
+      const totalDiscount = billingRecords.reduce((sum, record) => sum + Number(record.discountAmount || 0), 0);
+      const hasInsurance = billingRecords.some(r => r.insuranceCovered);
       const insuranceCoverage = billingRecords.reduce((sum, record) => {
-        if (record.insuranceCovered && record.copayAmount) {
-          return sum + (Number(record.totalAmount || 0) - Number(record.copayAmount || 0));
+        if (record.insuranceCovered && record.copayAmount != null) {
+          const afterDiscount = Number(record.totalAmount || 0) - Number(record.discountAmount || 0);
+          return sum + Math.max(afterDiscount - Number(record.copayAmount), 0);
         }
         return sum;
       }, 0);
-      const copayTotal = billingRecords.reduce((sum, record) => sum + Number(record.copayAmount || 0), 0);
-      const totalDiscount = billingRecords.reduce((sum, record) => sum + Number(record.discountAmount || 0), 0);
+      const copayTotal = billingRecords.reduce((sum, record) => {
+        if (record.insuranceCovered && record.copayAmount != null) {
+          return sum + Number(record.copayAmount);
+        }
+        return sum;
+      }, 0);
       const totalPayments = billingRecords.reduce((sum, record) => sum + Number(record.paymentAmount || 0), 0);
-      const remainingDue = subtotal - totalDiscount - totalPayments;
+      const clientOwes = billingRecords.reduce((sum, record) => {
+        const total = Number(record.totalAmount || 0);
+        const discount = Number(record.discountAmount || 0);
+        const afterDiscount = Math.max(total - discount, 0);
+        if (record.insuranceCovered && record.copayAmount != null) {
+          return sum + Number(record.copayAmount);
+        }
+        return sum + afterDiscount;
+      }, 0);
+      const remainingDue = Math.max(clientOwes - totalPayments, 0);
       
       // Generate unique invoice number
       const invoiceNumber = billingId ? `INV-${client.clientId}-${billingId}` : `INV-${client.clientId}-${new Date().getFullYear()}`;
@@ -9774,15 +9788,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
               <span>Discount Applied:</span>
               <span>-$${totalDiscount.toFixed(2)}</span>
             </div>` : ''}
-            ${billingRecords.some(r => r.insuranceCovered) ? `
-            <div class="total-row">
+            ${hasInsurance ? `
+            <div class="total-row" style="color: #2563eb;">
               <span>Insurance Coverage:</span>
               <span>-$${insuranceCoverage.toFixed(2)}</span>
-            </div>` : ''}
-            <div class="total-row">
-              <span>Copay Amount:</span>
-              <span>$${copayTotal.toFixed(2)}</span>
             </div>
+            <div class="total-row">
+              <span>Client Copay:</span>
+              <span>$${copayTotal.toFixed(2)}</span>
+            </div>` : ''}
             ${totalPayments > 0 ? `
             <div class="total-row">
               <span>Payments Received:</span>
