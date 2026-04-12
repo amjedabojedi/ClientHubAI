@@ -117,8 +117,8 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     return Number(billingRecord.totalAmount) - discountAmount;
   }, [billingRecord?.totalAmount, discountAmount]);
 
-  const hasInsurance = billingRecord?.insuranceCovered && billingRecord?.copayAmount != null;
-  const copayValue = hasInsurance ? Number(billingRecord.copayAmount) : 0;
+  const hasInsurance = billingRecord?.insuranceCovered || (billingRecord?.copayAmount != null && Number(billingRecord.copayAmount) > 0);
+  const copayValue = hasInsurance && billingRecord?.copayAmount != null ? Number(billingRecord.copayAmount) : 0;
   const insuranceCoverage = hasInsurance ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
   const clientAmountDue = hasInsurance ? copayValue : Math.max(amountAfterDiscount, 0);
   const alreadyPaid = Number(billingRecord?.paymentAmount || 0);
@@ -635,8 +635,8 @@ export default function BillingDashboard() {
         const total = Number(billing.totalAmount || 0);
         const discount = Number(billing.discountAmount || 0);
         const afterDiscount = Math.max(total - discount, 0);
-        const hasCopay = billing.insuranceCovered && billing.copayAmount != null;
-        const clientDue = hasCopay ? Number(billing.copayAmount) : afterDiscount;
+        const hasCopay = billing.insuranceCovered || (billing.copayAmount != null && Number(billing.copayAmount) > 0);
+        const clientDue = hasCopay && billing.copayAmount != null ? Number(billing.copayAmount) : afterDiscount;
         return sum + Math.max(clientDue - Number(billing.paymentAmount || 0), 0);
       }, 0),
     totalPaid: statsData
@@ -1186,7 +1186,7 @@ export default function BillingDashboard() {
                           const total = Number(billing.totalAmount || 0);
                           const discount = Number(billing.discountAmount || 0);
                           const afterDiscount = Math.max(total - discount, 0);
-                          const hasCopay = billing.insuranceCovered && billing.copayAmount != null;
+                          const hasCopay = billing.insuranceCovered || (billing.copayAmount != null && Number(billing.copayAmount) > 0);
                           const copay = hasCopay ? Number(billing.copayAmount) : 0;
                           const clientDue = hasCopay ? copay : afterDiscount;
 

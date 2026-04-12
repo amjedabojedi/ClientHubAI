@@ -4678,9 +4678,9 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
     
-    // Extract client insurance info
-    const hasInsurance = !!(sessionData.client?.insuranceProvider);
     const copayAmount = sessionData.client?.copayAmount || null;
+    const hasCopay = copayAmount != null && Number(copayAmount) > 0;
+    const hasInsurance = !!(sessionData.client?.insuranceProvider) || hasCopay;
     
     // Create billing record with client insurance information
     const units = 1;
