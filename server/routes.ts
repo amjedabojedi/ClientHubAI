@@ -9586,18 +9586,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const totalDiscount = billingRecords.reduce((sum, record) => sum + Number(record.discountAmount || 0), 0);
       const isBillingInsured = (r: any) => {
         const hasKnownCopay = r.copayAmount != null && !isNaN(Number(r.copayAmount));
-        return hasKnownCopay && (r.insuranceCovered || Number(r.copayAmount) > 0);
+        return !!r.insuranceCovered || (hasKnownCopay && Number(r.copayAmount) > 0);
       };
       const hasInsurance = billingRecords.some(isBillingInsured);
       const insuranceCoverage = billingRecords.reduce((sum, record) => {
-        if (isBillingInsured(record)) {
+        const hasKnownCopay = record.copayAmount != null && !isNaN(Number(record.copayAmount));
+        if (isBillingInsured(record) && hasKnownCopay) {
           const afterDiscount = Number(record.totalAmount || 0) - Number(record.discountAmount || 0);
           return sum + Math.max(afterDiscount - Number(record.copayAmount), 0);
         }
         return sum;
       }, 0);
       const copayTotal = billingRecords.reduce((sum, record) => {
-        if (isBillingInsured(record)) {
+        const hasKnownCopay = record.copayAmount != null && !isNaN(Number(record.copayAmount));
+        if (isBillingInsured(record) && hasKnownCopay) {
           return sum + Number(record.copayAmount);
         }
         return sum;
@@ -9607,9 +9609,6 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const total = Number(record.totalAmount || 0);
         const discount = Number(record.discountAmount || 0);
         const afterDiscount = Math.max(total - discount, 0);
-        if (isBillingInsured(record)) {
-          return sum + Number(record.copayAmount);
-        }
         return sum + afterDiscount;
       }, 0);
       const remainingDue = Math.max(clientOwes - totalPayments, 0);

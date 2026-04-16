@@ -118,11 +118,11 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   }, [billingRecord?.totalAmount, discountAmount]);
 
   const hasKnownCopay = billingRecord?.copayAmount != null && !isNaN(Number(billingRecord.copayAmount));
-  const hasInsurance = hasKnownCopay && (billingRecord?.insuranceCovered || Number(billingRecord?.copayAmount) > 0);
-  const copayValue = hasInsurance ? Number(billingRecord.copayAmount) : 0;
-  const insuranceCoverage = hasInsurance ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
-  const clientAmountDue = hasInsurance ? copayValue : Math.max(amountAfterDiscount, 0);
+  const hasInsurance = !!billingRecord?.insuranceCovered || (hasKnownCopay && Number(billingRecord?.copayAmount) > 0);
+  const copayValue = hasKnownCopay ? Number(billingRecord.copayAmount) : 0;
+  const expectedInsuranceCoverage = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
   const alreadyPaid = Number(billingRecord?.paymentAmount || 0);
+  const clientAmountDue = Math.max(amountAfterDiscount, 0);
   const remainingDue = Math.max(clientAmountDue - alreadyPaid, 0);
 
   useEffect(() => {
@@ -215,17 +215,22 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-            {hasInsurance && (
+            {hasInsurance && hasKnownCopay && (
               <>
-                <div className="flex items-center justify-between text-sm text-blue-700 dark:text-blue-400">
-                  <span>Insurance Coverage</span>
-                  <span className="font-semibold">-${insuranceCoverage.toFixed(2)}</span>
+                <div className="flex items-center justify-between text-xs text-blue-700 dark:text-blue-400 italic">
+                  <span>Expected Insurance Coverage (not yet received)</span>
+                  <span>${expectedInsuranceCoverage.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">Client Copay</span>
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">${copayValue.toFixed(2)}</span>
+                <div className="flex items-center justify-between text-xs italic">
+                  <span className="text-slate-500 dark:text-slate-400">Client Copay Portion</span>
+                  <span className="text-slate-700 dark:text-slate-300">${copayValue.toFixed(2)}</span>
                 </div>
               </>
+            )}
+            {hasInsurance && !hasKnownCopay && (
+              <div className="text-xs text-amber-700 dark:text-amber-400 italic">
+                Insurance on file — copay not set. Full amount due until insurance pays.
+              </div>
             )}
             {alreadyPaid > 0 && (
               <div className="flex items-center justify-between text-sm text-emerald-700 dark:text-emerald-400">
@@ -636,10 +641,7 @@ export default function BillingDashboard() {
         const total = Number(billing.totalAmount || 0);
         const discount = Number(billing.discountAmount || 0);
         const afterDiscount = Math.max(total - discount, 0);
-        const hasKnownCopay = billing.copayAmount != null && !isNaN(Number(billing.copayAmount));
-        const hasCopay = hasKnownCopay && (billing.insuranceCovered || Number(billing.copayAmount) > 0);
-        const clientDue = hasCopay ? Number(billing.copayAmount) : afterDiscount;
-        return sum + Math.max(clientDue - Number(billing.paymentAmount || 0), 0);
+        return sum + Math.max(afterDiscount - Number(billing.paymentAmount || 0), 0);
       }, 0),
     totalPaid: statsData
       .filter((r: any) => {
@@ -1189,9 +1191,10 @@ export default function BillingDashboard() {
                           const discount = Number(billing.discountAmount || 0);
                           const afterDiscount = Math.max(total - discount, 0);
                           const hasKnownCopay = billing.copayAmount != null && !isNaN(Number(billing.copayAmount));
-                          const hasCopay = hasKnownCopay && (billing.insuranceCovered || Number(billing.copayAmount) > 0);
-                          const copay = hasCopay ? Number(billing.copayAmount) : 0;
-                          const clientDue = hasCopay ? copay : afterDiscount;
+                          const hasInsurance = !!billing.insuranceCovered || (hasKnownCopay && Number(billing.copayAmount) > 0);
+                          const paidAmt = Number(billing.paymentAmount || 0);
+                          const clientDue = Math.max(afterDiscount - paidAmt, 0);
+                          const hasCopay = hasInsurance;
 
                           return (
                             <div className="flex flex-col gap-0.5">
