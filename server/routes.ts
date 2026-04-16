@@ -9584,17 +9584,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       const subtotal = billingRecords.reduce((sum, record) => sum + Number(record.totalAmount || 0), 0);
       const totalDiscount = billingRecords.reduce((sum, record) => sum + Number(record.discountAmount || 0), 0);
-      const hasInsurance = billingRecords.some(r => r.insuranceCovered || (r.copayAmount != null && Number(r.copayAmount) > 0));
+      const isBillingInsured = (r: any) => {
+        const hasKnownCopay = r.copayAmount != null && !isNaN(Number(r.copayAmount));
+        return hasKnownCopay && (r.insuranceCovered || Number(r.copayAmount) > 0);
+      };
+      const hasInsurance = billingRecords.some(isBillingInsured);
       const insuranceCoverage = billingRecords.reduce((sum, record) => {
-        if ((record.insuranceCovered || (record.copayAmount != null && Number(record.copayAmount) > 0)) && record.copayAmount != null) {
+        if (isBillingInsured(record)) {
           const afterDiscount = Number(record.totalAmount || 0) - Number(record.discountAmount || 0);
           return sum + Math.max(afterDiscount - Number(record.copayAmount), 0);
         }
         return sum;
       }, 0);
       const copayTotal = billingRecords.reduce((sum, record) => {
-        const isInsured = record.insuranceCovered || (record.copayAmount != null && Number(record.copayAmount) > 0);
-        if (isInsured && record.copayAmount != null) {
+        if (isBillingInsured(record)) {
           return sum + Number(record.copayAmount);
         }
         return sum;
@@ -9604,8 +9607,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const total = Number(record.totalAmount || 0);
         const discount = Number(record.discountAmount || 0);
         const afterDiscount = Math.max(total - discount, 0);
-        const isInsured = record.insuranceCovered || (record.copayAmount != null && Number(record.copayAmount) > 0);
-        if (isInsured && record.copayAmount != null) {
+        if (isBillingInsured(record)) {
           return sum + Number(record.copayAmount);
         }
         return sum + afterDiscount;
