@@ -237,7 +237,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
@@ -257,31 +257,37 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
-              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Payments Received</div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-700 dark:text-slate-300">From Client</span>
-                <span className={`font-semibold ${clientAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-500'}`}>
-                  ${clientAlreadyPaid.toFixed(2)}{clientAlreadyPaid > 0 && ' ✓'}
-                </span>
+            {(clientAlreadyPaid > 0 || insuranceAlreadyPaid > 0) && (
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Payments Received</div>
+                {clientAlreadyPaid > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700 dark:text-slate-300">From Client</span>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      ${clientAlreadyPaid.toFixed(2)} ✓
+                    </span>
+                  </div>
+                )}
+                {insuranceAlreadyPaid > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-blue-700 dark:text-blue-400">From Insurance</span>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      ${insuranceAlreadyPaid.toFixed(2)} ✓
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-700 dark:text-blue-400">From Insurance</span>
-                <span className={`font-semibold ${insuranceAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-500'}`}>
-                  ${insuranceAlreadyPaid.toFixed(2)}{insuranceAlreadyPaid > 0 && ' ✓'}
-                </span>
+            )}
+            {hasInsurance && hasKnownCopay && (
+              <div className="text-xs italic text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700">
+                Expected split: Client copay ${copayValue.toFixed(2)} · Insurance ${insurancePortion.toFixed(2)}
               </div>
-              {hasInsurance && hasKnownCopay && (
-                <div className="text-xs italic text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-700 mt-1">
-                  Expected split: Client copay ${copayValue.toFixed(2)} · Insurance ${insurancePortion.toFixed(2)}
-                </div>
-              )}
-              {hasInsurance && !hasKnownCopay && (
-                <div className="text-xs italic text-amber-700 dark:text-amber-400 pt-1 border-t border-slate-200 dark:border-slate-700 mt-1">
-                  Insurance on file — copay not set on client profile
-                </div>
-              )}
-            </div>
+            )}
+            {hasInsurance && !hasKnownCopay && (
+              <div className="text-xs italic text-amber-700 dark:text-amber-400 pt-2 border-t border-slate-200 dark:border-slate-700">
+                Insurance on file — copay not set on client profile
+              </div>
+            )}
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
               <span className="font-medium text-slate-900 dark:text-slate-100">Total Amount Due</span>
               <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${remainingDue.toFixed(2)}</span>
