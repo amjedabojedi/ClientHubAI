@@ -241,43 +241,31 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 <span className="font-semibold">-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-            {hasInsurance && hasKnownCopay && (
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700 dark:text-slate-300">Client Owes (Copay)</span>
-                  <span className={`font-semibold ${clientRemaining === 0 && clientAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
-                    ${clientRemaining.toFixed(2)}
-                    {clientAlreadyPaid > 0 && (
-                      <span className="text-xs font-normal ml-1 text-emerald-700 dark:text-emerald-400">
-                        (paid ${clientAlreadyPaid.toFixed(2)}{clientRemaining === 0 ? ' ✓' : ''})
-                      </span>
-                    )}
-                  </span>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Payments Received</div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-700 dark:text-slate-300">From Client</span>
+                <span className={`font-semibold ${clientAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-500'}`}>
+                  ${clientAlreadyPaid.toFixed(2)}{clientAlreadyPaid > 0 && ' ✓'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700 dark:text-blue-400">From Insurance</span>
+                <span className={`font-semibold ${insuranceAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-500'}`}>
+                  ${insuranceAlreadyPaid.toFixed(2)}{insuranceAlreadyPaid > 0 && ' ✓'}
+                </span>
+              </div>
+              {hasInsurance && hasKnownCopay && (
+                <div className="text-xs italic text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-700 mt-1">
+                  Expected split: Client copay ${copayValue.toFixed(2)} · Insurance ${insurancePortion.toFixed(2)}
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-700 dark:text-blue-400">Insurance Owes</span>
-                  <span className={`font-semibold ${insuranceRemaining === 0 && insuranceAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}>
-                    ${insuranceRemaining.toFixed(2)}
-                    {insuranceAlreadyPaid > 0 && (
-                      <span className="text-xs font-normal ml-1 text-emerald-700 dark:text-emerald-400">
-                        (paid ${insuranceAlreadyPaid.toFixed(2)}{insuranceRemaining === 0 ? ' ✓' : ''})
-                      </span>
-                    )}
-                  </span>
+              )}
+              {hasInsurance && !hasKnownCopay && (
+                <div className="text-xs italic text-amber-700 dark:text-amber-400 pt-1 border-t border-slate-200 dark:border-slate-700 mt-1">
+                  Insurance on file — copay not set on client profile
                 </div>
-              </div>
-            )}
-            {hasInsurance && !hasKnownCopay && (
-              <div className="text-xs text-amber-700 dark:text-amber-400 italic">
-                Insurance on file — copay not set. Set client's copay to split balances.
-              </div>
-            )}
-            {alreadyPaid > 0 && (
-              <div className="flex items-center justify-between text-sm text-emerald-700 dark:text-emerald-400 pt-1">
-                <span>Total Already Paid</span>
-                <span className="font-semibold">-${alreadyPaid.toFixed(2)}</span>
-              </div>
-            )}
+              )}
+            </div>
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
               <span className="font-medium text-slate-900 dark:text-slate-100">Total Amount Due</span>
               <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${remainingDue.toFixed(2)}</span>
@@ -286,41 +274,41 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
 
           {/* Payment Details Section */}
           <div className="space-y-4">
-            {hasInsurance && hasKnownCopay && (
-              <div>
-                <Label>Payment Source *</Label>
-                <div className="grid grid-cols-2 gap-2 mt-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSourceChange('client')}
-                    className={`px-3 py-2 rounded-md border text-sm font-medium transition-colors ${
-                      paymentSource === 'client'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    Client Payment
-                    <div className="text-xs font-normal mt-0.5 opacity-90">
-                      ${clientRemaining.toFixed(2)} owed
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSourceChange('insurance')}
-                    className={`px-3 py-2 rounded-md border text-sm font-medium transition-colors ${
-                      paymentSource === 'insurance'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    Insurance Payment
-                    <div className="text-xs font-normal mt-0.5 opacity-90">
-                      ${insuranceRemaining.toFixed(2)} owed
-                    </div>
-                  </button>
-                </div>
+            <div>
+              <Label>Who is paying? *</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleSourceChange('client')}
+                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors ${
+                    paymentSource === 'client'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                  data-testid="payment-source-client"
+                >
+                  <div>Client</div>
+                  <div className="text-xs font-normal mt-0.5 opacity-90">
+                    Paid so far: ${clientAlreadyPaid.toFixed(2)}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSourceChange('insurance')}
+                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors ${
+                    paymentSource === 'insurance'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                  data-testid="payment-source-insurance"
+                >
+                  <div>Insurance</div>
+                  <div className="text-xs font-normal mt-0.5 opacity-90">
+                    Paid so far: ${insuranceAlreadyPaid.toFixed(2)}
+                  </div>
+                </button>
               </div>
-            )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="paymentAmount">Payment Amount *</Label>
