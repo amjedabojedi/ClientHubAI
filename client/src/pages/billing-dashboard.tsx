@@ -290,31 +290,37 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 <button
                   type="button"
                   onClick={() => handleSourceChange('client')}
-                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors ${
+                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors text-left ${
                     paymentSource === 'client'
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                   data-testid="payment-source-client"
                 >
-                  <div>Client</div>
+                  <div className="font-semibold">Client</div>
                   <div className="text-xs font-normal mt-0.5 opacity-90">
-                    Paid so far: ${clientAlreadyPaid.toFixed(2)}
+                    Owes: ${(hasInsurance && hasKnownCopay ? clientRemaining : remainingDue).toFixed(2)}
+                    {clientAlreadyPaid > 0 && ` · Paid: $${clientAlreadyPaid.toFixed(2)}`}
                   </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSourceChange('insurance')}
-                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors ${
+                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors text-left ${
                     paymentSource === 'insurance'
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
                   }`}
                   data-testid="payment-source-insurance"
                 >
-                  <div>Insurance</div>
+                  <div className="font-semibold">Insurance</div>
                   <div className="text-xs font-normal mt-0.5 opacity-90">
-                    Paid so far: ${insuranceAlreadyPaid.toFixed(2)}
+                    {hasInsurance && hasKnownCopay
+                      ? `Owes: $${insuranceRemaining.toFixed(2)}`
+                      : hasInsurance
+                        ? `Expected: up to $${remainingDue.toFixed(2)}`
+                        : 'Not expected'}
+                    {insuranceAlreadyPaid > 0 && ` · Paid: $${insuranceAlreadyPaid.toFixed(2)}`}
                   </div>
                 </button>
               </div>
