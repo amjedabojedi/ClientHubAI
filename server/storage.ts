@@ -2681,14 +2681,39 @@ export class DatabaseStorage implements IStorage {
     reference?: string;
     method: string;
     notes?: string;
+    source?: 'client' | 'insurance';
   }): Promise<SelectSessionBilling> {
+    // Fetch current record to compute split balances
+    const [current] = await db
+      .select()
+      .from(sessionBilling)
+      .where(eq(sessionBilling.id, billingId));
+
+    // Determine source: explicit value wins, else infer from method ('insurance' method => insurance, else client)
+    const source: 'client' | 'insurance' =
+      paymentData.source ??
+      (paymentData.method === 'insurance' ? 'insurance' : 'client');
+
+    // paymentData.amount is the CUMULATIVE total for this source (frontend sends alreadyPaid+newAmount)
+    const newSourceAmount = Number(paymentData.amount);
+    const otherSourceAmount = source === 'client'
+      ? Number(current?.insurancePaidAmount || 0)
+      : Number(current?.clientPaidAmount || 0);
+    const combinedTotal = newSourceAmount + otherSourceAmount;
+
     const updateData: any = {
       paymentStatus: paymentData.status,
-      paymentAmount: paymentData.amount.toString(),
+      paymentAmount: combinedTotal.toString(),
       paymentDate: paymentData.date,
       paymentMethod: paymentData.method,
       updatedAt: new Date()
     };
+
+    if (source === 'client') {
+      updateData.clientPaidAmount = newSourceAmount.toString();
+    } else {
+      updateData.insurancePaidAmount = newSourceAmount.toString();
+    }
 
     if (paymentData.reference) {
       updateData.paymentReference = paymentData.reference;

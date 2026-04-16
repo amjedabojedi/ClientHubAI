@@ -533,6 +533,8 @@ export const sessionBilling = pgTable("session_billing", {
   discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }), // Calculated $ discount amount
   // Payment details
   paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
+  clientPaidAmount: decimal("client_paid_amount", { precision: 10, scale: 2 }).default('0'),
+  insurancePaidAmount: decimal("insurance_paid_amount", { precision: 10, scale: 2 }).default('0'),
   paymentDate: date("payment_date"),
   paymentReference: varchar("payment_reference", { length: 100 }),
   paymentMethod: varchar("payment_method", { length: 50 }),

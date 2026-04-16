@@ -104,6 +104,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentSource, setPaymentSource] = useState<'client' | 'insurance'>('client');
   const { toast} = useToast();
   const queryClient = useQueryClient();
 
@@ -120,19 +121,37 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const hasKnownCopay = billingRecord?.copayAmount != null && !isNaN(Number(billingRecord.copayAmount));
   const hasInsurance = !!billingRecord?.insuranceCovered || (hasKnownCopay && Number(billingRecord?.copayAmount) > 0);
   const copayValue = hasKnownCopay ? Number(billingRecord.copayAmount) : 0;
-  const expectedInsuranceCoverage = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
-  const alreadyPaid = Number(billingRecord?.paymentAmount || 0);
-  const clientAmountDue = Math.max(amountAfterDiscount, 0);
-  const remainingDue = Math.max(clientAmountDue - alreadyPaid, 0);
+  const clientPortion = hasInsurance && hasKnownCopay ? copayValue : amountAfterDiscount;
+  const insurancePortion = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
+  const clientAlreadyPaid = Number(billingRecord?.clientPaidAmount || 0);
+  const insuranceAlreadyPaid = Number(billingRecord?.insurancePaidAmount || 0);
+  const alreadyPaid = Number(billingRecord?.paymentAmount || 0) || (clientAlreadyPaid + insuranceAlreadyPaid);
+  const clientRemaining = Math.max(clientPortion - clientAlreadyPaid, 0);
+  const insuranceRemaining = Math.max(insurancePortion - insuranceAlreadyPaid, 0);
+  const remainingDue = Math.max(amountAfterDiscount - alreadyPaid, 0);
 
+  // Default source selection: prefer whichever side still has balance (client first if both)
   useEffect(() => {
     if (isOpen && billingRecord) {
-      setPaymentAmount(remainingDue.toFixed(2));
-      setPaymentMethod('');
+      const defaultSource: 'client' | 'insurance' =
+        clientRemaining > 0 ? 'client' : insuranceRemaining > 0 ? 'insurance' : 'client';
+      setPaymentSource(defaultSource);
+      const suggestedAmount = defaultSource === 'client' ? clientRemaining : insuranceRemaining;
+      setPaymentAmount((suggestedAmount > 0 ? suggestedAmount : remainingDue).toFixed(2));
+      setPaymentMethod(defaultSource === 'insurance' ? 'insurance' : '');
       setPaymentReference('');
       setPaymentNotes('');
     }
-  }, [isOpen, billingRecord, remainingDue]);
+  }, [isOpen, billingRecord]);
+
+  // When user switches source, pre-fill the corresponding remaining balance
+  const handleSourceChange = (src: 'client' | 'insurance') => {
+    setPaymentSource(src);
+    const suggested = src === 'client' ? clientRemaining : insuranceRemaining;
+    setPaymentAmount((suggested > 0 ? suggested : 0).toFixed(2));
+    if (src === 'insurance' && !paymentMethod) setPaymentMethod('insurance');
+    if (src === 'client' && paymentMethod === 'insurance') setPaymentMethod('');
+  };
 
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -178,11 +197,18 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     }
 
     const enteredAmount = parseFloat(paymentAmount);
-    const cumulativeAmount = alreadyPaid + enteredAmount;
+    // Cumulative for THIS source (backend writes this to client_paid_amount or insurance_paid_amount)
+    const sourceAlreadyPaid = paymentSource === 'client' ? clientAlreadyPaid : insuranceAlreadyPaid;
+    const cumulativeSourceAmount = sourceAlreadyPaid + enteredAmount;
+
+    // Total after this payment — determines if bill is fully paid
+    const totalAfterPayment = alreadyPaid + enteredAmount;
+    const fullBillAmount = amountAfterDiscount;
 
     recordPaymentMutation.mutate({
-      status: enteredAmount >= remainingDue ? 'paid' : 'billed',
-      amount: cumulativeAmount,
+      status: totalAfterPayment >= fullBillAmount ? 'paid' : 'billed',
+      amount: cumulativeSourceAmount,
+      source: paymentSource,
       method: paymentMethod,
       reference: paymentReference,
       notes: paymentNotes,
@@ -216,36 +242,85 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
               </div>
             )}
             {hasInsurance && hasKnownCopay && (
-              <>
-                <div className="flex items-center justify-between text-xs text-blue-700 dark:text-blue-400 italic">
-                  <span>Expected Insurance Coverage (not yet received)</span>
-                  <span>${expectedInsuranceCoverage.toFixed(2)}</span>
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 dark:text-slate-300">Client Owes (Copay)</span>
+                  <span className={`font-semibold ${clientRemaining === 0 && clientAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                    ${clientRemaining.toFixed(2)}
+                    {clientAlreadyPaid > 0 && (
+                      <span className="text-xs font-normal ml-1 text-emerald-700 dark:text-emerald-400">
+                        (paid ${clientAlreadyPaid.toFixed(2)}{clientRemaining === 0 ? ' ✓' : ''})
+                      </span>
+                    )}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between text-xs italic">
-                  <span className="text-slate-500 dark:text-slate-400">Client Copay Portion</span>
-                  <span className="text-slate-700 dark:text-slate-300">${copayValue.toFixed(2)}</span>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-blue-700 dark:text-blue-400">Insurance Owes</span>
+                  <span className={`font-semibold ${insuranceRemaining === 0 && insuranceAlreadyPaid > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                    ${insuranceRemaining.toFixed(2)}
+                    {insuranceAlreadyPaid > 0 && (
+                      <span className="text-xs font-normal ml-1 text-emerald-700 dark:text-emerald-400">
+                        (paid ${insuranceAlreadyPaid.toFixed(2)}{insuranceRemaining === 0 ? ' ✓' : ''})
+                      </span>
+                    )}
+                  </span>
                 </div>
-              </>
+              </div>
             )}
             {hasInsurance && !hasKnownCopay && (
               <div className="text-xs text-amber-700 dark:text-amber-400 italic">
-                Insurance on file — copay not set. Full amount due until insurance pays.
+                Insurance on file — copay not set. Set client's copay to split balances.
               </div>
             )}
             {alreadyPaid > 0 && (
-              <div className="flex items-center justify-between text-sm text-emerald-700 dark:text-emerald-400">
-                <span>Already Paid</span>
+              <div className="flex items-center justify-between text-sm text-emerald-700 dark:text-emerald-400 pt-1">
+                <span>Total Already Paid</span>
                 <span className="font-semibold">-${alreadyPaid.toFixed(2)}</span>
               </div>
             )}
             <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-              <span className="font-medium text-slate-900 dark:text-slate-100">Amount Due</span>
+              <span className="font-medium text-slate-900 dark:text-slate-100">Total Amount Due</span>
               <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${remainingDue.toFixed(2)}</span>
             </div>
           </div>
 
           {/* Payment Details Section */}
           <div className="space-y-4">
+            {hasInsurance && hasKnownCopay && (
+              <div>
+                <Label>Payment Source *</Label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleSourceChange('client')}
+                    className={`px-3 py-2 rounded-md border text-sm font-medium transition-colors ${
+                      paymentSource === 'client'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Client Payment
+                    <div className="text-xs font-normal mt-0.5 opacity-90">
+                      ${clientRemaining.toFixed(2)} owed
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSourceChange('insurance')}
+                    className={`px-3 py-2 rounded-md border text-sm font-medium transition-colors ${
+                      paymentSource === 'insurance'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Insurance Payment
+                    <div className="text-xs font-normal mt-0.5 opacity-90">
+                      ${insuranceRemaining.toFixed(2)} owed
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="paymentAmount">Payment Amount *</Label>

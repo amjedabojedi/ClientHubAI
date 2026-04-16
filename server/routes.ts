@@ -10100,7 +10100,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.put("/api/billing/:billingId/payment", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const billingId = parseInt(req.params.billingId);
-      const { status, amount, date, reference, method, notes, clientId } = req.body;
+      const { status, amount, date, reference, method, notes, clientId, source } = req.body;
       
       // Use centralized storage method to get billing data for authorization
       // clientId is passed from frontend to use getBillingForInvoice
@@ -10140,7 +10140,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         date,
         reference,
         method,
-        notes
+        notes,
+        source
       });
       
       res.json({ message: "Payment details updated successfully" });
