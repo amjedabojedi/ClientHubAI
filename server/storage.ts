@@ -44,7 +44,8 @@ import {
   notificationTriggers,
   notificationPreferences,
   notificationTemplates,
-  patientConsents
+  patientConsents,
+  paymentTransactions
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -132,7 +133,8 @@ import type {
   NotificationPreference,
   InsertNotificationPreference,
   NotificationTemplate,
-  InsertNotificationTemplate
+  InsertNotificationTemplate,
+  PaymentTransaction
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -2682,53 +2684,108 @@ export class DatabaseStorage implements IStorage {
     method: string;
     notes?: string;
     source?: 'client' | 'insurance';
+    recordedBy?: number;
   }): Promise<SelectSessionBilling> {
-    // Fetch current record to compute split balances
-    const [current] = await db
-      .select()
+    return await db.transaction(async (tx) => {
+      // Lock the row so concurrent payments can't race each other
+      const lockedRows = await tx.execute(
+        sql`SELECT id, total_amount, discount_amount, client_paid_amount, insurance_paid_amount
+            FROM session_billing WHERE id = ${billingId} FOR UPDATE`
+      );
+      const current: any = (lockedRows as any).rows?.[0] || (lockedRows as any)[0];
+      if (!current) throw new Error(`Billing record ${billingId} not found`);
+
+      const source: 'client' | 'insurance' =
+        paymentData.source ??
+        (paymentData.method === 'insurance' ? 'insurance' : 'client');
+
+      // Validate numeric input
+      const cumulativeForSource = Number(paymentData.amount);
+      if (!Number.isFinite(cumulativeForSource) || cumulativeForSource < 0) {
+        throw new Error(`Invalid cumulative amount: ${paymentData.amount}`);
+      }
+
+      const previousForSource = Number(
+        source === 'client' ? current.client_paid_amount : current.insurance_paid_amount
+      ) || 0;
+      const delta = +(cumulativeForSource - previousForSource).toFixed(2);
+
+      const otherSourceAmount = Number(
+        source === 'client' ? current.insurance_paid_amount : current.client_paid_amount
+      ) || 0;
+      const combinedTotal = +(cumulativeForSource + otherSourceAmount).toFixed(2);
+
+      // Compute authoritative status from totals (don't trust client when it disagrees)
+      const billAmount = Number(current.total_amount) - Number(current.discount_amount || 0);
+      const authoritativeStatus =
+        combinedTotal >= billAmount ? 'paid'
+        : combinedTotal > 0 ? 'billed'
+        : paymentData.status;
+
+      const updateData: any = {
+        paymentStatus: authoritativeStatus,
+        paymentAmount: combinedTotal.toString(),
+        paymentDate: paymentData.date,
+        paymentMethod: paymentData.method,
+        updatedAt: new Date()
+      };
+
+      if (source === 'client') {
+        updateData.clientPaidAmount = cumulativeForSource.toString();
+      } else {
+        updateData.insurancePaidAmount = cumulativeForSource.toString();
+      }
+
+      if (paymentData.reference) updateData.paymentReference = paymentData.reference;
+      if (paymentData.notes) updateData.paymentNotes = paymentData.notes;
+
+      const [updated] = await tx
+        .update(sessionBilling)
+        .set(updateData)
+        .where(eq(sessionBilling.id, billingId))
+        .returning();
+
+      // Insert audit row only when money actually changed
+      if (delta !== 0) {
+        await tx.insert(paymentTransactions).values({
+          sessionBillingId: billingId,
+          source,
+          amount: delta.toString(),
+          paymentMethod: paymentData.method,
+          referenceNumber: paymentData.reference || null,
+          notes: paymentData.notes || null,
+          isHistoricalLump: false,
+          recordedBy: paymentData.recordedBy || null,
+        });
+      }
+
+      return updated;
+    });
+  }
+
+  // Lightweight billing lookup for authorization (returns the owning client's assignedTherapistId)
+  async getBillingRecordWithClient(billingId: number): Promise<{ id: number; clientId: number; assignedTherapistId: number | null } | null> {
+    const rows = await db
+      .select({
+        id: sessionBilling.id,
+        clientId: sessions.clientId,
+        assignedTherapistId: clients.assignedTherapistId,
+      })
       .from(sessionBilling)
-      .where(eq(sessionBilling.id, billingId));
-
-    // Determine source: explicit value wins, else infer from method ('insurance' method => insurance, else client)
-    const source: 'client' | 'insurance' =
-      paymentData.source ??
-      (paymentData.method === 'insurance' ? 'insurance' : 'client');
-
-    // paymentData.amount is the CUMULATIVE total for this source (frontend sends alreadyPaid+newAmount)
-    const newSourceAmount = Number(paymentData.amount);
-    const otherSourceAmount = source === 'client'
-      ? Number(current?.insurancePaidAmount || 0)
-      : Number(current?.clientPaidAmount || 0);
-    const combinedTotal = newSourceAmount + otherSourceAmount;
-
-    const updateData: any = {
-      paymentStatus: paymentData.status,
-      paymentAmount: combinedTotal.toString(),
-      paymentDate: paymentData.date,
-      paymentMethod: paymentData.method,
-      updatedAt: new Date()
-    };
-
-    if (source === 'client') {
-      updateData.clientPaidAmount = newSourceAmount.toString();
-    } else {
-      updateData.insurancePaidAmount = newSourceAmount.toString();
-    }
-
-    if (paymentData.reference) {
-      updateData.paymentReference = paymentData.reference;
-    }
-    if (paymentData.notes) {
-      updateData.paymentNotes = paymentData.notes;
-    }
-
-    const [updated] = await db
-      .update(sessionBilling)
-      .set(updateData)
+      .innerJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
+      .innerJoin(clients, eq(sessions.clientId, clients.id))
       .where(eq(sessionBilling.id, billingId))
-      .returning();
+      .limit(1);
+    return rows[0] || null;
+  }
 
-    return updated;
+  // Fetch the transaction history for a billing record
+  async getPaymentTransactions(billingId: number): Promise<PaymentTransaction[]> {
+    return db
+      .select()
+      .from(paymentTransactions)
+      .where(eq(paymentTransactions.sessionBillingId, billingId))
+      .orderBy(desc(paymentTransactions.recordedAt));
   }
 
   // Update billing record discount

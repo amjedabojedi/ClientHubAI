@@ -163,6 +163,11 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     if (src === 'client' && paymentMethod === 'insurance') setPaymentMethod('');
   };
 
+  const { data: transactions = [] } = useQuery<any[]>({
+    queryKey: ['/api/billing', billingRecord?.id, 'transactions'],
+    enabled: isOpen && !!billingRecord?.id,
+  });
+
   const recordPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
       const { apiRequest } = await import('@/lib/queryClient');
@@ -172,6 +177,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     onSuccess: () => {
       toast({ title: "Payment recorded successfully" });
       queryClient.invalidateQueries({ queryKey: ['billing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/billing', billingRecord?.id, 'transactions'] });
       onPaymentRecorded();
       onClose();
     },
@@ -281,6 +287,46 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
               <span className="font-bold text-lg text-slate-900 dark:text-slate-100">${remainingDue.toFixed(2)}</span>
             </div>
           </div>
+
+          {transactions.length > 0 && (
+            <div className="border border-slate-200 dark:border-slate-700 rounded-lg">
+              <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <span>Payment History</span>
+                <span className="text-slate-400">{transactions.length} {transactions.length === 1 ? 'entry' : 'entries'}</span>
+              </div>
+              <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                {transactions.map((tx: any) => {
+                  const voided = !!tx.voidedAt;
+                  const isClient = tx.source === 'client';
+                  return (
+                    <div key={tx.id} className={`px-3 py-2 text-xs flex items-center justify-between gap-2 ${voided ? 'opacity-50 line-through' : ''}`} data-testid={`payment-tx-${tx.id}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${isClient ? 'text-slate-700 dark:text-slate-300' : 'text-blue-700 dark:text-blue-400'}`}>
+                            {isClient ? 'Client' : 'Insurance'}
+                          </span>
+                          {tx.isHistoricalLump && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Historical total</span>
+                          )}
+                          {voided && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800">Voided</span>
+                          )}
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 truncate">
+                          {new Date(tx.recordedAt).toLocaleDateString()}
+                          {tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}
+                          {tx.referenceNumber ? ` · ${tx.referenceNumber}` : ''}
+                        </div>
+                      </div>
+                      <div className={`font-semibold tabular-nums ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                        {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Payment Details Section */}
           <div className="space-y-4">

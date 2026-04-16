@@ -10141,10 +10141,44 @@ You can download a copy if you have it saved locally and re-upload it.`;
         reference,
         method,
         notes,
-        source
+        source,
+        recordedBy: req.user?.id
       });
       
       res.json({ message: "Payment details updated successfully" });
+    } catch (error) {
+      console.error('[PAYMENT ERROR]', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Fetch payment transaction history for a billing record
+  app.get("/api/billing/:billingId/transactions", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const billingId = parseInt(req.params.billingId);
+      if (!Number.isFinite(billingId)) {
+        return res.status(400).json({ message: "Invalid billing id" });
+      }
+
+      // Look up the billing record + owning client for ownership check
+      const billing = await storage.getBillingRecordWithClient(billingId);
+      if (!billing) {
+        return res.status(404).json({ message: "Billing record not found" });
+      }
+
+      const userRole = (req.user?.role || '').toLowerCase();
+      if (['administrator', 'admin', 'supervisor', 'accountant', 'billing'].includes(userRole)) {
+        // Full billing access
+      } else if (userRole === 'therapist') {
+        if (billing.assignedTherapistId !== req.user!.id) {
+          return res.status(403).json({ message: "Access denied. You can only view payment history for your assigned clients." });
+        }
+      } else {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const transactions = await storage.getPaymentTransactions(billingId);
+      res.json(transactions);
     } catch (error) {
       console.error('[PAYMENT ERROR]', error);
       res.status(500).json({ message: "Internal server error" });

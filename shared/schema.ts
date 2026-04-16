@@ -552,6 +552,30 @@ export const sessionBilling = pgTable("session_billing", {
   dateServiceIdx: index("billing_date_service_idx").on(table.billingDate, table.serviceCode),
 }));
 
+// Payment transactions - per-payment audit log (one row per payment event)
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: serial("id").primaryKey(),
+  sessionBillingId: integer("session_billing_id").notNull().references(() => sessionBilling.id),
+  source: varchar("source", { length: 20 }).notNull(), // 'client' | 'insurance'
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: varchar("payment_method", { length: 50 }),
+  referenceNumber: varchar("reference_number", { length: 100 }),
+  notes: text("notes"),
+  isHistoricalLump: boolean("is_historical_lump").notNull().default(false),
+  voidedAt: timestamp("voided_at"),
+  voidedBy: integer("voided_by").references(() => users.id),
+  voidReason: text("void_reason"),
+  recordedBy: integer("recorded_by").references(() => users.id),
+  recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+});
+
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({
+  id: true,
+  recordedAt: true,
+});
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+
 // Tasks table
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
