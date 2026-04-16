@@ -130,13 +130,23 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const insuranceRemaining = Math.max(insurancePortion - insuranceAlreadyPaid, 0);
   const remainingDue = Math.max(amountAfterDiscount - alreadyPaid, 0);
 
-  // Default source selection: prefer whichever side still has balance (client first if both)
+  // Smart prefill: if copay is set, use that side's known portion; else use total remaining
+  const suggestAmountFor = (src: 'client' | 'insurance'): number => {
+    if (hasInsurance && hasKnownCopay) {
+      return src === 'client' ? clientRemaining : insuranceRemaining;
+    }
+    return remainingDue;
+  };
+
+  // Default source: insurance if record is insured (they usually pay first), else client
   useEffect(() => {
     if (isOpen && billingRecord) {
       const defaultSource: 'client' | 'insurance' =
-        clientRemaining > 0 ? 'client' : insuranceRemaining > 0 ? 'insurance' : 'client';
+        hasInsurance && insuranceRemaining > 0 ? 'insurance'
+        : clientRemaining > 0 ? 'client'
+        : 'client';
       setPaymentSource(defaultSource);
-      const suggestedAmount = defaultSource === 'client' ? clientRemaining : insuranceRemaining;
+      const suggestedAmount = suggestAmountFor(defaultSource);
       setPaymentAmount((suggestedAmount > 0 ? suggestedAmount : remainingDue).toFixed(2));
       setPaymentMethod(defaultSource === 'insurance' ? 'insurance' : '');
       setPaymentReference('');
@@ -144,10 +154,10 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     }
   }, [isOpen, billingRecord]);
 
-  // When user switches source, pre-fill the corresponding remaining balance
+  // When user switches source, pre-fill with a sensible amount
   const handleSourceChange = (src: 'client' | 'insurance') => {
     setPaymentSource(src);
-    const suggested = src === 'client' ? clientRemaining : insuranceRemaining;
+    const suggested = suggestAmountFor(src);
     setPaymentAmount((suggested > 0 ? suggested : 0).toFixed(2));
     if (src === 'insurance' && !paymentMethod) setPaymentMethod('insurance');
     if (src === 'client' && paymentMethod === 'insurance') setPaymentMethod('');
