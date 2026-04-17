@@ -100,12 +100,21 @@ interface PaymentDialogProps {
 }
 
 function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: PaymentDialogProps) {
-  const [paymentAmount, setPaymentAmount] = useState(billingRecord?.totalAmount?.toString() || '');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [paymentReference, setPaymentReference] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+
+  // Client payment fields
+  const [clientAmount, setClientAmount] = useState('');
+  const [clientDate, setClientDate] = useState(today);
+  const [clientMethod, setClientMethod] = useState('');
+  const [clientReference, setClientReference] = useState('');
+
+  // Insurance payment fields
+  const [insAmount, setInsAmount] = useState('');
+  const [insDate, setInsDate] = useState(today);
+  const [insMethod, setInsMethod] = useState('insurance');
+  const [insReference, setInsReference] = useState('');
+
   const [paymentNotes, setPaymentNotes] = useState('');
-  const [paymentSource, setPaymentSource] = useState<'client' | 'insurance'>('client');
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const { toast } = useToast();
@@ -136,38 +145,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const insuranceRemaining = Math.max(insurancePortion - insuranceAlreadyPaid, 0);
   const remainingDue = Math.max(amountAfterDiscount - alreadyPaid, 0);
 
-  // Smart prefill: if copay is set, use that side's known portion; else use total remaining
-  const suggestAmountFor = (src: 'client' | 'insurance'): number => {
-    if (hasInsurance && hasKnownCopay) {
-      return src === 'client' ? clientRemaining : insuranceRemaining;
-    }
-    return remainingDue;
-  };
-
-  // Default source: insurance if record is insured (they usually pay first), else client
+  // Reset fields when dialog reopens
   useEffect(() => {
     if (isOpen && billingRecord) {
-      const defaultSource: 'client' | 'insurance' =
-        hasInsurance && insuranceRemaining > 0 ? 'insurance'
-        : clientRemaining > 0 ? 'client'
-        : 'client';
-      setPaymentSource(defaultSource);
-      const suggestedAmount = suggestAmountFor(defaultSource);
-      setPaymentAmount((suggestedAmount > 0 ? suggestedAmount : remainingDue).toFixed(2));
-      setPaymentMethod(defaultSource === 'insurance' ? 'insurance' : '');
-      setPaymentReference('');
+      // Pre-suggest amounts only when copay split is known. Otherwise leave blank.
+      setClientAmount(hasInsurance && hasKnownCopay && clientRemaining > 0 ? clientRemaining.toFixed(2) : '');
+      setInsAmount(hasInsurance && hasKnownCopay && insuranceRemaining > 0 ? insuranceRemaining.toFixed(2) : '');
+      setClientDate(today);
+      setInsDate(today);
+      setClientMethod('');
+      setInsMethod('insurance');
+      setClientReference('');
+      setInsReference('');
       setPaymentNotes('');
     }
   }, [isOpen, billingRecord]);
-
-  // When user switches source, pre-fill with a sensible amount
-  const handleSourceChange = (src: 'client' | 'insurance') => {
-    setPaymentSource(src);
-    const suggested = suggestAmountFor(src);
-    setPaymentAmount((suggested > 0 ? suggested : 0).toFixed(2));
-    if (src === 'insurance' && !paymentMethod) setPaymentMethod('insurance');
-    if (src === 'client' && paymentMethod === 'insurance') setPaymentMethod('');
-  };
 
   const { data: transactions = [] } = useQuery<any[]>({
     queryKey: ['/api/billing', billingRecord?.id, 'transactions'],
@@ -214,48 +206,80 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const clientAmountNum = parseFloat(clientAmount || '0') || 0;
+  const insAmountNum = parseFloat(insAmount || '0') || 0;
+  const hasClientPayment = clientAmountNum > 0;
+  const hasInsPayment = insAmountNum > 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentAmount || !paymentMethod) {
-      toast({ 
-        title: "Please fill in required fields", 
-        description: "Payment amount and method are required",
-        variant: "destructive" 
-      });
-      return;
-    }
-
     const clientId = billingRecord?.session?.clientId;
-    
     if (!clientId) {
-      toast({ 
-        title: "Error: Missing client information", 
-        description: "Cannot record payment - client data is missing",
-        variant: "destructive" 
-      });
+      toast({ title: "Error: Missing client information", variant: "destructive" });
+      return;
+    }
+    if (!hasClientPayment && !hasInsPayment) {
+      toast({ title: "Enter at least one payment", description: "Fill in the Client side, Insurance side, or both.", variant: "destructive" });
+      return;
+    }
+    if (hasClientPayment && (!clientMethod || !clientDate)) {
+      toast({ title: "Client payment incomplete", description: "Method and date are required.", variant: "destructive" });
+      return;
+    }
+    if (hasInsPayment && (!insMethod || !insDate)) {
+      toast({ title: "Insurance payment incomplete", description: "Method and date are required.", variant: "destructive" });
       return;
     }
 
-    const enteredAmount = parseFloat(paymentAmount);
-    // Cumulative for THIS source (backend writes this to client_paid_amount or insurance_paid_amount)
-    const sourceAlreadyPaid = paymentSource === 'client' ? clientAlreadyPaid : insuranceAlreadyPaid;
-    const cumulativeSourceAmount = sourceAlreadyPaid + enteredAmount;
-
-    // Total after this payment — determines if bill is fully paid
-    const totalAfterPayment = alreadyPaid + enteredAmount;
     const fullBillAmount = amountAfterDiscount;
 
-    recordPaymentMutation.mutate({
-      status: totalAfterPayment >= fullBillAmount ? 'paid' : 'billed',
-      amount: cumulativeSourceAmount,
-      source: paymentSource,
-      method: paymentMethod,
-      reference: paymentReference,
-      notes: paymentNotes,
-      date: paymentDate,
-      clientId: clientId
-    });
+    try {
+      const { apiRequest } = await import('@/lib/queryClient');
+
+      // Record client payment first (if any)
+      if (hasClientPayment) {
+        const cumulative = +(clientAlreadyPaid + clientAmountNum).toFixed(2);
+        const totalAfter = alreadyPaid + clientAmountNum + (hasInsPayment ? insAmountNum : 0);
+        await apiRequest(`/api/billing/${billingRecord?.id}/payment`, 'PUT', {
+          status: totalAfter >= fullBillAmount ? 'paid' : 'billed',
+          amount: cumulative,
+          source: 'client',
+          method: clientMethod,
+          reference: clientReference,
+          notes: paymentNotes,
+          date: clientDate,
+          clientId,
+        });
+      }
+
+      // Then insurance payment (if any)
+      if (hasInsPayment) {
+        const cumulative = +(insuranceAlreadyPaid + insAmountNum).toFixed(2);
+        const totalAfter = alreadyPaid + insAmountNum + (hasClientPayment ? clientAmountNum : 0);
+        await apiRequest(`/api/billing/${billingRecord?.id}/payment`, 'PUT', {
+          status: totalAfter >= fullBillAmount ? 'paid' : 'billed',
+          amount: cumulative,
+          source: 'insurance',
+          method: insMethod,
+          reference: insReference,
+          notes: paymentNotes,
+          date: insDate,
+          clientId,
+        });
+      }
+
+      const both = hasClientPayment && hasInsPayment;
+      toast({ title: both ? "2 payments recorded" : "Payment recorded" });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/billing', billingRecord?.id, 'transactions'] });
+      onPaymentRecorded();
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Error recording payment", description: err?.message || 'Failed', variant: "destructive" });
+    }
   };
+
+  const isSubmitting = recordPaymentMutation.isPending;
 
   if (!billingRecord) return null;
 
@@ -381,67 +405,56 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             </div>
           )}
 
-          {/* Payment Details Section */}
-          <div className="space-y-4">
-            <div>
-              <Label>Who is paying? *</Label>
-              <div className="grid grid-cols-2 gap-2 mt-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSourceChange('client')}
-                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors text-left ${
-                    paymentSource === 'client'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
-                  }`}
-                  data-testid="payment-source-client"
-                >
-                  <div className="font-semibold">Client</div>
-                  <div className="text-xs font-normal mt-0.5 opacity-90">
-                    Owes: ${(hasInsurance && hasKnownCopay ? clientRemaining : remainingDue).toFixed(2)}
-                    {clientAlreadyPaid > 0 && ` · Paid: $${clientAlreadyPaid.toFixed(2)}`}
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSourceChange('insurance')}
-                  className={`px-3 py-2.5 rounded-md border-2 text-sm font-medium transition-colors text-left ${
-                    paymentSource === 'insurance'
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
-                  }`}
-                  data-testid="payment-source-insurance"
-                >
-                  <div className="font-semibold">Insurance</div>
-                  <div className="text-xs font-normal mt-0.5 opacity-90">
-                    {hasInsurance && hasKnownCopay
-                      ? `Owes: $${insuranceRemaining.toFixed(2)}`
-                      : hasInsurance
-                        ? `Expected: up to $${remainingDue.toFixed(2)}`
-                        : 'Not expected'}
-                    {insuranceAlreadyPaid > 0 && ` · Paid: $${insuranceAlreadyPaid.toFixed(2)}`}
-                  </div>
-                </button>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Fill in <strong>one or both</strong> sides. Each side has its own date — perfect for when the client paid today and insurance paid weeks earlier (or vice versa).
+          </p>
+
+          {/* CLIENT SIDE */}
+          <div className="border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                Client Payment
+              </div>
+              <div className="text-xs text-slate-500">
+                {hasInsurance && hasKnownCopay
+                  ? `Owes $${clientRemaining.toFixed(2)}`
+                  : `Up to $${remainingDue.toFixed(2)}`}
+                {clientAlreadyPaid > 0 && ` · Already paid $${clientAlreadyPaid.toFixed(2)}`}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="paymentAmount">Payment Amount *</Label>
+                <Label htmlFor="clientAmount" className="text-xs">Amount</Label>
                 <Input
-                  id="paymentAmount"
+                  id="clientAmount"
                   type="number"
                   step="0.01"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  min="0"
+                  value={clientAmount}
+                  onChange={(e) => setClientAmount(e.target.value)}
                   placeholder="0.00"
-                  required
-                  className="font-medium"
+                  data-testid="client-amount-input"
                 />
               </div>
               <div>
-                <Label htmlFor="paymentMethod">Payment Method *</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod} required>
-                  <SelectTrigger>
+                <Label htmlFor="clientDate" className="text-xs">Date Received</Label>
+                <Input
+                  id="clientDate"
+                  type="date"
+                  value={clientDate}
+                  onChange={(e) => setClientDate(e.target.value)}
+                  max={today}
+                  disabled={!hasClientPayment}
+                  data-testid="client-date-input"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="clientMethod" className="text-xs">Method</Label>
+                <Select value={clientMethod} onValueChange={setClientMethod} disabled={!hasClientPayment}>
+                  <SelectTrigger id="clientMethod" data-testid="client-method-select">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,53 +462,126 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                     <SelectItem value="check">Check</SelectItem>
                     <SelectItem value="credit_card">Credit Card</SelectItem>
                     <SelectItem value="debit_card">Debit Card</SelectItem>
-                    <SelectItem value="insurance">Insurance</SelectItem>
                     <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                     <SelectItem value="online_payment">Online Payment</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div>
-              <Label htmlFor="paymentDate">Payment Date *</Label>
-              <Input
-                id="paymentDate"
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                required
-                data-testid="payment-date-input"
-              />
-              <p className="text-xs text-slate-500 mt-1">When the money actually arrived (not today's date if entered later)</p>
-            </div>
-            <div>
-              <Label htmlFor="paymentReference">Reference Number</Label>
-              <Input
-                id="paymentReference"
-                value={paymentReference}
-                onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="Check number, transaction ID, etc."
-              />
-            </div>
-            <div>
-              <Label htmlFor="paymentNotes">Notes</Label>
-              <Textarea
-                id="paymentNotes"
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Additional payment notes"
-                rows={3}
-              />
+              <div>
+                <Label htmlFor="clientReference" className="text-xs">Reference</Label>
+                <Input
+                  id="clientReference"
+                  value={clientReference}
+                  onChange={(e) => setClientReference(e.target.value)}
+                  placeholder="Check #, txn ID..."
+                  disabled={!hasClientPayment}
+                />
+              </div>
             </div>
           </div>
+
+          {/* INSURANCE SIDE */}
+          <div className="border-2 border-blue-100 dark:border-blue-900 rounded-lg p-4 space-y-3 bg-blue-50/30 dark:bg-blue-950/20">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Insurance Payment
+              </div>
+              <div className="text-xs text-slate-500">
+                {hasInsurance && hasKnownCopay
+                  ? `Owes $${insuranceRemaining.toFixed(2)}`
+                  : hasInsurance
+                    ? `Up to $${remainingDue.toFixed(2)}`
+                    : 'Not expected'}
+                {insuranceAlreadyPaid > 0 && ` · Already paid $${insuranceAlreadyPaid.toFixed(2)}`}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="insAmount" className="text-xs">Amount</Label>
+                <Input
+                  id="insAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={insAmount}
+                  onChange={(e) => setInsAmount(e.target.value)}
+                  placeholder="0.00"
+                  data-testid="insurance-amount-input"
+                />
+              </div>
+              <div>
+                <Label htmlFor="insDate" className="text-xs">Date Received</Label>
+                <Input
+                  id="insDate"
+                  type="date"
+                  value={insDate}
+                  onChange={(e) => setInsDate(e.target.value)}
+                  max={today}
+                  disabled={!hasInsPayment}
+                  data-testid="insurance-date-input"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="insMethod" className="text-xs">Method</Label>
+                <Select value={insMethod} onValueChange={setInsMethod} disabled={!hasInsPayment}>
+                  <SelectTrigger id="insMethod" data-testid="insurance-method-select">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="insurance">Insurance EOB</SelectItem>
+                    <SelectItem value="check">Check</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer (EFT)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="insReference" className="text-xs">EOB / Check #</Label>
+                <Input
+                  id="insReference"
+                  value={insReference}
+                  onChange={(e) => setInsReference(e.target.value)}
+                  placeholder="EOB number, check..."
+                  disabled={!hasInsPayment}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="paymentNotes" className="text-xs">Notes (applies to both)</Label>
+            <Textarea
+              id="paymentNotes"
+              value={paymentNotes}
+              onChange={(e) => setPaymentNotes(e.target.value)}
+              placeholder="Optional notes..."
+              rows={2}
+            />
+          </div>
+
+          {(hasClientPayment || hasInsPayment) && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3 text-sm">
+              <div className="font-semibold text-emerald-900 dark:text-emerald-200">
+                Recording {hasClientPayment && hasInsPayment ? '2 payments' : '1 payment'}
+              </div>
+              <div className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 space-y-0.5">
+                {hasClientPayment && <div>• Client: ${clientAmountNum.toFixed(2)} on {clientDate}</div>}
+                {hasInsPayment && <div>• Insurance: ${insAmountNum.toFixed(2)} on {insDate}</div>}
+                <div className="pt-1 mt-1 border-t border-emerald-200 dark:border-emerald-800 font-semibold">
+                  Total: ${(clientAmountNum + insAmountNum).toFixed(2)} · Bill becomes {alreadyPaid + clientAmountNum + insAmountNum >= amountAfterDiscount ? 'PAID' : 'partially billed'}
+                </div>
+              </div>
+            </div>
+          )}
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={recordPaymentMutation.isPending}>
-              {recordPaymentMutation.isPending ? 'Recording...' : 'Record Payment'}
+            <Button type="submit" disabled={isSubmitting || (!hasClientPayment && !hasInsPayment)} data-testid="record-payment-submit">
+              {isSubmitting ? 'Recording...' : hasClientPayment && hasInsPayment ? 'Record Both Payments' : 'Record Payment'}
             </Button>
           </DialogFooter>
         </form>
