@@ -105,8 +105,13 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [paymentSource, setPaymentSource] = useState<'client' | 'insurance'>('client');
-  const { toast} = useToast();
+  const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
+  const [voidReason, setVoidReason] = useState('');
+  const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canVoid = ['administrator', 'admin', 'supervisor', 'accountant', 'billing']
+    .includes((user?.role || '').toLowerCase());
 
   const discountAmount = useMemo(() => {
     if (!billingRecord?.discountAmount) return 0;
@@ -166,6 +171,24 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const { data: transactions = [] } = useQuery<any[]>({
     queryKey: ['/api/billing', billingRecord?.id, 'transactions'],
     enabled: isOpen && !!billingRecord?.id,
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      const response = await apiRequest(`/api/payment-transactions/${id}/void`, 'POST', { reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Payment voided", description: "Totals updated automatically" });
+      queryClient.invalidateQueries({ queryKey: ['billing'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/billing', billingRecord?.id, 'transactions'] });
+      setVoidTargetId(null);
+      setVoidReason('');
+      onPaymentRecorded();
+    },
+    onError: (err: any) => {
+      toast({ title: "Could not void payment", description: err?.message || 'Error', variant: "destructive" });
+    },
   });
 
   const recordPaymentMutation = useMutation({
@@ -305,27 +328,43 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                   const voided = !!tx.voidedAt;
                   const isClient = tx.source === 'client';
                   return (
-                    <div key={tx.id} className={`px-3 py-2 text-xs flex items-center justify-between gap-2 ${voided ? 'opacity-50 line-through' : ''}`} data-testid={`payment-tx-${tx.id}`}>
+                    <div key={tx.id} className={`px-3 py-2 text-xs flex items-center justify-between gap-2 ${voided ? 'opacity-50' : ''}`} data-testid={`payment-tx-${tx.id}`}>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium ${isClient ? 'text-slate-700 dark:text-slate-300' : 'text-blue-700 dark:text-blue-400'}`}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`font-medium ${voided ? 'line-through' : ''} ${isClient ? 'text-slate-700 dark:text-slate-300' : 'text-blue-700 dark:text-blue-400'}`}>
                             {isClient ? 'Client' : 'Insurance'}
                           </span>
                           {tx.isHistoricalLump && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Historical total</span>
                           )}
                           {voided && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800">Voided</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-800" title={tx.voidReason || ''}>Voided</span>
                           )}
                         </div>
-                        <div className="text-slate-500 dark:text-slate-400 truncate">
+                        <div className={`text-slate-500 dark:text-slate-400 truncate ${voided ? 'line-through' : ''}`}>
                           {new Date(tx.recordedAt).toLocaleDateString()}
                           {tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}
                           {tx.referenceNumber ? ` · ${tx.referenceNumber}` : ''}
                         </div>
+                        {voided && tx.voidReason && (
+                          <div className="text-[10px] text-red-600 dark:text-red-400 italic mt-0.5">Voided: {tx.voidReason}</div>
+                        )}
                       </div>
-                      <div className={`font-semibold tabular-nums ${Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                        {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
+                      <div className="flex items-center gap-2">
+                        <div className={`font-semibold tabular-nums ${voided ? 'line-through text-slate-400' : Number(tx.amount) < 0 ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          {Number(tx.amount) < 0 ? '-' : '+'}${Math.abs(Number(tx.amount)).toFixed(2)}
+                        </div>
+                        {!voided && canVoid && (
+                          <button
+                            type="button"
+                            onClick={() => { setVoidTargetId(tx.id); setVoidReason(''); }}
+                            className="text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300 dark:hover:bg-red-950 transition-colors"
+                            data-testid={`void-payment-${tx.id}`}
+                            title="Void this payment"
+                          >
+                            Void
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -439,6 +478,40 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             </Button>
           </DialogFooter>
         </form>
+
+        <Dialog open={voidTargetId !== null} onOpenChange={(o) => !o && setVoidTargetId(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Void this payment?</DialogTitle>
+              <DialogDescription>
+                The payment will be marked as voided and totals will be recalculated automatically. This action is logged for audit.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="voidReason">Reason (required) *</Label>
+              <Textarea
+                id="voidReason"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="e.g., Recorded by mistake, check bounced, refunded to client..."
+                rows={3}
+                data-testid="void-reason-input"
+              />
+              <p className="text-xs text-slate-500">Minimum 3 characters. This reason will appear in the payment history.</p>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setVoidTargetId(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={voidReason.trim().length < 3 || voidMutation.isPending}
+                onClick={() => voidTargetId && voidMutation.mutate({ id: voidTargetId, reason: voidReason })}
+                data-testid="confirm-void-button"
+              >
+                {voidMutation.isPending ? 'Voiding...' : 'Confirm Void'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

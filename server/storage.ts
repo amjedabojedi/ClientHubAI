@@ -2779,6 +2779,73 @@ export class DatabaseStorage implements IStorage {
     return rows[0] || null;
   }
 
+  // Void a payment transaction and recompute totals atomically
+  async voidPaymentTransaction(
+    transactionId: number,
+    reason: string,
+    voidedBy: number
+  ): Promise<{ billingId: number }> {
+    if (!reason || reason.trim().length < 3) {
+      throw new Error("Void reason is required (min 3 characters)");
+    }
+    return await db.transaction(async (tx) => {
+      // Lock the transaction row
+      const txRows = await tx.execute(
+        sql`SELECT id, session_billing_id, voided_at FROM payment_transactions WHERE id = ${transactionId} FOR UPDATE`
+      );
+      const txRow: any = (txRows as any).rows?.[0] || (txRows as any)[0];
+      if (!txRow) throw new Error("Transaction not found");
+      if (txRow.voided_at) throw new Error("Transaction already voided");
+
+      const billingId: number = txRow.session_billing_id;
+
+      // Mark voided
+      await tx
+        .update(paymentTransactions)
+        .set({
+          voidedAt: new Date(),
+          voidedBy: voidedBy,
+          voidReason: reason.trim(),
+        })
+        .where(eq(paymentTransactions.id, transactionId));
+
+      // Lock the billing row + recompute totals from remaining (non-voided) transactions
+      await tx.execute(sql`SELECT id FROM session_billing WHERE id = ${billingId} FOR UPDATE`);
+      const sumRows = await tx.execute(sql`
+        SELECT
+          COALESCE(SUM(CASE WHEN source = 'client'    THEN amount::numeric ELSE 0 END), 0) AS client_total,
+          COALESCE(SUM(CASE WHEN source = 'insurance' THEN amount::numeric ELSE 0 END), 0) AS insurance_total
+        FROM payment_transactions
+        WHERE session_billing_id = ${billingId} AND voided_at IS NULL
+      `);
+      const sums: any = (sumRows as any).rows?.[0] || (sumRows as any)[0];
+      const clientTotal = Number(sums.client_total) || 0;
+      const insuranceTotal = Number(sums.insurance_total) || 0;
+      const combined = +(clientTotal + insuranceTotal).toFixed(2);
+
+      // Get bill amount to compute correct status
+      const billRows = await tx.execute(
+        sql`SELECT total_amount, discount_amount FROM session_billing WHERE id = ${billingId}`
+      );
+      const bill: any = (billRows as any).rows?.[0] || (billRows as any)[0];
+      const billAmount = Number(bill.total_amount) - Number(bill.discount_amount || 0);
+      const newStatus = combined >= billAmount ? 'paid' : combined > 0 ? 'billed' : 'pending';
+
+      await tx
+        .update(sessionBilling)
+        .set({
+          clientPaidAmount: clientTotal.toString(),
+          insurancePaidAmount: insuranceTotal.toString(),
+          paymentAmount: combined.toString(),
+          paymentStatus: newStatus,
+          updatedAt: new Date(),
+        })
+        .where(eq(sessionBilling.id, billingId));
+
+      return { billingId };
+    });
+  }
+
   // Fetch the transaction history for a billing record
   async getPaymentTransactions(billingId: number): Promise<PaymentTransaction[]> {
     return db

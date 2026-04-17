@@ -10185,6 +10185,28 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Void a single payment transaction (admin/billing only)
+  app.post("/api/payment-transactions/:id/void", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const txId = parseInt(req.params.id);
+      if (!Number.isFinite(txId)) {
+        return res.status(400).json({ message: "Invalid transaction id" });
+      }
+      const userRole = (req.user?.role || '').toLowerCase();
+      if (!['administrator', 'admin', 'supervisor', 'accountant', 'billing'].includes(userRole)) {
+        return res.status(403).json({ message: "Access denied. Only admin/billing can void payments." });
+      }
+      const reason = (req.body?.reason || '').toString();
+      const result = await storage.voidPaymentTransaction(txId, reason, req.user!.id);
+      res.json({ message: "Payment voided", billingId: result.billingId });
+    } catch (error: any) {
+      console.error('[VOID ERROR]', error);
+      const msg = error?.message || "Internal server error";
+      const code = msg.includes('not found') ? 404 : msg.includes('required') || msg.includes('already voided') ? 400 : 500;
+      res.status(code).json({ message: msg });
+    }
+  });
+
   // Apply discount to billing record
   app.patch("/api/billing/:billingId/discount", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
