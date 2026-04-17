@@ -2755,6 +2755,7 @@ export class DatabaseStorage implements IStorage {
           referenceNumber: paymentData.reference || null,
           notes: paymentData.notes || null,
           isHistoricalLump: false,
+          paymentDate: paymentData.date || null,
           recordedBy: paymentData.recordedBy || null,
         });
       }

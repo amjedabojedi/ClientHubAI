@@ -101,6 +101,7 @@ interface PaymentDialogProps {
 
 function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: PaymentDialogProps) {
   const [paymentAmount, setPaymentAmount] = useState(billingRecord?.totalAmount?.toString() || '');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
@@ -251,7 +252,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       method: paymentMethod,
       reference: paymentReference,
       notes: paymentNotes,
-      date: new Date().toISOString().split('T')[0],
+      date: paymentDate,
       clientId: clientId
     });
   };
@@ -342,10 +343,17 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                           )}
                         </div>
                         <div className={`text-slate-500 dark:text-slate-400 truncate ${voided ? 'line-through' : ''}`}>
-                          {new Date(tx.recordedAt).toLocaleDateString()}
+                          {tx.paymentDate
+                            ? new Date(tx.paymentDate).toLocaleDateString()
+                            : new Date(tx.recordedAt).toLocaleDateString()}
                           {tx.paymentMethod ? ` · ${tx.paymentMethod}` : ''}
                           {tx.referenceNumber ? ` · ${tx.referenceNumber}` : ''}
                         </div>
+                        {tx.paymentDate && new Date(tx.paymentDate).toDateString() !== new Date(tx.recordedAt).toDateString() && (
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            Entered {new Date(tx.recordedAt).toLocaleDateString()}
+                          </div>
+                        )}
                         {voided && tx.voidReason && (
                           <div className="text-[10px] text-red-600 dark:text-red-400 italic mt-0.5">Voided: {tx.voidReason}</div>
                         )}
@@ -447,6 +455,19 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div>
+              <Label htmlFor="paymentDate">Payment Date *</Label>
+              <Input
+                id="paymentDate"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                required
+                data-testid="payment-date-input"
+              />
+              <p className="text-xs text-slate-500 mt-1">When the money actually arrived (not today's date if entered later)</p>
             </div>
             <div>
               <Label htmlFor="paymentReference">Reference Number</Label>

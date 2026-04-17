@@ -562,6 +562,7 @@ export const paymentTransactions = pgTable("payment_transactions", {
   referenceNumber: varchar("reference_number", { length: 100 }),
   notes: text("notes"),
   isHistoricalLump: boolean("is_historical_lump").notNull().default(false),
+  paymentDate: date("payment_date"),
   voidedAt: timestamp("voided_at"),
   voidedBy: integer("voided_by").references(() => users.id),
   voidReason: text("void_reason"),
