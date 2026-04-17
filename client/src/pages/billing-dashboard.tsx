@@ -414,6 +414,17 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             </div>
           )}
 
+          {amountAfterDiscount <= 0.009 && (
+            <div className="rounded-md p-3 text-sm bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800">
+              <div className="font-semibold text-amber-900 dark:text-amber-200">
+                ⚠ This bill has a total of $0.00
+              </div>
+              <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                There is nothing to collect. This usually means the session's service has a $0 base rate, or the service wasn't set up. Fix the session/service first — recording payments here won't change the bill.
+              </p>
+            </div>
+          )}
+
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Fill in <strong>one or both</strong> sides. Each side has its own date — perfect for when the client paid today and insurance paid weeks earlier (or vice versa).
           </p>
@@ -1099,11 +1110,13 @@ export default function BillingDashboard() {
   };
 
   const handleRecordPayment = (record: any) => {
-    // Transform the record to match BillingRecord interface
+    // Transform the record to match BillingRecord interface.
+    // Nest the client (with insurance fields) under session so the dialog can use it
+    // as a fallback when the bill record itself has stale insurance_covered=false.
     const billing = record.billing || record;
     const billingRecord: BillingRecord = {
       ...billing,
-      session: record.session
+      session: record.session ? { ...record.session, client: record.client } : undefined,
     };
     setSelectedBillingRecord(billingRecord);
     setPaymentDialogOpen(true);
@@ -1755,7 +1768,7 @@ export default function BillingDashboard() {
                                 Billing Actions
                               </div>
                               <DropdownMenuItem onClick={() => {
-                                setSelectedBillingRecord(billing);
+                                setSelectedBillingRecord({ ...billing, _client: client, _session: session });
                                 setDiscountDialogOpen(true);
                               }}>
                                 <TicketPercent className="h-4 w-4 mr-2 text-green-600" />
