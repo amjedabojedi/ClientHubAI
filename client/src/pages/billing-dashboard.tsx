@@ -115,6 +115,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   const [insReference, setInsReference] = useState('');
 
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [confirmOverpay, setConfirmOverpay] = useState(false);
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   const [voidReason, setVoidReason] = useState('');
   const { toast } = useToast();
@@ -158,6 +159,7 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       setClientReference('');
       setInsReference('');
       setPaymentNotes('');
+      setConfirmOverpay(false);
     }
   }, [isOpen, billingRecord]);
 
@@ -609,29 +611,95 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
             />
           </div>
 
-          {(hasClientPayment || hasInsPayment) && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md p-3 text-sm">
-              <div className="font-semibold text-emerald-900 dark:text-emerald-200">
-                Recording {hasClientPayment && hasInsPayment ? '2 payments' : '1 payment'}
-              </div>
-              <div className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 space-y-0.5">
-                {hasClientPayment && <div>• Client: ${clientAmountNum.toFixed(2)} on {clientDate}</div>}
-                {hasInsPayment && <div>• Insurance: ${insAmountNum.toFixed(2)} on {insDate}</div>}
-                <div className="pt-1 mt-1 border-t border-emerald-200 dark:border-emerald-800 font-semibold">
-                  Total: ${(clientAmountNum + insAmountNum).toFixed(2)} · Bill becomes {alreadyPaid + clientAmountNum + insAmountNum >= amountAfterDiscount ? 'PAID' : 'partially billed'}
+          {(() => {
+            const enteredTotal = clientAmountNum + insAmountNum;
+            const projectedTotal = alreadyPaid + enteredTotal;
+            const overpayBy = projectedTotal - amountAfterDiscount;
+            const isOverpay = overpayBy > 0.009;
+            const showSummary = hasClientPayment || hasInsPayment;
+            return showSummary ? (
+              <>
+                <div className={`rounded-md p-3 text-sm border ${
+                  isOverpay
+                    ? 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800'
+                    : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
+                }`}>
+                  <div className={`font-semibold ${isOverpay ? 'text-red-900 dark:text-red-200' : 'text-emerald-900 dark:text-emerald-200'}`}>
+                    Recording {hasClientPayment && hasInsPayment ? '2 payments' : '1 payment'}
+                  </div>
+                  <div className={`text-xs mt-1 space-y-0.5 ${isOverpay ? 'text-red-700 dark:text-red-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                    {hasClientPayment && <div>• Client: ${clientAmountNum.toFixed(2)} on {clientDate}</div>}
+                    {hasInsPayment && <div>• Insurance: ${insAmountNum.toFixed(2)} on {insDate}</div>}
+                    <div className="pt-1 mt-1 border-t border-current/20 font-semibold">
+                      Bill total: ${amountAfterDiscount.toFixed(2)}
+                      {alreadyPaid > 0 && ` · Already paid: $${alreadyPaid.toFixed(2)}`}
+                      {' · '}New total: ${projectedTotal.toFixed(2)}
+                    </div>
+                    {isOverpay && (
+                      <div className="font-bold mt-1">
+                        ⚠ OVERPAYMENT: ${overpayBy.toFixed(2)} more than the bill amount.
+                      </div>
+                    )}
+                    {!isOverpay && (
+                      <div className="font-medium">
+                        Bill becomes {projectedTotal >= amountAfterDiscount - 0.009 ? 'PAID' : 'partially billed'}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting || (!hasClientPayment && !hasInsPayment)} data-testid="record-payment-submit">
-              {isSubmitting ? 'Recording...' : hasClientPayment && hasInsPayment ? 'Record Both Payments' : 'Record Payment'}
-            </Button>
-          </DialogFooter>
+                {isOverpay && (
+                  <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800">
+                    <input
+                      type="checkbox"
+                      id="confirmOverpay"
+                      checked={confirmOverpay}
+                      onChange={(e) => setConfirmOverpay(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 cursor-pointer"
+                      data-testid="confirm-overpay-checkbox"
+                    />
+                    <label htmlFor="confirmOverpay" className="text-xs text-amber-900 dark:text-amber-200 cursor-pointer leading-relaxed">
+                      I confirm this overpayment of <strong>${overpayBy.toFixed(2)}</strong> is intentional
+                      (e.g., advance deposit, prepayment for future sessions, or amount to be refunded later).
+                    </label>
+                  </div>
+                )}
+
+                <DialogFooter className="gap-2">
+                  <Button type="button" variant="outline" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      isSubmitting ||
+                      (!hasClientPayment && !hasInsPayment) ||
+                      (isOverpay && !confirmOverpay)
+                    }
+                    variant={isOverpay ? 'destructive' : 'default'}
+                    data-testid="record-payment-submit"
+                  >
+                    {isSubmitting
+                      ? 'Recording...'
+                      : isOverpay
+                        ? `Record Overpayment ($${overpayBy.toFixed(2)} extra)`
+                        : hasClientPayment && hasInsPayment
+                          ? 'Record Both Payments'
+                          : 'Record Payment'}
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled data-testid="record-payment-submit">
+                  Record Payment
+                </Button>
+              </DialogFooter>
+            );
+          })()}
         </form>
 
         <Dialog open={voidTargetId !== null} onOpenChange={(o) => !o && setVoidTargetId(null)}>
