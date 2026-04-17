@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
+import { InsuranceProviderField } from "./insurance-provider-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -725,7 +726,10 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Insurance Provider</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., Blue Cross, Aetna" />
+                          <InsuranceProviderField
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
