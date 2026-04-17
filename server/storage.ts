@@ -4828,9 +4828,13 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
     
-    const copayAmount = sessionData.client?.copayAmount || null;
-    const hasCopay = copayAmount != null && Number(copayAmount) > 0;
+    const profileCopay = sessionData.client?.copayAmount;
+    const hasCopay = profileCopay != null && Number(profileCopay) > 0;
     const hasInsurance = !!(sessionData.client?.insuranceProvider) || hasCopay;
+    // When insured but no profile copay set, default to '0' so the split is always known
+    // (client owes $0, insurance covers full). Prevents the dialog from falling back to
+    // "client owes full amount" for bills with NULL copay.
+    const copayAmount = hasInsurance ? (profileCopay ?? '0') : null;
     
     // Create billing record with client insurance information
     const units = 1;

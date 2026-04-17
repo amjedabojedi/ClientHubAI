@@ -410,11 +410,20 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           </p>
 
           {/* CLIENT SIDE */}
-          <div className="border-2 border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className={`border-2 rounded-lg p-4 space-y-3 ${
+            hasInsurance && hasKnownCopay && clientRemaining === 0
+              ? 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30'
+              : 'border-slate-200 dark:border-slate-700'
+          }`}>
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-slate-500"></span>
                 Client Payment
+                {hasInsurance && hasKnownCopay && clientPortion === 0 && (
+                  <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                    No client portion expected
+                  </span>
+                )}
               </div>
               <div className="text-xs text-slate-500">
                 {hasInsurance && hasKnownCopay
@@ -423,6 +432,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 {clientAlreadyPaid > 0 && ` · Already paid $${clientAlreadyPaid.toFixed(2)}`}
               </div>
             </div>
+            {hasInsurance && hasKnownCopay && clientPortion === 0 && (
+              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+                Insurance covers 100% of this bill — no copay expected from client. Only fill in this section if you collected a payment anyway (e.g., overpayment, deposit).
+              </p>
+            )}
+            {hasClientPayment && hasKnownCopay && clientAmountNum > clientRemaining && clientPortion > 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                ⚠ ${clientAmountNum.toFixed(2)} exceeds expected client portion of ${clientRemaining.toFixed(2)} (${(clientAmountNum - clientRemaining).toFixed(2)} over). Continue only if intentional.
+              </p>
+            )}
+            {hasClientPayment && hasKnownCopay && clientPortion === 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                ⚠ Client is not expected to pay anything. Recording ${clientAmountNum.toFixed(2)} anyway — please confirm this is intentional.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="clientAmount" className="text-xs">Amount</Label>
@@ -481,11 +505,20 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
           </div>
 
           {/* INSURANCE SIDE */}
-          <div className="border-2 border-blue-100 dark:border-blue-900 rounded-lg p-4 space-y-3 bg-blue-50/30 dark:bg-blue-950/20">
-            <div className="flex items-center justify-between">
+          <div className={`border-2 rounded-lg p-4 space-y-3 ${
+            !hasInsurance
+              ? 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30'
+              : 'border-blue-100 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20'
+          }`}>
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Insurance Payment
+                {!hasInsurance && (
+                  <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                    Self-pay (no insurance)
+                  </span>
+                )}
               </div>
               <div className="text-xs text-slate-500">
                 {hasInsurance && hasKnownCopay
@@ -496,6 +529,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
                 {insuranceAlreadyPaid > 0 && ` · Already paid $${insuranceAlreadyPaid.toFixed(2)}`}
               </div>
             </div>
+            {!hasInsurance && (
+              <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+                This client has no insurance on file. Only fill in this section if you actually received an insurance payment.
+              </p>
+            )}
+            {hasInsPayment && hasKnownCopay && hasInsurance && insAmountNum > insuranceRemaining && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                ⚠ ${insAmountNum.toFixed(2)} exceeds expected insurance portion of ${insuranceRemaining.toFixed(2)} (${(insAmountNum - insuranceRemaining).toFixed(2)} over). Continue only if intentional.
+              </p>
+            )}
+            {hasInsPayment && !hasInsurance && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1">
+                ⚠ No insurance is on file for this client. Recording an insurance payment anyway — please confirm.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="insAmount" className="text-xs">Amount</Label>
