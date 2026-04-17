@@ -139,11 +139,21 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
   // Fallback: also treat client as insured if their profile has insurance, even if the bill
   // record was created before insurance was added. Prevents stale "self-pay" labeling.
   const clientHasInsuranceOnProfile = !!billingRecord?.session?.client?.insuranceProvider;
-  const hasKnownCopay = billingRecord?.copayAmount != null && !isNaN(Number(billingRecord.copayAmount));
+  const profileCopayRaw = billingRecord?.session?.client?.copayAmount;
+  const profileCopayKnown = profileCopayRaw != null && !isNaN(Number(profileCopayRaw));
+  // Symmetric to hasInsurance: copay is "known" if either the bill snapshot has it OR
+  // the client profile has it. Eliminates the misleading "copay not set on profile" message
+  // for bills whose snapshot is NULL but the live profile actually has a copay.
+  const billCopayKnown = billingRecord?.copayAmount != null && !isNaN(Number(billingRecord.copayAmount));
+  const hasKnownCopay = billCopayKnown || profileCopayKnown;
   const hasInsurance = !!billingRecord?.insuranceCovered
     || clientHasInsuranceOnProfile
-    || (hasKnownCopay && Number(billingRecord?.copayAmount) > 0);
-  const copayValue = hasKnownCopay ? Number(billingRecord.copayAmount) : 0;
+    || (hasKnownCopay && Number(billingRecord?.copayAmount ?? profileCopayRaw) > 0);
+  const copayValue = billCopayKnown
+    ? Number(billingRecord.copayAmount)
+    : profileCopayKnown
+      ? Number(profileCopayRaw)
+      : 0;
   const clientPortion = hasInsurance && hasKnownCopay ? copayValue : amountAfterDiscount;
   const insurancePortion = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
   const clientAlreadyPaid = Number(billingRecord?.clientPaidAmount || 0);
