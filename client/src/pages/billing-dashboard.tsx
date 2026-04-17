@@ -78,6 +78,8 @@ interface BillingRecord {
       id: number;
       fullName: string;
       clientId: string;
+      insuranceProvider?: string | null;
+      copayAmount?: string | number | null;
     };
     therapist?: {
       id: number;
@@ -134,8 +136,13 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
     return Number(billingRecord.totalAmount) - discountAmount;
   }, [billingRecord?.totalAmount, discountAmount]);
 
+  // Fallback: also treat client as insured if their profile has insurance, even if the bill
+  // record was created before insurance was added. Prevents stale "self-pay" labeling.
+  const clientHasInsuranceOnProfile = !!billingRecord?.session?.client?.insuranceProvider;
   const hasKnownCopay = billingRecord?.copayAmount != null && !isNaN(Number(billingRecord.copayAmount));
-  const hasInsurance = !!billingRecord?.insuranceCovered || (hasKnownCopay && Number(billingRecord?.copayAmount) > 0);
+  const hasInsurance = !!billingRecord?.insuranceCovered
+    || clientHasInsuranceOnProfile
+    || (hasKnownCopay && Number(billingRecord?.copayAmount) > 0);
   const copayValue = hasKnownCopay ? Number(billingRecord.copayAmount) : 0;
   const clientPortion = hasInsurance && hasKnownCopay ? copayValue : amountAfterDiscount;
   const insurancePortion = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
