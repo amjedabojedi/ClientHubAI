@@ -11,7 +11,7 @@ import { optionalAuth, csrfProtection } from "./auth-middleware";
 import { storage } from "./storage";
 import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
-import { db } from "./db";
+import { db, closeDb } from "./db";
 import { documents, clients } from "@shared/schema";
 import { eq, and, isNotNull, lt, sql } from "drizzle-orm";
 
@@ -97,36 +97,52 @@ app.use((req, res, next) => {
 
 // Track server instance for graceful shutdown
 let server: any = null;
+let scheduledNotificationInterval: NodeJS.Timeout | null = null;
+let documentReviewReminderInterval: NodeJS.Timeout | null = null;
+let isShuttingDown = false;
 
 // Graceful shutdown handler
-function gracefulShutdown(signal: string) {
+async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   log(`Received ${signal}, starting graceful shutdown...`);
 
-  if (server) {
-    server.close((err: any) => {
-      if (err) {
-        log(`Error during server shutdown: ${err}`);
-        process.exit(1);
-      }
+  if (scheduledNotificationInterval) clearInterval(scheduledNotificationInterval);
+  if (documentReviewReminderInterval) clearInterval(documentReviewReminderInterval);
 
+  const forceTimer = setTimeout(() => {
+    log("Forcing shutdown due to timeout");
+    process.exit(1);
+  }, 30000);
+
+  try {
+    if (server) {
+      await new Promise<void>((resolve, reject) => {
+        server.close((err: any) => (err ? reject(err) : resolve()));
+      });
       log("Server closed successfully");
-      process.exit(0);
-    });
+    }
 
-    // Force shutdown after 30 seconds
-    setTimeout(() => {
-      log("Forcing shutdown due to timeout");
-      process.exit(1);
-    }, 30000);
-  } else {
+    try {
+      await closeDb();
+      log("Database connections closed successfully");
+    } catch (dbErr) {
+      log(`Warning: Error closing database connections: ${dbErr}`);
+    }
+
+    clearTimeout(forceTimer);
     process.exit(0);
+  } catch (err) {
+    log(`Error during server shutdown: ${err}`);
+    clearTimeout(forceTimer);
+    process.exit(1);
   }
 }
 
 // Register graceful shutdown handlers
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGUSR2", () => gracefulShutdown("SIGUSR2")); // For nodemon
+process.on("SIGTERM", () => void gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
+process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
 
 // Enhanced startup with comprehensive error handling
 (async () => {
@@ -167,7 +183,7 @@ process.on("SIGUSR2", () => gracefulShutdown("SIGUSR2")); // For nodemon
     // Start scheduled notification processor (runs every minute)
     try {
       log("Starting scheduled notification processor...");
-      setInterval(async () => {
+      scheduledNotificationInterval = setInterval(async () => {
         try {
           await notificationService.processDueNotifications();
         } catch (error) {
@@ -184,7 +200,7 @@ process.on("SIGUSR2", () => gracefulShutdown("SIGUSR2")); // For nodemon
 
     // 24-hour reminder for unreviewed documents (runs every hour)
     try {
-      setInterval(async () => {
+      documentReviewReminderInterval = setInterval(async () => {
         try {
           const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const pending = await db
