@@ -63,7 +63,7 @@ export function ConsentPanel({ clientId }: Props) {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/clients/${clientId}/consents`, {
+      return apiRequest(`/api/clients/${clientId}/consents`, "POST", {
         consentType: AI_TYPE,
         granted,
         consentVersion: "1.0.0",
