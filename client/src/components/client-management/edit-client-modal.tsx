@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, SearchableSelectOption } from "@/components/ui/searchable-select";
 import { InsuranceProviderField } from "./insurance-provider-field";
+import { ConsentPanel } from "./consent-panel";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -420,12 +421,13 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="personal">Personal</TabsTrigger>
                 <TabsTrigger value="contact">Contact</TabsTrigger>
                 <TabsTrigger value="referral">Referral</TabsTrigger>
                 <TabsTrigger value="employment">Employment</TabsTrigger>
                 <TabsTrigger value="clinical">Clinical</TabsTrigger>
+                <TabsTrigger value="consent" data-testid="tab-consent">Consent</TabsTrigger>
               </TabsList>
 
               {/* Personal Information Tab */}
@@ -1328,6 +1330,11 @@ export default function EditClientModal({ client, isOpen, onClose }: EditClientM
                     </FormItem>
                   )}
                 />
+              </TabsContent>
+
+              {/* Privacy & Consent Tab */}
+              <TabsContent value="consent" className="space-y-4 mt-6">
+                <ConsentPanel clientId={client.id} />
               </TabsContent>
             </Tabs>
 

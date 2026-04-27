@@ -1524,6 +1524,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Staff-recorded GDPR/AI Consent (paper / in-clinic consent form pathway)
+
+  // GET current consents for a client (admin/therapist view)
+  app.get("/api/clients/:id/consents", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid client ID" });
+      const consents = await storage.getClientConsents(id);
+      res.json(consents);
+    } catch (error: any) {
+      console.error("Error fetching client consents:", error);
+      res.status(500).json({ message: "Failed to fetch consents", details: error.message });
+    }
+  });
+
+  // POST a staff-recorded consent (e.g., from a signed paper consent form)
+  app.post("/api/clients/:id/consents", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
+
+      const { consentType, granted, consentVersion, notes, source } = req.body as {
+        consentType?: string;
+        granted?: boolean;
+        consentVersion?: string;
+        notes?: string;
+        source?: string;
+      };
+
+      if (!consentType || typeof granted !== "boolean") {
+        return res.status(400).json({ message: "consentType and granted (boolean) are required" });
+      }
+
+      const client = await storage.getClient(clientId);
+      if (!client) return res.status(404).json({ message: "Client not found" });
+
+      const recordedSource = source || "signed_consent_form";
+      const action = granted ? "granted" : "withdrawn";
+      const noteText = notes && notes.trim().length > 0
+        ? notes.trim()
+        : `Consent ${action} on behalf of client by ${req.user.username} (source: ${recordedSource})`;
+
+      const consent = await storage.createClientConsent({
+        clientId,
+        consentType,
+        granted,
+        consentVersion: consentVersion || "1.0.0",
+        ipAddress: ipAddress || "",
+        userAgent: userAgent || "",
+        notes: noteText,
+      });
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: granted ? "consent_granted" : "consent_withdrawn",
+        result: "success",
+        resourceType: "patient_consent",
+        resourceId: consent.id.toString(),
+        clientId,
+        ipAddress: ipAddress || "",
+        userAgent: userAgent || "",
+        hipaaRelevant: true,
+        riskLevel: "high",
+        details: JSON.stringify({
+          consentType,
+          granted,
+          withdrawn: !granted,
+          consentVersion: consent.consentVersion,
+          consentId: consent.id,
+          source: recordedSource,
+          recordedByStaff: true,
+          recordedByUserId: req.user.id,
+          recordedByUsername: req.user.username,
+        }),
+        accessReason: "Staff recorded GDPR consent on behalf of client (signed consent form)",
+      });
+
+      res.json(consent);
+    } catch (error: any) {
+      console.error("Error recording staff consent:", error);
+      res.status(500).json({ message: "Failed to record consent", details: error.message });
+    }
+  });
+
 
   // Portal Access Management Endpoints
   
