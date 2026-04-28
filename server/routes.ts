@@ -6970,7 +6970,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { clientId, sessionId, formData, customInstructions } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available. Please configure OPENAI_API_KEY." });
       }
       
@@ -7040,7 +7040,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
     try {
       const { templateId, field, context } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
@@ -7117,7 +7117,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       const { field, context, clientId } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
 
@@ -7167,7 +7167,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       const sessionNoteData = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
 
@@ -7219,7 +7219,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const sessionNoteId = parseInt(req.params.sessionNoteId);
       const { customPrompt } = req.body;
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ error: "AI features not available" });
       }
       
