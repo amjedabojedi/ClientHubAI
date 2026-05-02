@@ -1294,3 +1294,79 @@ export async function transcribeAssessmentAudio(
 // Export the assessment report generation function
 export { generateAssessmentReport };
 
+// =====================================================================
+// SESSION TRANSCRIPT HELPERS (chunked recording for long therapy sessions)
+// =====================================================================
+
+/**
+ * Transcribe a single audio chunk with Whisper. Returns raw text only.
+ * Designed for use with chunked uploads (5-min slices) so each call stays
+ * well under the 25 MB Whisper limit.
+ */
+export async function transcribeSessionChunk(
+  audioBuffer: Buffer,
+  fileName: string,
+  language?: string
+): Promise<string> {
+  const whisper = getWhisperClient();
+  const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
+    type: fileName.endsWith('.mp4') ? 'audio/mp4' : 'audio/webm',
+  });
+  const params: any = {
+    file: audioFile,
+    model: 'whisper-1',
+    response_format: 'text',
+  };
+  if (language && language !== 'auto') {
+    params.language = language;
+  }
+  const transcription = await whisper.audio.transcriptions.create(params);
+  return (transcription as unknown as string) || '';
+}
+
+/**
+ * Take the stitched raw transcript of a therapy session and produce a
+ * speaker-labeled version (Therapist: / Client:). Whisper does not do
+ * diarization, so we use GPT-4o to infer turn boundaries from context.
+ *
+ * Long transcripts are processed in chunks to stay within token limits.
+ */
+export async function diarizeSessionTranscript(rawText: string): Promise<string> {
+  if (!rawText || rawText.trim().length === 0) return '';
+
+  // GPT-4o context allows large input but we cap output at 16k tokens.
+  // For very long sessions, split the raw text into ~6000-word windows.
+  const words = rawText.split(/\s+/);
+  const WINDOW_WORDS = 6000;
+  const windows: string[] = [];
+  for (let i = 0; i < words.length; i += WINDOW_WORDS) {
+    windows.push(words.slice(i, i + WINDOW_WORDS).join(' '));
+  }
+
+  const labeledParts: string[] = [];
+  for (const window of windows) {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a clinical transcript formatter for therapy sessions. ' +
+            'You receive a raw transcript with no speaker labels and produce a clean, ' +
+            'turn-by-turn dialogue using only two speaker labels: "Therapist:" and "Client:". ' +
+            'Use context (questions, clinical phrasing, reflections, summaries) to identify the therapist. ' +
+            'Preserve the original wording exactly — do not paraphrase, summarize, or omit content. ' +
+            'Do not invent content. Do not add commentary. Each turn starts on a new line. ' +
+            'If a single speaker continues across many sentences, keep them as one turn. ' +
+            'If you cannot tell who is speaking for a given turn, label it "Unknown:".',
+        },
+        { role: 'user', content: window },
+      ],
+      temperature: 0.2,
+      max_tokens: 16000,
+    });
+    labeledParts.push(response.choices[0].message.content || window);
+  }
+  return labeledParts.join('\n\n');
+}
+

@@ -6745,6 +6745,353 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // ===================================================================
+  // SESSION TRANSCRIPT (chunked recording for hour-long therapy sessions)
+  // ===================================================================
+
+  // Authorization helper: only the assigned therapist, an admin, or a
+  // supervisor of that therapist may touch a session's transcript.
+  async function assertSessionAccess(
+    req: AuthenticatedRequest,
+    session: { id: number; therapistId: number; clientId: number },
+  ): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+    if (!req.user) return { ok: false, status: 401, message: "Unauthorized" };
+    const role = req.user.role;
+    if (role === 'admin' || role === 'administrator') return { ok: true };
+    if (role === 'therapist') {
+      if (session.therapistId === req.user.id) return { ok: true };
+      return { ok: false, status: 403, message: "You can only access transcripts for your own sessions" };
+    }
+    if (role === 'supervisor') {
+      const supervised = await storage.getSupervisorAssignments(req.user.id);
+      const supervisedIds = supervised.map((a) => a.therapistId);
+      if (supervisedIds.includes(session.therapistId)) return { ok: true };
+      return { ok: false, status: 403, message: "You can only access transcripts for therapists you supervise" };
+    }
+    return { ok: false, status: 403, message: "You do not have permission to access session transcripts" };
+  }
+
+  // In-memory store: uploadId -> { sessionId, clientId, chunks: { idx -> text }, language, startedAt }
+  // Chunks are transcribed immediately on upload and audio is discarded.
+  type SessionUpload = {
+    sessionId: number;
+    clientId: number;
+    therapistId: number;
+    language?: string;
+    chunks: Map<number, string>;
+    startedAt: number;
+    durationSeconds: number;
+  };
+  const sessionUploads = new Map<string, SessionUpload>();
+
+  // Auto-expire stale uploads after 2 hours
+  setInterval(() => {
+    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+    const stale: string[] = [];
+    sessionUploads.forEach((up, id) => {
+      if (up.startedAt < cutoff) stale.push(id);
+    });
+    stale.forEach((id) => sessionUploads.delete(id));
+  }, 30 * 60 * 1000);
+
+  // POST /api/sessions/:sessionId/transcribe-chunk
+  // Body: multipart with 'audio' file + chunkIndex + uploadId + (optional) language + chunkDurationSeconds
+  app.post(
+    "/api/sessions/:sessionId/transcribe-chunk",
+    requireAuth,
+    blockAccountant,
+    audioUpload.single('audio'),
+    async (req: AuthenticatedRequest, res) => {
+      // Allow long Whisper calls
+      req.setTimeout(10 * 60 * 1000);
+      res.setTimeout(10 * 60 * 1000);
+
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        if (isNaN(sessionId)) {
+          return res.status(400).json({ message: "Invalid session id" });
+        }
+        if (!req.file) {
+          return res.status(400).json({ message: "No audio chunk uploaded" });
+        }
+
+        const uploadId = String(req.body.uploadId || '');
+        const chunkIndex = parseInt(req.body.chunkIndex);
+        const chunkDuration = parseFloat(req.body.chunkDurationSeconds || '0');
+        const language = req.body.language || undefined;
+        if (!uploadId || isNaN(chunkIndex)) {
+          return res.status(400).json({ message: "uploadId and chunkIndex required" });
+        }
+
+        // Look up the session and verify it exists
+        const session = await storage.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ message: "Session not found" });
+        }
+
+        // AuthZ: only assigned therapist / supervisor / admin may record on this session
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+
+        // GDPR: AI consent gate
+        const consentCheck = await checkAIProcessingConsent(session.clientId);
+        if (!consentCheck.hasConsent) {
+          return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
+        }
+
+        // Initialize the upload entry if first chunk
+        let upload = sessionUploads.get(uploadId);
+        if (!upload) {
+          upload = {
+            sessionId,
+            clientId: session.clientId,
+            therapistId: req.user!.id,
+            language,
+            chunks: new Map(),
+            startedAt: Date.now(),
+            durationSeconds: 0,
+          };
+          sessionUploads.set(uploadId, upload);
+        } else if (upload.sessionId !== sessionId) {
+          return res.status(400).json({ message: "uploadId already bound to a different session" });
+        }
+
+        // Transcribe this chunk immediately, then drop the audio buffer
+        const fileName = req.file.originalname || `chunk-${chunkIndex}.webm`;
+        let chunkText = '';
+        try {
+          const { transcribeSessionChunk } = await import('./ai/openai');
+          chunkText = await transcribeSessionChunk(req.file.buffer, fileName, language);
+        } catch (err: any) {
+          console.error('[SessionTranscript] Chunk transcription error:', err);
+          return res.status(500).json({ message: `Chunk transcription failed: ${err.message || 'Unknown'}` });
+        }
+
+        upload.chunks.set(chunkIndex, chunkText);
+        upload.durationSeconds += chunkDuration;
+
+        return res.json({
+          uploadId,
+          chunkIndex,
+          chunkText,
+          chunksReceived: upload.chunks.size,
+        });
+      } catch (error: any) {
+        console.error('[SessionTranscript] transcribe-chunk error:', error);
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // POST /api/sessions/:sessionId/transcribe-finalize
+  // Body: { uploadId, totalChunks, language? }
+  app.post(
+    "/api/sessions/:sessionId/transcribe-finalize",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      req.setTimeout(15 * 60 * 1000);
+      res.setTimeout(15 * 60 * 1000);
+
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const { uploadId, totalChunks, expectedChunks } = req.body || {};
+        if (isNaN(sessionId) || !uploadId) {
+          return res.status(400).json({ message: "sessionId and uploadId required" });
+        }
+
+        // AuthZ: re-verify session access at finalize time (defense in depth)
+        const session = await storage.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ message: "Session not found" });
+        }
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+
+        const upload = sessionUploads.get(String(uploadId));
+        if (!upload || upload.sessionId !== sessionId) {
+          return res.status(404).json({ message: "Upload session not found or expired" });
+        }
+        // Bind upload to the original therapist who started it
+        if (upload.therapistId !== req.user!.id && req.user!.role !== 'admin' && req.user!.role !== 'administrator') {
+          return res.status(403).json({ message: "Only the recording therapist or an admin can finalize this upload" });
+        }
+
+        // Block finalize if any expected chunks are missing (data-loss safety)
+        const expected = Number(expectedChunks ?? totalChunks);
+        if (Number.isFinite(expected) && expected > 0) {
+          if (upload.chunks.size < expected) {
+            return res.status(409).json({
+              message: `Cannot finalize: only ${upload.chunks.size} of ${expected} chunks were transcribed successfully. Retry the missing chunks before saving.`,
+              chunksReceived: upload.chunks.size,
+              chunksExpected: expected,
+            });
+          }
+        }
+
+        // Stitch chunks in order
+        const indices = Array.from(upload.chunks.keys()).sort((a, b) => a - b);
+        const rawTranscript = indices.map((i) => upload.chunks.get(i) || '').join(' ').trim();
+        const wordCount = rawTranscript ? rawTranscript.split(/\s+/).length : 0;
+
+        if (!rawTranscript) {
+          sessionUploads.delete(String(uploadId));
+          return res.status(400).json({ message: "No transcribed content to finalize" });
+        }
+
+        // Create initial transcript record (status=processing)
+        const existing = await storage.getSessionTranscript(sessionId);
+        if (existing) {
+          await storage.deleteSessionTranscript(sessionId);
+        }
+
+        const created = await storage.createSessionTranscript({
+          sessionId,
+          clientId: upload.clientId,
+          therapistId: upload.therapistId,
+          content: rawTranscript, // placeholder until diarization is done
+          rawContent: rawTranscript,
+          language: upload.language || 'auto',
+          translatedToEnglish: false,
+          durationSeconds: Math.round(upload.durationSeconds),
+          chunkCount: upload.chunks.size,
+          wordCount,
+          status: 'processing',
+        });
+
+        // Diarize (speaker labels) — long-running
+        let labeledContent = rawTranscript;
+        try {
+          const { diarizeSessionTranscript } = await import('./ai/openai');
+          labeledContent = await diarizeSessionTranscript(rawTranscript);
+        } catch (err: any) {
+          console.error('[SessionTranscript] Diarization failed, keeping raw:', err);
+        }
+
+        const finalTranscript = await storage.updateSessionTranscript(created.id, {
+          content: labeledContent,
+          status: 'ready',
+        });
+
+        // Audit log
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'session_transcript_created',
+          result: 'success',
+          resourceType: 'session_transcript',
+          resourceId: String(finalTranscript.id),
+          clientId: upload.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            sessionId,
+            durationSeconds: upload.durationSeconds,
+            chunkCount: upload.chunks.size,
+            wordCount,
+            totalChunksRequested: totalChunks ?? upload.chunks.size,
+          }),
+          accessReason: 'Therapist recorded session voice transcription',
+        });
+
+        // Clean up the upload
+        sessionUploads.delete(String(uploadId));
+        return res.json(finalTranscript);
+      } catch (error: any) {
+        console.error('[SessionTranscript] finalize error:', error);
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // GET /api/sessions/:sessionId/transcript
+  app.get(
+    "/api/sessions/:sessionId/transcript",
+    requireAuth,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+        const transcript = await storage.getSessionTranscript(sessionId);
+        if (!transcript) return res.status(404).json({ message: "No transcript" });
+
+        // Audit PHI read
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'session_transcript_viewed',
+          result: 'success',
+          resourceType: 'session_transcript',
+          resourceId: String(transcript.id),
+          clientId: transcript.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          accessReason: 'Viewed session transcript',
+        }).catch(() => {});
+
+        return res.json(transcript);
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // DELETE /api/sessions/:sessionId/transcript
+  app.delete(
+    "/api/sessions/:sessionId/transcript",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+
+        const existing = await storage.getSessionTranscript(sessionId);
+        if (!existing) return res.status(404).json({ message: "No transcript" });
+        await storage.deleteSessionTranscript(sessionId);
+
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'session_transcript_deleted',
+          result: 'success',
+          resourceType: 'session_transcript',
+          resourceId: String(existing.id),
+          clientId: existing.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          accessReason: 'Therapist deleted session transcript',
+        });
+        return res.json({ ok: true });
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
   app.post("/api/session-notes/transcribe", requireAuth, blockAccountant, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     

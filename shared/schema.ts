@@ -393,6 +393,36 @@ export const patientConsents = pgTable("patient_consents", {
   consentTypeIdx: index("patient_consents_type_idx").on(table.consentType),
 }));
 
+// Session Transcripts - Chunked voice recording transcriptions of therapy sessions
+// Audio is deleted after transcription; only the labeled text is kept here.
+export const sessionTranscripts = pgTable("session_transcripts", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  therapistId: integer("therapist_id").notNull().references(() => users.id),
+
+  // Transcript content
+  content: text("content").notNull(), // Final stitched transcript with speaker labels
+  rawContent: text("raw_content"), // Pre-diarization text (kept for re-processing if needed)
+  language: varchar("language", { length: 16 }).default("auto"),
+  translatedToEnglish: boolean("translated_to_english").default(false),
+
+  // Recording metadata
+  durationSeconds: integer("duration_seconds").notNull().default(0),
+  chunkCount: integer("chunk_count").notNull().default(0),
+  wordCount: integer("word_count").notNull().default(0),
+
+  // Lifecycle
+  status: varchar("status", { length: 32 }).notNull().default("processing"), // processing | ready | failed
+  errorMessage: text("error_message"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  sessionIdx: index("session_transcripts_session_idx").on(table.sessionId),
+  clientIdx: index("session_transcripts_client_idx").on(table.clientId),
+}));
+
 // Services table - Healthcare service codes and billing rates
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
@@ -1756,6 +1786,14 @@ export const insertPatientConsentSchema = createInsertSchema(patientConsents).om
   updatedAt: true,
   grantedAt: true, // Set automatically on the backend
 });
+
+export const insertSessionTranscriptSchema = createInsertSchema(sessionTranscripts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertSessionTranscript = z.infer<typeof insertSessionTranscriptSchema>;
+export type SessionTranscript = typeof sessionTranscripts.$inferSelect;
 
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,

@@ -45,6 +45,7 @@ import {
   notificationPreferences,
   notificationTemplates,
   patientConsents,
+  sessionTranscripts,
   paymentTransactions
 } from "@shared/schema";
 
@@ -127,6 +128,8 @@ import type {
   Notification,
   PatientConsent,
   InsertPatientConsent,
+  SessionTranscript,
+  InsertSessionTranscript,
   InsertNotification,
   NotificationTrigger,
   InsertNotificationTrigger,
@@ -312,6 +315,12 @@ export interface IStorage {
   withdrawClientConsent(clientId: number, consentType: string): Promise<PatientConsent>;
   hasClientConsent(clientId: number, consentType: string): Promise<boolean>;
 
+  // ===== SESSION TRANSCRIPTS (Voice Recording) =====
+  getSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
+  createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript>;
+  updateSessionTranscript(id: number, data: Partial<InsertSessionTranscript>): Promise<SessionTranscript>;
+  deleteSessionTranscript(sessionId: number): Promise<void>;
+
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<SessionWithRelations[]>;
   // SECURE: Database-level filtered session query with service visibility controls
@@ -319,6 +328,7 @@ export interface IStorage {
   getSessionsByClient(clientId: number, includeHiddenServices?: boolean): Promise<SessionWithRelations[]>;
   getSessionsByMonth(year: number, month: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<SessionWithRelations[]>;
   getOverdueSessions(limit?: number, therapistId?: number, supervisedTherapistIds?: number[], includeHiddenServices?: boolean): Promise<(SessionWithRelations & { daysOverdue: number })[]>;
+  getSession(id: number): Promise<Session | undefined>;
   createSession(session: InsertSession): Promise<Session>;
   createSessionsBulk(sessions: InsertSession[]): Promise<Session[]>;
   updateSession(id: number, session: Partial<InsertSession>): Promise<Session>;
@@ -1575,6 +1585,35 @@ export class DatabaseStorage implements IStorage {
     return consent !== undefined && consent.granted;
   }
 
+  // Session Transcripts (chunked voice recording)
+  async getSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined> {
+    const [transcript] = await db
+      .select()
+      .from(sessionTranscripts)
+      .where(eq(sessionTranscripts.sessionId, sessionId))
+      .orderBy(desc(sessionTranscripts.createdAt))
+      .limit(1);
+    return transcript || undefined;
+  }
+
+  async createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript> {
+    const [created] = await db.insert(sessionTranscripts).values(data).returning();
+    return created;
+  }
+
+  async updateSessionTranscript(id: number, data: Partial<InsertSessionTranscript>): Promise<SessionTranscript> {
+    const [updated] = await db
+      .update(sessionTranscripts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(sessionTranscripts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSessionTranscript(sessionId: number): Promise<void> {
+    await db.delete(sessionTranscripts).where(eq(sessionTranscripts.sessionId, sessionId));
+  }
+
   // Session methods
   async getAllSessions(therapistId?: number, supervisedTherapistIds?: number[]): Promise<any[]> {
     let query = db
@@ -2121,6 +2160,15 @@ export class DatabaseStorage implements IStorage {
         daysOverdue
       };
     });
+  }
+
+  async getSession(id: number): Promise<Session | undefined> {
+    const [row] = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, id))
+      .limit(1);
+    return row;
   }
 
   async createSession(session: InsertSession): Promise<Session> {

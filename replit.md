@@ -56,6 +56,8 @@ Comprehensive client management includes tracking through various stages and sta
 
 **Session Management:** Tracks sessions linking clients, therapists, services, and rooms, with auto-billing.
 **Session Notes:** Stores AI-generated drafts and progress notes.
+
+**Session Voice Transcripts (Phase 1):** Therapists can record full therapy sessions (hour-long supported) directly from the Session Note dialog using a chunked client-side recorder. Recording is sliced into 60-second segments; each segment is uploaded as soon as it ends to `POST /api/sessions/:sessionId/transcribe-chunk` (Whisper API), discarded after transcription, and a live preview of recognised text streams back. On Stop, `POST /api/sessions/:sessionId/transcribe-finalize` stitches the chunks, runs GPT-4o speaker diarization (Therapist:/Client: labels), and saves the result to the dedicated `session_transcripts` table (one transcript per session). The transcript is stored as a separate document — it is **not** auto-pasted into the session note; therapists copy/paste the relevant portions themselves. AI consent (GDPR) is enforced before any chunk is transcribed; HIPAA audit logs capture creation and deletion. Pause/resume supported. No audio is persisted server-side.
 **Assessments:** Manages assessment templates, assignments, responses, and AI-generated reports. Assessment responses use option IDs (not array indices) for proper scoring and AI report generation. Backend normalization layer handles legacy index-based data during transition.
 
 **Assessment Completion Enhancements:**

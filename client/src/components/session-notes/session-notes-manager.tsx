@@ -25,6 +25,7 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 // Voice Recording
 import { FloatingVoiceButton } from "./floating-voice-button";
 import { TranscriptionReviewDialog } from "./transcription-review-dialog";
+import { SessionRecorder } from "@/components/session-recorder";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -1348,6 +1349,15 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Session voice transcript (chunked recording with speaker labels) */}
+              {(() => {
+                const sid = editingNote?.sessionId || form.watch('sessionId');
+                if (!sid) return null;
+                return (
+                  <SessionRecorder sessionId={sid} />
+                );
+              })()}
+
               {/* Basic Session Information - Only show dropdown if NOT pre-selected */}
               {!isFromSessionClick && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
