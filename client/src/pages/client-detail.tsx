@@ -73,7 +73,8 @@ import {
   User as UserIcon, 
   Video,
   X,
-  HelpCircle
+  HelpCircle,
+  FileAudio
 } from "lucide-react";
 
 // Utils and Hooks
@@ -160,6 +161,7 @@ interface AssessmentAssignment {
 import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import SessionNotesManager from "@/components/session-notes/session-notes-manager";
+import { SessionTranscriptViewer } from "@/components/session-transcript-viewer";
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
 import EmailHistory from "@/components/communications/email-history";
@@ -1063,6 +1065,7 @@ export default function ClientDetailPage() {
   const [provisionalDuration, setProvisionalDuration] = useState<number>(60);
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState(false);
   const [isSessionNotesDialogOpen, setIsSessionNotesDialogOpen] = useState(false);
+  const [transcriptViewerSessionId, setTranscriptViewerSessionId] = useState<number | null>(null);
 
   // Session editing form
   const sessionForm = useForm<SessionFormData>({
@@ -3112,6 +3115,27 @@ export default function ClientDetailPage() {
                                               Download PDF
                                             </DropdownMenuItem>
                                           )}
+                                          <DropdownMenuItem
+                                            onClick={() => setTranscriptViewerSessionId(session.id)}
+                                            data-testid={`menu-view-transcript-${session.id}`}
+                                          >
+                                            <FileAudio className="w-4 h-4 mr-2 text-blue-600" />
+                                            View Transcript
+                                          </DropdownMenuItem>
+                                          <div className="border-t my-1"></div>
+                                        </>
+                                      )}
+
+                                      {/* Show View Transcript even if there is no note yet */}
+                                      {!sessionNote && (
+                                        <>
+                                          <DropdownMenuItem
+                                            onClick={() => setTranscriptViewerSessionId(session.id)}
+                                            data-testid={`menu-view-transcript-${session.id}`}
+                                          >
+                                            <FileAudio className="w-4 h-4 mr-2 text-blue-600" />
+                                            View Transcript
+                                          </DropdownMenuItem>
                                           <div className="border-t my-1"></div>
                                         </>
                                       )}
@@ -5407,6 +5431,15 @@ export default function ClientDetailPage() {
         onNoteChange={setPreSelectedNoteId}
         open={isSessionNotesDialogOpen}
         onOpenChange={setIsSessionNotesDialogOpen}
+      />
+
+      {/* Session Transcript Viewer - opened from session card menu */}
+      <SessionTranscriptViewer
+        sessionId={transcriptViewerSessionId}
+        open={transcriptViewerSessionId !== null}
+        onOpenChange={(o) => {
+          if (!o) setTranscriptViewerSessionId(null);
+        }}
       />
     </div>
   );
