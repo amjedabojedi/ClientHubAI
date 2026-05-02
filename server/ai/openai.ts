@@ -1331,6 +1331,102 @@ export async function transcribeSessionChunk(
  *
  * Long transcripts are processed in chunks to stay within token limits.
  */
+/**
+ * Smart Fill: take a speaker-labeled session transcript and extract structured
+ * clinical note fields. Returns suggested values that the therapist reviews
+ * and applies (per-field) on the client side. Never auto-saves.
+ */
+export interface SmartFillNoteSuggestion {
+  sessionFocus: string;
+  symptoms: string;
+  shortTermGoals: string;
+  intervention: string;
+  progress: string;
+  remarks: string;
+  recommendations: string;
+}
+
+export async function extractStructuredNoteFromTranscript(
+  labeledTranscript: string,
+): Promise<SmartFillNoteSuggestion> {
+  const empty: SmartFillNoteSuggestion = {
+    sessionFocus: '',
+    symptoms: '',
+    shortTermGoals: '',
+    intervention: '',
+    progress: '',
+    remarks: '',
+    recommendations: '',
+  };
+
+  if (!labeledTranscript || labeledTranscript.trim().length === 0) return empty;
+
+  // Cap the transcript length we send to the model. ~12k words is plenty for
+  // an hour-long session and keeps token usage predictable.
+  const MAX_WORDS = 12000;
+  const words = labeledTranscript.split(/\s+/);
+  const trimmed = words.length > MAX_WORDS ? words.slice(0, MAX_WORDS).join(' ') : labeledTranscript;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a clinical documentation assistant for a licensed therapist. ' +
+          'You receive a speaker-labeled therapy session transcript (lines starting with "Therapist:" or "Client:") ' +
+          'and produce a STRUCTURED draft of the clinical session note. ' +
+          'Return STRICT JSON with EXACTLY these keys: ' +
+          '"sessionFocus", "symptoms", "shortTermGoals", "intervention", "progress", "remarks", "recommendations". ' +
+          'Each value is a plain text string (use line breaks "\\n" for bullet points if helpful). ' +
+          'Field guidance: ' +
+          '- sessionFocus: 1-2 sentences naming the central topic(s) of this session. ' +
+          '- symptoms: presenting symptoms or distress the client described or showed (clinical, observable). ' +
+          '- shortTermGoals: goals discussed/agreed for the next 1-4 weeks. ' +
+          '- intervention: techniques the therapist used (CBT, motivational interviewing, psychoeducation, exposure, etc.) with a brief description. ' +
+          '- progress: the client\u2019s movement toward prior goals or insights gained this session. ' +
+          '- remarks: clinically relevant observations (affect, engagement, risk indicators) that don\u2019t fit elsewhere. ' +
+          '- recommendations: homework, referrals, next-session focus, safety plans. ' +
+          'Hard rules: ' +
+          '1) Use ONLY information present in the transcript. Never invent symptoms, diagnoses, medications, or events. ' +
+          '2) If a field has no supporting content, return an empty string "" for that field. Do NOT guess. ' +
+          '3) Use professional clinical language. No first-person ("I"). Refer to the client as "the client". ' +
+          '4) Do NOT include speaker labels in the output. ' +
+          '5) Return ONLY the JSON object, no commentary.',
+      },
+      { role: 'user', content: trimmed },
+    ],
+    temperature: 0.2,
+    max_tokens: 4000,
+  });
+
+  const raw = response.choices[0]?.message?.content || '{}';
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    console.error('[SmartFill] JSON parse failed, returning empty:', err);
+    return empty;
+  }
+
+  // Coerce each field to a safe string, defaulting to '' if missing/non-string.
+  const pick = (k: keyof SmartFillNoteSuggestion): string => {
+    const v = parsed[k];
+    return typeof v === 'string' ? v.trim() : '';
+  };
+
+  return {
+    sessionFocus: pick('sessionFocus'),
+    symptoms: pick('symptoms'),
+    shortTermGoals: pick('shortTermGoals'),
+    intervention: pick('intervention'),
+    progress: pick('progress'),
+    remarks: pick('remarks'),
+    recommendations: pick('recommendations'),
+  };
+}
+
 export async function diarizeSessionTranscript(rawText: string): Promise<string> {
   if (!rawText || rawText.trim().length === 0) return '';
 

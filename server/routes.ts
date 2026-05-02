@@ -7051,6 +7051,99 @@ You can download a copy if you have it saved locally and re-upload it.`;
     },
   );
 
+  // POST /api/sessions/:sessionId/transcript/smart-fill
+  // Reads the saved transcript, asks GPT-4o to extract structured note fields,
+  // and returns suggestions. Does NOT write to session_notes — the therapist
+  // reviews and applies fields on the client.
+  app.post(
+    "/api/sessions/:sessionId/transcript/smart-fill",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      req.setTimeout(5 * 60 * 1000);
+      res.setTimeout(5 * 60 * 1000);
+      const { ipAddress, userAgent } = getRequestInfo(req);
+
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        if (isNaN(sessionId)) {
+          return res.status(400).json({ message: "Invalid sessionId" });
+        }
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+
+        const transcript = await storage.getSessionTranscript(sessionId);
+        if (!transcript) {
+          return res.status(404).json({
+            message: "No transcript saved for this session. Record one first.",
+          });
+        }
+        if (!transcript.content || transcript.content.trim().length === 0) {
+          return res.status(400).json({ message: "Transcript is empty" });
+        }
+
+        // GDPR: AI consent must be granted on the client to run extraction
+        const consentCheck = await checkAIProcessingConsent(transcript.clientId);
+        if (!consentCheck.hasConsent) {
+          await AuditLogger.logAction({
+            userId: req.user!.id,
+            username: req.user!.username,
+            action: 'ai_processing_blocked',
+            result: 'failure',
+            resourceType: 'session_transcript',
+            resourceId: String(transcript.id),
+            clientId: transcript.clientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'medium',
+            accessReason: 'Smart Fill blocked: AI consent not granted',
+            details: JSON.stringify({ reason: consentCheck.message }),
+          }).catch(() => {});
+          return res.status(403).json({
+            message: consentCheck.message || 'AI processing consent required',
+          });
+        }
+
+        const { extractStructuredNoteFromTranscript } = await import('./ai/openai');
+        const suggestions = await extractStructuredNoteFromTranscript(transcript.content);
+
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'session_transcript_smart_fill',
+          result: 'success',
+          resourceType: 'session_transcript',
+          resourceId: String(transcript.id),
+          clientId: transcript.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          accessReason: 'Therapist requested AI-structured note draft from transcript',
+          details: JSON.stringify({
+            sessionId,
+            transcriptWordCount: transcript.wordCount ?? null,
+          }),
+        }).catch(() => {});
+
+        return res.json({ suggestions });
+      } catch (error: any) {
+        // Log full detail server-side; return generic message to client to avoid
+        // leaking internal/AI provider details (defense in depth).
+        console.error('[SmartFill] error:', error);
+        return res.status(500).json({
+          message: "Failed to generate Smart Fill suggestions. Please try again.",
+        });
+      }
+    },
+  );
+
   // DELETE /api/sessions/:sessionId/transcript
   app.delete(
     "/api/sessions/:sessionId/transcript",

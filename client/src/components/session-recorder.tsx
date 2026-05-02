@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Trash2,
   AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,6 +37,8 @@ type SessionTranscript = {
 interface SessionRecorderProps {
   sessionId: number;
   language?: string;
+  /** Optional callback invoked when therapist clicks "Smart Fill from Transcript" */
+  onRequestSmartFill?: () => void;
 }
 
 const SLICE_SECONDS = 60;
@@ -47,7 +50,7 @@ function formatDuration(totalSeconds: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
 
-export function SessionRecorder({ sessionId, language }: SessionRecorderProps) {
+export function SessionRecorder({ sessionId, language, onRequestSmartFill }: SessionRecorderProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -547,16 +550,30 @@ export function SessionRecorder({ sessionId, language }: SessionRecorderProps) {
                 <span>Chunks: {existingTranscript.chunkCount ?? "—"}</span>
                 <span>Words: {existingTranscript.wordCount ?? "—"}</span>
               </div>
-              <Button
-                data-testid="button-delete-transcript"
-                variant="ghost"
-                size="sm"
-                onClick={handleDeleteTranscript}
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-1" />
-                Delete
-              </Button>
+              <div className="flex gap-1">
+                {onRequestSmartFill && (
+                  <Button
+                    data-testid="button-smart-fill-from-transcript"
+                    variant="outline"
+                    size="sm"
+                    onClick={onRequestSmartFill}
+                    className="text-purple-700 border-purple-300 hover:bg-purple-50 hover:text-purple-800 dark:text-purple-300 dark:border-purple-700"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    Smart Fill Note Fields
+                  </Button>
+                )}
+                <Button
+                  data-testid="button-delete-transcript"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteTranscript}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </Button>
+              </div>
             </div>
             <div
               data-testid="text-transcript"

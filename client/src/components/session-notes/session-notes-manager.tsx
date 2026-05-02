@@ -23,8 +23,7 @@ import 'react-quill/dist/quill.snow.css';
 import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown, Mic } from "lucide-react";
 
 // Voice Recording
-import { FloatingVoiceButton } from "./floating-voice-button";
-import { TranscriptionReviewDialog } from "./transcription-review-dialog";
+import { TranscriptSmartFillDialog, type SmartFillSuggestion } from "./transcript-smart-fill-dialog";
 import { SessionRecorder } from "@/components/session-recorder";
 
 // Utils
@@ -193,20 +192,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [editingNote, setEditingNote] = useState<SessionNote | null>(null);
   const [isFromSessionClick, setIsFromSessionClick] = useState(false); // Track if came from session click
   
-  // Voice transcription review state
-  const [pendingTranscription, setPendingTranscription] = useState<{
-    rawTranscription: string;
-    mappedFields: {
-      sessionFocus?: string;
-      symptoms?: string;
-      shortTermGoals?: string;
-      intervention?: string;
-      progress?: string;
-      remarks?: string;
-      recommendations?: string;
-    };
-  } | null>(null);
-  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [smartFillSessionId, setSmartFillSessionId] = useState<number | null>(null);
   
   // Use external open state if provided, otherwise use internal state
   const isAddNoteOpen = open !== undefined ? open : internalIsAddNoteOpen;
@@ -689,67 +675,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     });
   };
 
-  // Handle applying transcription after review
-  const handleApplyTranscription = (selectedFields: {
-    [key: string]: { value: string; mergeMode: 'append' | 'replace' };
-  }) => {
-    // Get fresh current values from form to avoid stale data
-    const currentFormValues = form.getValues();
-    
-    Object.keys(selectedFields).forEach((fieldKey) => {
-      const { value: newValue, mergeMode } = selectedFields[fieldKey];
-      
-      // Skip empty new values
-      const newValueTrimmed = newValue?.trim();
-      if (!newValueTrimmed) return;
-      
-      // Get current field value (fresh from form)
-      const currentValue = currentFormValues[fieldKey as keyof typeof currentFormValues] as string | null | undefined;
-      
-      // Check if current has actual content (not just whitespace)
-      const hasCurrentContent = currentValue && currentValue.trim().length > 0;
-      
-      // Determine final value based on merge mode and current content
-      let finalValue: string;
-      
-      if (mergeMode === 'append' && hasCurrentContent) {
-        // Append: preserve original formatting of current value, add separator, then new content
-        finalValue = `${currentValue}\n\n${newValueTrimmed}`;
-      } else {
-        // Replace: either explicitly requested OR current field is empty/whitespace
-        finalValue = newValueTrimmed;
-      }
-      
-      // Update form field
-      form.setValue(fieldKey as any, finalValue, { 
-        shouldDirty: true, 
-        shouldTouch: true 
-      });
-    });
-    
-    // Store raw transcript for audit trail
-    if (pendingTranscription?.rawTranscription) {
-      form.setValue('voiceTranscription', pendingTranscription.rawTranscription);
-    }
-    
-    // Clear pending state
-    setPendingTranscription(null);
-    
-    // Show success message
-    const fieldCount = Object.keys(selectedFields).length;
-    toast({
-      title: "Transcription applied!",
-      description: `${fieldCount} field${fieldCount !== 1 ? 's' : ''} updated. Review and save your changes.`
-    });
-  };
-  
-  const handleDiscardTranscription = () => {
-    setPendingTranscription(null);
-    toast({
-      title: "Transcription discarded",
-      description: "No changes were made to your session note"
-    });
-  };
+  // (handleApplyTranscription / handleDiscardTranscription removed — superseded by Smart Fill from Transcript)
 
 
 
@@ -1354,7 +1280,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 const sid = editingNote?.sessionId || form.watch('sessionId');
                 if (!sid) return null;
                 return (
-                  <SessionRecorder sessionId={sid} />
+                  <SessionRecorder
+                    sessionId={sid}
+                    onRequestSmartFill={() => setSmartFillSessionId(sid)}
+                  />
                 );
               })()}
 
@@ -1466,59 +1395,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </div>
               </div>
 
-              {/* Voice Transcription Display (if exists) */}
-              {editingNote?.voiceTranscription && (
-                <Collapsible className="mb-4">
-                  <Card className="border-purple-200 bg-purple-50">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Mic className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                          <CardTitle className="text-base">Voice Transcription (Original Recording)</CardTitle>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm("Delete this voice transcription? The session note fields will not be affected.")) {
-                                form.setValue('voiceTranscription', null);
-                                setEditingNote(prev => prev ? { ...prev, voiceTranscription: null } : null);
-                                toast({
-                                  title: "Transcription deleted",
-                                  description: "The raw voice transcription has been removed"
-                                });
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="p-1">
-                              <ChevronDown className="w-4 h-4 text-purple-600" />
-                            </Button>
-                          </CollapsibleTrigger>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CollapsibleContent>
-                      <CardContent className="pt-0">
-                        <div className="p-3 bg-white rounded border border-purple-200">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                            {editingNote.voiceTranscription}
-                          </p>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          This is the raw text from your voice recording before AI field mapping
-                        </p>
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-              )}
+              {/* Voice Transcription Display removed: superseded by Session Transcript card + Smart Fill */}
 
               {/* Organized Clinical Documentation Tabs */}
               <Tabs defaultValue="clinical" className="w-full">
@@ -2122,28 +1999,34 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             </form>
           </Form>
 
-          {/* Floating Voice Recording Button - Inside Dialog (for both new and existing notes) */}
-          {(() => {
-            const sessionId = form.getValues('sessionId');
-            const session = sessions.find(s => s.id === sessionId);
-            const sessionDateFormatted = session 
-              ? format(parseSessionDate(session.sessionDate), 'MMMM dd, yyyy') + ' - ' + session.sessionType
-              : 'Session date not available';
-            
-            return (
-              <FloatingVoiceButton
-                sessionNoteId={editingNote?.id || null}
-                clientName={clientData?.fullName || 'Client'}
-                sessionDate={sessionDateFormatted}
-                onTranscriptionComplete={(data) => {
-                  setPendingTranscription(data);
-                  setShowReviewDialog(true);
-                }}
-              />
-            );
-          })()}
         </DialogContent>
       </Dialog>
+
+      {/* Smart Fill from Transcript dialog */}
+      <TranscriptSmartFillDialog
+        open={smartFillSessionId !== null}
+        onOpenChange={(o) => {
+          if (!o) setSmartFillSessionId(null);
+        }}
+        sessionId={smartFillSessionId}
+        currentValues={{
+          sessionFocus: form.getValues('sessionFocus') || '',
+          symptoms: form.getValues('symptoms') || '',
+          shortTermGoals: form.getValues('shortTermGoals') || '',
+          intervention: form.getValues('intervention') || '',
+          progress: form.getValues('progress') || '',
+          remarks: form.getValues('remarks') || '',
+          recommendations: form.getValues('recommendations') || '',
+        }}
+        onApply={(values: Partial<SmartFillSuggestion>) => {
+          (Object.keys(values) as (keyof SmartFillSuggestion)[]).forEach((k) => {
+            const v = values[k];
+            if (typeof v === 'string') {
+              form.setValue(k, v, { shouldDirty: true, shouldValidate: false });
+            }
+          });
+        }}
+      />
 
       {/* AI Template Dialog */}
       <Dialog open={isAITemplateOpen} onOpenChange={setIsAITemplateOpen}>
@@ -2320,25 +2203,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         </DialogContent>
       </Dialog>
 
-      {/* Voice Transcription Review Dialog */}
-      {showReviewDialog && (
-        <TranscriptionReviewDialog
-          open={showReviewDialog}
-          onOpenChange={setShowReviewDialog}
-          transcriptionData={pendingTranscription}
-          currentFieldValues={{
-            sessionFocus: form.getValues('sessionFocus') || undefined,
-            symptoms: form.getValues('symptoms') || undefined,
-            shortTermGoals: form.getValues('shortTermGoals') || undefined,
-            intervention: form.getValues('intervention') || undefined,
-            progress: form.getValues('progress') || undefined,
-            remarks: form.getValues('remarks') || undefined,
-            recommendations: form.getValues('recommendations') || undefined,
-          }}
-          onApply={handleApplyTranscription}
-          onDiscard={handleDiscardTranscription}
-        />
-      )}
+      {/* (TranscriptionReviewDialog removed — superseded by TranscriptSmartFillDialog) */}
     </div>
   );
 }
