@@ -25,7 +25,7 @@ async function throwIfResNotOk(res: Response) {
 }
 
 // Helper function to get CSRF token from cookies
-function getCsrfToken(): string | null {
+export function getCsrfToken(): string | null {
   const cookies = document.cookie.split(';');
   for (let cookie of cookies) {
     const [name, value] = cookie.trim().split('=');

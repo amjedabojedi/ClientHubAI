@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Sparkles, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getCsrfToken } from "@/lib/queryClient";
 
 export type SmartFillSuggestion = {
   sessionFocus: string;
@@ -79,9 +80,11 @@ export function TranscriptSmartFillDialog({
       setSuggestions(null);
       setEdited(null);
       try {
+        const csrfToken = getCsrfToken();
         const res = await fetch(`/api/sessions/${sessionId}/transcript/smart-fill`, {
           method: "POST",
           credentials: "include",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
         });
         if (!res.ok) {
           let msg = `Request failed (${res.status})`;

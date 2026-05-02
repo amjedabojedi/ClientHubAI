@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryClient as qc } from "@/lib/queryClient";
+import { queryClient as qc, getCsrfToken } from "@/lib/queryClient";
 
 type SessionTranscript = {
   id: number;
@@ -209,10 +209,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
         fd.append("chunkDurationSeconds", String(durationSec));
         if (language) fd.append("language", language);
 
+        const csrfToken = getCsrfToken();
         const res = await fetch(`/api/sessions/${sessionId}/transcribe-chunk`, {
           method: "POST",
           body: fd,
           credentials: "include",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
         });
         if (!res.ok) {
           const errText = await res.text();
@@ -356,9 +358,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
     // Finalize: server stitches + diarizes + saves. Send chunk count so server
     // can also enforce missing-chunk safety (defense in depth).
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/sessions/${sessionId}/transcribe-finalize`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
         credentials: "include",
         body: JSON.stringify({
           uploadId: uploadIdRef.current,
