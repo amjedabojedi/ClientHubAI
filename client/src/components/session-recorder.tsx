@@ -443,6 +443,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
         {!existingTranscript && status === "idle" && (
           <div className="flex flex-col items-center gap-3 py-2">
             <Button
+              type="button"
               data-testid="button-start-recording"
               onClick={handleStart}
               size="lg"
@@ -477,6 +478,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
               <div className="flex gap-2">
                 {status === "recording" ? (
                   <Button
+                    type="button"
                     data-testid="button-pause-recording"
                     variant="outline"
                     size="sm"
@@ -486,6 +488,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
                   </Button>
                 ) : (
                   <Button
+                    type="button"
                     data-testid="button-resume-recording"
                     variant="outline"
                     size="sm"
@@ -495,6 +498,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
                   </Button>
                 )}
                 <Button
+                  type="button"
                   data-testid="button-stop-recording"
                   variant="destructive"
                   size="sm"
@@ -559,6 +563,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
               <div className="flex gap-1">
                 {onRequestSmartFill && (
                   <Button
+                    type="button"
                     data-testid="button-smart-fill-from-transcript"
                     variant="outline"
                     size="sm"
@@ -570,6 +575,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
                   </Button>
                 )}
                 <Button
+                  type="button"
                   data-testid="button-delete-transcript"
                   variant="ghost"
                   size="sm"
