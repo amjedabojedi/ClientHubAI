@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Copy, Download, Trash2, FileAudio, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getCsrfToken } from "@/lib/queryClient";
 import { format } from "date-fns";
 
 type SessionTranscript = {
@@ -102,9 +103,11 @@ export function SessionTranscriptViewer({
     if (!confirm("Permanently delete this transcript? This cannot be undone.")) return;
     setIsDeleting(true);
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/sessions/${sessionId}/transcript`, {
         method: "DELETE",
         credentials: "include",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
       });
       if (!res.ok) throw new Error(await res.text());
       toast({ title: "Transcript deleted" });

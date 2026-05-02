@@ -402,9 +402,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
   const handleDeleteTranscript = useCallback(async () => {
     if (!confirm("Delete this session transcript? This cannot be undone.")) return;
     try {
+      const csrfToken = getCsrfToken();
       const res = await fetch(`/api/sessions/${sessionId}/transcript`, {
         method: "DELETE",
         credentials: "include",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
       });
       if (!res.ok) throw new Error(await res.text());
       toast({ title: "Transcript deleted" });
