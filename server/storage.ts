@@ -46,7 +46,9 @@ import {
   notificationTemplates,
   patientConsents,
   sessionTranscripts,
-  paymentTransactions
+  paymentTransactions,
+  translationSessions,
+  translationMessages
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -130,6 +132,10 @@ import type {
   InsertPatientConsent,
   SessionTranscript,
   InsertSessionTranscript,
+  TranslationSession,
+  InsertTranslationSession,
+  TranslationMessage,
+  InsertTranslationMessage,
   InsertNotification,
   NotificationTrigger,
   InsertNotificationTrigger,
@@ -320,6 +326,14 @@ export interface IStorage {
   createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript>;
   updateSessionTranscript(id: number, data: Partial<InsertSessionTranscript>): Promise<SessionTranscript>;
   deleteSessionTranscript(sessionId: number): Promise<void>;
+
+  // ===== TRANSLATION SESSIONS =====
+  createTranslationSession(data: InsertTranslationSession): Promise<TranslationSession>;
+  getTranslationSession(id: number): Promise<TranslationSession | undefined>;
+  getActiveTranslationSession(sessionId: number): Promise<TranslationSession | undefined>;
+  updateTranslationSession(id: number, data: Partial<InsertTranslationSession>): Promise<TranslationSession>;
+  createTranslationMessage(data: InsertTranslationMessage): Promise<TranslationMessage>;
+  getTranslationMessages(translationSessionId: number, afterSeq?: number): Promise<TranslationMessage[]>;
 
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<SessionWithRelations[]>;
@@ -1612,6 +1626,52 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSessionTranscript(sessionId: number): Promise<void> {
     await db.delete(sessionTranscripts).where(eq(sessionTranscripts.sessionId, sessionId));
+  }
+
+  async createTranslationSession(data: InsertTranslationSession): Promise<TranslationSession> {
+    const [created] = await db.insert(translationSessions).values(data).returning();
+    return created;
+  }
+
+  async getTranslationSession(id: number): Promise<TranslationSession | undefined> {
+    const [session] = await db.select().from(translationSessions).where(eq(translationSessions.id, id)).limit(1);
+    return session || undefined;
+  }
+
+  async getActiveTranslationSession(sessionId: number): Promise<TranslationSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(translationSessions)
+      .where(and(eq(translationSessions.sessionId, sessionId), eq(translationSessions.status, "active")))
+      .orderBy(desc(translationSessions.startedAt))
+      .limit(1);
+    return session || undefined;
+  }
+
+  async updateTranslationSession(id: number, data: Partial<InsertTranslationSession>): Promise<TranslationSession> {
+    const [updated] = await db
+      .update(translationSessions)
+      .set(data)
+      .where(eq(translationSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createTranslationMessage(data: InsertTranslationMessage): Promise<TranslationMessage> {
+    const [created] = await db.insert(translationMessages).values(data).returning();
+    return created;
+  }
+
+  async getTranslationMessages(translationSessionId: number, afterSeq?: number): Promise<TranslationMessage[]> {
+    const conditions = [eq(translationMessages.translationSessionId, translationSessionId)];
+    if (afterSeq !== undefined) {
+      conditions.push(gte(translationMessages.seqNumber, afterSeq));
+    }
+    return db
+      .select()
+      .from(translationMessages)
+      .where(and(...conditions))
+      .orderBy(asc(translationMessages.seqNumber));
   }
 
   // Session methods

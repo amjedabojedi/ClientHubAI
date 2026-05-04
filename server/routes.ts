@@ -20,7 +20,7 @@ import { z } from "zod";
 // Internal Services
 import { storage, type TaskQueryParams } from "./storage";
 // Auth will be implemented later, for now removing to test audit logging
-import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio } from "./ai/openai";
+import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio, transcribeAndTranslate } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
 import { NotificationService } from "./notification-service";
 import { db } from "./db";
@@ -7180,6 +7180,278 @@ You can download a copy if you have it saved locally and re-upload it.`;
         });
         return res.json({ ok: true });
       } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // ===================================================================
+  // LIVE SESSION TRANSLATOR — Therapist speaks, SmartHub transcribes +
+  // translates, pushes translated text as Zoom closed captions.
+  // ===================================================================
+
+  const translationSeqCounters = new Map<number, number>();
+
+  // POST /api/sessions/:sessionId/translation/start
+  app.post(
+    "/api/sessions/:sessionId/translation/start",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) return res.status(accessCheck.status).json({ message: accessCheck.message });
+
+        const consentCheck = await checkAIProcessingConsent(session.clientId);
+        if (!consentCheck.hasConsent) return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
+
+        const existing = await storage.getActiveTranslationSession(sessionId);
+        if (existing) return res.status(409).json({ message: "A translation session is already active for this session" });
+
+        const { therapistLanguage, clientLanguage, zoomMeetingId } = req.body;
+        if (!therapistLanguage || !clientLanguage) return res.status(400).json({ message: "therapistLanguage and clientLanguage are required" });
+
+        let captionToken: string | null = null;
+        if (zoomMeetingId) {
+          try {
+            const user = await storage.getUser(req.user!.id);
+            if (user?.zoomAccountId && user?.zoomClientId && user?.zoomClientSecret) {
+              captionToken = await zoomService.getCaptionToken(zoomMeetingId, {
+                accountId: user.zoomAccountId,
+                clientId: user.zoomClientId,
+                clientSecret: user.zoomClientSecret,
+                accessToken: user.zoomAccessToken,
+                tokenExpiry: user.zoomTokenExpiry,
+              });
+            }
+          } catch (err: any) {
+            console.warn("[TRANSLATION] Could not get Zoom caption token:", err.message);
+          }
+        }
+
+        const translationSession = await storage.createTranslationSession({
+          sessionId,
+          therapistId: req.user!.id,
+          clientId: session.clientId,
+          therapistLanguage,
+          clientLanguage,
+          zoomCaptionToken: captionToken,
+          status: "active",
+        });
+        translationSeqCounters.set(translationSession.id, 0);
+
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'translation_session_started',
+          result: 'success',
+          resourceType: 'translation_session',
+          resourceId: String(translationSession.id),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          accessReason: 'Therapist started live translation session',
+        });
+
+        return res.json({
+          id: translationSession.id,
+          status: translationSession.status,
+          hasZoomCaptions: !!captionToken,
+        });
+      } catch (error: any) {
+        console.error("[TRANSLATION] Start error:", error);
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // POST /api/sessions/:sessionId/translation/speak
+  app.post(
+    "/api/sessions/:sessionId/translation/speak",
+    requireAuth,
+    blockAccountant,
+    audioUpload.single('audio'),
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) return res.status(accessCheck.status).json({ message: accessCheck.message });
+
+        const consentCheck = await checkAIProcessingConsent(session.clientId);
+        if (!consentCheck.hasConsent) return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
+
+        const translationSession = await storage.getActiveTranslationSession(sessionId);
+        if (!translationSession) return res.status(404).json({ message: "No active translation session" });
+
+        if (!req.file) return res.status(400).json({ message: "Audio file required" });
+
+        const ext = req.file.mimetype.includes("mp4") ? "mp4" : "webm";
+        const { originalText, translatedText } = await transcribeAndTranslate(
+          req.file.buffer,
+          `chunk.${ext}`,
+          translationSession.therapistLanguage,
+          translationSession.clientLanguage,
+        );
+
+        if (!originalText.trim()) {
+          return res.json({ message: "No speech detected", originalText: "", translatedText: "" });
+        }
+
+        const seq = (translationSeqCounters.get(translationSession.id) || 0) + 1;
+        translationSeqCounters.set(translationSession.id, seq);
+
+        let captionPushed = false;
+        if (translationSession.zoomCaptionToken && translatedText.trim()) {
+          try {
+            await zoomService.pushCaption(
+              translationSession.zoomCaptionToken,
+              translatedText,
+              seq,
+              translationSession.clientLanguage,
+            );
+            captionPushed = true;
+          } catch (err: any) {
+            console.warn("[TRANSLATION] Caption push failed:", err.message);
+          }
+        }
+
+        const message = await storage.createTranslationMessage({
+          translationSessionId: translationSession.id,
+          speaker: "therapist",
+          originalText,
+          translatedText,
+          seqNumber: seq,
+          captionPushed,
+        });
+
+        return res.json({
+          id: message.id,
+          originalText: message.originalText,
+          translatedText: message.translatedText,
+          seqNumber: message.seqNumber,
+          captionPushed: message.captionPushed,
+        });
+      } catch (error: any) {
+        console.error("[TRANSLATION] Speak error:", error);
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // GET /api/sessions/:sessionId/translation/messages
+  app.get(
+    "/api/sessions/:sessionId/translation/messages",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) return res.status(accessCheck.status).json({ message: accessCheck.message });
+
+        const translationSession = await storage.getActiveTranslationSession(sessionId);
+        if (!translationSession) return res.status(404).json({ message: "No active translation session" });
+
+        const consentCheck = await checkAIProcessingConsent(session.clientId);
+        if (!consentCheck.hasConsent) return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
+
+        const afterSeq = req.query.after ? parseInt(req.query.after as string) : undefined;
+        const messages = await storage.getTranslationMessages(translationSession.id, afterSeq);
+
+        return res.json({ messages });
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // POST /api/sessions/:sessionId/translation/end
+  app.post(
+    "/api/sessions/:sessionId/translation/end",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        const session = await storage.getSession(sessionId);
+        if (!session) return res.status(404).json({ message: "Session not found" });
+
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) return res.status(accessCheck.status).json({ message: accessCheck.message });
+
+        const consentCheck = await checkAIProcessingConsent(session.clientId);
+        if (!consentCheck.hasConsent) return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
+
+        const translationSession = await storage.getActiveTranslationSession(sessionId);
+        if (!translationSession) return res.status(404).json({ message: "No active translation session" });
+
+        await storage.updateTranslationSession(translationSession.id, {
+          status: "completed",
+          endedAt: new Date(),
+        });
+        translationSeqCounters.delete(translationSession.id);
+
+        const messages = await storage.getTranslationMessages(translationSession.id);
+
+        if (messages.length > 0) {
+          const stitchedTranscript = messages
+            .map((m) => `Therapist: ${m.originalText}\n[${translationSession.clientLanguage}] ${m.translatedText}`)
+            .join("\n\n");
+
+          const existing = await storage.getSessionTranscript(sessionId);
+          if (existing) {
+            const combined = existing.content + "\n\n--- Live Translation Session ---\n\n" + stitchedTranscript;
+            await storage.updateSessionTranscript(existing.id, {
+              content: combined,
+              durationSeconds: (existing.durationSeconds || 0) + messages.length * 10,
+            });
+          } else {
+            await storage.createSessionTranscript({
+              sessionId,
+              clientId: session.clientId,
+              therapistId: req.user!.id,
+              content: stitchedTranscript,
+              durationSeconds: messages.length * 10,
+            });
+          }
+        }
+
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: req.user!.id,
+          username: req.user!.username,
+          action: 'translation_session_ended',
+          result: 'success',
+          resourceType: 'translation_session',
+          resourceId: String(translationSession.id),
+          clientId: session.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          accessReason: `Translation session ended, ${messages.length} messages stitched to transcript`,
+        });
+
+        return res.json({
+          ok: true,
+          messagesCount: messages.length,
+          transcriptSaved: messages.length > 0,
+        });
+      } catch (error: any) {
+        console.error("[TRANSLATION] End error:", error);
         return res.status(500).json({ message: error.message || "Internal error" });
       }
     },

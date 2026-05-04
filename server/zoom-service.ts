@@ -18,7 +18,8 @@ const zoomMeetingSchema = z.object({
     join_before_host: z.boolean().default(false),
     mute_upon_entry: z.boolean().default(true),
     waiting_room: z.boolean().default(true),
-    auto_recording: z.string().default("none"), // "local", "cloud", "none"
+    auto_recording: z.string().default("none"),
+    closed_captioning: z.boolean().default(true),
   }).optional(),
 });
 
@@ -169,6 +170,7 @@ export class ZoomService {
           mute_upon_entry: true,
           waiting_room: true,
           auto_recording: "none",
+          closed_captioning: true,
         },
       };
 
@@ -228,6 +230,63 @@ export class ZoomService {
       password: meeting.password || '',
       startTime: estTimeString,
     };
+  }
+
+  /**
+   * Get closed caption token for a running Zoom meeting.
+   * The meeting must be actively in progress (host has started it).
+   */
+  async getCaptionToken(meetingId: string, therapistCredentials: {
+    accountId: string;
+    clientId: string;
+    clientSecret: string;
+    accessToken?: string | null;
+    tokenExpiry?: Date | null;
+  }): Promise<string> {
+    const headers = await this.getHeaders(therapistCredentials);
+    const response = await fetch(
+      `${ZOOM_API_BASE}/meetings/${meetingId}/token?type=closed_caption_token`,
+      { method: 'GET', headers },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("[ZOOM] Failed to get caption token:", response.status, errorData);
+      if (response.status === 400 || response.status === 404) {
+        throw new Error(
+          "Could not get caption token. Make sure the Zoom meeting is currently running and you (the host) have joined.",
+        );
+      }
+      throw new Error(`Failed to get Zoom caption token: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.token;
+  }
+
+  /**
+   * Push a translated caption into a running Zoom meeting.
+   * Uses the caption token obtained from getCaptionToken().
+   */
+  async pushCaption(captionToken: string, text: string, seq: number, lang: string): Promise<void> {
+    const params = new URLSearchParams({
+      seq: String(seq),
+      lang,
+    });
+    const response = await fetch(
+      `${captionToken}&${params.toString()}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: text,
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("[ZOOM] Failed to push caption:", response.status, errorData);
+      throw new Error(`Zoom caption push failed: ${response.status}`);
+    }
   }
 }
 

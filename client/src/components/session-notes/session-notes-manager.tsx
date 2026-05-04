@@ -25,6 +25,7 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 // Voice Recording
 import { TranscriptSmartFillDialog, type SmartFillSuggestion } from "./transcript-smart-fill-dialog";
 import { SessionRecorder } from "@/components/session-recorder";
+import { LiveSessionTranslator } from "@/components/live-session-translator";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -1280,10 +1281,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 const sid = editingNote?.sessionId || form.watch('sessionId');
                 if (!sid) return null;
                 return (
-                  <SessionRecorder
-                    sessionId={sid}
-                    onRequestSmartFill={() => setSmartFillSessionId(sid)}
-                  />
+                  <>
+                    <SessionRecorder
+                      sessionId={sid}
+                      onRequestSmartFill={() => setSmartFillSessionId(sid)}
+                    />
+                    <LiveSessionTranslator sessionId={sid} />
+                  </>
                 );
               })()}
 
