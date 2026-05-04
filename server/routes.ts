@@ -8123,12 +8123,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
   app.post("/api/library/bulk-entries", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
       const { categoryId, entries } = req.body;
-      
-      if (!categoryId || !Array.isArray(entries)) {
-        return res.status(400).json({ message: "Invalid input: categoryId and entries array required" });
+
+      if (!Array.isArray(entries) || entries.length === 0) {
+        return res.status(400).json({ message: "Invalid input: entries array required" });
       }
 
-      // Get all existing entries once for duplicate checking
+      if (!categoryId) {
+        const hasAnyDomain = entries.some((e: any) => e.domain && e.domain.trim());
+        if (!hasAnyDomain) {
+          return res.status(400).json({ message: "Either categoryId or domain names are required to organize entries" });
+        }
+        const hasSubWithoutDomain = entries.some((e: any) => e.subdomain && e.subdomain.trim() && (!e.domain || !e.domain.trim()));
+        if (hasSubWithoutDomain) {
+          return res.status(400).json({ message: "Entries with subdomain must also have a domain" });
+        }
+      }
+
       const existingEntries = await storage.getLibraryEntries();
       const existingTitles = new Set(existingEntries.map(e => e.title.trim().toLowerCase()));
 
@@ -8137,14 +8147,76 @@ You can download a copy if you have it saved locally and re-upload it.`;
         successful: 0,
         skipped: 0,
         failed: 0,
+        categoriesCreated: 0,
         errors: [] as any[]
+      };
+
+      const needsCategoryResolution = !categoryId && entries.some((e: any) => e.domain || e.subdomain);
+
+      const categoryCache = new Map<string, number>();
+
+      if (needsCategoryResolution) {
+        const allCategories = await storage.getLibraryCategories();
+
+        const flattenCategories = (cats: any[], parentId: number | null = null) => {
+          for (const cat of cats) {
+            categoryCache.set(`${parentId || 'root'}::${cat.name.trim().toLowerCase()}`, cat.id);
+            if (cat.children && cat.children.length > 0) {
+              flattenCategories(cat.children, cat.id);
+            }
+          }
+        };
+        flattenCategories(allCategories);
+      }
+
+      const resolveCategory = async (domain?: string, subdomain?: string): Promise<number> => {
+        if (categoryId) return categoryId;
+
+        let domainId: number | undefined;
+
+        if (domain) {
+          const domainKey = `root::${domain.trim().toLowerCase()}`;
+          if (categoryCache.has(domainKey)) {
+            domainId = categoryCache.get(domainKey)!;
+          } else {
+            const created = await storage.createLibraryCategory({
+              name: domain.trim(),
+              parentId: null,
+              sortOrder: 0,
+              isActive: true,
+            });
+            domainId = created.id;
+            categoryCache.set(domainKey, created.id);
+            results.categoriesCreated++;
+          }
+        }
+
+        if (subdomain && domainId) {
+          const subKey = `${domainId}::${subdomain.trim().toLowerCase()}`;
+          if (categoryCache.has(subKey)) {
+            return categoryCache.get(subKey)!;
+          } else {
+            const created = await storage.createLibraryCategory({
+              name: subdomain.trim(),
+              parentId: domainId,
+              sortOrder: 0,
+              isActive: true,
+            });
+            categoryCache.set(subKey, created.id);
+            results.categoriesCreated++;
+            return created.id;
+          }
+        }
+
+        if (domainId) return domainId;
+
+        throw new Error('No category could be resolved - provide domain/subdomain or categoryId');
       };
 
       for (let i = 0; i < entries.length; i++) {
         const entryData = entries[i];
-        
+
         try {
-          // Check for duplicate
           if (existingTitles.has(entryData.title.trim().toLowerCase())) {
             results.skipped++;
             results.errors.push({
@@ -8154,25 +8226,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
             });
             continue;
           }
-          
+
+          const resolvedCategoryId = await resolveCategory(entryData.domain, entryData.subdomain);
+
           const validatedData = insertLibraryEntrySchema.parse({
-            categoryId,
+            categoryId: resolvedCategoryId,
             title: entryData.title,
             content: entryData.content,
             createdById: req.user!.id,
             tags: entryData.tags || null,
             sortOrder: entryData.sortOrder || 0
           });
-          
+
           await storage.createLibraryEntry(validatedData);
-          existingTitles.add(entryData.title.trim().toLowerCase()); // Add to set for next iterations
+          existingTitles.add(entryData.title.trim().toLowerCase());
           results.successful++;
         } catch (error) {
           results.failed++;
           results.errors.push({
             row: i + 1,
             title: entryData.title,
-            error: error instanceof z.ZodError ? error.errors[0].message : 'Unknown error'
+            error: error instanceof z.ZodError ? error.errors[0].message : (error instanceof Error ? error.message : 'Unknown error')
           });
         }
       }

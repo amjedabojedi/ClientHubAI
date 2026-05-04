@@ -971,6 +971,7 @@ export default function LibraryPage() {
               onComplete={() => {
                 setShowBulkAddDialog(false);
                 queryClient.invalidateQueries({ queryKey: ["/api/library/entries"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/library/categories"] });
               }}
             />
           </DialogContent>
@@ -1007,7 +1008,16 @@ export default function LibraryPage() {
   );
 }
 
-// Bulk Add Form Component
+type ColumnMapping = 'domain' | 'subdomain' | 'composite' | 'content' | 'skip';
+
+interface ParsedBulkEntry {
+  domain: string;
+  subdomain: string;
+  title: string;
+  content: string;
+  error?: string;
+}
+
 function BulkAddForm({
   categoryId,
   categories,
@@ -1017,104 +1027,174 @@ function BulkAddForm({
   categories: LibraryCategoryWithChildren[];
   onComplete: () => void;
 }) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(categoryId);
   const [pastedData, setPastedData] = useState("");
-  const [parsedEntries, setParsedEntries] = useState<Array<{ title: string; content: string; error?: string }>>([]);
+  const [detectedColumns, setDetectedColumns] = useState<string[]>([]);
+  const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
+  const [parsedEntries, setParsedEntries] = useState<ParsedBulkEntry[]>([]);
+  const [rawRows, setRawRows] = useState<string[][]>([]);
+  const [hasHeader, setHasHeader] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 
-  // Parse pasted data when it changes
   useEffect(() => {
     if (!pastedData.trim()) {
+      setDetectedColumns([]);
+      setColumnMappings([]);
       setParsedEntries([]);
+      setRawRows([]);
       return;
     }
 
     const lines = pastedData.split('\n').filter(line => line.trim());
-    const entries: Array<{ title: string; content: string; error?: string }> = [];
+    if (lines.length === 0) return;
 
-    lines.forEach((line, index) => {
-      // Try TAB separator first, then comma
-      let parts = line.split('\t');
-      if (parts.length < 2) {
-        parts = line.split(',');
-      }
-      
-      if (parts.length < 2) {
-        entries.push({
-          title: parts[0] || '',
-          content: '',
-          error: 'Missing content column (must have 2 columns: Title and Content)'
-        });
-      } else {
-        const title = parts[0]?.trim() || '';
-        const content = parts[1]?.trim() || '';
-        
-        if (!title) {
-          entries.push({ title: '', content, error: 'Title is required' });
-        } else if (!content) {
-          entries.push({ title, content: '', error: 'Content is required' });
-        } else {
-          entries.push({ title, content });
-        }
-      }
+    const separator = lines[0].includes('\t') ? '\t' : ',';
+    const allRows = lines.map(line => line.split(separator).map(c => c.trim()));
+    const colCount = Math.max(...allRows.map(r => r.length));
+
+    const headerRow = allRows[0] || [];
+    const cols: string[] = [];
+    for (let i = 0; i < colCount; i++) {
+      cols.push(headerRow[i] || `Column ${i + 1}`);
+    }
+    setDetectedColumns(cols);
+
+    if (columnMappings.length !== colCount) {
+      const autoMapped: ColumnMapping[] = cols.map(col => {
+        const lower = col.toLowerCase().trim();
+        if (lower === 'domain' || lower === 'category') return 'domain';
+        if (lower === 'subdomain' || lower === 'sub-domain' || lower === 'subcategory') return 'subdomain';
+        if (lower === 'composite' || lower === 'title' || lower === 'name' || lower === 'entry') return 'composite';
+        if (lower === 'content' || lower === 'description' || lower === 'text' || lower === 'definition') return 'content';
+        return 'skip';
+      });
+      setColumnMappings(autoMapped);
+    }
+
+    setRawRows(allRows);
+  }, [pastedData]);
+
+  useEffect(() => {
+    if (rawRows.length === 0 || columnMappings.length === 0) {
+      setParsedEntries([]);
+      return;
+    }
+
+    const dataRows = hasHeader ? rawRows.slice(1) : rawRows;
+    const domainIdx = columnMappings.indexOf('domain');
+    const subdomainIdx = columnMappings.indexOf('subdomain');
+    const compositeIdx = columnMappings.indexOf('composite');
+    const contentIdx = columnMappings.indexOf('content');
+
+    const entries: ParsedBulkEntry[] = dataRows.map(row => {
+      const domain = domainIdx >= 0 ? (row[domainIdx] || '').trim() : '';
+      const subdomain = subdomainIdx >= 0 ? (row[subdomainIdx] || '').trim() : '';
+      const title = compositeIdx >= 0 ? (row[compositeIdx] || '').trim() : '';
+      const content = contentIdx >= 0 ? (row[contentIdx] || '').trim() : '';
+
+      const errors: string[] = [];
+      if (!title) errors.push('Composite/Title is required');
+      if (!content) errors.push('Content is required');
+
+      return {
+        domain,
+        subdomain,
+        title,
+        content,
+        error: errors.length > 0 ? errors.join('; ') : undefined,
+      };
     });
 
     setParsedEntries(entries);
-  }, [pastedData]);
+  }, [rawRows, columnMappings, hasHeader]);
 
   const validEntries = parsedEntries.filter(e => !e.error);
   const invalidEntries = parsedEntries.filter(e => e.error);
 
-  const handleImport = async () => {
-    if (!selectedCategoryId) {
-      toast({
-        title: "Category required",
-        description: "Please select a category first",
-        variant: "destructive"
-      });
-      return;
-    }
+  const hasDomainMapping = columnMappings.includes('domain');
+  const hasSubdomainMapping = columnMappings.includes('subdomain');
+  const hasCompositeMapping = columnMappings.includes('composite');
+  const hasContentMapping = columnMappings.includes('content');
+  const mappingComplete = hasCompositeMapping && hasContentMapping;
+  const subdomainWithoutDomain = hasSubdomainMapping && !hasDomainMapping;
+  const noCategoryPath = !hasDomainMapping && !hasSubdomainMapping && !categoryId;
 
+  const uniqueDomains = [...new Set(validEntries.map(e => e.domain).filter(Boolean))];
+  const uniqueSubdomains = [...new Set(validEntries.map(e => `${e.domain} > ${e.subdomain}`).filter(s => !s.startsWith(' > ')))];
+
+  const handleImport = async () => {
     if (validEntries.length === 0) {
       toast({
         title: "No valid entries",
-        description: "Please paste valid data with Title and Content columns",
+        description: "Please paste valid data and map the required columns",
         variant: "destructive"
       });
       return;
     }
 
-    try {
-      const res = await apiRequest('/api/library/bulk-entries', 'POST', {
-        categoryId: selectedCategoryId,
-        entries: validEntries
+    if (subdomainWithoutDomain) {
+      toast({
+        title: "Domain mapping required",
+        description: "When Subdomain is mapped, Domain must also be mapped",
+        variant: "destructive"
       });
-      
+      return;
+    }
+
+    if (noCategoryPath) {
+      toast({
+        title: "Category info required",
+        description: "Map Domain (and optionally Subdomain) columns so entries can be organized into categories",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const useCategoryMode = !hasDomainMapping && !hasSubdomainMapping && !!categoryId;
+
+      let body: any;
+      if (useCategoryMode) {
+        body = {
+          categoryId,
+          entries: validEntries.map(e => ({ title: e.title, content: e.content }))
+        };
+      } else {
+        body = {
+          entries: validEntries.map(e => ({
+            domain: e.domain || undefined,
+            subdomain: e.subdomain || undefined,
+            title: e.title,
+            content: e.content,
+          }))
+        };
+      }
+
+      const res = await apiRequest('/api/library/bulk-entries', 'POST', body);
       const response = await res.json() as any;
 
       const successCount = response.successful || 0;
       const skippedCount = response.skipped || 0;
       const failedCount = response.failed || 0;
+      const categoriesCreated = response.categoriesCreated || 0;
 
       let description = '';
       let title = '';
-      
+
       if (successCount === 0 && skippedCount > 0) {
-        // All entries were duplicates
         title = "All entries already exist";
-        description = `${skippedCount} entries skipped because they already exist in the library. Please use unique titles.`;
+        description = `${skippedCount} entries skipped because they already exist in the library.`;
       } else if (successCount === 0 && failedCount > 0) {
-        // All entries failed
         title = "Import failed";
         description = `${failedCount} entries failed validation. Please check your data format.`;
       } else if (successCount > 0) {
-        // Some or all succeeded
         title = "Import complete!";
-        description = `✓ ${successCount} created`;
+        description = `${successCount} created`;
+        if (categoriesCreated > 0) description += `, ${categoriesCreated} new categories`;
         if (skippedCount > 0) description += `, ${skippedCount} skipped (duplicates)`;
         if (failedCount > 0) description += `, ${failedCount} failed`;
       } else {
-        // Unknown state
         title = "Import completed with issues";
         description = "No entries were created. Please check your data.";
       }
@@ -1134,61 +1214,113 @@ function BulkAddForm({
         description: error.message || "Failed to import entries",
         variant: "destructive"
       });
+    } finally {
+      setIsImporting(false);
     }
+  };
+
+  const updateMapping = (index: number, value: ColumnMapping) => {
+    const updated = [...columnMappings];
+    if (value !== 'skip') {
+      const existingIdx = updated.indexOf(value);
+      if (existingIdx >= 0 && existingIdx !== index) {
+        updated[existingIdx] = 'skip';
+      }
+    }
+    updated[index] = value;
+    setColumnMappings(updated);
   };
 
   return (
     <div className="space-y-4">
-      {/* Step 1: Select Category */}
       <div>
-        <Label htmlFor="bulk-category">Step 1: Select Category *</Label>
-        <Select
-          value={selectedCategoryId?.toString()}
-          onValueChange={(value) => setSelectedCategoryId(parseInt(value))}
-        >
-          <SelectTrigger id="bulk-category">
-            <SelectValue placeholder="Choose a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map(cat => (
-              <SelectItem key={cat.id} value={cat.id.toString()}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-slate-500 mt-1">
-          All imported entries will be added to this category
-        </p>
-      </div>
-
-      {/* Step 2: Paste Data */}
-      <div>
-        <Label htmlFor="bulk-paste">Step 2: Paste Excel Data</Label>
+        <Label htmlFor="bulk-paste">Step 1: Paste Excel Data</Label>
         <p className="text-xs text-slate-500 mb-2">
-          Copy 2 columns from Excel: <strong>Title</strong> and <strong>Content</strong> (TAB or comma-separated)
+          Paste rows from Excel or CSV with columns for <strong>Domain</strong>, <strong>Subdomain</strong>, <strong>Composite</strong> (title), and <strong>Content</strong>. TAB or comma separated.
         </p>
         <Textarea
           id="bulk-paste"
           value={pastedData}
           onChange={(e) => setPastedData(e.target.value)}
-          placeholder="Title,Content
-Cognitive Restructuring,A technique to identify and challenge...
-DBT Skills,Dialectical behavior therapy skills..."
+          placeholder={"Domain\tSubdomain\tComposite\tContent\nAnxiety\tCognitive\tCognitive Restructuring\tA technique to identify and challenge...\nDepression\tBehavioral\tActivity Scheduling\tPlanning positive activities to..."}
           rows={8}
           className="font-mono text-sm"
         />
       </div>
 
-      {/* Preview */}
-      {parsedEntries.length > 0 && (
+      {detectedColumns.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <Label>Step 2: Map Columns ({detectedColumns.length} detected)</Label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <Checkbox
+                checked={hasHeader}
+                onCheckedChange={(checked) => setHasHeader(checked === true)}
+              />
+              First row is header
+            </label>
+          </div>
+          <div className="border rounded-lg p-3 space-y-2 bg-slate-50 dark:bg-slate-900">
+            {detectedColumns.map((col, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-sm font-mono w-40 truncate text-slate-600 dark:text-slate-400" title={col}>
+                  {col}
+                </span>
+                <Select
+                  value={columnMappings[i] || 'skip'}
+                  onValueChange={(val) => updateMapping(i, val as ColumnMapping)}
+                >
+                  <SelectTrigger className="w-44 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="domain">Domain</SelectItem>
+                    <SelectItem value="subdomain">Subdomain</SelectItem>
+                    <SelectItem value="composite">Composite (Title)</SelectItem>
+                    <SelectItem value="content">Content</SelectItem>
+                    <SelectItem value="skip">Skip</SelectItem>
+                  </SelectContent>
+                </Select>
+                {columnMappings[i] && columnMappings[i] !== 'skip' && (
+                  <Badge variant="secondary" className="text-xs">
+                    {columnMappings[i] === 'composite' ? 'Title' : columnMappings[i]}
+                  </Badge>
+                )}
+              </div>
+            ))}
+            {!mappingComplete && (
+              <p className="text-xs text-amber-600 mt-2">
+                Map at least <strong>Composite</strong> and <strong>Content</strong> columns to proceed.
+              </p>
+            )}
+            {subdomainWithoutDomain && (
+              <p className="text-xs text-red-600 mt-2">
+                <strong>Domain</strong> must also be mapped when <strong>Subdomain</strong> is mapped.
+              </p>
+            )}
+            {mappingComplete && noCategoryPath && (
+              <p className="text-xs text-amber-600 mt-2">
+                Map a <strong>Domain</strong> column so entries can be organized into categories.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {parsedEntries.length > 0 && mappingComplete && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <Label>Preview ({parsedEntries.length} rows)</Label>
             <div className="flex gap-2 text-xs">
-              <span className="text-green-600">✓ {validEntries.length} valid</span>
+              <span className="text-green-600">{validEntries.length} valid</span>
               {invalidEntries.length > 0 && (
-                <span className="text-red-600">⚠ {invalidEntries.length} errors</span>
+                <span className="text-red-600">{invalidEntries.length} errors</span>
+              )}
+              {uniqueDomains.length > 0 && (
+                <span className="text-blue-600">{uniqueDomains.length} domains</span>
+              )}
+              {uniqueSubdomains.length > 0 && (
+                <span className="text-purple-600">{uniqueSubdomains.length} subdomains</span>
               )}
             </div>
           </div>
@@ -1197,7 +1329,9 @@ DBT Skills,Dialectical behavior therapy skills..."
               <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0">
                 <tr>
                   <th className="text-left p-2 w-8">#</th>
-                  <th className="text-left p-2">Title</th>
+                  {hasDomainMapping && <th className="text-left p-2">Domain</th>}
+                  {hasSubdomainMapping && <th className="text-left p-2">Subdomain</th>}
+                  <th className="text-left p-2">Composite</th>
                   <th className="text-left p-2">Content</th>
                   <th className="text-left p-2 w-20">Status</th>
                 </tr>
@@ -1206,15 +1340,27 @@ DBT Skills,Dialectical behavior therapy skills..."
                 {parsedEntries.map((entry, index) => (
                   <tr key={index} className={entry.error ? 'bg-red-50 dark:bg-red-950' : ''}>
                     <td className="p-2 text-slate-500">{index + 1}</td>
-                    <td className="p-2 font-medium">{entry.title || <span className="text-slate-400">empty</span>}</td>
-                    <td className="p-2 text-slate-600 dark:text-slate-400 truncate max-w-xs">
+                    {hasDomainMapping && (
+                      <td className="p-2 text-blue-700 dark:text-blue-300 truncate max-w-[120px]">
+                        {entry.domain || <span className="text-slate-400">-</span>}
+                      </td>
+                    )}
+                    {hasSubdomainMapping && (
+                      <td className="p-2 text-purple-700 dark:text-purple-300 truncate max-w-[120px]">
+                        {entry.subdomain || <span className="text-slate-400">-</span>}
+                      </td>
+                    )}
+                    <td className="p-2 font-medium truncate max-w-[160px]">
+                      {entry.title || <span className="text-slate-400">empty</span>}
+                    </td>
+                    <td className="p-2 text-slate-600 dark:text-slate-400 truncate max-w-[200px]">
                       {entry.content || <span className="text-slate-400">empty</span>}
                     </td>
                     <td className="p-2">
                       {entry.error ? (
-                        <span className="text-xs text-red-600" title={entry.error}>⚠ Error</span>
+                        <span className="text-xs text-red-600" title={entry.error}>Error</span>
                       ) : (
-                        <span className="text-xs text-green-600">✓ Valid</span>
+                        <span className="text-xs text-green-600">Valid</span>
                       )}
                     </td>
                   </tr>
@@ -1227,7 +1373,7 @@ DBT Skills,Dialectical behavior therapy skills..."
               <strong>Errors:</strong>
               <ul className="list-disc list-inside mt-1">
                 {invalidEntries.slice(0, 3).map((entry, index) => (
-                  <li key={index}>{entry.error}</li>
+                  <li key={index}>Row: {entry.error}</li>
                 ))}
                 {invalidEntries.length > 3 && (
                   <li>... and {invalidEntries.length - 3} more</li>
@@ -1238,7 +1384,6 @@ DBT Skills,Dialectical behavior therapy skills..."
         </div>
       )}
 
-      {/* Import Button */}
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button
           type="button"
@@ -1246,15 +1391,18 @@ DBT Skills,Dialectical behavior therapy skills..."
           onClick={() => {
             setPastedData("");
             setParsedEntries([]);
+            setDetectedColumns([]);
+            setColumnMappings([]);
+            setRawRows([]);
           }}
         >
           Clear
         </Button>
         <Button
           onClick={handleImport}
-          disabled={validEntries.length === 0 || !selectedCategoryId}
+          disabled={validEntries.length === 0 || !mappingComplete || isImporting || subdomainWithoutDomain || noCategoryPath}
         >
-          Import {validEntries.length > 0 && `${validEntries.length} ${validEntries.length === 1 ? 'Entry' : 'Entries'}`}
+          {isImporting ? "Importing..." : `Import ${validEntries.length > 0 ? `${validEntries.length} ${validEntries.length === 1 ? 'Entry' : 'Entries'}` : ''}`}
         </Button>
       </div>
     </div>
