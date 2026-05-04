@@ -25,7 +25,9 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 // Voice Recording
 import { TranscriptSmartFillDialog, type SmartFillSuggestion } from "./transcript-smart-fill-dialog";
 import { SessionRecorder } from "@/components/session-recorder";
-import { LiveSessionTranslator } from "@/components/live-session-translator";
+const LiveSessionTranslator = lazy(() =>
+  import("@/components/live-session-translator").then(m => ({ default: m.LiveSessionTranslator }))
+);
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -34,7 +36,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConnectedEntries } from "@/hooks/use-connected-entries";
 
 // Hooks and Data
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1286,7 +1288,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       sessionId={sid}
                       onRequestSmartFill={() => setSmartFillSessionId(sid)}
                     />
-                    <LiveSessionTranslator sessionId={sid} />
+                    <Suspense fallback={null}>
+                      <LiveSessionTranslator sessionId={sid} />
+                    </Suspense>
                   </>
                 );
               })()}
