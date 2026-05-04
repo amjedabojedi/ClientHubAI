@@ -25,9 +25,6 @@ import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, 
 // Voice Recording
 import { TranscriptSmartFillDialog, type SmartFillSuggestion } from "./transcript-smart-fill-dialog";
 import { SessionRecorder } from "@/components/session-recorder";
-const LiveSessionTranslator = lazy(() =>
-  import("@/components/live-session-translator").then(m => ({ default: m.LiveSessionTranslator }))
-);
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -37,6 +34,10 @@ import { useConnectedEntries } from "@/hooks/use-connected-entries";
 
 // Hooks and Data
 import { useState, useEffect, lazy, Suspense } from "react";
+
+const LiveSessionTranslator = lazy(() =>
+  import("@/components/live-session-translator").then(m => ({ default: m.LiveSessionTranslator }))
+);
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
