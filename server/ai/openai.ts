@@ -1427,65 +1427,6 @@ export async function extractStructuredNoteFromTranscript(
   };
 }
 
-// =====================================================================
-// LIVE SESSION TRANSLATOR (transcribe + translate audio chunks)
-// =====================================================================
-
-export interface TranslateChunkResult {
-  originalText: string;
-  translatedText: string;
-}
-
-export async function transcribeAndTranslate(
-  audioBuffer: Buffer,
-  fileName: string,
-  sourceLanguage: string,
-  targetLanguage: string,
-): Promise<TranslateChunkResult> {
-  const whisper = getWhisperClient();
-  const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
-    type: fileName.endsWith('.mp4') ? 'audio/mp4' : 'audio/webm',
-  });
-
-  const params: any = {
-    file: audioFile,
-    model: 'whisper-1',
-    response_format: 'text',
-  };
-  if (sourceLanguage && sourceLanguage !== 'auto') {
-    params.language = sourceLanguage;
-  }
-
-  const transcription = await whisper.audio.transcriptions.create(params);
-  const originalText = ((transcription as unknown as string) || '').trim();
-
-  if (!originalText) {
-    return { originalText: '', translatedText: '' };
-  }
-
-  const translationResponse = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'system',
-        content:
-          `You are a professional real-time interpreter for a therapy session. ` +
-          `Translate the following spoken text from ${sourceLanguage} to ${targetLanguage}. ` +
-          `Preserve the meaning, tone, and clinical terminology accurately. ` +
-          `If the text is already in the target language, return it as-is. ` +
-          `Return ONLY the translated text with no commentary or labels.`,
-      },
-      { role: 'user', content: originalText },
-    ],
-    temperature: 0.3,
-    max_tokens: 2000,
-  });
-
-  const translatedText = (translationResponse.choices[0].message.content || originalText).trim();
-
-  return { originalText, translatedText };
-}
-
 export async function diarizeSessionTranscript(rawText: string): Promise<string> {
   if (!rawText || rawText.trim().length === 0) return '';
 

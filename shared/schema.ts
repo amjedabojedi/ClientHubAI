@@ -393,37 +393,6 @@ export const patientConsents = pgTable("patient_consents", {
   consentTypeIdx: index("patient_consents_type_idx").on(table.consentType),
 }));
 
-// Translation Sessions - Live session translator (therapist speaks → Zoom captions in client's language)
-export const translationSessions = pgTable("translation_sessions", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
-  therapistId: integer("therapist_id").notNull().references(() => users.id),
-  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
-  therapistLanguage: varchar("therapist_language", { length: 32 }).notNull(),
-  clientLanguage: varchar("client_language", { length: 32 }).notNull(),
-  zoomCaptionToken: text("zoom_caption_token"),
-  status: varchar("status", { length: 32 }).notNull().default("active"),
-  startedAt: timestamp("started_at").notNull().defaultNow(),
-  endedAt: timestamp("ended_at"),
-}, (table) => ({
-  sessionIdx: index("translation_sessions_session_idx").on(table.sessionId),
-}));
-
-// Translation Messages - Individual spoken chunks with original + translated text
-export const translationMessages = pgTable("translation_messages", {
-  id: serial("id").primaryKey(),
-  translationSessionId: integer("translation_session_id").notNull().references(() => translationSessions.id, { onDelete: "cascade" }),
-  speaker: varchar("speaker", { length: 16 }).notNull(),
-  originalText: text("original_text").notNull(),
-  translatedText: text("translated_text").notNull(),
-  seqNumber: integer("seq_number").notNull(),
-  captionPushed: boolean("caption_pushed").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => ({
-  sessionIdx: index("translation_messages_session_idx").on(table.translationSessionId),
-  seqIdx: index("translation_messages_seq_idx").on(table.translationSessionId, table.seqNumber),
-}));
-
 // Session Transcripts - Chunked voice recording transcriptions of therapy sessions
 // Audio is deleted after transcription; only the labeled text is kept here.
 export const sessionTranscripts = pgTable("session_transcripts", {
@@ -2276,21 +2245,6 @@ export type InsertFormSignature = z.infer<typeof insertFormSignatureSchema>;
 // Practice Configuration Types
 export type PracticeConfiguration = typeof practiceConfiguration.$inferSelect;
 export type InsertPracticeConfiguration = z.infer<typeof insertPracticeConfigurationSchema>;
-
-// Translation Session Types
-export const insertTranslationSessionSchema = createInsertSchema(translationSessions).omit({
-  id: true,
-  startedAt: true,
-});
-export type TranslationSession = typeof translationSessions.$inferSelect;
-export type InsertTranslationSession = z.infer<typeof insertTranslationSessionSchema>;
-
-export const insertTranslationMessageSchema = createInsertSchema(translationMessages).omit({
-  id: true,
-  createdAt: true,
-});
-export type TranslationMessage = typeof translationMessages.$inferSelect;
-export type InsertTranslationMessage = z.infer<typeof insertTranslationMessageSchema>;
 
 // Recent Items Types
 export type RecentItem = typeof recentItems.$inferSelect;

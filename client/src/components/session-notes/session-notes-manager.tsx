@@ -33,11 +33,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConnectedEntries } from "@/hooks/use-connected-entries";
 
 // Hooks and Data
-import { useState, useEffect, lazy, Suspense } from "react";
-
-const LiveSessionTranslator = lazy(() =>
-  import("@/components/live-session-translator").then(m => ({ default: m.LiveSessionTranslator }))
-);
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1284,15 +1280,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 const sid = editingNote?.sessionId || form.watch('sessionId');
                 if (!sid) return null;
                 return (
-                  <>
-                    <SessionRecorder
-                      sessionId={sid}
-                      onRequestSmartFill={() => setSmartFillSessionId(sid)}
-                    />
-                    <Suspense fallback={null}>
-                      <LiveSessionTranslator sessionId={sid} />
-                    </Suspense>
-                  </>
+                  <SessionRecorder
+                    sessionId={sid}
+                    onRequestSmartFill={() => setSmartFillSessionId(sid)}
+                  />
                 );
               })()}
 
