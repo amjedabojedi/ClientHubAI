@@ -1319,15 +1319,20 @@ export async function transcribeSessionChunk(
   // more accurately. We also append the tail of the previous chunk so the
   // model has continuity across slice boundaries — this measurably reduces
   // dropped or duplicated words at chunk seams, especially for Arabic.
-  const DOMAIN_PROMPT_EN =
-    'Therapy session transcript. Therapist and client discussing mental health, ' +
-    'anxiety, depression, trauma, CBT, coping skills, goals, homework, medication, ' +
-    'relationships, family, sleep, mood, stress.';
-  const DOMAIN_PROMPT_AR =
-    'جلسة علاج نفسي. حوار بين المعالج والعميل حول الصحة النفسية، القلق، الاكتئاب، ' +
-    'الصدمة، العلاج المعرفي السلوكي، مهارات التأقلم، الأهداف، الواجبات، الأدوية، ' +
-    'العلاقات، الأسرة، النوم، المزاج، التوتر.';
-  const domainPrompt = language === 'ar' ? DOMAIN_PROMPT_AR : DOMAIN_PROMPT_EN;
+  //
+  // Sessions can be English, Arabic, mixed (code-switching), or include a
+  // live interpreter who repeats utterances in the other language. The
+  // bilingual prompt covers all of these without forcing a single language.
+  const DOMAIN_PROMPT_BILINGUAL =
+    'Therapy session transcript. Therapist, client, and possibly an interpreter ' +
+    'discussing mental health, anxiety, depression, trauma, CBT, coping skills, ' +
+    'goals, homework, medication, relationships, family, sleep, mood, stress. ' +
+    'The interpreter may repeat the same content in the other language. ' +
+    'Speakers may switch between English and Arabic within the same sentence. ' +
+    'جلسة علاج نفسي. حوار بين المعالج والعميل وقد يكون هناك مترجم فوري. ' +
+    'الصحة النفسية، القلق، الاكتئاب، الصدمة، العلاج المعرفي السلوكي، ' +
+    'مهارات التأقلم، الأهداف، الواجبات، الأدوية، العلاقات، الأسرة.';
+  const domainPrompt = DOMAIN_PROMPT_BILINGUAL;
 
   // Take the last ~200 words of previous chunk as context (Whisper prompt
   // is capped at 224 tokens so we keep it short).
@@ -1405,8 +1410,12 @@ export async function extractStructuredNoteFromTranscript(
         role: 'system',
         content:
           'You are a clinical documentation assistant for a licensed therapist. ' +
-          'You receive a speaker-labeled therapy session transcript (lines starting with "Therapist:" or "Client:") ' +
-          'and produce a STRUCTURED draft of the clinical session note. ' +
+          'You receive a speaker-labeled therapy session transcript. Lines start with ' +
+          '"Therapist:", "Client:", "Interpreter:" (a human interpreter who relays the ' +
+          'same content in another language — treat interpreter lines as belonging to ' +
+          'whichever party they are relaying for, do not double-count), or "Unknown:". ' +
+          'The transcript may be in English, Arabic, or both. ' +
+          'Produce a STRUCTURED draft of the clinical session note. ' +
           'Return STRICT JSON with EXACTLY these keys: ' +
           '"sessionFocus", "symptoms", "shortTermGoals", "intervention", "progress", "remarks", "recommendations". ' +
           'Each value is a plain text string (use line breaks "\\n" for bullet points if helpful). ' +
@@ -1478,9 +1487,11 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
           role: 'system',
           content:
             'You are a clinical transcript formatter for therapy sessions. ' +
-            'Input: raw transcript text with NO speaker labels (any language, including Arabic). ' +
+            'Input: raw transcript text with NO speaker labels. The session may be in ' +
+            'English, Arabic, both languages mixed (code-switching), and may include a ' +
+            'live human INTERPRETER who repeats what was just said in the other language. ' +
             'Output: the SAME transcript split into turns, each turn prefixed with exactly ' +
-            '"Therapist:" or "Client:" (or "Unknown:" only if truly indeterminate). ' +
+            'one of: "Therapist:", "Client:", "Interpreter:", or "Unknown:" (last resort only). ' +
             '\n\nHow to identify the THERAPIST (strong cues): ' +
             'asks open questions ("How did that feel?", "كيف شعرت بذلك؟"), reflects/paraphrases ' +
             'the client\'s words, summarises, normalises feelings, introduces techniques (CBT, ' +
@@ -1490,6 +1501,14 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
             'describes personal experiences, emotions, symptoms, relationships, family, sleep, ' +
             'work, daily events; answers questions; uses first-person narrative; longer ' +
             'self-disclosures; expresses distress, ambivalence, or insight. ' +
+            '\n\nHow to identify the INTERPRETER (strong cues): ' +
+            'a turn that immediately RE-STATES the previous turn\'s meaning in a DIFFERENT ' +
+            'language (e.g., Therapist speaks English, next turn says the same thing in ' +
+            'Arabic — that next turn is the Interpreter, not a new speaker). The interpreter ' +
+            'speaks in third person about either party ("he says he feels…", "تقول إنها ' +
+            'تشعر…") or in first person echoing what was just said. If the session is ' +
+            'clearly only two speakers and there is no language switching mirroring, do NOT ' +
+            'use "Interpreter:" at all. ' +
             '\n\nFormatting rules: ' +
             '1) Preserve original wording EXACTLY — no paraphrasing, translation, or omission. ' +
             '2) Fix only obvious clear-cut artifacts: doubled words ("the the"), stray filler ' +
@@ -1497,8 +1516,9 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
             '3) One turn per line. A turn ends when the speaker changes. ' +
             '4) If the same speaker continues across several sentences, keep them in ONE turn. ' +
             '5) Never invent content. Never add commentary, headings, or timestamps. ' +
-            '6) Output language must match the input language (do not translate). ' +
-            '7) Use "Unknown:" ONLY when both speakers are equally plausible — prefer to commit.',
+            '6) Output language must match the input language (do not translate). Mixed ' +
+            'English/Arabic content stays mixed. ' +
+            '7) Use "Unknown:" ONLY when speakers are truly indistinguishable — prefer to commit.',
         },
         { role: 'user', content: window },
       ],
