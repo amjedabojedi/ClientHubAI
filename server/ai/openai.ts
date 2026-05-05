@@ -1320,19 +1320,19 @@ export async function transcribeSessionChunk(
   // model has continuity across slice boundaries — this measurably reduces
   // dropped or duplicated words at chunk seams, especially for Arabic.
   //
-  // Sessions can be English, Arabic, mixed (code-switching), or include a
-  // live interpreter who repeats utterances in the other language. The
-  // bilingual prompt covers all of these without forcing a single language.
-  const DOMAIN_PROMPT_BILINGUAL =
-    'Therapy session transcript. Therapist, client, and possibly an interpreter ' +
-    'discussing mental health, anxiety, depression, trauma, CBT, coping skills, ' +
-    'goals, homework, medication, relationships, family, sleep, mood, stress. ' +
-    'The interpreter may repeat the same content in the other language. ' +
-    'Speakers may switch between English and Arabic within the same sentence. ' +
-    'جلسة علاج نفسي. حوار بين المعالج والعميل وقد يكون هناك مترجم فوري. ' +
-    'الصحة النفسية، القلق، الاكتئاب، الصدمة، العلاج المعرفي السلوكي، ' +
-    'مهارات التأقلم، الأهداف، الواجبات، الأدوية، العلاقات، الأسرة.';
-  const domainPrompt = DOMAIN_PROMPT_BILINGUAL;
+  // Sessions can be in any language (English, Arabic, Spanish, French, etc.),
+  // mixed (code-switching), or include a live interpreter who repeats
+  // utterances in another language. We keep the domain prompt language-agnostic
+  // (English clinical vocabulary only) — Whisper auto-detects the spoken
+  // language and the prompt biases it toward therapy terminology without
+  // forcing any particular language onto the output.
+  const domainPrompt =
+    'Therapy session transcript. Therapist, client, and possibly a live ' +
+    'interpreter discussing mental health, anxiety, depression, trauma, CBT, ' +
+    'coping skills, goals, homework, medication, relationships, family, sleep, ' +
+    'mood, stress. The interpreter may repeat the same content in another ' +
+    'language. Speakers may switch languages within the same sentence. ' +
+    'Transcribe in whatever language each speaker actually uses; do not translate.';
 
   // Take the last ~200 words of previous chunk as context (Whisper prompt
   // is capped at 224 tokens so we keep it short).
@@ -1414,7 +1414,7 @@ export async function extractStructuredNoteFromTranscript(
           '"Therapist:", "Client:", "Interpreter:" (a human interpreter who relays the ' +
           'same content in another language — treat interpreter lines as belonging to ' +
           'whichever party they are relaying for, do not double-count), or "Unknown:". ' +
-          'The transcript may be in English, Arabic, or both. ' +
+          'The transcript may be in any language (English, Arabic, Spanish, French, etc.) or mixed. ' +
           'Produce a STRUCTURED draft of the clinical session note. ' +
           'Return STRICT JSON with EXACTLY these keys: ' +
           '"sessionFocus", "symptoms", "shortTermGoals", "intervention", "progress", "remarks", "recommendations". ' +
@@ -1488,36 +1488,36 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
           content:
             'You are a clinical transcript formatter for therapy sessions. ' +
             'Input: raw transcript text with NO speaker labels. The session may be in ' +
-            'English, Arabic, both languages mixed (code-switching), and may include a ' +
-            'live human INTERPRETER who repeats what was just said in the other language. ' +
+            'ANY language (English, Arabic, Spanish, French, etc.), with two languages ' +
+            'mixed (code-switching), and may include a live human INTERPRETER who repeats ' +
+            'what was just said in another language. ' +
             'Output: the SAME transcript split into turns, each turn prefixed with exactly ' +
             'one of: "Therapist:", "Client:", "Interpreter:", or "Unknown:" (last resort only). ' +
-            '\n\nHow to identify the THERAPIST (strong cues): ' +
-            'asks open questions ("How did that feel?", "كيف شعرت بذلك؟"), reflects/paraphrases ' +
-            'the client\'s words, summarises, normalises feelings, introduces techniques (CBT, ' +
-            'breathing, grounding, exposure, homework), assigns tasks, schedules next session, ' +
-            'uses clinical vocabulary, validates, sets boundaries, speaks in shorter prompts. ' +
-            '\n\nHow to identify the CLIENT (strong cues): ' +
+            '\n\nHow to identify the THERAPIST (cues, language-agnostic): ' +
+            'asks open questions, reflects/paraphrases the client\'s words, summarises, ' +
+            'normalises feelings, introduces techniques (CBT, breathing, grounding, exposure, ' +
+            'homework), assigns tasks, schedules next session, uses clinical vocabulary, ' +
+            'validates, sets boundaries, speaks in shorter prompts. ' +
+            '\n\nHow to identify the CLIENT (cues, language-agnostic): ' +
             'describes personal experiences, emotions, symptoms, relationships, family, sleep, ' +
             'work, daily events; answers questions; uses first-person narrative; longer ' +
             'self-disclosures; expresses distress, ambivalence, or insight. ' +
-            '\n\nHow to identify the INTERPRETER (strong cues): ' +
+            '\n\nHow to identify the INTERPRETER: ' +
             'a turn that immediately RE-STATES the previous turn\'s meaning in a DIFFERENT ' +
             'language (e.g., Therapist speaks English, next turn says the same thing in ' +
-            'Arabic — that next turn is the Interpreter, not a new speaker). The interpreter ' +
-            'speaks in third person about either party ("he says he feels…", "تقول إنها ' +
-            'تشعر…") or in first person echoing what was just said. If the session is ' +
-            'clearly only two speakers and there is no language switching mirroring, do NOT ' +
-            'use "Interpreter:" at all. ' +
+            'Spanish/Arabic/etc. — that next turn is the Interpreter, not a new speaker). ' +
+            'The interpreter often speaks in third person ("he says…", "she feels…") or ' +
+            'first person echoing what was just said. If the session is clearly only two ' +
+            'speakers and there is no language-mirroring, do NOT use "Interpreter:" at all. ' +
             '\n\nFormatting rules: ' +
             '1) Preserve original wording EXACTLY — no paraphrasing, translation, or omission. ' +
-            '2) Fix only obvious clear-cut artifacts: doubled words ("the the"), stray filler ' +
+            '2) Fix only obvious clear-cut artifacts: doubled words, stray filler ' +
             '("um um um"), and sentence-boundary punctuation. Nothing else. ' +
             '3) One turn per line. A turn ends when the speaker changes. ' +
             '4) If the same speaker continues across several sentences, keep them in ONE turn. ' +
             '5) Never invent content. Never add commentary, headings, or timestamps. ' +
-            '6) Output language must match the input language (do not translate). Mixed ' +
-            'English/Arabic content stays mixed. ' +
+            '6) Output language must match the input language (do NOT translate). Mixed-' +
+            'language content stays mixed. ' +
             '7) Use "Unknown:" ONLY when speakers are truly indistinguishable — prefer to commit.',
         },
         { role: 'user', content: window },
