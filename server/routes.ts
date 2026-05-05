@@ -6858,12 +6858,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(400).json({ message: "uploadId already bound to a different session" });
         }
 
-        // Transcribe this chunk immediately, then drop the audio buffer
+        // Transcribe this chunk immediately, then drop the audio buffer.
+        // Pass the previous chunk's text as continuity context so Whisper
+        // doesn't drop or duplicate words at chunk seams.
         const fileName = req.file.originalname || `chunk-${chunkIndex}.webm`;
+        const previousChunkText = chunkIndex > 0 ? upload.chunks.get(chunkIndex - 1) : undefined;
         let chunkText = '';
         try {
           const { transcribeSessionChunk } = await import('./ai/openai');
-          chunkText = await transcribeSessionChunk(req.file.buffer, fileName, language);
+          chunkText = await transcribeSessionChunk(req.file.buffer, fileName, language, previousChunkText);
         } catch (err: any) {
           console.error('[SessionTranscript] Chunk transcription error:', err);
           return res.status(500).json({ message: `Chunk transcription failed: ${err.message || 'Unknown'}` });

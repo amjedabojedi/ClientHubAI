@@ -1306,16 +1306,46 @@ export { generateAssessmentReport };
 export async function transcribeSessionChunk(
   audioBuffer: Buffer,
   fileName: string,
-  language?: string
+  language?: string,
+  previousText?: string,
 ): Promise<string> {
   const whisper = getWhisperClient();
   const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
     type: fileName.endsWith('.mp4') ? 'audio/mp4' : 'audio/webm',
   });
+
+  // Domain prompt primes Whisper with therapy/clinical vocabulary so it
+  // transcribes specialised words (CBT, anxiety, depression, trauma, etc.)
+  // more accurately. We also append the tail of the previous chunk so the
+  // model has continuity across slice boundaries — this measurably reduces
+  // dropped or duplicated words at chunk seams, especially for Arabic.
+  const DOMAIN_PROMPT_EN =
+    'Therapy session transcript. Therapist and client discussing mental health, ' +
+    'anxiety, depression, trauma, CBT, coping skills, goals, homework, medication, ' +
+    'relationships, family, sleep, mood, stress.';
+  const DOMAIN_PROMPT_AR =
+    'جلسة علاج نفسي. حوار بين المعالج والعميل حول الصحة النفسية، القلق، الاكتئاب، ' +
+    'الصدمة، العلاج المعرفي السلوكي، مهارات التأقلم، الأهداف، الواجبات، الأدوية، ' +
+    'العلاقات، الأسرة، النوم، المزاج، التوتر.';
+  const domainPrompt = language === 'ar' ? DOMAIN_PROMPT_AR : DOMAIN_PROMPT_EN;
+
+  // Take the last ~200 words of previous chunk as context (Whisper prompt
+  // is capped at 224 tokens so we keep it short).
+  let previousTail = '';
+  if (previousText && previousText.trim()) {
+    const words = previousText.trim().split(/\s+/);
+    previousTail = words.slice(-200).join(' ');
+  }
+  const fullPrompt = previousTail
+    ? `${domainPrompt}\n${previousTail}`
+    : domainPrompt;
+
   const params: any = {
     file: audioFile,
     model: 'whisper-1',
     response_format: 'text',
+    temperature: 0,
+    prompt: fullPrompt,
   };
   if (language && language !== 'auto') {
     params.language = language;
@@ -1448,17 +1478,31 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
           role: 'system',
           content:
             'You are a clinical transcript formatter for therapy sessions. ' +
-            'You receive a raw transcript with no speaker labels and produce a clean, ' +
-            'turn-by-turn dialogue using only two speaker labels: "Therapist:" and "Client:". ' +
-            'Use context (questions, clinical phrasing, reflections, summaries) to identify the therapist. ' +
-            'Preserve the original wording exactly — do not paraphrase, summarize, or omit content. ' +
-            'Do not invent content. Do not add commentary. Each turn starts on a new line. ' +
-            'If a single speaker continues across many sentences, keep them as one turn. ' +
-            'If you cannot tell who is speaking for a given turn, label it "Unknown:".',
+            'Input: raw transcript text with NO speaker labels (any language, including Arabic). ' +
+            'Output: the SAME transcript split into turns, each turn prefixed with exactly ' +
+            '"Therapist:" or "Client:" (or "Unknown:" only if truly indeterminate). ' +
+            '\n\nHow to identify the THERAPIST (strong cues): ' +
+            'asks open questions ("How did that feel?", "كيف شعرت بذلك؟"), reflects/paraphrases ' +
+            'the client\'s words, summarises, normalises feelings, introduces techniques (CBT, ' +
+            'breathing, grounding, exposure, homework), assigns tasks, schedules next session, ' +
+            'uses clinical vocabulary, validates, sets boundaries, speaks in shorter prompts. ' +
+            '\n\nHow to identify the CLIENT (strong cues): ' +
+            'describes personal experiences, emotions, symptoms, relationships, family, sleep, ' +
+            'work, daily events; answers questions; uses first-person narrative; longer ' +
+            'self-disclosures; expresses distress, ambivalence, or insight. ' +
+            '\n\nFormatting rules: ' +
+            '1) Preserve original wording EXACTLY — no paraphrasing, translation, or omission. ' +
+            '2) Fix only obvious clear-cut artifacts: doubled words ("the the"), stray filler ' +
+            '("um um um"), and sentence-boundary punctuation. Nothing else. ' +
+            '3) One turn per line. A turn ends when the speaker changes. ' +
+            '4) If the same speaker continues across several sentences, keep them in ONE turn. ' +
+            '5) Never invent content. Never add commentary, headings, or timestamps. ' +
+            '6) Output language must match the input language (do not translate). ' +
+            '7) Use "Unknown:" ONLY when both speakers are equally plausible — prefer to commit.',
         },
         { role: 'user', content: window },
       ],
-      temperature: 0.2,
+      temperature: 0.1,
       max_tokens: 16000,
     });
     labeledParts.push(response.choices[0].message.content || window);
