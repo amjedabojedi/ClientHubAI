@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Copy, Download, Trash2, FileAudio, AlertCircle } from "lucide-react";
+import { Loader2, Copy, Download, Trash2, FileAudio, AlertCircle, Tag, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCsrfToken } from "@/lib/queryClient";
@@ -53,6 +53,9 @@ export function SessionTranscriptViewer({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDeleting, setIsDeleting] = useState(false);
+  // Phase 2: toggle between speaker-labeled view and raw (no-label) view.
+  // rawContent may be null on legacy transcripts created before Phase 1.
+  const [showRaw, setShowRaw] = useState(false);
 
   const { data, isLoading, isError, error, refetch } = useQuery<SessionTranscript | null>({
     queryKey: ["/api/sessions", sessionId, "transcript"],
@@ -67,10 +70,16 @@ export function SessionTranscriptViewer({
     },
   });
 
+  // Resolve which body of text to show / copy / download based on the toggle.
+  // Falls back to `content` if rawContent is missing (legacy rows).
+  const displayedContent =
+    showRaw && data?.rawContent ? data.rawContent : (data?.content ?? "");
+  const hasRaw = !!data?.rawContent;
+
   const handleCopy = async () => {
-    if (!data?.content) return;
+    if (!displayedContent) return;
     try {
-      await navigator.clipboard.writeText(data.content);
+      await navigator.clipboard.writeText(displayedContent);
       toast({ title: "Copied to clipboard" });
     } catch (err) {
       toast({
@@ -83,15 +92,16 @@ export function SessionTranscriptViewer({
 
   const handleDownload = () => {
     if (!data) return;
-    const header = `Session Transcript\nSession ID: ${data.sessionId}\nDate: ${format(
+    const variant = showRaw && hasRaw ? "raw" : "labeled";
+    const header = `Session Transcript (${variant})\nSession ID: ${data.sessionId}\nDate: ${format(
       new Date(data.createdAt),
       "PPPp",
     )}\nDuration: ${data.durationSeconds ? formatDuration(data.durationSeconds) : "—"}\nWords: ${data.wordCount ?? "—"}\n\n---\n\n`;
-    const blob = new Blob([header + data.content], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([header + displayedContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `session-${data.sessionId}-transcript.txt`;
+    a.download = `session-${data.sessionId}-transcript-${variant}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -188,12 +198,32 @@ export function SessionTranscriptViewer({
                   {format(new Date(data.createdAt), "MMM d, yyyy 'at' p")}
                 </strong>
               </span>
+              {hasRaw && (
+                <Button
+                  type="button"
+                  data-testid="button-toggle-raw-labeled"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto h-7"
+                  onClick={() => setShowRaw((v) => !v)}
+                >
+                  {showRaw ? (
+                    <>
+                      <Tag className="h-3.5 w-3.5 mr-1" /> Show labeled
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-3.5 w-3.5 mr-1" /> Show original (no labels)
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
             <div
               data-testid="text-transcript-content"
               className="flex-1 overflow-y-auto rounded-md border bg-muted/30 p-4 whitespace-pre-wrap text-sm font-mono leading-relaxed"
             >
-              {data.content}
+              {displayedContent}
             </div>
           </>
         )}

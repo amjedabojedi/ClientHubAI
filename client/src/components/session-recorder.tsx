@@ -5,6 +5,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Mic,
   Square,
   Pause,
@@ -15,6 +22,9 @@ import {
   AlertCircle,
   Sparkles,
   RotateCw,
+  Copy,
+  Download,
+  VolumeX,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,6 +60,12 @@ interface SessionRecorderProps {
 }
 
 const SLICE_SECONDS = 60;
+// Max-duration cap: warn at 1h45m, auto-pause at 2h. Therapist may extend.
+const WARN_AT_SECONDS = 105 * 60;
+const MAX_AT_SECONDS = 120 * 60;
+// Below this peak RMS, a 60s segment is considered silent and skipped to save Whisper cost.
+// 0.005 ≈ -46 dBFS; quiet room noise is usually higher, intentional silence (mute, away) is lower.
+const SILENCE_RMS_THRESHOLD = 0.005;
 
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -71,6 +87,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   // List of chunk indexes that permanently failed and can be retried by the user
   const [failedChunks, setFailedChunks] = useState<number[]>([]);
   const [retryingChunks, setRetryingChunks] = useState<Set<number>>(new Set());
+
+  // Phase 2 UX state
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+  const [audioLevel, setAudioLevel] = useState(0); // 0..1, smoothed RMS for the meter
+  const [silentSkipped, setSilentSkipped] = useState(0);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -94,6 +116,17 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   // Lets handleStop() guarantee the final segment's upload is enqueued
   // before we await the upload queue.
   const stopFlushedRef = useRef<Promise<void>>(Promise.resolve());
+
+  // Phase 2 refs
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const meterRafRef = useRef<number | null>(null);
+  // Peak RMS observed during the current 60s segment — used to decide if it's silent.
+  const segmentMaxRmsRef = useRef<number>(0);
+  // Whether the therapist confirmed extending past the 2-hour cap.
+  const extendedPast2hRef = useRef<boolean>(false);
+  // Whether we've already shown the 1h45m warning toast for this recording.
+  const warnedSoftCapRef = useRef<boolean>(false);
 
   const { data: existingTranscript, refetch: refetchTranscript } = useQuery<SessionTranscript>({
     queryKey: ["/api/sessions", sessionId, "transcript"],
@@ -146,6 +179,59 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Enumerate audio input devices on mount and whenever the OS reports a
+  // device change (e.g. plugging in a headset). Labels are usually empty
+  // until the user grants mic permission once — we re-enumerate after
+  // getUserMedia succeeds (see handleStart) so labels show after the first
+  // recording.
+  useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    let cancelled = false;
+    const refresh = () => {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((devs) => {
+          if (cancelled) return;
+          setAudioDevices(devs.filter((d) => d.kind === "audioinput"));
+        })
+        .catch(() => {});
+    };
+    refresh();
+    navigator.mediaDevices.addEventListener?.("devicechange", refresh);
+    return () => {
+      cancelled = true;
+      navigator.mediaDevices.removeEventListener?.("devicechange", refresh);
+    };
+  }, []);
+
+  // Enforce the 2-hour soft cap. Warn at 1h45m, auto-pause at 2h with a
+  // confirm to extend. Both are no-ops once the user agrees to extend.
+  useEffect(() => {
+    if (status !== "recording") return;
+    if (elapsed >= WARN_AT_SECONDS && elapsed < MAX_AT_SECONDS && !warnedSoftCapRef.current) {
+      warnedSoftCapRef.current = true;
+      toast({
+        title: "15 minutes left on this recording",
+        description: "Recording will auto-pause at 2 hours. You can extend if needed.",
+      });
+    }
+    if (elapsed >= MAX_AT_SECONDS && !extendedPast2hRef.current) {
+      // Auto-pause now; ask the therapist if they want to keep going.
+      handlePause();
+      // Defer the confirm so the pause UI updates first.
+      setTimeout(() => {
+        const ok = window.confirm(
+          "This recording has reached 2 hours. Continue recording past 2 hours?",
+        );
+        if (ok) {
+          extendedPast2hRef.current = true;
+          handleResume();
+        }
+      }, 50);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed, status]);
+
   function cleanupRecording() {
     if (sliceTimerRef.current) clearTimeout(sliceTimerRef.current);
     if (tickTimerRef.current) clearInterval(tickTimerRef.current);
@@ -162,6 +248,68 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     }
     recorderRef.current = null;
     segmentBuffersRef.current = [];
+    // Tear down level meter
+    if (meterRafRef.current !== null) {
+      cancelAnimationFrame(meterRafRef.current);
+      meterRafRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    setAudioLevel(0);
+    segmentMaxRmsRef.current = 0;
+    warnedSoftCapRef.current = false;
+    extendedPast2hRef.current = false;
+  }
+
+  function stopLevelMeter() {
+    if (meterRafRef.current !== null) {
+      cancelAnimationFrame(meterRafRef.current);
+      meterRafRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    setAudioLevel(0);
+    segmentMaxRmsRef.current = 0;
+  }
+
+  function startLevelMeter(stream: MediaStream) {
+    try {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      src.connect(analyser);
+      audioContextRef.current = ctx;
+      analyserRef.current = analyser;
+      const buf = new Uint8Array(analyser.fftSize);
+      const tick = () => {
+        const a = analyserRef.current;
+        if (!a) return;
+        a.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        // Track per-segment peak for the silence-skip decision
+        if (rms > segmentMaxRmsRef.current) segmentMaxRmsRef.current = rms;
+        // Boosted display value for the meter bar (visual only)
+        setAudioLevel(Math.min(1, rms * 4));
+        meterRafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (err) {
+      console.warn("Level meter setup failed:", err);
+    }
   }
 
   function startTick() {
@@ -209,15 +357,29 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       const segmentDurationSec = (Date.now() - segmentStartRef.current) / 1000;
       segmentBuffersRef.current = [];
 
+      // Phase 2: skip silent segments client-side to save Whisper cost.
+      // We use the peak RMS observed during this segment (live AnalyserNode).
+      const segmentPeakRms = segmentMaxRmsRef.current;
+      segmentMaxRmsRef.current = 0;
+      const wasSilent = segmentPeakRms < SILENCE_RMS_THRESHOLD;
+
       if (segmentBlob.size > 0) {
-        const idx = chunkIndexRef.current++;
-        setChunksSent((c) => c + 1);
-        // Queue upload sequentially so order is predictable.
-        // We capture the audio Blob in case the upload eventually fails — the
-        // user can then retry the exact chunk via the Retry buttons.
-        uploadQueueRef.current = uploadQueueRef.current.then(() =>
-          uploadChunk(segmentBlob, idx, segmentDurationSec, supportedMime),
-        );
+        if (wasSilent) {
+          // Drop the audio, don't bump chunkIndex — the next non-silent
+          // segment uses the next index. expectedChunks math (computed at
+          // finalize from chunksSent) stays consistent because we also
+          // don't increment chunksSent here.
+          setSilentSkipped((c) => c + 1);
+        } else {
+          const idx = chunkIndexRef.current++;
+          setChunksSent((c) => c + 1);
+          // Queue upload sequentially so order is predictable.
+          // We capture the audio Blob in case the upload eventually fails — the
+          // user can then retry the exact chunk via the Retry buttons.
+          uploadQueueRef.current = uploadQueueRef.current.then(() =>
+            uploadChunk(segmentBlob, idx, segmentDurationSec, supportedMime),
+          );
+        }
       }
 
       // If this stop was a slice rotation (not a pause and not a final stop),
@@ -344,6 +506,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
+          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 44100,
@@ -362,10 +525,21 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setChunksUploaded(0);
       setPreviewText("");
       setElapsed(0);
+      setSilentSkipped(0);
+      warnedSoftCapRef.current = false;
+      extendedPast2hRef.current = false;
+      segmentMaxRmsRef.current = 0;
       setStatus("recording");
+      startLevelMeter(stream);
       startSegmentRecorder();
       scheduleSliceRotation();
       startTick();
+      // After the first successful getUserMedia, device labels become
+      // populated — refresh the picker so names show instead of empty strings.
+      navigator.mediaDevices
+        ?.enumerateDevices?.()
+        .then((d) => setAudioDevices(d.filter((x) => x.kind === "audioinput")))
+        .catch(() => {});
     } catch (err: any) {
       console.error("Mic access error:", err);
       toast({
@@ -376,7 +550,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setStatus("idle");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, selectedDeviceId]);
 
   const handlePause = useCallback(() => {
     if (status !== "recording") return;
@@ -394,6 +568,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const handleResume = useCallback(() => {
     if (status !== "paused") return;
     isPausedRef.current = false;
+    // Reset the silence-detection peak — we only want to measure the new
+    // segment, not whatever ambient noise accumulated during the pause.
+    segmentMaxRmsRef.current = 0;
     setStatus("recording");
     startSegmentRecorder();
     scheduleSliceRotation();
@@ -423,6 +600,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    // Tear down the live mic-level meter and its AudioContext immediately
+    // when the stream stops. Without this, the requestAnimationFrame loop
+    // and AudioContext from each recording would leak across repeated
+    // start/stop cycles, accumulating CPU usage and audio resources.
+    stopLevelMeter();
 
     // Wait for all queued chunk uploads to finish (success or final failure)
     try {
@@ -544,6 +726,29 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         {/* Recording controls */}
         {!existingTranscript && status === "idle" && (
           <div className="flex flex-col items-center gap-3 py-2">
+            {audioDevices.length > 1 && (
+              <div className="w-full max-w-md space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Microphone
+                </label>
+                <Select
+                  value={selectedDeviceId || "default"}
+                  onValueChange={(v) => setSelectedDeviceId(v === "default" ? "" : v)}
+                >
+                  <SelectTrigger data-testid="select-mic-device">
+                    <SelectValue placeholder="Default microphone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Default microphone</SelectItem>
+                    {audioDevices.map((d) => (
+                      <SelectItem key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Microphone ${d.deviceId.slice(0, 6)}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button
               type="button"
               data-testid="button-start-recording"
@@ -557,6 +762,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
             <p className="text-xs text-muted-foreground text-center max-w-md">
               Records the session in 60-second chunks, transcribes each chunk in real time, then
               auto-labels speakers (Therapist / Client). Audio is discarded after transcription.
+              Maximum recording length is 2 hours.
             </p>
           </div>
         )}
@@ -611,6 +817,37 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               </div>
             </div>
 
+            {/* Live mic level meter — shows the therapist that audio is reaching the browser */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Mic className="h-3 w-3" /> Mic level
+                </span>
+                {silentSkipped > 0 && (
+                  <span
+                    className="flex items-center gap-1 text-amber-600 dark:text-amber-400"
+                    data-testid="text-silent-skipped"
+                  >
+                    <VolumeX className="h-3 w-3" />
+                    {silentSkipped} silent chunk{silentSkipped === 1 ? "" : "s"} skipped
+                  </span>
+                )}
+              </div>
+              <div className="h-2 w-full rounded bg-muted overflow-hidden">
+                <div
+                  data-testid="meter-mic-level"
+                  className={`h-full transition-[width] duration-75 ${
+                    audioLevel < 0.05
+                      ? "bg-muted-foreground/40"
+                      : audioLevel < 0.7
+                        ? "bg-green-500"
+                        : "bg-red-500"
+                  }`}
+                  style={{ width: `${Math.round(audioLevel * 100)}%` }}
+                />
+              </div>
+            </div>
+
             {chunksSent > 0 && (
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -623,10 +860,68 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               </div>
             )}
 
+            {elapsed >= WARN_AT_SECONDS && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  {elapsed >= MAX_AT_SECONDS
+                    ? "Reached 2-hour cap — recording auto-paused."
+                    : "Approaching the 2-hour cap. Recording will auto-pause at 2 hours."}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {previewText && (
               <div className="rounded-md border bg-muted/40 p-3 max-h-32 overflow-y-auto text-sm">
-                <div className="text-xs font-medium text-muted-foreground mb-1">
-                  Live transcription preview
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Live transcription preview
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      data-testid="button-copy-preview"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(previewText);
+                          toast({ title: "Copied preview to clipboard" });
+                        } catch {
+                          toast({
+                            title: "Copy failed",
+                            description: "Browser blocked clipboard access.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      data-testid="button-download-preview"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={() => {
+                        const blob = new Blob([previewText], {
+                          type: "text/plain;charset=utf-8",
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `session-${sessionId}-preview.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
                 <div data-testid="text-preview">{previewText}</div>
               </div>

@@ -1515,7 +1515,11 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
             '("um um um"), and sentence-boundary punctuation. Nothing else. ' +
             '3) One turn per line. A turn ends when the speaker changes. ' +
             '4) If the same speaker continues across several sentences, keep them in ONE turn. ' +
-            '5) Never invent content. Never add commentary, headings, or timestamps. ' +
+            '5) Never invent content. Never add commentary or headings. ' +
+            'EXCEPTION for timestamps: if the input contains chunk-boundary markers ' +
+            'in the EXACT bracketed form `[HH:MM:SS]` (always 8 chars between brackets), ' +
+            'preserve every such marker verbatim, on its own line, immediately before ' +
+            'the speaker turn that follows it. Do NOT invent any new timestamps. ' +
             '6) Output language must match the input language (do NOT translate). Mixed-' +
             'language content stays mixed. ' +
             '7) Use "Unknown:" ONLY when speakers are truly indistinguishable — prefer to commit.',

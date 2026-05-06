@@ -6942,17 +6942,35 @@ You can download a copy if you have it saved locally and re-upload it.`;
           }
         }
 
-        // Stitch chunks in order
-        const rawTranscript = indices
-          .map((i) => (chunksMap[String(i)]?.text || '').trim())
-          .filter((t) => t.length > 0)
-          .join(' ')
-          .trim();
-        const totalDurationSeconds = indices.reduce(
-          (sum, i) => sum + (Number(chunksMap[String(i)]?.durationSeconds) || 0),
-          0,
-        );
-        const wordCount = rawTranscript ? rawTranscript.split(/\s+/).length : 0;
+        // Stitch chunks in order with chunk-boundary [hh:mm:ss] markers.
+        // Each non-empty chunk gets a header timestamp = cumulative seconds
+        // BEFORE that chunk. Silent / dropped chunks have already been
+        // skipped client-side, so offsets reflect what was actually captured.
+        const fmtHHMMSS = (totalSec: number): string => {
+          const s = Math.max(0, Math.floor(totalSec));
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const sec = s % 60;
+          const pad = (n: number) => String(n).padStart(2, '0');
+          return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+        };
+        let cumulative = 0;
+        const stitchedPieces: string[] = [];
+        for (const i of indices) {
+          const text = (chunksMap[String(i)]?.text || '').trim();
+          const dur = Number(chunksMap[String(i)]?.durationSeconds) || 0;
+          if (text.length > 0) {
+            // Marker on its own line so the diarization prompt can preserve
+            // it verbatim before the speaker turn that follows.
+            stitchedPieces.push(`[${fmtHHMMSS(cumulative)}]\n${text}`);
+          }
+          cumulative += dur;
+        }
+        const rawTranscript = stitchedPieces.join('\n').trim();
+        const totalDurationSeconds = cumulative;
+        const wordCount = rawTranscript
+          ? rawTranscript.replace(/\[\d{2}:\d{2}:\d{2}\]/g, '').trim().split(/\s+/).filter(Boolean).length
+          : 0;
 
         if (!rawTranscript) {
           // Don't delete — leave the row so the client can see the failure
@@ -6975,13 +6993,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
           status: 'processing',
         });
 
-        // Diarize (speaker labels) — long-running
+        // Diarize (speaker labels) — long-running.
+        // Phase 2: skip diarization for very short transcripts (< 20 words);
+        // GPT-4o adds latency/cost with little value when there's almost
+        // nothing to label. The viewer's raw/labeled toggle still works
+        // because rawContent is always populated.
+        const DIARIZE_MIN_WORDS = 20;
         let labeledContent = rawTranscript;
-        try {
-          const { diarizeSessionTranscript } = await import('./ai/openai');
-          labeledContent = await diarizeSessionTranscript(rawTranscript);
-        } catch (err: any) {
-          console.error('[SessionTranscript] Diarization failed, keeping raw:', err);
+        if (wordCount >= DIARIZE_MIN_WORDS) {
+          try {
+            const { diarizeSessionTranscript } = await import('./ai/openai');
+            labeledContent = await diarizeSessionTranscript(rawTranscript);
+          } catch (err: any) {
+            console.error('[SessionTranscript] Diarization failed, keeping raw:', err);
+          }
+        } else {
+          console.log(`[SessionTranscript] Skipping diarization for short transcript (${wordCount} words)`);
         }
 
         // Atomic: mark this row 'ready' AND remove any other (older) transcript
