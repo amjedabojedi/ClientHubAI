@@ -1020,7 +1020,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                 <span>Words: {existingTranscript.wordCount ?? "—"}</span>
               </div>
               <div className="flex gap-1">
-                {(existingTranscript as any).rawContent && (
+                {existingTranscript.rawContent && (
                   <Button
                     type="button"
                     data-testid="button-toggle-raw-inline"
@@ -1072,8 +1072,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               data-testid="text-transcript"
               className="rounded-md border bg-muted/30 p-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm font-mono leading-relaxed"
             >
-              {showRawInline && (existingTranscript as any).rawContent
-                ? (existingTranscript as any).rawContent
+              {showRawInline && existingTranscript.rawContent
+                ? existingTranscript.rawContent
                 : existingTranscript.content}
             </div>
             <p className="text-xs text-muted-foreground">
