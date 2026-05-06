@@ -25,6 +25,8 @@ import {
   Copy,
   Download,
   VolumeX,
+  Tag,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -107,6 +109,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const stoppingRef = useRef<boolean>(false);
   // Synchronous flags that don't suffer setState async lag
   const isPausedRef = useRef<boolean>(false);
+  const [showRawInline, setShowRawInline] = useState(false);
   // Track failed chunk indexes so we can refuse to finalize a partial recording.
   // We also keep the original audio Blob so the user can retry that exact chunk.
   const failedChunksRef = useRef<
@@ -566,7 +569,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   }, [status]);
 
   const handleResume = useCallback(() => {
-    if (status !== "paused") return;
+    // Gate on the synchronous ref instead of the captured `status`. The
+    // 2-hour auto-pause path schedules handleResume() via setTimeout from
+    // a render where status was still "recording", so a `status !==
+    // "paused"` check would early-return on a stale closure and silently
+    // refuse to resume after the user confirms the extension.
+    if (!isPausedRef.current) return;
     isPausedRef.current = false;
     // Reset the silence-detection peak — we only want to measure the new
     // segment, not whatever ambient noise accumulated during the pause.
@@ -1012,6 +1020,28 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                 <span>Words: {existingTranscript.wordCount ?? "—"}</span>
               </div>
               <div className="flex gap-1">
+                {(existingTranscript as any).rawContent && (
+                  <Button
+                    type="button"
+                    data-testid="button-toggle-raw-inline"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRawInline((v) => !v)}
+                    title={showRawInline ? "Show speaker-labeled" : "Show original (no labels)"}
+                  >
+                    {showRawInline ? (
+                      <>
+                        <Tag className="h-4 w-4 mr-1" />
+                        Show labeled
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 mr-1" />
+                        Show original
+                      </>
+                    )}
+                  </Button>
+                )}
                 {onRequestSmartFill && (
                   <Button
                     type="button"
@@ -1042,7 +1072,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               data-testid="text-transcript"
               className="rounded-md border bg-muted/30 p-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-sm font-mono leading-relaxed"
             >
-              {existingTranscript.content}
+              {showRawInline && (existingTranscript as any).rawContent
+                ? (existingTranscript as any).rawContent
+                : existingTranscript.content}
             </div>
             <p className="text-xs text-muted-foreground">
               Transcript saved as a separate document. It is not auto-pasted into your session
