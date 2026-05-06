@@ -95,6 +95,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [audioLevel, setAudioLevel] = useState(0); // 0..1, smoothed RMS for the meter
   const [silentSkipped, setSilentSkipped] = useState(0);
+  // Phase 3: Screen-share-safe preview. When on, the live previewText is
+  // replaced by a generic message so a therapist screen-sharing SmartHub
+  // during a session does not show the client their own transcribed words.
+  // Transcription continues normally in the background.
+  const [hidePreview, setHidePreview] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -516,7 +521,34 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         },
       });
       streamRef.current = stream;
-      uploadIdRef.current = `upload-${sessionId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      // Phase 3: server mints the uploadId. We never trust a client-generated
+      // one — the chunk endpoint will reject any id not produced by
+      // /transcribe-start. This prevents another user from guessing or
+      // hijacking an in-progress upload.
+      const csrfToken = getCsrfToken();
+      const startRes = await fetch(`/api/sessions/${sessionId}/transcribe-start`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify({ language: language || "auto" }),
+      });
+      if (!startRes.ok) {
+        const t = await startRes.text();
+        // Stop the mic stream we just opened — start failed.
+        stream.getTracks().forEach((tr) => tr.stop());
+        streamRef.current = null;
+        throw new Error(t.slice(0, 300) || "Failed to start recording session");
+      }
+      const startBody = await startRes.json();
+      uploadIdRef.current = String(startBody.uploadId || "");
+      if (!uploadIdRef.current) {
+        stream.getTracks().forEach((tr) => tr.stop());
+        streamRef.current = null;
+        throw new Error("Server did not return an uploadId");
+      }
       chunkIndexRef.current = 0;
       stoppingRef.current = false;
       isPausedRef.current = false;
@@ -879,11 +911,28 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               </Alert>
             )}
 
+            <div className="flex items-center justify-end gap-2">
+              <label
+                htmlFor="hide-preview-toggle"
+                className="text-xs text-muted-foreground select-none cursor-pointer"
+              >
+                Hide live preview (screen-share safe)
+              </label>
+              <input
+                id="hide-preview-toggle"
+                data-testid="switch-hide-preview"
+                type="checkbox"
+                checked={hidePreview}
+                onChange={(e) => setHidePreview(e.target.checked)}
+                className="h-4 w-4 cursor-pointer"
+              />
+            </div>
+
             {previewText && (
               <div className="rounded-md border bg-muted/40 p-3 max-h-32 overflow-y-auto text-sm">
                 <div className="flex items-center justify-between mb-1">
                   <div className="text-xs font-medium text-muted-foreground">
-                    Live transcription preview
+                    {hidePreview ? "Recording…" : "Live transcription preview"}
                   </div>
                   <div className="flex gap-1">
                     <Button
@@ -931,7 +980,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                     </Button>
                   </div>
                 </div>
-                <div data-testid="text-preview">{previewText}</div>
+                <div data-testid="text-preview">
+                  {hidePreview
+                    ? "Live preview hidden for privacy. Transcription is still being captured in the background."
+                    : previewText}
+                </div>
               </div>
             )}
           </div>

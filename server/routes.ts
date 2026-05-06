@@ -6771,10 +6771,88 @@ You can download a copy if you have it saved locally and re-upload it.`;
     return { ok: false, status: 403, message: "You do not have permission to access session transcripts" };
   }
 
-  // Phase 1 (reliability): chunk text is persisted to the `session_transcripts`
-  // table as it arrives, so an in-progress recording survives a server restart.
-  // No in-memory upload map is used. Each recording is identified by a
-  // client-minted `uploadId` stored on the transcript row (status='recording').
+  // Phase 3 (security): the recorder must call POST /transcribe-start to mint
+  // a server-side opaque uploadId bound to the calling user + session BEFORE
+  // sending any chunks. Client-generated uploadIds are rejected by the chunk
+  // endpoint. This prevents a different user from guessing/hijacking an
+  // upload ID and uploading audio under another therapist's identity.
+
+  // POST /api/sessions/:sessionId/transcribe-start
+  // No body. Returns { uploadId } that the recorder uses for all subsequent
+  // /transcribe-chunk and /transcribe-finalize calls for this recording.
+  app.post(
+    "/api/sessions/:sessionId/transcribe-start",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        const sessionId = parseInt(req.params.sessionId);
+        if (isNaN(sessionId)) {
+          return res.status(400).json({ message: "Invalid session id" });
+        }
+        const session = await storage.getSession(sessionId);
+        if (!session) {
+          return res.status(404).json({ message: "Session not found" });
+        }
+        const accessCheck = await assertSessionAccess(req, session);
+        if (!accessCheck.ok) {
+          return res.status(accessCheck.status).json({ message: accessCheck.message });
+        }
+        const consentCheck = await checkAIProcessingConsent(session.clientId);
+        if (!consentCheck.hasConsent) {
+          return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
+        }
+
+        // Opaque, unguessable upload id — bound on first creation to the
+        // calling user + session in the persisted transcript row.
+        const uploadId = `srv-${crypto.randomBytes(16).toString('hex')}`;
+        const language = (req.body && typeof req.body.language === 'string') ? req.body.language : 'auto';
+
+        const upload = await storage.createSessionTranscript({
+          sessionId,
+          clientId: session.clientId,
+          therapistId: req.user!.id,
+          content: '',
+          rawContent: null,
+          language,
+          translatedToEnglish: false,
+          durationSeconds: 0,
+          chunkCount: 0,
+          wordCount: 0,
+          uploadId,
+          chunks: {},
+          status: 'recording',
+        });
+        return res.json({ uploadId: upload.uploadId });
+      } catch (error: any) {
+        console.error('[SessionTranscript] transcribe-start error:', error);
+        return res.status(500).json({ message: error.message || 'Internal error' });
+      }
+    },
+  );
+
+  // Phase 3 (anti-abuse): per-user-per-session in-memory rate limit on chunk
+  // uploads. A runaway client (bug or malicious) cannot flood Whisper with
+  // requests and rack up cost. Limit: 120 chunk uploads / 10 minutes per
+  // (user, session). Process-local — sufficient for current single-process
+  // deployment; revisit if horizontally scaled.
+  const CHUNK_RATE_WINDOW_MS = 10 * 60 * 1000;
+  const CHUNK_RATE_MAX = 120;
+  const chunkRateBuckets = new Map<string, number[]>();
+  function checkChunkRate(userId: number, sessionId: number): { ok: true } | { ok: false; retryAfterSec: number } {
+    const key = `${userId}:${sessionId}`;
+    const now = Date.now();
+    const cutoff = now - CHUNK_RATE_WINDOW_MS;
+    const arr = (chunkRateBuckets.get(key) || []).filter((t) => t > cutoff);
+    if (arr.length >= CHUNK_RATE_MAX) {
+      const retryAfterSec = Math.ceil((arr[0] + CHUNK_RATE_WINDOW_MS - now) / 1000);
+      chunkRateBuckets.set(key, arr);
+      return { ok: false, retryAfterSec: Math.max(1, retryAfterSec) };
+    }
+    arr.push(now);
+    chunkRateBuckets.set(key, arr);
+    return { ok: true };
+  }
 
   // POST /api/sessions/:sessionId/transcribe-chunk
   // Body: multipart with 'audio' file + chunkIndex + uploadId + (optional) language + chunkDurationSeconds
@@ -6823,35 +6901,33 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
         }
 
-        // Look up or create the persisted recording row for this uploadId.
-        let upload = await storage.getSessionTranscriptByUploadId(uploadId);
+        // Phase 3: uploadId MUST be server-minted (created by /transcribe-start).
+        // Reject anything not prefixed with 'srv-' AND not present in the DB.
+        // Older client-generated ids are no longer accepted.
+        if (!uploadId.startsWith('srv-')) {
+          return res.status(400).json({ message: "Invalid uploadId — call /transcribe-start first" });
+        }
+        const upload = await storage.getSessionTranscriptByUploadId(uploadId);
         if (!upload) {
-          // First chunk for this uploadId — create a new recording row.
-          upload = await storage.createSessionTranscript({
-            sessionId,
-            clientId: session.clientId,
-            therapistId: req.user!.id,
-            content: '',
-            rawContent: null,
-            language: language || 'auto',
-            translatedToEnglish: false,
-            durationSeconds: 0,
-            chunkCount: 0,
-            wordCount: 0,
-            uploadId,
-            chunks: {},
-            status: 'recording',
+          return res.status(404).json({ message: "Unknown uploadId — call /transcribe-start first" });
+        }
+        if (upload.sessionId !== sessionId) {
+          return res.status(400).json({ message: "uploadId already bound to a different session" });
+        }
+        if (upload.therapistId !== req.user!.id) {
+          return res.status(403).json({ message: "This upload was started by a different user" });
+        }
+        if (upload.status !== 'recording') {
+          return res.status(409).json({ message: `Upload is no longer accepting chunks (status: ${upload.status})` });
+        }
+
+        // Per-user-per-session rate limit (cheap circuit breaker).
+        const rate = checkChunkRate(req.user!.id, sessionId);
+        if (!rate.ok) {
+          res.setHeader('Retry-After', String(rate.retryAfterSec));
+          return res.status(429).json({
+            message: `Chunk upload rate limit exceeded. Try again in ${rate.retryAfterSec} seconds.`,
           });
-        } else {
-          if (upload.sessionId !== sessionId) {
-            return res.status(400).json({ message: "uploadId already bound to a different session" });
-          }
-          if (upload.therapistId !== req.user!.id) {
-            return res.status(403).json({ message: "This upload was started by a different user" });
-          }
-          if (upload.status !== 'recording') {
-            return res.status(409).json({ message: `Upload is no longer accepting chunks (status: ${upload.status})` });
-          }
         }
 
         // Transcribe this chunk immediately, then drop the audio buffer.

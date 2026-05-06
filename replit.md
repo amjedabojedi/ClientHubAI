@@ -82,6 +82,7 @@ Preferred communication style: Simple, everyday language.
 -   Always run `npm run db:generate` after schema changes before `npm run db:push`.
 -   Ensure all environment variables are set for both client and server to function correctly.
 -   AI consent for clients must be explicitly granted for AI features to process their data; otherwise, therapists must document manually.
+-   Session voice-recording uploads must call `POST /api/sessions/:sessionId/transcribe-start` first to obtain a server-minted opaque `uploadId` (prefixed `srv-`) — the `transcribe-chunk` endpoint rejects any other id and is rate-limited to 120 chunk uploads per 10 minutes per (user, session).
 
 ## Pointers
 

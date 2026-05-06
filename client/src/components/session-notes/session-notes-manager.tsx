@@ -2218,7 +2218,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         </DialogContent>
       </Dialog>
 
-      {/* (TranscriptionReviewDialog removed — superseded by TranscriptSmartFillDialog) */}
     </div>
   );
 }
