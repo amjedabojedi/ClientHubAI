@@ -526,11 +526,17 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
             <Mic className="h-5 w-5" />
             Session Transcript
           </span>
-          {existingTranscript && (
+          {existingTranscript && existingTranscript.status === "ready" && (
             <Badge variant="outline" className="gap-1">
               <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
               Saved
             </Badge>
+          )}
+          {existingTranscript && existingTranscript.status === "processing" && (
+            <Badge variant="outline" className="gap-1">Processing…</Badge>
+          )}
+          {existingTranscript && existingTranscript.status === "failed" && (
+            <Badge variant="destructive" className="gap-1">Failed</Badge>
           )}
         </CardTitle>
       </CardHeader>
