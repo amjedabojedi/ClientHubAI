@@ -1658,7 +1658,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(sessionTranscripts)
       .set({
-        chunks: sql`COALESCE(${sessionTranscripts.chunks}, '{}'::jsonb) || jsonb_build_object(${key}, ${payload}::jsonb)`,
+        chunks: sql`COALESCE(${sessionTranscripts.chunks}, '{}'::jsonb) || jsonb_build_object(${key}::text, ${payload}::jsonb)`,
         updatedAt: new Date(),
       })
       .where(eq(sessionTranscripts.id, transcriptId))
