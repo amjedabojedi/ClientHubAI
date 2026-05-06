@@ -1356,7 +1356,43 @@ export async function transcribeSessionChunk(
     params.language = language;
   }
   const transcription = await whisper.audio.transcriptions.create(params);
-  return (transcription as unknown as string) || '';
+  const raw = (transcription as unknown as string) || '';
+  return sanitizeWhisperHallucinations(raw);
+}
+
+/**
+ * Whisper has well-known hallucinations on silent / near-silent audio: it
+ * emits common training-data phrases like "Transcribed by https://otter.ai",
+ * "Thanks for watching!", "Please subscribe", etc. We strip them out here so
+ * the stitched session transcript never shows fake text. If, after stripping,
+ * the chunk is empty (it was all hallucination), we return '' — the
+ * downstream `appendTranscriptChunk` will simply store an empty chunk.
+ */
+function sanitizeWhisperHallucinations(text: string): string {
+  if (!text) return '';
+  // Patterns are case-insensitive. Order doesn't matter — we apply them all.
+  const HALLUCINATION_PATTERNS: RegExp[] = [
+    /transcribed by https?:\/\/otter\.ai\.?/gi,
+    /transcription by [^\n.]{0,40}otter\.ai\.?/gi,
+    /thanks for watching[!.]?/gi,
+    /thank you for watching[!.]?/gi,
+    /please (like|subscribe|comment|share)[^\n.]{0,40}/gi,
+    /(don't forget to |please )?subscribe to (my|our|the) channel[!.]?/gi,
+    /subtitles? (by|provided by) [^\n.]{0,60}/gi,
+    /closed captions? by [^\n.]{0,60}/gi,
+    /\[\s*music\s*\]/gi,
+    /\[\s*applause\s*\]/gi,
+    /\[\s*silence\s*\]/gi,
+    /\(\s*music\s*\)/gi,
+    /\(\s*applause\s*\)/gi,
+  ];
+  let cleaned = text;
+  for (const pattern of HALLUCINATION_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+  // Collapse whitespace introduced by removals.
+  cleaned = cleaned.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  return cleaned;
 }
 
 /**
