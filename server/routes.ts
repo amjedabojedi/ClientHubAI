@@ -6841,7 +6841,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
             uploadId,
             chunks: {},
             status: 'recording',
-          } as any);
+          });
         } else {
           if (upload.sessionId !== sessionId) {
             return res.status(400).json({ message: "uploadId already bound to a different session" });
@@ -6992,7 +6992,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           rawContent: rawTranscript,
           status: 'ready',
           chunks: null,
-        } as any);
+        });
 
         // Audit log
         const { ipAddress, userAgent } = getRequestInfo(req);

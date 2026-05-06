@@ -416,7 +416,7 @@ export const sessionTranscripts = pgTable("session_transcripts", {
   // survives a server restart. `uploadId` is the client-supplied recording
   // session token; `chunks` is a JSONB map of `{ [chunkIndex]: { text, durationSeconds } }`.
   uploadId: varchar("upload_id", { length: 64 }),
-  chunks: jsonb("chunks"),
+  chunks: jsonb("chunks").$type<Record<string, { text: string; durationSeconds: number }> | null>(),
 
   // Lifecycle
   status: varchar("status", { length: 32 }).notNull().default("processing"), // recording | processing | ready | failed
@@ -1794,7 +1794,13 @@ export const insertPatientConsentSchema = createInsertSchema(patientConsents).om
   grantedAt: true, // Set automatically on the backend
 });
 
-export const insertSessionTranscriptSchema = createInsertSchema(sessionTranscripts).omit({
+export const insertSessionTranscriptSchema = createInsertSchema(sessionTranscripts, {
+  // jsonb column with `.$type<...>()`; override to match the runtime shape.
+  chunks: z
+    .record(z.string(), z.object({ text: z.string(), durationSeconds: z.number() }))
+    .nullable()
+    .optional(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

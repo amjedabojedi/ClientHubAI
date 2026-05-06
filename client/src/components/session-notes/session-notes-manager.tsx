@@ -33,7 +33,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConnectedEntries } from "@/hooks/use-connected-entries";
 
 // Hooks and Data
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -197,6 +197,20 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Use external open state if provided, otherwise use internal state
   const isAddNoteOpen = open !== undefined ? open : internalIsAddNoteOpen;
   const setIsAddNoteOpen = onOpenChange || setInternalIsAddNoteOpen;
+
+  // Tracks whether the embedded SessionRecorder is actively recording/paused/
+  // finalizing — used to confirm before letting the user close the dialog
+  // and lose the in-progress recording.
+  const isRecordingActiveRef = useRef(false);
+  const handleAddNoteOpenChange = (next: boolean) => {
+    if (!next && isRecordingActiveRef.current) {
+      const ok = window.confirm(
+        "A session recording is still in progress. Closing this window will stop and discard the recording. Continue?",
+      );
+      if (!ok) return;
+    }
+    setIsAddNoteOpen(next);
+  };
   
   // Risk Assessment State
   const [riskFactors, setRiskFactors] = useState({
@@ -1152,7 +1166,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
       {/* All session note management is integrated into the Session History tab */}
       
       {/* Add/Edit Session Note Dialog */}
-      <Dialog open={isAddNoteOpen} onOpenChange={setIsAddNoteOpen}>
+      <Dialog open={isAddNoteOpen} onOpenChange={handleAddNoteOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1283,6 +1297,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   <SessionRecorder
                     sessionId={sid}
                     onRequestSmartFill={() => setSmartFillSessionId(sid)}
+                    onActiveStateChange={(active) => { isRecordingActiveRef.current = active; }}
                   />
                 );
               })()}

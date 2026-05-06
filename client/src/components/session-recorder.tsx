@@ -40,6 +40,13 @@ interface SessionRecorderProps {
   language?: string;
   /** Optional callback invoked when therapist clicks "Smart Fill from Transcript" */
   onRequestSmartFill?: () => void;
+  /**
+   * Notifies the parent whenever the recorder enters/leaves an "active"
+   * state (recording, paused, or finalizing). The parent uses this to
+   * guard things like dialog close so the user can't accidentally lose
+   * an in-progress recording.
+   */
+  onActiveStateChange?: (isActive: boolean) => void;
 }
 
 const SLICE_SECONDS = 60;
@@ -51,7 +58,7 @@ function formatDuration(totalSeconds: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
 
-export function SessionRecorder({ sessionId, language, onRequestSmartFill }: SessionRecorderProps) {
+export function SessionRecorder({ sessionId, language, onRequestSmartFill, onActiveStateChange }: SessionRecorderProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -124,6 +131,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [recordingInProgress]);
+
+  // Notify the parent (e.g. the Session Note dialog) so it can intercept
+  // its own close path while a recording is in progress.
+  useEffect(() => {
+    onActiveStateChange?.(recordingInProgress);
+  }, [recordingInProgress, onActiveStateChange]);
 
   // Cleanup on unmount
   useEffect(() => {
