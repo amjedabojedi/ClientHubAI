@@ -1315,24 +1315,16 @@ export async function transcribeSessionChunk(
   });
 
   // Domain prompt primes Whisper with therapy/clinical vocabulary so it
-  // transcribes specialised words (CBT, anxiety, depression, trauma, etc.)
-  // more accurately. We also append the tail of the previous chunk so the
-  // model has continuity across slice boundaries — this measurably reduces
-  // dropped or duplicated words at chunk seams, especially for Arabic.
-  //
-  // Sessions can be in any language (English, Arabic, Spanish, French, etc.),
-  // mixed (code-switching), or include a live interpreter who repeats
-  // utterances in another language. We keep the domain prompt language-agnostic
-  // (English clinical vocabulary only) — Whisper auto-detects the spoken
-  // language and the prompt biases it toward therapy terminology without
-  // forcing any particular language onto the output.
+  // transcribes specialised words more accurately. We use a COMPACT,
+  // KEYWORD-ONLY prompt (no full sentences) — full English sentences in the
+  // prompt get regurgitated verbatim by Whisper on silent audio, polluting
+  // the transcript. Keywords prime the vocabulary without giving the model
+  // grammatical English to echo back. Whisper auto-detects the spoken
+  // language; we never force one.
   const domainPrompt =
-    'Therapy session transcript. Therapist, client, and possibly a live ' +
-    'interpreter discussing mental health, anxiety, depression, trauma, CBT, ' +
-    'coping skills, goals, homework, medication, relationships, family, sleep, ' +
-    'mood, stress. The interpreter may repeat the same content in another ' +
-    'language. Speakers may switch languages within the same sentence. ' +
-    'Transcribe in whatever language each speaker actually uses; do not translate.';
+    'therapy, therapist, client, interpreter, anxiety, depression, trauma, ' +
+    'CBT, coping, goals, homework, medication, relationships, family, sleep, ' +
+    'mood, stress, panic, grief, boundaries, self-esteem, behaviour';
 
   // Take the last ~200 words of previous chunk as context (Whisper prompt
   // is capped at 224 tokens so we keep it short).
@@ -1385,6 +1377,14 @@ function sanitizeWhisperHallucinations(text: string): string {
     /\[\s*silence\s*\]/gi,
     /\(\s*music\s*\)/gi,
     /\(\s*applause\s*\)/gi,
+    // Prompt-echo hallucinations: Whisper sometimes regurgitates the prompt
+    // text verbatim on silent audio. Strip the previous long-form sentences
+    // we used to send so any old transcripts mid-recording also get cleaned.
+    /transcribe in whatever language each speaker actually uses[^\n.]*\.?/gi,
+    /speakers may switch languages within the same sentence\.?/gi,
+    /the interpreter may repeat the same content in another language\.?/gi,
+    /therapy session transcript\.?/gi,
+    /do not translate\.?/gi,
   ];
   let cleaned = text;
   for (const pattern of HALLUCINATION_PATTERNS) {
