@@ -412,8 +412,14 @@ export const sessionTranscripts = pgTable("session_transcripts", {
   chunkCount: integer("chunk_count").notNull().default(0),
   wordCount: integer("word_count").notNull().default(0),
 
+  // Phase 1 (reliability): persist chunks to DB so an in-progress recording
+  // survives a server restart. `uploadId` is the client-supplied recording
+  // session token; `chunks` is a JSONB map of `{ [chunkIndex]: { text, durationSeconds } }`.
+  uploadId: varchar("upload_id", { length: 64 }),
+  chunks: jsonb("chunks"),
+
   // Lifecycle
-  status: varchar("status", { length: 32 }).notNull().default("processing"), // processing | ready | failed
+  status: varchar("status", { length: 32 }).notNull().default("processing"), // recording | processing | ready | failed
   errorMessage: text("error_message"),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -421,6 +427,7 @@ export const sessionTranscripts = pgTable("session_transcripts", {
 }, (table) => ({
   sessionIdx: index("session_transcripts_session_idx").on(table.sessionId),
   clientIdx: index("session_transcripts_client_idx").on(table.clientId),
+  uploadIdIdx: index("session_transcripts_upload_id_idx").on(table.uploadId),
 }));
 
 // Services table - Healthcare service codes and billing rates

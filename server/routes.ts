@@ -6771,28 +6771,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
     return { ok: false, status: 403, message: "You do not have permission to access session transcripts" };
   }
 
-  // In-memory store: uploadId -> { sessionId, clientId, chunks: { idx -> text }, language, startedAt }
-  // Chunks are transcribed immediately on upload and audio is discarded.
-  type SessionUpload = {
-    sessionId: number;
-    clientId: number;
-    therapistId: number;
-    language?: string;
-    chunks: Map<number, string>;
-    startedAt: number;
-    durationSeconds: number;
-  };
-  const sessionUploads = new Map<string, SessionUpload>();
-
-  // Auto-expire stale uploads after 2 hours
-  setInterval(() => {
-    const cutoff = Date.now() - 2 * 60 * 60 * 1000;
-    const stale: string[] = [];
-    sessionUploads.forEach((up, id) => {
-      if (up.startedAt < cutoff) stale.push(id);
-    });
-    stale.forEach((id) => sessionUploads.delete(id));
-  }, 30 * 60 * 1000);
+  // Phase 1 (reliability): chunk text is persisted to the `session_transcripts`
+  // table as it arrives, so an in-progress recording survives a server restart.
+  // No in-memory upload map is used. Each recording is identified by a
+  // client-minted `uploadId` stored on the transcript row (status='recording').
 
   // POST /api/sessions/:sessionId/transcribe-chunk
   // Body: multipart with 'audio' file + chunkIndex + uploadId + (optional) language + chunkDurationSeconds
@@ -6819,7 +6801,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const chunkIndex = parseInt(req.body.chunkIndex);
         const chunkDuration = parseFloat(req.body.chunkDurationSeconds || '0');
         const language = req.body.language || undefined;
-        if (!uploadId || isNaN(chunkIndex)) {
+        if (!uploadId || uploadId.length > 64 || isNaN(chunkIndex) || chunkIndex < 0) {
           return res.status(400).json({ message: "uploadId and chunkIndex required" });
         }
 
@@ -6841,28 +6823,43 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(403).json({ message: consentCheck.message || "AI processing consent required" });
         }
 
-        // Initialize the upload entry if first chunk
-        let upload = sessionUploads.get(uploadId);
+        // Look up or create the persisted recording row for this uploadId.
+        let upload = await storage.getSessionTranscriptByUploadId(uploadId);
         if (!upload) {
-          upload = {
+          // First chunk for this uploadId — create a new recording row.
+          upload = await storage.createSessionTranscript({
             sessionId,
             clientId: session.clientId,
             therapistId: req.user!.id,
-            language,
-            chunks: new Map(),
-            startedAt: Date.now(),
+            content: '',
+            rawContent: null,
+            language: language || 'auto',
+            translatedToEnglish: false,
             durationSeconds: 0,
-          };
-          sessionUploads.set(uploadId, upload);
-        } else if (upload.sessionId !== sessionId) {
-          return res.status(400).json({ message: "uploadId already bound to a different session" });
+            chunkCount: 0,
+            wordCount: 0,
+            uploadId,
+            chunks: {},
+            status: 'recording',
+          } as any);
+        } else {
+          if (upload.sessionId !== sessionId) {
+            return res.status(400).json({ message: "uploadId already bound to a different session" });
+          }
+          if (upload.therapistId !== req.user!.id) {
+            return res.status(403).json({ message: "This upload was started by a different user" });
+          }
+          if (upload.status !== 'recording') {
+            return res.status(409).json({ message: `Upload is no longer accepting chunks (status: ${upload.status})` });
+          }
         }
 
         // Transcribe this chunk immediately, then drop the audio buffer.
         // Pass the previous chunk's text as continuity context so Whisper
         // doesn't drop or duplicate words at chunk seams.
         const fileName = req.file.originalname || `chunk-${chunkIndex}.webm`;
-        const previousChunkText = chunkIndex > 0 ? upload.chunks.get(chunkIndex - 1) : undefined;
+        const existingChunks = (upload.chunks as Record<string, { text: string; durationSeconds: number }> | null) || {};
+        const previousChunkText = chunkIndex > 0 ? existingChunks[String(chunkIndex - 1)]?.text : undefined;
         let chunkText = '';
         try {
           const { transcribeSessionChunk } = await import('./ai/openai');
@@ -6872,14 +6869,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(500).json({ message: `Chunk transcription failed: ${err.message || 'Unknown'}` });
         }
 
-        upload.chunks.set(chunkIndex, chunkText);
-        upload.durationSeconds += chunkDuration;
+        // Persist this chunk to the DB (atomic JSONB merge so concurrent chunks don't clobber).
+        const updated = await storage.appendTranscriptChunk(upload.id, chunkIndex, chunkText, chunkDuration);
+        const allChunks = (updated.chunks as Record<string, unknown>) || {};
 
         return res.json({
           uploadId,
           chunkIndex,
           chunkText,
-          chunksReceived: upload.chunks.size,
+          chunksReceived: Object.keys(allChunks).length,
         });
       } catch (error: any) {
         console.error('[SessionTranscript] transcribe-chunk error:', error);
@@ -6915,53 +6913,64 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(accessCheck.status).json({ message: accessCheck.message });
         }
 
-        const upload = sessionUploads.get(String(uploadId));
+        const upload = await storage.getSessionTranscriptByUploadId(String(uploadId));
         if (!upload || upload.sessionId !== sessionId) {
           return res.status(404).json({ message: "Upload session not found or expired" });
+        }
+        if (upload.status === 'ready') {
+          // Idempotent: already finalized — just return it.
+          return res.json(upload);
         }
         // Bind upload to the original therapist who started it
         if (upload.therapistId !== req.user!.id && req.user!.role !== 'admin' && req.user!.role !== 'administrator') {
           return res.status(403).json({ message: "Only the recording therapist or an admin can finalize this upload" });
         }
 
+        const chunksMap = (upload.chunks as Record<string, { text: string; durationSeconds: number }> | null) || {};
+        const indices = Object.keys(chunksMap).map((k) => parseInt(k, 10)).sort((a, b) => a - b);
+        const chunksReceived = indices.length;
+
         // Block finalize if any expected chunks are missing (data-loss safety)
         const expected = Number(expectedChunks ?? totalChunks);
         if (Number.isFinite(expected) && expected > 0) {
-          if (upload.chunks.size < expected) {
+          if (chunksReceived < expected) {
             return res.status(409).json({
-              message: `Cannot finalize: only ${upload.chunks.size} of ${expected} chunks were transcribed successfully. Retry the missing chunks before saving.`,
-              chunksReceived: upload.chunks.size,
+              message: `Cannot finalize: only ${chunksReceived} of ${expected} chunks were transcribed successfully. Retry the missing chunks before saving.`,
+              chunksReceived,
               chunksExpected: expected,
             });
           }
         }
 
         // Stitch chunks in order
-        const indices = Array.from(upload.chunks.keys()).sort((a, b) => a - b);
-        const rawTranscript = indices.map((i) => upload.chunks.get(i) || '').join(' ').trim();
+        const rawTranscript = indices
+          .map((i) => (chunksMap[String(i)]?.text || '').trim())
+          .filter((t) => t.length > 0)
+          .join(' ')
+          .trim();
+        const totalDurationSeconds = indices.reduce(
+          (sum, i) => sum + (Number(chunksMap[String(i)]?.durationSeconds) || 0),
+          0,
+        );
         const wordCount = rawTranscript ? rawTranscript.split(/\s+/).length : 0;
 
         if (!rawTranscript) {
-          sessionUploads.delete(String(uploadId));
+          // Don't delete — leave the row so the client can see the failure
+          await storage.updateSessionTranscript(upload.id, {
+            status: 'failed',
+            errorMessage: 'No transcribed content to finalize',
+          });
           return res.status(400).json({ message: "No transcribed content to finalize" });
         }
 
-        // Create initial transcript record (status=processing)
-        const existing = await storage.getSessionTranscript(sessionId);
-        if (existing) {
-          await storage.deleteSessionTranscript(sessionId);
-        }
-
-        const created = await storage.createSessionTranscript({
-          sessionId,
-          clientId: upload.clientId,
-          therapistId: upload.therapistId,
-          content: rawTranscript, // placeholder until diarization is done
+        // Mark this row as 'processing' so a concurrent refresh shows the
+        // correct in-progress state. Old 'ready' transcript (if any) is
+        // untouched until the atomic finalize step below.
+        await storage.updateSessionTranscript(upload.id, {
+          content: rawTranscript,
           rawContent: rawTranscript,
-          language: upload.language || 'auto',
-          translatedToEnglish: false,
-          durationSeconds: Math.round(upload.durationSeconds),
-          chunkCount: upload.chunks.size,
+          durationSeconds: Math.round(totalDurationSeconds),
+          chunkCount: chunksReceived,
           wordCount,
           status: 'processing',
         });
@@ -6975,10 +6984,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
           console.error('[SessionTranscript] Diarization failed, keeping raw:', err);
         }
 
-        const finalTranscript = await storage.updateSessionTranscript(created.id, {
+        // Atomic: mark this row 'ready' AND remove any other (older) transcript
+        // rows for the same session in a single transaction. The user is never
+        // left with no transcript at all.
+        const finalTranscript = await storage.finalizeTranscriptAtomic(upload.id, sessionId, {
           content: labeledContent,
+          rawContent: rawTranscript,
           status: 'ready',
-        });
+          chunks: null,
+        } as any);
 
         // Audit log
         const { ipAddress, userAgent } = getRequestInfo(req);
@@ -6996,16 +7010,14 @@ You can download a copy if you have it saved locally and re-upload it.`;
           riskLevel: 'high',
           details: JSON.stringify({
             sessionId,
-            durationSeconds: upload.durationSeconds,
-            chunkCount: upload.chunks.size,
+            durationSeconds: totalDurationSeconds,
+            chunkCount: chunksReceived,
             wordCount,
-            totalChunksRequested: totalChunks ?? upload.chunks.size,
+            totalChunksRequested: totalChunks ?? chunksReceived,
           }),
           accessReason: 'Therapist recorded session voice transcription',
         });
 
-        // Clean up the upload
-        sessionUploads.delete(String(uploadId));
         return res.json(finalTranscript);
       } catch (error: any) {
         console.error('[SessionTranscript] finalize error:', error);

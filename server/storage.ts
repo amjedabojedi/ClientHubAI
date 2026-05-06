@@ -317,9 +317,25 @@ export interface IStorage {
 
   // ===== SESSION TRANSCRIPTS (Voice Recording) =====
   getSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
+  getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined>;
   createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript>;
   updateSessionTranscript(id: number, data: Partial<InsertSessionTranscript>): Promise<SessionTranscript>;
   deleteSessionTranscript(sessionId: number): Promise<void>;
+  // Append a single chunk's transcribed text to the recording row's `chunks` JSONB.
+  appendTranscriptChunk(
+    transcriptId: number,
+    chunkIndex: number,
+    text: string,
+    durationSeconds: number,
+  ): Promise<SessionTranscript>;
+  // Atomically: update this transcript row to its final state AND delete any
+  // other (older) transcript rows for the same session. Used at finalize time
+  // so the user is never left with no transcript at all.
+  finalizeTranscriptAtomic(
+    transcriptId: number,
+    sessionId: number,
+    data: Partial<InsertSessionTranscript>,
+  ): Promise<SessionTranscript>;
 
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<SessionWithRelations[]>;
@@ -1586,12 +1602,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Session Transcripts (chunked voice recording)
+  // Only returns transcripts that have transitioned past the "recording" stage,
+  // so an in-progress recording row is invisible to the saved-transcript display.
   async getSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined> {
     const [transcript] = await db
       .select()
       .from(sessionTranscripts)
-      .where(eq(sessionTranscripts.sessionId, sessionId))
+      .where(
+        and(
+          eq(sessionTranscripts.sessionId, sessionId),
+          inArray(sessionTranscripts.status, ['processing', 'ready', 'failed']),
+        ),
+      )
       .orderBy(desc(sessionTranscripts.createdAt))
+      .limit(1);
+    return transcript || undefined;
+  }
+
+  async getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined> {
+    const [transcript] = await db
+      .select()
+      .from(sessionTranscripts)
+      .where(eq(sessionTranscripts.uploadId, uploadId))
       .limit(1);
     return transcript || undefined;
   }
@@ -1612,6 +1644,59 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSessionTranscript(sessionId: number): Promise<void> {
     await db.delete(sessionTranscripts).where(eq(sessionTranscripts.sessionId, sessionId));
+  }
+
+  // Atomic JSONB merge: chunks = COALESCE(chunks, '{}') || jsonb_build_object(idx, {...})
+  async appendTranscriptChunk(
+    transcriptId: number,
+    chunkIndex: number,
+    text: string,
+    durationSeconds: number,
+  ): Promise<SessionTranscript> {
+    const key = String(chunkIndex);
+    const payload = JSON.stringify({ text, durationSeconds });
+    const [updated] = await db
+      .update(sessionTranscripts)
+      .set({
+        chunks: sql`COALESCE(${sessionTranscripts.chunks}, '{}'::jsonb) || jsonb_build_object(${key}, ${payload}::jsonb)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(sessionTranscripts.id, transcriptId))
+      .returning();
+    return updated;
+  }
+
+  async finalizeTranscriptAtomic(
+    transcriptId: number,
+    sessionId: number,
+    data: Partial<InsertSessionTranscript>,
+  ): Promise<SessionTranscript> {
+    return await db.transaction(async (tx) => {
+      // First update the new row to its final state.
+      const [updated] = await tx
+        .update(sessionTranscripts)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(sessionTranscripts.id, transcriptId))
+        .returning();
+      if (!updated) {
+        throw new Error('Transcript row not found during atomic finalize');
+      }
+      // Then remove any *previous saved* transcript rows for the same session
+      // — so we never wipe the old transcript before the new one is fully
+      // saved. We deliberately only delete rows in the 'ready' or 'failed'
+      // state: any concurrent 'recording'/'processing' row belongs to a
+      // different upload attempt and must not be destroyed.
+      await tx
+        .delete(sessionTranscripts)
+        .where(
+          and(
+            eq(sessionTranscripts.sessionId, sessionId),
+            sql`${sessionTranscripts.id} <> ${transcriptId}`,
+            inArray(sessionTranscripts.status, ['ready', 'failed']),
+          ),
+        );
+      return updated;
+    });
   }
 
   // Session methods

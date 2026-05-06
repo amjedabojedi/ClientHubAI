@@ -14,6 +14,7 @@ import {
   Trash2,
   AlertCircle,
   Sparkles,
+  RotateCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
   const [chunksUploaded, setChunksUploaded] = useState(0);
   const [previewText, setPreviewText] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // List of chunk indexes that permanently failed and can be retried by the user
+  const [failedChunks, setFailedChunks] = useState<number[]>([]);
+  const [retryingChunks, setRetryingChunks] = useState<Set<number>>(new Set());
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -74,8 +78,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
   const stoppingRef = useRef<boolean>(false);
   // Synchronous flags that don't suffer setState async lag
   const isPausedRef = useRef<boolean>(false);
-  // Track failed chunk indexes so we can refuse to finalize a partial recording
-  const failedChunksRef = useRef<Set<number>>(new Set());
+  // Track failed chunk indexes so we can refuse to finalize a partial recording.
+  // We also keep the original audio Blob so the user can retry that exact chunk.
+  const failedChunksRef = useRef<
+    Map<number, { blob: Blob; durationSec: number; mime: string }>
+  >(new Map());
   // Resolved when the most-recently-stopped recorder's onstop has run.
   // Lets handleStop() guarantee the final segment's upload is enqueued
   // before we await the upload queue.
@@ -91,7 +98,32 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
       if (!res.ok) throw new Error("Failed to load transcript");
       return res.json();
     },
+    // Refresh-safe finalize: if a saved transcript exists in 'processing'
+    // state (e.g. the page was refreshed mid-finalize), poll until it's
+    // ready or failed.
+    refetchInterval: (query) => {
+      const data = query.state.data as SessionTranscript | undefined;
+      return data && data.status === "processing" ? 3000 : false;
+    },
   });
+
+  // Warn the user if they try to close/refresh the tab while a recording is
+  // in progress (recording, paused, or finalizing). Without this, closing the
+  // tab silently aborts the in-progress upload queue.
+  const recordingInProgress =
+    status === "recording" || status === "paused" || status === "finalizing";
+  useEffect(() => {
+    if (!recordingInProgress) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore the custom string and show their own message,
+      // but setting returnValue is still required for the prompt to appear.
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [recordingInProgress]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -167,7 +199,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
       if (segmentBlob.size > 0) {
         const idx = chunkIndexRef.current++;
         setChunksSent((c) => c + 1);
-        // Queue upload sequentially so order is predictable
+        // Queue upload sequentially so order is predictable.
+        // We capture the audio Blob in case the upload eventually fails — the
+        // user can then retry the exact chunk via the Retry buttons.
         uploadQueueRef.current = uploadQueueRef.current.then(() =>
           uploadChunk(segmentBlob, idx, segmentDurationSec, supportedMime),
         );
@@ -222,6 +256,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
         }
         const data = await res.json();
         failedChunksRef.current.delete(index);
+        setFailedChunks((prev) => prev.filter((i) => i !== index));
         setChunksUploaded((c) => c + 1);
         if (data.chunkText) {
           setPreviewText((prev) => (prev ? prev + " " : "") + data.chunkText);
@@ -230,9 +265,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
       } catch (err: any) {
         console.error(`Chunk ${index} attempt ${attempt} failed:`, err);
         if (attempt === maxAttempts) {
-          failedChunksRef.current.add(index);
+          // Keep the audio Blob so the user can retry this exact chunk.
+          failedChunksRef.current.set(index, { blob, durationSec, mime });
+          setFailedChunks((prev) =>
+            prev.includes(index) ? prev : [...prev, index].sort((a, b) => a - b),
+          );
           setErrorMsg(
-            `Chunk ${index} failed to transcribe. Stop & Save will be blocked until all chunks succeed.`,
+            `Chunk ${index} failed to transcribe. Use the Retry button below before saving.`,
           );
           toast({
             title: `Chunk ${index} failed`,
@@ -246,6 +285,46 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
       }
     }
   }
+
+  // User-triggered retry of a single failed chunk. Re-uses the original Blob
+  // we kept in failedChunksRef. The retry is chained into `uploadQueueRef` so
+  // that `handleStop` (which awaits the upload queue) cannot finalize while a
+  // retry is still in-flight.
+  const retryChunk = useCallback(
+    async (index: number) => {
+      const failed = failedChunksRef.current.get(index);
+      if (!failed) return;
+      setRetryingChunks((prev) => {
+        const next = new Set(prev);
+        next.add(index);
+        return next;
+      });
+      const retryPromise = uploadQueueRef.current
+        .catch(() => undefined)
+        .then(() => uploadChunk(failed.blob, index, failed.durationSec, failed.mime));
+      uploadQueueRef.current = retryPromise.catch(() => undefined);
+      try {
+        await retryPromise;
+        if (!failedChunksRef.current.has(index)) {
+          if (failedChunksRef.current.size === 0) {
+            setErrorMsg(null);
+          }
+          toast({
+            title: `Chunk ${index} retried`,
+            description: "The chunk was transcribed successfully.",
+          });
+        }
+      } finally {
+        setRetryingChunks((prev) => {
+          const next = new Set(prev);
+          next.delete(index);
+          return next;
+        });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language, sessionId],
+  );
 
   const handleStart = useCallback(async () => {
     setErrorMsg(null);
@@ -262,7 +341,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
       chunkIndexRef.current = 0;
       stoppingRef.current = false;
       isPausedRef.current = false;
-      failedChunksRef.current = new Set();
+      failedChunksRef.current = new Map();
+      setFailedChunks([]);
+      setRetryingChunks(new Set());
       uploadQueueRef.current = Promise.resolve();
       setChunksSent(0);
       setChunksUploaded(0);
@@ -337,16 +418,16 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
       console.error("Some chunks failed:", err);
     }
 
-    // Block finalize if any chunk permanently failed — therapist must retry/cancel
+    // Block finalize if any chunk permanently failed — therapist must retry first
     if (failedChunksRef.current.size > 0) {
-      const failedList = Array.from(failedChunksRef.current).sort((a, b) => a - b);
+      const failedList = Array.from(failedChunksRef.current.keys()).sort((a, b) => a - b);
       setErrorMsg(
         `Cannot save transcript — chunk(s) ${failedList.join(", ")} failed to transcribe. ` +
-          `Please use Resume to keep recording and try again, or contact support.`,
+          `Use the Retry buttons below to re-send the failed chunk(s), then click Stop & Save again.`,
       );
       toast({
         title: "Cannot save: missing chunks",
-        description: `${failedList.length} recording chunk(s) failed. Resume recording to retry, or stop without saving.`,
+        description: `${failedList.length} recording chunk(s) failed. Click Retry next to each failed chunk, then Stop & Save.`,
         variant: "destructive",
       });
       setStatus("paused");
@@ -548,8 +629,62 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill }: Ses
           </Alert>
         )}
 
+        {/* Per-chunk retry: one button per failed chunk, re-uses the cached audio Blob */}
+        {failedChunks.length > 0 && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+            <div className="text-xs font-medium text-destructive">
+              {failedChunks.length} chunk(s) failed to transcribe — retry each one before saving:
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {failedChunks.map((idx) => {
+                const isRetrying = retryingChunks.has(idx);
+                return (
+                  <Button
+                    key={idx}
+                    type="button"
+                    data-testid={`button-retry-chunk-${idx}`}
+                    variant="outline"
+                    size="sm"
+                    disabled={isRetrying}
+                    onClick={() => retryChunk(idx)}
+                  >
+                    {isRetrying ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <RotateCw className="h-3 w-3 mr-1" />
+                    )}
+                    Retry chunk {idx}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Refresh-safe finalize: if a saved transcript is still 'processing'
+            (e.g. user refreshed the page mid-finalize), show a waiting state
+            and let the polling refetchInterval pick up 'ready' or 'failed'. */}
+        {existingTranscript && existingTranscript.status === "processing" && status === "idle" && (
+          <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Transcript is still being processed on the server… this page will refresh
+            automatically when it's ready.
+          </div>
+        )}
+
+        {existingTranscript && existingTranscript.status === "failed" && status === "idle" && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Transcript processing failed
+              {existingTranscript.errorMessage ? `: ${existingTranscript.errorMessage}` : "."}
+              {" "}You can delete this and record again.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Existing transcript display */}
-        {existingTranscript && status === "idle" && (
+        {existingTranscript && existingTranscript.status === "ready" && status === "idle" && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-3">
