@@ -306,12 +306,18 @@ export default function AssessmentCompletionPage() {
       setLocation(`/assessments/${assignmentId}/report`);
     },
     onError: (error: any) => {
-      const errorMessage = error?.message || "There was an error generating the assessment report. Please try again.";
-      const isConsentError = errorMessage.toLowerCase().includes('consent');
-      
+      const rawMessage = error?.message || "There was an error generating the assessment report. Please try again.";
+      const isConsentError = rawMessage.toLowerCase().includes('consent');
+      const isGatewayError =
+        /^\s*5\d\d\s*:/.test(rawMessage) ||
+        /<html|bad gateway|gateway time-?out|nginx/i.test(rawMessage);
+      const description = isGatewayError
+        ? "The report is taking longer than expected to generate. Please wait a minute and try again — if the report was created in the background, refreshing this page will show it."
+        : rawMessage;
+
       toast({
         title: isConsentError ? "AI Processing Consent Required" : "Report Generation Failed",
-        description: errorMessage,
+        description,
         variant: "destructive",
       });
     }

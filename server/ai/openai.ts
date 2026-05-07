@@ -879,6 +879,9 @@ Client Response Data: Base recommendations on the assessment findings and clinic
     
     const startTime = Date.now();
     
+    // Cap tokens to keep generation under the deployment proxy's ~60s
+    // timeout. 4000 tokens (~3000 words) is more than enough for a full
+    // clinical assessment report and typically completes in 20-35s.
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -886,7 +889,7 @@ Client Response Data: Base recommendations on the assessment findings and clinic
         { role: "user", content: userPrompt }
       ],
       temperature: 0,
-      max_tokens: 16000,
+      max_tokens: 4000,
     });
 
     const duration = Date.now() - startTime;
