@@ -1690,14 +1690,14 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
             '6) Output language must match the input language (do NOT translate). Mixed-' +
             'language content stays mixed. ' +
             '7) Use "Unknown:" ONLY when speakers are truly indistinguishable — prefer to commit.\n' +
-            '8) SINGLE-SPEAKER recordings are valid: a therapist dictating after-session ' +
-            'notes, a client journaling alone, or any extended monologue. If the ENTIRE window ' +
-            'reads as one consistent speaker (no second voice, no question/answer pattern), ' +
-            'COMMIT to a single label for every turn — pick "Therapist:" if the content ' +
-            'sounds clinical/organisational (talks about clients, intake, treatment, the ' +
-            'practice, supervision, planning, professional reflection), otherwise "Client:" ' +
-            '(personal narrative, feelings, life events). Do NOT default to "Unknown:" just ' +
-            'because there is only one voice.\n' +
+            '8) SINGLE-SPEAKER recordings: this app\'s recorder is ALWAYS operated by the ' +
+            'therapist on their own device. So if the ENTIRE window reads as one consistent ' +
+            'speaker (no second voice, no question/answer pattern, no language-mirroring), ' +
+            'label EVERY turn "Therapist:" — regardless of whether the content sounds ' +
+            'clinical (post-session dictation, planning, supervision notes) or personal ' +
+            '(testing the app, talking to family in the room, casual narration). Never ' +
+            'use "Client:" or "Unknown:" for a one-voice recording. Only switch to ' +
+            '"Client:" when a clearly DIFFERENT second voice appears in the window.\n' +
             '9) IGNORE bracketed system markers like [GAP IN RECORDING …], [silence ~Xs], or ' +
             '[likely silence — repetition removed]. Pass them through untouched on their own ' +
             'line; do NOT prefix them with a speaker label and do NOT count them as a turn.',
