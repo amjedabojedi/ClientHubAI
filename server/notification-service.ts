@@ -1293,26 +1293,24 @@ SmartHub Team`;
     recipient: any,
     isClient: boolean,
   ): string {
+    // Privacy: do NOT include the client's name or PII in the email body.
+    // Reviewers identify the file in SmartHub via the reference number.
+    const refNumber = entityData.referenceNumber || `#${entityData.id}`;
     return `
 New Client Added to System
 
 👤 CLIENT DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-Name: ${entityData.fullName}
-Client ID: ${entityData.id}
-Email: ${entityData.email || "Not provided"}
-Phone: ${entityData.phone || "Not provided"}
+Reference Number: ${refNumber}
 Added: ${this.formatDateEST(entityData.createdAt)}
 
 📋 ACTION REQUIRED:
-A new client has been added to the system. Please review their profile and ensure all intake requirements are met.
+A new client has been added to the system. Please log in to SmartHub and review the file using the reference number above.
 
 • Verify contact information
 • Review insurance details
 • Assign to appropriate therapist
 • Schedule initial assessment
-
-View client profile: [Link to client profile]
 
 This notification was sent because you are responsible for client intake processing.`;
   }
@@ -1345,20 +1343,23 @@ Your therapist will contact you soon to schedule your first appointment.
 Best regards,
 SmartHub Team`;
     } else {
+      // Privacy: do NOT include the client's name in the email. Therapists
+      // identify the file via the reference number.
+      const refNumber = entityData.referenceNumber || `#${entityData.clientId || entityData.id}`;
       return `
 Client Assignment Notification
 
 👤 ASSIGNMENT DETAILS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
-Client: ${entityData.clientName}
+Reference Number: ${refNumber}
 Assigned to: ${entityData.therapistName}
 Assignment Date: ${this.formatDateEST(entityData.assignmentDate)}
 
 📋 ACTION REQUIRED:
-You have been assigned a new client. Please review their case and schedule an initial assessment.
+You have been assigned a new client. Please log in to SmartHub to review the file using the reference number above.
 
-• Review client profile and history
-• Contact client to schedule first session
+• Open the client profile in SmartHub
+• Contact the client to schedule the first session
 • Prepare treatment planning documentation
 
 This notification was sent because you are the assigned therapist.`;

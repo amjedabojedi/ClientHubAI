@@ -267,7 +267,14 @@ export default function ClientDataGrid({
                   </TableCell>
                 </TableRow>
               ) : (
-                data?.clients?.map((client: any) => (
+                [...(data?.clients ?? [])].sort((a: any, b: any) => {
+                  // Float "NEW" clients (assigned to me & not yet opened) to the
+                  // top so therapists can see at a glance that they have new
+                  // assignments. Server-side sort still applies to the rest.
+                  const aNew = a.assignedTherapistId === user?.id && !a.firstViewedByTherapistAt ? 1 : 0;
+                  const bNew = b.assignedTherapistId === user?.id && !b.firstViewedByTherapistAt ? 1 : 0;
+                  return bNew - aNew;
+                }).map((client: any) => (
                   <TableRow key={client.id} className="hover:bg-slate-50">
                     {canBulkEdit && (
                       <TableCell>
