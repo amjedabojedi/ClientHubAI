@@ -1375,6 +1375,15 @@ export async function transcribeSessionChunk(
  */
 function sanitizeWhisperHallucinations(text: string): string {
   if (!text) return '';
+  // FIRST pass: collapse runaway-loop hallucinations BEFORE the literal
+  // pattern strip. On near-silent audio at the end of a chunk Whisper
+  // sometimes emits the same short phrase dozens or hundreds of times
+  // ("if they don't, you know, if they don't, you know, …"). Detecting
+  // this by content is impossible — the phrase varies — but the *shape*
+  // is always: a 2-12-word phrase that repeats more than 4 times in a
+  // row. We replace the whole runaway with the phrase once and a marker
+  // so the therapist can see what happened.
+  text = collapseRepetitiveHallucinations(text);
   // Patterns are case-insensitive. Order doesn't matter — we apply them all.
   const HALLUCINATION_PATTERNS: RegExp[] = [
     /transcribed by https?:\/\/otter\.ai\.?/gi,
@@ -1406,6 +1415,115 @@ function sanitizeWhisperHallucinations(text: string): string {
   // Collapse whitespace introduced by removals.
   cleaned = cleaned.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   return cleaned;
+}
+
+/**
+ * Collapse Whisper "runaway loop" hallucinations.
+ *
+ * Whisper's well-known failure mode on silent / near-silent audio is to
+ * regurgitate the same short phrase over and over: e.g.
+ *   "If they don't, you know, if they don't, you know, if they don't, you know…"
+ * sometimes for 30+ repetitions. The literal-pattern sanitizer below cannot
+ * catch this because the phrase is different every time.
+ *
+ * Heuristic: scan the text for a phrase of 2..12 words that is immediately
+ * repeated 4 or more times back-to-back (allowing comma/space/period in
+ * between). When we find one, keep ONE copy of the phrase and append a
+ * "[likely silence — repetition removed]" marker so the therapist knows
+ * audio was lost there instead of silently editing their transcript.
+ */
+function collapseRepetitiveHallucinations(text: string): string {
+  if (!text) return '';
+
+  // Walk word-by-word and look for the longest contiguous run where the
+  // last N words exactly match the previous N words for several cycles.
+  // Working at the word level (not character regex) keeps us robust to
+  // different punctuation Whisper may insert between repeats.
+  const tokens = text.split(/(\s+)/); // keep whitespace for faithful re-join
+  const words: { text: string; idx: number }[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].trim()) words.push({ text: tokens[i], idx: i });
+  }
+  if (words.length < 12) return text; // too short to runaway
+
+  // Strip punctuation/whitespace for matching. We can't use \p{L}/\p{N} here
+  // because the project's TS target predates ES2018 unicode property escapes,
+  // so we use a conservative class that keeps letters/digits across most
+  // Latin/Cyrillic/Arabic ranges and falls back to "anything not punctuation".
+  const norm = (s: string) => s.toLowerCase().replace(/[\s.,;:!?¿¡"'`(){}\[\]<>—–\-…/\\]+/g, '');
+  // Phrase must repeat at least 6x in a row before we treat it as a Whisper
+  // loop. A distressed client legitimately saying "I don't know, I don't
+  // know, I don't know, I don't know" 4-5 times happens; 6+ identical
+  // back-to-back repeats is almost always Whisper hallucinating on silence.
+  const REPEAT_THRESHOLD = 6;
+
+  // For each starting position, try phrase lengths 2..12 and find the
+  // largest run. Greedy left-to-right.
+  const removeRanges: { startWord: number; endWord: number; phrase: string }[] = [];
+  let cursor = 0;
+  while (cursor < words.length) {
+    let bestEnd = -1;
+    let bestPhrase = '';
+    let bestPhraseLen = 0;
+    for (let plen = 2; plen <= 12 && cursor + plen * 2 <= words.length; plen++) {
+      const phraseNorm = words.slice(cursor, cursor + plen).map((w) => norm(w.text)).join(' ');
+      if (!phraseNorm) continue;
+      let repeats = 1;
+      while (cursor + (repeats + 1) * plen <= words.length) {
+        const next = words
+          .slice(cursor + repeats * plen, cursor + (repeats + 1) * plen)
+          .map((w) => norm(w.text))
+          .join(' ');
+        if (next === phraseNorm) repeats++;
+        else break;
+      }
+      if (repeats >= REPEAT_THRESHOLD) {
+        const endWord = cursor + repeats * plen - 1;
+        if (endWord > bestEnd) {
+          bestEnd = endWord;
+          bestPhrase = words
+            .slice(cursor, cursor + plen)
+            .map((w) => w.text)
+            .join(' ');
+          bestPhraseLen = plen;
+        }
+      }
+    }
+    if (bestEnd > 0) {
+      removeRanges.push({ startWord: cursor, endWord: bestEnd, phrase: bestPhrase });
+      cursor = bestEnd + 1;
+    } else {
+      cursor++;
+    }
+  }
+
+  if (removeRanges.length === 0) return text;
+
+  // Rebuild the string, replacing each runaway range with one copy of the
+  // phrase + a marker.
+  const removeFrom = new Map<number, { endIdx: number; replacement: string }>();
+  for (const r of removeRanges) {
+    const startIdx = words[r.startWord].idx;
+    const endIdx = words[r.endWord].idx;
+    // Put the marker on its OWN LINE so the diarization prompt's rule #9
+    // (which preserves bracketed system markers unlabeled) recognises it
+    // as a system marker instead of folding it into a speaker turn.
+    removeFrom.set(startIdx, {
+      endIdx,
+      replacement: `${r.phrase}\n[likely silence — repetition removed]\n`,
+    });
+  }
+  const rebuilt: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const r = removeFrom.get(i);
+    if (r) {
+      rebuilt.push(r.replacement);
+      i = r.endIdx;
+    } else {
+      rebuilt.push(tokens[i]);
+    }
+  }
+  return rebuilt.join('').replace(/[ \t]+/g, ' ').trim();
 }
 
 /**
@@ -1571,7 +1689,18 @@ export async function diarizeSessionTranscript(rawText: string): Promise<string>
             'the speaker turn that follows it. Do NOT invent any new timestamps. ' +
             '6) Output language must match the input language (do NOT translate). Mixed-' +
             'language content stays mixed. ' +
-            '7) Use "Unknown:" ONLY when speakers are truly indistinguishable — prefer to commit.',
+            '7) Use "Unknown:" ONLY when speakers are truly indistinguishable — prefer to commit.\n' +
+            '8) SINGLE-SPEAKER recordings are valid: a therapist dictating after-session ' +
+            'notes, a client journaling alone, or any extended monologue. If the ENTIRE window ' +
+            'reads as one consistent speaker (no second voice, no question/answer pattern), ' +
+            'COMMIT to a single label for every turn — pick "Therapist:" if the content ' +
+            'sounds clinical/organisational (talks about clients, intake, treatment, the ' +
+            'practice, supervision, planning, professional reflection), otherwise "Client:" ' +
+            '(personal narrative, feelings, life events). Do NOT default to "Unknown:" just ' +
+            'because there is only one voice.\n' +
+            '9) IGNORE bracketed system markers like [GAP IN RECORDING …], [silence ~Xs], or ' +
+            '[likely silence — repetition removed]. Pass them through untouched on their own ' +
+            'line; do NOT prefix them with a speaker label and do NOT count them as a turn.',
         },
         { role: 'user', content: window },
       ],
