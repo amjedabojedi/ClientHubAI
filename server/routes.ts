@@ -9557,17 +9557,145 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       paragraphs.push(new Paragraph({ text: "", spacing: { after: 300 } }));
 
-      // Report Content - parse HTML to text
-      const htmlText = reportContent.replace(/<[^>]*>/g, ''); // Strip HTML tags for Word
-      const lines = htmlText.split('\n');
-      
-      for (const line of lines) {
-        if (line.trim()) {
-          paragraphs.push(new Paragraph({
-            children: [new TextRun({ text: line, font: 'Times New Roman', size: 22 })],
-            spacing: { after: 120 }, // Tighter spacing
-            alignment: AlignmentType.JUSTIFIED
-          }));
+      // Report Content - parse rich HTML into properly formatted DOCX
+      // paragraphs (preserves headings, bold, italic, lists, line breaks).
+      const decodeEntities = (s: string) =>
+        s
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+
+      // Split inline HTML into TextRuns honoring <strong>/<b>, <em>/<i>, <u>, <br>.
+      const parseInline = (html: string): InstanceType<typeof TextRun>[] => {
+        const runs: InstanceType<typeof TextRun>[] = [];
+        const tokens = html.split(/(<\/?(?:strong|b|em|i|u|br\s*\/?)>)/gi);
+        let bold = false;
+        let italics = false;
+        let underline = false;
+        for (const tok of tokens) {
+          if (!tok) continue;
+          const m = tok.match(/^<(\/?)(strong|b|em|i|u|br)\s*\/?>$/i);
+          if (m) {
+            const close = m[1] === '/';
+            const tag = m[2].toLowerCase();
+            if (tag === 'br') {
+              runs.push(new TextRun({ text: '', break: 1, font: 'Times New Roman', size: 22 }));
+            } else if (tag === 'strong' || tag === 'b') {
+              bold = !close;
+            } else if (tag === 'em' || tag === 'i') {
+              italics = !close;
+            } else if (tag === 'u') {
+              underline = !close;
+            }
+            continue;
+          }
+          const text = decodeEntities(tok.replace(/<[^>]+>/g, ''));
+          if (!text) continue;
+          runs.push(
+            new TextRun({
+              text,
+              font: 'Times New Roman',
+              size: 22,
+              bold: bold || undefined,
+              italics: italics || undefined,
+              underline: underline ? {} : undefined,
+            }),
+          );
+        }
+        return runs.length ? runs : [new TextRun({ text: '', font: 'Times New Roman', size: 22 })];
+      };
+
+      // Walk top-level block elements (h1-h4, p, ul, ol, blockquote). Anything
+      // outside a block becomes a normal paragraph.
+      const blockRegex =
+        /<(h[1-4]|p|ul|ol|blockquote)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+      const blocks: { tag: string; inner: string }[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = blockRegex.exec(reportContent)) !== null) {
+        if (match.index > lastIndex) {
+          const between = reportContent.slice(lastIndex, match.index).trim();
+          if (between) blocks.push({ tag: 'p', inner: between });
+        }
+        blocks.push({ tag: match[1].toLowerCase(), inner: match[2] });
+        lastIndex = blockRegex.lastIndex;
+      }
+      if (lastIndex < reportContent.length) {
+        const tail = reportContent.slice(lastIndex).trim();
+        if (tail) blocks.push({ tag: 'p', inner: tail });
+      }
+      // If no block elements were detected, treat the whole content as paragraphs.
+      if (blocks.length === 0 && reportContent.trim()) {
+        for (const line of reportContent.split(/\n+/)) {
+          if (line.trim()) blocks.push({ tag: 'p', inner: line });
+        }
+      }
+
+      const HEADING_SIZES: Record<string, number> = { h1: 32, h2: 28, h3: 26, h4: 24 };
+      for (const { tag, inner } of blocks) {
+        if (tag.startsWith('h')) {
+          paragraphs.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: decodeEntities(inner.replace(/<[^>]+>/g, '')).trim(),
+                  bold: true,
+                  size: HEADING_SIZES[tag] || 24,
+                  color: '1e40af',
+                  font: 'Times New Roman',
+                }),
+              ],
+              heading:
+                tag === 'h1'
+                  ? HeadingLevel.HEADING_1
+                  : tag === 'h2'
+                    ? HeadingLevel.HEADING_2
+                    : tag === 'h3'
+                      ? HeadingLevel.HEADING_3
+                      : HeadingLevel.HEADING_4,
+              spacing: { before: 200, after: 120 },
+            }),
+          );
+        } else if (tag === 'ul' || tag === 'ol') {
+          const items = Array.from(inner.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi));
+          items.forEach((li, idx) => {
+            const prefix = tag === 'ol' ? `${idx + 1}. ` : '• ';
+            const itemRuns = parseInline(li[1]);
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: prefix, font: 'Times New Roman', size: 22 }),
+                  ...itemRuns,
+                ],
+                indent: { left: 360 },
+                spacing: { after: 80 },
+              }),
+            );
+          });
+        } else if (tag === 'blockquote') {
+          paragraphs.push(
+            new Paragraph({
+              children: parseInline(inner),
+              indent: { left: 720 },
+              spacing: { after: 120 },
+              alignment: AlignmentType.JUSTIFIED,
+            }),
+          );
+        } else {
+          // <p> or fallback
+          const runs = parseInline(inner);
+          // Skip totally empty paragraphs
+          const hasText = runs.some((r) => (r as any).options?.text?.trim?.());
+          paragraphs.push(
+            new Paragraph({
+              children: runs,
+              spacing: { after: hasText ? 120 : 80 },
+              alignment: AlignmentType.JUSTIFIED,
+            }),
+          );
         }
       }
 
