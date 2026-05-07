@@ -68,7 +68,13 @@ interface SessionRecorderProps {
   onActiveStateChange?: (isActive: boolean) => void;
 }
 
-const SLICE_SECONDS = 60;
+// 20-second slices give the live preview a fresh update roughly every
+// ~22 seconds (slice + Whisper round-trip), which is responsive enough
+// to feel "live" while keeping Whisper API cost at ~3x the old 60s
+// behavior. Whisper accuracy is unaffected at this length — well above
+// its practical 5s minimum — and chunk-boundary continuity is preserved
+// because each chunk is sent with the previous chunk's text as context.
+const SLICE_SECONDS = 20;
 // Max-duration cap: warn at 1h45m, auto-pause at 2h. Therapist may extend.
 const WARN_AT_SECONDS = 105 * 60;
 const MAX_AT_SECONDS = 120 * 60;
