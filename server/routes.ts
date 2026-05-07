@@ -7176,36 +7176,47 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const maxIndex = Math.min(rawMaxIndex, MAX_CHUNK_INDEX);
         let cumulative = 0;
         const stitchedPieces: string[] = [];
+        const labeledPieces: string[] = [];
+        // The SmartHub recorder is always operated by a therapist on their
+        // own device, so every spoken chunk is the therapist by definition.
+        // We label directly here at stitch-time and skip the GPT-4o
+        // diarization pass entirely — that second AI pass was rephrasing /
+        // dropping content. System markers (gaps, silence) stay unlabeled
+        // on their own line.
+        const SOLO_LABEL = 'Therapist:';
         for (let i = 0; i <= maxIndex; i++) {
           const stored = chunksMap[String(i)];
+          const ts = `[${fmtHHMMSS(cumulative)}]`;
           if (stored) {
             const text = (stored.text || '').trim();
             const dur = Number(stored.durationSeconds) || 0;
             if (text.length > 0) {
-              stitchedPieces.push(`[${fmtHHMMSS(cumulative)}]\n${text}`);
+              stitchedPieces.push(`${ts}\n${text}`);
+              labeledPieces.push(`${ts}\n${SOLO_LABEL} ${text}`);
             } else {
               // Whisper returned empty → unintelligible audio. Mark it.
-              stitchedPieces.push(
-                `[${fmtHHMMSS(cumulative)}]\n[GAP IN RECORDING ~${Math.round(dur)}s — audio was unintelligible]`,
-              );
+              const marker = `[GAP IN RECORDING ~${Math.round(dur)}s — audio was unintelligible]`;
+              stitchedPieces.push(`${ts}\n${marker}`);
+              labeledPieces.push(`${ts}\n${marker}`);
             }
             cumulative += dur;
           } else if (silentMap.has(i)) {
             const dur = silentMap.get(i) || 0;
-            stitchedPieces.push(
-              `[${fmtHHMMSS(cumulative)}]\n[silence ~${Math.round(dur)}s — microphone was muted or no speech]`,
-            );
+            const marker = `[silence ~${Math.round(dur)}s — microphone was muted or no speech]`;
+            stitchedPieces.push(`${ts}\n${marker}`);
+            labeledPieces.push(`${ts}\n${marker}`);
             cumulative += dur;
           } else {
             // Upload never arrived. Estimate ~60s (one slice) since we don't
             // know the real duration.
-            stitchedPieces.push(
-              `[${fmtHHMMSS(cumulative)}]\n[GAP IN RECORDING — chunk ${i} failed to upload, content is missing]`,
-            );
+            const marker = `[GAP IN RECORDING — chunk ${i} failed to upload, content is missing]`;
+            stitchedPieces.push(`${ts}\n${marker}`);
+            labeledPieces.push(`${ts}\n${marker}`);
             cumulative += 60;
           }
         }
         const rawTranscript = stitchedPieces.join('\n').trim();
+        const directlyLabeledTranscript = labeledPieces.join('\n\n').trim();
         const totalDurationSeconds = cumulative;
         const wordCount = rawTranscript
           ? rawTranscript.replace(/\[\d{2}:\d{2}:\d{2}\]/g, '').trim().split(/\s+/).filter(Boolean).length
@@ -7232,23 +7243,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
           status: 'processing',
         });
 
-        // Diarize (speaker labels) — long-running.
-        // Phase 2: skip diarization for very short transcripts (< 20 words);
-        // GPT-4o adds latency/cost with little value when there's almost
-        // nothing to label. The viewer's raw/labeled toggle still works
-        // because rawContent is always populated.
-        const DIARIZE_MIN_WORDS = 20;
-        let labeledContent = rawTranscript;
-        if (wordCount >= DIARIZE_MIN_WORDS) {
-          try {
-            const { diarizeSessionTranscript } = await import('./ai/openai');
-            labeledContent = await diarizeSessionTranscript(rawTranscript);
-          } catch (err: any) {
-            console.error('[SessionTranscript] Diarization failed, keeping raw:', err);
-          }
-        } else {
-          console.log(`[SessionTranscript] Skipping diarization for short transcript (${wordCount} words)`);
-        }
+        // Direct labelling — no GPT-4o pass. The labeled transcript is built
+        // straight from the Whisper chunks above with "Therapist:" prefixed
+        // to each spoken turn. This eliminates the second-AI-pass data loss
+        // the user reported (rephrasing, dropped lines, merged turns) and
+        // makes Stop → Save effectively instant.
+        // If we later need real two-speaker diarization for actual sessions
+        // with a client present, the right tool is Deepgram's audio-based
+        // speaker diarization, not a text LLM.
+        const labeledContent = directlyLabeledTranscript;
 
         // Atomic: mark this row 'ready' AND remove any other (older) transcript
         // rows for the same session in a single transaction. The user is never
