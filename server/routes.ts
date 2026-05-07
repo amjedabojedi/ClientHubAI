@@ -7478,7 +7478,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         subtitle: 'Licensed Mental Health Practice',
         address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
         phone: '+1 (548)866-0366',
-        email: 'resiliencecrc@gmail.com',
+        email: 'mail@resiliencec.com',
         website: 'www.resiliencec.com'
       };
       
@@ -9348,7 +9348,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         subtitle: 'Licensed Mental Health Practice',
         address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
         phone: '+1 (548)866-0366',
-        email: 'resiliencecrc@gmail.com',
+        email: 'mail@resiliencec.com',
         website: 'www.resiliencec.com'
       };
       
@@ -9441,7 +9441,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         name: 'Resilience Counseling Research & Consultation',
         address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
         phone: '+1 (548)866-0366',
-        email: 'resiliencecrc@gmail.com',
+        email: 'mail@resiliencec.com',
         website: 'www.resiliencec.com'
       };
       
@@ -14467,7 +14467,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         name: 'Resilience Counseling Research & Consultation',
         address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
         phone: '+1 (548)866-0366',
-        email: 'resiliencecrc@gmail.com',
+        email: 'mail@resiliencec.com',
         website: 'www.resiliencec.com'
       };
       
@@ -15680,7 +15680,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         name: 'Resilience Counseling Research & Consultation',
         address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
         phone: '+1 (548)866-0366',
-        email: 'resiliencecrc@gmail.com',
+        email: 'mail@resiliencec.com',
         website: 'www.resiliencec.com'
       };
 
