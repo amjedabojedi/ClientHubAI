@@ -7070,7 +7070,21 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       try {
         const sessionId = parseInt(req.params.sessionId);
-        const { uploadId, totalChunks, expectedChunks } = req.body || {};
+        const { uploadId, totalChunks, expectedChunks, silentChunks } = req.body || {};
+        // Indices the client marked as truly silent (mic muted/unplugged).
+        // They don't have a server-side row but DO count against expectedChunks
+        // and produce a `[silence ~Xs]` marker in the stitched transcript so
+        // downstream LLMs see the gap instead of inventing content over it.
+        const silentMap = new Map<number, number>();
+        if (Array.isArray(silentChunks)) {
+          for (const s of silentChunks) {
+            const idx = Number(s?.index);
+            const dur = Number(s?.durationSeconds);
+            if (Number.isFinite(idx) && idx >= 0) {
+              silentMap.set(idx, Number.isFinite(dur) && dur > 0 ? dur : 0);
+            }
+          }
+        }
         if (isNaN(sessionId) || !uploadId) {
           return res.status(400).json({ message: "sessionId and uploadId required" });
         }
@@ -7099,25 +7113,38 @@ You can download a copy if you have it saved locally and re-upload it.`;
         }
 
         const chunksMap = (upload.chunks as Record<string, { text: string; durationSeconds: number }> | null) || {};
-        const indices = Object.keys(chunksMap).map((k) => parseInt(k, 10)).sort((a, b) => a - b);
-        const chunksReceived = indices.length;
+        const uploadedIndices = Object.keys(chunksMap).map((k) => parseInt(k, 10)).sort((a, b) => a - b);
+        const chunksReceived = uploadedIndices.length;
+        // Total accounted for = uploaded chunks + client-marked silent chunks.
+        // We need this for the missing-chunk safety check below; otherwise
+        // every silent chunk would look like a "missing" chunk and block save.
+        const accountedFor = chunksReceived + silentMap.size;
 
-        // Block finalize if any expected chunks are missing (data-loss safety)
+        // Block finalize if any expected chunks are missing (data-loss safety).
+        // Silent chunks count as accounted-for: the client decided to skip
+        // Whisper for them but they DID happen and will get a `[silence ~Xs]`
+        // marker in the transcript.
         const expected = Number(expectedChunks ?? totalChunks);
         if (Number.isFinite(expected) && expected > 0) {
-          if (chunksReceived < expected) {
+          if (accountedFor < expected) {
             return res.status(409).json({
-              message: `Cannot finalize: only ${chunksReceived} of ${expected} chunks were transcribed successfully. Retry the missing chunks before saving.`,
-              chunksReceived,
+              message: `Cannot finalize: only ${accountedFor} of ${expected} chunks were accounted for. Retry the missing chunks before saving.`,
+              chunksReceived: accountedFor,
               chunksExpected: expected,
             });
           }
         }
 
         // Stitch chunks in order with chunk-boundary [hh:mm:ss] markers.
-        // Each non-empty chunk gets a header timestamp = cumulative seconds
-        // BEFORE that chunk. Silent / dropped chunks have already been
-        // skipped client-side, so offsets reflect what was actually captured.
+        // We iterate the FULL index range [0..maxIndex] so we can detect three
+        // distinct cases at every position and surface them to the LLM:
+        //   (1) chunk uploaded with text  → emit text under [hh:mm:ss] header
+        //   (2) chunk uploaded but empty  → `[GAP IN RECORDING ~Xs — unintelligible]`
+        //   (3) chunk in silentMap        → `[silence ~Xs]`
+        //   (4) chunk index entirely missing → `[GAP IN RECORDING — chunk N missing]`
+        // Without these markers the AI would silently glue disconnected
+        // segments together and hallucinate transitions, which is the user's
+        // "scenario mixing" complaint.
         const fmtHHMMSS = (totalSec: number): string => {
           const s = Math.max(0, Math.floor(totalSec));
           const h = Math.floor(s / 3600);
@@ -7126,17 +7153,47 @@ You can download a copy if you have it saved locally and re-upload it.`;
           const pad = (n: number) => String(n).padStart(2, '0');
           return `${pad(h)}:${pad(m)}:${pad(sec)}`;
         };
+        // Hard cap: 2-hour recording at 60s slices = 120 chunks. We allow up
+        // to 500 to leave headroom for any future timeslice changes / overruns.
+        // Without this cap a malicious or buggy client could send `silentChunks`
+        // with index: 1_000_000 and we'd loop a million times, OOM the process.
+        const MAX_CHUNK_INDEX = 500;
+        const rawMaxIndex = Math.max(
+          uploadedIndices.length > 0 ? uploadedIndices[uploadedIndices.length - 1] : -1,
+          silentMap.size > 0 ? Math.max(...Array.from(silentMap.keys())) : -1,
+          Number.isFinite(expected) && expected > 0 ? expected - 1 : -1,
+        );
+        const maxIndex = Math.min(rawMaxIndex, MAX_CHUNK_INDEX);
         let cumulative = 0;
         const stitchedPieces: string[] = [];
-        for (const i of indices) {
-          const text = (chunksMap[String(i)]?.text || '').trim();
-          const dur = Number(chunksMap[String(i)]?.durationSeconds) || 0;
-          if (text.length > 0) {
-            // Marker on its own line so the diarization prompt can preserve
-            // it verbatim before the speaker turn that follows.
-            stitchedPieces.push(`[${fmtHHMMSS(cumulative)}]\n${text}`);
+        for (let i = 0; i <= maxIndex; i++) {
+          const stored = chunksMap[String(i)];
+          if (stored) {
+            const text = (stored.text || '').trim();
+            const dur = Number(stored.durationSeconds) || 0;
+            if (text.length > 0) {
+              stitchedPieces.push(`[${fmtHHMMSS(cumulative)}]\n${text}`);
+            } else {
+              // Whisper returned empty → unintelligible audio. Mark it.
+              stitchedPieces.push(
+                `[${fmtHHMMSS(cumulative)}]\n[GAP IN RECORDING ~${Math.round(dur)}s — audio was unintelligible]`,
+              );
+            }
+            cumulative += dur;
+          } else if (silentMap.has(i)) {
+            const dur = silentMap.get(i) || 0;
+            stitchedPieces.push(
+              `[${fmtHHMMSS(cumulative)}]\n[silence ~${Math.round(dur)}s — microphone was muted or no speech]`,
+            );
+            cumulative += dur;
+          } else {
+            // Upload never arrived. Estimate ~60s (one slice) since we don't
+            // know the real duration.
+            stitchedPieces.push(
+              `[${fmtHHMMSS(cumulative)}]\n[GAP IN RECORDING — chunk ${i} failed to upload, content is missing]`,
+            );
+            cumulative += 60;
           }
-          cumulative += dur;
         }
         const rawTranscript = stitchedPieces.join('\n').trim();
         const totalDurationSeconds = cumulative;

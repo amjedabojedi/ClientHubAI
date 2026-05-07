@@ -65,9 +65,13 @@ const SLICE_SECONDS = 60;
 // Max-duration cap: warn at 1h45m, auto-pause at 2h. Therapist may extend.
 const WARN_AT_SECONDS = 105 * 60;
 const MAX_AT_SECONDS = 120 * 60;
-// Below this peak RMS, a 60s segment is considered silent and skipped to save Whisper cost.
-// 0.005 ≈ -46 dBFS; quiet room noise is usually higher, intentional silence (mute, away) is lower.
-const SILENCE_RMS_THRESHOLD = 0.005;
+// Below this peak RMS, a 60s segment is considered TRULY silent (mic muted /
+// unplugged) and skipped to save Whisper cost AND to avoid Whisper hallucinating
+// random phrases on pure silence. Threshold is intentionally very strict: we
+// previously used 0.005 (~-46 dBFS) which dropped quiet-but-real conversation
+// (soft-spoken clients, distant mic). 0.0008 (~-62 dBFS) only drops near-digital
+// silence — anything a human ear could hear is preserved.
+const SILENCE_RMS_THRESHOLD = 0.0008;
 
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -120,6 +124,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const failedChunksRef = useRef<
     Map<number, { blob: Blob; durationSec: number; mime: string }>
   >(new Map());
+  // Indices of chunks that were skipped client-side because they were truly
+  // silent (mic muted/unplugged). We send these to /transcribe-finalize so the
+  // server can insert a `[silence ~Xs]` marker in the stitched transcript at
+  // the right position — preventing the LLM from inventing content over gaps.
+  const silentChunksRef = useRef<Map<number, number>>(new Map());
   // Resolved when the most-recently-stopped recorder's onstop has run.
   // Lets handleStop() guarantee the final segment's upload is enqueued
   // before we await the upload queue.
@@ -373,10 +382,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
 
       if (segmentBlob.size > 0) {
         if (wasSilent) {
-          // Drop the audio, don't bump chunkIndex — the next non-silent
-          // segment uses the next index. expectedChunks math (computed at
-          // finalize from chunksSent) stays consistent because we also
-          // don't increment chunksSent here.
+          // Truly-silent segment (mic muted / unplugged). We still bump the
+          // chunkIndex AND record the index + duration so the finalize step
+          // can insert a `[silence ~Xs]` marker in the right position. This
+          // keeps the LLM from hallucinating across silence gaps.
+          const idx = chunkIndexRef.current++;
+          silentChunksRef.current.set(idx, segmentDurationSec);
           setSilentSkipped((c) => c + 1);
         } else {
           const idx = chunkIndexRef.current++;
@@ -553,6 +564,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       stoppingRef.current = false;
       isPausedRef.current = false;
       failedChunksRef.current = new Map();
+      silentChunksRef.current = new Map();
+      setSilentSkipped(0);
       setFailedChunks([]);
       setRetryingChunks(new Set());
       uploadQueueRef.current = Promise.resolve();
@@ -686,6 +699,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           uploadId: uploadIdRef.current,
           totalChunks: chunkIndexRef.current,
           expectedChunks: chunkIndexRef.current,
+          // Tell the server which indices were truly silent so it can insert
+          // `[silence ~Xs]` markers in the right position instead of silently
+          // gluing chunks across the gap (which made the LLM hallucinate).
+          silentChunks: Array.from(silentChunksRef.current.entries()).map(
+            ([index, durationSeconds]) => ({ index, durationSeconds }),
+          ),
         }),
       });
       if (!res.ok) {
@@ -738,7 +757,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   }, [sessionId, refetchTranscript, toast]);
 
   const isActive = status === "recording" || status === "paused";
-  const uploadProgress = chunksSent > 0 ? Math.round((chunksUploaded / chunksSent) * 100) : 0;
+  // Denominator includes silent chunks so the bar reflects the true timeline:
+  // a session with 3 uploaded + 2 silent chunks shows 5 total (not 3).
+  const totalChunksCaptured = chunksSent + silentSkipped;
+  const uploadProgress =
+    totalChunksCaptured > 0
+      ? Math.round(((chunksUploaded + silentSkipped) / totalChunksCaptured) * 100)
+      : 0;
 
   return (
     <Card data-testid="session-recorder" className="border-2">
@@ -863,15 +888,6 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                 <span className="flex items-center gap-1">
                   <Mic className="h-3 w-3" /> Mic level
                 </span>
-                {silentSkipped > 0 && (
-                  <span
-                    className="flex items-center gap-1 text-amber-600 dark:text-amber-400"
-                    data-testid="text-silent-skipped"
-                  >
-                    <VolumeX className="h-3 w-3" />
-                    {silentSkipped} silent chunk{silentSkipped === 1 ? "" : "s"} skipped
-                  </span>
-                )}
               </div>
               <div className="h-2 w-full rounded bg-muted overflow-hidden">
                 <div
@@ -888,15 +904,50 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               </div>
             </div>
 
-            {chunksSent > 0 && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>
-                    Chunks transcribed: {chunksUploaded} / {chunksSent}
+            {(chunksSent > 0 || silentSkipped > 0) && (
+              <div
+                className={`rounded-md border p-2 space-y-1 ${
+                  failedChunks.length > 0
+                    ? "border-destructive bg-destructive/10"
+                    : chunksUploaded < chunksSent /* uploads still in flight */
+                      ? "border-amber-500/60 bg-amber-50 dark:bg-amber-950/30"
+                      : "border-border bg-muted/30"
+                }`}
+                data-testid="recorder-capture-status"
+              >
+                <div className="flex justify-between text-xs">
+                  <span
+                    className={`font-medium ${
+                      failedChunks.length > 0
+                        ? "text-destructive"
+                        : "text-foreground"
+                    }`}
+                  >
+                    Captured: {chunksUploaded + silentSkipped} / {totalChunksCaptured} chunks
                   </span>
-                  <span>{uploadProgress}%</span>
+                  <span className="text-muted-foreground">{uploadProgress}%</span>
                 </div>
                 <Progress value={uploadProgress} className="h-2" />
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground pt-0.5">
+                  {failedChunks.length > 0 && (
+                    <span
+                      className="text-destructive font-medium"
+                      data-testid="text-failed-chunks"
+                    >
+                      <AlertCircle className="inline h-3 w-3 mr-0.5" />
+                      {failedChunks.length} failed — retry below
+                    </span>
+                  )}
+                  {silentSkipped > 0 && (
+                    <span
+                      className="flex items-center gap-1 text-amber-600 dark:text-amber-400"
+                      data-testid="text-silent-skipped"
+                    >
+                      <VolumeX className="h-3 w-3" />
+                      {silentSkipped} silent gap{silentSkipped === 1 ? "" : "s"} (mic muted)
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
