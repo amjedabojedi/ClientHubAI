@@ -73,6 +73,10 @@ const MAX_AT_SECONDS = 120 * 60;
 // silence — anything a human ear could hear is preserved.
 const SILENCE_RMS_THRESHOLD = 0.0008;
 
+function recoveryStorageKey(sessionId: number): string {
+  return `smarthub.session-recorder.recovery.v1.${sessionId}`;
+}
+
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
@@ -99,6 +103,19 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [audioLevel, setAudioLevel] = useState(0); // 0..1, smoothed RMS for the meter
   const [silentSkipped, setSilentSkipped] = useState(0);
+  // Network reliability state: surfaces a banner when the browser goes
+  // offline OR when no chunk has uploaded successfully in > 90s while
+  // recording (likely a slow / dropping connection).
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
+  const [uploadStalled, setUploadStalled] = useState(false);
+  const lastUploadAtRef = useRef<number>(0);
+  // Recovery state: if a previous recording for THIS session was started but
+  // never finalized (page crash, tab close), we can offer to save what the
+  // server already received instead of losing it.
+  const [recoverableUploadId, setRecoverableUploadId] = useState<string | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
   // Phase 3: Screen-share-safe preview. When on, the live previewText is
   // replaced by a generic message so a therapist screen-sharing SmartHub
   // during a session does not show the client their own transcribed words.
@@ -195,6 +212,111 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Network reliability: track browser online/offline so we can warn the
+  // therapist immediately if uploads will start failing.
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => {
+      setIsOnline(false);
+      if (recordingInProgress) {
+        toast({
+          title: "Internet connection lost",
+          description:
+            "Recording continues, but chunks will fail to upload until you're back online. They will retry automatically.",
+          variant: "destructive",
+        });
+      }
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingInProgress]);
+
+  // Stalled-upload watchdog: while actively recording, if no chunk has
+  // uploaded successfully in > 90s, surface a clear "uploads stalled" warning.
+  // 90s = one missed slice + a full retry cycle. This catches dead-but-not-
+  // offline networks (captive portals, bad VPN, transparent proxy issues).
+  useEffect(() => {
+    if (status !== "recording") {
+      setUploadStalled(false);
+      return;
+    }
+    const timer = setInterval(() => {
+      const now = Date.now();
+      if (
+        chunkIndexRef.current > 0 &&
+        lastUploadAtRef.current > 0 &&
+        now - lastUploadAtRef.current > 90_000
+      ) {
+        setUploadStalled(true);
+      }
+    }, 5_000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  // Recovery detection: on mount, if there's a stored uploadId for THIS
+  // session that was never finalized, offer to recover what the server
+  // already has. Only show if there's no current ready transcript.
+  useEffect(() => {
+    if (status !== "idle") return;
+    if (existingTranscript && existingTranscript.status === "ready") return;
+    try {
+      const raw = localStorage.getItem(recoveryStorageKey(sessionId));
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.uploadId) {
+        setRecoverableUploadId(String(parsed.uploadId));
+      }
+    } catch {}
+  }, [sessionId, status, existingTranscript]);
+
+  const handleRecover = useCallback(async () => {
+    if (!recoverableUploadId) return;
+    setIsRecovering(true);
+    try {
+      const csrfToken = getCsrfToken();
+      // Finalize without expectedChunks — server will save whatever it has.
+      const res = await fetch(`/api/sessions/${sessionId}/transcribe-finalize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({ uploadId: recoverableUploadId }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t.slice(0, 300));
+      }
+      try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      setRecoverableUploadId(null);
+      toast({
+        title: "Previous recording recovered",
+        description: "Saved everything the server received before the interruption.",
+      });
+      qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      await refetchTranscript();
+    } catch (err: any) {
+      toast({
+        title: "Recovery failed",
+        description: err.message || "Could not recover the previous recording.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecovering(false);
+    }
+  }, [recoverableUploadId, sessionId, refetchTranscript, toast]);
+
+  const handleDiscardRecovery = useCallback(() => {
+    try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+    setRecoverableUploadId(null);
+  }, [sessionId]);
 
   // Enumerate audio input devices on mount and whenever the OS reports a
   // device change (e.g. plugging in a headset). Labels are usually empty
@@ -352,7 +474,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         : "audio/mp4";
     mimeTypeRef.current = supportedMime;
 
-    const recorder = new MediaRecorder(stream, { mimeType: supportedMime });
+    // 128 kbps Opus is "broadcast quality" for speech and well above the
+    // bitrate Whisper actually needs — gives us headroom for soft talkers,
+    // accents, and any background ambience.
+    const recorder = new MediaRecorder(stream, {
+      mimeType: supportedMime,
+      audioBitsPerSecond: 128_000,
+    });
     segmentBuffersRef.current = [];
     segmentStartRef.current = Date.now();
 
@@ -452,6 +580,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         failedChunksRef.current.delete(index);
         setFailedChunks((prev) => prev.filter((i) => i !== index));
         setChunksUploaded((c) => c + 1);
+        // Reset the stall watchdog — uploads are flowing.
+        lastUploadAtRef.current = Date.now();
+        setUploadStalled(false);
         if (data.chunkText) {
           setPreviewText((prev) => (prev ? prev + " " : "") + data.chunkText);
         }
@@ -528,8 +659,15 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100,
-        },
+          autoGainControl: true,
+          // Whisper internally resamples to 16 kHz mono, but we capture at
+          // 48 kHz mono for the cleanest possible source — matches what most
+          // professional audio formats use and is what Opus encodes natively.
+          // Use `ideal` so Safari / older mobile browsers fall back to their
+          // native rate instead of throwing OverconstrainedError.
+          sampleRate: { ideal: 48000 },
+          channelCount: { ideal: 1 },
+        } as MediaTrackConstraints,
       });
       streamRef.current = stream;
       // Phase 3: server mints the uploadId. We never trust a client-generated
@@ -560,6 +698,19 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         streamRef.current = null;
         throw new Error("Server did not return an uploadId");
       }
+      // Persist the uploadId so a tab crash / accidental refresh doesn't
+      // orphan whatever the server already received. handleStop / delete
+      // clear this; on mount we look it up and offer "Recover unsaved
+      // recording" so therapists can save what's there instead of losing it.
+      try {
+        localStorage.setItem(
+          recoveryStorageKey(sessionId),
+          JSON.stringify({ uploadId: uploadIdRef.current, startedAt: Date.now() }),
+        );
+      } catch {}
+      lastUploadAtRef.current = Date.now();
+      setUploadStalled(false);
+      setRecoverableUploadId(null);
       chunkIndexRef.current = 0;
       stoppingRef.current = false;
       isPausedRef.current = false;
@@ -715,6 +866,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         title: "Transcript saved",
         description: "Speaker-labeled transcript is ready.",
       });
+      try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      setRecoverableUploadId(null);
       setStatus("idle");
       setElapsed(0);
       setChunksSent(0);
@@ -744,6 +897,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
       });
       if (!res.ok) throw new Error(await res.text());
+      try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      setRecoverableUploadId(null);
       toast({ title: "Transcript deleted" });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
       await refetchTranscript();
@@ -788,6 +943,64 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Reliability banners — must surface BEFORE controls so therapist sees them */}
+        {!isOnline && (
+          <Alert variant="destructive" data-testid="alert-offline">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You're offline. Recording will keep capturing audio but chunks
+              cannot upload until your connection returns. Don't refresh the
+              page — chunks will retry automatically.
+            </AlertDescription>
+          </Alert>
+        )}
+        {uploadStalled && isOnline && (
+          <Alert variant="destructive" data-testid="alert-stalled">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Uploads have stalled for over 90 seconds. Your connection may be
+              slow or blocked. Check the network — chunks will keep retrying.
+            </AlertDescription>
+          </Alert>
+        )}
+        {recoverableUploadId && status === "idle" && (
+          <Alert data-testid="alert-recovery">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex flex-col gap-2">
+              <span>
+                A previous recording for this session was not saved. We can
+                recover everything the server received before the interruption.
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  data-testid="button-recover-recording"
+                  onClick={handleRecover}
+                  disabled={isRecovering}
+                >
+                  {isRecovering ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <RotateCw className="h-3 w-3 mr-1" />
+                  )}
+                  Recover & save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-testid="button-discard-recovery"
+                  onClick={handleDiscardRecovery}
+                  disabled={isRecovering}
+                >
+                  Discard
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Recording controls */}
         {!existingTranscript && status === "idle" && (
           <div className="flex flex-col items-center gap-3 py-2">
