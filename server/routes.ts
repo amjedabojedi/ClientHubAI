@@ -1356,6 +1356,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             clientName: client.fullName,
             fullName: client.fullName,
             clientId: client.id,
+            // The recipient calculator looks up the assigned therapist via
+            // `therapistId`/`assignedToId`. Provide both so the email
+            // actually reaches the therapist.
+            therapistId: client.assignedTherapistId,
+            assignedToId: client.assignedTherapistId,
             therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
@@ -1481,6 +1486,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             clientName: client.fullName,
             fullName: client.fullName,
             clientId: client.id,
+            // Required so the recipient calculator selects the therapist.
+            therapistId: client.assignedTherapistId,
+            assignedToId: client.assignedTherapistId,
+            therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
             referenceNumber: client.referenceNumber,
@@ -2530,6 +2539,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               clientName: updated.fullName,
               fullName: updated.fullName,
               clientId: updated.id,
+              // Required so the recipient calculator selects the therapist.
+              therapistId: therapistId,
+              assignedToId: therapistId,
               therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
               assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
               assignedTherapistId: therapistId,
