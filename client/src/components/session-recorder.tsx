@@ -28,9 +28,16 @@ import {
   Tag,
   FileText,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient as qc, getCsrfToken } from "@/lib/queryClient";
+import {
+  putFailedChunk,
+  deleteFailedChunk,
+  listFailedChunksForUpload,
+  clearFailedChunksForUpload,
+} from "@/lib/recording-blob-store";
 
 type SessionTranscript = {
   id: number;
@@ -101,6 +108,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   // Phase 2 UX state
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+  const [translateToEnglish, setTranslateToEnglish] = useState<boolean>(false);
   const [audioLevel, setAudioLevel] = useState(0); // 0..1, smoothed RMS for the meter
   const [silentSkipped, setSilentSkipped] = useState(0);
   // Network reliability state: surfaces a banner when the browser goes
@@ -265,14 +273,33 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   useEffect(() => {
     if (status !== "idle") return;
     if (existingTranscript && existingTranscript.status === "ready") return;
-    try {
-      const raw = localStorage.getItem(recoveryStorageKey(sessionId));
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed?.uploadId) {
-        setRecoverableUploadId(String(parsed.uploadId));
-      }
-    } catch {}
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = localStorage.getItem(recoveryStorageKey(sessionId));
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const uploadId = parsed?.uploadId ? String(parsed.uploadId) : "";
+        if (!uploadId) return;
+        if (cancelled) return;
+        setRecoverableUploadId(uploadId);
+        // Rehydrate any failed-chunk audio from IndexedDB so the per-chunk
+        // Retry buttons reappear after a refresh — the user can re-send the
+        // actual audio before saving instead of losing those chunks.
+        const stored = await listFailedChunksForUpload(uploadId);
+        if (cancelled || stored.length === 0) return;
+        uploadIdRef.current = uploadId;
+        const map = failedChunksRef.current;
+        for (const e of stored) {
+          map.set(e.index, { blob: e.blob, durationSec: e.durationSec, mime: e.mime });
+        }
+        const indices = stored.map((e) => e.index).sort((a, b) => a - b);
+        setFailedChunks(indices);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId, status, existingTranscript]);
 
   const handleRecover = useCallback(async () => {
@@ -295,7 +322,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         throw new Error(t.slice(0, 300));
       }
       try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      void clearFailedChunksForUpload(recoverableUploadId);
       setRecoverableUploadId(null);
+      failedChunksRef.current = new Map();
+      setFailedChunks([]);
       toast({
         title: "Previous recording recovered",
         description: "Saved everything the server received before the interruption.",
@@ -315,8 +345,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
 
   const handleDiscardRecovery = useCallback(() => {
     try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+    if (recoverableUploadId) {
+      void clearFailedChunksForUpload(recoverableUploadId);
+    }
+    failedChunksRef.current = new Map();
+    setFailedChunks([]);
     setRecoverableUploadId(null);
-  }, [sessionId]);
+  }, [sessionId, recoverableUploadId]);
 
   // Enumerate audio input devices on mount and whenever the OS reports a
   // device change (e.g. plugging in a headset). Labels are usually empty
@@ -579,6 +614,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         const data = await res.json();
         failedChunksRef.current.delete(index);
         setFailedChunks((prev) => prev.filter((i) => i !== index));
+        // Drop the IDB-persisted backup too — chunk is safely on the server.
+        if (uploadIdRef.current) {
+          void deleteFailedChunk(uploadIdRef.current, index);
+        }
         setChunksUploaded((c) => c + 1);
         // Reset the stall watchdog — uploads are flowing.
         lastUploadAtRef.current = Date.now();
@@ -592,6 +631,18 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         if (attempt === maxAttempts) {
           // Keep the audio Blob so the user can retry this exact chunk.
           failedChunksRef.current.set(index, { blob, durationSec, mime });
+          // Mirror to IndexedDB so a tab refresh doesn't lose the audio —
+          // the user can rehydrate retry buttons via the recovery banner.
+          if (uploadIdRef.current) {
+            void putFailedChunk({
+              uploadId: uploadIdRef.current,
+              sessionId,
+              index,
+              durationSec,
+              mime,
+              blob,
+            });
+          }
           setFailedChunks((prev) =>
             prev.includes(index) ? prev : [...prev, index].sort((a, b) => a - b),
           );
@@ -682,7 +733,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({ language: language || "auto" }),
+        body: JSON.stringify({
+          language: language || "auto",
+          translateToEnglish,
+        }),
       });
       if (!startRes.ok) {
         const t = await startRes.text();
@@ -867,6 +921,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         description: "Speaker-labeled transcript is ready.",
       });
       try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      if (uploadIdRef.current) {
+        void clearFailedChunksForUpload(uploadIdRef.current);
+      }
       setRecoverableUploadId(null);
       setStatus("idle");
       setElapsed(0);
@@ -898,6 +955,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       });
       if (!res.ok) throw new Error(await res.text());
       try { localStorage.removeItem(recoveryStorageKey(sessionId)); } catch {}
+      if (uploadIdRef.current) {
+        void clearFailedChunksForUpload(uploadIdRef.current);
+      }
       setRecoverableUploadId(null);
       toast({ title: "Transcript deleted" });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
@@ -1027,6 +1087,28 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                 </Select>
               </div>
             )}
+            <div className="w-full max-w-md flex items-start justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2">
+              <div className="space-y-0.5">
+                <label
+                  htmlFor="translate-to-english"
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Translate to English
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  For multilingual sessions. Transcript and AI notes will be in
+                  English regardless of the spoken language. Cannot be changed
+                  mid-recording.
+                </p>
+              </div>
+              <Switch
+                id="translate-to-english"
+                checked={translateToEnglish}
+                onCheckedChange={setTranslateToEnglish}
+                disabled={status !== "idle"}
+                data-testid="switch-translate-to-english"
+              />
+            </div>
             <Button
               type="button"
               data-testid="button-start-recording"

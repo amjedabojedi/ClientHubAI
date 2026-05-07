@@ -6903,6 +6903,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // calling user + session in the persisted transcript row.
         const uploadId = `srv-${crypto.randomBytes(16).toString('hex')}`;
         const language = (req.body && typeof req.body.language === 'string') ? req.body.language : 'auto';
+        const translateToEnglish = !!(req.body && req.body.translateToEnglish === true);
 
         const upload = await storage.createSessionTranscript({
           sessionId,
@@ -6911,7 +6912,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           content: '',
           rawContent: null,
           language,
-          translatedToEnglish: false,
+          translatedToEnglish: translateToEnglish,
           durationSeconds: 0,
           chunkCount: 0,
           wordCount: 0,
@@ -7035,7 +7036,16 @@ You can download a copy if you have it saved locally and re-upload it.`;
         let chunkText = '';
         try {
           const { transcribeSessionChunk } = await import('./ai/openai');
-          chunkText = await transcribeSessionChunk(req.file.buffer, fileName, language, previousChunkText);
+          // Use the translateToEnglish flag stored on the upload row (set on
+          // transcribe-start) so all chunks of a recording share the same
+          // setting — the client can't switch mid-recording.
+          chunkText = await transcribeSessionChunk(
+            req.file.buffer,
+            fileName,
+            language,
+            previousChunkText,
+            !!upload.translatedToEnglish,
+          );
         } catch (err: any) {
           console.error('[SessionTranscript] Chunk transcription error:', err);
           return res.status(500).json({ message: `Chunk transcription failed: ${err.message || 'Unknown'}` });

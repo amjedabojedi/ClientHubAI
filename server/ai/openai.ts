@@ -1311,6 +1311,7 @@ export async function transcribeSessionChunk(
   fileName: string,
   language?: string,
   previousText?: string,
+  translateToEnglish?: boolean,
 ): Promise<string> {
   const whisper = getWhisperClient();
   const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
@@ -1347,6 +1348,15 @@ export async function transcribeSessionChunk(
     temperature: 0,
     prompt: fullPrompt,
   };
+  // Translation mode: send to Whisper's translations endpoint, which always
+  // returns English regardless of the spoken language. Used for multilingual
+  // sessions where the therapist needs an English transcript for the AI
+  // notes pipeline. The translations endpoint does NOT accept `language`.
+  if (translateToEnglish) {
+    const translation = await whisper.audio.translations.create(params);
+    const raw = (translation as unknown as string) || '';
+    return sanitizeWhisperHallucinations(raw);
+  }
   if (language && language !== 'auto') {
     params.language = language;
   }
