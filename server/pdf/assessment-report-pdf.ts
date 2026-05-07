@@ -414,7 +414,6 @@ export function generateAssessmentReportHTML(
 
       <!-- Footer -->
       <div class="footer">
-        <p>This report was generated electronically and is valid without a physical signature.</p>
         <p>${practiceSettings.name} | ${practiceSettings.phone} | ${practiceSettings.email}</p>
       </div>
     </body>

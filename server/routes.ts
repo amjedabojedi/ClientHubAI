@@ -9608,11 +9608,6 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Footer
       paragraphs.push(new Paragraph({ text: "", spacing: { after: 400 } }));
       paragraphs.push(new Paragraph({
-        children: [new TextRun({ text: "This report was generated electronically and is valid without a physical signature.", size: 20, color: "9ca3af" })],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 100 }
-      }));
-      paragraphs.push(new Paragraph({
         children: [new TextRun({ text: `${practiceSettings.name} | ${practiceSettings.phone} | ${practiceSettings.email}`, size: 20, color: "9ca3af" })],
         alignment: AlignmentType.CENTER
       }));
