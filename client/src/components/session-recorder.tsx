@@ -132,9 +132,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const segmentBuffersRef = useRef<Blob[]>([]);
   const segmentStartRef = useRef<number>(0);
-  const sliceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Continuous-capture mode: MediaRecorder is started ONCE with timeslice and
+  // never rotated mid-recording, so there is no audio gap between chunks. The
+  // first dataavailable contains the WebM init segment; subsequent chunks
+  // contain only Cluster data, so we cache the init bytes here and prepend
+  // them to chunks 1+ to keep each upload an independently decodable file.
+  const webmInitRef = useRef<Uint8Array | null>(null);
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const uploadIdRef = useRef<string>("");
   const chunkIndexRef = useRef<number>(0);
@@ -407,9 +411,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   }, [elapsed, status]);
 
   function cleanupRecording() {
-    if (sliceTimerRef.current) clearTimeout(sliceTimerRef.current);
     if (tickTimerRef.current) clearInterval(tickTimerRef.current);
-    sliceTimerRef.current = null;
     tickTimerRef.current = null;
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
       try {
@@ -421,7 +423,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       streamRef.current = null;
     }
     recorderRef.current = null;
-    segmentBuffersRef.current = [];
+    webmInitRef.current = null;
     // Tear down level meter
     if (meterRafRef.current !== null) {
       cancelAnimationFrame(meterRafRef.current);
@@ -498,6 +500,26 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     tickTimerRef.current = null;
   }
 
+  // Locate the first WebM Cluster element (EBML ID 0x1F43B675) in a buffer.
+  // Everything before that is the WebM init segment (EBML header + Segment
+  // info + Tracks). We cache those bytes once on the very first dataavailable
+  // event and prepend them to subsequent chunks so each upload is a valid,
+  // independently decodable file even though MediaRecorder only emits the
+  // header in the first chunk.
+  function findClusterStart(bytes: Uint8Array): number {
+    for (let i = 0; i + 3 < bytes.length; i++) {
+      if (
+        bytes[i] === 0x1f &&
+        bytes[i + 1] === 0x43 &&
+        bytes[i + 2] === 0xb6 &&
+        bytes[i + 3] === 0x75
+      ) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   function startSegmentRecorder() {
     const stream = streamRef.current;
     if (!stream) return;
@@ -516,8 +538,8 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       mimeType: supportedMime,
       audioBitsPerSecond: 128_000,
     });
-    segmentBuffersRef.current = [];
     segmentStartRef.current = Date.now();
+    webmInitRef.current = null;
 
     // Promise that resolves once this recorder's onstop has fully executed
     // (so handleStop / handlePause can await the final chunk being enqueued).
@@ -527,64 +549,70 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     });
 
     recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        segmentBuffersRef.current.push(event.data);
-      }
-    };
+      if (!event.data || event.data.size === 0) return;
 
-    recorder.onstop = () => {
-      const segmentBlob = new Blob(segmentBuffersRef.current, { type: supportedMime });
+      // Measure THIS slice's duration from the previous boundary, then reset.
       const segmentDurationSec = (Date.now() - segmentStartRef.current) / 1000;
-      segmentBuffersRef.current = [];
+      segmentStartRef.current = Date.now();
 
-      // Phase 2: skip silent segments client-side to save Whisper cost.
-      // We use the peak RMS observed during this segment (live AnalyserNode).
+      // Skip silent slices client-side to save Whisper cost. Peak RMS is
+      // sampled by the live AnalyserNode and reset every slice.
       const segmentPeakRms = segmentMaxRmsRef.current;
       segmentMaxRmsRef.current = 0;
       const wasSilent = segmentPeakRms < SILENCE_RMS_THRESHOLD;
 
-      if (segmentBlob.size > 0) {
-        if (wasSilent) {
-          // Truly-silent segment (mic muted / unplugged). We still bump the
-          // chunkIndex AND record the index + duration so the finalize step
-          // can insert a `[silence ~Xs]` marker in the right position. This
-          // keeps the LLM from hallucinating across silence gaps.
-          const idx = chunkIndexRef.current++;
-          silentChunksRef.current.set(idx, segmentDurationSec);
-          setSilentSkipped((c) => c + 1);
-        } else {
-          const idx = chunkIndexRef.current++;
-          setChunksSent((c) => c + 1);
-          // Queue upload sequentially so order is predictable.
-          // We capture the audio Blob in case the upload eventually fails — the
-          // user can then retry the exact chunk via the Retry buttons.
-          uploadQueueRef.current = uploadQueueRef.current.then(() =>
-            uploadChunk(segmentBlob, idx, segmentDurationSec, supportedMime),
-          );
-        }
+      // Assign idx synchronously here so chunk order is preserved even though
+      // the upload work below is async.
+      const idx = chunkIndexRef.current++;
+      const eventData = event.data;
+      const mime = mimeTypeRef.current;
+
+      if (wasSilent) {
+        // Truly-silent slice (mic muted / unplugged). Record duration so the
+        // finalize step can insert `[silence ~Xs]` in the right position and
+        // the LLM can't hallucinate across the gap.
+        silentChunksRef.current.set(idx, segmentDurationSec);
+        setSilentSkipped((c) => c + 1);
+        return;
       }
 
-      // If this stop was a slice rotation (not a pause and not a final stop),
-      // immediately start a new segment so audio capture is uninterrupted.
-      if (!stoppingRef.current && !isPausedRef.current) {
-        startSegmentRecorder();
-        scheduleSliceRotation();
-      }
+      setChunksSent((c) => c + 1);
+      // Queue extraction + upload sequentially so chunks reach the server in
+      // order AND the init-segment is cached before chunk 1 starts uploading.
+      uploadQueueRef.current = uploadQueueRef.current.then(async () => {
+        let blobToSend: Blob = eventData;
+        if (!webmInitRef.current && mime.includes("webm")) {
+          // First slice — extract & cache the init segment, then upload as-is.
+          try {
+            const arr = new Uint8Array(await eventData.arrayBuffer());
+            const clusterStart = findClusterStart(arr);
+            if (clusterStart > 0) {
+              webmInitRef.current = arr.slice(0, clusterStart);
+            }
+          } catch (err) {
+            console.warn("[session-recorder] init-segment extract failed:", err);
+          }
+        } else if (webmInitRef.current && mime.includes("webm")) {
+          // Subsequent slices contain only Cluster data — prepend cached init
+          // bytes so this upload is a complete, decodable WebM file.
+          blobToSend = new Blob([webmInitRef.current, eventData], { type: mime });
+        }
+        return uploadChunk(blobToSend, idx, segmentDurationSec, mime);
+      });
+    };
+
+    recorder.onstop = () => {
+      // Continuous-capture mode: there is no rotation. onstop only fires on
+      // the user's final Stop (or pause via .pause() does not fire onstop).
+      // The final dataavailable has already been queued above before this
+      // event runs, so the upload queue contains the trailing chunk.
       resolveStopped();
     };
 
-    recorder.start();
+    // Timeslice mode: dataavailable fires every SLICE_SECONDS without ever
+    // stopping the recorder, so capture is gap-free across the whole session.
+    recorder.start(SLICE_SECONDS * 1000);
     recorderRef.current = recorder;
-  }
-
-  function scheduleSliceRotation() {
-    if (sliceTimerRef.current) clearTimeout(sliceTimerRef.current);
-    sliceTimerRef.current = setTimeout(() => {
-      // Trigger segment cut: stop the current recorder. onstop will queue upload + start a new one.
-      if (recorderRef.current && recorderRef.current.state === "recording") {
-        recorderRef.current.stop();
-      }
-    }, SLICE_SECONDS * 1000);
   }
 
   async function uploadChunk(blob: Blob, index: number, durationSec: number, mime: string) {
@@ -785,7 +813,6 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setStatus("recording");
       startLevelMeter(stream);
       startSegmentRecorder();
-      scheduleSliceRotation();
       startTick();
       // After the first successful getUserMedia, device labels become
       // populated — refresh the picker so names show instead of empty strings.
@@ -807,14 +834,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
 
   const handlePause = useCallback(() => {
     if (status !== "recording") return;
-    if (sliceTimerRef.current) clearTimeout(sliceTimerRef.current);
-    sliceTimerRef.current = null;
     stopTick();
-    // Set sync flag BEFORE calling stop() so onstop sees the new state.
+    // Native MediaRecorder.pause() pauses the timeslice timer too, so we
+    // don't lose the cached WebM init segment or risk a rotation gap.
     isPausedRef.current = true;
     setStatus("paused");
     if (recorderRef.current && recorderRef.current.state === "recording") {
-      recorderRef.current.stop();
+      recorderRef.current.pause();
     }
   }, [status]);
 
@@ -827,27 +853,34 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     if (!isPausedRef.current) return;
     isPausedRef.current = false;
     // Reset the silence-detection peak — we only want to measure the new
-    // segment, not whatever ambient noise accumulated during the pause.
+    // slice, not whatever ambient noise accumulated during the pause.
     segmentMaxRmsRef.current = 0;
+    // Reset segmentStart so the next slice's duration measurement doesn't
+    // include the pause interval.
+    segmentStartRef.current = Date.now();
     setStatus("recording");
-    startSegmentRecorder();
-    scheduleSliceRotation();
+    if (recorderRef.current && recorderRef.current.state === "paused") {
+      recorderRef.current.resume();
+    }
     startTick();
   }, [status]);
 
   const handleStop = useCallback(async () => {
     if (status === "idle") return;
     stoppingRef.current = true;
-    if (sliceTimerRef.current) clearTimeout(sliceTimerRef.current);
-    sliceTimerRef.current = null;
     stopTick();
 
     setStatus("finalizing");
 
-    // Stop current segment if it's running and wait for its onstop to enqueue
-    // the final upload BEFORE we await the upload queue. This prevents the
-    // "last chunk dropped" race the architect flagged.
-    if (recorderRef.current && recorderRef.current.state === "recording") {
+    // Stop the continuous recorder if it's still capturing. Final
+    // dataavailable fires (queueing the trailing slice) THEN onstop, so
+    // awaiting stopFlushedRef ensures the trailing chunk is in the upload
+    // queue before we await it below — closes the "last chunk dropped" race.
+    if (
+      recorderRef.current &&
+      (recorderRef.current.state === "recording" ||
+        recorderRef.current.state === "paused")
+    ) {
       const flushed = stopFlushedRef.current;
       recorderRef.current.stop();
       try {
