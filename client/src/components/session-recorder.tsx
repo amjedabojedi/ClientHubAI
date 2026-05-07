@@ -86,6 +86,35 @@ const MAX_AT_SECONDS = 120 * 60;
 // silence — anything a human ear could hear is preserved.
 const SILENCE_RMS_THRESHOLD = 0.0008;
 
+// Languages exposed to the therapist for the LIVE preview engine
+// (Deepgram Nova-2 streaming). The chosen language is also passed to
+// Whisper for the final saved transcript — Whisper handles the rest of
+// the world's languages too, so even if a language is missing here the
+// finalized transcript is still accurate. Code values are BCP-47 / Deepgram
+// language codes; keep in sync with the server allowlist in deepgram-live.ts
+const LIVE_LANGUAGES: { code: string; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" },
+  { code: "nl", label: "Dutch" },
+  { code: "ru", label: "Russian" },
+  { code: "hi", label: "Hindi" },
+  { code: "zh", label: "Chinese (Mandarin)" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "tr", label: "Turkish" },
+  { code: "pl", label: "Polish" },
+];
+
+// MediaRecorder timeslice for the LIVE Deepgram stream. 250 ms gives
+// near-realtime feel; Deepgram's interim_results land within ~300 ms after
+// each frame. This recorder is SEPARATE from the Whisper chunk recorder
+// so the two pipelines never interfere with each other.
+const LIVE_TIMESLICE_MS = 250;
+
 function recoveryStorageKey(sessionId: number): string {
   return `smarthub.session-recorder.recovery.v1.${sessionId}`;
 }
@@ -115,6 +144,21 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [translateToEnglish, setTranslateToEnglish] = useState<boolean>(false);
+  // Primary language for this recording. Used by Deepgram for the live
+  // preview AND by Whisper for the final transcript. The therapist picks
+  // it before pressing Record — locked once recording starts.
+  const [liveLanguage, setLiveLanguage] = useState<string>(language || "en");
+  // Becomes true once the Deepgram WebSocket has reported a transcript
+  // back at least once — used to suppress the Whisper-chunk fallback path
+  // for the live preview (we let Deepgram own the preview when it's
+  // working, and only fall back to Whisper text if Deepgram never connects).
+  const [liveActive, setLiveActive] = useState(false);
+  const liveActiveRef = useRef<boolean>(false);
+  // Interim (not-yet-final) text from Deepgram. Rendered under previewText
+  // in italics so the therapist sees words appear as they're spoken; once
+  // Deepgram finalises an utterance we move the text into previewText and
+  // clear interim.
+  const [liveInterim, setLiveInterim] = useState("");
   const [audioLevel, setAudioLevel] = useState(0); // 0..1, smoothed RMS for the meter
   const [silentSkipped, setSilentSkipped] = useState(0);
   // Network reliability state: surfaces a banner when the browser goes
@@ -151,6 +195,15 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
   const mimeTypeRef = useRef<string>("audio/webm");
   const stoppingRef = useRef<boolean>(false);
+  // Live (Deepgram) pipeline — totally separate from the Whisper recorder
+  // above. Two MediaRecorders read from the same MediaStream: one batches
+  // 20-second files for Whisper (final accuracy), one emits 250 ms frames
+  // straight to the WebSocket for Deepgram (live preview).
+  const liveRecorderRef = useRef<MediaRecorder | null>(null);
+  const liveWsRef = useRef<WebSocket | null>(null);
+  // Tracks whether a permanent close has been requested so reconnect logic
+  // doesn't fight against handleStop / unmount.
+  const liveStoppedRef = useRef<boolean>(false);
   // Synchronous flags that don't suffer setState async lag
   const isPausedRef = useRef<boolean>(false);
   const [showRawInline, setShowRawInline] = useState(false);
@@ -424,6 +477,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         recorderRef.current.stop();
       } catch {}
     }
+    // Always tear down the live (Deepgram) pipeline alongside the Whisper
+    // pipeline so neither outlives a stop / unmount.
+    stopLiveTranscription();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -444,6 +500,157 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     segmentMaxRmsRef.current = 0;
     warnedSoftCapRef.current = false;
     extendedPast2hRef.current = false;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // LIVE (Deepgram) pipeline — completely separate from the Whisper chunk
+  // recorder. Two MediaRecorders read the same MediaStream:
+  //   • the existing Whisper recorder produces 20-second WebM files for
+  //     the FINAL saved transcript (unchanged)
+  //   • this live recorder produces 250 ms WebM frames that are streamed
+  //     verbatim to our /ws/transcribe-live proxy → Deepgram, which sends
+  //     interim + final transcripts back as JSON for the live preview
+  // Two MediaRecorders on one MediaStream is supported in Chrome, Firefox
+  // and Safari and is the documented pattern for "transcribe + record".
+  // ─────────────────────────────────────────────────────────────────────
+  function startLiveTranscription(stream: MediaStream, lang: string, uploadId: string) {
+    liveStoppedRef.current = false;
+    setLiveActive(false);
+    liveActiveRef.current = false;
+    setLiveInterim("");
+
+    // Build the WS URL relative to the page so we work in dev (vite proxy
+    // passthrough) and in deployed HTTPS.
+    let wsUrl: string;
+    try {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      wsUrl = `${proto}//${window.location.host}/ws/transcribe-live?uploadId=${encodeURIComponent(uploadId)}&language=${encodeURIComponent(lang)}`;
+    } catch (err) {
+      console.warn("[live] failed to build ws url:", err);
+      return;
+    }
+
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrl);
+    } catch (err) {
+      console.warn("[live] WebSocket open failed:", err);
+      return;
+    }
+    ws.binaryType = "arraybuffer";
+    liveWsRef.current = ws;
+
+    ws.onopen = () => {
+      // Race guard: stopLiveTranscription may have been called between
+      // `new WebSocket(...)` and `onopen` (e.g. user hit Stop immediately
+      // after Start, or the recorder unmounted). If we proceeded we'd
+      // spawn a MediaRecorder that nothing would ever clean up.
+      if (liveStoppedRef.current) {
+        try { ws.close(); } catch {}
+        if (liveWsRef.current === ws) liveWsRef.current = null;
+        return;
+      }
+      // Once the WS is open, spin up the live MediaRecorder. We wait for
+      // open so the very first frame doesn't get queued in the kernel buffer.
+      try {
+        // Match the existing recorder's mime type so the WebM stream
+        // Deepgram sees has a valid Opus codec header.
+        const liveMime = mimeTypeRef.current || "audio/webm";
+        const rec = new MediaRecorder(stream, { mimeType: liveMime });
+        rec.ondataavailable = (ev) => {
+          if (!ev.data || ev.data.size === 0) return;
+          if (liveWsRef.current?.readyState !== WebSocket.OPEN) return;
+          ev.data.arrayBuffer().then((buf) => {
+            try {
+              liveWsRef.current?.send(buf);
+            } catch (err) {
+              console.warn("[live] ws send failed:", err);
+            }
+          });
+        };
+        rec.start(LIVE_TIMESLICE_MS);
+        liveRecorderRef.current = rec;
+      } catch (err) {
+        // If MediaRecorder creation fails (some browsers reject a 2nd one),
+        // fall back gracefully — close the WS, leave Whisper-chunk preview
+        // as the only live source.
+        console.warn("[live] failed to start live MediaRecorder:", err);
+        try { ws.close(); } catch {}
+        liveWsRef.current = null;
+      }
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+        if (msg.type === "transcript") {
+          if (!liveActiveRef.current) {
+            liveActiveRef.current = true;
+            setLiveActive(true);
+          }
+          if (msg.isFinal) {
+            const text = String(msg.text || "").trim();
+            if (text) {
+              setPreviewText((prev) => (prev ? prev + " " : "") + text);
+            }
+            setLiveInterim("");
+          } else {
+            setLiveInterim(String(msg.text || ""));
+          }
+        } else if (msg.type === "error") {
+          console.warn("[live] server reported error:", msg.message);
+        }
+      } catch {
+        // ignore non-JSON
+      }
+    };
+
+    ws.onerror = (ev) => {
+      console.warn("[live] ws error:", ev);
+    };
+
+    ws.onclose = () => {
+      // Stop the live recorder; if we're still recording (i.e. user didn't
+      // ask to stop), the Whisper chunk path keeps producing the preview
+      // as a fallback. We deliberately do NOT auto-reconnect for v1 — a
+      // dropped Deepgram stream cleanly hands over to Whisper instead of
+      // racing two sources.
+      if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") {
+        try { liveRecorderRef.current.stop(); } catch {}
+      }
+      liveRecorderRef.current = null;
+      liveWsRef.current = null;
+      liveActiveRef.current = false;
+      setLiveActive(false);
+      setLiveInterim("");
+    };
+  }
+
+  function stopLiveTranscription() {
+    liveStoppedRef.current = true;
+    if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") {
+      try { liveRecorderRef.current.stop(); } catch {}
+    }
+    liveRecorderRef.current = null;
+    if (liveWsRef.current) {
+      try { liveWsRef.current.close(); } catch {}
+      liveWsRef.current = null;
+    }
+    liveActiveRef.current = false;
+    setLiveActive(false);
+    setLiveInterim("");
+  }
+
+  function pauseLiveTranscription() {
+    if (liveRecorderRef.current && liveRecorderRef.current.state === "recording") {
+      try { liveRecorderRef.current.pause(); } catch {}
+    }
+  }
+
+  function resumeLiveTranscription() {
+    if (liveRecorderRef.current && liveRecorderRef.current.state === "paused") {
+      try { liveRecorderRef.current.resume(); } catch {}
+    }
   }
 
   function stopLevelMeter() {
@@ -656,7 +863,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         // Reset the stall watchdog — uploads are flowing.
         lastUploadAtRef.current = Date.now();
         setUploadStalled(false);
-        if (data.chunkText) {
+        if (data.chunkText && !liveActiveRef.current) {
+          // Fallback path: only append Whisper's chunk text to the preview
+          // when the Deepgram live stream isn't producing transcripts (e.g.
+          // unsupported language, network issue). When Deepgram is active
+          // it owns the preview to avoid duplicated / out-of-order text.
           setPreviewText((prev) => (prev ? prev + " " : "") + data.chunkText);
         }
         return;
@@ -768,7 +979,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         body: JSON.stringify({
-          language: language || "auto",
+          language: liveLanguage || "en",
           translateToEnglish,
         }),
       });
@@ -819,6 +1030,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setStatus("recording");
       startLevelMeter(stream);
       startSegmentRecorder();
+      // Kick off the live (Deepgram) pipeline. If it fails to open, the
+      // Whisper chunk path will still drive the preview as a fallback.
+      startLiveTranscription(stream, liveLanguage || "en", uploadIdRef.current);
       startTick();
       // After the first successful getUserMedia, device labels become
       // populated — refresh the picker so names show instead of empty strings.
@@ -848,6 +1062,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     if (recorderRef.current && recorderRef.current.state === "recording") {
       recorderRef.current.pause();
     }
+    pauseLiveTranscription();
   }, [status]);
 
   const handleResume = useCallback(() => {
@@ -868,6 +1083,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     if (recorderRef.current && recorderRef.current.state === "paused") {
       recorderRef.current.resume();
     }
+    resumeLiveTranscription();
     startTick();
   }, [status]);
 
@@ -893,6 +1109,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         await flushed;
       } catch {}
     }
+    // Stop the live (Deepgram) pipeline before tearing the stream down so
+    // the WS gets a clean close and Deepgram flushes its final words.
+    stopLiveTranscription();
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -1126,6 +1345,31 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                 </Select>
               </div>
             )}
+            <div className="w-full max-w-md space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Spoken language
+              </label>
+              <Select
+                value={liveLanguage}
+                onValueChange={setLiveLanguage}
+                disabled={status !== "idle"}
+              >
+                <SelectTrigger data-testid="select-spoken-language">
+                  <SelectValue placeholder="English" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LIVE_LANGUAGES.map((l) => (
+                    <SelectItem key={l.code} value={l.code}>
+                      {l.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used for live preview and the saved transcript. Cannot be
+                changed once recording starts.
+              </p>
+            </div>
             <div className="w-full max-w-md flex items-start justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2">
               <div className="space-y-0.5">
                 <label
@@ -1159,9 +1403,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               Start Recording
             </Button>
             <p className="text-xs text-muted-foreground text-center max-w-md">
-              Records the session in 60-second chunks, transcribes each chunk in real time, then
-              auto-labels speakers (Therapist / Client). Audio is discarded after transcription.
-              Maximum recording length is 2 hours.
+              Live preview appears word-by-word as you speak. The final saved
+              transcript is generated separately for higher accuracy and gets
+              speaker labels (Therapist / Client). Audio is discarded after
+              transcription. Maximum recording length is 2 hours.
             </p>
           </div>
         )}
@@ -1313,11 +1558,20 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
               />
             </div>
 
-            {previewText && (
+            {(previewText || liveInterim) && (
               <div className="rounded-md border bg-muted/40 p-3 max-h-32 overflow-y-auto text-sm">
                 <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs font-medium text-muted-foreground">
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                     {hidePreview ? "Recording…" : "Live transcription preview"}
+                    {liveActive && !hidePreview && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-normal text-emerald-600 dark:text-emerald-400"
+                        data-testid="live-deepgram-indicator"
+                      >
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button
@@ -1366,9 +1620,19 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                   </div>
                 </div>
                 <div data-testid="text-preview">
-                  {hidePreview
-                    ? "Live preview hidden for privacy. Transcription is still being captured in the background."
-                    : previewText}
+                  {hidePreview ? (
+                    "Live preview hidden for privacy. Transcription is still being captured in the background."
+                  ) : (
+                    <>
+                      {previewText}
+                      {liveInterim && (
+                        <span className="text-muted-foreground italic">
+                          {previewText ? " " : ""}
+                          {liveInterim}
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}

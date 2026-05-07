@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { optionalAuth, csrfProtection } from "./auth-middleware";
+import { attachDeepgramLive } from "./ai/deepgram-live";
 import { storage } from "./storage";
 import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
@@ -253,6 +254,16 @@ process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
     log("Registering routes...");
     server = await registerRoutes(app);
     log("Routes registered successfully");
+
+    // Mount the Deepgram live-transcription WebSocket proxy. Must be
+    // attached BEFORE setupVite so our 'upgrade' handler runs first; Vite's
+    // own WS handler tolerates other listeners as long as we early-return
+    // for paths we don't own.
+    try {
+      attachDeepgramLive(server);
+    } catch (err) {
+      log(`Warning: Failed to mount Deepgram live endpoint: ${err}`);
+    }
 
     // Enhanced error handler with better logging
     app.use((err: any, req: Request, res: Response, next: NextFunction) => {
