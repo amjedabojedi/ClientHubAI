@@ -1239,7 +1239,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       // Administrators can view all clients (no restriction)
-      
+
+      // "New" badge tracking: stamp firstViewedByTherapistAt the first time
+      // the currently-assigned therapist opens the profile. Supervisors and
+      // admins viewing the file do NOT consume the badge — only the
+      // assigned therapist's own view counts.
+      if (
+        req.user &&
+        client.assignedTherapistId === req.user.id &&
+        !client.firstViewedByTherapistAt
+      ) {
+        try {
+          const now = new Date();
+          await storage.updateClient(client.id, { firstViewedByTherapistAt: now } as any);
+          (client as any).firstViewedByTherapistAt = now;
+        } catch (e) {
+          console.error('[NewBadge] Failed to stamp firstViewedByTherapistAt:', e);
+        }
+      }
+
       res.json(client);
     } catch (error) {
       // Error logged
@@ -1325,7 +1343,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (notificationError) {
         console.error('Client created notification failed:', notificationError);
       }
-      
+
+      // Also fire client_assigned when the new client already has a
+      // therapist set at creation time, so the assigned therapist gets
+      // the proper named "Client Assigned" email (not just the generic
+      // intake notice).
+      if (client.assignedTherapistId) {
+        try {
+          const assignedTherapist = await storage.getUser(client.assignedTherapistId);
+          await notificationService.processEvent('client_assigned', {
+            id: client.id,
+            clientName: client.fullName,
+            fullName: client.fullName,
+            clientId: client.id,
+            therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
+            assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
+            assignedTherapistId: client.assignedTherapistId,
+            referenceNumber: client.referenceNumber,
+            assignmentDate: new Date(),
+            priority: 'medium',
+            previousTherapistId: null,
+          });
+        } catch (notificationError) {
+          console.error('Client assigned-on-create notification failed:', notificationError);
+        }
+      }
+
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1417,6 +1460,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 3. Track therapist assignment changes
       if (validatedData.assignedTherapistId && 
           validatedData.assignedTherapistId !== originalClient.assignedTherapistId) {
+        // Reset the "New" badge stamp so the newly-assigned therapist sees
+        // the badge until they open the profile themselves.
+        try {
+          await storage.updateClient(client.id, { firstViewedByTherapistAt: null } as any);
+          (client as any).firstViewedByTherapistAt = null;
+        } catch (e) {
+          console.error('[NewBadge] Failed to reset firstViewedByTherapistAt on reassignment:', e);
+        }
+
         // Trigger client assigned notification
         try {
           const assignedTherapist = await storage.getUser(client.assignedTherapistId!);
@@ -2460,6 +2512,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Initialize distribution counter
       therapistIds.forEach(id => results.distribution[id] = 0);
 
+      // Helper: reassign one client, reset NEW-badge stamp so the new
+      // therapist sees it, and fire the `client_assigned` notification so
+      // the assigned therapist receives the named "Client Assigned" email.
+      const reassignOne = async (clientId: number, therapistId: number) => {
+        const original = await storage.getClient(clientId);
+        const previousTherapistId = original?.assignedTherapistId ?? null;
+        const updated = await storage.updateClient(clientId, {
+          assignedTherapistId: therapistId,
+          firstViewedByTherapistAt: null,
+        } as any);
+        if (previousTherapistId !== therapistId) {
+          try {
+            const assignedTherapist = await storage.getUser(therapistId);
+            await notificationService.processEvent('client_assigned', {
+              id: updated.id,
+              clientName: updated.fullName,
+              fullName: updated.fullName,
+              clientId: updated.id,
+              therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
+              assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
+              assignedTherapistId: therapistId,
+              referenceNumber: updated.referenceNumber,
+              assignmentDate: new Date(),
+              priority: 'medium',
+              previousTherapistId,
+            });
+          } catch (notifyErr) {
+            console.error('[BulkReassign] client_assigned notification failed:', notifyErr);
+          }
+        }
+      };
+
       // Distribute clients evenly or to single therapist
       if (distribution === 'even') {
         // Sort therapists by current workload
@@ -2475,11 +2559,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const clientId of clientIds) {
           try {
             const therapistId = therapistWorkloads[therapistIndex].therapistId;
-            await storage.updateClient(clientId, { assignedTherapistId: therapistId });
+            await reassignOne(clientId, therapistId);
             results.successful++;
             results.distribution[therapistId]++;
             therapistWorkloads[therapistIndex].currentCount++;
-            
+
             // Re-sort to keep balanced
             therapistWorkloads.sort((a, b) => a.currentCount - b.currentCount);
             therapistIndex = 0; // Always assign to therapist with lowest count
@@ -2496,7 +2580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const therapistId = therapistIds[0];
         for (const clientId of clientIds) {
           try {
-            await storage.updateClient(clientId, { assignedTherapistId: therapistId });
+            await reassignOne(clientId, therapistId);
             results.successful++;
             results.distribution[therapistId]++;
           } catch (error) {

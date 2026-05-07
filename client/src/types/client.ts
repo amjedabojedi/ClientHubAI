@@ -37,6 +37,7 @@ export interface Client {
   stage?: 'intake' | 'assessment' | 'psychotherapy' | 'closed' | null;
   clientType?: string | null;
   assignedTherapistId?: number | null;
+  firstViewedByTherapistAt?: string | null;
   
   // Referral information
   referrerName?: string | null;

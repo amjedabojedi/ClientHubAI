@@ -287,6 +287,14 @@ export default function ClientDataGrid({
                           >
                             {client.fullName}
                           </p>
+                          {client.assignedTherapistId === user?.id && !client.firstViewedByTherapistAt && (
+                            <Badge
+                              className="text-[10px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-800 border-emerald-200"
+                              data-testid={`badge-new-${client.id}`}
+                            >
+                              NEW
+                            </Badge>
+                          )}
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>

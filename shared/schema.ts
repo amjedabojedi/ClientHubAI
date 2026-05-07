@@ -307,7 +307,11 @@ export const clients = pgTable("clients", {
   stage: varchar("stage", { length: 50 }), // Current stage in treatment process
   lastUpdateDate: timestamp("last_update_date").notNull().defaultNow(), // When profile was last modified
   assignedTherapistId: integer("assigned_therapist_id").references(() => users.id), // Primary therapist for this client
-  
+  // Timestamp of when the currently-assigned therapist first opened this
+  // profile. Reset to NULL whenever assignedTherapistId changes so the new
+  // therapist sees a "New" badge until they read the file.
+  firstViewedByTherapistAt: timestamp("first_viewed_by_therapist_at"),
+
   // Additional Information
   notes: text("notes"), // General notes about the client
   
