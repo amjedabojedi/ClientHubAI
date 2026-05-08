@@ -18,22 +18,38 @@ const openai = new OpenAI({
   maxRetries: 2
 });
 
-// Audio transcription requires a personal OpenAI API key (OPENAI_WHISPER_API_KEY)
-// Replit's AI Integration transcription returns empty text, so we use direct OpenAI Whisper API
+// Audio transcription client. Prefers Replit's AI Integrations OpenAI proxy
+// (no personal key needed), then falls back to a personal OPENAI_API_KEY,
+// then to the legacy OPENAI_WHISPER_API_KEY for backward compatibility.
 function getWhisperClient(): OpenAI {
-  const whisperApiKey = process.env.OPENAI_WHISPER_API_KEY;
-  
-  if (!whisperApiKey) {
-    console.error('[AI] OPENAI_WHISPER_API_KEY is not set. Voice transcription requires a personal OpenAI API key.');
-    throw new Error('Voice transcription requires a personal OpenAI API key. Please set OPENAI_WHISPER_API_KEY in Replit Secrets.');
+  const replitKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const personalKey = process.env.OPENAI_API_KEY;
+  const legacyWhisperKey = process.env.OPENAI_WHISPER_API_KEY;
+
+  const apiKey = replitKey || personalKey || legacyWhisperKey;
+  if (!apiKey) {
+    console.error('[AI] No OpenAI key available for Whisper transcription.');
+    throw new Error('Voice transcription requires an OpenAI key. Connect the Replit OpenAI integration or set OPENAI_API_KEY.');
   }
-  
-  console.log(`[AI] Using Whisper API key starting with: ${whisperApiKey.substring(0, 10)}...`);
-  
+
+  // Only use the AI Integrations base URL when we are actually using the
+  // Replit integration key. Personal/legacy keys must hit api.openai.com.
+  const baseURL = (apiKey === replitKey)
+    ? (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined)
+    : undefined;
+
+  const source = apiKey === replitKey
+    ? 'Replit AI Integrations'
+    : apiKey === personalKey
+      ? 'OPENAI_API_KEY'
+      : 'OPENAI_WHISPER_API_KEY (legacy)';
+  console.log(`[AI] Whisper client using ${source}`);
+
   return new OpenAI({
-    apiKey: whisperApiKey,
+    apiKey,
+    baseURL,
     timeout: 120000,
-    maxRetries: 2
+    maxRetries: 2,
   });
 }
 
