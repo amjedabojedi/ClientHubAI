@@ -1759,10 +1759,9 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 ];
                 const overall = calculateOverallRiskScore();
                 const nonZero = RISK_FACTOR_CONFIG.filter(f => riskFactors[f.key] > 0);
-                const visible = showAllRiskFactors || nonZero.length === 0
-                  ? RISK_FACTOR_CONFIG
-                  : nonZero;
-                const hiddenCount = RISK_FACTOR_CONFIG.length - visible.length;
+                // When the panel is expanded, always show all 10 factors so
+                // scoring one factor doesn't make the others vanish.
+                const visible = RISK_FACTOR_CONFIG;
                 return (
                   <div className="border rounded-lg overflow-hidden">
                     <button
@@ -1861,30 +1860,6 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                             </tbody>
                           </table>
                         </div>
-                        {hiddenCount > 0 && !showAllRiskFactors && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full text-xs"
-                            onClick={() => setShowAllRiskFactors(true)}
-                            data-testid="button-show-all-risk"
-                          >
-                            Show all {RISK_FACTOR_CONFIG.length} factors ({hiddenCount} more)
-                          </Button>
-                        )}
-                        {showAllRiskFactors && nonZero.length > 0 && nonZero.length < RISK_FACTOR_CONFIG.length && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="w-full text-xs"
-                            onClick={() => setShowAllRiskFactors(false)}
-                            data-testid="button-show-flagged-only"
-                          >
-                            Show only flagged factors
-                          </Button>
-                        )}
                       </div>
                     )}
                   </div>
