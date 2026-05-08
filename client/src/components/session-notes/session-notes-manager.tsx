@@ -22,11 +22,10 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 // Icons
-import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown, Mic } from "lucide-react";
+import { Plus, Trash2, Clock, User, Target, Brain, Shield, RefreshCw, Download, Copy, BookOpen, Search, FileText, Edit, CheckCircle, Eye, Calendar, HelpCircle, ChevronDown, Mic, FileAudio, Sparkles } from "lucide-react";
 
 // Voice Recording
 import { TranscriptSmartFillDialog, type SmartFillSuggestion } from "./transcript-smart-fill-dialog";
-import { SessionRecorder } from "@/components/session-recorder";
 
 // Utils
 import { cn } from "@/lib/utils";
@@ -184,6 +183,67 @@ interface SessionNotesManagerProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+/**
+ * Compact transcript-status banner shown at the top of the note dialog.
+ * Replaces the full SessionRecorder that used to live here — recording
+ * itself is now triggered from the session card's ⋯ menu, so this banner
+ * just tells the therapist whether a transcript already exists for the
+ * session and gives one-click access to Smart Fill when it does.
+ */
+function TranscriptBanner({ sessionId, onSmartFill }: { sessionId: number; onSmartFill: () => void }) {
+  const { data: transcript, isLoading } = useQuery<{ status: string; wordCount: number | null } | null>({
+    queryKey: ["/api/sessions", sessionId, "transcript"],
+    queryFn: async () => {
+      const res = await fetch(`/api/sessions/${sessionId}/transcript`, { credentials: "include" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Failed to load transcript");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-2 px-3 bg-gray-50 dark:bg-gray-900 rounded-md border">
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400" />
+        Checking transcript…
+      </div>
+    );
+  }
+
+  const ready = transcript && transcript.status === "ready";
+  if (ready) {
+    return (
+      <div className="flex items-center justify-between gap-3 py-2 px-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-md">
+        <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300">
+          <FileAudio className="h-4 w-4" />
+          <span className="font-medium">Transcript ready</span>
+          {transcript.wordCount ? (
+            <span className="text-xs text-green-700/70 dark:text-green-400/70">· {transcript.wordCount} words</span>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="text-xs h-7 border-green-300 text-green-800 hover:bg-green-100 dark:border-green-700 dark:text-green-300"
+          onClick={onSmartFill}
+          data-testid="button-banner-smart-fill"
+        >
+          <Sparkles className="h-3 w-3 mr-1" />
+          Smart Fill from transcript
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground py-2 px-3 bg-gray-50 dark:bg-gray-900 rounded-md border">
+      <Mic className="h-3.5 w-3.5" />
+      No transcript for this session yet. Close this dialog and use <span className="font-medium">⋯ → Record Session</span> on the session card to capture audio.
+    </div>
+  );
+}
+
 export default function SessionNotesManager({ clientId, sessions, preSelectedSessionId, preSelectedNoteId, onSessionChange, onNoteChange, open, onOpenChange }: SessionNotesManagerProps) {
   // Fetch client data for template generation
   const { data: clientData } = useQuery<{ id: number; fullName: string }>({
@@ -200,17 +260,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const isAddNoteOpen = open !== undefined ? open : internalIsAddNoteOpen;
   const setIsAddNoteOpen = onOpenChange || setInternalIsAddNoteOpen;
 
-  // Tracks whether the embedded SessionRecorder is actively recording/paused/
-  // finalizing — used to confirm before letting the user close the dialog
-  // and lose the in-progress recording.
-  const isRecordingActiveRef = useRef(false);
+  // Recording now happens from the session card's ⋯ menu (see
+  // client-detail.tsx) — its own dialog handles the active-recording close
+  // guard. The note dialog is just a form, so close handling is plain.
   const handleAddNoteOpenChange = (next: boolean) => {
-    if (!next && isRecordingActiveRef.current) {
-      const ok = window.confirm(
-        "A session recording is still in progress. Closing this window will stop and discard the recording. Continue?",
-      );
-      if (!ok) return;
-    }
     setIsAddNoteOpen(next);
   };
   
@@ -227,6 +280,10 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     nonAdherence: 0,
     supportSystem: 0,
   });
+  // UI state for the compact risk panel — collapsed by default, "show all"
+  // toggles whether zero-score factors are visible.
+  const [riskExpanded, setRiskExpanded] = useState(false);
+  const [showAllRiskFactors, setShowAllRiskFactors] = useState(false);
 
   // Track selected library entries per field for relationship filtering
   const [selectedLibraryEntries, setSelectedLibraryEntries] = useState<{
@@ -609,6 +666,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
     localStorage.setItem('lastUsedTemplate', templateId);
     
     setIsAITemplateOpen(false);
+    setShowPreview(false);
     setTemplateName('');
     setCustomInstructions('');
   };
@@ -1229,17 +1287,15 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Session voice transcript (chunked recording with speaker labels) */}
+              {/* Transcript banner — recording itself happens from the
+                  session card's ⋯ menu ("Record Session"). Here we just
+                  surface whether a transcript exists for this session, and
+                  give one-click access to "Smart Fill from transcript" when
+                  it does. */}
               {(() => {
                 const sid = editingNote?.sessionId || form.watch('sessionId');
                 if (!sid) return null;
-                return (
-                  <SessionRecorder
-                    sessionId={sid}
-                    onRequestSmartFill={() => setSmartFillSessionId(sid)}
-                    onActiveStateChange={(active) => { isRecordingActiveRef.current = active; }}
-                  />
-                );
+                return <TranscriptBanner sessionId={sid} onSmartFill={() => setSmartFillSessionId(sid)} />;
               })()}
 
               {/* Basic Session Information - Only show dropdown if NOT pre-selected */}
@@ -1377,19 +1433,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
               {/* Voice Transcription Display removed: superseded by Session Transcript card + Smart Fill */}
 
-              {/* Organized Clinical Documentation Tabs */}
-              <Tabs defaultValue="clinical" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="clinical">Clinical Documentation</TabsTrigger>
-                  <TabsTrigger value="risk-assessment">Risk Assessment</TabsTrigger>
-                </TabsList>
-
-                {/* Clinical Documentation Tab — fields grouped into 3 short sections:
-                    "What happened" (focus + symptoms),
-                    "Treatment" (goals + intervention + progress),
-                    "Closing" (remarks + recommendations).
-                    Same 7 fields, same data — just easier to scan. */}
-                <TabsContent value="clinical" className="space-y-6">
+              {/* Clinical Documentation — fields grouped into 3 short sections:
+                  "What happened" (focus + symptoms),
+                  "Treatment" (goals + intervention + progress),
+                  "Closing" (remarks + recommendations).
+                  Same 7 fields, same data — just easier to scan.
+                  Tabs were removed (Risk Assessment now lives inline at the bottom). */}
+              <div className="space-y-6">
                   {/* Section 1 — What happened */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
@@ -1639,323 +1689,126 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       </FormItem>
                     )}
                   />
-                </TabsContent>
+              </div>
 
-
-                {/* Risk Assessment Tab */}
-                <TabsContent value="risk-assessment" className="space-y-6">
-                  {/* Overall Risk Score Display */}
-                  <div className="bg-gray-50 p-4 rounded-lg border">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Overall Risk Assessment</h3>
-                      <div className="text-right">
-                        <div className={`text-2xl font-bold ${calculateOverallRiskScore().color}`}>
-                          {calculateOverallRiskScore().level}
+              {/* Risk Assessment — compact, inline, collapsed by default.
+                  Overall score is always visible. Expand to score factors.
+                  By default only factors with a non-zero score are listed;
+                  "Show all 10" reveals the rest. */}
+              {(() => {
+                const RISK_FACTOR_CONFIG: Array<{
+                  key: keyof typeof riskFactors;
+                  label: string;
+                  description: string;
+                  scoreLabels: [string, string, string, string, string];
+                }> = [
+                  { key: 'suicidalIdeation',  label: 'Suicidal Ideation',   description: "Thoughts of ending one's own life, whether passive or active",                  scoreLabels: ['None','Mild','Moderate','Severe','Acute'] },
+                  { key: 'selfHarm',          label: 'Self-Harm',           description: 'Any behavior intended to cause harm to oneself without suicidal intent',         scoreLabels: ['None','Urges','Past','Current','Severe'] },
+                  { key: 'homicidalIdeation', label: 'Homicidal Ideation',  description: 'Thoughts about harming or killing others, with or without intent',               scoreLabels: ['None','Passive','Thoughts','Intent','Plan'] },
+                  { key: 'psychosis',         label: 'Psychosis',           description: 'Presence of hallucinations, delusions, or disorganized thinking',                scoreLabels: ['None','Past','Occasional','Frequent','Acute'] },
+                  { key: 'substanceUse',      label: 'Substance Use',       description: 'Use of alcohol or drugs that may impact mental health or judgment',              scoreLabels: ['None','Social','Frequent','Dependent','Severe'] },
+                  { key: 'impulsivity',       label: 'Impulsivity',         description: 'Difficulty controlling urges or behavior, especially in high-stakes situations', scoreLabels: ['None','Occasional','Impacts','Risk-taking','Dangerous'] },
+                  { key: 'aggression',        label: 'Aggression/Violence', description: 'Verbal or physical aggression toward self, others, or property',                 scoreLabels: ['None','Verbal','Threats','Property','Physical'] },
+                  { key: 'traumaSymptoms',    label: 'Trauma Symptoms',     description: 'Flashbacks, hypervigilance, dissociation, or avoidance related to past trauma',  scoreLabels: ['None','Mild','Moderate','Frequent','Severe'] },
+                  { key: 'nonAdherence',      label: 'Non-Adherence',       description: 'Resistance or avoidance of treatment recommendations',                           scoreLabels: ['Adherent','Reluctant','Missed','Non-compliant','Refuses'] },
+                  { key: 'supportSystem',     label: 'Support System',      description: 'Availability of reliable emotional, social, or practical support',               scoreLabels: ['Strong','Adequate','Limited','Very Limited','None'] },
+                ];
+                const overall = calculateOverallRiskScore();
+                const nonZero = RISK_FACTOR_CONFIG.filter(f => riskFactors[f.key] > 0);
+                const visible = showAllRiskFactors || nonZero.length === 0
+                  ? RISK_FACTOR_CONFIG
+                  : nonZero;
+                const hiddenCount = RISK_FACTOR_CONFIG.length - visible.length;
+                return (
+                  <div className="border rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setRiskExpanded(v => !v)}
+                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                      data-testid="button-toggle-risk"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Shield className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm">Risk Assessment</div>
+                          <div className="text-xs text-gray-500">
+                            {nonZero.length === 0
+                              ? 'No risk factors flagged'
+                              : `${nonZero.length} of ${RISK_FACTOR_CONFIG.length} factors flagged`}
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-600">
-                          Score: {calculateOverallRiskScore().score}/40
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className={`text-lg font-bold leading-none ${overall.color}`}>{overall.level}</div>
+                          <div className="text-[11px] text-gray-500">{overall.score}/40</div>
                         </div>
+                        <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${riskExpanded ? 'rotate-180' : ''}`} />
                       </div>
-                    </div>
+                    </button>
+
+                    {riskExpanded && (
+                      <div className="p-4 space-y-3 bg-white dark:bg-gray-950">
+                        {visible.map((factor, idx) => {
+                          const value = riskFactors[factor.key];
+                          return (
+                            <div key={factor.key} className="border rounded-md p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className="font-medium text-sm">{idx + 1}. {factor.label}</h4>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${value > 0 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                                  {value}/4
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 mb-2">{factor.description}</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {[0, 1, 2, 3, 4].map((score) => (
+                                  <button
+                                    key={score}
+                                    type="button"
+                                    onClick={() => updateRiskFactor(factor.key, score)}
+                                    className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                                      value === score
+                                        ? 'bg-blue-500 text-white'
+                                        : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700'
+                                    }`}
+                                    data-testid={`risk-${factor.key}-${score}`}
+                                  >
+                                    {factor.scoreLabels[score]}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {hiddenCount > 0 && !showAllRiskFactors && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs"
+                            onClick={() => setShowAllRiskFactors(true)}
+                            data-testid="button-show-all-risk"
+                          >
+                            Show all {RISK_FACTOR_CONFIG.length} factors ({hiddenCount} more)
+                          </Button>
+                        )}
+                        {showAllRiskFactors && nonZero.length > 0 && nonZero.length < RISK_FACTOR_CONFIG.length && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs"
+                            onClick={() => setShowAllRiskFactors(false)}
+                            data-testid="button-show-flagged-only"
+                          >
+                            Show only flagged factors
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {/* Risk Factor Assessment Grid */}
-                  <div className="space-y-4">
-                    {/* Suicidal Ideation */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">1. Suicidal Ideation</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.suicidalIdeation}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Thoughts of ending one's own life, whether passive or active
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('suicidalIdeation', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.suicidalIdeation === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Mild' : score === 2 ? 'Moderate' : score === 3 ? 'Severe' : 'Acute'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Self-Harm */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">2. Self-Harm</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.selfHarm}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Any behavior intended to cause harm to oneself without suicidal intent
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('selfHarm', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.selfHarm === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Urges' : score === 2 ? 'Past' : score === 3 ? 'Current' : 'Severe'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Homicidal Ideation */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">3. Homicidal Ideation</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.homicidalIdeation}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Thoughts about harming or killing others, with or without intent
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('homicidalIdeation', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.homicidalIdeation === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Passive' : score === 2 ? 'Thoughts' : score === 3 ? 'Intent' : 'Plan'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Psychosis */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">4. Psychosis</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.psychosis}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Presence of hallucinations, delusions, or disorganized thinking
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('psychosis', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.psychosis === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Past' : score === 2 ? 'Occasional' : score === 3 ? 'Frequent' : 'Acute'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Substance Use */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">5. Substance Use</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.substanceUse}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Use of alcohol or drugs that may impact mental health or judgment
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('substanceUse', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.substanceUse === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Social' : score === 2 ? 'Frequent' : score === 3 ? 'Dependent' : 'Severe'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Continue with remaining risk factors... */}
-                    {/* Impulsivity */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">6. Impulsivity</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.impulsivity}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Difficulty controlling urges or behavior, especially in high-stakes situations
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('impulsivity', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.impulsivity === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Occasional' : score === 2 ? 'Impacts' : score === 3 ? 'Risk-taking' : 'Dangerous'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Aggression/Violence */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">7. Aggression/Violence</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.aggression}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Verbal or physical aggression toward self, others, or property
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('aggression', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.aggression === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Verbal' : score === 2 ? 'Threats' : score === 3 ? 'Property' : 'Physical'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Trauma Symptoms */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">8. Trauma Symptoms</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.traumaSymptoms}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Flashbacks, hypervigilance, dissociation, or avoidance related to past trauma
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('traumaSymptoms', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.traumaSymptoms === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'None' : score === 1 ? 'Mild' : score === 2 ? 'Moderate' : score === 3 ? 'Frequent' : 'Severe'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Non-Adherence */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">9. Non-Adherence</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.nonAdherence}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Resistance or avoidance of treatment recommendations
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('nonAdherence', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.nonAdherence === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'Adherent' : score === 1 ? 'Reluctant' : score === 2 ? 'Missed' : score === 3 ? 'Non-compliant' : 'Refuses'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Support System */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">10. Support System</h4>
-                        <span className="text-sm font-semibold bg-gray-100 px-2 py-1 rounded">
-                          {riskFactors.supportSystem}/4
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Availability of reliable emotional, social, or practical support
-                      </p>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((score) => (
-                          <button
-                            key={score}
-                            type="button"
-                            onClick={() => updateRiskFactor('supportSystem', score)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              riskFactors.supportSystem === score
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          >
-                            {score === 0 ? 'Strong' : score === 1 ? 'Adequate' : score === 2 ? 'Limited' : score === 3 ? 'Very Limited' : 'None'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-
-                </TabsContent>
-              </Tabs>
+                );
+              })()}
 
               <DialogFooter className="flex items-center justify-between">
                 <Button
@@ -2041,120 +1894,132 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
         }}
       />
 
-      {/* AI Template Dialog */}
-      <Dialog open={isAITemplateOpen} onOpenChange={setIsAITemplateOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Unified AI dialog — Template editor + Generated-content preview
+          merged into one dialog with two tabs. Opens to whichever tab the
+          user invoked (Edit template → "template", Show preview → "preview").
+          Closing clears both controlling state vars. */}
+      <Dialog
+        open={isAITemplateOpen || showPreview}
+        onOpenChange={(next) => {
+          if (!next) {
+            setIsAITemplateOpen(false);
+            setShowPreview(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{savedTemplate ? 'Edit Template Instructions' : 'Create AI Template'}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-blue-600" />
+              AI Template & Preview
+            </DialogTitle>
             <DialogDescription>
-              {savedTemplate 
-                ? 'Edit your template instructions. These will guide the AI when generating content after you fill out clinical fields.'
-                : 'Create template instructions to guide AI generation. After saving, fill out clinical fields and click "Generate Content" to create session notes.'
-              }
+              Edit the instructions that guide the AI, or preview the generated note.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Template Name</label>
-              <input
-                type="text"
-                placeholder="e.g., CBT Session Template, EMDR Progress Notes"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Give your template a descriptive name for easy identification
-              </p>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Custom Instructions</label>
-              <Textarea
-                placeholder="Example: Create a session note template focused on cognitive behavioral therapy techniques, including detailed mood tracking, homework assignments, and specific CBT interventions used. Format it professionally for clinical documentation."
-                value={customInstructions}
-                onChange={(e) => setCustomInstructions(e.target.value)}
-                className="min-h-[120px] mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                Provide specific instructions about the format, focus areas, therapy approach, or any special requirements for your session note template.
-              </p>
-            </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsAITemplateOpen(false);
-                setCustomInstructions('');
-                setTemplateName('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSaveTemplate}
-              disabled={!customInstructions.trim() || !templateName.trim()}
-            >
-              <Brain className="h-4 w-4 mr-2" />
-              Save Template
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Tabs defaultValue={showPreview ? 'preview' : 'template'} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="template" data-testid="tab-template">
+                {savedTemplate ? 'Edit Template' : 'Create Template'}
+              </TabsTrigger>
+              <TabsTrigger value="preview" disabled={!generatedContent} data-testid="tab-preview">
+                Preview Generated Note
+              </TabsTrigger>
+            </TabsList>
 
-      {/* Preview Dialog for Generated Content */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>AI Generated Session Note - Preview</DialogTitle>
-            <DialogDescription>
-              Review the generated content. You can save it to session notes, print it, or copy to clipboard.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ScrollArea className="max-h-[60vh] p-4 border rounded-md">
-            <div className="whitespace-pre-wrap text-sm">
-              {generatedContent}
-            </div>
-          </ScrollArea>
+            <TabsContent value="template" className="space-y-4 mt-4">
+              <div>
+                <label className="text-sm font-medium">Template Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g., CBT Session Template, EMDR Progress Notes"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md mt-2"
+                  data-testid="input-template-name"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Give your template a descriptive name for easy identification.
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Custom Instructions</label>
+                <Textarea
+                  placeholder="Example: Create a session note template focused on cognitive behavioral therapy techniques, including detailed mood tracking, homework assignments, and specific CBT interventions used. Format it professionally for clinical documentation."
+                  value={customInstructions}
+                  onChange={(e) => setCustomInstructions(e.target.value)}
+                  className="min-h-[160px] mt-2"
+                  data-testid="textarea-template-instructions"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Specific instructions about format, focus areas, therapy approach, or any special requirements.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsAITemplateOpen(false);
+                    setShowPreview(false);
+                    setCustomInstructions('');
+                    setTemplateName('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveTemplate}
+                  disabled={!customInstructions.trim() || !templateName.trim()}
+                  data-testid="button-save-template"
+                >
+                  <Brain className="h-4 w-4 mr-2" />
+                  Save Template
+                </Button>
+              </DialogFooter>
+            </TabsContent>
 
-          <DialogFooter className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => copyToClipboard(generatedContent)}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copy
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrint}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowPreview(false)}
-            >
-              Close Preview
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                setShowPreview(false);
-                toast({ title: "Session note already saved! You can view it in the Session Notes tab." });
-              }}
-            >
-              Done
-            </Button>
-          </DialogFooter>
+            <TabsContent value="preview" className="space-y-4 mt-4">
+              <ScrollArea className="max-h-[55vh] p-4 border rounded-md">
+                <div className="whitespace-pre-wrap text-sm">
+                  {generatedContent || 'No generated note yet. Use "Generate Final Note" first.'}
+                </div>
+              </ScrollArea>
+              <DialogFooter className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => copyToClipboard(generatedContent)}
+                  disabled={!generatedContent}
+                  data-testid="button-copy-preview"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handlePrint}
+                  disabled={!generatedContent}
+                  data-testid="button-print-preview"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowPreview(false);
+                    setIsAITemplateOpen(false);
+                  }}
+                  data-testid="button-close-preview"
+                >
+                  Done
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

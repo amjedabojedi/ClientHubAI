@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -74,7 +74,8 @@ import {
   Video,
   X,
   HelpCircle,
-  FileAudio
+  FileAudio,
+  Mic
 } from "lucide-react";
 
 // Utils and Hooks
@@ -162,6 +163,7 @@ import EditClientModal from "@/components/client-management/edit-client-modal";
 import DeleteClientDialog from "@/components/client-management/delete-client-dialog";
 import SessionNotesManager from "@/components/session-notes/session-notes-manager";
 import { SessionTranscriptViewer } from "@/components/session-transcript-viewer";
+import { SessionRecorder } from "@/components/session-recorder";
 import QuickTaskForm from "@/components/task-management/quick-task-form";
 import ProcessChecklistComponent from "@/components/checklist/process-checklist";
 import EmailHistory from "@/components/communications/email-history";
@@ -1066,6 +1068,8 @@ export default function ClientDetailPage() {
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState(false);
   const [isSessionNotesDialogOpen, setIsSessionNotesDialogOpen] = useState(false);
   const [transcriptViewerSessionId, setTranscriptViewerSessionId] = useState<number | null>(null);
+  const [recordingSessionId, setRecordingSessionId] = useState<number | null>(null);
+  const recordingActiveRef = useRef(false);
 
   // Session editing form
   const sessionForm = useForm<SessionFormData>({
@@ -3116,6 +3120,13 @@ export default function ClientDetailPage() {
                                             </DropdownMenuItem>
                                           )}
                                           <DropdownMenuItem
+                                            onClick={() => setRecordingSessionId(session.id)}
+                                            data-testid={`menu-record-${session.id}`}
+                                          >
+                                            <Mic className="w-4 h-4 mr-2 text-red-600" />
+                                            Record Session
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
                                             onClick={() => setTranscriptViewerSessionId(session.id)}
                                             data-testid={`menu-view-transcript-${session.id}`}
                                           >
@@ -3126,9 +3137,16 @@ export default function ClientDetailPage() {
                                         </>
                                       )}
 
-                                      {/* Show View Transcript even if there is no note yet */}
+                                      {/* Show Record + View Transcript even if there is no note yet */}
                                       {!sessionNote && (
                                         <>
+                                          <DropdownMenuItem
+                                            onClick={() => setRecordingSessionId(session.id)}
+                                            data-testid={`menu-record-${session.id}`}
+                                          >
+                                            <Mic className="w-4 h-4 mr-2 text-red-600" />
+                                            Record Session
+                                          </DropdownMenuItem>
                                           <DropdownMenuItem
                                             onClick={() => setTranscriptViewerSessionId(session.id)}
                                             data-testid={`menu-view-transcript-${session.id}`}
@@ -5441,6 +5459,47 @@ export default function ClientDetailPage() {
           if (!o) setTranscriptViewerSessionId(null);
         }}
       />
+
+      {/* Session Recorder dialog — opened from session card's "Record
+          Session" menu item. The recorder no longer lives inside the note
+          dialog; therapists record once per session and the transcript is
+          attached to that session for later Smart Fill. We block close while
+          a recording is in progress so the user can't accidentally lose it. */}
+      <Dialog
+        open={recordingSessionId !== null}
+        onOpenChange={(next) => {
+          if (!next && recordingActiveRef.current) {
+            toast({
+              title: "Recording in progress",
+              description: "Please stop or finalise the recording before closing.",
+              variant: "destructive",
+            });
+            return;
+          }
+          if (!next) {
+            setRecordingSessionId(null);
+            recordingActiveRef.current = false;
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mic className="h-5 w-5 text-red-600" />
+              Record Session
+            </DialogTitle>
+            <DialogDescription>
+              Record the session audio. The transcript is saved to this session and can be used to Smart-Fill the note later.
+            </DialogDescription>
+          </DialogHeader>
+          {recordingSessionId !== null && (
+            <SessionRecorder
+              sessionId={recordingSessionId}
+              onActiveStateChange={(active) => { recordingActiveRef.current = active; }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
