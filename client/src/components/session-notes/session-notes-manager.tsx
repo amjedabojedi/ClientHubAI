@@ -288,9 +288,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // Assessment so the therapist can fold sections away while filling
   // the form. All open by default so nothing is hidden on first use.
   const [sectionsOpen, setSectionsOpen] = useState({
-    what: true,
-    treatment: true,
-    closing: true,
+    fields: true,
     finalNote: true,
   });
   const toggleSection = (key: keyof typeof sectionsOpen) =>
@@ -1451,22 +1449,31 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   Same 7 fields, same data — just easier to scan.
                   Tabs were removed (Risk Assessment now lives inline at the bottom). */}
               <div className="space-y-6">
-                  {/* Section 1 — What happened (collapsible) */}
+                  {/* All 3 sections share a single expand/collapse so the
+                      therapist can fold the entire field set with one click.
+                      Inner section labels are plain headings (no per-section
+                      toggles) — same UX the user asked for. */}
                   <div className="border rounded-lg overflow-hidden">
                     <button
                       type="button"
-                      onClick={() => toggleSection('what')}
+                      onClick={() => toggleSection('fields')}
                       className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
-                      data-testid="button-toggle-section-what"
+                      data-testid="button-toggle-section-fields"
                     >
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        What happened
-                        <span className="ml-2 text-xs font-normal text-gray-500">Session Focus, Symptoms</span>
+                        Note fields
+                        <span className="ml-2 text-xs font-normal text-gray-500">What happened · Treatment · Closing</span>
                       </h4>
-                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.what ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.fields ? 'rotate-180' : ''}`} />
                     </button>
-                    {sectionsOpen.what && (
-                    <div className="space-y-4 p-4 bg-white dark:bg-gray-950">
+                    {sectionsOpen.fields && (
+                    <div className="p-4 bg-white dark:bg-gray-950 space-y-6">
+                    <div className="space-y-3">
+                    <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
+                      What happened
+                      <span className="ml-2 text-xs font-normal text-gray-500">Session Focus, Symptoms</span>
+                    </h5>
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="sessionFocus"
@@ -1522,25 +1529,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         )}
                       />
                     </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Section 2 — Treatment (collapsible) */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => toggleSection('treatment')}
-                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
-                      data-testid="button-toggle-section-treatment"
-                    >
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Treatment
-                        <span className="ml-2 text-xs font-normal text-gray-500">Goals, Intervention, Progress</span>
-                      </h4>
-                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.treatment ? 'rotate-180' : ''}`} />
-                    </button>
-                    {sectionsOpen.treatment && (
-                    <div className="space-y-4 p-4 bg-white dark:bg-gray-950">
+                    <div className="space-y-3">
+                    <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
+                      Treatment
+                      <span className="ml-2 text-xs font-normal text-gray-500">Goals, Intervention, Progress</span>
+                    </h5>
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="shortTermGoals"
@@ -1623,25 +1619,14 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         )}
                       />
                     </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Section 3 — Closing (collapsible) */}
-                  <div className="border rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => toggleSection('closing')}
-                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
-                      data-testid="button-toggle-section-closing"
-                    >
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                        Closing
-                        <span className="ml-2 text-xs font-normal text-gray-500">Remarks, Recommendations</span>
-                      </h4>
-                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.closing ? 'rotate-180' : ''}`} />
-                    </button>
-                    {sectionsOpen.closing && (
-                    <div className="space-y-4 p-4 bg-white dark:bg-gray-950">
+                    <div className="space-y-3">
+                    <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
+                      Closing
+                      <span className="ml-2 text-xs font-normal text-gray-500">Remarks, Recommendations</span>
+                    </h5>
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="remarks"
@@ -1676,6 +1661,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           </FormItem>
                         )}
                       />
+                    </div>
+                    </div>
                     </div>
                     )}
                   </div>
