@@ -52,7 +52,8 @@ import {
   MoreVertical,
   CalendarIcon,
   HelpCircle,
-  ChevronDown
+  ChevronDown,
+  FileAudio
 } from "lucide-react";
 
 // Utils and Hooks
@@ -1705,6 +1706,7 @@ export default function SchedulingPage() {
                           {sessionsForDay.slice(0, 5).map((session: Session) => {
                             const conflictInfo = getSessionConflictStyle(session);
                             const hasConflict = conflictInfo.conflictType !== 'none';
+                            const hasTranscript = !!transcriptStatusMap[session.id];
                             
                             const getConflictIndicator = () => {
                               switch (conflictInfo.conflictType) {
@@ -1734,6 +1736,13 @@ export default function SchedulingPage() {
                                 }}
                               >
                                 {getConflictIndicator()}
+                                {hasTranscript && (
+                                  <FileAudio
+                                    className="inline-block w-3 h-3 mr-1 text-green-700"
+                                    data-testid={`icon-transcript-ready-month-${session.id}`}
+                                    aria-label="Transcript available"
+                                  />
+                                )}
                                 {(() => {
                                   // Parse the session date and extract time without timezone conversion
                                   const sessionDate = parseSessionDate(session.sessionDate);
