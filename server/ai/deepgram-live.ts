@@ -79,19 +79,31 @@ async function persistLiveTranscript(uploadId: string): Promise<void> {
   // Detach immediately so a duplicate close event can't double-persist.
   liveBuffers.delete(uploadId);
   try {
-    const text = entry.parts.join(" ").replace(/\s+/g, " ").trim();
-    if (!text) return; // nothing to save (no speech detected)
+    const cleanedParts = entry.parts
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter((p) => p.length > 0);
+    if (cleanedParts.length === 0) return; // nothing to save (no speech detected)
+    // Raw transcript: utterances joined by spaces, no speaker labels.
+    const rawText = cleanedParts.join(" ").replace(/\s+/g, " ").trim();
+    // Labeled transcript: SmartHub recorder is always operated by a
+    // therapist on their own device, so every utterance is the therapist
+    // by definition. Prefix each Deepgram final segment with "Therapist:"
+    // on its own line — matches the chunked-Whisper path's labeling so
+    // downstream consumers (note generator, smart-fill) see the same
+    // shape regardless of which transcription engine produced it.
+    const SOLO_LABEL = "Therapist:";
+    const labeledText = cleanedParts.map((p) => `${SOLO_LABEL} ${p}`).join("\n\n");
     const row = await storage.getSessionTranscriptByUploadId(uploadId);
     if (!row) return;
     if (row.status === "ready") return; // already finalized — don't overwrite
-    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const wordCount = rawText.split(/\s+/).filter(Boolean).length;
     const durationSeconds = Math.max(
       row.durationSeconds || 0,
       Math.round((Date.now() - entry.startedAt) / 1000),
     );
     await storage.updateSessionTranscript(row.id, {
-      content: text,
-      rawContent: text,
+      content: labeledText,
+      rawContent: rawText,
       wordCount,
       durationSeconds,
       // Mark as 'processing' so the client knows finalize will be a quick
