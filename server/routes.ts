@@ -1336,7 +1336,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           clientName: client.fullName,
           fullName: client.fullName,
           assignedTherapistId: client.assignedTherapistId,
-          referenceNumber: client.referenceNumber,
+          // Fall back to the human-readable case ID (e.g. CL-2026-0184)
+          // when the optional referenceNumber field isn't populated, so
+          // the email never shows a blank reference.
+          referenceNumber: client.referenceNumber || client.clientId,
           stage: client.stage || 'initial',
           createdAt: client.createdAt
         });
@@ -1364,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
-            referenceNumber: client.referenceNumber,
+            referenceNumber: client.referenceNumber || client.clientId,
             assignmentDate: new Date(),
             priority: 'medium',
             previousTherapistId: null,
@@ -1492,7 +1495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
-            referenceNumber: client.referenceNumber,
+            referenceNumber: client.referenceNumber || client.clientId,
             assignmentDate: new Date(),
             priority: 'medium',
             previousTherapistId: originalClient.assignedTherapistId
@@ -2545,7 +2548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
               assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
               assignedTherapistId: therapistId,
-              referenceNumber: updated.referenceNumber,
+              referenceNumber: updated.referenceNumber || updated.clientId,
               assignmentDate: new Date(),
               priority: 'medium',
               previousTherapistId,
