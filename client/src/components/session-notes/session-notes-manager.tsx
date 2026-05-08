@@ -1749,37 +1749,74 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
 
                     {riskExpanded && (
                       <div className="p-4 space-y-3 bg-white dark:bg-gray-950">
-                        {visible.map((factor, idx) => {
-                          const value = riskFactors[factor.key];
-                          return (
-                            <div key={factor.key} className="border rounded-md p-3">
-                              <div className="flex items-center justify-between mb-1">
-                                <h4 className="font-medium text-sm">{idx + 1}. {factor.label}</h4>
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${value > 0 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
-                                  {value}/4
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-600 mb-2">{factor.description}</p>
-                              <div className="flex gap-1.5 flex-wrap">
-                                {[0, 1, 2, 3, 4].map((score) => (
-                                  <button
-                                    key={score}
-                                    type="button"
-                                    onClick={() => updateRiskFactor(factor.key, score)}
-                                    className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                                      value === score
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700'
-                                    }`}
-                                    data-testid={`risk-${factor.key}-${score}`}
+                        {/* Table layout — one row per risk factor.
+                            Columns: # | Factor | 5 score buttons | Score badge.
+                            Each score button shows the per-factor label
+                            (e.g. None/Mild/Moderate/Severe/Acute). The
+                            currently selected score is highlighted blue. */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm border-collapse">
+                            <thead>
+                              <tr className="text-xs text-gray-500 border-b">
+                                <th className="w-8 text-left font-medium py-2 pr-2">#</th>
+                                <th className="text-left font-medium py-2 pr-3">Factor</th>
+                                <th className="text-center font-medium py-2 px-2">0</th>
+                                <th className="text-center font-medium py-2 px-2">1</th>
+                                <th className="text-center font-medium py-2 px-2">2</th>
+                                <th className="text-center font-medium py-2 px-2">3</th>
+                                <th className="text-center font-medium py-2 px-2">4</th>
+                                <th className="w-14 text-right font-medium py-2 pl-2">Score</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {visible.map((factor, idx) => {
+                                const value = riskFactors[factor.key];
+                                return (
+                                  <tr
+                                    key={factor.key}
+                                    className="border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-900/40"
                                   >
-                                    {factor.scoreLabels[score]}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
+                                    <td className="py-2 pr-2 align-top text-xs text-gray-500">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="py-2 pr-3 align-top">
+                                      <div className="font-medium">{factor.label}</div>
+                                      <div className="text-xs text-gray-500 leading-snug">{factor.description}</div>
+                                    </td>
+                                    {[0, 1, 2, 3, 4].map((score) => (
+                                      <td key={score} className="py-2 px-1 text-center align-top">
+                                        <button
+                                          type="button"
+                                          onClick={() => updateRiskFactor(factor.key, score)}
+                                          className={`w-full px-2 py-1 text-xs rounded transition-colors ${
+                                            value === score
+                                              ? 'bg-blue-500 text-white font-medium'
+                                              : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200'
+                                          }`}
+                                          title={factor.scoreLabels[score]}
+                                          data-testid={`risk-${factor.key}-${score}`}
+                                        >
+                                          {factor.scoreLabels[score]}
+                                        </button>
+                                      </td>
+                                    ))}
+                                    <td className="py-2 pl-2 text-right align-top">
+                                      <span
+                                        className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${
+                                          value > 0
+                                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300'
+                                            : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                        }`}
+                                      >
+                                        {value}/4
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                         {hiddenCount > 0 && !showAllRiskFactors && (
                           <Button
                             type="button"
