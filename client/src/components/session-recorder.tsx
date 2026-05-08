@@ -92,22 +92,26 @@ const SILENCE_RMS_THRESHOLD = 0.0008;
 // the world's languages too, so even if a language is missing here the
 // finalized transcript is still accurate. Code values are BCP-47 / Deepgram
 // language codes; keep in sync with the server allowlist in deepgram-live.ts
-const LIVE_LANGUAGES: { code: string; label: string }[] = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "it", label: "Italian" },
-  { code: "pt", label: "Portuguese" },
-  { code: "nl", label: "Dutch" },
-  { code: "ru", label: "Russian" },
-  { code: "hi", label: "Hindi" },
-  { code: "zh", label: "Chinese (Mandarin)" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "tr", label: "Turkish" },
-  { code: "pl", label: "Polish" },
-  { code: "ar", label: "Arabic" },
+// `liveSupported` = whether Deepgram nova-2 streaming can transcribe this
+// language live, word-by-word. Languages without live support still get a
+// full final transcript from Whisper after recording stops — they just
+// don't show the live preview while recording.
+const LIVE_LANGUAGES: { code: string; label: string; liveSupported: boolean }[] = [
+  { code: "en", label: "English", liveSupported: true },
+  { code: "es", label: "Spanish", liveSupported: true },
+  { code: "fr", label: "French", liveSupported: true },
+  { code: "de", label: "German", liveSupported: true },
+  { code: "it", label: "Italian", liveSupported: true },
+  { code: "pt", label: "Portuguese", liveSupported: true },
+  { code: "nl", label: "Dutch", liveSupported: true },
+  { code: "ru", label: "Russian", liveSupported: true },
+  { code: "hi", label: "Hindi", liveSupported: true },
+  { code: "zh", label: "Chinese (Mandarin)", liveSupported: true },
+  { code: "ja", label: "Japanese", liveSupported: true },
+  { code: "ko", label: "Korean", liveSupported: true },
+  { code: "tr", label: "Turkish", liveSupported: true },
+  { code: "pl", label: "Polish", liveSupported: true },
+  { code: "ar", label: "Arabic", liveSupported: false },
 ];
 
 // MediaRecorder timeslice for the LIVE Deepgram stream. 250 ms gives
@@ -1034,7 +1038,13 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       startSegmentRecorder();
       // Kick off the live (Deepgram) pipeline. If it fails to open, the
       // Whisper chunk path will still drive the preview as a fallback.
-      startLiveTranscription(stream, liveLanguage || "en", uploadIdRef.current);
+      // Skip the live engine entirely for languages Deepgram nova-2
+      // streaming doesn't support (e.g. Arabic) — Whisper still produces
+      // the full final transcript.
+      const liveLangEntry = LIVE_LANGUAGES.find(l => l.code === (liveLanguage || "en"));
+      if (liveLangEntry?.liveSupported !== false) {
+        startLiveTranscription(stream, liveLanguage || "en", uploadIdRef.current);
+      }
       startTick();
       // After the first successful getUserMedia, device labels become
       // populated — refresh the picker so names show instead of empty strings.
@@ -1364,14 +1374,15 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                 <SelectContent>
                   {LIVE_LANGUAGES.map((l) => (
                     <SelectItem key={l.code} value={l.code}>
-                      {l.label}
+                      {l.label}{!l.liveSupported && ' (no live preview)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Used for live preview and the saved transcript. Cannot be
-                changed once recording starts.
+                {LIVE_LANGUAGES.find(l => l.code === liveLanguage)?.liveSupported === false
+                  ? 'Live preview is not available for this language. The full transcript is still saved when you stop recording.'
+                  : 'Used for live preview and the saved transcript. Cannot be changed once recording starts.'}
               </p>
             </div>
             <div className="w-full max-w-md flex items-start justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2">
