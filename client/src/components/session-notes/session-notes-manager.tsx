@@ -1395,7 +1395,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
                       What happened
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="sessionFocus"
@@ -1458,7 +1458,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
                       Treatment
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="shortTermGoals"
@@ -1548,7 +1548,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
                       Closing
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="remarks"
