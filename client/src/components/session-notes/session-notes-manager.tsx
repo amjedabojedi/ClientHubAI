@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 // Rich Text Editor
 import ReactQuill from 'react-quill';
@@ -1172,6 +1174,31 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-600" />
               {editingNote ? 'Edit Session Note' : 'Add Session Note'}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 ml-1 text-blue-600"
+                    aria-label="How to use this form"
+                    data-testid="button-note-help"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 text-xs space-y-2" align="start">
+                  <p className="font-semibold text-sm">{editingNote ? 'Edit a Session Note' : 'Create a Session Note'}</p>
+                  <ol className="list-decimal pl-4 space-y-1 text-gray-700">
+                    <li>Pick or create a template (optional, only if you want AI to format the final note).</li>
+                    <li>Fill the clinical fields manually, use the 📚 library button, or use <strong>AI → Smart Fill from transcript</strong>.</li>
+                    <li>Click <strong>AI → Generate Final Note</strong> to turn your fields + template into the polished note below.</li>
+                    <li>Complete the Risk Assessment.</li>
+                    <li><strong>Save Draft</strong> to keep editing, or <strong>Save & Finalize</strong> to lock it.</li>
+                  </ol>
+                  <p className="text-[11px] text-gray-500 pt-1 border-t">The 7 fields are the data; the Final Session Note below is what gets saved & printed.</p>
+                </PopoverContent>
+              </Popover>
             </DialogTitle>
             {(() => {
               // Get session ID from either editing note or form watch
@@ -1197,94 +1224,7 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
               return <DialogDescription>Document therapy session details, assessments, and progress notes.</DialogDescription>;
             })()}
             
-            {/* Workflow Instructions */}
-            <Collapsible defaultOpen={true} className="mt-3">
-              <Card className="border-blue-200 bg-blue-50">
-                <CollapsibleTrigger className="w-full">
-                  <CardHeader className="cursor-pointer hover:bg-blue-100 transition-colors rounded-t-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <HelpCircle className="w-5 h-5 text-blue-600" />
-                        <CardTitle className="text-base">{editingNote ? 'Session Note Editing Guide' : 'Session Note Creation Guide'}</CardTitle>
-                      </div>
-                      <ChevronDown className="w-5 h-5 text-blue-600" />
-                    </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-3 pt-0">
-                    {editingNote ? (
-                      <>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
-                          <div>
-                            <p className="font-medium text-sm">Edit Content</p>
-                            <p className="text-xs text-gray-600">Edit any field directly to add, remove, or modify content. Use the 📚 library button to insert pre-written clinical content if needed.</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
-                          <div>
-                            <p className="font-medium text-sm">Update Assessments</p>
-                            <p className="text-xs text-gray-600">Update Clinical Documentation and Risk Assessment fields (10 factors) as needed to reflect current session.</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
-                          <div>
-                            <p className="font-medium text-sm">Save Your Changes</p>
-                            <p className="text-xs text-gray-600">Click <strong>Save Draft</strong> to continue editing later, or <strong>Save & Finalize</strong> to lock permanently with date stamp (no more edits). Once finalized, preview as PDF through session history.</p>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
-                          <div>
-                            <p className="font-medium text-sm">Select Template</p>
-                            <p className="text-xs text-gray-600">Select or create a template (required for AI generation, or skip if entering manually)</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
-                          <div>
-                            <p className="font-medium text-sm">Fill Clinical Fields</p>
-                            <p className="text-xs text-gray-600">Fill in clinical fields (Session Focus, Symptoms, Goals, etc.) OR use 📚 button to insert from library</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
-                          <div>
-                            <p className="font-medium text-sm">Generate Content (Optional)</p>
-                            <p className="text-xs text-gray-600">Click <strong>Generate Content</strong> → AI uses your filled data + template to create enhanced professional note</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
-                          <div>
-                            <p className="font-medium text-sm">Review & Complete Assessment</p>
-                            <p className="text-xs text-gray-600">Review AI-generated content (accept or edit as needed), then complete Risk Assessment (10 factors)</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
-                          <div>
-                            <p className="font-medium text-sm">Save as Draft</p>
-                            <p className="text-xs text-gray-600">Click <strong>Create Draft</strong> → saves to database as draft (unlocked, editable anytime)</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-                      <p className="text-xs text-blue-900">
-                        <strong>💡 Pro Tips:</strong> Session notes provide professional clinical documentation of therapy sessions, track client progress, assess risk factors, and maintain HIPAA-compliant records required for insurance and legal purposes.
-                      </p>
-                    </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
+            {/* Workflow guide moved to the "?" popover next to the title. */}
           </DialogHeader>
 
           <Form {...form}>
@@ -1335,14 +1275,16 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                 </div>
               )}
 
-              {/* AI Template Controls */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium">Please select the template</h3>
-                <div className="flex gap-2 flex-wrap">
-                  {/* Template Selection */}
-                  {savedTemplates.length > 0 && (
+              {/* Compact AI / Template toolbar — one thin row.
+                  Template dropdown on the left, single AI menu on the right
+                  groups the three actions that used to be three buttons:
+                  Smart Fill, Generate Final Note, Edit/Create Template. */}
+              <div className="flex items-center justify-between gap-2 mb-3 py-2 px-3 bg-gray-50 dark:bg-gray-900 rounded-md border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Brain className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  {savedTemplates.length > 0 ? (
                     <select
-                      className="text-xs border rounded px-2 py-1"
+                      className="text-xs border rounded px-2 py-1 max-w-[220px] truncate bg-white dark:bg-gray-950"
                       value={selectedTemplateId}
                       onChange={(e) => {
                         if (e.target.value) {
@@ -1352,62 +1294,85 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                           setSavedTemplate('');
                         }
                       }}
+                      data-testid="select-template"
                     >
-                      <option value="">Select Template...</option>
+                      <option value="">No template</option>
                       {savedTemplates.map(template => (
                         <option key={template.id} value={template.id}>
                           {template.name}
                         </option>
                       ))}
                     </select>
+                  ) : (
+                    <span className="text-xs text-gray-500">No templates yet</span>
                   )}
-                  
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleEditTemplate}
-                    className="text-xs"
-                  >
-                    <Brain className="h-3 w-3 mr-1" />
-                    {selectedTemplateId ? 'Edit Template' : 'Create Template'}
-                  </Button>
-                  
                   {selectedTemplateId && savedTemplates.length > 0 && (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleDeleteTemplate(selectedTemplateId)}
-                      className="text-xs text-red-600 hover:text-red-700"
+                      className="h-7 w-7 text-red-600 hover:text-red-700"
+                      aria-label="Delete template"
+                      data-testid="button-delete-template"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
-                  
-                  {savedTemplate && (
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
                       variant="default"
                       size="sm"
-                      onClick={handleGenerateContent}
                       className="text-xs"
                       disabled={generateAITemplateMutation.isPending}
+                      data-testid="button-ai-menu"
                     >
                       {generateAITemplateMutation.isPending ? (
                         <>
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
-                          Generating...
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1" />
+                          Working…
                         </>
                       ) : (
                         <>
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          Generate Content
+                          <Brain className="h-3 w-3 mr-1" />
+                          AI
+                          <ChevronDown className="h-3 w-3 ml-1" />
                         </>
                       )}
                     </Button>
-                  )}
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuItem
+                      onClick={() => {
+                        const sid = editingNote?.sessionId || form.watch('sessionId');
+                        if (sid) setSmartFillSessionId(sid);
+                      }}
+                      data-testid="menu-smart-fill"
+                    >
+                      <Mic className="h-4 w-4 mr-2" />
+                      Smart Fill from transcript
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleGenerateContent}
+                      disabled={!savedTemplate || generateAITemplateMutation.isPending}
+                      data-testid="menu-generate-final"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Generate Final Note
+                      {!savedTemplate && (
+                        <span className="ml-auto text-[10px] text-gray-500">needs template</span>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleEditTemplate} data-testid="menu-edit-template">
+                      <Edit className="h-4 w-4 mr-2" />
+                      {selectedTemplateId ? 'Edit template' : 'Create template'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Voice Transcription Display removed: superseded by Session Transcript card + Smart Fill */}
@@ -1419,206 +1384,239 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   <TabsTrigger value="risk-assessment">Risk Assessment</TabsTrigger>
                 </TabsList>
 
-                {/* Clinical Documentation Tab */}
-                <TabsContent value="clinical" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="sessionFocus"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between">
-                            Session Focus
-                            <LibraryPicker 
-                              fieldType="session-focus" 
-                              onSelect={(content, entryId) => {
-                                const currentValue = field.value || '';
-                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                field.onChange(newValue);
-                              }}
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Main topics or issues addressed during the session..."
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="symptoms"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between">
-                            Symptoms
-                            <LibraryPicker 
-                              fieldType="symptoms" 
-                              onSelect={(content, entryId) => {
-                                const currentValue = field.value || '';
-                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                field.onChange(newValue);
-                              }}
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Observed or reported symptoms..."
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                {/* Clinical Documentation Tab — fields grouped into 3 short sections:
+                    "What happened" (focus + symptoms),
+                    "Treatment" (goals + intervention + progress),
+                    "Closing" (remarks + recommendations).
+                    Same 7 fields, same data — just easier to scan. */}
+                <TabsContent value="clinical" className="space-y-6">
+                  {/* Section 1 — What happened */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
+                      What happened
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="sessionFocus"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center justify-between">
+                              Session Focus
+                              <LibraryPicker
+                                fieldType="session-focus"
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Main topics or issues addressed during the session..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="symptoms"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center justify-between">
+                              Symptoms
+                              <LibraryPicker
+                                fieldType="symptoms"
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Observed or reported symptoms..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="shortTermGoals"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between">
-                            Short-term Goals
-                            <LibraryPicker 
-                              fieldType="short-term-goals" 
-                              onSelect={(content, entryId) => {
-                                const currentValue = field.value || '';
-                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                field.onChange(newValue);
-                              }}
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Goals worked on during this session..."
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="intervention"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between">
-                            Intervention
-                            <LibraryPicker 
-                              fieldType="interventions" 
-                              onSelect={(content, entryId) => {
-                                const currentValue = field.value || '';
-                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                field.onChange(newValue);
-                              }}
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Therapeutic techniques/interventions used..."
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  {/* Section 2 — Treatment */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
+                      Treatment
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="shortTermGoals"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center justify-between">
+                              Short-term Goals
+                              <LibraryPicker
+                                fieldType="short-term-goals"
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Goals worked on this session..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="intervention"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center justify-between">
+                              Intervention
+                              <LibraryPicker
+                                fieldType="interventions"
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Therapeutic techniques used..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="progress"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center justify-between">
+                              Progress
+                              <LibraryPicker
+                                fieldType="progress"
+                                onSelect={(content) => {
+                                  const currentValue = field.value || '';
+                                  const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
+                                  field.onChange(newValue);
+                                }}
+                              />
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Progress made toward goals..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="progress"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between">
-                            Progress
-                            <LibraryPicker 
-                              fieldType="progress" 
-                              onSelect={(content, entryId) => {
-                                const currentValue = field.value || '';
-                                const newValue = currentValue ? `${currentValue}\n\n${content}` : content;
-                                field.onChange(newValue);
-                              }}
-                            />
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Progress made toward goals..."
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="remarks"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Remarks</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Additional clinical observations..."
-                              {...field}
-                              value={field.value || ''}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  {/* Section 3 — Closing */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
+                      Closing
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="remarks"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Remarks</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Additional clinical observations..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="recommendations"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Recommendations</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Future treatment recommendations..."
+                                {...field}
+                                value={field.value || ''}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="recommendations"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Recommendations</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Future treatment recommendations..."
-                            {...field}
-                            value={field.value || ''}
-                            rows={3}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* AI Generated Content - Rich Text Editor */}
+                  {/* Final Session Note — the polished narrative built FROM the 7
+                      fields above + the selected template. This is what gets
+                      saved & printed as the official note. The 7 fields are the
+                      data source; this is the formatted output. */}
                   <FormField
                     control={form.control}
                     name="generatedContent"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                          <Brain className="h-4 w-4 text-blue-600" />
-                          AI Generated Session Note (Rich Text Editor)
-                        </FormLabel>
+                        <div className="flex items-center justify-between mt-2">
+                          <FormLabel className="flex items-center gap-2 mb-0">
+                            <Brain className="h-4 w-4 text-blue-600" />
+                            Final Session Note
+                            <span className="text-xs font-normal text-gray-500">(saved & printed)</span>
+                          </FormLabel>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={handleGenerateContent}
+                            disabled={!savedTemplate || generateAITemplateMutation.isPending}
+                            data-testid="button-regenerate-final"
+                            title={!savedTemplate ? 'Pick a template first' : 'Re-generate this note from the 7 fields above'}
+                          >
+                            <RefreshCw className={`h-3 w-3 mr-1 ${generateAITemplateMutation.isPending ? 'animate-spin' : ''}`} />
+                            {field.value ? 'Re-generate from fields' : 'Generate from fields'}
+                          </Button>
+                        </div>
                         <FormControl>
-                          <div className="bg-white dark:bg-gray-950 rounded-md border min-h-[300px]">
+                          <div className="bg-white dark:bg-gray-950 rounded-md border min-h-[300px] mt-2">
                             <ReactQuill
                               key={editingNote?.id || 'new-note'}
                               theme="snow"
@@ -1629,13 +1627,13 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                               onBlur={field.onBlur}
                               modules={quillModules}
                               formats={quillFormats}
-                              placeholder="AI-generated content will appear here after you click 'Generate Content'. You can edit it with rich text formatting..."
+                              placeholder="Fill the fields above, then click 'Generate from fields' to produce the polished note. You can edit it freely after."
                               style={{ minHeight: '250px' }}
                             />
                           </div>
                         </FormControl>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Edit the AI-generated session note with formatting. This will be saved when you click "Create Note" or "Update Note".
+                          This is the official note — what gets saved, locked on finalize, and printed as PDF. Edit freely.
                         </p>
                         <FormMessage />
                       </FormItem>
