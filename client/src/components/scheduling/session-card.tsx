@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { 
   Edit, User, MapPin, FileText, MoreVertical, AlertCircle, 
-  CalendarDays, CheckCircle, X, RotateCw, Video, Trash2
+  CalendarDays, CheckCircle, X, RotateCw, Video, Trash2, FileAudio
 } from "lucide-react";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useLocation } from "wouter";
@@ -68,6 +68,7 @@ interface SessionCardProps {
   openEditSessionForm: (session: Session) => void;
   updateSessionStatus: (id: number, status: string) => void;
   onDeleteSession?: (session: Session) => void;
+  hasTranscript?: boolean;
 }
 
 export function SessionCard({
@@ -81,7 +82,8 @@ export function SessionCard({
   trackSessionViewed,
   openEditSessionForm,
   updateSessionStatus,
-  onDeleteSession
+  onDeleteSession,
+  hasTranscript = false,
 }: SessionCardProps) {
   const [, setLocation] = useLocation();
   const conflictInfo = getSessionConflictStyle(session);
@@ -118,7 +120,7 @@ export function SessionCard({
           </div>
           
           <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-1">
+            <div className="flex items-center flex-wrap gap-2 mb-1">
               <h3 
                 className="font-medium text-primary hover:underline cursor-pointer"
                 onClick={() => setLocation(`/clients/${session.clientId}?from=scheduling`)}
@@ -128,6 +130,16 @@ export function SessionCard({
               <span className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
                 Ref# {session.client?.referenceNumber || 'N/A'}
               </span>
+              {hasTranscript && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-green-50 text-green-700 border-green-200"
+                  data-testid={`badge-transcript-ready-${session.id}`}
+                  title="A recorded transcript is available for this session"
+                >
+                  <FileAudio className="w-3 h-3" />
+                  Transcript ✓
+                </span>
+              )}
             </div>
             <div className="space-y-1 text-sm text-slate-600">
               <div className="flex items-center space-x-2">

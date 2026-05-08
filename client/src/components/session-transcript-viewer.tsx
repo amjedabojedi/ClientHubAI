@@ -125,6 +125,7 @@ export function SessionTranscriptViewer({
       onOpenChange(false);
       // Best-effort cache invalidation; failures here shouldn't surface as "Delete failed".
       queryClient.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      queryClient.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
     } catch (err: any) {
       toast({
         title: "Delete failed",

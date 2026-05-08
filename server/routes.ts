@@ -7470,6 +7470,110 @@ You can download a copy if you have it saved locally and re-upload it.`;
   );
 
 
+  // Bulk transcript-status lookup for a single client. Returns a map of
+  // sessionId → true for sessions that have a 'ready' transcript. Used by
+  // client-detail's Sessions tab to show a "Transcript ✓" pill on each card
+  // without N+1 fetching per session.
+  app.get(
+    "/api/clients/:clientId/session-transcripts/status",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        if (!req.user) return res.status(401).json({ message: "Authentication required" });
+        const clientId = parseInt(req.params.clientId);
+        if (Number.isNaN(clientId)) return res.status(400).json({ message: "Invalid clientId" });
+
+        // Per-client authorization, mirrors GET /api/clients/:id:
+        // - admins: any client
+        // - therapists: only their assigned clients
+        // - supervisors: only clients of therapists they supervise
+        // - everyone else (incl. portal clients): denied
+        const client = await storage.getClient(clientId);
+        if (!client) return res.status(404).json({ message: "Client not found" });
+        const role = req.user.role;
+        if (role === 'therapist') {
+          if (client.assignedTherapistId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied. You can only view your assigned clients." });
+          }
+        } else if (role === 'supervisor') {
+          const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+          const supervisedTherapistIds = supervisorAssignments.map((a) => a.therapistId);
+          if (!client.assignedTherapistId || !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+            return res.status(403).json({ message: "Access denied. You can only view clients of therapists you supervise." });
+          }
+        } else if (role !== 'admin' && role !== 'administrator') {
+          return res.status(403).json({ message: "Access denied." });
+        }
+
+        const includeHidden = role === 'admin' || role === 'administrator';
+        const clientSessions = await storage.getSessionsByClient(clientId, includeHidden);
+        const sessionIds = clientSessions.map((s: any) => s.id);
+        const ready = await storage.getReadyTranscriptSessionIds(sessionIds);
+        const map: Record<number, boolean> = {};
+        for (const id of ready) map[id] = true;
+        return res.json(map);
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
+  // Bulk transcript-status lookup by sessionId list, used by the scheduling
+  // page's session-card list. Filters to sessions the caller can access
+  // (assigned therapist, supervisor of that therapist, or admin) so we never
+  // leak transcript existence for sessions outside the user's scope.
+  app.get(
+    "/api/session-transcripts/status",
+    requireAuth,
+    blockAccountant,
+    async (req: AuthenticatedRequest, res) => {
+      try {
+        if (!req.user) return res.status(401).json({ message: "Authentication required" });
+        const raw = String(req.query.sessionIds || "").trim();
+        if (!raw) return res.json({});
+        const sessionIds = raw
+          .split(",")
+          .map((s) => parseInt(s.trim()))
+          .filter((n) => Number.isFinite(n));
+        if (!sessionIds.length) return res.json({});
+
+        // Cap to avoid abuse; scheduling page paginates anyway.
+        const capped = sessionIds.slice(0, 200);
+
+        const role = req.user.role;
+        const isAdmin = role === 'admin' || role === 'administrator';
+        let allowedTherapistIds: number[] | null = null;
+        if (!isAdmin) {
+          if (role === 'supervisor') {
+            const supervised = await storage.getSupervisorAssignments(req.user.id);
+            allowedTherapistIds = [req.user.id, ...supervised.map((a) => a.therapistId)];
+          } else if (role === 'therapist') {
+            allowedTherapistIds = [req.user.id];
+          } else {
+            return res.json({});
+          }
+        }
+
+        // Fetch session rows to enforce per-session access.
+        const rows = await db
+          .select({ id: sessions.id, therapistId: sessions.therapistId })
+          .from(sessions)
+          .where(inArray(sessions.id, capped));
+        const allowedIds = rows
+          .filter((r) => isAdmin || (allowedTherapistIds && allowedTherapistIds.includes(r.therapistId)))
+          .map((r) => r.id);
+
+        const ready = await storage.getReadyTranscriptSessionIds(allowedIds);
+        const map: Record<number, boolean> = {};
+        for (const id of ready) map[id] = true;
+        return res.json(map);
+      } catch (error: any) {
+        return res.status(500).json({ message: error.message || "Internal error" });
+      }
+    },
+  );
+
   app.post("/api/session-notes/transcribe", requireAuth, blockAccountant, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     

@@ -318,6 +318,8 @@ export interface IStorage {
   // ===== SESSION TRANSCRIPTS (Voice Recording) =====
   getSessionTranscript(sessionId: number): Promise<SessionTranscript | undefined>;
   getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined>;
+  // Bulk: returns the set of sessionIds that have a transcript with status='ready'.
+  getReadyTranscriptSessionIds(sessionIds: number[]): Promise<number[]>;
   createSessionTranscript(data: InsertSessionTranscript): Promise<SessionTranscript>;
   updateSessionTranscript(id: number, data: Partial<InsertSessionTranscript>): Promise<SessionTranscript>;
   deleteSessionTranscript(sessionId: number): Promise<void>;
@@ -1617,6 +1619,20 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sessionTranscripts.createdAt))
       .limit(1);
     return transcript || undefined;
+  }
+
+  async getReadyTranscriptSessionIds(sessionIds: number[]): Promise<number[]> {
+    if (!sessionIds.length) return [];
+    const rows = await db
+      .selectDistinct({ sessionId: sessionTranscripts.sessionId })
+      .from(sessionTranscripts)
+      .where(
+        and(
+          inArray(sessionTranscripts.sessionId, sessionIds),
+          eq(sessionTranscripts.status, 'ready'),
+        ),
+      );
+    return rows.map((r) => r.sessionId);
   }
 
   async getSessionTranscriptByUploadId(uploadId: string): Promise<SessionTranscript | undefined> {

@@ -336,6 +336,33 @@ export default function SchedulingPage() {
 
   const isAccountantRole = user?.role?.toLowerCase() === 'accountant';
 
+  // Bulk transcript-status lookup for sessions currently visible. We compute
+  // the union of paged list sessions + the cached month sessions and ask the
+  // server in a single call so each card can show a "Transcript ✓" pill
+  // without an N+1 fetch.
+  const visibleSessionIds = useMemo(() => {
+    const ids = new Set<number>();
+    allSessions.forEach((s: Session) => ids.add(s.id));
+    sessions.forEach((s: Session) => ids.add(s.id));
+    prevMonthSessions.forEach((s: Session) => ids.add(s.id));
+    nextMonthSessions.forEach((s: Session) => ids.add(s.id));
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [allSessions, sessions, prevMonthSessions, nextMonthSessions]);
+
+  const transcriptStatusKey = visibleSessionIds.join(',');
+  const { data: transcriptStatusMap = {} } = useQuery<Record<number, boolean>>({
+    queryKey: ['/api/session-transcripts/status', transcriptStatusKey],
+    queryFn: async () => {
+      if (!transcriptStatusKey) return {};
+      const res = await fetch(`/api/session-transcripts/status?sessionIds=${transcriptStatusKey}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to load transcript status');
+      return res.json();
+    },
+    enabled: !isAccountantRole && visibleSessionIds.length > 0,
+  });
+
   // Fetch clients and therapists for dropdowns (skip for accountant - no client access)
   const { data: clients = { clients: [], total: 0 } } = useQuery<{ clients: ClientData[]; total: number }>({
     queryKey: ["/api/clients"],
@@ -1966,6 +1993,7 @@ export default function SchedulingPage() {
                         openEditSessionForm={openEditSessionForm}
                         updateSessionStatus={updateSessionStatus}
                         onDeleteSession={!isAccountantRole ? handleDeleteSession : undefined}
+                        hasTranscript={!!transcriptStatusMap[session.id]}
                       />
                       ))}
                   </div>
@@ -2109,6 +2137,7 @@ export default function SchedulingPage() {
                             openEditSessionForm={openEditSessionForm}
                             updateSessionStatus={updateSessionStatus}
                             onDeleteSession={!isAccountantRole ? handleDeleteSession : undefined}
+                            hasTranscript={!!transcriptStatusMap[session.id]}
                           />
                         ))}
                     </div>

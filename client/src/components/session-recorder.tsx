@@ -394,6 +394,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         description: "Saved everything the server received before the interruption.",
       });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
       await refetchTranscript();
     } catch (err: any) {
       toast({
@@ -1189,6 +1190,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setChunksUploaded(0);
       setPreviewText("");
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
       await refetchTranscript();
     } catch (err: any) {
       console.error("Finalize error:", err);
@@ -1219,6 +1221,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       setRecoverableUploadId(null);
       toast({ title: "Transcript deleted" });
       qc.invalidateQueries({ queryKey: ["/api/sessions", sessionId, "transcript"] });
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('session-transcripts/status') });
       await refetchTranscript();
     } catch (err: any) {
       toast({

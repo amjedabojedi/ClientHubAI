@@ -1830,6 +1830,14 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
+  // Bulk transcript-status map for this client's sessions. Lets each session
+  // card show a "Transcript ✓" pill without an N+1 fetch per row.
+  const { data: transcriptStatusMap = {} } = useQuery<Record<number, boolean>>({
+    queryKey: [`/api/clients/${clientId}/session-transcripts/status`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
   // Session Notes query (for inline note management in Session History)
   const { data: sessionNotes = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/session-notes`],
@@ -2930,6 +2938,16 @@ export default function ClientDetailPage() {
                                 <h4 className="font-medium text-slate-900">
                                   {(session as any).service?.serviceName || 'Session'}
                                 </h4>
+                                {transcriptStatusMap[session.id] && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-green-50 text-green-700 border-green-200"
+                                    data-testid={`badge-transcript-ready-${session.id}`}
+                                    title="A recorded transcript is available for this session"
+                                  >
+                                    <FileAudio className="w-3 h-3" />
+                                    Transcript ✓
+                                  </span>
+                                )}
                                 {(() => {
                                   const rating = sessionRatingsMap.get(session.id);
                                   if (!rating) return null;
