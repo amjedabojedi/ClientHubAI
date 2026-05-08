@@ -1336,9 +1336,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           clientName: client.fullName,
           fullName: client.fullName,
           assignedTherapistId: client.assignedTherapistId,
-          // Fall back to the human-readable case ID (e.g. CL-2026-0184)
-          // when the optional referenceNumber field isn't populated, so
-          // the email never shows a blank reference.
+          // Always use the human-readable case ID (e.g. CL-2026-0184) for
+          // emails. The optional referenceNumber field is internal-only.
+          clientCaseId: client.clientId,
           referenceNumber: client.referenceNumber || client.clientId,
           stage: client.stage || 'initial',
           createdAt: client.createdAt
@@ -1367,6 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
+            clientCaseId: client.clientId,
             referenceNumber: client.referenceNumber || client.clientId,
             assignmentDate: new Date(),
             priority: 'medium',
@@ -1495,6 +1496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
             assignedTherapistId: client.assignedTherapistId,
+            clientCaseId: client.clientId,
             referenceNumber: client.referenceNumber || client.clientId,
             assignmentDate: new Date(),
             priority: 'medium',
@@ -2548,6 +2550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               therapistName: assignedTherapist?.fullName || 'Unknown Therapist',
               assignedTherapist: assignedTherapist?.fullName || 'Unknown Therapist',
               assignedTherapistId: therapistId,
+              clientCaseId: updated.clientId,
               referenceNumber: updated.referenceNumber || updated.clientId,
               assignmentDate: new Date(),
               priority: 'medium',
@@ -4244,6 +4247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await notificationService.processEvent('session_overdue', {
                 id: session.id,
                 clientId: session.clientId,
+                clientCaseId: session.client?.clientId,
                 clientName: session.client.fullName,
                 therapistId: session.therapistId,
                 therapistName: session.therapist.fullName,
@@ -4626,6 +4630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             title: task.title,
             description: task.description,
             clientId: task.clientId,
+            clientCaseId: client?.clientId,
             clientName: client?.fullName || 'Unknown Client',
             clientReference: client?.referenceNumber || '',
             assignedToId: task.assignedToId,
