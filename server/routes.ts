@@ -44,7 +44,7 @@ function getChromiumExecutablePath(): string | undefined {
   // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
   return undefined;
 }
-import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings } from "@shared/schema";
+import { users, auditLogs, loginAttempts, clients, sessionBilling, sessions, sessionNotes, clientHistory, services, documents, formTemplates, formFields, formAssignments, formResponses, formSignatures, patientConsents, scheduledNotifications, roomBookings, sessionRatings, AUDIT_ACTIONS, type AuditAction } from "@shared/schema";
 import { eq, and, or, gte, lte, desc, asc, sql, ilike, inArray, count } from "drizzle-orm";
 import { AuditLogger, getRequestInfo } from "./audit-logger";
 import { setAuditContext, auditClientAccess, auditSessionAccess, auditDocumentAccess, auditAssessmentAccess } from "./audit-middleware";
@@ -12240,7 +12240,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
       
       if (action && action !== 'all') {
-        whereConditions.push(eq(auditLogs.action, action as string));
+        if ((AUDIT_ACTIONS as readonly string[]).includes(action as string)) {
+          whereConditions.push(eq(auditLogs.action, action as AuditAction));
+        }
       }
       
       if (userId && userId !== '') {

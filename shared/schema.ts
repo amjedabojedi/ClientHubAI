@@ -1182,11 +1182,119 @@ export const formSignatures = pgTable("form_signatures", {
 }));
 
 // HIPAA Audit Logging System
+//
+// Single source of truth for the set of audit `action` values that may be
+// written to `audit_logs.action`. Adding a new action MUST be done here so it
+// is enforced at compile time at every call site (typed via the Drizzle
+// `varchar({ enum })` option below). Previously these were free-form strings
+// in `server/routes.ts`, which caused production audit failures when call
+// sites diverged from what the DB / app expected.
+export const AUDIT_ACTIONS = [
+  // Authentication
+  'login',
+  'logout',
+  'login_failed',
+  'password_changed',
+  'account_locked',
+  'unauthorized_access',
+
+  // Client lifecycle
+  'client_viewed',
+  'client_created',
+  'client_updated',
+  'client_deleted',
+  'client_status_changed',
+  'client_assigned',
+  'client_transferred',
+
+  // Bulk client operations
+  'bulk_update_stage',
+  'bulk_reassign_therapist',
+  'bulk_portal_access',
+  'bulk_update_status',
+
+  // Sessions / appointments
+  'session_viewed',
+  'session_created',
+  'session_updated',
+  'session_deleted',
+  'session_cancelled',
+  'session_rescheduled',
+  'session_completed',
+  'session_no_show',
+  'appointments_viewed',
+
+  // Session notes
+  'note_created',
+  'note_updated',
+  'note_viewed',
+  'note_deleted',
+  'note_ai_generated',
+  'notes_viewed',
+  'finalize_session_note',
+
+  // Session transcripts / voice
+  'session_transcript_created',
+  'session_transcript_viewed',
+  'session_transcript_smart_fill',
+  'session_transcript_deleted',
+  'voice_transcription_new_note',
+  'assessment_voice_transcribed',
+
+  // Documents
+  'document_viewed',
+  'document_uploaded',
+  'document_downloaded',
+  'document_deleted',
+  'document_shared',
+  'document_modified',
+  'document_approved',
+  'document_rejected',
+  'documents_viewed',
+
+  // Assessments
+  'assessment_viewed',
+  'assessment_created',
+  'assessment_updated',
+  'assessment_completed',
+  'assessment_assigned',
+  'assessment_report_generated',
+
+  // Forms
+  'forms_list_viewed',
+  'form_viewed',
+  'form_signature_cleared',
+  'form_signed',
+  'form_submitted',
+  'form_assignment_deleted',
+
+  // Billing
+  'billing_created',
+  'billing_updated',
+  'billing_status_changed',
+  'payment_recorded',
+  'invoice_sent',
+  'invoices_viewed',
+  'invoice_viewed',
+  'payment_initiated',
+  'payment_completed',
+
+  // Consent / compliance
+  'consent_granted',
+  'consent_withdrawn',
+  'ai_processing_blocked',
+
+  // Data export
+  'data_exported',
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'set null' }),
   username: varchar("username", { length: 100 }), // Store username for records even if user deleted
-  action: varchar("action", { length: 100 }).notNull(),
+  action: varchar("action", { length: 100, enum: AUDIT_ACTIONS }).notNull(),
   result: varchar("result", { length: 20 }).notNull(),
   resourceType: varchar("resource_type", { length: 50 }), // 'client', 'session', 'document', etc.
   resourceId: varchar("resource_id", { length: 50 }), // ID of the resource accessed

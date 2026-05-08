@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuditLogger, getRequestInfo } from './audit-logger';
 import { AuthenticatedRequest } from './auth-middleware';
+import type { AuditAction } from '@shared/schema';
 
 // Extend Express Request to include user info for audit logging
 declare global {
@@ -17,7 +18,7 @@ declare global {
 /**
  * Middleware to automatically log PHI access and high-risk actions
  */
-export function auditMiddleware(action: string, resourceType: string, options?: {
+export function auditMiddleware(action: AuditAction, resourceType: string, options?: {
   hipaaRelevant?: boolean;
   riskLevel?: 'low' | 'medium' | 'high' | 'critical';
   extractClientId?: (req: Request) => number | null;
@@ -43,7 +44,7 @@ export function auditMiddleware(action: string, resourceType: string, options?: 
       await AuditLogger.logAction({
         userId: authenticatedUser.id,
         username: authenticatedUser.username || 'unknown',
-        action: action as any,
+        action,
         result: 'success',
         resourceType,
         resourceId: resourceId.toString(),
