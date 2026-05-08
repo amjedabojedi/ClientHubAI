@@ -284,6 +284,17 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   // toggles whether zero-score factors are visible.
   const [riskExpanded, setRiskExpanded] = useState(false);
   const [showAllRiskFactors, setShowAllRiskFactors] = useState(false);
+  // Collapsible main sections — same expand/collapse pattern as Risk
+  // Assessment so the therapist can fold sections away while filling
+  // the form. All open by default so nothing is hidden on first use.
+  const [sectionsOpen, setSectionsOpen] = useState({
+    what: true,
+    treatment: true,
+    closing: true,
+    finalNote: true,
+  });
+  const toggleSection = (key: keyof typeof sectionsOpen) =>
+    setSectionsOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Track selected library entries per field for relationship filtering
   const [selectedLibraryEntries, setSelectedLibraryEntries] = useState<{
@@ -1440,12 +1451,22 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   Same 7 fields, same data — just easier to scan.
                   Tabs were removed (Risk Assessment now lives inline at the bottom). */}
               <div className="space-y-6">
-                  {/* Section 1 — What happened */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
-                      What happened
-                    </h4>
-                    <div className="space-y-4">
+                  {/* Section 1 — What happened (collapsible) */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('what')}
+                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                      data-testid="button-toggle-section-what"
+                    >
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        What happened
+                        <span className="ml-2 text-xs font-normal text-gray-500">Session Focus, Symptoms</span>
+                      </h4>
+                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.what ? 'rotate-180' : ''}`} />
+                    </button>
+                    {sectionsOpen.what && (
+                    <div className="space-y-4 p-4 bg-white dark:bg-gray-950">
                       <FormField
                         control={form.control}
                         name="sessionFocus"
@@ -1501,14 +1522,25 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         )}
                       />
                     </div>
+                    )}
                   </div>
 
-                  {/* Section 2 — Treatment */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
-                      Treatment
-                    </h4>
-                    <div className="space-y-4">
+                  {/* Section 2 — Treatment (collapsible) */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('treatment')}
+                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                      data-testid="button-toggle-section-treatment"
+                    >
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Treatment
+                        <span className="ml-2 text-xs font-normal text-gray-500">Goals, Intervention, Progress</span>
+                      </h4>
+                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.treatment ? 'rotate-180' : ''}`} />
+                    </button>
+                    {sectionsOpen.treatment && (
+                    <div className="space-y-4 p-4 bg-white dark:bg-gray-950">
                       <FormField
                         control={form.control}
                         name="shortTermGoals"
@@ -1591,14 +1623,25 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         )}
                       />
                     </div>
+                    )}
                   </div>
 
-                  {/* Section 3 — Closing */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1">
-                      Closing
-                    </h4>
-                    <div className="space-y-4">
+                  {/* Section 3 — Closing (collapsible) */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('closing')}
+                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                      data-testid="button-toggle-section-closing"
+                    >
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Closing
+                        <span className="ml-2 text-xs font-normal text-gray-500">Remarks, Recommendations</span>
+                      </h4>
+                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.closing ? 'rotate-180' : ''}`} />
+                    </button>
+                    {sectionsOpen.closing && (
+                    <div className="space-y-4 p-4 bg-white dark:bg-gray-950">
                       <FormField
                         control={form.control}
                         name="remarks"
@@ -1634,61 +1677,75 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                         )}
                       />
                     </div>
+                    )}
                   </div>
 
-                  {/* Final Session Note — the polished narrative built FROM the 7
-                      fields above + the selected template. This is what gets
-                      saved & printed as the official note. The 7 fields are the
-                      data source; this is the formatted output. */}
-                  <FormField
-                    control={form.control}
-                    name="generatedContent"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center justify-between mt-2">
-                          <FormLabel className="flex items-center gap-2 mb-0">
-                            <Brain className="h-4 w-4 text-blue-600" />
-                            Final Session Note
-                            <span className="text-xs font-normal text-gray-500">(saved & printed)</span>
-                          </FormLabel>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={handleGenerateContent}
-                            disabled={!savedTemplate || generateAITemplateMutation.isPending}
-                            data-testid="button-regenerate-final"
-                            title={!savedTemplate ? 'Pick a template first' : 'Re-generate this note from the 7 fields above'}
-                          >
-                            <RefreshCw className={`h-3 w-3 mr-1 ${generateAITemplateMutation.isPending ? 'animate-spin' : ''}`} />
-                            {field.value ? 'Re-generate from fields' : 'Generate from fields'}
-                          </Button>
-                        </div>
-                        <FormControl>
-                          <div className="bg-white dark:bg-gray-950 rounded-md border min-h-[300px] mt-2">
-                            <ReactQuill
-                              key={editingNote?.id || 'new-note'}
-                              theme="snow"
-                              value={field.value || ''}
-                              onChange={(content) => {
-                                field.onChange(content);
-                              }}
-                              onBlur={field.onBlur}
-                              modules={quillModules}
-                              formats={quillFormats}
-                              placeholder="Fill the fields above, then click 'Generate from fields' to produce the polished note. You can edit it freely after."
-                              style={{ minHeight: '250px' }}
-                            />
-                          </div>
-                        </FormControl>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          This is the official note — what gets saved, locked on finalize, and printed as PDF. Edit freely.
-                        </p>
-                        <FormMessage />
-                      </FormItem>
+                  {/* Final Session Note — collapsible. The polished narrative
+                      built FROM the 7 fields above + the selected template.
+                      This is what gets saved & printed as the official note. */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('finalNote')}
+                      className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                      data-testid="button-toggle-section-final-note"
+                    >
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-blue-600" />
+                        Final Session Note
+                        <span className="text-xs font-normal text-gray-500">(saved & printed)</span>
+                      </h4>
+                      <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${sectionsOpen.finalNote ? 'rotate-180' : ''}`} />
+                    </button>
+                    {sectionsOpen.finalNote && (
+                      <div className="p-4 bg-white dark:bg-gray-950">
+                        <FormField
+                          control={form.control}
+                          name="generatedContent"
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex items-center justify-end mb-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={handleGenerateContent}
+                                  disabled={!savedTemplate || generateAITemplateMutation.isPending}
+                                  data-testid="button-regenerate-final"
+                                  title={!savedTemplate ? 'Pick a template first' : 'Re-generate this note from the 7 fields above'}
+                                >
+                                  <RefreshCw className={`h-3 w-3 mr-1 ${generateAITemplateMutation.isPending ? 'animate-spin' : ''}`} />
+                                  {field.value ? 'Re-generate from fields' : 'Generate from fields'}
+                                </Button>
+                              </div>
+                              <FormControl>
+                                <div className="bg-white dark:bg-gray-950 rounded-md border min-h-[300px]">
+                                  <ReactQuill
+                                    key={editingNote?.id || 'new-note'}
+                                    theme="snow"
+                                    value={field.value || ''}
+                                    onChange={(content) => {
+                                      field.onChange(content);
+                                    }}
+                                    onBlur={field.onBlur}
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    placeholder="Fill the fields above, then click 'Generate from fields' to produce the polished note. You can edit it freely after."
+                                    style={{ minHeight: '250px' }}
+                                  />
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                This is the official note — what gets saved, locked on finalize, and printed as PDF. Edit freely.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     )}
-                  />
+                  </div>
               </div>
 
               {/* Risk Assessment — compact, inline, collapsed by default.
