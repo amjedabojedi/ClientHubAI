@@ -1239,6 +1239,8 @@ export const AUDIT_ACTIONS = [
   'session_transcript_smart_fill',
   'session_transcript_deleted',
   'voice_transcription_new_note',
+  'voice_transcription_processed',
+  'voice_transcription_failed',
   'assessment_voice_transcribed',
 
   // Documents

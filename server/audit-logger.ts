@@ -214,7 +214,7 @@ export class AuditLogger {
     username: string,
     noteId: number,
     clientId: number,
-    action: 'note_created' | 'note_updated' | 'note_viewed' | 'note_deleted' | 'note_ai_generated',
+    action: 'note_created' | 'note_updated' | 'note_viewed' | 'note_deleted' | 'note_ai_generated' | 'voice_transcription_processed' | 'voice_transcription_failed',
     ipAddress: string,
     userAgent: string,
     details?: any
