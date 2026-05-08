@@ -7684,13 +7684,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
           action: 'voice_transcription_new_note',
           resourceType: 'session_note',
           resourceId: null,
-          details: 'Processed voice transcription for new unsaved session note',
+          details: JSON.stringify({
+            description: 'Processed voice transcription for new unsaved session note',
+            audioFileSize: req.file.size,
+            transcriptionLength: result.rawTranscription.length,
+          }),
           ipAddress,
           userAgent,
-          metadata: {
-            audioFileSize: req.file.size,
-            transcriptionLength: result.rawTranscription.length
-          }
         });
       }
 
@@ -9361,7 +9361,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         req.user.username,
         assignmentId,
         assignment.clientId,
-        'report_generated',
+        'assessment_report_generated',
         ipAddress,
         userAgent,
         { 
@@ -9430,19 +9430,24 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const updatedReport = await storage.updateAssessmentReportDraft(assignmentId, draftContent);
 
       // HIPAA Audit: Log report edit
-      await AuditLogger.logAssessmentAccess(
-        req.user.id,
-        req.user.username,
-        assignmentId,
-        existingReport.assignment.clientId,
-        'assessment_updated',
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'assessment_updated',
+        result: 'success',
+        resourceType: 'assessment',
+        resourceId: assignmentId.toString(),
+        clientId: existingReport.assignment.clientId,
         ipAddress,
         userAgent,
-        { 
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({
           reportId: updatedReport.id,
-          operation: 'draft_saved'
-        }
-      );
+          operation: 'draft_saved',
+        }),
+        accessReason: 'Clinical assessment and evaluation',
+      });
 
       res.json(updatedReport);
     } catch (error) {
@@ -9569,19 +9574,24 @@ You can download a copy if you have it saved locally and re-upload it.`;
       });
 
       // HIPAA Audit: Log report reopening
-      await AuditLogger.logAssessmentAccess(
-        req.user.id,
-        req.user.username,
-        assignmentId,
-        existingReport.assignment.clientId,
-        'assessment_updated',
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'assessment_updated',
+        result: 'success',
+        resourceType: 'assessment',
+        resourceId: assignmentId.toString(),
+        clientId: existingReport.assignment.clientId,
         ipAddress,
         userAgent,
-        { 
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({
           reportId: updatedReport.id,
-          operation: 'report_reopened'
-        }
-      );
+          operation: 'report_reopened',
+        }),
+        accessReason: 'Clinical assessment and evaluation',
+      });
 
       res.json(updatedReport);
     } catch (error) {
@@ -14762,7 +14772,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       await AuditLogger.logAction({
         userId: client.id,
-        userEmail: client.portalEmail || client.email || 'unknown',
+        username: client.portalEmail || client.email || 'unknown',
         action: 'forms_list_viewed',
         result: 'success',
         resourceType: 'form_assignment',
@@ -14880,7 +14890,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (client) {
         await AuditLogger.logAction({
           userId: client.id,
-          userEmail: client.portalEmail || client.email || 'unknown',
+          username: client.portalEmail || client.email || 'unknown',
           action: 'form_viewed',
           result: 'success',
           resourceType: 'form_assignment',
@@ -15178,7 +15188,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           if (client) {
             await AuditLogger.logAction({
               userId: client.id,
-              userEmail: client.portalEmail || client.email || 'unknown',
+              username: client.portalEmail || client.email || 'unknown',
               action: 'form_signature_cleared',
               result: 'success',
               resourceType: 'form_signature',
@@ -15244,7 +15254,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       await AuditLogger.logAction({
         userId: client.id,
-        userEmail: client.portalEmail || client.email || 'unknown',
+        username: client.portalEmail || client.email || 'unknown',
         action: 'form_signed',
         result: 'success',
         resourceType: 'form_signature',
@@ -15329,7 +15339,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (client) {
         await AuditLogger.logAction({
           userId: client.id,
-          userEmail: client.portalEmail || client.email || 'unknown',
+          username: client.portalEmail || client.email || 'unknown',
           action: 'form_submitted',
           result: 'success',
           resourceType: 'form_assignment',
@@ -15832,7 +15842,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Audit log
       await AuditLogger.logAction({
         userId: req.user.id,
-        userEmail: req.user.email,
+        username: req.user.username,
         action: 'form_assignment_deleted',
         result: 'success',
         resourceType: 'form_assignment',

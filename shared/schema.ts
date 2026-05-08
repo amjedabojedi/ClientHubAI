@@ -1247,6 +1247,8 @@ export const AUDIT_ACTIONS = [
   'document_downloaded',
   'document_deleted',
   'document_shared',
+  'document_shared_in_portal',
+  'document_unshared_from_portal',
   'document_modified',
   'document_approved',
   'document_rejected',

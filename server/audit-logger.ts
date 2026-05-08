@@ -92,7 +92,7 @@ export class AuditLogger {
     username: string,
     documentId: number,
     clientId: number,
-    action: 'document_viewed' | 'document_uploaded' | 'document_downloaded' | 'document_deleted' | 'document_shared' | 'document_modified',
+    action: 'document_viewed' | 'document_uploaded' | 'document_downloaded' | 'document_deleted' | 'document_shared' | 'document_modified' | 'document_shared_in_portal' | 'document_unshared_from_portal',
     ipAddress: string,
     userAgent: string,
     details?: any
