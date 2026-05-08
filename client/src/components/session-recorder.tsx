@@ -197,6 +197,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const uploadIdRef = useRef<string>("");
   const chunkIndexRef = useRef<number>(0);
+  // True when the current recording uses Deepgram-only (no Whisper chunk
+  // uploads). Set on Start based on the picked language; checked at Stop
+  // and by the stall watchdog to skip chunk-specific gating.
+  const useLiveOnlyRef = useRef<boolean>(false);
   const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
   const mimeTypeRef = useRef<string>("audio/webm");
   const stoppingRef = useRef<boolean>(false);
@@ -323,6 +327,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       return;
     }
     const timer = setInterval(() => {
+      // Stall watchdog only applies to the chunked Whisper pipeline. In
+      // Deepgram-only mode there are no chunk uploads to stall on — the
+      // WS itself surfaces errors via ws.onerror.
+      if (useLiveOnlyRef.current) return;
       const now = Date.now();
       if (
         chunkIndexRef.current > 0 &&
@@ -1035,15 +1043,18 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       segmentMaxRmsRef.current = 0;
       setStatus("recording");
       startLevelMeter(stream);
-      startSegmentRecorder();
-      // Kick off the live (Deepgram) pipeline. If it fails to open, the
-      // Whisper chunk path will still drive the preview as a fallback.
-      // Skip the live engine entirely for languages Deepgram nova-2
-      // streaming doesn't support (e.g. Arabic) — Whisper still produces
-      // the full final transcript.
+      // Routing: Deepgram-supported languages stream over the WebSocket and
+      // the server saves the transcript on close — NO chunked Whisper
+      // uploads. Unsupported languages (e.g. Arabic) fall back to the
+      // legacy Whisper chunk pipeline because Deepgram nova-2 streaming
+      // can't transcribe them.
       const liveLangEntry = LIVE_LANGUAGES.find(l => l.code === (liveLanguage || "en"));
-      if (liveLangEntry?.liveSupported !== false) {
+      const useLive = liveLangEntry?.liveSupported !== false;
+      useLiveOnlyRef.current = useLive;
+      if (useLive) {
         startLiveTranscription(stream, liveLanguage || "en", uploadIdRef.current);
+      } else {
+        startSegmentRecorder();
       }
       startTick();
       // After the first successful getUserMedia, device labels become
@@ -1141,8 +1152,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       console.error("Some chunks failed:", err);
     }
 
-    // Block finalize if any chunk permanently failed — therapist must retry first
-    if (failedChunksRef.current.size > 0) {
+    // Block finalize if any chunk permanently failed — therapist must retry first.
+    // Live-only recordings have no chunk uploads, so this gate is bypassed.
+    if (!useLiveOnlyRef.current && failedChunksRef.current.size > 0) {
       const failedList = Array.from(failedChunksRef.current.keys()).sort((a, b) => a - b);
       setErrorMsg(
         `Cannot save transcript — chunk(s) ${failedList.join(", ")} failed to transcribe. ` +
@@ -1170,17 +1182,25 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         credentials: "include",
-        body: JSON.stringify({
-          uploadId: uploadIdRef.current,
-          totalChunks: chunkIndexRef.current,
-          expectedChunks: chunkIndexRef.current,
-          // Tell the server which indices were truly silent so it can insert
-          // `[silence ~Xs]` markers in the right position instead of silently
-          // gluing chunks across the gap (which made the LLM hallucinate).
-          silentChunks: Array.from(silentChunksRef.current.entries()).map(
-            ([index, durationSeconds]) => ({ index, durationSeconds }),
-          ),
-        }),
+        body: JSON.stringify(
+          useLiveOnlyRef.current
+            ? {
+                // Deepgram-only: server reads the buffered live transcript
+                // saved on WS close. No chunk-count gating needed.
+                uploadId: uploadIdRef.current,
+              }
+            : {
+                uploadId: uploadIdRef.current,
+                totalChunks: chunkIndexRef.current,
+                expectedChunks: chunkIndexRef.current,
+                // Tell the server which indices were truly silent so it can insert
+                // `[silence ~Xs]` markers in the right position instead of silently
+                // gluing chunks across the gap (which made the LLM hallucinate).
+                silentChunks: Array.from(silentChunksRef.current.entries()).map(
+                  ([index, durationSeconds]) => ({ index, durationSeconds }),
+                ),
+              },
+        ),
       });
       if (!res.ok) {
         const t = await res.text();

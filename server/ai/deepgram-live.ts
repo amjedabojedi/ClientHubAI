@@ -23,6 +23,87 @@ import { storage } from "../storage";
 
 const WS_PATH = "/ws/transcribe-live";
 
+// In-memory buffer of Deepgram is_final transcripts per active uploadId.
+// Source of truth for the saved transcript when the language supports live
+// streaming — replaces the chunked Whisper upload pipeline.
+//
+// Lifecycle:
+//   • POST /transcribe-start creates the DB row (status='recording')
+//   • Browser opens /ws/transcribe-live → entry added here on WS open
+//   • Each is_final transcript appended to the entry's `parts` array
+//   • Deepgram WS close → persistLiveTranscript(uploadId) writes content
+//     to the DB row (status stays 'recording'; finalize endpoint flips it
+//     to 'ready' so the client can react to a single state transition).
+//   • POST /transcribe-finalize awaits the in-flight persist (if any) so
+//     the response always reflects the freshest text.
+type LiveBuffer = {
+  parts: string[];
+  startedAt: number;
+  // Promise that resolves when the persist on close completes — finalize
+  // awaits this to avoid racing the WS-close handler.
+  persistPromise: Promise<void> | null;
+};
+const liveBuffers = new Map<string, LiveBuffer>();
+
+export function hasLiveBuffer(uploadId: string): boolean {
+  return liveBuffers.has(uploadId);
+}
+
+// Awaited by /transcribe-finalize before reading the DB row, so the saved
+// transcript reflects every final word Deepgram sent — even if finalize
+// races the WS close handler.
+//
+// Two races to handle:
+//   (a) finalize arrives after the WS already closed — entry is gone, no-op.
+//   (b) finalize arrives BEFORE dgWs.on('close') fires — entry exists but
+//       persistPromise is still null. We poll briefly for the persist to
+//       start, then await it. If it never starts (Deepgram never closed)
+//       we give up after ~8s and fall through; the DB row is still empty
+//       and the finalize endpoint will return its "no content" error.
+export async function awaitLivePersist(uploadId: string): Promise<void> {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const entry = liveBuffers.get(uploadId);
+    if (!entry) return; // already persisted and detached
+    if (entry.persistPromise) {
+      try { await entry.persistPromise; } catch {}
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+async function persistLiveTranscript(uploadId: string): Promise<void> {
+  const entry = liveBuffers.get(uploadId);
+  if (!entry) return;
+  // Detach immediately so a duplicate close event can't double-persist.
+  liveBuffers.delete(uploadId);
+  try {
+    const text = entry.parts.join(" ").replace(/\s+/g, " ").trim();
+    if (!text) return; // nothing to save (no speech detected)
+    const row = await storage.getSessionTranscriptByUploadId(uploadId);
+    if (!row) return;
+    if (row.status === "ready") return; // already finalized — don't overwrite
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const durationSeconds = Math.max(
+      row.durationSeconds || 0,
+      Math.round((Date.now() - entry.startedAt) / 1000),
+    );
+    await storage.updateSessionTranscript(row.id, {
+      content: text,
+      rawContent: text,
+      wordCount,
+      durationSeconds,
+      // Mark as 'processing' so the client knows finalize will be a quick
+      // metadata flip, not a long Whisper job. Stays 'recording' otherwise
+      // so the recovery banner still works if the user never clicks Stop.
+      status: "processing",
+    });
+  } catch (err) {
+    console.error("[deepgram-live] persist failed:", err);
+  }
+}
+
 // Allowlist of Deepgram Nova-2 streaming language codes we expose in the UI.
 // If the dropdown ever ships a code not in this list the upgrade is rejected
 // — defence-in-depth so a tampered client can't pass arbitrary query params
@@ -127,7 +208,7 @@ export function attachDeepgramLive(httpServer: HttpServer): void {
         }
 
         wss.handleUpgrade(req, socket, head, (clientWs) => {
-          bindToDeepgram(clientWs, language, apiKey);
+          bindToDeepgram(clientWs, language, apiKey, uploadId);
         });
       })
       .catch((err) => {
@@ -143,7 +224,17 @@ function bindToDeepgram(
   clientWs: WsClient,
   language: string,
   apiKey: string,
+  uploadId: string,
 ): void {
+  // Register an in-memory buffer for this recording. Every is_final
+  // transcript Deepgram sends is appended; on close we persist the full
+  // text to the DB row so the saved transcript reflects what Deepgram
+  // produced — no chunked Whisper uploads needed.
+  liveBuffers.set(uploadId, {
+    parts: [],
+    startedAt: Date.now(),
+    persistPromise: null,
+  });
   // Deepgram Nova-2 streaming. We let Deepgram auto-detect the audio
   // container (WebM Opus) — the browser's MediaRecorder stream is sent
   // verbatim. interim_results gives us the "live word-by-word" feel;
@@ -208,6 +299,12 @@ function bindToDeepgram(
       const alt = msg.channel?.alternatives?.[0];
       const text = (alt?.transcript || "").trim();
       const isFinal = !!msg.is_final;
+      // Buffer final segments so we can persist them on close as the
+      // canonical saved transcript.
+      if (isFinal && text) {
+        const entry = liveBuffers.get(uploadId);
+        if (entry) entry.parts.push(text);
+      }
       // Even empty interim updates we skip — only forward when there's
       // actual content (or a final marker) to keep the client cheap.
       if (text || isFinal) {
@@ -237,7 +334,15 @@ function bindToDeepgram(
     closeBoth();
   });
 
-  dgWs.on("close", () => closeBoth());
+  dgWs.on("close", () => {
+    // Persist whatever we accumulated. Stash the promise on the buffer
+    // entry so /transcribe-finalize can await it.
+    const entry = liveBuffers.get(uploadId);
+    if (entry && !entry.persistPromise) {
+      entry.persistPromise = persistLiveTranscript(uploadId);
+    }
+    closeBoth();
+  });
 
   clientWs.on("message", (data, isBinary) => {
     if (!isBinary) return; // text frames from client are ignored

@@ -7117,6 +7117,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(accessCheck.status).json({ message: accessCheck.message });
         }
 
+        // Wait for the Deepgram WS-close persist (if any) so we read the
+        // freshest text. No-op when this recording used the chunked Whisper
+        // path (e.g. Arabic) — there is no live buffer to await.
+        const { awaitLivePersist } = await import('./ai/deepgram-live');
+        await awaitLivePersist(String(uploadId));
+
         const upload = await storage.getSessionTranscriptByUploadId(String(uploadId));
         if (!upload || upload.sessionId !== sessionId) {
           return res.status(404).json({ message: "Upload session not found or expired" });
@@ -7128,6 +7134,42 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // Bind upload to the original therapist who started it
         if (upload.therapistId !== req.user!.id && req.user!.role !== 'admin' && req.user!.role !== 'administrator') {
           return res.status(403).json({ message: "Only the recording therapist or an admin can finalize this upload" });
+        }
+
+        // Deepgram fast-path: if the live WS already wrote the transcript
+        // to `content` (status='processing' set by persistLiveTranscript),
+        // just flip it to 'ready' and return. No chunk stitching, no
+        // Whisper, no [silence ~Xs] markers needed — Deepgram handled it.
+        const hasLiveText = upload.status === 'processing'
+          && typeof upload.content === 'string'
+          && upload.content.trim().length > 0;
+        if (hasLiveText) {
+          const finalTranscript = await storage.finalizeTranscriptAtomic(upload.id, sessionId, {
+            status: 'ready',
+            chunks: null,
+          });
+          const { ipAddress, userAgent } = getRequestInfo(req);
+          await AuditLogger.logAction({
+            userId: req.user!.id,
+            username: req.user!.username,
+            action: 'session_transcript_created',
+            result: 'success',
+            resourceType: 'session_transcript',
+            resourceId: String(finalTranscript.id),
+            clientId: upload.clientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'high',
+            details: JSON.stringify({
+              sessionId,
+              durationSeconds: upload.durationSeconds,
+              wordCount: upload.wordCount,
+              source: 'deepgram-live',
+            }),
+            accessReason: 'Therapist recorded session voice transcription (Deepgram live)',
+          }).catch(() => {});
+          return res.json(finalTranscript);
         }
 
         const chunksMap = (upload.chunks as Record<string, { text: string; durationSeconds: number }> | null) || {};
