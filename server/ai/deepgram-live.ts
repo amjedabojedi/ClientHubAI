@@ -44,6 +44,7 @@ const ALLOWED_LANGUAGES = new Set([
   "ko",
   "tr",
   "pl",
+  "ar",
   "multi",
 ]);
 

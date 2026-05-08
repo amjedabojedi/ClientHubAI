@@ -107,6 +107,7 @@ const LIVE_LANGUAGES: { code: string; label: string }[] = [
   { code: "ko", label: "Korean" },
   { code: "tr", label: "Turkish" },
   { code: "pl", label: "Polish" },
+  { code: "ar", label: "Arabic" },
 ];
 
 // MediaRecorder timeslice for the LIVE Deepgram stream. 250 ms gives
