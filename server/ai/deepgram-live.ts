@@ -348,6 +348,9 @@ function bindToDeepgram(
       return; // not JSON, ignore (Deepgram occasionally sends pings)
     }
     dgMessagesReceived++;
+    if (dgMessagesReceived <= 2) {
+      console.log(`[deepgram-live] DG msg #${dgMessagesReceived} uploadId=${uploadId}:`, JSON.stringify(msg).slice(0, 500));
+    }
     if (msg.type === "Results") {
       const alt = msg.channel?.alternatives?.[0];
       const text = (alt?.transcript || "").trim();
