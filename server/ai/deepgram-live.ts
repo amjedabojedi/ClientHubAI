@@ -282,6 +282,9 @@ function bindToDeepgram(
   let audioFramesReceived = 0;
   let dgMessagesReceived = 0;
   let dgFinalSegmentsCaptured = 0;
+  let dgInterimWithText = 0;
+  let dgMetadataSeen = false;
+  let firstAudioBytes = 0;
   // Deepgram Nova-2 streaming. We let Deepgram auto-detect the audio
   // container (WebM Opus) — the browser's MediaRecorder stream is sent
   // verbatim. interim_results gives us the "live word-by-word" feel;
@@ -356,6 +359,7 @@ function bindToDeepgram(
       // same-speaker words into one Segment. If diarization data is
       // missing (older model / no speakers detected) fall back to the
       // plain transcript text under speaker 0.
+      if (text && !isFinal) dgInterimWithText++;
       if (isFinal && text) {
         dgFinalSegmentsCaptured++;
         const entry = liveBuffers.get(uploadId);
@@ -398,8 +402,13 @@ function bindToDeepgram(
           );
         } catch {}
       }
-    } else if (msg.type === "Metadata" || msg.type === "SpeechStarted") {
-      // No-op for now — could expose speaker/utterance start later.
+    } else if (msg.type === "Metadata") {
+      if (!dgMetadataSeen) {
+        dgMetadataSeen = true;
+        console.log(`[deepgram-live] DG Metadata uploadId=${uploadId}:`, JSON.stringify(msg).slice(0, 400));
+      }
+    } else if (msg.type === "SpeechStarted") {
+      // No-op for now.
     }
   });
 
@@ -421,7 +430,8 @@ function bindToDeepgram(
   dgWs.on("close", (code, reason) => {
     console.log(
       `[deepgram-live] dgWs closed uploadId=${uploadId} code=${code} reason=${reason?.toString() || ''} ` +
-      `audioFrames=${audioFramesReceived} dgMessages=${dgMessagesReceived} finalSegments=${dgFinalSegmentsCaptured}`,
+      `audioFrames=${audioFramesReceived} firstChunkBytes=${firstAudioBytes} dgMessages=${dgMessagesReceived} ` +
+      `interimWithText=${dgInterimWithText} finalSegments=${dgFinalSegmentsCaptured} metadataSeen=${dgMetadataSeen}`,
     );
     // Persist whatever we accumulated. Stash the promise on the buffer
     // entry so /transcribe-finalize can await it.
@@ -440,6 +450,10 @@ function bindToDeepgram(
         ? Buffer.concat(data)
         : Buffer.from(data as ArrayBuffer);
     audioFramesReceived++;
+    if (audioFramesReceived === 1) {
+      firstAudioBytes = buf.length;
+      console.log(`[deepgram-live] first audio chunk uploadId=${uploadId} bytes=${buf.length}`);
+    }
     if (dgReady && dgWs.readyState === WsClient.OPEN) {
       try {
         dgWs.send(buf);
