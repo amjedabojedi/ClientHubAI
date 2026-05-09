@@ -1063,6 +1063,36 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       segmentMaxRmsRef.current = 0;
       setStatus("recording");
       startLevelMeter(stream);
+      // Silent-mic watchdog. The #1 cause of "No transcribed content to
+      // finalize" is a microphone that returns audio frames containing
+      // pure silence — typically because the browser tab denied mic
+      // permission silently (common in iframes / canvas previews) or the
+      // OS muted the input device. The Opus encoder happily produces
+      // ~200-byte frames of "silence" indefinitely, Deepgram decodes
+      // them and returns empty transcripts, and the user only finds out
+      // at finalize time. This watchdog fails loudly after 4 s of zero
+      // RMS so the user can fix permissions before recording 30 minutes
+      // of nothing.
+      setTimeout(() => {
+        if (
+          !isPausedRef.current &&
+          !stoppingRef.current &&
+          streamRef.current &&
+          segmentMaxRmsRef.current < 0.001
+        ) {
+          console.error("[recorder] silent mic detected — peakRms=" + segmentMaxRmsRef.current);
+          toast({
+            title: "No sound from microphone",
+            description:
+              "The recorder is not picking up any audio. If you're using the canvas preview, open the app in a new browser tab so the browser will ask for mic permission. Otherwise check your OS sound settings and make sure the right input device is selected.",
+            variant: "destructive",
+            duration: 15000,
+          });
+          setErrorMsg(
+            "No sound detected from microphone. Open the app in a new browser tab and allow microphone access.",
+          );
+        }
+      }, 4000);
       // Routing: Deepgram-supported languages stream over the WebSocket and
       // the server saves the transcript on close — NO chunked Whisper
       // uploads. Unsupported languages (e.g. Arabic) fall back to the
