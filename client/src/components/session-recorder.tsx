@@ -568,9 +568,29 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       // open so the very first frame doesn't get queued in the kernel buffer.
       try {
         // Match the existing recorder's mime type so the WebM stream
-        // Deepgram sees has a valid Opus codec header.
-        const liveMime = mimeTypeRef.current || "audio/webm";
-        const rec = new MediaRecorder(stream, { mimeType: liveMime });
+        // Deepgram sees has a valid Opus codec header. CRITICAL: we must
+        // pick `audio/webm;codecs=opus` explicitly when the browser
+        // supports it — passing just `audio/webm` lets some Chromium
+        // builds pick a codec Deepgram can't decode (the result is a
+        // stream of "silent" empty transcripts even though the mic is
+        // working). In live-only mode the chunked recorder never runs
+        // so `mimeTypeRef.current` was never populated; pick it here.
+        let liveMime = mimeTypeRef.current;
+        if (!liveMime || liveMime === "audio/webm") {
+          if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+            liveMime = "audio/webm;codecs=opus";
+          } else if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
+            liveMime = "audio/ogg;codecs=opus";
+          } else {
+            liveMime = "audio/webm";
+          }
+          mimeTypeRef.current = liveMime;
+        }
+        console.log(`[live] starting MediaRecorder mimeType=${liveMime}`);
+        const rec = new MediaRecorder(stream, {
+          mimeType: liveMime,
+          audioBitsPerSecond: 128_000,
+        });
         rec.ondataavailable = (ev) => {
           if (!ev.data || ev.data.size === 0) return;
           if (liveWsRef.current?.readyState !== WebSocket.OPEN) return;
