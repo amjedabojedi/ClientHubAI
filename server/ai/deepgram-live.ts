@@ -36,8 +36,13 @@ const WS_PATH = "/ws/transcribe-live";
 //     to 'ready' so the client can react to a single state transition).
 //   • POST /transcribe-finalize awaits the in-flight persist (if any) so
 //     the response always reflects the freshest text.
+// One contiguous run of speech from a single speaker, as identified by
+// Deepgram's diarization. Multiple segments per is_final message are
+// possible when speakers interrupt each other — Deepgram emits a single
+// utterance but the per-word `speaker` field changes mid-utterance.
+type Segment = { speaker: number; text: string };
 type LiveBuffer = {
-  parts: string[];
+  segments: Segment[];
   startedAt: number;
   // Promise that resolves when the persist on close completes — finalize
   // awaits this to avoid racing the WS-close handler.
@@ -79,20 +84,46 @@ async function persistLiveTranscript(uploadId: string): Promise<void> {
   // Detach immediately so a duplicate close event can't double-persist.
   liveBuffers.delete(uploadId);
   try {
-    const cleanedParts = entry.parts
-      .map((p) => p.replace(/\s+/g, " ").trim())
-      .filter((p) => p.length > 0);
-    if (cleanedParts.length === 0) return; // nothing to save (no speech detected)
+    const cleanedSegments = entry.segments
+      .map((s) => ({ speaker: s.speaker, text: s.text.replace(/\s+/g, " ").trim() }))
+      .filter((s) => s.text.length > 0);
+    if (cleanedSegments.length === 0) return; // nothing to save (no speech detected)
     // Raw transcript: utterances joined by spaces, no speaker labels.
-    const rawText = cleanedParts.join(" ").replace(/\s+/g, " ").trim();
-    // Labeled transcript: SmartHub recorder is always operated by a
-    // therapist on their own device, so every utterance is the therapist
-    // by definition. Prefix each Deepgram final segment with "Therapist:"
-    // on its own line — matches the chunked-Whisper path's labeling so
-    // downstream consumers (note generator, smart-fill) see the same
-    // shape regardless of which transcription engine produced it.
-    const SOLO_LABEL = "Therapist:";
-    const labeledText = cleanedParts.map((p) => `${SOLO_LABEL} ${p}`).join("\n\n");
+    const rawText = cleanedSegments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
+
+    // Speaker labels: Deepgram returns numeric speaker IDs (0, 1, 2…)
+    // assigned by voice clustering — they don't tell us who is who. By
+    // convention in a therapy session the therapist (operating the mic)
+    // usually speaks first, so we map the first-appearing speaker to
+    // "Therapist", second to "Client", and any further speakers to
+    // "Speaker 3", "Speaker 4"… (group sessions). The therapist can
+    // edit labels in the saved transcript afterwards.
+    //
+    // Adjacent segments by the same speaker are merged so the labeled
+    // output reads as one continuous turn instead of one line per
+    // utterance.
+    const speakerOrder: number[] = [];
+    for (const s of cleanedSegments) {
+      if (!speakerOrder.includes(s.speaker)) speakerOrder.push(s.speaker);
+    }
+    const labelFor = (speaker: number): string => {
+      const idx = speakerOrder.indexOf(speaker);
+      if (idx === 0) return "Therapist";
+      if (idx === 1) return "Client";
+      return `Speaker ${idx + 1}`;
+    };
+    const merged: Segment[] = [];
+    for (const s of cleanedSegments) {
+      const last = merged[merged.length - 1];
+      if (last && last.speaker === s.speaker) {
+        last.text = `${last.text} ${s.text}`.replace(/\s+/g, " ").trim();
+      } else {
+        merged.push({ speaker: s.speaker, text: s.text });
+      }
+    }
+    const labeledText = merged
+      .map((s) => `${labelFor(s.speaker)}: ${s.text}`)
+      .join("\n\n");
     const row = await storage.getSessionTranscriptByUploadId(uploadId);
     if (!row) return;
     if (row.status === "ready") return; // already finalized — don't overwrite
@@ -243,20 +274,22 @@ function bindToDeepgram(
   // text to the DB row so the saved transcript reflects what Deepgram
   // produced — no chunked Whisper uploads needed.
   liveBuffers.set(uploadId, {
-    parts: [],
+    segments: [],
     startedAt: Date.now(),
     persistPromise: null,
   });
   // Deepgram Nova-2 streaming. We let Deepgram auto-detect the audio
   // container (WebM Opus) — the browser's MediaRecorder stream is sent
   // verbatim. interim_results gives us the "live word-by-word" feel;
-  // smart_format adds punctuation/capitalisation.
+  // smart_format adds punctuation/capitalisation; diarize tags each word
+  // with a speaker number so the saved transcript can label turns.
   const params = new URLSearchParams({
     model: "nova-2",
     language,
     interim_results: "true",
     smart_format: "true",
     punctuate: "true",
+    diarize: "true",
     endpointing: "300", // ms of silence before declaring an utterance final
   });
   const dgUrl = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
@@ -311,11 +344,44 @@ function bindToDeepgram(
       const alt = msg.channel?.alternatives?.[0];
       const text = (alt?.transcript || "").trim();
       const isFinal = !!msg.is_final;
-      // Buffer final segments so we can persist them on close as the
-      // canonical saved transcript.
+      // Buffer final segments grouped by speaker so we can persist them
+      // on close as the canonical saved transcript with proper labels.
+      // Deepgram returns one alt.words[] array per utterance; each word
+      // carries a `speaker` integer. We collapse runs of consecutive
+      // same-speaker words into one Segment. If diarization data is
+      // missing (older model / no speakers detected) fall back to the
+      // plain transcript text under speaker 0.
       if (isFinal && text) {
         const entry = liveBuffers.get(uploadId);
-        if (entry) entry.parts.push(text);
+        if (entry) {
+          const words: Array<{ punctuated_word?: string; word?: string; speaker?: number }> =
+            Array.isArray(alt?.words) ? alt.words : [];
+          if (words.length === 0 || words.every((w) => typeof w.speaker !== "number")) {
+            entry.segments.push({ speaker: 0, text });
+          } else {
+            let currentSpeaker = -1;
+            let currentBuf: string[] = [];
+            const flush = () => {
+              if (currentBuf.length === 0) return;
+              entry.segments.push({
+                speaker: currentSpeaker,
+                text: currentBuf.join(" ").replace(/\s+([.,!?;:])/g, "$1").trim(),
+              });
+              currentBuf = [];
+            };
+            for (const w of words) {
+              const sp = typeof w.speaker === "number" ? w.speaker : 0;
+              const tok = w.punctuated_word || w.word || "";
+              if (!tok) continue;
+              if (sp !== currentSpeaker) {
+                flush();
+                currentSpeaker = sp;
+              }
+              currentBuf.push(tok);
+            }
+            flush();
+          }
+        }
       }
       // Even empty interim updates we skip — only forward when there's
       // actual content (or a final marker) to keep the client cheap.
