@@ -152,7 +152,23 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   // Primary language for this recording. Used by Deepgram for the live
   // preview AND by Whisper for the final transcript. The therapist picks
   // it before pressing Record — locked once recording starts.
-  const [liveLanguage, setLiveLanguage] = useState<string>(language || "en");
+  // Persisted per-browser in localStorage so an Arabic-speaking therapist
+  // doesn't have to re-pick "Arabic" every time the recorder opens (the
+  // previous default-to-English behaviour caused Deepgram to transcribe
+  // Arabic audio as nonsense English like "I'm in local Arabia").
+  const [liveLanguage, setLiveLanguage] = useState<string>(() => {
+    if (language) return language;
+    try {
+      const saved = localStorage.getItem("smarthub.recorder.language");
+      if (saved) return saved;
+    } catch {}
+    return "en";
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("smarthub.recorder.language", liveLanguage);
+    } catch {}
+  }, [liveLanguage]);
   // Becomes true once the Deepgram WebSocket has reported a transcript
   // back at least once — used to suppress the Whisper-chunk fallback path
   // for the live preview (we let Deepgram own the preview when it's
