@@ -229,6 +229,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   // Tracks whether a permanent close has been requested so reconnect logic
   // doesn't fight against handleStop / unmount.
   const liveStoppedRef = useRef<boolean>(false);
+  // T1 reconnect state. Backlog holds audio frames captured while the WS
+  // is reconnecting; attempt count drives exponential backoff; timer ref
+  // lets stopLiveTranscription cancel a pending reconnect.
+  const liveReconnectAttemptRef = useRef<number>(0);
+  const liveAudioBacklogRef = useRef<ArrayBuffer[]>([]);
+  const liveReconnectTimerRef = useRef<number | null>(null);
   // Synchronous flags that don't suffer setState async lag
   const isPausedRef = useRef<boolean>(false);
   const [showRawInline, setShowRawInline] = useState(false);
@@ -548,9 +554,12 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     setLiveActive(false);
     liveActiveRef.current = false;
     setLiveInterim("");
+    liveReconnectAttemptRef.current = 0;
+    liveAudioBacklogRef.current = [];
 
-    // Build the WS URL relative to the page so we work in dev (vite proxy
-    // passthrough) and in deployed HTTPS.
+    // Build the WS URL once — same uploadId/language is reused on every
+    // reconnect so the server attaches us back to the same in-memory
+    // buffer (see deepgram-live.ts, T1).
     let wsUrl: string;
     try {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -560,124 +569,192 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       return;
     }
 
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket(wsUrl);
-    } catch (err) {
-      console.warn("[live] WebSocket open failed:", err);
-      return;
-    }
-    ws.binaryType = "arraybuffer";
-    liveWsRef.current = ws;
-
-    ws.onopen = () => {
-      // Race guard: stopLiveTranscription may have been called between
-      // `new WebSocket(...)` and `onopen` (e.g. user hit Stop immediately
-      // after Start, or the recorder unmounted). If we proceeded we'd
-      // spawn a MediaRecorder that nothing would ever clean up.
-      if (liveStoppedRef.current) {
-        try { ws.close(); } catch {}
-        if (liveWsRef.current === ws) liveWsRef.current = null;
-        return;
+    // T1: pick the MediaRecorder mime type once, up-front, so reconnects
+    // don't re-detect codec capabilities (and so we can start the recorder
+    // before the very first WS open if needed).
+    let liveMime = mimeTypeRef.current;
+    if (!liveMime || liveMime === "audio/webm") {
+      if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+        liveMime = "audio/webm;codecs=opus";
+      } else if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
+        liveMime = "audio/ogg;codecs=opus";
+      } else {
+        liveMime = "audio/webm";
       }
-      // Once the WS is open, spin up the live MediaRecorder. We wait for
-      // open so the very first frame doesn't get queued in the kernel buffer.
-      try {
-        // Match the existing recorder's mime type so the WebM stream
-        // Deepgram sees has a valid Opus codec header. CRITICAL: we must
-        // pick `audio/webm;codecs=opus` explicitly when the browser
-        // supports it — passing just `audio/webm` lets some Chromium
-        // builds pick a codec Deepgram can't decode (the result is a
-        // stream of "silent" empty transcripts even though the mic is
-        // working). In live-only mode the chunked recorder never runs
-        // so `mimeTypeRef.current` was never populated; pick it here.
-        let liveMime = mimeTypeRef.current;
-        if (!liveMime || liveMime === "audio/webm") {
-          if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
-            liveMime = "audio/webm;codecs=opus";
-          } else if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")) {
-            liveMime = "audio/ogg;codecs=opus";
-          } else {
-            liveMime = "audio/webm";
+      mimeTypeRef.current = liveMime;
+    }
+
+    // ondataavailable sends to the *current* WS if open; otherwise it
+    // queues into liveAudioBacklogRef so a brief disconnect doesn't lose
+    // audio. Backlog is capped to ~30 s of 250 ms frames to avoid blowing
+    // up memory if the WS never comes back.
+    const ondata = (ev: BlobEvent) => {
+      if (!ev.data || ev.data.size === 0) return;
+      ev.data.arrayBuffer().then((buf) => {
+        const ws = liveWsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          // Drain any backlog first so order is preserved.
+          if (liveAudioBacklogRef.current.length > 0) {
+            const queued = liveAudioBacklogRef.current;
+            liveAudioBacklogRef.current = [];
+            for (const b of queued) {
+              try { ws.send(b); } catch (err) { console.warn("[live] drain send failed:", err); }
+            }
           }
-          mimeTypeRef.current = liveMime;
+          try { ws.send(buf); } catch (err) {
+            console.warn("[live] ws send failed:", err);
+          }
+        } else if (!liveStoppedRef.current) {
+          // Cap at 120 frames * 250 ms ≈ 30 s.
+          if (liveAudioBacklogRef.current.length < 120) {
+            liveAudioBacklogRef.current.push(buf);
+          } else if (liveAudioBacklogRef.current.length === 120) {
+            console.warn("[live] backlog full — dropping frames until reconnect");
+            liveAudioBacklogRef.current.push(buf); // mark as overflowed
+          }
         }
+      });
+    };
+
+    const ensureRecorderRunning = () => {
+      if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") return;
+      try {
         console.log(`[live] starting MediaRecorder mimeType=${liveMime}`);
         const rec = new MediaRecorder(stream, {
           mimeType: liveMime,
           audioBitsPerSecond: 128_000,
         });
-        rec.ondataavailable = (ev) => {
-          if (!ev.data || ev.data.size === 0) return;
-          if (liveWsRef.current?.readyState !== WebSocket.OPEN) return;
-          ev.data.arrayBuffer().then((buf) => {
-            try {
-              liveWsRef.current?.send(buf);
-            } catch (err) {
-              console.warn("[live] ws send failed:", err);
-            }
-          });
-        };
+        rec.ondataavailable = ondata;
         rec.start(LIVE_TIMESLICE_MS);
         liveRecorderRef.current = rec;
       } catch (err) {
-        // If MediaRecorder creation fails (some browsers reject a 2nd one),
-        // fall back gracefully — close the WS, leave Whisper-chunk preview
-        // as the only live source.
         console.warn("[live] failed to start live MediaRecorder:", err);
-        try { ws.close(); } catch {}
-        liveWsRef.current = null;
       }
     };
 
-    ws.onmessage = (ev) => {
+    const connect = () => {
+      if (liveStoppedRef.current) return;
+      let ws: WebSocket;
       try {
-        const msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
-        if (msg.type === "transcript") {
-          if (!liveActiveRef.current) {
-            liveActiveRef.current = true;
-            setLiveActive(true);
-          }
-          if (msg.isFinal) {
-            const text = String(msg.text || "").trim();
-            if (text) {
-              setPreviewText((prev) => (prev ? prev + " " : "") + text);
-            }
-            setLiveInterim("");
-          } else {
-            setLiveInterim(String(msg.text || ""));
-          }
-        } else if (msg.type === "error") {
-          console.warn("[live] server reported error:", msg.message);
+        ws = new WebSocket(wsUrl);
+      } catch (err) {
+        console.warn("[live] WebSocket open failed:", err);
+        scheduleReconnect();
+        return;
+      }
+      ws.binaryType = "arraybuffer";
+      liveWsRef.current = ws;
+
+      ws.onopen = () => {
+        if (liveStoppedRef.current) {
+          try { ws.close(); } catch {}
+          if (liveWsRef.current === ws) liveWsRef.current = null;
+          return;
         }
-      } catch {
-        // ignore non-JSON
-      }
+        if (liveReconnectAttemptRef.current > 0) {
+          console.log(`[live] reconnected after ${liveReconnectAttemptRef.current} attempt(s); backlog=${liveAudioBacklogRef.current.length} frames`);
+        }
+        liveReconnectAttemptRef.current = 0;
+        ensureRecorderRunning();
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
+          if (msg.type === "transcript") {
+            if (!liveActiveRef.current) {
+              liveActiveRef.current = true;
+              setLiveActive(true);
+            }
+            if (msg.isFinal) {
+              const text = String(msg.text || "").trim();
+              if (text) {
+                setPreviewText((prev) => (prev ? prev + " " : "") + text);
+              }
+              setLiveInterim("");
+            } else {
+              setLiveInterim(String(msg.text || ""));
+            }
+          } else if (msg.type === "error") {
+            console.warn("[live] server reported error:", msg.message);
+          }
+        } catch {
+          // ignore non-JSON
+        }
+      };
+
+      ws.onerror = (ev) => {
+        console.warn("[live] ws error:", ev);
+      };
+
+      ws.onclose = () => {
+        if (liveWsRef.current === ws) liveWsRef.current = null;
+        // T1: don't kill MediaRecorder on transient drop — we want to
+        // keep capturing audio into the backlog so when the new WS opens
+        // (server keeps the buffer alive for RECONNECT_GRACE_MS) we
+        // resume right where we left off.
+        if (liveStoppedRef.current) {
+          // User-requested stop. Tear down the recorder and UI.
+          if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") {
+            try { liveRecorderRef.current.stop(); } catch {}
+          }
+          liveRecorderRef.current = null;
+          liveActiveRef.current = false;
+          setLiveActive(false);
+          setLiveInterim("");
+          return;
+        }
+        scheduleReconnect();
+      };
     };
 
-    ws.onerror = (ev) => {
-      console.warn("[live] ws error:", ev);
+    const scheduleReconnect = () => {
+      if (liveStoppedRef.current) return;
+      const attempt = ++liveReconnectAttemptRef.current;
+      // Server holds the buffer for ~8s. Try fast first, then back off.
+      // After ~6 attempts (~30s elapsed) we give up — server will have
+      // already finalised the buffer to DB so what we have is saved;
+      // Whisper chunked path remains as the audio-of-record fallback.
+      if (attempt > 6) {
+        console.warn("[live] giving up reconnect after 6 attempts; live preview ends");
+        if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") {
+          try { liveRecorderRef.current.stop(); } catch {}
+        }
+        liveRecorderRef.current = null;
+        liveActiveRef.current = false;
+        setLiveActive(false);
+        setLiveInterim("");
+        toast({
+          title: "Live preview disconnected",
+          description: "Audio is still being recorded — transcript will be finalised on Stop.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const delayMs = Math.min(500 * Math.pow(2, attempt - 1), 4000);
+      console.log(`[live] ws closed; reconnect attempt ${attempt} in ${delayMs}ms`);
+      if (liveReconnectTimerRef.current !== null) {
+        clearTimeout(liveReconnectTimerRef.current);
+      }
+      liveReconnectTimerRef.current = window.setTimeout(() => {
+        liveReconnectTimerRef.current = null;
+        connect();
+      }, delayMs);
     };
 
-    ws.onclose = () => {
-      // Stop the live recorder; if we're still recording (i.e. user didn't
-      // ask to stop), the Whisper chunk path keeps producing the preview
-      // as a fallback. We deliberately do NOT auto-reconnect for v1 — a
-      // dropped Deepgram stream cleanly hands over to Whisper instead of
-      // racing two sources.
-      if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") {
-        try { liveRecorderRef.current.stop(); } catch {}
-      }
-      liveRecorderRef.current = null;
-      liveWsRef.current = null;
-      liveActiveRef.current = false;
-      setLiveActive(false);
-      setLiveInterim("");
-    };
+    connect();
   }
 
   function stopLiveTranscription() {
     liveStoppedRef.current = true;
+    // T1: cancel any pending reconnect attempt and drop the backlog so
+    // we don't try to send stale audio after Stop.
+    if (liveReconnectTimerRef.current !== null) {
+      clearTimeout(liveReconnectTimerRef.current);
+      liveReconnectTimerRef.current = null;
+    }
+    liveAudioBacklogRef.current = [];
+    liveReconnectAttemptRef.current = 0;
     if (liveRecorderRef.current && liveRecorderRef.current.state !== "inactive") {
       try { liveRecorderRef.current.stop(); } catch {}
     }

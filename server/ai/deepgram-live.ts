@@ -47,8 +47,39 @@ type LiveBuffer = {
   // Promise that resolves when the persist on close completes — finalize
   // awaits this to avoid racing the WS-close handler.
   persistPromise: Promise<void> | null;
+  // T1: how many client WebSocket connections are currently attached to
+  // this buffer. Reconnects increment this on attach and decrement on
+  // detach. The buffer is only finalised (persisted + deleted) when the
+  // count drops to 0 AND nobody has reconnected within a short grace
+  // window — so a brief network blip doesn't flush the buffer
+  // prematurely.
+  attachedClients: number;
+  // T1: timer that schedules a final persist after the last client
+  // detaches. Cancelled if a reconnect attaches before it fires.
+  finalPersistTimer: NodeJS.Timeout | null;
+  // T2: serialise flushes so a periodic flush running concurrently with
+  // a final flush can't double-write or interleave their DB updates.
+  flushChain: Promise<void>;
+  // T1 (architect-fix): once finalising starts, no new attaches are
+  // allowed so the buffer can't be re-used after deletion. Segment
+  // appends still happen during finalising so trailing Deepgram is_final
+  // results emitted after CloseStream are not lost.
+  finalizing: boolean;
+  // T1 (architect-fix): deferred that resolves when the *current* dgWs
+  // closes. Set by bindToDeepgram on each (re)attach so finalisation
+  // can drain Deepgram's trailing transcripts before flushing.
+  dgClosed: Promise<void> | null;
 };
 const liveBuffers = new Map<string, LiveBuffer>();
+
+// T1: how long to wait after the last client detaches before
+// finalising. Gives the browser time to reopen its WebSocket after a
+// network blip without losing the in-progress text.
+const RECONNECT_GRACE_MS = 8000;
+// T2: how often to flush the in-memory transcript to the DB while the
+// recording is still in progress. A server crash now loses at most this
+// many seconds of text instead of the entire session.
+const PERIODIC_FLUSH_MS = 15_000;
 
 export function hasLiveBuffer(uploadId: string): boolean {
   return liveBuffers.has(uploadId);
@@ -66,37 +97,71 @@ export function hasLiveBuffer(uploadId: string): boolean {
 //       we give up after ~8s and fall through; the DB row is still empty
 //       and the finalize endpoint will return its "no content" error.
 export async function awaitLivePersist(uploadId: string): Promise<void> {
-  const deadline = Date.now() + 8000;
-  while (Date.now() < deadline) {
-    const entry = liveBuffers.get(uploadId);
-    if (!entry) return; // already persisted and detached
-    if (entry.persistPromise) {
-      try { await entry.persistPromise; } catch {}
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 100));
+  const entry = liveBuffers.get(uploadId);
+  if (!entry) return; // already persisted and detached
+  // T1 (architect-fix): finalize means the user clicked Stop. Cancel
+  // any pending reconnect-grace timer, mark the buffer finalising so
+  // no late reconnect can attach to a buffer that's about to be
+  // deleted, then wait briefly for Deepgram to drain its trailing
+  // is_final messages before flushing — otherwise the last few
+  // sentences captured between CloseStream and dgWs.close get dropped.
+  if (entry.finalPersistTimer) {
+    clearTimeout(entry.finalPersistTimer);
+    entry.finalPersistTimer = null;
   }
+  entry.finalizing = true;
+  if (!entry.persistPromise) {
+    entry.persistPromise = (async () => {
+      // Wait up to ~3s for the most recent dgWs to close (closeBoth
+      // already sent CloseStream which makes Deepgram flush + close
+      // typically within a few hundred ms). If it never closes (no
+      // dgWs ever attached, or Deepgram hung) we fall through and
+      // flush whatever we have.
+      if (entry.dgClosed) {
+        await Promise.race([
+          entry.dgClosed,
+          new Promise<void>((r) => setTimeout(r, 3000)),
+        ]).catch(() => {});
+      }
+      await flushLiveTranscript(uploadId, { final: true });
+    })();
+  }
+  try { await entry.persistPromise; } catch {}
 }
 
-async function persistLiveTranscript(uploadId: string): Promise<void> {
+// T2: shared write that turns the in-memory segments into the DB row's
+// canonical labelled transcript. `final=true` is the close-time flush
+// (deletes the buffer afterwards); `final=false` is the periodic
+// in-progress flush (keeps the buffer so further segments can append).
+// The two share serialisation via entry.flushChain so concurrent calls
+// can't interleave their updateSessionTranscript writes.
+async function flushLiveTranscript(
+  uploadId: string,
+  opts: { final: boolean },
+): Promise<void> {
   const entry = liveBuffers.get(uploadId);
   if (!entry) return;
-  // IMPORTANT: do NOT delete the buffer entry up-front. awaitLivePersist
-  // uses entry presence + entry.persistPromise to detect "still saving";
-  // if we deleted here, awaitLivePersist would return immediately and
-  // /transcribe-finalize would race ahead and read an empty DB row before
-  // updateSessionTranscript below has actually flushed. That race is
-  // exactly what produced the user-visible "No transcribed content to
-  // finalize" failure even though Deepgram captured real text.
-  // Duplicate-close protection lives at the caller (dgWs.on('close'))
-  // which only assigns persistPromise once.
+  // Chain after any in-flight flush to serialise DB writes.
+  const next = entry.flushChain.then(() => doFlush(uploadId, opts));
+  entry.flushChain = next.catch(() => {}); // never let a rejection break the chain
+  return next;
+}
+
+async function doFlush(
+  uploadId: string,
+  opts: { final: boolean },
+): Promise<void> {
+  const entry = liveBuffers.get(uploadId);
+  if (!entry) return;
   try {
     const cleanedSegments = entry.segments
       .map((s) => ({ speaker: s.speaker, text: s.text.replace(/\s+/g, " ").trim() }))
       .filter((s) => s.text.length > 0);
     if (cleanedSegments.length === 0) {
-      liveBuffers.delete(uploadId);
-      return; // nothing to save (no speech detected)
+      // Nothing to save yet. On a final flush, drop the empty buffer so
+      // it doesn't leak; on periodic, just keep waiting for words.
+      if (opts.final) liveBuffers.delete(uploadId);
+      return;
     }
     // Raw transcript: utterances joined by spaces, no speaker labels.
     const rawText = cleanedSegments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
@@ -152,14 +217,15 @@ async function persistLiveTranscript(uploadId: string): Promise<void> {
       // so the recovery banner still works if the user never clicks Stop.
       status: "processing",
     });
-    console.log(`[deepgram-live] persisted uploadId=${uploadId} segments=${cleanedSegments.length} words=${wordCount} chars=${labeledText.length}`);
+    console.log(`[deepgram-live] ${opts.final ? 'final' : 'periodic'} flush uploadId=${uploadId} segments=${cleanedSegments.length} words=${wordCount} chars=${labeledText.length}`);
   } catch (err) {
-    console.error("[deepgram-live] persist failed:", err);
+    console.error("[deepgram-live] flush failed:", err);
   } finally {
-    // Detach AFTER the DB write completes (or fails) so awaitLivePersist
-    // sees the freshest state via persistPromise instead of racing past
-    // an already-deleted entry.
-    liveBuffers.delete(uploadId);
+    // Only the final flush detaches the buffer. Periodic flushes keep
+    // the entry so further is_final segments can append. Detach AFTER
+    // the DB write completes so awaitLivePersist sees the freshest
+    // state via persistPromise instead of racing past a deleted entry.
+    if (opts.final) liveBuffers.delete(uploadId);
   }
 }
 
@@ -285,16 +351,45 @@ function bindToDeepgram(
   apiKey: string,
   uploadId: string,
 ): void {
-  // Register an in-memory buffer for this recording. Every is_final
-  // transcript Deepgram sends is appended; on close we persist the full
-  // text to the DB row so the saved transcript reflects what Deepgram
-  // produced — no chunked Whisper uploads needed.
-  liveBuffers.set(uploadId, {
-    segments: [],
-    startedAt: Date.now(),
-    persistPromise: null,
-  });
-  console.log(`[deepgram-live] WS opened uploadId=${uploadId} lang=${language}`);
+  // T1: reuse the existing buffer on reconnect so transcript so far is
+  // preserved. The first connection creates the entry; every subsequent
+  // reconnect attaches to it, cancels any pending finalisation timer,
+  // and bumps the attached-clients counter.
+  let entry = liveBuffers.get(uploadId);
+  const isReconnect = !!entry;
+  if (entry?.finalizing) {
+    // T1 (architect-fix): the buffer is being persisted and about to be
+    // deleted. A new attach now would re-bump attachedClients on a
+    // doomed buffer and the next is_final messages would arrive after
+    // delete and be lost. Reject this attach with a clear server msg
+    // so the client gives up and shows the recovery banner instead.
+    console.warn(`[deepgram-live] reject attach: uploadId=${uploadId} is finalising`);
+    try {
+      clientWs.send(JSON.stringify({ type: "error", message: "Recording is being finalised" }));
+    } catch {}
+    try { clientWs.close(); } catch {}
+    return;
+  }
+  if (!entry) {
+    entry = {
+      segments: [],
+      startedAt: Date.now(),
+      persistPromise: null,
+      attachedClients: 0,
+      finalPersistTimer: null,
+      flushChain: Promise.resolve(),
+      finalizing: false,
+      dgClosed: null,
+    };
+    liveBuffers.set(uploadId, entry);
+  } else if (entry.finalPersistTimer) {
+    // A previous client just disconnected and we were about to flush;
+    // the user came back in time, cancel the final flush.
+    clearTimeout(entry.finalPersistTimer);
+    entry.finalPersistTimer = null;
+  }
+  entry.attachedClients++;
+  console.log(`[deepgram-live] WS opened uploadId=${uploadId} lang=${language}${isReconnect ? ` (reconnect, segmentsSoFar=${entry.segments.length}, attached=${entry.attachedClients})` : ''}`);
   let audioFramesReceived = 0;
   let dgMessagesReceived = 0;
   let dgFinalSegmentsCaptured = 0;
@@ -321,6 +416,14 @@ function bindToDeepgram(
     headers: { Authorization: `Token ${apiKey}` },
   });
 
+  // T1 (architect-fix): expose a deferred that resolves when *this*
+  // dgWs closes. Finalisation waits on it so trailing is_final messages
+  // emitted between CloseStream and dgWs.close are captured. Stored on
+  // the buffer entry so awaitLivePersist / grace timer can find it
+  // without a reference to this scope.
+  let resolveDgClosed: (() => void) | null = null;
+  entry.dgClosed = new Promise<void>((res) => { resolveDgClosed = res; });
+
   let dgReady = false;
   let closed = false;
   const audioBacklog: Buffer[] = [];
@@ -328,18 +431,57 @@ function bindToDeepgram(
   const closeBoth = () => {
     if (closed) return;
     closed = true;
+    // T2: stop periodic flushes — they're scoped to this socket pair.
+    try { clearInterval(periodicFlushTimer); } catch {}
     try {
       if (dgWs.readyState === WsClient.OPEN) {
         // Politely tell Deepgram we're done so it flushes any final words.
+        // T1 (architect-fix): do NOT call dgWs.close() here — that
+        // tears the TCP connection down before Deepgram has a chance
+        // to send its trailing is_final messages. Deepgram will close
+        // the socket itself a few hundred ms after CloseStream, which
+        // fires our dgWs.on('close') handler, resolves entry.dgClosed,
+        // and lets the finaliser flush a complete transcript.
         dgWs.send(JSON.stringify({ type: "CloseStream" }));
+      } else {
+        // dgWs never opened or already closed — close it now so we
+        // don't leak the socket. dgWs.on('close') still resolves
+        // entry.dgClosed.
+        try { dgWs.close(); } catch {}
       }
-    } catch {}
-    try {
-      dgWs.close();
     } catch {}
     try {
       clientWs.close();
     } catch {}
+    // T1: detach this client from the buffer. If anybody else is still
+    // attached (multi-tab), do nothing further. If we were the last one,
+    // schedule a final flush after the reconnect grace window — a fast
+    // re-attach (network blip, page navigation) will cancel it.
+    const e = liveBuffers.get(uploadId);
+    if (!e) return;
+    if (e.attachedClients > 0) e.attachedClients--;
+    if (e.attachedClients === 0 && !e.finalPersistTimer && !e.persistPromise && !e.finalizing) {
+      e.finalPersistTimer = setTimeout(() => {
+        const cur = liveBuffers.get(uploadId);
+        if (!cur) return;
+        cur.finalPersistTimer = null;
+        if (cur.attachedClients > 0) return; // somebody reconnected
+        if (cur.persistPromise) return; // finalize HTTP already started one
+        // T1 (architect-fix): mark finalising so any late reconnect is
+        // rejected, then drain Deepgram trailing finals (≤3s) before
+        // flushing — same shape as awaitLivePersist.
+        cur.finalizing = true;
+        cur.persistPromise = (async () => {
+          if (cur.dgClosed) {
+            await Promise.race([
+              cur.dgClosed,
+              new Promise<void>((r) => setTimeout(r, 3000)),
+            ]).catch(() => {});
+          }
+          await flushLiveTranscript(uploadId, { final: true });
+        })();
+      }, RECONNECT_GRACE_MS);
+    }
   };
 
   dgWs.on("open", () => {
@@ -452,14 +594,20 @@ function bindToDeepgram(
       `audioFrames=${audioFramesReceived} firstChunkBytes=${firstAudioBytes} dgMessages=${dgMessagesReceived} ` +
       `interimWithText=${dgInterimWithText} finalSegments=${dgFinalSegmentsCaptured} metadataSeen=${dgMetadataSeen}`,
     );
-    // Persist whatever we accumulated. Stash the promise on the buffer
-    // entry so /transcribe-finalize can await it.
-    const entry = liveBuffers.get(uploadId);
-    if (entry && !entry.persistPromise) {
-      entry.persistPromise = persistLiveTranscript(uploadId);
-    }
+    // T1 (architect-fix): unblock anyone awaiting Deepgram drain.
+    if (resolveDgClosed) { resolveDgClosed(); resolveDgClosed = null; }
     closeBoth();
   });
+
+  // T2: periodic in-progress flush. Writes the current segments to the
+  // DB every PERIODIC_FLUSH_MS so a server crash mid-recording loses at
+  // most that many seconds of text instead of the whole session.
+  // Cleared on detach so it doesn't outlive its WebSocket.
+  const periodicFlushTimer = setInterval(() => {
+    flushLiveTranscript(uploadId, { final: false }).catch((err) => {
+      console.error("[deepgram-live] periodic flush failed:", err);
+    });
+  }, PERIODIC_FLUSH_MS);
 
   clientWs.on("message", (data, isBinary) => {
     if (!isBinary) return; // text frames from client are ignored
