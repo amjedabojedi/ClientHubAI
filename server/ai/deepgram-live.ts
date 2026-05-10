@@ -81,13 +81,23 @@ export async function awaitLivePersist(uploadId: string): Promise<void> {
 async function persistLiveTranscript(uploadId: string): Promise<void> {
   const entry = liveBuffers.get(uploadId);
   if (!entry) return;
-  // Detach immediately so a duplicate close event can't double-persist.
-  liveBuffers.delete(uploadId);
+  // IMPORTANT: do NOT delete the buffer entry up-front. awaitLivePersist
+  // uses entry presence + entry.persistPromise to detect "still saving";
+  // if we deleted here, awaitLivePersist would return immediately and
+  // /transcribe-finalize would race ahead and read an empty DB row before
+  // updateSessionTranscript below has actually flushed. That race is
+  // exactly what produced the user-visible "No transcribed content to
+  // finalize" failure even though Deepgram captured real text.
+  // Duplicate-close protection lives at the caller (dgWs.on('close'))
+  // which only assigns persistPromise once.
   try {
     const cleanedSegments = entry.segments
       .map((s) => ({ speaker: s.speaker, text: s.text.replace(/\s+/g, " ").trim() }))
       .filter((s) => s.text.length > 0);
-    if (cleanedSegments.length === 0) return; // nothing to save (no speech detected)
+    if (cleanedSegments.length === 0) {
+      liveBuffers.delete(uploadId);
+      return; // nothing to save (no speech detected)
+    }
     // Raw transcript: utterances joined by spaces, no speaker labels.
     const rawText = cleanedSegments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
 
@@ -142,8 +152,14 @@ async function persistLiveTranscript(uploadId: string): Promise<void> {
       // so the recovery banner still works if the user never clicks Stop.
       status: "processing",
     });
+    console.log(`[deepgram-live] persisted uploadId=${uploadId} segments=${cleanedSegments.length} words=${wordCount} chars=${labeledText.length}`);
   } catch (err) {
     console.error("[deepgram-live] persist failed:", err);
+  } finally {
+    // Detach AFTER the DB write completes (or fails) so awaitLivePersist
+    // sees the freshest state via persistPromise instead of racing past
+    // an already-deleted entry.
+    liveBuffers.delete(uploadId);
   }
 }
 
