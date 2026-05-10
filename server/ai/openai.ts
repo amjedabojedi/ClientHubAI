@@ -21,6 +21,16 @@ const openai = new OpenAI({
 // Audio transcription client. Prefers Replit's AI Integrations OpenAI proxy
 // (no personal key needed), then falls back to a personal OPENAI_API_KEY,
 // then to the legacy OPENAI_WHISPER_API_KEY for backward compatibility.
+// Audio transcription model. Replit's AI Integrations OpenAI proxy
+// rejects the legacy `whisper-1` ("UNSUPPORTED_MODEL"). The newer
+// `gpt-4o-mini-transcribe` is supported by both the Replit proxy and
+// direct api.openai.com, supports `response_format: 'text'` and the
+// `prompt` field, and is cheaper than `gpt-4o-transcribe`.
+// NOTE: the OpenAI `/audio/translations` endpoint only supports
+// `whisper-1` — for translation we transcribe first then translate the
+// text via gpt-4o (see transcribeSessionChunk's translateToEnglish path).
+const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
+
 function getWhisperClient(): OpenAI {
   const replitKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const personalKey = process.env.OPENAI_API_KEY;
@@ -1021,7 +1031,7 @@ export async function transcribeAndMapAudio(
     
     const transcription = await whisper.audio.transcriptions.create({
       file: audioFile,
-      model: 'whisper-1',
+      model: TRANSCRIPTION_MODEL,
       language: 'en', // Can be auto-detected by removing this
       response_format: 'text'
     });
@@ -1265,7 +1275,7 @@ export async function transcribeAssessmentAudio(
     // Transcribe audio using OpenAI Whisper API
     const transcription = await whisper.audio.transcriptions.create({
       file: audioFile,
-      model: 'whisper-1',
+      model: TRANSCRIPTION_MODEL,
       response_format: 'text'
     });
 
@@ -1359,26 +1369,40 @@ export async function transcribeSessionChunk(
 
   const params: any = {
     file: audioFile,
-    model: 'whisper-1',
+    model: TRANSCRIPTION_MODEL,
     response_format: 'text',
     temperature: 0,
     prompt: fullPrompt,
   };
-  // Translation mode: send to Whisper's translations endpoint, which always
-  // returns English regardless of the spoken language. Used for multilingual
-  // sessions where the therapist needs an English transcript for the AI
-  // notes pipeline. The translations endpoint does NOT accept `language`.
-  if (translateToEnglish) {
-    const translation = await whisper.audio.translations.create(params);
-    const raw = (translation as unknown as string) || '';
-    return sanitizeWhisperHallucinations(raw);
-  }
-  if (language && language !== 'auto') {
+  // Translation mode: the OpenAI /audio/translations endpoint only
+  // supports the legacy `whisper-1` model, which Replit's AI Integrations
+  // proxy rejects. Instead we transcribe in the original language with
+  // gpt-4o-mini-transcribe (Replit-supported) and then translate the
+  // resulting text to English with gpt-4o. Same end result, different
+  // path. Used for multilingual sessions where the therapist needs an
+  // English transcript for the AI notes pipeline.
+  if (language && language !== 'auto' && !translateToEnglish) {
     params.language = language;
   }
   const transcription = await whisper.audio.transcriptions.create(params);
   const raw = (transcription as unknown as string) || '';
-  return sanitizeWhisperHallucinations(raw);
+  const cleaned = sanitizeWhisperHallucinations(raw);
+  if (!translateToEnglish || !cleaned.trim()) return cleaned;
+  try {
+    const translation = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: 'You are a professional translator. Translate the user message to English. If it is already English, return it verbatim. Output only the translated text — no preface, no commentary.' },
+        { role: 'user', content: cleaned },
+      ],
+      temperature: 0.2,
+    });
+    const t = translation.choices?.[0]?.message?.content?.trim() || '';
+    return t || cleaned;
+  } catch (err) {
+    console.warn('[AI] translation step failed, returning original:', err);
+    return cleaned;
+  }
 }
 
 /**
