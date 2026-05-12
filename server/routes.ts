@@ -6833,6 +6833,101 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Reopen (unfinalize) a session note. Same permission model as
+  // finalize — only the assigned therapist, a supervisor of that
+  // therapist, or an admin may reopen. HIPAA-audited via AuditLogger
+  // (high risk — modifies finalized clinical documentation).
+  app.post("/api/session-notes/:id/unfinalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid session note ID" });
+      }
+
+      const note = await storage.getSessionNote(id);
+      if (!note) {
+        return res.status(404).json({ message: "Session note not found" });
+      }
+
+      if (!note.isFinalized) {
+        return res.status(400).json({ message: "Session note is not finalized" });
+      }
+
+      // Permission check: assigned therapist, admin, or supervisor of the therapist
+      const isAssignedTherapist = note.therapistId === req.user.id;
+      const isAdmin = req.user.role === 'administrator';
+      let isSupervisor = false;
+      if (!isAssignedTherapist && !isAdmin) {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        isSupervisor = supervisorAssignments.some(
+          assignment => assignment.therapistId === note.therapistId
+        );
+      }
+      if (!isAssignedTherapist && !isAdmin && !isSupervisor) {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'note_updated',
+          result: 'failure',
+          resourceType: 'session_note',
+          resourceId: id.toString(),
+          clientId: note.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({ operation: 'note_reopened', reason: 'permission_denied' }),
+          accessReason: 'Clinical documentation and care',
+        });
+        return res.status(403).json({ message: "You do not have permission to reopen this session note" });
+      }
+
+      // Move final content back to draft so the editor opens with the
+      // last-finalized text and the user can keep editing where they
+      // left off. Clear the finalization timestamp.
+      const draftContent = note.finalContent || note.generatedContent || note.draftContent || '';
+      const updatedNote = await storage.updateSessionNote(id, {
+        isFinalized: false,
+        isDraft: true,
+        finalContent: null,
+        finalizedAt: null,
+        generatedContent: note.generatedContent ?? draftContent,
+        draftContent,
+      } as any);
+
+      // HIPAA audit trail — high-risk modification of finalized clinical doc
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'note_updated',
+        result: 'success',
+        resourceType: 'session_note',
+        resourceId: id.toString(),
+        clientId: note.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({
+          operation: 'note_reopened',
+          previouslyFinalizedAt: note.finalizedAt,
+          sessionId: note.sessionId,
+        }),
+        accessReason: 'Clinical documentation and care',
+      });
+
+      res.json(updatedNote);
+    } catch (error) {
+      console.error('Error reopening session note:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Voice transcription endpoint for session notes
   const audioUpload = multer({ 
     storage: multer.memoryStorage(),

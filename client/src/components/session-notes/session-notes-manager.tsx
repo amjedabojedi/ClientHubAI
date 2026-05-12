@@ -929,6 +929,30 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [noteToFinalize, setNoteToFinalize] = useState<number | null>(null);
 
+  // Reopen (unfinalize) a finalized note so it can be edited again.
+  const [reopenPending, setReopenPending] = useState(false);
+  const handleReopenNote = async (id: number) => {
+    if (!confirm('Reopen this finalized note? The note will be moved back to draft so you can edit it. This action is logged.')) return;
+    setReopenPending(true);
+    try {
+      const updated = await apiRequest(`/api/session-notes/${id}/unfinalize`, 'POST');
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
+      // Refresh the in-memory editingNote so the footer flips to draft mode.
+      if (editingNote && editingNote.id === id) {
+        setEditingNote({ ...editingNote, isFinalized: false, isDraft: true } as any);
+      }
+      toast({ title: 'Note reopened', description: 'You can now edit and re-finalize this note.' });
+    } catch (error) {
+      toast({
+        title: 'Could not reopen note',
+        description: error instanceof Error ? error.message : 'Failed to reopen note',
+        variant: 'destructive',
+      });
+    } finally {
+      setReopenPending(false);
+    }
+  };
+
   const handleFinalizeNote = (id: number) => {
     setNoteToFinalize(id);
     setFinalizeModalOpen(true);
@@ -1875,6 +1899,18 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                   Cancel
                 </Button>
                 <div className="flex gap-2">
+                  {editingNote?.isFinalized ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                      onClick={() => handleReopenNote(editingNote.id)}
+                      disabled={reopenPending}
+                      data-testid="button-reopen-note"
+                    >
+                      {reopenPending ? 'Reopening...' : 'Reopen Note'}
+                    </Button>
+                  ) : (
                   <Button 
                     type="submit" 
                     variant="outline"
@@ -1885,7 +1921,8 @@ export default function SessionNotesManager({ clientId, sessions, preSelectedSes
                       : editingNote ? 'Save Draft' : 'Create Draft'
                     }
                   </Button>
-                  {editingNote && (
+                  )}
+                  {editingNote && !editingNote.isFinalized && (
                     <Button 
                       type="button"
                       className="bg-green-600 hover:bg-green-700"
