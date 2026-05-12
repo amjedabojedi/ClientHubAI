@@ -34,17 +34,29 @@ const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
 type WhisperClient = { client: OpenAI; source: string };
 
 // Build the ordered list of candidate clients to try. We attempt the
-// Replit AI Integrations gateway first (free for the user when quota is
-// available), then fall back to the personal OPENAI_API_KEY, then the
-// legacy OPENAI_WHISPER_API_KEY. Each candidate is a separate OpenAI
-// client because they use different baseURLs.
+// user's personal OPENAI_API_KEY first (paid OpenAI account, reliable),
+// then the legacy OPENAI_WHISPER_API_KEY, and finally fall back to the
+// Replit AI Integrations gateway as a last resort. Each candidate is a
+// separate OpenAI client because they use different baseURLs.
 function getWhisperClients(): WhisperClient[] {
   const replitKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const personalKey = process.env.OPENAI_API_KEY;
   const legacyWhisperKey = process.env.OPENAI_WHISPER_API_KEY;
 
   const candidates: WhisperClient[] = [];
-  if (replitKey) {
+  if (personalKey) {
+    candidates.push({
+      client: new OpenAI({ apiKey: personalKey, timeout: 120000, maxRetries: 2 }),
+      source: 'OPENAI_API_KEY',
+    });
+  }
+  if (legacyWhisperKey && legacyWhisperKey !== personalKey) {
+    candidates.push({
+      client: new OpenAI({ apiKey: legacyWhisperKey, timeout: 120000, maxRetries: 2 }),
+      source: 'OPENAI_WHISPER_API_KEY (legacy)',
+    });
+  }
+  if (replitKey && replitKey !== personalKey && replitKey !== legacyWhisperKey) {
     candidates.push({
       client: new OpenAI({
         apiKey: replitKey,
@@ -53,18 +65,6 @@ function getWhisperClients(): WhisperClient[] {
         maxRetries: 1,
       }),
       source: 'Replit AI Integrations',
-    });
-  }
-  if (personalKey && personalKey !== replitKey) {
-    candidates.push({
-      client: new OpenAI({ apiKey: personalKey, timeout: 120000, maxRetries: 2 }),
-      source: 'OPENAI_API_KEY',
-    });
-  }
-  if (legacyWhisperKey && legacyWhisperKey !== personalKey && legacyWhisperKey !== replitKey) {
-    candidates.push({
-      client: new OpenAI({ apiKey: legacyWhisperKey, timeout: 120000, maxRetries: 2 }),
-      source: 'OPENAI_WHISPER_API_KEY (legacy)',
     });
   }
   if (candidates.length === 0) {
