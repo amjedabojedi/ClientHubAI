@@ -31,36 +31,91 @@ const openai = new OpenAI({
 // text via gpt-4o (see transcribeSessionChunk's translateToEnglish path).
 const TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
 
-function getWhisperClient(): OpenAI {
+type WhisperClient = { client: OpenAI; source: string };
+
+// Build the ordered list of candidate clients to try. We attempt the
+// Replit AI Integrations gateway first (free for the user when quota is
+// available), then fall back to the personal OPENAI_API_KEY, then the
+// legacy OPENAI_WHISPER_API_KEY. Each candidate is a separate OpenAI
+// client because they use different baseURLs.
+function getWhisperClients(): WhisperClient[] {
   const replitKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const personalKey = process.env.OPENAI_API_KEY;
   const legacyWhisperKey = process.env.OPENAI_WHISPER_API_KEY;
 
-  const apiKey = replitKey || personalKey || legacyWhisperKey;
-  if (!apiKey) {
+  const candidates: WhisperClient[] = [];
+  if (replitKey) {
+    candidates.push({
+      client: new OpenAI({
+        apiKey: replitKey,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
+        timeout: 120000,
+        maxRetries: 1,
+      }),
+      source: 'Replit AI Integrations',
+    });
+  }
+  if (personalKey && personalKey !== replitKey) {
+    candidates.push({
+      client: new OpenAI({ apiKey: personalKey, timeout: 120000, maxRetries: 2 }),
+      source: 'OPENAI_API_KEY',
+    });
+  }
+  if (legacyWhisperKey && legacyWhisperKey !== personalKey && legacyWhisperKey !== replitKey) {
+    candidates.push({
+      client: new OpenAI({ apiKey: legacyWhisperKey, timeout: 120000, maxRetries: 2 }),
+      source: 'OPENAI_WHISPER_API_KEY (legacy)',
+    });
+  }
+  if (candidates.length === 0) {
     console.error('[AI] No OpenAI key available for Whisper transcription.');
     throw new Error('Voice transcription requires an OpenAI key. Connect the Replit OpenAI integration or set OPENAI_API_KEY.');
   }
+  return candidates;
+}
 
-  // Only use the AI Integrations base URL when we are actually using the
-  // Replit integration key. Personal/legacy keys must hit api.openai.com.
-  const baseURL = (apiKey === replitKey)
-    ? (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined)
-    : undefined;
+// Backward-compat: return the first available client. New code should
+// prefer withWhisperFallback() which transparently retries on quota /
+// auth failures from the primary provider.
+function getWhisperClient(): OpenAI {
+  return getWhisperClients()[0].client;
+}
 
-  const source = apiKey === replitKey
-    ? 'Replit AI Integrations'
-    : apiKey === personalKey
-      ? 'OPENAI_API_KEY'
-      : 'OPENAI_WHISPER_API_KEY (legacy)';
-  console.log(`[AI] Whisper client using ${source}`);
+// True when an error from the first provider means "this provider can't
+// serve the request — try the next one". We retry on quota exhaustion
+// (429 with insufficient_quota / quota / billing), on unsupported model
+// errors (gateway-specific allow-lists), and on auth failures (401/403).
+// Network/timeouts and 5xx are NOT retried across providers because the
+// next provider would likely fail the same way and the SDK already
+// retries those internally.
+function shouldFallover(err: any): boolean {
+  if (!err) return false;
+  const status = err.status ?? err.response?.status;
+  const code = err.code || err.error?.code || '';
+  const msg = (err.message || err.error?.message || '').toLowerCase();
+  if (status === 401 || status === 403) return true;
+  if (status === 429 && (code === 'insufficient_quota' || msg.includes('quota') || msg.includes('billing'))) return true;
+  if (code === 'UNSUPPORTED_MODEL' || msg.includes('not supported')) return true;
+  return false;
+}
 
-  return new OpenAI({
-    apiKey,
-    baseURL,
-    timeout: 120000,
-    maxRetries: 2,
-  });
+async function withWhisperFallback<T>(fn: (c: OpenAI) => Promise<T>): Promise<T> {
+  const candidates = getWhisperClients();
+  let lastErr: any;
+  for (let i = 0; i < candidates.length; i++) {
+    const { client, source } = candidates[i];
+    try {
+      if (i === 0) console.log(`[AI] Whisper client using ${source}`);
+      else console.warn(`[AI] Whisper falling over to ${source} after primary failed`);
+      return await fn(client);
+    } catch (err: any) {
+      lastErr = err;
+      const isLast = i === candidates.length - 1;
+      if (isLast || !shouldFallover(err)) throw err;
+      console.warn(`[AI] Whisper provider "${source}" failed (${err?.status ?? '?'} ${err?.code ?? err?.error?.code ?? ''}); trying next.`);
+    }
+  }
+  throw lastErr;
 }
 
 // Clinical Content Library - Connected templates for intelligent field suggestions
@@ -1021,20 +1076,17 @@ export async function transcribeAndMapAudio(
     console.log('[AI] Starting voice transcription...');
     const startTime = Date.now();
 
-    // Step 1: Transcribe audio using OpenAI Whisper (direct API, not proxy)
-    const whisper = getWhisperClient();
-    
-    // Create a File-like object for the OpenAI SDK (Node.js doesn't have File constructor)
+    // Step 1: Transcribe audio using OpenAI (Replit gateway → personal key fallback)
     const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
       type: 'audio/webm'
     });
-    
-    const transcription = await whisper.audio.transcriptions.create({
+
+    const transcription = await withWhisperFallback((c) => c.audio.transcriptions.create({
       file: audioFile,
       model: TRANSCRIPTION_MODEL,
       language: 'en', // Can be auto-detected by removing this
       response_format: 'text'
-    });
+    }));
 
     const rawTranscription = transcription as unknown as string;
     const transcriptionDuration = Date.now() - startTime;
@@ -1264,20 +1316,17 @@ export async function transcribeAssessmentAudio(
     console.log('[AI] Starting assessment audio transcription using OpenAI Whisper API...');
     const startTime = Date.now();
     
-    // Get Whisper client with personal API key
-    const whisper = getWhisperClient();
-    
     // Create a File-like object for the OpenAI SDK
     const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
       type: 'audio/webm'
     });
-    
-    // Transcribe audio using OpenAI Whisper API
-    const transcription = await whisper.audio.transcriptions.create({
+
+    // Transcribe audio (Replit gateway → personal key fallback)
+    const transcription = await withWhisperFallback((c) => c.audio.transcriptions.create({
       file: audioFile,
       model: TRANSCRIPTION_MODEL,
       response_format: 'text'
-    });
+    }));
 
     // Extract text from response
     let result = transcription as unknown as string;
@@ -1339,7 +1388,6 @@ export async function transcribeSessionChunk(
   previousText?: string,
   translateToEnglish?: boolean,
 ): Promise<string> {
-  const whisper = getWhisperClient();
   const audioFile = await OpenAI.toFile(audioBuffer, fileName, {
     type: fileName.endsWith('.mp4') ? 'audio/mp4' : 'audio/webm',
   });
@@ -1384,7 +1432,7 @@ export async function transcribeSessionChunk(
   if (language && language !== 'auto' && !translateToEnglish) {
     params.language = language;
   }
-  const transcription = await whisper.audio.transcriptions.create(params);
+  const transcription = await withWhisperFallback((c) => c.audio.transcriptions.create(params));
   const raw = (transcription as unknown as string) || '';
   const cleaned = sanitizeWhisperHallucinations(raw);
   if (!translateToEnglish || !cleaned.trim()) return cleaned;
