@@ -75,7 +75,8 @@ import {
   X,
   HelpCircle,
   FileAudio,
-  Mic
+  Mic,
+  Unlock
 } from "lucide-react";
 
 // Utils and Hooks
@@ -1231,6 +1232,25 @@ export default function ClientDetailPage() {
         title: "Error generating PDF preview", 
         description: error instanceof Error ? error.message : "Failed to generate PDF",
         variant: "destructive" 
+      });
+    }
+  };
+
+  // Reopen a finalized note from the session "⋯" menu. Confirms,
+  // POSTs to the unfinalize endpoint, then refreshes the session-notes
+  // list so the card flips back to the draft state.
+  const handleReopenNoteFromMenu = async (noteId: number) => {
+    if (!confirm('Reopen this finalized note? It will be moved back to draft so you can edit it. This action is logged.')) return;
+    try {
+      await apiRequest(`/api/session-notes/${noteId}/unfinalize`, 'POST');
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/session-notes`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/sessions`] });
+      toast({ title: 'Note reopened', description: 'You can now edit and re-finalize this note.' });
+    } catch (error) {
+      toast({
+        title: 'Could not reopen note',
+        description: error instanceof Error ? error.message : 'Failed to reopen note',
+        variant: 'destructive',
       });
     }
   };
@@ -3135,6 +3155,15 @@ export default function ClientDetailPage() {
                                             <DropdownMenuItem onClick={() => handleDownloadNotePDF(sessionNote.id)}>
                                               <Download className="w-4 h-4 mr-2" />
                                               Download PDF
+                                            </DropdownMenuItem>
+                                          )}
+                                          {sessionNote.isFinalized && (
+                                            <DropdownMenuItem
+                                              onClick={() => handleReopenNoteFromMenu(sessionNote.id)}
+                                              data-testid={`menu-reopen-note-${session.id}`}
+                                            >
+                                              <Unlock className="w-4 h-4 mr-2 text-amber-600" />
+                                              Reopen Note
                                             </DropdownMenuItem>
                                           )}
                                           <DropdownMenuItem
