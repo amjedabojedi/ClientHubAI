@@ -259,6 +259,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const meterRafRef = useRef<number | null>(null);
+  // Background-tab-safe sampler for silence detection. RAF pauses when the
+  // tab is hidden, so we ALSO sample on a setInterval — that keeps
+  // segmentMaxRmsRef accurate even when the therapist switches tabs during
+  // the session, preventing false "all chunks silent" finalize failures.
+  const meterIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Peak RMS observed during the current 60s segment — used to decide if it's silent.
   const segmentMaxRmsRef = useRef<number>(0);
   // Whether the therapist confirmed extending past the 2-hour cap.
@@ -529,6 +534,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       cancelAnimationFrame(meterRafRef.current);
       meterRafRef.current = null;
     }
+    if (meterIntervalRef.current !== null) {
+      clearInterval(meterIntervalRef.current);
+      meterIntervalRef.current = null;
+    }
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
@@ -787,6 +796,10 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       cancelAnimationFrame(meterRafRef.current);
       meterRafRef.current = null;
     }
+    if (meterIntervalRef.current !== null) {
+      clearInterval(meterIntervalRef.current);
+      meterIntervalRef.current = null;
+    }
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
@@ -808,7 +821,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
       audioContextRef.current = ctx;
       analyserRef.current = analyser;
       const buf = new Uint8Array(analyser.fftSize);
-      const tick = () => {
+      const sample = () => {
         const a = analyserRef.current;
         if (!a) return;
         a.getByteTimeDomainData(buf);
@@ -820,11 +833,18 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
         const rms = Math.sqrt(sum / buf.length);
         // Track per-segment peak for the silence-skip decision
         if (rms > segmentMaxRmsRef.current) segmentMaxRmsRef.current = rms;
-        // Boosted display value for the meter bar (visual only)
-        setAudioLevel(Math.min(1, rms * 4));
+        return rms;
+      };
+      const tick = () => {
+        const rms = sample();
+        if (rms !== undefined) setAudioLevel(Math.min(1, rms * 4));
         meterRafRef.current = requestAnimationFrame(tick);
       };
       tick();
+      // Background-tab-safe sampler: keeps silence detection accurate even
+      // when the browser pauses requestAnimationFrame (hidden tab, minimized
+      // window). Visual update is skipped here; we only need the peak RMS.
+      meterIntervalRef.current = setInterval(sample, 100);
     } catch (err) {
       console.warn("Level meter setup failed:", err);
     }

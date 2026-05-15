@@ -7136,6 +7136,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const fileName = req.file.originalname || `chunk-${chunkIndex}.webm`;
         const existingChunks = (upload.chunks as Record<string, { text: string; durationSeconds: number }> | null) || {};
         const previousChunkText = chunkIndex > 0 ? existingChunks[String(chunkIndex - 1)]?.text : undefined;
+        console.log(`[SessionTranscript] chunk received uploadId=${uploadId} session=${sessionId} idx=${chunkIndex} bytes=${req.file.size} dur=${chunkDuration}s lang=${language || 'auto'}`);
         let chunkText = '';
         try {
           const { transcribeSessionChunk } = await import('./ai/openai');
@@ -7157,6 +7158,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // Persist this chunk to the DB (atomic JSONB merge so concurrent chunks don't clobber).
         const updated = await storage.appendTranscriptChunk(upload.id, chunkIndex, chunkText, chunkDuration);
         const allChunks = (updated.chunks as Record<string, unknown>) || {};
+        console.log(`[SessionTranscript] chunk stored uploadId=${uploadId} idx=${chunkIndex} textLen=${chunkText.length} totalChunks=${Object.keys(allChunks).length}`);
 
         return res.json({
           uploadId,
@@ -7276,6 +7278,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const chunksMap = (upload.chunks as Record<string, { text: string; durationSeconds: number }> | null) || {};
         const uploadedIndices = Object.keys(chunksMap).map((k) => parseInt(k, 10)).sort((a, b) => a - b);
         const chunksReceived = uploadedIndices.length;
+        const liveContentLen = typeof upload.content === 'string' ? upload.content.trim().length : 0;
+        console.log(`[SessionTranscript] finalize uploadId=${uploadId} session=${sessionId} chunksInDB=${chunksReceived} silentMarked=${silentMap.size} expected=${expectedChunks ?? totalChunks ?? 'n/a'} liveContentLen=${liveContentLen} status=${upload.status}`);
         // Total accounted for = uploaded chunks + client-marked silent chunks.
         // We need this for the missing-chunk safety check below; otherwise
         // every silent chunk would look like a "missing" chunk and block save.
@@ -7374,12 +7378,20 @@ You can download a copy if you have it saved locally and re-upload it.`;
           : 0;
 
         if (!rawTranscript) {
-          // Don't delete — leave the row so the client can see the failure
+          const detail = `chunksInDB=${chunksReceived}, silentMarked=${silentMap.size}, expected=${expectedChunks ?? totalChunks ?? 'n/a'}, livePreviewLen=${liveContentLen}`;
+          let hint = "Recording produced no audio.";
+          if (chunksReceived === 0 && silentMap.size === 0) {
+            hint = "The recorder never sent any audio to the server. This usually means the browser is running an old cached version of the page. Hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) and try again. If it persists, check that microphone permission is granted for this site.";
+          } else if (chunksReceived === 0 && silentMap.size > 0) {
+            hint = "Every audio chunk was detected as silent. Check that the correct microphone is selected and not muted.";
+          }
+          const message = `No transcribed content to finalize. ${hint} (${detail})`;
+          console.warn(`[SessionTranscript] finalize empty transcript: ${detail}`);
           await storage.updateSessionTranscript(upload.id, {
             status: 'failed',
-            errorMessage: 'No transcribed content to finalize',
+            errorMessage: message,
           });
-          return res.status(400).json({ message: "No transcribed content to finalize" });
+          return res.status(400).json({ message, detail });
         }
 
         // Mark this row as 'processing' so a concurrent refresh shows the
