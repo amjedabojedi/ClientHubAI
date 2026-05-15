@@ -7231,11 +7231,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
           return res.status(403).json({ message: "Only the recording therapist or an admin can finalize this upload" });
         }
 
-        // Deepgram fast-path: if the live WS already wrote the transcript
-        // to `content` (status='processing' set by persistLiveTranscript),
-        // just flip it to 'ready' and return. No chunk stitching, no
-        // Whisper, no [silence ~Xs] markers needed — Deepgram handled it.
-        const hasLiveText = upload.status === 'processing'
+        // Deepgram fast-path is now a FALLBACK only. The Whisper chunked
+        // pipeline always runs and is the authoritative source for the
+        // saved transcript, so we only fall back to the live Deepgram
+        // text when no Whisper chunks were uploaded at all (e.g. very
+        // short recording where Stop fires before any 20s slice rotated,
+        // or Whisper API was unreachable for the whole recording).
+        const hasUploadedChunks = upload.chunks
+          && typeof upload.chunks === 'object'
+          && Object.keys(upload.chunks as object).length > 0;
+        const hasLiveText = !hasUploadedChunks
+          && upload.status === 'processing'
           && typeof upload.content === 'string'
           && upload.content.trim().length > 0;
         if (hasLiveText) {

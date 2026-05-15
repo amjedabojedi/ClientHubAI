@@ -213,9 +213,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
   const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const uploadIdRef = useRef<string>("");
   const chunkIndexRef = useRef<number>(0);
-  // True when the current recording uses Deepgram-only (no Whisper chunk
-  // uploads). Set on Start based on the picked language; checked at Stop
-  // and by the stall watchdog to skip chunk-specific gating.
+  // Legacy flag, kept as `false` permanently. Whisper chunks are ALWAYS
+  // the source of truth for the saved transcript now; Deepgram only
+  // powers the on-screen live preview. This eliminates the silent
+  // data-loss case where Deepgram failed in production and recording
+  // produced "No transcribed content to finalize".
   const useLiveOnlyRef = useRef<boolean>(false);
   const uploadQueueRef = useRef<Promise<void>>(Promise.resolve());
   const mimeTypeRef = useRef<string>("audio/webm");
@@ -1186,18 +1188,18 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
           );
         }
       }, 4000);
-      // Routing: Deepgram-supported languages stream over the WebSocket and
-      // the server saves the transcript on close — NO chunked Whisper
-      // uploads. Unsupported languages (e.g. Arabic) fall back to the
-      // legacy Whisper chunk pipeline because Deepgram nova-2 streaming
-      // can't transcribe them.
+      // Single source of truth: Whisper chunked upload ALWAYS runs and
+      // produces the saved transcript. For languages that Deepgram nova-2
+      // supports, we ALSO open the Deepgram WebSocket — but only to power
+      // the on-screen live preview text. If Deepgram fails (network down,
+      // key missing in production, account expired) the recording is
+      // unaffected: chunks keep uploading and Stop & Save still works.
       const liveLangEntry = LIVE_LANGUAGES.find(l => l.code === (liveLanguage || "en"));
-      const useLive = liveLangEntry?.liveSupported !== false;
-      useLiveOnlyRef.current = useLive;
-      if (useLive) {
+      const livePreviewSupported = liveLangEntry?.liveSupported !== false;
+      useLiveOnlyRef.current = false;
+      startSegmentRecorder();
+      if (livePreviewSupported) {
         startLiveTranscription(stream, liveLanguage || "en", uploadIdRef.current);
-      } else {
-        startSegmentRecorder();
       }
       startTick();
       // After the first successful getUserMedia, device labels become
