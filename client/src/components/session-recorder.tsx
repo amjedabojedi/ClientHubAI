@@ -1275,7 +1275,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
     startTick();
   }, [status]);
 
-  const handleStop = useCallback(async () => {
+  const handleStop = useCallback(async (forceSaveWithGaps: boolean = false) => {
     if (status === "idle") return;
     stoppingRef.current = true;
     stopTick();
@@ -1319,15 +1319,21 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
 
     // Block finalize if any chunk permanently failed — therapist must retry first.
     // Live-only recordings have no chunk uploads, so this gate is bypassed.
-    if (!useLiveOnlyRef.current && failedChunksRef.current.size > 0) {
+    // Escape hatch: when forceSaveWithGaps=true (user clicked "Save anyway")
+    // we skip the gate and let the server stitch the transcript with
+    // `[GAP IN RECORDING — chunk N failed to upload]` markers in place of
+    // the failed indices. The audio for those chunks is still cached in
+    // IndexedDB and can be retried later, but the session can be ended now.
+    if (!forceSaveWithGaps && !useLiveOnlyRef.current && failedChunksRef.current.size > 0) {
       const failedList = Array.from(failedChunksRef.current.keys()).sort((a, b) => a - b);
       setErrorMsg(
         `Cannot save transcript — chunk(s) ${failedList.join(", ")} failed to transcribe. ` +
-          `Use the Retry buttons below to re-send the failed chunk(s), then click Stop & Save again.`,
+          `Use the Retry buttons below to re-send the failed chunk(s), then click Stop & Save again. ` +
+          `If retries keep failing, use "Save anyway" below to end the session with gap markers.`,
       );
       toast({
         title: "Cannot save: missing chunks",
-        description: `${failedList.length} recording chunk(s) failed. Click Retry next to each failed chunk, then Stop & Save.`,
+        description: `${failedList.length} recording chunk(s) failed. Retry or use "Save anyway" to end the session.`,
         variant: "destructive",
       });
       setStatus("paused");
@@ -1357,7 +1363,11 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
             : {
                 uploadId: uploadIdRef.current,
                 totalChunks: chunkIndexRef.current,
-                expectedChunks: chunkIndexRef.current,
+                // When the user chose "Save anyway", DROP the expectedChunks
+                // guard so the server doesn't 409 on the failed indices —
+                // it will instead iterate uploaded indices and emit
+                // `[GAP IN RECORDING — chunk N failed to upload]` markers.
+                ...(forceSaveWithGaps ? {} : { expectedChunks: chunkIndexRef.current }),
                 // Tell the server which indices were truly silent so it can insert
                 // `[silence ~Xs]` markers in the right position instead of silently
                 // gluing chunks across the gap (which made the LLM hallucinate).
@@ -1654,7 +1664,7 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                   data-testid="button-stop-recording"
                   variant="destructive"
                   size="sm"
-                  onClick={handleStop}
+                  onClick={() => handleStop()}
                 >
                   <Square className="h-4 w-4 mr-1" /> Stop & Save
                 </Button>
@@ -1855,9 +1865,9 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
 
         {/* Per-chunk retry: one button per failed chunk, re-uses the cached audio Blob */}
         {failedChunks.length > 0 && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-3">
             <div className="text-xs font-medium text-destructive">
-              {failedChunks.length} chunk(s) failed to transcribe — retry each one before saving:
+              {failedChunks.length} chunk(s) failed to transcribe — retry each one, or use "Save anyway" to end the session with gap markers:
             </div>
             <div className="flex flex-wrap gap-2">
               {failedChunks.map((idx) => {
@@ -1881,6 +1891,21 @@ export function SessionRecorder({ sessionId, language, onRequestSmartFill, onAct
                   </Button>
                 );
               })}
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-destructive/20">
+              <div className="text-[11px] text-muted-foreground leading-snug">
+                Recovery: the failed audio is still saved locally. "Save anyway" ends the session
+                now and inserts a gap marker where the failed chunk(s) were.
+              </div>
+              <Button
+                type="button"
+                data-testid="button-save-with-gaps"
+                variant="destructive"
+                size="sm"
+                onClick={() => handleStop(true)}
+              >
+                <Square className="h-3 w-3 mr-1" /> Save anyway
+              </Button>
             </div>
           </div>
         )}
