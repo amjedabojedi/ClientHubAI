@@ -1,2 +1,3 @@
 - [db:push drift](db-push-drift.md) — db:push prompts dangerously on practice_configuration drift; apply additive DDL idempotently instead.
 - [Double-booking guard](double-booking-guard.md) — booking race safety uses advisory locks, not a btree_gist EXCLUDE (override feature + existing overlaps block it).
+- [Audit log enum drift](audit-enum-drift.md) — audit_logs.action/result are pg ENUMs but varchar in Drizzle; db:push never syncs, newer values silently fail to log. Fix: scripts/ensure-audit-enums.ts.
