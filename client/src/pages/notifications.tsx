@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { 
   Bell, 
   CheckCircle, 
@@ -27,7 +28,8 @@ import {
   Plus,
   Search,
   Filter,
-  Edit
+  Edit,
+  Mail
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -47,6 +49,18 @@ interface Notification {
   actionLabel?: string;
   createdAt: string;
 }
+
+interface UserNotificationPreference {
+  id: number;
+  triggerType: string;
+  deliveryMethods?: string[] | string | null;
+  enableInApp: boolean;
+  enableEmail: boolean;
+  enableSms: boolean;
+}
+
+// notificationPreferences.triggerType key for the 8 AM daily schedule digest.
+const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
 
 interface NotificationTrigger {
   id: number;
@@ -567,6 +581,56 @@ export default function NotificationsPage() {
     queryFn: () => fetch("/api/notifications?limit=100").then(res => res.json()).then(data => Array.isArray(data) ? data : []),
   });
 
+  // Fetch the current user's per-user notification preferences (e.g. daily schedule email)
+  const { data: userPreferences = [], isLoading: preferencesLoading } = useQuery<UserNotificationPreference[]>({
+    queryKey: ["/api/notifications/preferences"],
+    queryFn: () => fetch("/api/notifications/preferences", {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      return res.json();
+    }).then(data => Array.isArray(data) ? data : []),
+    retry: 1,
+  });
+
+  // Mirror the server-side logic in isDailyDigestEmailEnabled: no row means
+  // the digest defaults to ON; otherwise it's on when email delivery is enabled.
+  const dailyDigestPref = userPreferences.find(
+    (pref) => pref.triggerType === DAILY_SCHEDULE_EMAIL_TRIGGER
+  );
+  const dailyDigestEnabled = (() => {
+    if (!dailyDigestPref) return true;
+    if (dailyDigestPref.enableEmail) return true;
+    const methods = dailyDigestPref.deliveryMethods;
+    if (!methods) return false;
+    const list = typeof methods === "string" ? [methods] : methods;
+    return Array.isArray(list) && list.includes("email");
+  })();
+
+  const setDailyDigestMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiRequest(`/api/notifications/preferences/${DAILY_SCHEDULE_EMAIL_TRIGGER}`, "PUT", {
+        enableEmail: enabled,
+      }),
+    onSuccess: (_data, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
+      toast({
+        title: enabled ? "Daily schedule email turned on" : "Daily schedule email turned off",
+        description: enabled
+          ? "You'll receive your schedule each morning at 8 AM."
+          : "You'll no longer receive the morning schedule email.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Couldn't update preference",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Fetch triggers
   const { data: triggers = [], isLoading: triggersLoading, error: triggersError } = useQuery({
     queryKey: ["/api/notifications/triggers"],
@@ -789,8 +853,9 @@ export default function NotificationsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
           {isAdmin && <TabsTrigger value="triggers">Triggers</TabsTrigger>}
           {isAdmin && <TabsTrigger value="templates">Templates</TabsTrigger>}
         </TabsList>
@@ -952,6 +1017,47 @@ export default function NotificationsPage() {
                     ))}
                   </div>
                 </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Preferences Tab */}
+        <TabsContent value="preferences" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Email Preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {preferencesLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading preferences...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-4 p-4 border rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Mail className="h-5 w-5 mt-0.5 text-gray-500" />
+                    <div>
+                      <Label htmlFor="daily-schedule-email" className="text-base font-medium">
+                        Daily schedule email
+                      </Label>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        Get an email each morning at 8 AM with your appointments for the day.
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    id="daily-schedule-email"
+                    checked={dailyDigestEnabled}
+                    disabled={setDailyDigestMutation.isPending}
+                    onCheckedChange={(checked) => setDailyDigestMutation.mutate(checked)}
+                    data-testid="switch-daily-schedule-email"
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
