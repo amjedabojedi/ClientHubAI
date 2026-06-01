@@ -51,6 +51,10 @@ export function CommunicationVoiceRecorder({
   const [failedChunks, setFailedChunks] = useState<number[]>([]);
   const [retryingChunks, setRetryingChunks] = useState<Set<number>>(new Set());
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Per-chunk transcribed text, keyed by chunk index, shown as a running live
+  // preview while recording. This is only a preview — the final saved text comes
+  // from the finalize step (single source of truth).
+  const [chunkTexts, setChunkTexts] = useState<Record<number, string>>({});
   const { toast } = useToast();
 
   const streamRef = useRef<MediaStream | null>(null);
@@ -92,6 +96,7 @@ export function CommunicationVoiceRecorder({
     setFailedChunks([]);
     setRetryingChunks(new Set());
     setErrorMsg(null);
+    setChunkTexts({});
     chunkIndexRef.current = 0;
     webmInitRef.current = null;
     uploadIdRef.current = "";
@@ -235,7 +240,9 @@ export function CommunicationVoiceRecorder({
           const errText = await res.text();
           throw new Error(errText.slice(0, 300));
         }
-        await res.json();
+        const body = await res.json();
+        const text = typeof body?.chunkText === "string" ? body.chunkText : "";
+        setChunkTexts((prev) => ({ ...prev, [index]: text }));
         failedChunksRef.current.delete(index);
         setFailedChunks((prev) => prev.filter((i) => i !== index));
         setChunksUploaded((c) => c + 1);
@@ -390,6 +397,14 @@ export function CommunicationVoiceRecorder({
 
   const uploadProgress = chunksSent > 0 ? Math.round((chunksUploaded / chunksSent) * 100) : 0;
   const hasFailedChunks = failedChunks.length > 0;
+  // Stitch each chunk's text together in index order for the running preview.
+  const livePreview = Object.keys(chunkTexts)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((i) => chunkTexts[i])
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   return (
     <div className="space-y-3 p-3 border rounded-lg bg-slate-50">
@@ -427,6 +442,18 @@ export function CommunicationVoiceRecorder({
           {chunksSent > 0 && (
             <Progress value={uploadProgress} className="h-1.5" />
           )}
+        </div>
+      )}
+
+      {(isRecording || isProcessing) && livePreview && (
+        <div
+          className="space-y-1 p-2 bg-white border rounded-lg"
+          data-testid="comm-live-preview"
+        >
+          <p className="text-xs font-medium text-slate-500">Live preview</p>
+          <p className="text-sm text-slate-800 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+            {livePreview}
+          </p>
         </div>
       )}
 
