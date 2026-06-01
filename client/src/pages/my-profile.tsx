@@ -541,6 +541,92 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
     },
   });
 
+  // ===== Calendar feed (read-only iCal subscription link) =====
+  const { data: calendarFeed, refetch: refetchCalendarFeed } = useQuery<{
+    enabled: boolean;
+    url: string | null;
+  }>({
+    queryKey: ["/api/calendar/feed"],
+    enabled: !!userId,
+  });
+
+  const regenerateCalendarFeedMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/calendar/feed/regenerate", "POST", {});
+    },
+    onSuccess: () => {
+      refetchCalendarFeed();
+      toast({
+        title: "Calendar link ready",
+        description: "Your new calendar link is active. Any old link no longer works.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Could not create the calendar link",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const disableCalendarFeedMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/calendar/feed", "DELETE");
+    },
+    onSuccess: () => {
+      refetchCalendarFeed();
+      toast({
+        title: "Calendar turned off",
+        description: "The link no longer works. You can turn it on again any time.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Could not turn off the calendar link",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCopyCalendarLink = async () => {
+    if (!calendarFeed?.url) return;
+    try {
+      await navigator.clipboard.writeText(calendarFeed.url);
+      toast({ title: "Copied", description: "Calendar link copied to clipboard." });
+    } catch {
+      toast({
+        title: "Could not copy",
+        description: "Please select the link and copy it by hand.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRegenerateCalendarLink = async () => {
+    const hasExisting = calendarFeed?.enabled;
+    if (
+      hasExisting &&
+      !confirm(
+        "Make a new link? The old link will stop working right away. You will need to add the new link to your calendar app again.",
+      )
+    ) {
+      return;
+    }
+    await regenerateCalendarFeedMutation.mutateAsync();
+  };
+
+  const handleDisableCalendarLink = async () => {
+    if (
+      confirm(
+        "Turn off the calendar link? It will stop working right away. You can turn it back on later.",
+      )
+    ) {
+      await disableCalendarFeedMutation.mutateAsync();
+    }
+  };
+
   const onSubmit = async (data: ProfileFormData) => {
     try {
       console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
@@ -744,7 +830,7 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
         </Collapsible>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="license">License</TabsTrigger>
             <TabsTrigger value="specializations">Specializations</TabsTrigger>
@@ -752,11 +838,14 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="zoom">Zoom</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
             <TabsTrigger value="password">Password</TabsTrigger>
           </TabsList>
 
-          {/* Profile Form - All tabs except password and zoom */}
-          {activeTab !== "password" && activeTab !== "zoom" && (
+          {/* Profile Form - All tabs except password, zoom and calendar */}
+          {activeTab !== "password" &&
+            activeTab !== "zoom" &&
+            activeTab !== "calendar" && (
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
@@ -1412,6 +1501,149 @@ console.log("form availablePhysicalRooms", form.watch('availablePhysicalRooms'))
                       </div>
                     </form>
                   </Form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Calendar Feed Tab - Separate (no profile form) */}
+          {activeTab === "calendar" && (
+            <TabsContent value="calendar" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Calendar Subscribe Link
+                  </CardTitle>
+                  <CardDescription>
+                    Add your SmartHub schedule to Google, Outlook, or Apple
+                    Calendar. It updates on its own.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Privacy note */}
+                  <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950 rounded-lg">
+                    <p className="text-sm text-amber-900 dark:text-amber-200">
+                      <strong>Private:</strong> To protect clients, each
+                      appointment only shows their initials (like "J.D.") and the
+                      time. No names, notes, or other details are shared. Treat
+                      this link like a password — anyone who has it can see your
+                      schedule times.
+                    </p>
+                  </div>
+
+                  {calendarFeed?.enabled && calendarFeed.url ? (
+                    <div className="space-y-6">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Check className="w-5 h-5 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            Calendar link is on
+                          </span>
+                        </div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                          Your link
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input
+                            readOnly
+                            value={calendarFeed.url}
+                            onFocus={(e) => e.currentTarget.select()}
+                            data-testid="input-calendar-link"
+                            className="font-mono text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleCopyCalendarLink}
+                            data-testid="button-copy-calendar-link"
+                            className="shrink-0"
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleRegenerateCalendarLink}
+                          disabled={regenerateCalendarFeedMutation.isPending}
+                          data-testid="button-regenerate-calendar-link"
+                        >
+                          {regenerateCalendarFeedMutation.isPending
+                            ? "Working..."
+                            : "Make a new link"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={handleDisableCalendarLink}
+                          disabled={disableCalendarFeedMutation.isPending}
+                          data-testid="button-disable-calendar-link"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          {disableCalendarFeedMutation.isPending
+                            ? "Working..."
+                            : "Turn off"}
+                        </Button>
+                      </div>
+
+                      {/* How to add it */}
+                      <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                        <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                          How to add it to your calendar:
+                        </h4>
+                        <ul className="space-y-3 text-sm text-blue-800 dark:text-blue-200">
+                          <li>
+                            <strong>Google Calendar:</strong> On a computer, go to
+                            Other calendars → "+" → "From URL". Paste the link and
+                            click "Add calendar".
+                          </li>
+                          <li>
+                            <strong>Outlook:</strong> Go to Add calendar →
+                            "Subscribe from web". Paste the link, give it a name,
+                            and save.
+                          </li>
+                          <li>
+                            <strong>Apple Calendar:</strong> File → "New Calendar
+                            Subscription". Paste the link and click Subscribe.
+                          </li>
+                        </ul>
+                        <p className="mt-3 text-xs text-blue-700 dark:text-blue-300">
+                          Calendar apps refresh on their own, usually every few
+                          hours. New or changed appointments may take a little
+                          while to show up.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-orange-500" />
+                        <span className="text-sm font-medium text-orange-500">
+                          Calendar link is off
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Turn on a private link to see your SmartHub appointments
+                        in your own calendar app.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={handleRegenerateCalendarLink}
+                        disabled={regenerateCalendarFeedMutation.isPending}
+                        data-testid="button-enable-calendar-link"
+                        className="flex items-center gap-2"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        {regenerateCalendarFeedMutation.isPending
+                          ? "Working..."
+                          : "Turn on calendar link"}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

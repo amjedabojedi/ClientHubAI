@@ -97,6 +97,13 @@ export const users = pgTable("users", {
   zoomAccessToken: text("zoom_access_token"), // Cached token
   zoomTokenExpiry: timestamp("zoom_token_expiry"), // Token expiration time
   
+  // Calendar feed subscription (per-therapist secret iCal token).
+  // When set, the therapist can subscribe an external calendar (Google /
+  // Outlook / Apple) to a read-only .ics feed of their own appointments.
+  // Regenerating mints a new token, which invalidates the previous link.
+  calendarFeedToken: varchar("calendar_feed_token", { length: 64 }),
+  calendarFeedEnabledAt: timestamp("calendar_feed_enabled_at"),
+  
   // System Administration
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -106,6 +113,7 @@ export const users = pgTable("users", {
   emailIdx: index("users_email_idx").on(table.email),
   roleIdx: index("users_role_idx").on(table.role),
   statusIdx: index("users_status_idx").on(table.status),
+  calendarFeedTokenIdx: uniqueIndex("users_calendar_feed_token_idx").on(table.calendarFeedToken),
 }));
 
 // Therapist/Supervisor Professional Profiles
@@ -1290,6 +1298,11 @@ export const AUDIT_ACTIONS = [
   'consent_granted',
   'consent_withdrawn',
   'ai_processing_blocked',
+
+  // Calendar feed (per-therapist iCal subscription)
+  'calendar_feed_accessed',
+  'calendar_feed_token_generated',
+  'calendar_feed_token_revoked',
 
   // Data export
   'data_exported',

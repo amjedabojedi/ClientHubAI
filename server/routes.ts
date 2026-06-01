@@ -19,6 +19,8 @@ import { z } from "zod";
 
 // Internal Services
 import { storage, type TaskQueryParams } from "./storage";
+import { buildTherapistCalendar } from "./ics-service";
+import { clientInitials } from "@shared/privacy";
 // Auth will be implemented later, for now removing to test audit logging
 import { generateSessionNoteSummary, generateSmartSuggestions, generateClinicalReport, transcribeAndMapAudio, transcribeAssessmentAudio } from "./ai/openai";
 import notificationRoutes from "./notification-routes";
@@ -137,6 +139,10 @@ function sanitizeUser(user: any) {
     passwordResetToken: __,
     passwordResetExpiry: ___,
     emailVerificationToken: ____,
+    // Secret calendar feed token must never leak through generic user
+    // serialization — it is only ever returned to its owner via the dedicated
+    // GET /api/calendar/feed endpoint.
+    calendarFeedToken: _____,
     ...safeUser
   } = user;
   return safeUser;
@@ -145,6 +151,30 @@ function sanitizeUser(user: any) {
 // Security: Safe serializer for arrays of users
 function sanitizeUsers(users: any[]) {
   return users.map(sanitizeUser);
+}
+
+// Simple in-memory rate limiter for the PUBLIC (unauthenticated) calendar feed.
+// Calendar apps poll on a schedule (typically hours apart), so a generous cap
+// here never affects real subscribers but blunts abusive polling / DoS of an
+// internet-exposed route that runs a non-trivial DB query.
+const calendarFeedHits = new Map<string, { count: number; resetAt: number }>();
+const CALENDAR_FEED_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const CALENDAR_FEED_MAX = 60; // requests per IP per window
+function calendarFeedRateLimited(ip: string): boolean {
+  const now = Date.now();
+  // Opportunistically sweep expired entries so the map cannot grow unbounded.
+  if (calendarFeedHits.size > 5000) {
+    for (const [key, entry] of calendarFeedHits) {
+      if (now > entry.resetAt) calendarFeedHits.delete(key);
+    }
+  }
+  const entry = calendarFeedHits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    calendarFeedHits.set(ip, { count: 1, resetAt: now + CALENDAR_FEED_WINDOW_MS });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > CALENDAR_FEED_MAX;
 }
 
 // Helper function to get the base URL from request
@@ -660,8 +690,222 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
-  
-  
+
+  // ===== CALENDAR FEED (per-therapist read-only iCal subscription) =====
+  //
+  // PRIVACY: the .ics feed leaves SmartHub, so events only ever carry the
+  // client's two initials (e.g. "J.D.") — never the full name, notes, diagnosis
+  // or any other PHI (see shared/privacy.ts + server/ics-service.ts).
+
+  // Status of the signed-in user's own calendar feed (returns the secret link
+  // only to its owner).
+  app.get("/api/calendar/feed", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      if (!user.calendarFeedToken) {
+        return res.json({ enabled: false, url: null });
+      }
+
+      const url = `${getBaseUrl(req)}/api/calendar/feed/${user.calendarFeedToken}.ics`;
+      res.json({ enabled: true, url, enabledAt: user.calendarFeedEnabledAt });
+    } catch (error) {
+      console.error("Error fetching calendar feed status:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create or regenerate the feed link. Regenerating mints a brand new token,
+  // which immediately invalidates any previously shared link.
+  app.post("/api/calendar/feed/regenerate", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      const userId = req.user!.id;
+      const token = crypto.randomBytes(24).toString("hex");
+
+      await storage.updateUser(userId, {
+        calendarFeedToken: token,
+        calendarFeedEnabledAt: new Date(),
+      });
+
+      try {
+        await AuditLogger.logAction({
+          userId,
+          username: req.user!.username,
+          action: "calendar_feed_token_generated",
+          result: "success",
+          resourceType: "calendar_feed",
+          resourceId: String(userId),
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: "medium",
+          details: JSON.stringify({
+            note: "New calendar feed link generated; any previous link is now invalid.",
+          }),
+        });
+      } catch (auditErr) {
+        console.error("Failed to audit calendar feed token generation:", auditErr);
+      }
+
+      const url = `${getBaseUrl(req)}/api/calendar/feed/${token}.ics`;
+      res.json({ enabled: true, url });
+    } catch (error) {
+      console.error("Error regenerating calendar feed:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Turn the feed off and invalidate the current link.
+  app.delete("/api/calendar/feed", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      const userId = req.user!.id;
+
+      await storage.updateUser(userId, {
+        calendarFeedToken: null,
+        calendarFeedEnabledAt: null,
+      });
+
+      try {
+        await AuditLogger.logAction({
+          userId,
+          username: req.user!.username,
+          action: "calendar_feed_token_revoked",
+          result: "success",
+          resourceType: "calendar_feed",
+          resourceId: String(userId),
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: "medium",
+          details: JSON.stringify({ note: "Calendar feed disabled; link no longer works." }),
+        });
+      } catch (auditErr) {
+        console.error("Failed to audit calendar feed token revocation:", auditErr);
+      }
+
+      res.json({ enabled: false, url: null });
+    } catch (error) {
+      console.error("Error disabling calendar feed:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // PUBLIC, token-authenticated .ics feed. No cookie/session auth: the secret
+  // token in the URL is the only credential. Fails closed (404) on any bad or
+  // missing token so it never reveals whether a token exists.
+  app.get("/api/calendar/feed/:filename", async (req, res) => {
+    try {
+      const clientIp =
+        req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ||
+        req.ip ||
+        req.socket?.remoteAddress ||
+        "unknown";
+      if (calendarFeedRateLimited(clientIp)) {
+        res.setHeader("Retry-After", "600");
+        return res.status(429).type("text/plain").send("Too many requests");
+      }
+
+      const token = String(req.params.filename || "").replace(/\.ics$/i, "");
+      if (!token) {
+        return res.status(404).type("text/plain").send("Calendar not found");
+      }
+
+      const user = await storage.getUserByCalendarFeedToken(token);
+      if (!user) {
+        return res.status(404).type("text/plain").send("Calendar not found");
+      }
+
+      // Bounded window so the feed stays small: recent past + a year ahead.
+      const now = new Date();
+      const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const endDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+      const { sessions: rows } = await storage.getSessionsWithFiltering({
+        therapistId: user.id,
+        startDate,
+        endDate,
+        page: 1,
+        limit: 5000,
+        includeHiddenServices: true,
+      });
+
+      const allowedStatuses = new Set([
+        "scheduled",
+        "confirmed",
+        "in-progress",
+        "in_progress",
+      ]);
+
+      const events = rows
+        .filter((s: any) => allowedStatuses.has(String(s.status || "").toLowerCase()))
+        .map((s: any) => {
+          const durationMinutes =
+            Number(s.duration) || Number(s.service?.duration) || 50;
+
+          let location: string | undefined;
+          if (s.room?.roomName) {
+            location = s.room.roomNumber
+              ? `${s.room.roomName} (${s.room.roomNumber})`
+              : s.room.roomName;
+          } else if (s.zoomEnabled) {
+            location = "Telehealth (Zoom)";
+          }
+
+          return {
+            id: s.id,
+            start: new Date(s.sessionDate),
+            durationMinutes,
+            initials: clientInitials(s.client?.fullName),
+            status: String(s.status || ""),
+            location,
+          };
+        });
+
+      const host = (req.headers["x-forwarded-host"] || req.headers.host || "smarthub")
+        .toString()
+        .split(":")[0];
+
+      const ics = buildTherapistCalendar({
+        calendarName: "SmartHub Schedule",
+        host,
+        events,
+      });
+
+      try {
+        const { ipAddress, userAgent } = getRequestInfo(req);
+        await AuditLogger.logAction({
+          userId: user.id,
+          username: user.username,
+          action: "calendar_feed_accessed",
+          result: "success",
+          resourceType: "calendar_feed",
+          resourceId: String(user.id),
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: "medium",
+          details: JSON.stringify({ eventCount: events.length }),
+        });
+      } catch (auditErr) {
+        // Never break feed delivery on an audit failure (it is already logged
+        // loudly and written to the fallback file by AuditLogger).
+        console.error("Failed to audit calendar feed access:", auditErr);
+      }
+
+      res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+      res.setHeader("Content-Disposition", 'inline; filename="smarthub-schedule.ics"');
+      res.setHeader("Cache-Control", "private, max-age=300");
+      res.send(ics);
+    } catch (error) {
+      console.error("Error generating calendar feed:", error);
+      res.status(500).type("text/plain").send("Unable to generate calendar");
+    }
+  });
+
   // Add audit context middleware to all routes
   app.use(setAuditContext);
   // Authentication routes with audit logging

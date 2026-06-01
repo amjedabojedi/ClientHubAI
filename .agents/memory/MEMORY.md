@@ -3,3 +3,4 @@
 - [Audit log enum drift](audit-enum-drift.md) — audit_logs.action/result are pg ENUMs but varchar in Drizzle; db:push never syncs, newer values silently fail to log. Fix: scripts/ensure-audit-enums.ts.
 - [Comm voice transcription](comm-voice-transcription.md) — chunked Communications dictation keeps chunk state in-memory (not DB) on purpose; no cross-restart recovery.
 - [Privacy test concurrency](privacy-test-concurrency.md) — app-level privacy/transcription tsx tests must run serially; createClient races on CL-<year>-<MAX+1>.
+- [External client privacy](external-client-privacy.md) — anything leaving SmartHub (feeds, emails) must use clientInitials() "J.D." only; not the internal formatClientInitial "John D."
