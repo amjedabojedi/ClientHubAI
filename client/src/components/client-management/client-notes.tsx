@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { Phone, Mail, FileText, CalendarIcon, Plus, Filter, Edit, Trash2 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import { CommunicationVoiceRecorder } from "@/components/communication-voice-recorder";
 
 interface ClientNotesProps {
   clientId: number;
@@ -171,6 +172,21 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
     } else {
       createNoteMutation.mutate(data);
     }
+  };
+
+  // Append transcribed text to the existing rich-text Details without erasing it.
+  const appendTranscriptionToContent = (text: string) => {
+    const current = form.getValues("content") || "";
+    const cleaned = text.trim();
+    if (!cleaned) return;
+    const escaped = cleaned
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const addition = `<p>${escaped}</p>`;
+    const hasExisting = current.replace(/<(.|\n)*?>/g, "").trim().length > 0;
+    const next = hasExisting ? `${current}${addition}` : addition;
+    form.setValue("content", next, { shouldValidate: true, shouldDirty: true });
   };
 
   const handleEditNote = (note: Note) => {
@@ -529,6 +545,11 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                 )}
               />
 
+              <CommunicationVoiceRecorder
+                clientId={clientId}
+                onTranscriptionComplete={appendTranscriptionToContent}
+              />
+
               <FormField
                 control={form.control}
                 name="content"
@@ -681,6 +702,11 @@ export default function ClientNotes({ clientId }: ClientNotesProps) {
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+
+              <CommunicationVoiceRecorder
+                clientId={clientId}
+                onTranscriptionComplete={appendTranscriptionToContent}
               />
 
               <FormField

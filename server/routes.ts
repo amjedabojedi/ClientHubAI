@@ -9549,6 +9549,142 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Transcribe a voice recording for a client communication note.
+  // Accepts multipart audio + clientId, checks AI processing consent for that
+  // client, and returns the transcribed text. No note is persisted here — the
+  // text is inserted into the add/edit note form on the client.
+  app.post("/api/communications/transcribe", requireAuth, blockAccountant, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No audio file uploaded" });
+      }
+
+      const clientId = req.body.clientId ? parseInt(req.body.clientId) : null;
+      if (!clientId || isNaN(clientId)) {
+        return res.status(400).json({ message: "A valid clientId is required" });
+      }
+
+      const client = await storage.getClient(clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+
+      // Role-based authorization: therapists can only transcribe for their
+      // assigned clients; supervisors only for clients of therapists they
+      // supervise; admins have full access. Mirrors the client-access policy
+      // used by protected client routes (HIPAA object-level access control).
+      let accessDeniedReason: string | null = null;
+      if (req.user.role === 'therapist') {
+        if (client.assignedTherapistId !== req.user.id) {
+          accessDeniedReason = "You can only transcribe notes for your assigned clients.";
+        }
+      } else if (req.user.role === 'supervisor') {
+        const supervisorAssignments = await storage.getSupervisorAssignments(req.user.id);
+        const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+        if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+          accessDeniedReason = "You can only transcribe notes for clients of therapists you supervise.";
+        }
+      }
+
+      if (accessDeniedReason) {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'unauthorized_access',
+          result: 'denied',
+          resourceType: 'communication_transcription',
+          resourceId: `client_${clientId}`,
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            reason: 'client_not_authorized',
+            endpoint: '/api/communications/transcribe',
+            userRole: req.user.role
+          }),
+          accessReason: 'Communication voice transcription attempted for unauthorized client'
+        });
+
+        return res.status(403).json({ message: `Access denied. ${accessDeniedReason}` });
+      }
+
+      // GDPR: Check AI processing consent before transcribing client data.
+      const consentCheck = await checkAIProcessingConsent(clientId);
+      if (!consentCheck.hasConsent) {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'ai_processing_blocked',
+          result: 'denied',
+          resourceType: 'communication_transcription',
+          resourceId: `client_${clientId}`,
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          details: JSON.stringify({
+            reason: 'consent_not_granted',
+            endpoint: '/api/communications/transcribe',
+            consentType: 'ai_processing',
+            error: consentCheck.error
+          }),
+          accessReason: 'Communication voice transcription attempted without consent'
+        });
+
+        return res.status(403).json({ message: consentCheck.message });
+      }
+
+      const translateToEnglish = req.body.translateToEnglish === 'true';
+
+      console.log(`[API] Processing communication voice transcription. Translation: ${translateToEnglish ? 'enabled' : 'disabled'}. File size: ${req.file.size} bytes`);
+
+      const transcription = await transcribeAssessmentAudio(
+        req.file.buffer,
+        req.file.originalname,
+        translateToEnglish
+      );
+
+      console.log(`[API] Communication transcription successful. Length: ${transcription.length} chars`);
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'voice_transcription_processed',
+        result: 'success',
+        resourceType: 'communication',
+        resourceId: `client_${clientId}`,
+        clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'low',
+        details: JSON.stringify({
+          audioFileSize: req.file.size,
+          transcriptionLength: transcription.length,
+          translationEnabled: translateToEnglish
+        }),
+        accessReason: 'Voice transcription for client communication note'
+      });
+
+      res.json({ transcription });
+    } catch (error: any) {
+      console.error('[API] Communication transcription error:', error);
+      res.status(500).json({
+        message: error.message || "Voice transcription failed",
+        error: error.message
+      });
+    }
+  });
+
   // Recalculate scores for an assessment (useful for fixing existing assessments)
   app.post("/api/assessments/:assignmentId/recalculate-scores", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
