@@ -17,16 +17,20 @@ record is written, the next run sees no record and sends a duplicate. Writing a
 `processing` row first closes that window: a crashed attempt leaves a `processing`
 row that blocks re-sends.
 
+**Choose at-most-once over at-least-once for emails.** A duplicate email to a
+client is a visible privacy/quality failure; a rare missed digest is not. So a
+stuck `processing` row must NEVER be re-claimed — do not add a stale-`processing`
+lease/reclaim branch, because that branch re-opens the duplicate-send window
+exactly in the crash case it claims to recover. Recovering a genuinely-stuck row
+should be a manual/observability action, not an automatic resend.
+
 **How to apply:**
 - Claim is a single atomic `INSERT ... ON CONFLICT (recipient, periodKey) DO
   UPDATE ... RETURNING`. The `setWhere` clause decides re-claim eligibility:
-  re-claim only when `status='failed' AND attempts < MAX`, OR
-  `status='processing' AND updated_at < now() - lease`. If `RETURNING` is empty,
-  you did NOT win the claim — skip (it is already sent, in flight, or exhausted).
-  A `sent` row therefore never matches `setWhere`, so it can never be re-sent.
-- The stale-`processing` lease (e.g. 10 min, comfortably longer than one
-  send+record cycle) gives at-least-once recovery for the rare send-then-crash
-  case while never stealing live work.
+  re-claim ONLY when `status='failed' AND attempts < MAX`. If `RETURNING` is
+  empty, you did NOT win the claim — skip (it is already sent, in flight, or
+  exhausted). Both `sent` and `processing` rows therefore never match `setWhere`,
+  so neither can ever be re-sent.
 - Permanent failures (e.g. recipient has no email address) should be written at
   the retry cap so they are not pointlessly re-claimed all period.
 - The in-process in-flight boolean guard only prevents overlapping ticks in ONE

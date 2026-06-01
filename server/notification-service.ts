@@ -29,10 +29,6 @@ const PRACTICE_TZ = "America/New_York";
 // Daily-email idempotency: how many times we'll retry a failed therapist send
 // within the same Eastern day before giving up (avoids retry storms).
 const DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS = 3;
-// How long a 'processing' claim is trusted before it's treated as abandoned
-// (server crashed mid-send) and may be re-claimed. Comfortably longer than a
-// single send + record cycle so live work is never stolen.
-const DAILY_SCHEDULE_EMAIL_LEASE_MINUTES = 10;
 // notificationPreferences.triggerType key for the daily schedule digest.
 const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
 
@@ -2049,15 +2045,15 @@ If you have any questions about joining the virtual session, please contact your
 
     for (const therapist of therapists) {
       // Atomically claim the (therapist, day) slot BEFORE sending. This is the
-      // idempotency guard: if we don't win the claim the slot is already sent,
-      // in flight on another worker, or out of retries — skip it. Winning the
-      // claim writes a 'processing' row first, so a crash between the send and
-      // recording the result cannot cause a duplicate send on the next run.
+      // idempotency guard: winning the claim writes a 'processing' row first, so
+      // a crash between the send and recording the result cannot cause a
+      // duplicate on the next run (the stuck 'processing' row is never
+      // re-claimed). If we don't win the claim the slot is already sent, in
+      // flight, or out of retries — skip it.
       const claim = await storage.claimDailyScheduleEmail(
         therapist.id,
         easternDateStr,
         DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS,
-        DAILY_SCHEDULE_EMAIL_LEASE_MINUTES,
       );
       if (!claim) {
         skipped++;

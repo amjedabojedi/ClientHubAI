@@ -254,7 +254,6 @@ export interface IStorage {
     therapistId: number,
     sendDate: string,
     maxAttempts: number,
-    leaseMinutes: number,
   ): Promise<DailyScheduleEmail | undefined>;
   
   // ===== USER PROFILES =====
@@ -704,21 +703,21 @@ export class DatabaseStorage implements IStorage {
       });
   }
 
-  // Atomically claims the (therapist, day) slot before any email is sent, so a
-  // crash between the SparkPost send and recording the result can never cause a
-  // duplicate send. Returns the claimed row (status 'processing') when this
-  // caller won the claim, or undefined when the slot is already 'sent', claimed
-  // by a live worker, or out of retries. A 'processing' row older than
-  // leaseMinutes is considered abandoned and can be re-claimed (at-least-once
-  // recovery for the rare send-then-crash window).
+  // Atomically claims the (therapist, day) slot BEFORE any email is sent, so the
+  // claim — not the send — is the idempotency guard. Returns the claimed row
+  // (status 'processing') only when this caller won the claim; returns undefined
+  // otherwise. The claim succeeds when no row exists yet, or when the existing
+  // row is 'failed' and still under the retry cap. A row that is 'sent' or
+  // 'processing' is NEVER re-claimed: this guarantees at-most-once delivery (no
+  // double-send). If the server crashes after the SparkPost send but before the
+  // row is marked 'sent', that row stays 'processing' and is left alone rather
+  // than re-sent — a stuck 'processing' row is visible/auditable for manual
+  // recovery, which we accept over ever emailing a therapist twice.
   async claimDailyScheduleEmail(
     therapistId: number,
     sendDate: string,
     maxAttempts: number,
-    leaseMinutes: number,
   ): Promise<DailyScheduleEmail | undefined> {
-    const now = new Date();
-    const leaseCutoff = new Date(now.getTime() - leaseMinutes * 60_000);
     const rows = await db
       .insert(dailyScheduleEmails)
       .values({
@@ -735,18 +734,13 @@ export class DatabaseStorage implements IStorage {
           status: "processing",
           attempts: sql`${dailyScheduleEmails.attempts} + 1`,
           error: null,
-          updatedAt: now,
+          updatedAt: new Date(),
         },
-        setWhere: or(
-          and(
-            eq(dailyScheduleEmails.status, "failed"),
-            lt(dailyScheduleEmails.attempts, maxAttempts),
-          ),
-          and(
-            eq(dailyScheduleEmails.status, "processing"),
-            lt(dailyScheduleEmails.updatedAt, leaseCutoff),
-            lt(dailyScheduleEmails.attempts, maxAttempts),
-          ),
+        // Only 'failed' rows under the retry cap may be re-claimed. 'sent' and
+        // 'processing' rows never match, so they are never re-sent.
+        setWhere: and(
+          eq(dailyScheduleEmails.status, "failed"),
+          lt(dailyScheduleEmails.attempts, maxAttempts),
         ),
       })
       .returning();
