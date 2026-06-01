@@ -206,7 +206,13 @@ export default function SchedulingPage() {
     freeCount: number;
     conflictCount: number;
   } | null>(null);
-  const [recurrenceResult, setRecurrenceResult] = useState<{ createdCount: number; skippedCount: number } | null>(null);
+  const [recurrenceResult, setRecurrenceResult] = useState<{
+    createdCount: number;
+    skippedCount: number;
+    created: Array<{ sessionDate: string }>;
+    skipped: Array<{ sessionDate: string; reasons: string[] }>;
+  } | null>(null);
+  const [isSeriesResultOpen, setIsSeriesResultOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { addRecentSession } = useRecentItems();
@@ -611,7 +617,12 @@ export default function SchedulingPage() {
       queryClient.invalidateQueries({ queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`] });
       const created = result?.createdCount ?? 0;
       const skipped = result?.skippedCount ?? 0;
-      setRecurrenceResult({ createdCount: created, skippedCount: skipped });
+      setRecurrenceResult({
+        createdCount: created,
+        skippedCount: skipped,
+        created: result?.created ?? [],
+        skipped: result?.skipped ?? [],
+      });
       toast({
         title: "Recurring sessions booked",
         description: `${created} session(s) booked${skipped > 0 ? `, ${skipped} skipped due to conflicts` : ""}.`,
@@ -619,6 +630,7 @@ export default function SchedulingPage() {
       setIsNewSessionModalOpen(false);
       resetRecurrenceControls();
       form.reset();
+      setIsSeriesResultOpen(true);
     },
     onError: (error: any) => {
       toast({
@@ -2466,6 +2478,72 @@ export default function SchedulingPage() {
           </div>
         )}
       </div>
+
+      {/* Recurring Series Result Dialog */}
+      <Dialog open={isSeriesResultOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsSeriesResultOpen(false);
+          setRecurrenceResult(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[480px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCw className="w-5 h-5 text-indigo-600" />
+              Recurring sessions booked
+            </DialogTitle>
+          </DialogHeader>
+          {recurrenceResult && (
+            <div className="py-2 space-y-4">
+              <p className="text-sm text-slate-700">
+                {recurrenceResult.createdCount} session(s) were booked
+                {recurrenceResult.skippedCount > 0
+                  ? `, and ${recurrenceResult.skippedCount} were skipped because of a conflict.`
+                  : "."}
+              </p>
+
+              {recurrenceResult.created.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> Booked ({recurrenceResult.created.length})
+                  </div>
+                  <ul className="space-y-1 rounded-md border bg-green-50 p-3 max-h-48 overflow-y-auto">
+                    {recurrenceResult.created.map((s, i) => (
+                      <li key={i} className="text-xs text-slate-700">
+                        {format(new Date(s.sessionDate), 'EEE, MMM dd, yyyy')} at {formatTime(s.sessionDate)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recurrenceResult.skipped.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium text-red-700 mb-2 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> Skipped ({recurrenceResult.skipped.length})
+                  </div>
+                  <ul className="space-y-1 rounded-md border bg-red-50 p-3 max-h-48 overflow-y-auto">
+                    {recurrenceResult.skipped.map((s, i) => (
+                      <li key={i} className="text-xs text-slate-700 flex items-center justify-between gap-2">
+                        <span>{format(new Date(s.sessionDate), 'EEE, MMM dd, yyyy')} at {formatTime(s.sessionDate)}</span>
+                        <Badge variant="destructive" className="text-[10px] shrink-0">{s.reasons?.join(', ') || 'Conflict'}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Skipped dates were not booked. You can book them individually at a different time.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button onClick={() => { setIsSeriesResultOpen(false); setRecurrenceResult(null); }}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Session Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => {
