@@ -10003,6 +10003,296 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // ===================================================================
+  // COMMUNICATION VOICE NOTE — CHUNKED TRANSCRIPTION
+  // ===================================================================
+  // Mirrors the session-note recorder's server-minted uploadId + chunk flow
+  // so long dictations (multi-minute) upload reliably in ~20s slices instead
+  // of buffering the whole clip in the browser and POSTing one large blob at
+  // Stop (slow, fragile, and capped by the 25 MB Whisper/multer limit). Each
+  // chunk is Whisper-transcribed immediately and its text accumulated
+  // server-side; finalize stitches the pieces in order and returns the
+  // combined transcription. Unlike session transcripts these are ephemeral
+  // working notes (the text is dropped into a free-text field and never
+  // persisted as PHI by these routes), so we keep state in memory rather than
+  // adding a DB table.
+  interface CommTranscribeUpload {
+    uploadId: string;
+    userId: number;
+    clientId: number;
+    translateToEnglish: boolean;
+    language?: string;
+    chunks: Map<number, string>;
+    status: 'recording' | 'finalized';
+    createdAt: number;
+    lastActivityAt: number;
+  }
+  const commTranscribeUploads = new Map<string, CommTranscribeUpload>();
+  // Drop uploads that were started but never finalized (tab closed mid-record)
+  // after 30 minutes so the map can't grow unbounded.
+  const COMM_UPLOAD_TTL_MS = 30 * 60 * 1000;
+  function sweepCommUploads() {
+    const cutoff = Date.now() - COMM_UPLOAD_TTL_MS;
+    Array.from(commTranscribeUploads.entries()).forEach(([id, up]) => {
+      if (up.lastActivityAt < cutoff) commTranscribeUploads.delete(id);
+    });
+  }
+
+  // Per-user-per-client chunk-upload rate limit (cheap circuit breaker so a
+  // runaway client can't flood Whisper). 120 uploads / 10 min — same budget as
+  // the session recorder. Process-local; revisit if horizontally scaled.
+  const COMM_CHUNK_RATE_WINDOW_MS = 10 * 60 * 1000;
+  const COMM_CHUNK_RATE_MAX = 120;
+  const commChunkRateBuckets = new Map<string, number[]>();
+  function checkCommChunkRate(userId: number, clientId: number): { ok: true } | { ok: false; retryAfterSec: number } {
+    const key = `${userId}:${clientId}`;
+    const now = Date.now();
+    const cutoff = now - COMM_CHUNK_RATE_WINDOW_MS;
+    const arr = (commChunkRateBuckets.get(key) || []).filter((t) => t > cutoff);
+    if (arr.length >= COMM_CHUNK_RATE_MAX) {
+      const retryAfterSec = Math.ceil((arr[0] + COMM_CHUNK_RATE_WINDOW_MS - now) / 1000);
+      commChunkRateBuckets.set(key, arr);
+      return { ok: false, retryAfterSec: Math.max(1, retryAfterSec) };
+    }
+    arr.push(now);
+    commChunkRateBuckets.set(key, arr);
+    return { ok: true };
+  }
+
+  // Role-based client access check shared by the chunked communication
+  // transcription endpoints. Mirrors the policy used by the single-shot
+  // /api/communications/transcribe route above (HIPAA object-level access).
+  async function assertCommunicationClientAccess(
+    req: AuthenticatedRequest,
+    clientId: number,
+  ): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+    const client = await storage.getClient(clientId);
+    if (!client) return { ok: false, status: 404, message: "Client not found" };
+    if (req.user!.role === 'therapist') {
+      if (client.assignedTherapistId !== req.user!.id) {
+        return { ok: false, status: 403, message: "You can only transcribe notes for your assigned clients." };
+      }
+    } else if (req.user!.role === 'supervisor') {
+      const supervisorAssignments = await storage.getSupervisorAssignments(req.user!.id);
+      const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+      if (client.assignedTherapistId && !supervisedTherapistIds.includes(client.assignedTherapistId)) {
+        return { ok: false, status: 403, message: "You can only transcribe notes for clients of therapists you supervise." };
+      }
+    }
+    return { ok: true };
+  }
+
+  // POST /api/communications/transcribe-start
+  // Body: { clientId, translateToEnglish?, language? }. Returns { uploadId }.
+  app.post("/api/communications/transcribe-start", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const clientId = req.body?.clientId ? parseInt(String(req.body.clientId)) : NaN;
+      if (!clientId || isNaN(clientId)) return res.status(400).json({ message: "A valid clientId is required" });
+
+      const access = await assertCommunicationClientAccess(req, clientId);
+      if (!access.ok) {
+        if (access.status === 403) {
+          await AuditLogger.logAction({
+            userId: req.user.id,
+            username: req.user.username,
+            action: 'unauthorized_access',
+            result: 'denied',
+            resourceType: 'communication_transcription',
+            resourceId: `client_${clientId}`,
+            clientId,
+            ipAddress,
+            userAgent,
+            hipaaRelevant: true,
+            riskLevel: 'high',
+            details: JSON.stringify({ reason: 'client_not_authorized', endpoint: '/api/communications/transcribe-start', userRole: req.user.role }),
+            accessReason: 'Chunked communication voice transcription attempted for unauthorized client'
+          }).catch(() => {});
+          return res.status(403).json({ message: `Access denied. ${access.message}` });
+        }
+        return res.status(access.status).json({ message: access.message });
+      }
+
+      // GDPR: AI consent gate before any audio is accepted.
+      const consentCheck = await checkAIProcessingConsent(clientId);
+      if (!consentCheck.hasConsent) {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'ai_processing_blocked',
+          result: 'denied',
+          resourceType: 'communication_transcription',
+          resourceId: `client_${clientId}`,
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'medium',
+          details: JSON.stringify({ reason: 'consent_not_granted', endpoint: '/api/communications/transcribe-start', consentType: 'ai_processing', error: consentCheck.error }),
+          accessReason: 'Chunked communication voice transcription attempted without consent'
+        }).catch(() => {});
+        return res.status(403).json({ message: consentCheck.message });
+      }
+
+      sweepCommUploads();
+      const uploadId = `srv-${crypto.randomBytes(16).toString('hex')}`;
+      const translateToEnglish = req.body?.translateToEnglish === true || req.body?.translateToEnglish === 'true';
+      const language = typeof req.body?.language === 'string' && req.body.language ? req.body.language : undefined;
+      commTranscribeUploads.set(uploadId, {
+        uploadId,
+        userId: req.user.id,
+        clientId,
+        translateToEnglish,
+        language,
+        chunks: new Map(),
+        status: 'recording',
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+      });
+      console.log(`[CommTranscribe] start uploadId=${uploadId} user=${req.user.id} client=${clientId} translate=${translateToEnglish}`);
+      return res.json({ uploadId });
+    } catch (error: any) {
+      console.error('[CommTranscribe] start error:', error);
+      return res.status(500).json({ message: error.message || 'Internal error' });
+    }
+  });
+
+  // POST /api/communications/transcribe-chunk
+  // Body: multipart with 'audio' file + uploadId + chunkIndex + (optional) chunkDurationSeconds
+  app.post("/api/communications/transcribe-chunk", requireAuth, blockAccountant, audioUpload.single('audio'), async (req: AuthenticatedRequest, res) => {
+    // Allow long Whisper calls.
+    req.setTimeout(10 * 60 * 1000);
+    res.setTimeout(10 * 60 * 1000);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      if (!req.file) return res.status(400).json({ message: "No audio chunk uploaded" });
+
+      const uploadId = String(req.body.uploadId || '');
+      const chunkIndex = parseInt(req.body.chunkIndex);
+      if (!uploadId || uploadId.length > 64 || isNaN(chunkIndex) || chunkIndex < 0) {
+        return res.status(400).json({ message: "uploadId and chunkIndex required" });
+      }
+      // uploadId MUST be server-minted (created by /transcribe-start).
+      if (!uploadId.startsWith('srv-')) {
+        return res.status(400).json({ message: "Invalid uploadId — call /transcribe-start first" });
+      }
+      const upload = commTranscribeUploads.get(uploadId);
+      if (!upload) return res.status(404).json({ message: "Unknown or expired uploadId — call /transcribe-start first" });
+      if (upload.userId !== req.user.id) return res.status(403).json({ message: "This upload was started by a different user" });
+      if (upload.status !== 'recording') return res.status(409).json({ message: `Upload is no longer accepting chunks (status: ${upload.status})` });
+
+      // GDPR: re-verify AI consent on every chunk (defense in depth — consent
+      // could be revoked mid-recording).
+      const consentCheck = await checkAIProcessingConsent(upload.clientId);
+      if (!consentCheck.hasConsent) return res.status(403).json({ message: consentCheck.message });
+
+      // Per-user-per-client rate limit (cheap circuit breaker).
+      const rate = checkCommChunkRate(req.user.id, upload.clientId);
+      if (!rate.ok) {
+        res.setHeader('Retry-After', String(rate.retryAfterSec));
+        return res.status(429).json({ message: `Chunk upload rate limit exceeded. Try again in ${rate.retryAfterSec} seconds.` });
+      }
+
+      // Transcribe this chunk immediately, passing the previous chunk's text as
+      // continuity context so Whisper doesn't drop/duplicate words at seams.
+      const fileName = req.file.originalname || `chunk-${chunkIndex}.webm`;
+      const previousChunkText = chunkIndex > 0 ? upload.chunks.get(chunkIndex - 1) : undefined;
+      console.log(`[CommTranscribe] chunk received uploadId=${uploadId} idx=${chunkIndex} bytes=${req.file.size}`);
+      let chunkText = '';
+      try {
+        const { transcribeSessionChunk } = await import('./ai/openai');
+        chunkText = await transcribeSessionChunk(
+          req.file.buffer,
+          fileName,
+          upload.language,
+          previousChunkText,
+          upload.translateToEnglish,
+        );
+      } catch (err: any) {
+        console.error('[CommTranscribe] chunk transcription error:', err);
+        return res.status(500).json({ message: `Chunk transcription failed: ${err.message || 'Unknown'}` });
+      }
+
+      upload.chunks.set(chunkIndex, chunkText);
+      upload.lastActivityAt = Date.now();
+      console.log(`[CommTranscribe] chunk stored uploadId=${uploadId} idx=${chunkIndex} textLen=${chunkText.length} totalChunks=${upload.chunks.size}`);
+      return res.json({ uploadId, chunkIndex, chunkText, chunksReceived: upload.chunks.size });
+    } catch (error: any) {
+      console.error('[CommTranscribe] chunk error:', error);
+      return res.status(500).json({ message: error.message || 'Internal error' });
+    }
+  });
+
+  // POST /api/communications/transcribe-finalize
+  // Body: { uploadId, expectedChunks?, totalChunks? }. Returns { transcription }.
+  app.post("/api/communications/transcribe-finalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const uploadId = String(req.body?.uploadId || '');
+      if (!uploadId) return res.status(400).json({ message: "uploadId required" });
+      const upload = commTranscribeUploads.get(uploadId);
+      if (!upload) return res.status(404).json({ message: "Unknown or expired uploadId" });
+      if (upload.userId !== req.user.id) return res.status(403).json({ message: "This upload was started by a different user" });
+
+      // Data-loss safety: if the client tells us how many chunks it sent and
+      // some never made it (permanent upload failure), refuse to finalize so
+      // the recorder can retry the missing chunks first.
+      const expected = Number(req.body?.expectedChunks ?? req.body?.totalChunks);
+      const receivedIndices = Array.from(upload.chunks.keys()).sort((a, b) => a - b);
+      if (Number.isFinite(expected) && expected > 0 && receivedIndices.length < expected) {
+        return res.status(409).json({
+          message: `Cannot finalize: only ${receivedIndices.length} of ${expected} chunks were received. Retry the missing chunks before saving.`,
+          chunksReceived: receivedIndices.length,
+          chunksExpected: expected,
+        });
+      }
+
+      // Stitch chunk texts in index order into one transcript.
+      const transcription = receivedIndices
+        .map((i) => (upload.chunks.get(i) || '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      upload.status = 'finalized';
+      commTranscribeUploads.delete(uploadId);
+
+      if (!transcription) {
+        return res.status(400).json({ message: "No speech was detected in the recording. Please try recording again." });
+      }
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'voice_transcription_processed',
+        result: 'success',
+        resourceType: 'communication',
+        resourceId: `client_${upload.clientId}`,
+        clientId: upload.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'low',
+        details: JSON.stringify({
+          chunkCount: receivedIndices.length,
+          transcriptionLength: transcription.length,
+          translationEnabled: upload.translateToEnglish,
+          mode: 'chunked',
+        }),
+        accessReason: 'Chunked voice transcription for client communication note'
+      }).catch(() => {});
+
+      console.log(`[CommTranscribe] finalize uploadId=${uploadId} chunks=${receivedIndices.length} textLen=${transcription.length}`);
+      return res.json({ transcription });
+    } catch (error: any) {
+      console.error('[CommTranscribe] finalize error:', error);
+      return res.status(500).json({ message: error.message || 'Internal error' });
+    }
+  });
+
   // Recalculate scores for an assessment (useful for fixing existing assessments)
   app.post("/api/assessments/:assignmentId/recalculate-scores", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     try {
