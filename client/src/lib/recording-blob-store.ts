@@ -23,7 +23,12 @@ const STORE = "failed-chunks";
 export interface StoredFailedChunk {
   key: string; // `${uploadId}::${index}`
   uploadId: string;
-  sessionId: number;
+  // Scope the chunk to whatever owns the recording. The session-note recorder
+  // uses sessionId; the Communications dictation recorder uses clientId. Both
+  // are optional metadata — IndexedDB lookups are keyed by uploadId, which is
+  // globally unique, so neither field is used for retrieval.
+  sessionId?: number;
+  clientId?: number;
   index: number;
   durationSec: number;
   mime: string;

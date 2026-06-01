@@ -1,15 +1,28 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square, Loader2, Languages, RotateCw, AlertCircle } from "lucide-react";
+import { Mic, Square, Loader2, Languages, RotateCw, AlertCircle, RefreshCw, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import {
+  putFailedChunk,
+  deleteFailedChunk,
+  listFailedChunksForUpload,
+  clearFailedChunksForUpload,
+} from "@/lib/recording-blob-store";
 
 interface CommunicationVoiceRecorderProps {
   clientId: number;
   onTranscriptionComplete: (text: string) => void;
+}
+
+// Per-client localStorage key holding the uploadId of a dictation that was
+// started but never finalized (tab closed/refreshed mid-record). On next open
+// we read this to offer recovery instead of silently losing the work.
+function commRecoveryStorageKey(clientId: number): string {
+  return `smarthub.comm-recorder.recovery.v1.${clientId}`;
 }
 
 // MediaRecorder timeslice. 20-second slices keep each upload small (well under
@@ -55,6 +68,11 @@ export function CommunicationVoiceRecorder({
   // preview while recording. This is only a preview — the final saved text comes
   // from the finalize step (single source of truth).
   const [chunkTexts, setChunkTexts] = useState<Record<number, string>>({});
+  // Recovery: if a previous dictation for THIS client was started but never
+  // finalized (tab closed/refreshed, browser crash), we offer to save what the
+  // server already received instead of discarding it.
+  const [recoverableUploadId, setRecoverableUploadId] = useState<string | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
   const { toast } = useToast();
 
   const streamRef = useRef<MediaStream | null>(null);
@@ -89,6 +107,43 @@ export function CommunicationVoiceRecorder({
       }
     };
   }, []);
+
+  // Recovery detection: on mount (e.g. the note dialog re-opens after a tab
+  // refresh), look up any unfinalized dictation for THIS client. If found,
+  // surface a banner offering to save it, and rehydrate failed-chunk audio
+  // from IndexedDB so the per-chunk Retry buttons reappear.
+  useEffect(() => {
+    if (isRecording || isProcessing) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = localStorage.getItem(commRecoveryStorageKey(clientId));
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const uploadId = parsed?.uploadId ? String(parsed.uploadId) : "";
+        if (!uploadId || cancelled) return;
+        setRecoverableUploadId(uploadId);
+        if (typeof parsed?.translateToEnglish === "boolean") {
+          setTranslateToEnglish(parsed.translateToEnglish);
+        }
+        // Rehydrate failed-chunk audio so the user can re-send those exact
+        // chunks before saving instead of losing them.
+        const stored = await listFailedChunksForUpload(uploadId);
+        if (cancelled || stored.length === 0) return;
+        uploadIdRef.current = uploadId;
+        const map = failedChunksRef.current;
+        for (const e of stored) {
+          map.set(e.index, { blob: e.blob, durationSec: e.durationSec, mime: e.mime });
+        }
+        const indices = stored.map((e) => e.index).sort((a, b) => a - b);
+        setFailedChunks(indices);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   const resetState = () => {
     setChunksSent(0);
@@ -142,6 +197,21 @@ export function CommunicationVoiceRecorder({
       resetState();
       // resetState clears uploadIdRef — set it again after.
       uploadIdRef.current = String(startBody.uploadId || "");
+
+      // Persist the uploadId so a tab crash / accidental refresh doesn't orphan
+      // whatever the server already received. finalize / discard clear this; on
+      // next mount we look it up and offer "Recover unsaved dictation".
+      try {
+        localStorage.setItem(
+          commRecoveryStorageKey(clientId),
+          JSON.stringify({
+            uploadId: uploadIdRef.current,
+            translateToEnglish,
+            startedAt: Date.now(),
+          }),
+        );
+      } catch {}
+      setRecoverableUploadId(null);
 
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
@@ -245,12 +315,28 @@ export function CommunicationVoiceRecorder({
         setChunkTexts((prev) => ({ ...prev, [index]: text }));
         failedChunksRef.current.delete(index);
         setFailedChunks((prev) => prev.filter((i) => i !== index));
+        // Drop the IDB-persisted backup too — chunk is safely on the server.
+        if (uploadIdRef.current) {
+          void deleteFailedChunk(uploadIdRef.current, index);
+        }
         setChunksUploaded((c) => c + 1);
         return;
       } catch (err: any) {
         console.error(`Chunk ${index} attempt ${attempt} failed:`, err);
         if (attempt === maxAttempts) {
           failedChunksRef.current.set(index, { blob, durationSec, mime });
+          // Mirror to IndexedDB so a tab refresh doesn't lose the audio — the
+          // user can rehydrate the Retry button via the recovery banner.
+          if (uploadIdRef.current) {
+            void putFailedChunk({
+              uploadId: uploadIdRef.current,
+              clientId,
+              index,
+              durationSec,
+              mime,
+              blob,
+            });
+          }
           setFailedChunks((prev) =>
             prev.includes(index) ? prev : [...prev, index].sort((a, b) => a - b),
           );
@@ -330,6 +416,100 @@ export function CommunicationVoiceRecorder({
     await finalize();
   };
 
+  // Clears the localStorage recovery pointer and the IndexedDB failed-chunk
+  // backups for an uploadId once it's safely finalized or discarded.
+  const clearRecoveryPersistence = (uploadId: string) => {
+    try {
+      localStorage.removeItem(commRecoveryStorageKey(clientId));
+    } catch {}
+    if (uploadId) void clearFailedChunksForUpload(uploadId);
+  };
+
+  // Recover a previous interrupted dictation: finalize whatever the server
+  // still holds for the stored uploadId (no expectedChunks, so it stitches
+  // whatever it received) and drop the text into the note.
+  const handleRecover = async () => {
+    const uploadId = recoverableUploadId;
+    if (!uploadId) return;
+    // If failed-chunk audio was rehydrated, make the user retry it first so the
+    // recovered text isn't missing those slices.
+    if (failedChunksRef.current.size > 0) {
+      const failedList = Array.from(failedChunksRef.current.keys()).sort((a, b) => a - b);
+      setErrorMsg(
+        `Retry chunk(s) ${failedList.join(", ")} below before recovering, ` +
+          `so the recovered note isn't missing any audio.`,
+      );
+      toast({
+        title: "Retry failed chunks first",
+        description: `${failedList.length} chunk(s) still need to upload before recovery.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsRecovering(true);
+    setErrorMsg(null);
+    try {
+      const res = await apiRequest(
+        "/api/communications/transcribe-finalize",
+        "POST",
+        { uploadId },
+      );
+      const result = await res.json();
+      const text = (result?.transcription || "").trim();
+      clearRecoveryPersistence(uploadId);
+      setRecoverableUploadId(null);
+      resetState();
+      if (!text) {
+        toast({
+          title: "Nothing to recover",
+          description: "The interrupted dictation had no transcribable speech.",
+          variant: "destructive",
+        });
+        return;
+      }
+      onTranscriptionComplete(text);
+      toast({
+        title: "Dictation recovered",
+        description: "Saved everything the server received before the interruption.",
+      });
+    } catch (error: any) {
+      const msg = String(error?.message || "");
+      // 404 = the server no longer has this upload (TTL expiry or a server
+      // restart wiped the in-memory store). Nothing left to recover — clear the
+      // stale pointer so we stop offering it.
+      if (msg.includes("404") || /unknown|expired/i.test(msg)) {
+        clearRecoveryPersistence(uploadId);
+        setRecoverableUploadId(null);
+        failedChunksRef.current = new Map();
+        setFailedChunks([]);
+        toast({
+          title: "Dictation expired",
+          description:
+            "The interrupted dictation could no longer be recovered. Please record again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setErrorMsg(error.message || "Could not recover the dictation");
+      toast({
+        title: "Recovery failed",
+        description: error.message || "Could not recover the previous dictation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
+  const handleDiscardRecovery = () => {
+    const uploadId = recoverableUploadId || uploadIdRef.current;
+    clearRecoveryPersistence(uploadId);
+    setRecoverableUploadId(null);
+    failedChunksRef.current = new Map();
+    setFailedChunks([]);
+    setErrorMsg(null);
+  };
+
   const finalize = async () => {
     // Block finalize if any chunk permanently failed — user must retry first.
     if (failedChunksRef.current.size > 0) {
@@ -375,6 +555,8 @@ export function CommunicationVoiceRecorder({
           : "Audio transcribed successfully",
       });
       onTranscriptionComplete(text);
+      clearRecoveryPersistence(uploadIdRef.current);
+      setRecoverableUploadId(null);
       resetState();
     } catch (error: any) {
       console.error("Finalize failed:", error);
@@ -426,6 +608,55 @@ export function CommunicationVoiceRecorder({
           </Label>
         </div>
       </div>
+
+      {recoverableUploadId && !isRecording && !isProcessing && (
+        <div
+          className="space-y-2 p-2 bg-amber-50 border border-amber-200 rounded-lg"
+          data-testid="banner-comm-recover"
+        >
+          <div className="flex items-start space-x-2">
+            <RefreshCw className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-900">
+              <p className="font-medium">Unsaved dictation found</p>
+              <p>
+                {hasFailedChunks
+                  ? "Retry the failed chunk(s) below, then recover to save it to this note."
+                  : "A previous dictation was interrupted. Recover it to save it to this note, or discard it."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              onClick={handleRecover}
+              variant="default"
+              size="sm"
+              className="gap-1.5 h-7"
+              disabled={isRecovering}
+              data-testid="button-recover-comm-dictation"
+            >
+              {isRecovering ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Recover &amp; Save
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDiscardRecovery}
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-7"
+              disabled={isRecovering}
+              data-testid="button-discard-comm-dictation"
+            >
+              <X className="w-3.5 h-3.5" />
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
 
       {isRecording && (
         <div className="space-y-2 p-2 bg-red-50 rounded-lg">
@@ -508,7 +739,7 @@ export function CommunicationVoiceRecorder({
       )}
 
       <div className="flex gap-2">
-        {!isRecording && !isProcessing && !hasFailedChunks && (
+        {!isRecording && !isProcessing && !hasFailedChunks && !recoverableUploadId && (
           <Button
             type="button"
             onClick={startRecording}
@@ -536,7 +767,7 @@ export function CommunicationVoiceRecorder({
           </Button>
         )}
 
-        {!isRecording && !isProcessing && hasFailedChunks && (
+        {!isRecording && !isProcessing && hasFailedChunks && !recoverableUploadId && (
           <Button
             type="button"
             onClick={finalize}
