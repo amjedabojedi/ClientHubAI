@@ -4033,6 +4033,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Edit "this and all future" sessions in a recurring series at once.
+  // Applies the anchor session's edits (time-of-day, room, notes, service,
+  // therapist, type, zoom) to every still-active occurrence on or after the
+  // anchor's date, then reschedules their reminders.
+  app.put("/api/sessions/recurring/:groupId/future", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+
+      const role = req.user.role?.toLowerCase() || '';
+      const allowedRoles = ['admin', 'administrator', 'supervisor', 'therapist'];
+      if (!allowedRoles.includes(role)) {
+        return res.status(403).json({ message: "You do not have permission to edit sessions" });
+      }
+
+      const groupId = req.params.groupId;
+      if (!groupId || !groupId.startsWith('rec-')) {
+        return res.status(400).json({ message: "Invalid series id" });
+      }
+
+      const bodySchema = z.object({
+        anchorId: z.coerce.number().int().min(1),
+        sessionDate: z.string().min(1),
+        roomId: z.coerce.number().int().min(1).nullable().optional(),
+        notes: z.string().nullable().optional(),
+        serviceId: z.coerce.number().int().min(1).optional(),
+        therapistId: z.coerce.number().int().min(1).optional(),
+        sessionType: z.enum(["assessment", "psychotherapy", "consultation"]).optional(),
+        zoomEnabled: z.boolean().optional(),
+        ignoreConflicts: z.boolean().optional(),
+      });
+      const body = bodySchema.parse(req.body);
+
+      const newAnchorDate = new Date(body.sessionDate);
+      if (isNaN(newAnchorDate.getTime())) {
+        return res.status(400).json({ message: "Invalid session date format" });
+      }
+
+      // Load the anchor and verify it belongs to this series
+      const [anchor] = await db.select().from(sessions).where(eq(sessions.id, body.anchorId));
+      if (!anchor) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      if (anchor.recurrenceGroupId !== groupId) {
+        return res.status(400).json({ message: "Session is not part of this series" });
+      }
+
+      const originalAnchorDate = new Date(anchor.sessionDate);
+
+      // All still-active occurrences on or after the anchor's original date
+      const futureSessions = await db
+        .select()
+        .from(sessions)
+        .where(and(
+          eq(sessions.recurrenceGroupId, groupId),
+          gte(sessions.sessionDate, originalAnchorDate),
+          inArray(sessions.status, ['scheduled', 'confirmed']),
+        ));
+
+      if (futureSessions.length === 0) {
+        return res.status(404).json({ message: "No upcoming sessions found for this series" });
+      }
+
+      // Therapists may only edit their own sessions
+      if (role === 'therapist' && futureSessions.some((s) => s.therapistId !== req.user!.id)) {
+        return res.status(403).json({ message: "You can only edit your own sessions" });
+      }
+
+      const effectiveTherapistId = body.therapistId ?? anchor.therapistId;
+      const effectiveServiceId = body.serviceId ?? anchor.serviceId;
+      const effectiveRoomId = body.roomId === undefined ? anchor.roomId : body.roomId;
+      const effectiveSessionType = body.sessionType ?? (anchor.sessionType as any);
+
+      // Resolve duration from the effective service for business-hours + conflict math
+      let durationMinutes = 60;
+      try {
+        const svc = await storage.getServiceById(effectiveServiceId);
+        if (svc?.duration) durationMinutes = svc.duration;
+      } catch {}
+
+      // Compute day shift + new wall-clock time in the practice timezone (DST-safe)
+      const toLocalMs = (d: Date) => {
+        const [y, m, day] = formatInTimeZone(d, RECURRENCE_PRACTICE_TZ, 'yyyy-MM-dd')
+          .split('-').map((n) => parseInt(n, 10));
+        return Date.UTC(y, m - 1, day);
+      };
+      const dayDelta = Math.round((toLocalMs(newAnchorDate) - toLocalMs(originalAnchorDate)) / 86400000);
+      const newTimeOfDay = formatInTimeZone(newAnchorDate, RECURRENCE_PRACTICE_TZ, 'HH:mm');
+
+      const shiftLocalDate = (utcDate: Date): string => {
+        const [y, m, day] = formatInTimeZone(utcDate, RECURRENCE_PRACTICE_TZ, 'yyyy-MM-dd')
+          .split('-').map((n) => parseInt(n, 10));
+        const shifted = new Date(Date.UTC(y, m - 1, day) + dayDelta * 86400000);
+        const ny = shifted.getUTCFullYear();
+        const nm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+        const nd = String(shifted.getUTCDate()).padStart(2, '0');
+        return `${ny}-${nm}-${nd}`;
+      };
+
+      // Business-hours guard (8:00 AM - 12:00 AM practice time). Every occurrence
+      // shares the same wall-clock time so this only needs checking once.
+      const [hh, mm] = newTimeOfDay.split(':').map((n) => parseInt(n, 10));
+      const startMinutes = hh * 60 + mm;
+      const endMinutes = startMinutes + durationMinutes;
+      if (startMinutes >= 24 * 60 || endMinutes > 24 * 60) {
+        return res.status(400).json({
+          message: "Session time is outside business hours (8:00 AM - 12:00 AM).",
+          businessHours: "8:00 AM - 12:00 AM",
+        });
+      }
+
+      // Build new datetimes for every occurrence
+      const groupIds = new Set(futureSessions.map((s) => s.id));
+      const updates = futureSessions.map((s) => ({
+        session: s,
+        newDate: fromZonedTime(`${shiftLocalDate(new Date(s.sessionDate))} ${newTimeOfDay}:00`, RECURRENCE_PRACTICE_TZ),
+      }));
+
+      // Conflict check against sessions OUTSIDE this series
+      if (!body.ignoreConflicts) {
+        const sortedMs = updates.map((u) => u.newDate.getTime()).sort((a, b) => a - b);
+        const rangeStart = new Date(sortedMs[0] - 24 * 60 * 60 * 1000);
+        const rangeEnd = new Date(sortedMs[sortedMs.length - 1] + 24 * 60 * 60 * 1000);
+        const includeHiddenServices = role === 'admin';
+        const existing = await storage.getSessionsWithFiltering({
+          includeHiddenServices,
+          startDate: rangeStart,
+          endDate: rangeEnd,
+          page: 1,
+          limit: 5000,
+        });
+        const others = existing.sessions.filter((s: any) =>
+          ['scheduled', 'confirmed', 'in-progress'].includes(s.status) && !groupIds.has(s.id),
+        );
+
+        const conflicts: string[] = [];
+        for (const u of updates) {
+          const candStart = u.newDate;
+          const therapistBusy = others.some((s: any) => {
+            if (s.therapistId !== effectiveTherapistId) return false;
+            const exStart = new Date(s.sessionDate);
+            const exDuration = (s.service as any)?.duration || s.duration || 60;
+            return checkTimeConflict(candStart, durationMinutes, exStart, exDuration);
+          });
+          if (therapistBusy) {
+            conflicts.push(`${formatInTimeZone(candStart, RECURRENCE_PRACTICE_TZ, 'MMM d, h:mm a')} — therapist is busy`);
+          }
+          if (effectiveRoomId) {
+            const roomBusy = others.some((s: any) => {
+              if (s.roomId !== effectiveRoomId) return false;
+              const exStart = new Date(s.sessionDate);
+              const exDuration = (s.service as any)?.duration || s.duration || 60;
+              return checkTimeConflict(candStart, durationMinutes, exStart, exDuration);
+            });
+            if (roomBusy) {
+              conflicts.push(`${formatInTimeZone(candStart, RECURRENCE_PRACTICE_TZ, 'MMM d, h:mm a')} — room is occupied`);
+            }
+          }
+        }
+
+        if (conflicts.length > 0) {
+          return res.status(409).json({
+            message: `Scheduling conflict on ${conflicts.length} session(s): ${conflicts.join('; ')}`,
+            conflicts,
+          });
+        }
+      }
+
+      // Apply the updates atomically and clear pending reminders for these sessions
+      const updatedIds = updates.map((u) => u.session.id);
+      const serviceChanged = body.serviceId !== undefined && body.serviceId !== anchor.serviceId;
+      await db.transaction(async (tx) => {
+        for (const u of updates) {
+          await tx.update(sessions).set({
+            sessionDate: u.newDate,
+            roomId: effectiveRoomId ?? null,
+            notes: body.notes === undefined ? u.session.notes : (body.notes || null),
+            serviceId: effectiveServiceId,
+            therapistId: effectiveTherapistId,
+            sessionType: effectiveSessionType,
+            zoomEnabled: body.zoomEnabled === undefined ? u.session.zoomEnabled : body.zoomEnabled,
+          }).where(eq(sessions.id, u.session.id));
+        }
+        await tx.delete(scheduledNotifications).where(inArray(scheduledNotifications.sessionId, updatedIds));
+      });
+
+      // Update billing where the service changed and a billing record exists
+      if (serviceChanged) {
+        try {
+          const newService = await storage.getServiceById(effectiveServiceId);
+          if (newService) {
+            for (const u of updates) {
+              try {
+                const existingBilling = await storage.getSessionBilling(u.session.id);
+                if (existingBilling) {
+                  const units = existingBilling.units ?? 1;
+                  const totalAmount = (parseFloat(newService.baseRate) * units).toFixed(2);
+                  await db.update(sessionBilling).set({
+                    serviceCode: newService.serviceCode,
+                    ratePerUnit: newService.baseRate,
+                    totalAmount,
+                  }).where(eq(sessionBilling.sessionId, u.session.id));
+                }
+              } catch (e) {
+                console.error('[RECURRING EDIT] Billing update failed for session', u.session.id, e);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[RECURRING EDIT] Billing service lookup failed:', e);
+        }
+      }
+
+      // Reschedule reminders for each occurrence (scheduled reminders only — no
+      // per-session immediate emails, matching how the series was created).
+      let roomName: string | null = null;
+      if (effectiveRoomId) {
+        try {
+          const rooms = await storage.getRooms();
+          const room = rooms.find((r) => r.id === effectiveRoomId);
+          roomName = room?.roomName || room?.roomNumber || `Room ${effectiveRoomId}`;
+        } catch {}
+      }
+      const client = await storage.getClient(anchor.clientId);
+      const therapist = await storage.getUser(effectiveTherapistId);
+      for (const u of updates) {
+        try {
+          await notificationService.processEvent('session_scheduled', {
+            id: u.session.id,
+            clientId: anchor.clientId,
+            therapistId: effectiveTherapistId,
+            clientName: client?.fullName || 'Unknown Client',
+            therapistName: therapist?.fullName || 'Unknown Therapist',
+            sessionDate: u.newDate,
+            sessionType: effectiveSessionType,
+            roomId: effectiveRoomId,
+            roomName,
+            duration: durationMinutes,
+          }, { scheduledOnly: true });
+        } catch (e) {
+          console.error('[RECURRING EDIT] Reminder reschedule failed for session', u.session.id, e);
+        }
+      }
+
+      // Audit
+      try {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          action: 'session_updated',
+          result: 'success',
+          resourceType: 'session',
+          resourceId: groupId,
+          details: `Edited recurring series ${groupId} (this and ${updatedIds.length} future session(s))`,
+          ipAddress,
+          userAgent,
+        });
+      } catch (e) {
+        console.error('[RECURRING EDIT] Audit log failed:', e);
+      }
+
+      res.json({ message: "Series updated", updatedCount: updatedIds.length, sessionIds: updatedIds });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request", errors: error.errors });
+      }
+      console.error('[RECURRING EDIT] Error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.put("/api/sessions/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     

@@ -192,6 +192,11 @@ export default function SchedulingPage() {
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState<boolean>(false); // Track conflict confirmation
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  // Recurring-series edit scope: "single" edits this occurrence only,
+  // "future" edits this and all later occurrences in the series.
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [editScope, setEditScope] = useState<"single" | "future">("single");
+  const [seriesEditConflicts, setSeriesEditConflicts] = useState<string[] | null>(null);
 
   // ===== Recurring (weekly) booking state =====
   const [repeatEnabled, setRepeatEnabled] = useState(false);
@@ -670,6 +675,56 @@ export default function SchedulingPage() {
     },
   });
 
+  // Edit "this and all future" sessions in a series at once.
+  const editSeriesFutureMutation = useMutation({
+    mutationFn: async ({ data, ignoreConflicts }: { data: SessionFormData; ignoreConflicts: boolean }) => {
+      const groupId = editingSession?.recurrenceGroupId;
+      const utcDateTime = localToUTC(data.sessionDate, data.sessionTime);
+      const res = await apiRequest(`/api/sessions/recurring/${groupId}/future`, "PUT", {
+        anchorId: editingSessionId,
+        sessionDate: utcDateTime.toISOString(),
+        roomId: data.roomId,
+        notes: data.notes,
+        serviceId: data.serviceId,
+        therapistId: data.therapistId,
+        sessionType: data.sessionType,
+        zoomEnabled: data.zoomEnabled,
+        ignoreConflicts,
+      });
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`] });
+      toast({
+        title: "Series updated",
+        description: `${result?.updatedCount ?? 0} session(s) in this series were updated.`,
+      });
+      setIsNewSessionModalOpen(false);
+      setEditingSessionId(null);
+      setEditingSession(null);
+      setEditScope("single");
+      setSeriesEditConflicts(null);
+      form.reset();
+    },
+    onError: (error: any) => {
+      const message: string = error?.message || "";
+      // The server returns a 409 with a "Scheduling conflict" message when one or
+      // more occurrences clash with existing bookings outside the series.
+      if (message.toLowerCase().includes("scheduling conflict")) {
+        setSeriesEditConflicts([message]);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: message || "Failed to update the series",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetRecurrenceControls = () => {
     setRepeatEnabled(false);
     setRepeatDays([]);
@@ -734,6 +789,13 @@ export default function SchedulingPage() {
         return;
       }
       createRecurringMutation.mutate(data);
+      return;
+    }
+
+    // Editing this-and-all-future occurrences of a recurring series
+    if (editingSessionId && editingSession?.recurrenceGroupId && editScope === "future") {
+      setSeriesEditConflicts(null);
+      editSeriesFutureMutation.mutate({ data, ignoreConflicts: false });
       return;
     }
 
@@ -844,6 +906,9 @@ export default function SchedulingPage() {
     });
     
     setEditingSessionId(session.id);
+    setEditingSession(session);
+    setEditScope("single");
+    setSeriesEditConflicts(null);
     setIsSchedulingFromExistingSession(true);
     setIsNewSessionModalOpen(true);
   };
@@ -1251,6 +1316,9 @@ export default function SchedulingPage() {
                   form.reset();
                   setIsSchedulingFromExistingSession(false);
                   setEditingSessionId(null);
+                  setEditingSession(null);
+                  setEditScope("single");
+                  setSeriesEditConflicts(null);
                   setProvisionalDuration(60); // Reset to default
                   setUserConfirmedConflicts(false); // Reset conflict confirmation
                 }
@@ -1880,14 +1948,90 @@ export default function SchedulingPage() {
                         </div>
                       )}
 
+                      {/* Apply-to scope — only when editing a session in a series */}
+                      {editingSessionId && editingSession?.recurrenceGroupId && (
+                        <div className="rounded-lg border p-4 space-y-3">
+                          <div className="text-sm font-medium flex items-center gap-2">
+                            <RotateCw className="w-4 h-4" /> This session is part of a weekly series
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Choose how far your changes should apply.
+                          </p>
+                          <div className="flex flex-col gap-2">
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="editScope"
+                                className="mt-1"
+                                checked={editScope === "single"}
+                                onChange={() => { setEditScope("single"); setSeriesEditConflicts(null); }}
+                                data-testid="radio-edit-single"
+                              />
+                              <span className="text-sm">
+                                <span className="font-medium">This session only</span>
+                                <span className="block text-xs text-muted-foreground">Only this occurrence changes.</span>
+                              </span>
+                            </label>
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="editScope"
+                                className="mt-1"
+                                checked={editScope === "future"}
+                                onChange={() => { setEditScope("future"); setSeriesEditConflicts(null); }}
+                                data-testid="radio-edit-future"
+                              />
+                              <span className="text-sm">
+                                <span className="font-medium">This and all future sessions</span>
+                                <span className="block text-xs text-muted-foreground">
+                                  Applies the new time, room, and details to this and every later session in the series, and reschedules their reminders.
+                                </span>
+                              </span>
+                            </label>
+                          </div>
+
+                          {editScope === "future" && seriesEditConflicts && seriesEditConflicts.length > 0 && (
+                            <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-2">
+                              <p className="text-xs text-red-700 font-medium">
+                                Some sessions clash with existing bookings:
+                              </p>
+                              <ul className="text-xs text-red-700 list-disc pl-4 space-y-0.5">
+                                {seriesEditConflicts.map((c, i) => (
+                                  <li key={i}>{c}</li>
+                                ))}
+                              </ul>
+                              <div className="flex items-center justify-between pt-1">
+                                <span className="text-xs text-red-700">Update the whole series anyway?</span>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  className="h-7 px-3 text-xs"
+                                  disabled={editSeriesFutureMutation.isPending}
+                                  onClick={() => {
+                                    const data = form.getValues();
+                                    editSeriesFutureMutation.mutate({ data, ignoreConflicts: true });
+                                  }}
+                                  data-testid="button-force-series-update"
+                                >
+                                  Update anyway
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex justify-end space-x-4 pt-4">
                         <Button type="button" variant="outline" onClick={() => setIsNewSessionModalOpen(false)}>
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createSessionMutation.isPending || createRecurringMutation.isPending}>
-                          {(createSessionMutation.isPending || createRecurringMutation.isPending) ?
+                        <Button type="submit" disabled={createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending}>
+                          {(createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending) ?
                             (editingSessionId ? "Updating..." : "Scheduling...") :
-                            (editingSessionId ? "Update Session" : (repeatEnabled ? "Book Series" : "Schedule Session"))
+                            (editingSessionId
+                              ? (editingSession?.recurrenceGroupId && editScope === "future" ? "Update Series" : "Update Session")
+                              : (repeatEnabled ? "Book Series" : "Schedule Session"))
                           }
                         </Button>
                       </div>
