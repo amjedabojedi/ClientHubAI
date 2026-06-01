@@ -1,6 +1,6 @@
 // Database Connection and Operators
 import { db } from "./db";
-import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, inArray, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, or, ilike, desc, asc, count, sql, gte, lte, lt, inArray, isNull, isNotNull } from "drizzle-orm";
 
 // Database Schema - Tables
 import { 
@@ -46,6 +46,7 @@ import {
   notificationTemplates,
   patientConsents,
   sessionTranscripts,
+  commTranscribeUploads,
   paymentTransactions
 } from "@shared/schema";
 
@@ -130,6 +131,8 @@ import type {
   InsertPatientConsent,
   SessionTranscript,
   InsertSessionTranscript,
+  CommTranscribeUpload,
+  InsertCommTranscribeUpload,
   InsertNotification,
   NotificationTrigger,
   InsertNotificationTrigger,
@@ -339,6 +342,20 @@ export interface IStorage {
     sessionId: number,
     data: Partial<InsertSessionTranscript>,
   ): Promise<SessionTranscript>;
+
+  // ===== COMMUNICATION VOICE DICTATION UPLOADS (chunked, restart-durable) =====
+  createCommTranscribeUpload(data: InsertCommTranscribeUpload): Promise<CommTranscribeUpload>;
+  getCommTranscribeUpload(uploadId: string): Promise<CommTranscribeUpload | undefined>;
+  // Atomically merge a single chunk's transcribed text into the row's `chunks`
+  // JSONB and bump lastActivityAt. Returns the updated row.
+  appendCommTranscribeChunk(
+    uploadId: string,
+    chunkIndex: number,
+    text: string,
+  ): Promise<CommTranscribeUpload | undefined>;
+  deleteCommTranscribeUpload(uploadId: string): Promise<void>;
+  // Delete abandoned (never-finalized) rows whose lastActivityAt predates cutoff.
+  sweepCommTranscribeUploads(cutoff: Date): Promise<void>;
 
   // ===== SESSION MANAGEMENT =====
   getAllSessions(): Promise<SessionWithRelations[]>;
@@ -1723,6 +1740,48 @@ export class DatabaseStorage implements IStorage {
         );
       return updated;
     });
+  }
+
+  // Communication voice dictation uploads (chunked, restart-durable)
+  async createCommTranscribeUpload(data: InsertCommTranscribeUpload): Promise<CommTranscribeUpload> {
+    const [created] = await db.insert(commTranscribeUploads).values(data).returning();
+    return created;
+  }
+
+  async getCommTranscribeUpload(uploadId: string): Promise<CommTranscribeUpload | undefined> {
+    const [row] = await db
+      .select()
+      .from(commTranscribeUploads)
+      .where(eq(commTranscribeUploads.uploadId, uploadId))
+      .limit(1);
+    return row || undefined;
+  }
+
+  // Atomic JSONB merge: chunks = COALESCE(chunks, '{}') || { [idx]: text }
+  async appendCommTranscribeChunk(
+    uploadId: string,
+    chunkIndex: number,
+    text: string,
+  ): Promise<CommTranscribeUpload | undefined> {
+    const key = String(chunkIndex);
+    const value = JSON.stringify(text); // JSON string literal, cast to jsonb below
+    const [updated] = await db
+      .update(commTranscribeUploads)
+      .set({
+        chunks: sql`COALESCE(${commTranscribeUploads.chunks}, '{}'::jsonb) || jsonb_build_object(${key}::text, ${value}::jsonb)`,
+        lastActivityAt: new Date(),
+      })
+      .where(eq(commTranscribeUploads.uploadId, uploadId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCommTranscribeUpload(uploadId: string): Promise<void> {
+    await db.delete(commTranscribeUploads).where(eq(commTranscribeUploads.uploadId, uploadId));
+  }
+
+  async sweepCommTranscribeUploads(cutoff: Date): Promise<void> {
+    await db.delete(commTranscribeUploads).where(lt(commTranscribeUploads.lastActivityAt, cutoff));
   }
 
   // Session methods

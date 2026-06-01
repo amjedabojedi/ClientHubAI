@@ -442,6 +442,30 @@ export const sessionTranscripts = pgTable("session_transcripts", {
   uploadIdIdx: index("session_transcripts_upload_id_idx").on(table.uploadId),
 }));
 
+// Communication Voice Dictation Uploads - in-progress chunked transcription state
+// Persisted (mirroring sessionTranscripts chunk storage) so a dictation that is
+// interrupted mid-recording survives a SERVER RESTART and can still be recovered
+// and finalized. These are ephemeral working notes (the stitched text is dropped
+// into a free-text Communications field and never persisted as PHI by these
+// routes), so rows are deleted on finalize and swept after a TTL.
+export const commTranscribeUploads = pgTable("comm_transcribe_uploads", {
+  id: serial("id").primaryKey(),
+  // Server-minted opaque token (prefixed `srv-`) handed to the recorder.
+  uploadId: varchar("upload_id", { length: 64 }).notNull().unique(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  translateToEnglish: boolean("translate_to_english").notNull().default(false),
+  language: varchar("language", { length: 16 }),
+  // JSONB map of `{ [chunkIndex]: transcribedText }`, merged atomically per chunk.
+  chunks: jsonb("chunks").$type<Record<string, string> | null>(),
+  status: varchar("status", { length: 16 }).notNull().default("recording"), // recording | finalized
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastActivityAt: timestamp("last_activity_at").notNull().defaultNow(),
+}, (table) => ({
+  // Sweep abandoned rows by last activity (replaces the old in-memory TTL).
+  lastActivityIdx: index("comm_transcribe_uploads_last_activity_idx").on(table.lastActivityAt),
+}));
+
 // Services table - Healthcare service codes and billing rates
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
@@ -1954,6 +1978,17 @@ export const insertSessionTranscriptSchema = createInsertSchema(sessionTranscrip
 });
 export type InsertSessionTranscript = z.infer<typeof insertSessionTranscriptSchema>;
 export type SessionTranscript = typeof sessionTranscripts.$inferSelect;
+
+export const insertCommTranscribeUploadSchema = createInsertSchema(commTranscribeUploads, {
+  // jsonb column with `.$type<...>()`; override to match the runtime shape.
+  chunks: z.record(z.string(), z.string()).nullable().optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+  lastActivityAt: true,
+});
+export type InsertCommTranscribeUpload = z.infer<typeof insertCommTranscribeUploadSchema>;
+export type CommTranscribeUpload = typeof commTranscribeUploads.$inferSelect;
 
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,

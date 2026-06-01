@@ -10264,31 +10264,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // Stop (slow, fragile, and capped by the 25 MB Whisper/multer limit). Each
   // chunk is Whisper-transcribed immediately and its text accumulated
   // server-side; finalize stitches the pieces in order and returns the
-  // combined transcription. Unlike session transcripts these are ephemeral
-  // working notes (the text is dropped into a free-text field and never
-  // persisted as PHI by these routes), so we keep state in memory rather than
-  // adding a DB table.
-  interface CommTranscribeUpload {
-    uploadId: string;
-    userId: number;
-    clientId: number;
-    translateToEnglish: boolean;
-    language?: string;
-    chunks: Map<number, string>;
-    status: 'recording' | 'finalized';
-    createdAt: number;
-    lastActivityAt: number;
-  }
-  const commTranscribeUploads = new Map<string, CommTranscribeUpload>();
-  // Drop uploads that were started but never finalized (tab closed mid-record)
-  // after 30 minutes so the map can't grow unbounded.
+  // combined transcription.
+  // Per-chunk transcript text + upload metadata is persisted to the
+  // `comm_transcribe_uploads` DB table (via storage) rather than an in-memory
+  // map, so a dictation interrupted mid-recording survives a SERVER RESTART and
+  // can still be recovered/finalized. Rows are deleted on finalize and swept
+  // after the TTL below (replaces the old in-memory 30-min TTL).
   const COMM_UPLOAD_TTL_MS = 30 * 60 * 1000;
-  function sweepCommUploads() {
-    const cutoff = Date.now() - COMM_UPLOAD_TTL_MS;
-    Array.from(commTranscribeUploads.entries()).forEach(([id, up]) => {
-      if (up.lastActivityAt < cutoff) commTranscribeUploads.delete(id);
-    });
-  }
 
   // Per-user-per-client chunk-upload rate limit (cheap circuit breaker so a
   // runaway client can't flood Whisper). 120 uploads / 10 min — same budget as
@@ -10387,20 +10369,19 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(403).json({ message: consentCheck.message });
       }
 
-      sweepCommUploads();
+      // Sweep abandoned (never-finalized) rows so the table can't grow unbounded.
+      await storage.sweepCommTranscribeUploads(new Date(Date.now() - COMM_UPLOAD_TTL_MS)).catch(() => {});
       const uploadId = `srv-${crypto.randomBytes(16).toString('hex')}`;
       const translateToEnglish = req.body?.translateToEnglish === true || req.body?.translateToEnglish === 'true';
       const language = typeof req.body?.language === 'string' && req.body.language ? req.body.language : undefined;
-      commTranscribeUploads.set(uploadId, {
+      await storage.createCommTranscribeUpload({
         uploadId,
         userId: req.user.id,
         clientId,
         translateToEnglish,
-        language,
-        chunks: new Map(),
+        language: language ?? null,
+        chunks: {},
         status: 'recording',
-        createdAt: Date.now(),
-        lastActivityAt: Date.now(),
       });
       console.log(`[CommTranscribe] start uploadId=${uploadId} user=${req.user.id} client=${clientId} translate=${translateToEnglish}`);
       return res.json({ uploadId });
@@ -10429,7 +10410,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (!uploadId.startsWith('srv-')) {
         return res.status(400).json({ message: "Invalid uploadId — call /transcribe-start first" });
       }
-      const upload = commTranscribeUploads.get(uploadId);
+      const upload = await storage.getCommTranscribeUpload(uploadId);
       if (!upload) return res.status(404).json({ message: "Unknown or expired uploadId — call /transcribe-start first" });
       if (upload.userId !== req.user.id) return res.status(403).json({ message: "This upload was started by a different user" });
       if (upload.status !== 'recording') return res.status(409).json({ message: `Upload is no longer accepting chunks (status: ${upload.status})` });
@@ -10449,7 +10430,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Transcribe this chunk immediately, passing the previous chunk's text as
       // continuity context so Whisper doesn't drop/duplicate words at seams.
       const fileName = req.file.originalname || `chunk-${chunkIndex}.webm`;
-      const previousChunkText = chunkIndex > 0 ? upload.chunks.get(chunkIndex - 1) : undefined;
+      const previousChunkText = chunkIndex > 0 ? upload.chunks?.[String(chunkIndex - 1)] : undefined;
       console.log(`[CommTranscribe] chunk received uploadId=${uploadId} idx=${chunkIndex} bytes=${req.file.size}`);
       let chunkText = '';
       try {
@@ -10457,7 +10438,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         chunkText = await transcribeSessionChunk(
           req.file.buffer,
           fileName,
-          upload.language,
+          upload.language ?? undefined,
           previousChunkText,
           upload.translateToEnglish,
         );
@@ -10466,10 +10447,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(500).json({ message: `Chunk transcription failed: ${err.message || 'Unknown'}` });
       }
 
-      upload.chunks.set(chunkIndex, chunkText);
-      upload.lastActivityAt = Date.now();
-      console.log(`[CommTranscribe] chunk stored uploadId=${uploadId} idx=${chunkIndex} textLen=${chunkText.length} totalChunks=${upload.chunks.size}`);
-      return res.json({ uploadId, chunkIndex, chunkText, chunksReceived: upload.chunks.size });
+      // Persist the chunk text (atomic JSONB merge) so it survives a restart.
+      const updated = await storage.appendCommTranscribeChunk(uploadId, chunkIndex, chunkText);
+      const chunksReceived = updated?.chunks ? Object.keys(updated.chunks).length : 0;
+      console.log(`[CommTranscribe] chunk stored uploadId=${uploadId} idx=${chunkIndex} textLen=${chunkText.length} totalChunks=${chunksReceived}`);
+      return res.json({ uploadId, chunkIndex, chunkText, chunksReceived });
     } catch (error: any) {
       console.error('[CommTranscribe] chunk error:', error);
       return res.status(500).json({ message: error.message || 'Internal error' });
@@ -10484,7 +10466,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (!req.user) return res.status(401).json({ message: "Authentication required" });
       const uploadId = String(req.body?.uploadId || '');
       if (!uploadId) return res.status(400).json({ message: "uploadId required" });
-      const upload = commTranscribeUploads.get(uploadId);
+      const upload = await storage.getCommTranscribeUpload(uploadId);
       if (!upload) return res.status(404).json({ message: "Unknown or expired uploadId" });
       if (upload.userId !== req.user.id) return res.status(403).json({ message: "This upload was started by a different user" });
 
@@ -10492,7 +10474,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // some never made it (permanent upload failure), refuse to finalize so
       // the recorder can retry the missing chunks first.
       const expected = Number(req.body?.expectedChunks ?? req.body?.totalChunks);
-      const receivedIndices = Array.from(upload.chunks.keys()).sort((a, b) => a - b);
+      const chunkMap = upload.chunks ?? {};
+      const receivedIndices = Object.keys(chunkMap)
+        .map((k) => parseInt(k, 10))
+        .filter((n) => Number.isFinite(n))
+        .sort((a, b) => a - b);
       if (Number.isFinite(expected) && expected > 0 && receivedIndices.length < expected) {
         return res.status(409).json({
           message: `Cannot finalize: only ${receivedIndices.length} of ${expected} chunks were received. Retry the missing chunks before saving.`,
@@ -10503,14 +10489,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Stitch chunk texts in index order into one transcript.
       const transcription = receivedIndices
-        .map((i) => (upload.chunks.get(i) || '').trim())
+        .map((i) => (chunkMap[String(i)] || '').trim())
         .filter(Boolean)
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();
 
-      upload.status = 'finalized';
-      commTranscribeUploads.delete(uploadId);
+      // Delete the row — finalize consumes the upload (matches prior in-memory
+      // behavior; a subsequent chunk/finalize for the same id now 404s).
+      await storage.deleteCommTranscribeUpload(uploadId);
 
       if (!transcription) {
         return res.status(400).json({ message: "No speech was detected in the recording. Please try recording again." });

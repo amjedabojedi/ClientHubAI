@@ -1,25 +1,31 @@
 ---
 name: Communication voice transcription (chunked)
-description: Why the Communications voice-note recorder uses in-memory chunk state instead of a DB table.
+description: How the Communications voice-note recorder persists chunk state and why.
 ---
 
 The Communications voice-dictation recorder uses a chunked upload flow
 (transcribe-start / transcribe-chunk / transcribe-finalize) modeled on the
-session-note recorder, but stores per-upload chunk state in an **in-memory
-Map** server-side rather than a DB table like session transcripts do.
+session-note recorder. Per-upload chunk state (per-chunk transcribed text +
+upload metadata) is persisted in a DB table (`comm_transcribe_uploads`,
+mirroring `session_transcripts` chunk storage) — NOT an in-memory map.
 
-**Why:** These dictations are ephemeral working notes — the stitched text is
-dropped into a free-text "Details" field and never persisted as PHI by the
-transcription routes themselves. A DB table would add schema/migration drift
-(see db-push-drift) for no durable benefit.
+**Why DB-backed:** A server restart/redeploy used to wipe the in-memory map, so
+an interrupted dictation returned 404 on recovery and was lost. Persisting chunk
+state closes the server-restart gap (client already recovers tab-close/refresh
+via a localStorage uploadId + IndexedDB failed-chunk mirror).
 
-**How to apply:** A tab close/refresh mid-dictation IS now recoverable
-client-side: the recorder persists the uploadId in localStorage (keyed per
-client) and mirrors failed-chunk audio into the shared IndexedDB blob store,
-then offers a "recover or discard" banner on next open that re-finalizes
-whatever the still-running server held. A **server restart** is still NOT
-recoverable — the in-memory map is gone, so recovery returns 404 and the UI
-clears the stale pointer and tells the user to re-record. A DB-backed store
-(mirroring sessionTranscript) is the only thing that would close the
-server-restart gap. The single-shot `/api/communications/transcribe` endpoint
-is kept for back-compat/short clips.
+**How to apply:**
+- These are still ephemeral working notes (stitched text drops into a free-text
+  Communications field, never persisted as PHI by these routes). Rows are
+  DELETED on finalize and swept on each transcribe-start (rows older than the
+  30-min TTL, by `last_activity_at`). There is no background interval sweeper.
+- Chunks are stored as a JSONB map `{ [chunkIndex]: text }`, merged atomically
+  per chunk via `COALESCE(chunks,'{}') || jsonb_build_object(...)` (same pattern
+  as `appendTranscriptChunk`). Pass the merge value as a parameterized
+  `JSON.stringify(text)::jsonb` — do NOT inline-escape it into raw SQL.
+- finalize consumes the upload (deletes the row); a later chunk/finalize for the
+  same uploadId then 404s — matches the old in-memory delete behavior.
+- The single-shot `/api/communications/transcribe` endpoint is kept for
+  back-compat/short clips and does not touch this table.
+- Schema was applied additively via executeSql (CREATE TABLE/INDEX IF NOT
+  EXISTS), not db:push — see db-push-drift.
