@@ -528,6 +528,8 @@ export const sessions = pgTable("sessions", {
   zoomMeetingId: varchar("zoom_meeting_id", { length: 50 }),
   zoomJoinUrl: text("zoom_join_url"),
   zoomPassword: varchar("zoom_password", { length: 50 }),
+  // Links all appointments created together as a recurring series (null for single bookings)
+  recurrenceGroupId: varchar("recurrence_group_id", { length: 64 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -536,6 +538,7 @@ export const sessions = pgTable("sessions", {
   clientIdIdx: index("sessions_client_id_idx").on(table.clientId),
   sessionDateIdx: index("sessions_date_idx").on(table.sessionDate),
   serviceIdIdx: index("sessions_service_id_idx").on(table.serviceId),
+  recurrenceGroupIdIdx: index("sessions_recurrence_group_id_idx").on(table.recurrenceGroupId),
 }));
 
 // Session Rating Scale (SRS V.3.0) — one per session, submitted by client via portal

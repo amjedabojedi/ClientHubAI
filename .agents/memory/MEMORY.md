@@ -1,0 +1,1 @@
+- [db:push drift](db-push-drift.md) — db:push prompts dangerously on practice_configuration drift; apply additive DDL idempotently instead.

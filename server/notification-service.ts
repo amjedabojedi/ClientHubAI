@@ -200,10 +200,14 @@ export class NotificationService {
   /**
    * Processes an event and creates notifications based on triggers
    */
-  async processEvent(eventType: string, entityData: any): Promise<void> {
+  async processEvent(
+    eventType: string,
+    entityData: any,
+    options?: { scheduledOnly?: boolean },
+  ): Promise<void> {
     try {
       console.log(
-        `[NOTIFICATION] Processing event: ${eventType}, entityId: ${entityData.id}`,
+        `[NOTIFICATION] Processing event: ${eventType}, entityId: ${entityData.id}${options?.scheduledOnly ? " (scheduledOnly)" : ""}`,
       );
 
       // Get all active triggers for this event type
@@ -224,6 +228,12 @@ export class NotificationService {
       // Process each trigger
       for (const trigger of triggers) {
         try {
+          // When scheduledOnly is set (recurring series), only process scheduled
+          // reminders and skip immediate confirmation triggers — the series sends
+          // a single combined confirmation separately.
+          if (options?.scheduledOnly && !trigger.isScheduled) {
+            continue;
+          }
           console.log(
             `[NOTIFICATION] Processing trigger: ${trigger.name} (scheduled: ${trigger.isScheduled})`,
           );
@@ -1620,6 +1630,144 @@ If you have any questions about joining the virtual session, please contact your
         </div>
       </body>
     </html>`;
+  }
+
+  /**
+   * Sends ONE combined confirmation for a recurring series of sessions.
+   * Lists every appointment date in a single email to the client (if they have
+   * email notifications enabled) and creates a single in-app notification for the
+   * therapist. Per-session reminders are scheduled separately via processEvent
+   * with { scheduledOnly: true }.
+   */
+  async sendSeriesScheduledConfirmation(seriesData: {
+    clientId: number;
+    therapistId: number;
+    clientName: string;
+    therapistName: string;
+    serviceName?: string | null;
+    roomName?: string | null;
+    sessionDates: (Date | string)[];
+    skippedCount?: number;
+  }): Promise<void> {
+    try {
+      const dates = [...seriesData.sessionDates].sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+      );
+      const count = dates.length;
+      if (count === 0) return;
+
+      const lines = dates
+        .map((d, i) => `${i + 1}. ${this.formatDateEST(d)}`)
+        .join("\n");
+
+      const skippedNote =
+        seriesData.skippedCount && seriesData.skippedCount > 0
+          ? `\n\nNote: ${seriesData.skippedCount} requested date(s) were not booked because of a scheduling conflict.`
+          : "";
+
+      const detailLines = [
+        `Therapist: ${seriesData.therapistName}`,
+        seriesData.serviceName ? `Service: ${seriesData.serviceName}` : null,
+        seriesData.roomName ? `Room: ${seriesData.roomName}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      // ===== In-app notification for the therapist =====
+      try {
+        await this.createNotification({
+          userId: seriesData.therapistId,
+          type: "session_scheduled",
+          title: "Recurring sessions scheduled",
+          message: `${count} sessions scheduled with ${seriesData.clientName}`,
+          data: JSON.stringify({
+            clientId: seriesData.clientId,
+            count,
+            firstDate: dates[0],
+          }),
+          priority: "normal",
+          actionUrl: `/scheduling`,
+          actionLabel: "View Schedule",
+          groupingKey: `series_${seriesData.clientId}_${new Date(dates[0]).getTime()}`,
+          relatedEntityType: "session",
+          relatedEntityId: seriesData.clientId,
+        } as InsertNotification);
+      } catch (err) {
+        console.error("[SERIES] Failed to create therapist in-app notification:", err);
+      }
+
+      // ===== Email to client (respecting their email-notification preference) =====
+      const client = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, seriesData.clientId));
+
+      const clientRow = client[0];
+      if (!clientRow || !clientRow.emailNotifications || !clientRow.email) {
+        console.log(
+          "[SERIES] Client has no email or notifications disabled - skipping series email",
+        );
+        return;
+      }
+
+      const body =
+        `Dear ${clientRow.fullName || "Client"},\n\n` +
+        `Your recurring appointments have been booked. Here are all ${count} session(s):\n\n` +
+        `${lines}\n\n` +
+        (detailLines ? `${detailLines}\n` : "") +
+        skippedNote +
+        `\n\nYou will receive a reminder before each appointment. If you need to cancel or reschedule, please give at least 24 hours notice.\n\n` +
+        `Thank you,\nSmartHub`;
+
+      const subject = `Your ${count} recurring appointments are confirmed`;
+
+      // Track client email under system user for the Communications tab
+      try {
+        const SYSTEM_USER_ID = 6;
+        await this.createNotification({
+          userId: SYSTEM_USER_ID,
+          type: "session_scheduled",
+          title: `${subject} (sent to ${clientRow.fullName})`,
+          message: `Email sent to ${clientRow.email}: ${count} recurring sessions confirmed`,
+          data: JSON.stringify({
+            isClientEmail: true,
+            clientEmail: clientRow.email,
+            clientId: clientRow.id,
+            count,
+          }),
+          priority: "normal",
+          actionUrl: null,
+          actionLabel: null,
+          groupingKey: `series_client_${clientRow.id}_${new Date(dates[0]).getTime()}`,
+          relatedEntityType: "client",
+          relatedEntityId: clientRow.id,
+        } as InsertNotification);
+      } catch (err) {
+        console.error("[SERIES] Failed to create client email tracking record:", err);
+      }
+
+      if (!process.env.SPARKPOST_API_KEY) {
+        console.log("[SERIES] SparkPost not configured - series email disabled");
+        return;
+      }
+
+      const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+      const fromEmail = getEmailFromAddress();
+      const result = await sp.transmissions.send({
+        content: {
+          from: fromEmail,
+          subject,
+          html: this.formatEmailAsHtml(body, {}),
+          text: body,
+        },
+        recipients: [{ address: clientRow.email }],
+      });
+      console.log(
+        `[SERIES] ✓ Sent series confirmation to ${clientRow.email} (ID: ${result.results.id})`,
+      );
+    } catch (error) {
+      console.error("[SERIES] Error sending series confirmation:", error);
+    }
   }
 
   /**

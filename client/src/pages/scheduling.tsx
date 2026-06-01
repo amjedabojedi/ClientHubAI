@@ -140,6 +140,7 @@ interface Session {
   zoomMeetingId?: string | null;
   zoomJoinUrl?: string | null;
   zoomPassword?: string | null;
+  recurrenceGroupId?: string | null;
   therapist: {
     id: number;
     fullName: string;
@@ -191,6 +192,21 @@ export default function SchedulingPage() {
   const [userConfirmedConflicts, setUserConfirmedConflicts] = useState<boolean>(false); // Track conflict confirmation
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // ===== Recurring (weekly) booking state =====
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatDays, setRepeatDays] = useState<number[]>([]); // 0=Sun..6=Sat
+  const [repeatInterval, setRepeatInterval] = useState<number>(1); // every N weeks
+  const [repeatEndMode, setRepeatEndMode] = useState<"count" | "until">("count");
+  const [repeatCount, setRepeatCount] = useState<number>(8);
+  const [repeatUntil, setRepeatUntil] = useState<string>("");
+  const [recurrencePreview, setRecurrencePreview] = useState<{
+    sessions: Array<{ sessionDate: string; localDate: string; sessionTime: string; hasConflict: boolean; reasons: string[] }>;
+    totalRequested: number;
+    freeCount: number;
+    conflictCount: number;
+  } | null>(null);
+  const [recurrenceResult, setRecurrenceResult] = useState<{ createdCount: number; skippedCount: number } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { addRecentSession } = useRecentItems();
@@ -550,6 +566,105 @@ export default function SchedulingPage() {
     },
   });
 
+  // Build a weekly recurrence rule payload from the form + repeat controls.
+  const buildRecurrenceRule = (data: SessionFormData) => ({
+    clientId: data.clientId,
+    therapistId: data.therapistId,
+    serviceId: data.serviceId,
+    roomId: data.roomId,
+    sessionType: data.sessionType,
+    notes: data.notes,
+    zoomEnabled: data.zoomEnabled,
+    startDate: data.sessionDate,
+    sessionTime: data.sessionTime,
+    daysOfWeek: repeatDays,
+    interval: repeatInterval,
+    endMode: repeatEndMode,
+    count: repeatEndMode === "count" ? repeatCount : undefined,
+    untilDate: repeatEndMode === "until" ? repeatUntil : undefined,
+  });
+
+  // Preview the series (expanded dates + per-date conflict flags).
+  const recurrencePreviewMutation = useMutation({
+    mutationFn: (data: SessionFormData) =>
+      apiRequest("/api/sessions/recurring/preview", "POST", buildRecurrenceRule(data)),
+    onSuccess: (result: any) => {
+      setRecurrencePreview(result);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not preview dates",
+        description: error.message || "Please check the repeat settings.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create the whole series at once.
+  const createRecurringMutation = useMutation({
+    mutationFn: (data: SessionFormData) =>
+      apiRequest("/api/sessions/recurring", "POST", buildRecurrenceRule(data)),
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${prevMonth.getFullYear()}/${prevMonth.getMonth() + 1}/month`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${nextMonth.getFullYear()}/${nextMonth.getMonth() + 1}/month`] });
+      const created = result?.createdCount ?? 0;
+      const skipped = result?.skippedCount ?? 0;
+      setRecurrenceResult({ createdCount: created, skippedCount: skipped });
+      toast({
+        title: "Recurring sessions booked",
+        description: `${created} session(s) booked${skipped > 0 ? `, ${skipped} skipped due to conflicts` : ""}.`,
+      });
+      setIsNewSessionModalOpen(false);
+      resetRecurrenceControls();
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to book recurring sessions",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Cancel an entire future series.
+  const cancelSeriesMutation = useMutation({
+    mutationFn: (groupId: string) =>
+      apiRequest(`/api/sessions/recurring/${groupId}`, "DELETE"),
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
+      toast({
+        title: "Series cancelled",
+        description: `${result?.cancelledCount ?? 0} upcoming session(s) were cancelled.`,
+      });
+      setIsDeleteDialogOpen(false);
+      setSessionToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to cancel series", variant: "destructive" });
+    },
+  });
+
+  const resetRecurrenceControls = () => {
+    setRepeatEnabled(false);
+    setRepeatDays([]);
+    setRepeatInterval(1);
+    setRepeatEndMode("count");
+    setRepeatCount(8);
+    setRepeatUntil("");
+    setRecurrencePreview(null);
+  };
+
+  const toggleRepeatDay = (day: number) => {
+    setRecurrencePreview(null);
+    setRepeatDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b),
+    );
+  };
+
   // Session Status Update Mutation with Billing Integration
   const updateSessionMutation = useMutation({
     mutationFn: ({ sessionId, status }: { sessionId: number; status: string }) => {
@@ -578,6 +693,28 @@ export default function SchedulingPage() {
 
   // Event Handlers
   const onSubmit = (data: SessionFormData) => {
+    // Recurring (weekly) series path — only when creating, never when editing
+    if (repeatEnabled && !editingSessionId) {
+      if (repeatDays.length === 0) {
+        toast({
+          title: "Pick repeat days",
+          description: "Choose at least one day of the week for the series.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (repeatEndMode === "until" && !repeatUntil) {
+        toast({
+          title: "Pick an end date",
+          description: "Choose the last date for the series.",
+          variant: "destructive",
+        });
+        return;
+      }
+      createRecurringMutation.mutate(data);
+      return;
+    }
+
     // Check for conflicts before submitting
     if (conflictData?.hasConflict && !userConfirmedConflicts) {
       // Show conflict warning and require confirmation
@@ -1461,6 +1598,178 @@ export default function SchedulingPage() {
                         )}
                       />
 
+                      {/* Recurring (weekly) booking — only when creating a new session */}
+                      {!editingSessionId && (
+                        <div className="rounded-lg border p-4 space-y-4">
+                          <div className="flex flex-row items-center justify-between">
+                            <div className="space-y-0.5">
+                              <div className="text-base font-medium flex items-center gap-2">
+                                <RotateCw className="w-4 h-4" /> Repeat weekly
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Book this as a recurring series. The date above is the start date.
+                              </div>
+                            </div>
+                            <Switch
+                              checked={repeatEnabled}
+                              onCheckedChange={(checked) => {
+                                setRepeatEnabled(checked);
+                                setRecurrencePreview(null);
+                                if (checked && repeatDays.length === 0 && watchedDate) {
+                                  // Default to the weekday of the chosen start date
+                                  const [y, m, d] = watchedDate.split('-').map((n: string) => parseInt(n, 10));
+                                  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+                                  setRepeatDays([dow]);
+                                }
+                              }}
+                              data-testid="toggle-repeat"
+                            />
+                          </div>
+
+                          {repeatEnabled && (
+                            <div className="space-y-4">
+                              {/* Days of week */}
+                              <div>
+                                <div className="text-sm font-medium mb-2">Repeat on</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, idx) => (
+                                    <Button
+                                      key={idx}
+                                      type="button"
+                                      size="sm"
+                                      variant={repeatDays.includes(idx) ? 'default' : 'outline'}
+                                      className="h-8 w-12 px-0 text-xs"
+                                      onClick={() => toggleRepeatDay(idx)}
+                                      data-testid={`repeat-day-${idx}`}
+                                    >
+                                      {label}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Interval */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">Every</span>
+                                <Select
+                                  value={String(repeatInterval)}
+                                  onValueChange={(v) => { setRepeatInterval(parseInt(v, 10)); setRecurrencePreview(null); }}
+                                >
+                                  <SelectTrigger className="w-20 h-8">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {[1, 2, 3, 4].map((n) => (
+                                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <span className="text-sm">week(s)</span>
+                              </div>
+
+                              {/* End mode */}
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium">Ends</div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={repeatEndMode === 'count' ? 'default' : 'outline'}
+                                    className="h-8 text-xs"
+                                    onClick={() => { setRepeatEndMode('count'); setRecurrencePreview(null); }}
+                                  >
+                                    After N sessions
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={repeatEndMode === 'until' ? 'default' : 'outline'}
+                                    className="h-8 text-xs"
+                                    onClick={() => { setRepeatEndMode('until'); setRecurrencePreview(null); }}
+                                  >
+                                    On a date
+                                  </Button>
+                                </div>
+                                {repeatEndMode === 'count' ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={60}
+                                      value={repeatCount}
+                                      onChange={(e) => { setRepeatCount(Math.max(1, Math.min(60, parseInt(e.target.value || '1', 10)))); setRecurrencePreview(null); }}
+                                      className="w-24 h-8"
+                                      data-testid="repeat-count"
+                                    />
+                                    <span className="text-sm text-muted-foreground">sessions (max 60)</span>
+                                  </div>
+                                ) : (
+                                  <Input
+                                    type="date"
+                                    value={repeatUntil}
+                                    min={watchedDate || undefined}
+                                    onChange={(e) => { setRepeatUntil(e.target.value); setRecurrencePreview(null); }}
+                                    className="w-48 h-8"
+                                    data-testid="repeat-until"
+                                  />
+                                )}
+                              </div>
+
+                              {/* Preview */}
+                              <div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs"
+                                  disabled={recurrencePreviewMutation.isPending}
+                                  onClick={() => {
+                                    const data = form.getValues();
+                                    if (!data.sessionDate || !data.sessionTime || !data.serviceId || !data.therapistId || !data.clientId) {
+                                      toast({ title: 'Fill in the session details first', description: 'Client, therapist, service, date and time are needed to preview.', variant: 'destructive' });
+                                      return;
+                                    }
+                                    if (repeatDays.length === 0) {
+                                      toast({ title: 'Pick repeat days', description: 'Choose at least one day of the week.', variant: 'destructive' });
+                                      return;
+                                    }
+                                    if (repeatEndMode === 'until' && !repeatUntil) {
+                                      toast({ title: 'Pick an end date', description: 'Choose the last date for the series.', variant: 'destructive' });
+                                      return;
+                                    }
+                                    recurrencePreviewMutation.mutate(data);
+                                  }}
+                                  data-testid="button-preview-series"
+                                >
+                                  {recurrencePreviewMutation.isPending ? 'Checking...' : 'Preview dates'}
+                                </Button>
+
+                                {recurrencePreview && (
+                                  <div className="mt-3 rounded-md border bg-slate-50 p-3">
+                                    <div className="text-sm font-medium mb-2">
+                                      {recurrencePreview.freeCount} will be booked
+                                      {recurrencePreview.conflictCount > 0 && `, ${recurrencePreview.conflictCount} skipped (conflict)`}
+                                    </div>
+                                    <ul className="max-h-40 overflow-y-auto space-y-1">
+                                      {recurrencePreview.sessions.map((s, i) => (
+                                        <li key={i} className="flex items-center justify-between text-xs">
+                                          <span>{format(new Date(s.sessionDate), 'EEE, MMM dd, yyyy')} at {formatTime(s.sessionDate)}</span>
+                                          {s.hasConflict ? (
+                                            <Badge variant="destructive" className="text-[10px]">{s.reasons.join(', ') || 'Conflict'}</Badge>
+                                          ) : (
+                                            <Badge className="bg-green-100 text-green-800 text-[10px]">Free</Badge>
+                                          )}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Enhanced Conflict Detection Warning */}
                       {conflictData?.hasConflict && !isCheckingConflicts && (
                         <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
@@ -1553,10 +1862,10 @@ export default function SchedulingPage() {
                         <Button type="button" variant="outline" onClick={() => setIsNewSessionModalOpen(false)}>
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createSessionMutation.isPending}>
-                          {createSessionMutation.isPending ? 
-                            (editingSessionId ? "Updating..." : "Scheduling...") : 
-                            (editingSessionId ? "Update Session" : "Schedule Session")
+                        <Button type="submit" disabled={createSessionMutation.isPending || createRecurringMutation.isPending}>
+                          {(createSessionMutation.isPending || createRecurringMutation.isPending) ?
+                            (editingSessionId ? "Updating..." : "Scheduling...") :
+                            (editingSessionId ? "Update Session" : (repeatEnabled ? "Book Series" : "Schedule Session"))
                           }
                         </Button>
                       </div>
@@ -2182,13 +2491,25 @@ export default function SchedulingPage() {
                 <p><strong>Therapist:</strong> {sessionToDelete.therapist?.fullName || 'N/A'}</p>
                 <p><strong>Date:</strong> {sessionToDelete.sessionDate ? format(new Date(sessionToDelete.sessionDate), 'MMM dd, yyyy') : 'N/A'}</p>
                 <p><strong>Status:</strong> {sessionToDelete.status}</p>
+                {sessionToDelete.recurrenceGroupId && (
+                  <p className="flex items-center gap-2 pt-1">
+                    <Badge className="bg-indigo-100 text-indigo-800 flex items-center gap-1">
+                      <RotateCw className="w-3 h-3" /> Part of a weekly series
+                    </Badge>
+                  </p>
+                )}
               </div>
             )}
             <p className="text-xs text-red-500 mt-3">
               All related billing records and session notes will also be deleted.
             </p>
+            {sessionToDelete?.recurrenceGroupId && (
+              <p className="text-xs text-slate-500 mt-2">
+                "Cancel entire series" removes all upcoming sessions in this series. Past sessions are kept.
+              </p>
+            )}
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 flex-wrap">
             <Button 
               variant="outline" 
               onClick={() => {
@@ -2201,10 +2522,20 @@ export default function SchedulingPage() {
             <Button 
               variant="destructive" 
               onClick={confirmDeleteSession}
-              disabled={deleteSessionMutation.isPending}
+              disabled={deleteSessionMutation.isPending || cancelSeriesMutation.isPending}
             >
-              {deleteSessionMutation.isPending ? "Deleting..." : "Delete Session"}
+              {deleteSessionMutation.isPending ? "Deleting..." : (sessionToDelete?.recurrenceGroupId ? "Delete this only" : "Delete Session")}
             </Button>
+            {sessionToDelete?.recurrenceGroupId && (
+              <Button
+                variant="destructive"
+                className="bg-indigo-600 hover:bg-indigo-700"
+                onClick={() => cancelSeriesMutation.mutate(sessionToDelete.recurrenceGroupId!)}
+                disabled={deleteSessionMutation.isPending || cancelSeriesMutation.isPending}
+              >
+                {cancelSeriesMutation.isPending ? "Cancelling..." : "Cancel entire series"}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

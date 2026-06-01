@@ -2914,6 +2914,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return (newStart < existingEnd && newEnd > existingStart);
   }
 
+  // ===== RECURRING (WEEKLY) BOOKING HELPERS =====
+  const RECURRENCE_PRACTICE_TZ = 'America/New_York';
+  const RECURRENCE_MAX_SESSIONS = 60; // safety cap on a single series
+  const RECURRENCE_MAX_DAYS = 730; // never look more than ~2 years ahead
+
+  // Zod schema for an incoming weekly recurrence rule
+  const recurrenceRuleSchema = z.object({
+    clientId: z.coerce.number().int().min(1),
+    therapistId: z.coerce.number().int().min(1),
+    serviceId: z.coerce.number().int().min(1),
+    roomId: z.coerce.number().int().min(1).optional(),
+    sessionType: z.enum(["assessment", "psychotherapy", "consultation"]),
+    notes: z.string().optional(),
+    zoomEnabled: z.boolean().optional().default(false),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "startDate must be yyyy-MM-dd"),
+    sessionTime: z.string().regex(/^\d{2}:\d{2}$/, "sessionTime must be HH:mm"),
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one day"),
+    interval: z.coerce.number().int().min(1).max(8).optional().default(1), // every N weeks
+    endMode: z.enum(["count", "until"]),
+    count: z.coerce.number().int().min(1).max(RECURRENCE_MAX_SESSIONS).optional(),
+    untilDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  }).refine(
+    (r) => (r.endMode === "count" ? !!r.count : !!r.untilDate),
+    { message: "Provide a count for 'count' mode or untilDate for 'until' mode" },
+  );
+
+  type RecurrenceRule = z.infer<typeof recurrenceRuleSchema>;
+
+  // Expand a weekly recurrence rule into concrete UTC session datetimes.
+  function expandRecurrenceDates(rule: RecurrenceRule): { localDate: string; utcDate: Date }[] {
+    const results: { localDate: string; utcDate: Date }[] = [];
+    const [sy, sm, sd] = rule.startDate.split("-").map((n) => parseInt(n, 10));
+    // Iterate using a UTC-based calendar cursor to avoid timezone drift in day math
+    let cursor = new Date(Date.UTC(sy, sm - 1, sd));
+    const startWeekMs = Date.UTC(sy, sm - 1, sd);
+    const untilMs = rule.untilDate
+      ? (() => {
+          const [uy, um, ud] = rule.untilDate.split("-").map((n) => parseInt(n, 10));
+          return Date.UTC(uy, um - 1, ud);
+        })()
+      : null;
+    const targetCount = rule.endMode === "count" ? (rule.count || 0) : Infinity;
+    const days = new Set(rule.daysOfWeek);
+
+    let dayOffset = 0;
+    while (
+      results.length < targetCount &&
+      results.length < RECURRENCE_MAX_SESSIONS &&
+      dayOffset <= RECURRENCE_MAX_DAYS
+    ) {
+      const cursorMs = cursor.getTime();
+      if (untilMs !== null && cursorMs > untilMs) break;
+
+      const dow = cursor.getUTCDay();
+      // Weeks since the start week (interval filter)
+      const weekIndex = Math.floor((cursorMs - startWeekMs) / (7 * 24 * 60 * 60 * 1000));
+      const onInterval = weekIndex % rule.interval === 0;
+
+      if (days.has(dow) && onInterval) {
+        const y = cursor.getUTCFullYear();
+        const m = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(cursor.getUTCDate()).padStart(2, "0");
+        const localDate = `${y}-${m}-${d}`;
+        // Interpret the local wall-clock time in the practice timezone -> UTC
+        const utcDate = fromZonedTime(`${localDate} ${rule.sessionTime}:00`, RECURRENCE_PRACTICE_TZ);
+        results.push({ localDate, utcDate });
+      }
+
+      cursor = new Date(cursorMs + 24 * 60 * 60 * 1000);
+      dayOffset += 1;
+    }
+
+    return results;
+  }
+
   // Enhanced availability checking endpoint with room conflicts
   app.get("/api/sessions/conflicts/check", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
@@ -3490,6 +3565,422 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
       }
       // Error logged
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Evaluate therapist + room conflicts for a set of candidate session datetimes.
+  // Fetches existing sessions across the whole span once, then checks each date
+  // in memory. Returns a per-candidate verdict.
+  async function evaluateRecurrenceConflicts(
+    candidates: { localDate: string; utcDate: Date }[],
+    rule: RecurrenceRule,
+    sessionDurationMinutes: number,
+    includeHiddenServices: boolean,
+  ): Promise<Array<{ localDate: string; utcDate: Date; hasConflict: boolean; reasons: string[] }>> {
+    if (candidates.length === 0) return [];
+
+    const sortedMs = candidates.map((c) => c.utcDate.getTime()).sort((a, b) => a - b);
+    const rangeStart = new Date(sortedMs[0] - 24 * 60 * 60 * 1000);
+    const rangeEnd = new Date(sortedMs[sortedMs.length - 1] + 24 * 60 * 60 * 1000);
+
+    const existing = await storage.getSessionsWithFiltering({
+      includeHiddenServices,
+      startDate: rangeStart,
+      endDate: rangeEnd,
+      page: 1,
+      limit: 5000,
+    });
+    const allSessions = existing.sessions.filter((s: any) =>
+      ['scheduled', 'confirmed', 'in-progress'].includes(s.status),
+    );
+
+    return candidates.map((cand) => {
+      const reasons: string[] = [];
+      const candDate = cand.utcDate;
+
+      const therapistConflict = allSessions.some((s: any) => {
+        if (s.therapistId !== rule.therapistId) return false;
+        const existingDate = new Date(s.sessionDate);
+        const existingDuration = (s.service as any)?.duration || s.duration || 60;
+        return checkTimeConflict(candDate, sessionDurationMinutes, existingDate, existingDuration);
+      });
+      if (therapistConflict) reasons.push('Therapist is busy');
+
+      if (rule.roomId) {
+        const roomConflict = allSessions.some((s: any) => {
+          if (s.roomId !== rule.roomId) return false;
+          const existingDate = new Date(s.sessionDate);
+          const existingDuration = (s.service as any)?.duration || s.duration || 60;
+          return checkTimeConflict(candDate, sessionDurationMinutes, existingDate, existingDuration);
+        });
+        if (roomConflict) reasons.push('Room is occupied');
+      }
+
+      return { localDate: cand.localDate, utcDate: cand.utcDate, hasConflict: reasons.length > 0, reasons };
+    });
+  }
+
+  // Preview a recurring series: expand the rule into dates and flag conflicts.
+  app.post("/api/sessions/recurring/preview", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+
+      const rule = recurrenceRuleSchema.parse(req.body);
+      const candidates = expandRecurrenceDates(rule);
+
+      if (candidates.length === 0) {
+        return res.json({ sessions: [], totalRequested: 0, freeCount: 0, conflictCount: 0 });
+      }
+
+      // Resolve service duration for accurate overlap math
+      let sessionDurationMinutes = 60;
+      try {
+        const service = await storage.getServiceById(rule.serviceId);
+        if (service?.duration) sessionDurationMinutes = service.duration;
+      } catch {}
+
+      const includeHiddenServices = req.user.role === 'admin';
+      const evaluated = await evaluateRecurrenceConflicts(
+        candidates,
+        rule,
+        sessionDurationMinutes,
+        includeHiddenServices,
+      );
+
+      const sessions = evaluated.map((e) => ({
+        sessionDate: e.utcDate.toISOString(),
+        localDate: e.localDate,
+        sessionTime: rule.sessionTime,
+        hasConflict: e.hasConflict,
+        reasons: e.reasons,
+      }));
+
+      res.json({
+        sessions,
+        totalRequested: sessions.length,
+        freeCount: sessions.filter((s) => !s.hasConflict).length,
+        conflictCount: sessions.filter((s) => s.hasConflict).length,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid recurrence rule", errors: error.errors });
+      }
+      console.error('[RECURRING PREVIEW] Error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Create a recurring series: book all non-conflicting dates, skip conflicts.
+  app.post("/api/sessions/recurring", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+
+      const rule = recurrenceRuleSchema.parse(req.body);
+      const candidates = expandRecurrenceDates(rule);
+      if (candidates.length === 0) {
+        return res.status(400).json({ message: "The recurrence rule produced no dates." });
+      }
+
+      let sessionDurationMinutes = 60;
+      let serviceName: string | null = null;
+      try {
+        const service = await storage.getServiceById(rule.serviceId);
+        if (service?.duration) sessionDurationMinutes = service.duration;
+        serviceName = service?.serviceName || null;
+      } catch {}
+
+      // Business-hours guard (8:00 AM - 12:00 AM practice time) applied to the
+      // common wall-clock time once, since every session shares the same time.
+      const [hh, mm] = rule.sessionTime.split(':').map((n) => parseInt(n, 10));
+      const startMinutes = hh * 60 + mm;
+      const endMinutes = startMinutes + sessionDurationMinutes;
+      if (startMinutes >= 24 * 60 || endMinutes > 24 * 60) {
+        return res.status(400).json({
+          message: "Session time is outside business hours (8:00 AM - 12:00 AM).",
+        });
+      }
+
+      const includeHiddenServices = req.user.role === 'admin';
+      const evaluated = await evaluateRecurrenceConflicts(
+        candidates,
+        rule,
+        sessionDurationMinutes,
+        includeHiddenServices,
+      );
+
+      const free = evaluated.filter((e) => !e.hasConflict);
+      const skipped = evaluated.filter((e) => e.hasConflict);
+
+      if (free.length === 0) {
+        return res.status(409).json({
+          message: "All requested dates conflict with existing bookings.",
+          created: [],
+          skipped: skipped.map((s) => ({ sessionDate: s.utcDate.toISOString(), reasons: s.reasons })),
+        });
+      }
+
+      const groupId = `rec-${crypto.randomUUID()}`;
+
+      // Atomic batch create with a final in-transaction conflict re-check.
+      const txResult = await db.transaction(async (tx) => {
+        const created: any[] = [];
+        const txSkipped: { utcDate: Date; reasons: string[] }[] = [];
+
+        // Pull therapist + room sessions once inside the tx for race-safe checks
+        const txExisting = await tx
+          .select()
+          .from(sessions)
+          .where(inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress']));
+
+        for (const cand of free) {
+          const candStart = cand.utcDate;
+          const candEnd = new Date(candStart.getTime() + sessionDurationMinutes * 60000);
+
+          const therapistBusy = txExisting.some((s) => {
+            if (s.therapistId !== rule.therapistId) return false;
+            const exStart = new Date(s.sessionDate);
+            const exEnd = new Date(exStart.getTime() + (s.duration || 60) * 60000);
+            return candStart < exEnd && candEnd > exStart;
+          });
+          if (therapistBusy) {
+            txSkipped.push({ utcDate: candStart, reasons: ['Therapist is busy'] });
+            continue;
+          }
+
+          if (rule.roomId) {
+            const roomBusy = txExisting.some((s) => {
+              if (s.roomId !== rule.roomId) return false;
+              const exStart = new Date(s.sessionDate);
+              const exEnd = new Date(exStart.getTime() + (s.duration || 60) * 60000);
+              return candStart < exEnd && candEnd > exStart;
+            });
+            if (roomBusy) {
+              txSkipped.push({ utcDate: candStart, reasons: ['Room is occupied'] });
+              continue;
+            }
+          }
+
+          const insertData = {
+            clientId: rule.clientId,
+            therapistId: rule.therapistId,
+            serviceId: rule.serviceId,
+            roomId: rule.roomId ?? null,
+            sessionDate: candStart,
+            sessionType: rule.sessionType,
+            notes: rule.notes || null,
+            zoomEnabled: rule.zoomEnabled ?? false,
+            recurrenceGroupId: groupId,
+          };
+          const validated = insertSessionSchema.parse(insertData);
+          const [row] = await tx.insert(sessions).values(validated).returning();
+          created.push(row);
+          // Track in the in-memory set so later iterations see this booking
+          txExisting.push(row as any);
+        }
+
+        return { created, txSkipped };
+      });
+
+      const createdSessions = txResult.created;
+      // Dates that were free in the pre-check but lost a race during the tx re-check
+      const allSkipped = [
+        ...skipped.map((s) => ({ sessionDate: s.utcDate.toISOString(), reasons: s.reasons })),
+        ...txResult.txSkipped.map((s) => ({ sessionDate: s.utcDate.toISOString(), reasons: s.reasons })),
+      ];
+
+      // Best-effort Zoom meeting per session (mirrors single-create behaviour)
+      let zoomWarning: string | null = null;
+      if (rule.zoomEnabled && createdSessions.length > 0) {
+        try {
+          const [therapistWithZoom] = await db.select({
+            zoomAccountId: users.zoomAccountId,
+            zoomClientId: users.zoomClientId,
+            zoomClientSecret: users.zoomClientSecret,
+            zoomAccessToken: users.zoomAccessToken,
+            zoomTokenExpiry: users.zoomTokenExpiry,
+          }).from(users).where(eq(users.id, rule.therapistId));
+
+          const hasZoom = therapistWithZoom?.zoomAccountId && therapistWithZoom?.zoomClientId && therapistWithZoom?.zoomClientSecret;
+          if (!hasZoom) {
+            zoomWarning = "Zoom is not configured on your profile, so no meeting links were created.";
+          } else {
+            const client = await storage.getClient(rule.clientId);
+            const therapist = await storage.getUser(rule.therapistId);
+            const creds = {
+              accountId: therapistWithZoom!.zoomAccountId!,
+              clientId: therapistWithZoom!.zoomClientId!,
+              clientSecret: therapistWithZoom!.zoomClientSecret!,
+              accessToken: therapistWithZoom!.zoomAccessToken,
+              tokenExpiry: therapistWithZoom!.zoomTokenExpiry,
+            };
+            for (const s of createdSessions) {
+              try {
+                const meeting = await zoomService.createMeeting({
+                  clientName: client?.fullName || 'Unknown Client',
+                  therapistName: therapist?.fullName || 'Unknown Therapist',
+                  sessionDate: new Date(s.sessionDate),
+                  duration: sessionDurationMinutes,
+                }, creds);
+                await storage.updateSession(s.id, {
+                  zoomMeetingId: meeting.id.toString(),
+                  zoomJoinUrl: meeting.join_url,
+                  zoomPassword: meeting.password || '',
+                });
+              } catch (e) {
+                console.error('[RECURRING] Zoom creation failed for session', s.id, e);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[RECURRING] Zoom setup failed:', e);
+          zoomWarning = "Some Zoom meeting links could not be created.";
+        }
+      }
+
+      // Resolve room name once for notification text
+      let roomName: string | null = null;
+      if (rule.roomId) {
+        try {
+          const rooms = await storage.getRooms();
+          const room = rooms.find((r) => r.id === rule.roomId);
+          roomName = room?.roomName || room?.roomNumber || `Room ${rule.roomId}`;
+        } catch {}
+      }
+
+      const client = await storage.getClient(rule.clientId);
+      const therapist = await storage.getUser(rule.therapistId);
+
+      // Audit each created session
+      for (const s of createdSessions) {
+        try {
+          await AuditLogger.logSessionAccess(
+            req.user!.id, req.user!.username, s.id, s.clientId,
+            'session_created', ipAddress, userAgent,
+            { session_date: s.sessionDate, session_type: s.sessionType, recurrence_group: groupId },
+          );
+        } catch (e) {
+          console.error('[RECURRING] Audit log failed for session', s.id, e);
+        }
+      }
+
+      // Schedule per-session reminders ONLY (no per-session confirmation email)
+      for (const s of createdSessions) {
+        try {
+          await notificationService.processEvent('session_scheduled', {
+            id: s.id,
+            clientId: s.clientId,
+            therapistId: s.therapistId,
+            clientName: client?.fullName || 'Unknown Client',
+            therapistName: therapist?.fullName || 'Unknown Therapist',
+            sessionDate: s.sessionDate,
+            sessionType: s.sessionType,
+            roomId: s.roomId,
+            roomName,
+            duration: sessionDurationMinutes,
+            createdAt: s.createdAt,
+            zoomEnabled: !!s.zoomJoinUrl,
+            zoomJoinUrl: s.zoomJoinUrl || null,
+          }, { scheduledOnly: true });
+        } catch (e) {
+          console.error('[RECURRING] Reminder scheduling failed for session', s.id, e);
+        }
+      }
+
+      // Send ONE combined confirmation for the whole series
+      try {
+        await notificationService.sendSeriesScheduledConfirmation({
+          clientId: rule.clientId,
+          therapistId: rule.therapistId,
+          clientName: client?.fullName || 'Unknown Client',
+          therapistName: therapist?.fullName || 'Unknown Therapist',
+          serviceName,
+          roomName,
+          sessionDates: createdSessions.map((s) => s.sessionDate),
+          skippedCount: allSkipped.length,
+        });
+      } catch (e) {
+        console.error('[RECURRING] Series confirmation failed:', e);
+      }
+
+      res.status(201).json({
+        groupId,
+        created: createdSessions,
+        createdCount: createdSessions.length,
+        skipped: allSkipped,
+        skippedCount: allSkipped.length,
+        warning: zoomWarning || undefined,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid recurrence rule", errors: error.errors });
+      }
+      console.error('[RECURRING CREATE] Error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Cancel an entire recurring series (future sessions only) and their reminders.
+  app.delete("/api/sessions/recurring/:groupId", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+
+      const role = req.user.role?.toLowerCase() || '';
+      const allowedRoles = ['admin', 'administrator', 'supervisor', 'therapist'];
+      if (!allowedRoles.includes(role)) {
+        return res.status(403).json({ message: "You do not have permission to cancel sessions" });
+      }
+
+      const groupId = req.params.groupId;
+      if (!groupId || !groupId.startsWith('rec-')) {
+        return res.status(400).json({ message: "Invalid series id" });
+      }
+
+      const now = new Date();
+      // Only future, still-active sessions in this series
+      const seriesSessions = await db
+        .select()
+        .from(sessions)
+        .where(and(
+          eq(sessions.recurrenceGroupId, groupId),
+          gte(sessions.sessionDate, now),
+          inArray(sessions.status, ['scheduled', 'confirmed']),
+        ));
+
+      if (seriesSessions.length === 0) {
+        return res.status(404).json({ message: "No upcoming sessions found for this series" });
+      }
+
+      // Therapists may only cancel their own sessions
+      if (role === 'therapist' && seriesSessions.some((s) => s.therapistId !== req.user!.id)) {
+        return res.status(403).json({ message: "You can only cancel your own sessions" });
+      }
+
+      const ids = seriesSessions.map((s) => s.id);
+      await db.transaction(async (tx) => {
+        await tx.delete(sessionBilling).where(inArray(sessionBilling.sessionId, ids));
+        await tx.delete(sessionNotes).where(inArray(sessionNotes.sessionId, ids));
+        await tx.delete(scheduledNotifications).where(inArray(scheduledNotifications.sessionId, ids));
+        await tx.delete(roomBookings).where(inArray(roomBookings.sessionId, ids));
+        await tx.delete(sessions).where(inArray(sessions.id, ids));
+      });
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        action: 'session_deleted',
+        result: 'success',
+        resourceType: 'session',
+        resourceId: groupId,
+        details: `Cancelled recurring series ${groupId} (${ids.length} upcoming sessions)`,
+        ipAddress,
+        userAgent,
+      });
+
+      res.json({ message: "Series cancelled", cancelledCount: ids.length });
+    } catch (error) {
+      console.error('[RECURRING CANCEL] Error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
