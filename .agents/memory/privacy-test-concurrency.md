@@ -20,6 +20,13 @@ and run in parallel). Instead chain them in a single serial validation command
 with `&&` (registered as validation `test-privacy`). If adding more app-level
 integration tests that create clients, fold them into the same serial chain.
 
+**Tooling gotcha:** the serial chain must be a *validation* (`isValidation`),
+created via `setValidationCommand`, NOT a plain workflow. A workflow created
+with `configureWorkflow` is a non-validation workflow and cannot later be
+converted (`setValidationCommand` errors `PROHIBITED_ACTION ... already exists
+as a non-validation workflow`). To re-home it: `removeWorkflow` first, then
+`setValidationCommand`.
+
 **Also:** the openai SDK captures its fetch impl at client construction. The
 module-level chat client in `server/ai/openai.ts` is built when routes are
 statically imported, so a global-fetch stub must be installed BEFORE importing

@@ -25,10 +25,6 @@ args = "Start application"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "test-transcribe-privacy"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "test-privacy"
 
 [[workflows.workflow]]
@@ -41,23 +37,12 @@ args = "npm run dev"
 waitForPort = 5000
 
 [[workflows.workflow]]
-name = "test-transcribe-privacy"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx test/communications-transcribe-privacy.test.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
 name = "test-privacy"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx test/communications-transcribe-privacy.test.ts && npx tsx test/session-transcribe-privacy.test.ts && npx tsx test/assessment-report-privacy.test.ts"
+args = "npx tsx test/communications-transcribe-privacy.test.ts && npx tsx test/communications-transcribe-recovery.test.ts && npx tsx test/session-transcribe-privacy.test.ts && npx tsx test/assessment-report-privacy.test.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
