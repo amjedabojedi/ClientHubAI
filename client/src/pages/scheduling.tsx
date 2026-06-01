@@ -592,9 +592,15 @@ export default function SchedulingPage() {
 
   // Preview the series (expanded dates + per-date conflict flags).
   const recurrencePreviewMutation = useMutation({
-    mutationFn: (data: SessionFormData) =>
-      apiRequest("/api/sessions/recurring/preview", "POST", buildRecurrenceRule(data)),
+    mutationFn: async (data: SessionFormData) => {
+      const res = await apiRequest("/api/sessions/recurring/preview", "POST", buildRecurrenceRule(data));
+      return res.json();
+    },
     onSuccess: (result: any) => {
+      if (!result || !Array.isArray(result.sessions)) {
+        toast({ title: "Could not preview dates", description: "Unexpected response from the server.", variant: "destructive" });
+        return;
+      }
       setRecurrencePreview(result);
     },
     onError: (error: any) => {
@@ -608,8 +614,10 @@ export default function SchedulingPage() {
 
   // Create the whole series at once.
   const createRecurringMutation = useMutation({
-    mutationFn: (data: SessionFormData) =>
-      apiRequest("/api/sessions/recurring", "POST", buildRecurrenceRule(data)),
+    mutationFn: async (data: SessionFormData) => {
+      const res = await apiRequest("/api/sessions/recurring", "POST", buildRecurrenceRule(data));
+      return res.json();
+    },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
@@ -643,8 +651,10 @@ export default function SchedulingPage() {
 
   // Cancel an entire future series.
   const cancelSeriesMutation = useMutation({
-    mutationFn: (groupId: string) =>
-      apiRequest(`/api/sessions/recurring/${groupId}`, "DELETE"),
+    mutationFn: async (groupId: string) => {
+      const res = await apiRequest(`/api/sessions/recurring/${groupId}`, "DELETE");
+      return res.json();
+    },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       queryClient.invalidateQueries({ queryKey: [`/api/sessions/${monthToFetch.getFullYear()}/${monthToFetch.getMonth() + 1}/month`] });
