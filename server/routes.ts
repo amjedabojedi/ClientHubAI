@@ -3211,6 +3211,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Acquire transaction-scoped advisory locks that serialize concurrent booking
+  // attempts for the same therapist (and room). This is the database-level guard
+  // against double-booking races: under READ COMMITTED isolation a plain
+  // check-then-insert can let two simultaneous requests both pass their conflict
+  // check and insert overlapping rows. Holding a per-therapist / per-room lock
+  // forces the second request to wait until the first commits, after which its
+  // re-check reads the committed row and correctly rejects the overlap.
+  // Locks are always taken therapist-first then room (a fixed global order) so
+  // concurrent transactions cannot deadlock, and they release on commit/rollback.
+  async function acquireBookingLocks(
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    therapistId: number,
+    roomId: number | null,
+  ): Promise<void> {
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext('session_therapist'), ${therapistId})`,
+    );
+    if (roomId != null) {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('session_room'), ${roomId})`,
+      );
+    }
+  }
+
   app.post("/api/sessions", requireAuth, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);
     
@@ -3397,6 +3421,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // CRITICAL: Re-check conflicts INSIDE transaction to prevent race conditions
         // This prevents two therapists from booking the same room simultaneously
         if (!req.body.ignoreConflicts) {
+          // DATABASE-LEVEL GUARD: take transaction-scoped advisory locks on the
+          // therapist (and room) so two simultaneous booking requests for the
+          // same slot are serialized. Postgres' default READ COMMITTED isolation
+          // means the re-check below would otherwise not see another in-flight
+          // (uncommitted) insert; the lock forces the second request to wait,
+          // then re-read committed rows and correctly detect the conflict.
+          // Locks are always acquired therapist-first, then room, so concurrent
+          // transactions can never deadlock. They release automatically on commit.
+          await acquireBookingLocks(tx, validatedData.therapistId, validatedData.roomId ?? null);
+
           // Check therapist conflicts
           const therapistConflicts = await tx
             .select()
@@ -3413,7 +3447,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           if (hasTherapistConflict) {
-            throw new Error("This therapist is no longer available at this time. Please refresh and select another time.");
+            const err: any = new Error("That slot was just taken — this therapist is no longer available at this time. Please refresh and choose another time.");
+            err.slotTaken = true;
+            throw err;
           }
 
           // Check room conflicts if room is assigned
@@ -3433,7 +3469,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             if (hasRoomConflict) {
-              throw new Error("This room is no longer available at this time. Please refresh and select another room.");
+              const err: any = new Error("That slot was just taken — this room is no longer available at this time. Please refresh and choose another room.");
+              err.slotTaken = true;
+              throw err;
             }
           }
         }
@@ -3563,6 +3601,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid session data", errors: error.errors });
+      }
+      // A concurrent request grabbed the slot during the in-transaction re-check.
+      if ((error as any)?.slotTaken) {
+        return res.status(409).json({ message: (error as Error).message });
       }
       // Error logged
       res.status(500).json({ message: "Internal server error" });
@@ -3727,6 +3769,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const txResult = await db.transaction(async (tx) => {
         const created: any[] = [];
         const txSkipped: { utcDate: Date; reasons: string[] }[] = [];
+
+        // DATABASE-LEVEL GUARD: serialize concurrent bookings for this therapist
+        // (and room) via transaction-scoped advisory locks so the re-check below
+        // sees committed rows from any simultaneous request, preventing
+        // double-booking races. Locks release automatically on commit.
+        await acquireBookingLocks(tx, rule.therapistId, rule.roomId ?? null);
 
         // Pull therapist + room sessions once inside the tx for race-safe checks
         const txExisting = await tx

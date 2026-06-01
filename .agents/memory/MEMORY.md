@@ -1,1 +1,2 @@
 - [db:push drift](db-push-drift.md) — db:push prompts dangerously on practice_configuration drift; apply additive DDL idempotently instead.
+- [Double-booking guard](double-booking-guard.md) — booking race safety uses advisory locks, not a btree_gist EXCLUDE (override feature + existing overlaps block it).
