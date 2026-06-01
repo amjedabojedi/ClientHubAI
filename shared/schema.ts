@@ -1297,12 +1297,27 @@ export const AUDIT_ACTIONS = [
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
+// The fixed set of audit result values the application writes. This is the
+// single source of truth: it types the `result` column below (so invalid
+// values are caught at compile time) and is reconciled into the Postgres
+// `audit_result` ENUM by scripts/ensure-audit-enums.ts. Whenever you add a
+// value here, the reconcile script picks it up automatically.
+export const AUDIT_RESULTS = [
+  'success',
+  'failure',
+  'blocked',
+  'warning',
+  'denied',
+] as const;
+
+export type AuditResult = (typeof AUDIT_RESULTS)[number];
+
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id, { onDelete: 'set null' }),
   username: varchar("username", { length: 100 }), // Store username for records even if user deleted
   action: varchar("action", { length: 100, enum: AUDIT_ACTIONS }).notNull(),
-  result: varchar("result", { length: 20 }).notNull(),
+  result: varchar("result", { length: 20, enum: AUDIT_RESULTS }).notNull(),
   resourceType: varchar("resource_type", { length: 50 }), // 'client', 'session', 'document', etc.
   resourceId: varchar("resource_id", { length: 50 }), // ID of the resource accessed
   clientId: integer("client_id").references(() => clients.id, { onDelete: 'set null' }), // PHI access tracking

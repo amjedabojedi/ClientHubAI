@@ -13,6 +13,7 @@ import { storage } from "./storage";
 import { syncNotificationTriggers } from "./notification-seeds";
 import { notificationService } from "./notification-service";
 import { db, closeDb } from "./db";
+import { assertAuditEnumsAtStartup } from "./audit-enum-check";
 import { documents, clients } from "@shared/schema";
 import { eq, and, isNotNull, lt, sql } from "drizzle-orm";
 
@@ -170,6 +171,11 @@ process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
       );
       // Don't throw - allow deployment to initialize even if DB is temporarily unavailable
     }
+
+    // Verify the Postgres audit ENUMs cover every value the app writes. If they
+    // have drifted, audit writes using the missing values will fail — surface it
+    // loudly at startup instead of discovering it when an audit row vanishes.
+    await assertAuditEnumsAtStartup();
 
     // Synchronize notification triggers from code to database (non-critical)
     try {

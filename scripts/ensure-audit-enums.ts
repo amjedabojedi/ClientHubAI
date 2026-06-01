@@ -18,16 +18,18 @@
  *
  * - audit_action values come from the AUDIT_ACTIONS source of truth in
  *   shared/schema.ts.
- * - audit_result values are the small fixed set the codebase writes
- *   (success / failure / blocked / warning / denied).
+ * - audit_result values come from the AUDIT_RESULTS source of truth in
+ *   shared/schema.ts.
+ *
+ * Both sets live in shared/schema.ts so the schema is the single source of
+ * truth: add a value there and this script reconciles it automatically — no
+ * separate list to keep in sync.
  *
  * Run with: npx tsx scripts/ensure-audit-enums.ts
  */
 import { db } from "../server/db";
 import { sql } from "drizzle-orm";
-import { AUDIT_ACTIONS } from "../shared/schema";
-
-const AUDIT_RESULTS = ["success", "failure", "blocked", "warning", "denied"] as const;
+import { AUDIT_ACTIONS, AUDIT_RESULTS } from "../shared/schema";
 
 async function enumExists(typeName: string): Promise<boolean> {
   const res = await db.execute(

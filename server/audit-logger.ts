@@ -1,10 +1,43 @@
+import { promises as fs } from 'fs';
+import path from 'path';
 import { db } from './db';
 import { auditLogs, loginAttempts, userSessions } from '@shared/schema';
 import type { InsertAuditLog, InsertLoginAttempt, InsertUserSession } from '@shared/schema';
 
+// Append-only fallback so a failed DB audit write is never silently lost. The
+// directory is configurable for deploy environments; it defaults to a folder in
+// the project root. Each line is a self-contained JSON record (JSONL) tagged
+// with the original DB error so the entry can be replayed / reconciled later.
+const AUDIT_FALLBACK_DIR =
+  process.env.AUDIT_FALLBACK_DIR || path.join(process.cwd(), 'audit-fallback');
+const AUDIT_FALLBACK_FILE = path.join(AUDIT_FALLBACK_DIR, 'audit-fallback.jsonl');
+
 export class AuditLogger {
   /**
-   * Log any user action for HIPAA compliance
+   * Persist an audit record that could not be written to the database to an
+   * append-only fallback file so the audit trail is preserved. Throws if even
+   * the fallback write fails, so the loss can never go unnoticed.
+   */
+  private static async persistFallback(data: InsertAuditLog, dbError: unknown) {
+    const line =
+      JSON.stringify({
+        ...data,
+        timestamp: new Date().toISOString(),
+        _fallbackReason:
+          dbError instanceof Error ? dbError.message : String(dbError),
+        _recordedAt: new Date().toISOString(),
+      }) + '\n';
+    await fs.mkdir(AUDIT_FALLBACK_DIR, { recursive: true });
+    await fs.appendFile(AUDIT_FALLBACK_FILE, line, 'utf8');
+  }
+
+  /**
+   * Log any user action for HIPAA compliance.
+   *
+   * Audit writes must never fail silently. If the database insert fails we
+   * (1) loudly log the failure, (2) persist the record to an append-only
+   * fallback file so it is not lost, and (3) re-throw if even the fallback
+   * write fails so the request surfaces the problem instead of swallowing it.
    */
   static async logAction(data: InsertAuditLog) {
     try {
@@ -13,9 +46,25 @@ export class AuditLogger {
         timestamp: new Date(),
       });
     } catch (error) {
-      // Critical: Audit logging should never fail silently
-      console.error('CRITICAL: Audit log failed to record:', error);
-      // Could implement backup logging to file system here
+      // Critical: Audit logging must never fail silently.
+      console.error('CRITICAL: Audit log failed to record (DB write failed):', error);
+      try {
+        await this.persistFallback(data, error);
+        console.error(
+          `CRITICAL: Audit record persisted to fallback file ${AUDIT_FALLBACK_FILE} (action=${data.action}, result=${data.result}). Investigate and reconcile.`,
+        );
+      } catch (fallbackError) {
+        // Both the DB and the durable fallback failed: this is an audit-trail
+        // loss. Surface it loudly by throwing so callers/requests don't proceed
+        // as if the event was recorded.
+        console.error(
+          'CRITICAL: Audit log failed to record AND fallback persistence failed — audit entry lost:',
+          fallbackError,
+        );
+        throw new Error(
+          `Audit log could not be recorded (DB and fallback both failed) for action=${data.action}`,
+        );
+      }
     }
   }
 

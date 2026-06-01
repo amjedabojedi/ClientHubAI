@@ -19,14 +19,24 @@ HIPAA/GDPR audit-trail gap. Seen with `voice_transcription_processed`,
 
 **Fix in place:** `scripts/ensure-audit-enums.ts` reconciles both enums with
 `ALTER TYPE ... ADD VALUE IF NOT EXISTS` (additive, idempotent). It is wired
-into `scripts/post-merge.sh` after `db:push`. `audit_action` values come from
-`AUDIT_ACTIONS` in `shared/schema.ts`; `audit_result` uses the fixed set
-`success/failure/blocked/warning/denied`.
+into `scripts/post-merge.sh` after `db:push`. Both value sets are the single
+source of truth in `shared/schema.ts`: `AUDIT_ACTIONS` and `AUDIT_RESULTS` (the
+`result` column is typed via `{ enum: AUDIT_RESULTS }`, so a bad result value is
+now a compile error).
+
+**No longer fails open:** `AuditLogger.logAction` previously swallowed DB errors.
+It now, on DB write failure, persists the record to an append-only fallback file
+(`AUDIT_FALLBACK_DIR` env, default `audit-fallback/audit-fallback.jsonl`,
+gitignored — may contain PHI) and throws only if the fallback also fails.
+
+**Guard:** `verifyAuditEnums()` / `assertAuditEnumsAtStartup()` in
+`server/audit-enum-check.ts` compares the DB enums to the code value sets.
+Startup logs a loud CRITICAL (non-fatal) on drift; `scripts/verify-audit-enums.ts`
+exits non-zero on drift and runs in post-merge after the reconcile.
 
 **Why:** matches the project's existing "apply additive DDL idempotently instead
 of trusting db:push" approach to schema drift.
 
-**How to apply:** whenever you add a new value to `AUDIT_ACTIONS`, or use a new
-`result:` string in an audit call, it will not persist until the enum has it.
-Run/extend `scripts/ensure-audit-enums.ts`. Don't assume a logged audit action
-actually wrote — the writer fails open.
+**How to apply:** add new values only to `AUDIT_ACTIONS` / `AUDIT_RESULTS` in
+`shared/schema.ts`; the reconcile + guard pick them up automatically. A DB-failed
+audit write is now surfaced (fallback file + logs), not silently dropped.
