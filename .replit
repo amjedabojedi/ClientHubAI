@@ -40,12 +40,12 @@ waitForPort = 5000
 name = "test-privacy"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx test/communications-transcribe-privacy.test.ts && npx tsx test/communications-transcribe-recovery.test.ts && npx tsx test/session-transcribe-privacy.test.ts && npx tsx test/assessment-report-privacy.test.ts && npx tsx test/daily-schedule-email-privacy.test.ts"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx test/communications-transcribe-privacy.test.ts && npx tsx test/communications-transcribe-recovery.test.ts && npx tsx test/session-transcribe-privacy.test.ts && npx tsx test/assessment-report-privacy.test.ts && npx tsx test/daily-schedule-email-privacy.test.ts && npx tsx test/daily-schedule-email-idempotency.test.ts"
 
 [[ports]]
 localPort = 5000

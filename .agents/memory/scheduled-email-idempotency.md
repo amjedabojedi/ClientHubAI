@@ -37,3 +37,13 @@ should be a manual/observability action, not an automatic resend.
   process; the DB claim is what guarantees correctness across restarts and
   multiple instances.
 - Privacy still applies to the body — see external-client-privacy.
+
+**Testing the send loop (DB-backed):** to drive `processDailyScheduleEmails`
+without hitting SparkPost, stub `SparkPost.prototype.post` (the single method
+that `transmissions.send` funnels through); the formatted payload arrives as
+`options.json.recipients[].address.email`, so count/branch per recipient to
+isolate your seeded therapists from other rows in the shared dev DB. The loop
+iterates ALL active therapists, so it MUST run serially (folded into the
+`test-privacy` validation) — a parallel suite creating/deleting therapists
+causes FK violations on `daily_schedule_emails`. The "no email address" branch
+is unreachable from a real row (`users.email` is NOT NULL), so don't test it.
