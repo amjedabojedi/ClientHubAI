@@ -33,6 +33,9 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Audit fallback (may contain PHI — never commit)
+audit-fallback/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
