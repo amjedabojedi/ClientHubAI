@@ -18,9 +18,10 @@ returns "John D." (full first name + last initial) and is an INTERNAL accountant
 / billing view only. It is NOT privacy-safe for anything leaving the system.
 
 **Why:** SmartHub is a HIPAA-context therapy app; leaking PHI on an external
-surface is the worst-case failure. Calendar feed (Task #37) and the daily 8AM
-email (Task #38) both share this rule and should reuse `clientInitials`.
+surface is the worst-case failure. The therapist calendar subscribe feed and the
+daily summary email both share this rule and should reuse `clientInitials`.
 
 **How to apply:** When building/reviewing any feature that emits client data
 off-platform, reduce the name through `clientInitials` at the boundary and make
-sure no other client fields (diagnosis, session notes, service names) ride along.
+sure no other client fields (diagnosis, session notes) ride along. Session/service
+type and room/Zoom link are not client-identifying PHI and may be included.

@@ -13,7 +13,13 @@ export interface CalendarEventInput {
   // Already privacy-reduced (e.g. "J.D.") before reaching this module.
   initials: string;
   status: string;
+  // Session/service type, e.g. "Individual Psychotherapy 45 min". Not client
+  // PHI; safe to include per the task spec.
+  sessionType?: string | null;
+  // Physical room label or "Telehealth (Zoom)".
   location?: string | null;
+  // Zoom join link for telehealth sessions (shown as the event URL).
+  joinUrl?: string | null;
 }
 
 export interface BuildCalendarOptions {
@@ -96,14 +102,31 @@ export function buildTherapistCalendar(options: BuildCalendarOptions): string {
     const durationMs = Math.max(1, event.durationMinutes) * 60 * 1000;
     const end = new Date(event.start.getTime() + durationMs);
 
+    // Summary: client initials + session type (e.g. "J.D. — Individual 45 min").
+    const summary = event.sessionType
+      ? `${event.initials} — ${event.sessionType}`
+      : event.initials;
+
+    // Description lines: session type + telehealth join link where present.
+    const descriptionParts: string[] = [];
+    if (event.sessionType) descriptionParts.push(`Session: ${event.sessionType}`);
+    if (event.joinUrl) descriptionParts.push(`Zoom join link: ${event.joinUrl}`);
+
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:smarthub-session-${event.id}@${host}`);
     lines.push(`DTSTAMP:${dtstamp}`);
     lines.push(`DTSTART:${toIcsUtc(event.start)}`);
     lines.push(`DTEND:${toIcsUtc(end)}`);
-    lines.push(`SUMMARY:${escapeText(event.initials)}`);
+    lines.push(`SUMMARY:${escapeText(summary)}`);
     if (event.location) {
       lines.push(`LOCATION:${escapeText(event.location)}`);
+    }
+    if (event.joinUrl) {
+      // URL is a URI value (not TEXT), so it is emitted unescaped.
+      lines.push(`URL:${event.joinUrl}`);
+    }
+    if (descriptionParts.length > 0) {
+      lines.push(`DESCRIPTION:${escapeText(descriptionParts.join("\n"))}`);
     }
     lines.push(`STATUS:${mapStatus(event.status)}`);
     lines.push("END:VEVENT");

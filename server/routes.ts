@@ -164,9 +164,9 @@ function calendarFeedRateLimited(ip: string): boolean {
   const now = Date.now();
   // Opportunistically sweep expired entries so the map cannot grow unbounded.
   if (calendarFeedHits.size > 5000) {
-    for (const [key, entry] of calendarFeedHits) {
+    calendarFeedHits.forEach((entry, key) => {
       if (now > entry.resetAt) calendarFeedHits.delete(key);
-    }
+    });
   }
   const entry = calendarFeedHits.get(ip);
   if (!entry || now > entry.resetAt) {
@@ -833,25 +833,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         includeHiddenServices: true,
       });
 
+      // Active statuses show as live events; cancelled/no-show are still emitted
+      // (with STATUS:CANCELLED) so calendars that previously synced them reliably
+      // clear the slot rather than leaving a stale event behind.
       const allowedStatuses = new Set([
         "scheduled",
         "confirmed",
         "in-progress",
         "in_progress",
+        "cancelled",
+        "canceled",
+        "no_show",
       ]);
 
       const events = rows
         .filter((s: any) => allowedStatuses.has(String(s.status || "").toLowerCase()))
         .map((s: any) => {
-          const durationMinutes =
-            Number(s.duration) || Number(s.service?.duration) || 50;
+          const durationMinutes = Number(s.duration) || 50;
+          const telehealth = !!s.zoomEnabled;
 
           let location: string | undefined;
           if (s.room?.roomName) {
             location = s.room.roomNumber
               ? `${s.room.roomName} (${s.room.roomNumber})`
               : s.room.roomName;
-          } else if (s.zoomEnabled) {
+          } else if (telehealth) {
             location = "Telehealth (Zoom)";
           }
 
@@ -861,7 +867,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             durationMinutes,
             initials: clientInitials(s.client?.fullName),
             status: String(s.status || ""),
+            sessionType: s.service?.serviceName || undefined,
             location,
+            joinUrl: telehealth ? s.zoomJoinUrl || undefined : undefined,
           };
         });
 
