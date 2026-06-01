@@ -101,6 +101,7 @@ app.use((req, res, next) => {
 let server: any = null;
 let scheduledNotificationInterval: NodeJS.Timeout | null = null;
 let documentReviewReminderInterval: NodeJS.Timeout | null = null;
+let dailyScheduleEmailInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
 
 // Graceful shutdown handler
@@ -111,6 +112,7 @@ async function gracefulShutdown(signal: string) {
 
   if (scheduledNotificationInterval) clearInterval(scheduledNotificationInterval);
   if (documentReviewReminderInterval) clearInterval(documentReviewReminderInterval);
+  if (dailyScheduleEmailInterval) clearInterval(dailyScheduleEmailInterval);
 
   const forceTimer = setTimeout(() => {
     log("Forcing shutdown due to timeout");
@@ -255,6 +257,24 @@ process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
       }, 60 * 60 * 1000); // Every hour
     } catch (cronError) {
       log(`Warning: Failed to start document review reminder: ${cronError}`);
+    }
+
+    // Daily 8 AM (Eastern) schedule digest: emails each active therapist their
+    // appointments for the day. We poll every minute and the service itself
+    // gates on the Eastern hour + a per-(therapist, day) record, so it sends
+    // exactly once per day and survives a restart around 8 AM without
+    // double-sending.
+    try {
+      dailyScheduleEmailInterval = setInterval(async () => {
+        try {
+          await notificationService.runDailyScheduleEmailsIfDue();
+        } catch (err) {
+          console.error("[CRON] Error sending daily schedule emails:", err);
+        }
+      }, 60 * 1000); // Check every 60 seconds
+      log("Daily schedule email job started (sends once per day after 8 AM ET)");
+    } catch (cronError) {
+      log(`Warning: Failed to start daily schedule email job: ${cronError}`);
     }
 
     log("Registering routes...");

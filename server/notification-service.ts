@@ -13,7 +13,8 @@ import {
   sessions,
 } from "@shared/schema";
 import SparkPost from "sparkpost";
-import { format, toZonedTime } from "date-fns-tz";
+import { format, toZonedTime, fromZonedTime } from "date-fns-tz";
+import { clientInitials } from "@shared/privacy";
 import type {
   InsertNotification,
   NotificationTrigger,
@@ -22,6 +23,18 @@ import type {
   InsertScheduledNotification,
   User,
 } from "@shared/schema";
+
+// Practice timezone for all therapist-facing scheduling (8 AM digest, day boundaries).
+const PRACTICE_TZ = "America/New_York";
+// Daily-email idempotency: how many times we'll retry a failed therapist send
+// within the same Eastern day before giving up (avoids retry storms).
+const DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS = 3;
+// How long a 'processing' claim is trusted before it's treated as abandoned
+// (server crashed mid-send) and may be re-claimed. Comfortably longer than a
+// single send + record cycle so live work is never stolen.
+const DAILY_SCHEDULE_EMAIL_LEASE_MINUTES = 10;
+// notificationPreferences.triggerType key for the daily schedule digest.
+const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
 
 // Helper function to get the email sender address from environment
 function getEmailFromAddress(): string {
@@ -1961,6 +1974,300 @@ If you have any questions about joining the virtual session, please contact your
     } catch (error) {
       return { total: 0, unread: 0 };
     }
+  }
+
+  // ============================================================
+  // Daily 8 AM (Eastern) therapist schedule digest
+  // ============================================================
+
+  // Guards against overlapping runs if a tick takes longer than the poll interval.
+  private dailyScheduleEmailInFlight = false;
+
+  /**
+   * Called every minute by the background poller. Only does work once the
+   * Eastern clock has reached 8 AM; the per-(therapist, day) record then
+   * ensures each therapist is emailed exactly once for that Eastern day, even
+   * across a server restart.
+   */
+  async runDailyScheduleEmailsIfDue(now: Date = new Date()): Promise<void> {
+    if (this.dailyScheduleEmailInFlight) return;
+
+    const easternNow = toZonedTime(now, PRACTICE_TZ);
+    // Don't send before 8 AM Eastern. If the server was down through 8 AM and
+    // starts later in the day, this still fires (better late than never) and
+    // the per-day record prevents a duplicate once it has gone out.
+    if (easternNow.getHours() < 8) return;
+
+    this.dailyScheduleEmailInFlight = true;
+    try {
+      const dateStr = format(easternNow, "yyyy-MM-dd", { timeZone: PRACTICE_TZ });
+      await this.processDailyScheduleEmails(dateStr);
+    } finally {
+      this.dailyScheduleEmailInFlight = false;
+    }
+  }
+
+  /**
+   * Idempotently emails every active therapist their appointments for the given
+   * Eastern calendar day (yyyy-MM-dd). Therapists already marked 'sent' for the
+   * day are skipped; failed sends are retried up to a small cap. Safe to call
+   * directly (e.g. from tests) for any date.
+   */
+  async processDailyScheduleEmails(
+    easternDateStr: string,
+  ): Promise<{ sent: number; skipped: number; failed: number }> {
+    let sent = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    if (!process.env.SPARKPOST_API_KEY) {
+      console.log(
+        "[DAILY-SCHEDULE] SparkPost API key not configured - skipping daily schedule emails",
+      );
+      return { sent, skipped, failed };
+    }
+
+    const therapists = await storage.getTherapists();
+    if (therapists.length === 0) return { sent, skipped, failed };
+
+    // Eastern-day boundaries expressed as UTC instants for the session query.
+    const dayStart = fromZonedTime(`${easternDateStr}T00:00:00`, PRACTICE_TZ);
+    const dayEnd = fromZonedTime(`${easternDateStr}T23:59:59.999`, PRACTICE_TZ);
+
+    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+    let fromEmail: string;
+    try {
+      fromEmail = getEmailFromAddress();
+    } catch (err) {
+      console.error("[DAILY-SCHEDULE] EMAIL_FROM not configured:", err);
+      return { sent, skipped, failed };
+    }
+
+    const dayLabel = format(toZonedTime(dayStart, PRACTICE_TZ), "EEEE, MMMM d, yyyy", {
+      timeZone: PRACTICE_TZ,
+    });
+
+    for (const therapist of therapists) {
+      // Atomically claim the (therapist, day) slot BEFORE sending. This is the
+      // idempotency guard: if we don't win the claim the slot is already sent,
+      // in flight on another worker, or out of retries — skip it. Winning the
+      // claim writes a 'processing' row first, so a crash between the send and
+      // recording the result cannot cause a duplicate send on the next run.
+      const claim = await storage.claimDailyScheduleEmail(
+        therapist.id,
+        easternDateStr,
+        DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS,
+        DAILY_SCHEDULE_EMAIL_LEASE_MINUTES,
+      );
+      if (!claim) {
+        skipped++;
+        continue;
+      }
+      const attempts = claim.attempts;
+
+      try {
+        if (!therapist.email) {
+          // No address to send to — mark failed at the retry cap so the slot is
+          // not pointlessly re-claimed on later runs (a missing address won't fix
+          // itself within the day).
+          await storage.upsertDailyScheduleEmail({
+            therapistId: therapist.id,
+            sendDate: easternDateStr,
+            status: "failed",
+            appointmentCount: 0,
+            attempts: DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS,
+            error: "Therapist has no email address",
+          });
+          failed++;
+          continue;
+        }
+
+        // Respect the therapist's notification preference for this digest, if set.
+        if (!(await this.isDailyDigestEmailEnabled(therapist.id))) {
+          await storage.upsertDailyScheduleEmail({
+            therapistId: therapist.id,
+            sendDate: easternDateStr,
+            status: "sent", // Honored the preference; nothing more to do today.
+            appointmentCount: 0,
+            attempts,
+            error: null,
+          });
+          skipped++;
+          continue;
+        }
+
+        const { sessions: daySessions } = await storage.getSessionsWithFiltering({
+          therapistId: therapist.id,
+          startDate: dayStart,
+          endDate: dayEnd,
+          includeHiddenServices: true,
+          limit: 1000,
+        });
+
+        const allowedStatuses = new Set([
+          "scheduled",
+          "confirmed",
+          "in-progress",
+          "in_progress",
+        ]);
+        const todays = daySessions
+          .filter((s) =>
+            allowedStatuses.has(String(s.status || "").toLowerCase()),
+          )
+          .sort(
+            (a, b) =>
+              new Date(a.sessionDate as any).getTime() -
+              new Date(b.sessionDate as any).getTime(),
+          );
+
+        const { subject, body } = this.buildDailyScheduleEmail(
+          therapist,
+          todays,
+          dayLabel,
+        );
+
+        const result = await sp.transmissions.send({
+          content: {
+            from: fromEmail,
+            subject,
+            html: this.formatEmailAsHtml(body, {}),
+            text: body,
+          },
+          recipients: [{ address: therapist.email }],
+        });
+
+        console.log(
+          `[DAILY-SCHEDULE] ✓ Sent ${todays.length}-appointment digest to ${therapist.email} (ID: ${result.results.id})`,
+        );
+
+        await storage.upsertDailyScheduleEmail({
+          therapistId: therapist.id,
+          sendDate: easternDateStr,
+          status: "sent",
+          appointmentCount: todays.length,
+          attempts,
+          error: null,
+        });
+        sent++;
+      } catch (err) {
+        console.error(
+          `[DAILY-SCHEDULE] ✗ Failed to send digest to therapist ${therapist.id}:`,
+          err,
+        );
+        try {
+          await storage.upsertDailyScheduleEmail({
+            therapistId: therapist.id,
+            sendDate: easternDateStr,
+            status: "failed",
+            appointmentCount: 0,
+            attempts,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } catch (recordErr) {
+          console.error(
+            "[DAILY-SCHEDULE] Failed to record send failure:",
+            recordErr,
+          );
+        }
+        failed++;
+      }
+    }
+
+    return { sent, skipped, failed };
+  }
+
+  /**
+   * Whether the therapist wants the daily digest by email. Mirrors the gating
+   * used by sendEmailNotifications: default ON when no preference row exists,
+   * otherwise honor an explicit 'email' delivery method / enableEmail flag.
+   */
+  private async isDailyDigestEmailEnabled(userId: number): Promise<boolean> {
+    const prefs = await db
+      .select()
+      .from(notificationPreferences)
+      .where(
+        and(
+          eq(notificationPreferences.userId, userId),
+          eq(notificationPreferences.triggerType, DAILY_SCHEDULE_EMAIL_TRIGGER),
+        ),
+      );
+
+    if (prefs.length === 0) return true; // No preference set → default enabled.
+
+    return prefs.some((pref) => {
+      if (pref.enableEmail) return true;
+      if (!pref.deliveryMethods) return false;
+      const methods =
+        typeof pref.deliveryMethods === "string"
+          ? [pref.deliveryMethods]
+          : (pref.deliveryMethods as string[]);
+      return methods.includes("email");
+    });
+  }
+
+  /**
+   * Builds the plain-text digest. PRIVACY: any client identity that leaves
+   * SmartHub is reduced to two initials via clientInitials() — never the full
+   * name, diagnosis, or notes.
+   */
+  private buildDailyScheduleEmail(
+    therapist: User,
+    todays: any[],
+    dayLabel: string,
+  ): { subject: string; body: string } {
+    const greetingName = therapist.fullName || "there";
+    const subject = `Your schedule for ${dayLabel}`;
+
+    if (todays.length === 0) {
+      const body = `Hi ${greetingName},
+
+You have no appointments scheduled for ${dayLabel}.
+
+— SmartHub`;
+      return { subject, body };
+    }
+
+    const lines = todays.map((s) => {
+      const startTime = format(
+        toZonedTime(new Date(s.sessionDate), PRACTICE_TZ),
+        "h:mm a",
+        { timeZone: PRACTICE_TZ },
+      );
+      const initials = clientInitials(s.client?.fullName);
+      const sessionType = s.service?.serviceName || "Session";
+      const location = this.formatDailyScheduleLocation(s);
+      return `• ${startTime} — ${initials} — ${sessionType}${location ? ` — ${location}` : ""}`;
+    });
+
+    const count = todays.length;
+    const body = `Hi ${greetingName},
+
+Here ${count === 1 ? "is your appointment" : `are your ${count} appointments`} for ${dayLabel}:
+
+${lines.join("\n")}
+
+All times are Eastern. Client names are shown as initials for privacy.
+
+— SmartHub`;
+    return { subject, body };
+  }
+
+  /**
+   * Location string for a digest line: the physical room, or the Zoom join link
+   * for telehealth. Contains no client information.
+   */
+  private formatDailyScheduleLocation(s: any): string {
+    if (s.zoomEnabled) {
+      return s.zoomJoinUrl
+        ? `Telehealth (Zoom): ${s.zoomJoinUrl}`
+        : "Telehealth (Zoom)";
+    }
+    if (s.room?.roomName) {
+      return s.room.roomNumber
+        ? `${s.room.roomName} (${s.room.roomNumber})`
+        : s.room.roomName;
+    }
+    return "";
   }
 }
 

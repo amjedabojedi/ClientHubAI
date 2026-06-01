@@ -1990,6 +1990,33 @@ export const insertCommTranscribeUploadSchema = createInsertSchema(commTranscrib
 export type InsertCommTranscribeUpload = z.infer<typeof insertCommTranscribeUploadSchema>;
 export type CommTranscribeUpload = typeof commTranscribeUploads.$inferSelect;
 
+// Daily Schedule Emails - tracks the once-per-day "your appointments today"
+// email sent to each active therapist at 8:00 AM Eastern. The unique
+// (therapistId, sendDate) row is BOTH the durable record of the send AND the
+// idempotency guard: a 'sent' row means that therapist has already been emailed
+// for that Eastern calendar day, so a server restart around 8 AM never double-sends.
+export const dailyScheduleEmails = pgTable("daily_schedule_emails", {
+  id: serial("id").primaryKey(),
+  therapistId: integer("therapist_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Eastern calendar day this email covers, e.g. "2026-06-02".
+  sendDate: date("send_date").notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("sent"), // processing | sent | failed
+  appointmentCount: integer("appointment_count").notNull().default(0),
+  attempts: integer("attempts").notNull().default(0),
+  error: text("error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  therapistDateIdx: uniqueIndex("daily_schedule_emails_therapist_date_idx").on(table.therapistId, table.sendDate),
+}));
+export const insertDailyScheduleEmailSchema = createInsertSchema(dailyScheduleEmails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDailyScheduleEmail = z.infer<typeof insertDailyScheduleEmailSchema>;
+export type DailyScheduleEmail = typeof dailyScheduleEmails.$inferSelect;
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
   createdAt: true,

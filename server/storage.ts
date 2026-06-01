@@ -47,7 +47,8 @@ import {
   patientConsents,
   sessionTranscripts,
   commTranscribeUploads,
-  paymentTransactions
+  paymentTransactions,
+  dailyScheduleEmails
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -140,7 +141,9 @@ import type {
   InsertNotificationPreference,
   NotificationTemplate,
   InsertNotificationTemplate,
-  PaymentTransaction
+  PaymentTransaction,
+  DailyScheduleEmail,
+  InsertDailyScheduleEmail
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -240,6 +243,19 @@ export interface IStorage {
   deleteUser(id: number): Promise<void>;
   getTherapists(): Promise<User[]>;
   getUsers(): Promise<User[]>;
+
+  // ===== DAILY SCHEDULE EMAILS (8 AM ET therapist digest) =====
+  // All daily-email tracking rows for a given Eastern calendar day (yyyy-MM-dd).
+  getDailyScheduleEmailsByDate(sendDate: string): Promise<DailyScheduleEmail[]>;
+  // Insert-or-update the per-(therapist, day) record. A 'sent' row is the
+  // idempotency guard that prevents a second send for the same Eastern day.
+  upsertDailyScheduleEmail(data: InsertDailyScheduleEmail): Promise<void>;
+  claimDailyScheduleEmail(
+    therapistId: number,
+    sendDate: string,
+    maxAttempts: number,
+    leaseMinutes: number,
+  ): Promise<DailyScheduleEmail | undefined>;
   
   // ===== USER PROFILES =====
   getUserProfile(userId: number): Promise<UserProfile | undefined>;
@@ -662,6 +678,79 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.isActive, true))
       .orderBy(asc(users.fullName));
+  }
+
+  // ===== Daily Schedule Emails =====
+  async getDailyScheduleEmailsByDate(sendDate: string): Promise<DailyScheduleEmail[]> {
+    return await db
+      .select()
+      .from(dailyScheduleEmails)
+      .where(eq(dailyScheduleEmails.sendDate, sendDate));
+  }
+
+  async upsertDailyScheduleEmail(data: InsertDailyScheduleEmail): Promise<void> {
+    await db
+      .insert(dailyScheduleEmails)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [dailyScheduleEmails.therapistId, dailyScheduleEmails.sendDate],
+        set: {
+          status: data.status ?? "sent",
+          appointmentCount: data.appointmentCount ?? 0,
+          attempts: data.attempts ?? 0,
+          error: data.error ?? null,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  // Atomically claims the (therapist, day) slot before any email is sent, so a
+  // crash between the SparkPost send and recording the result can never cause a
+  // duplicate send. Returns the claimed row (status 'processing') when this
+  // caller won the claim, or undefined when the slot is already 'sent', claimed
+  // by a live worker, or out of retries. A 'processing' row older than
+  // leaseMinutes is considered abandoned and can be re-claimed (at-least-once
+  // recovery for the rare send-then-crash window).
+  async claimDailyScheduleEmail(
+    therapistId: number,
+    sendDate: string,
+    maxAttempts: number,
+    leaseMinutes: number,
+  ): Promise<DailyScheduleEmail | undefined> {
+    const now = new Date();
+    const leaseCutoff = new Date(now.getTime() - leaseMinutes * 60_000);
+    const rows = await db
+      .insert(dailyScheduleEmails)
+      .values({
+        therapistId,
+        sendDate,
+        status: "processing",
+        appointmentCount: 0,
+        attempts: 1,
+        error: null,
+      })
+      .onConflictDoUpdate({
+        target: [dailyScheduleEmails.therapistId, dailyScheduleEmails.sendDate],
+        set: {
+          status: "processing",
+          attempts: sql`${dailyScheduleEmails.attempts} + 1`,
+          error: null,
+          updatedAt: now,
+        },
+        setWhere: or(
+          and(
+            eq(dailyScheduleEmails.status, "failed"),
+            lt(dailyScheduleEmails.attempts, maxAttempts),
+          ),
+          and(
+            eq(dailyScheduleEmails.status, "processing"),
+            lt(dailyScheduleEmails.updatedAt, leaseCutoff),
+            lt(dailyScheduleEmails.attempts, maxAttempts),
+          ),
+        ),
+      })
+      .returning();
+    return rows[0];
   }
 
   // User Profile Methods
