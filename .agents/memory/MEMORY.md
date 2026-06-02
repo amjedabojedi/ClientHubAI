@@ -8,3 +8,4 @@
 - [Notification pref delivery](notification-pref-delivery.md) — enableInApp/enableEmail booleans are the source of truth (deliveryMethods is fragile legacy); no row => both channels ON.
 - [Quiet hours global prefs](quiet-hours-global-prefs.md) — quiet hours + weekend muting live on one reserved "__global__" pref row per user; gate EMAIL only, in PRACTICE_TZ, windows wrap midnight.
 - [Drizzle ANY(array) on neon](drizzle-any-array-neon.md) — `sql\`= ANY(${jsArray})\`` throws at runtime on the neon driver; use inArray(). Silently yields 0 rows in try/catch paths.
+- [Notification recipient rules](notification-recipient-rules.md) — calculateRecipients swallows errors → 0 recipients; specificUsers ANY() bind throws on Neon, use assignedTherapist/roles instead.
