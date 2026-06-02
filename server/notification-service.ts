@@ -2077,11 +2077,27 @@ If you have any questions about joining the virtual session, please contact your
       // duplicate on the next run (the stuck 'processing' row is never
       // re-claimed). If we don't win the claim the slot is already sent, in
       // flight, or out of retries — skip it.
-      const claim = await storage.claimDailyScheduleEmail(
-        therapist.id,
-        easternDateStr,
-        DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS,
-      );
+      let claim;
+      try {
+        claim = await storage.claimDailyScheduleEmail(
+          therapist.id,
+          easternDateStr,
+          DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS,
+        );
+      } catch (claimErr) {
+        // The therapist may have been removed between getTherapists() and the
+        // claim insert (a concurrent deletion fails the therapist_id foreign
+        // key, PG code 23503). Skip just this therapist instead of aborting the
+        // whole run — everyone after them must still get their digest.
+        if ((claimErr as any)?.code === "23503") {
+          console.warn(
+            `[DAILY-SCHEDULE] Skipping therapist ${therapist.id} — removed before claim could be recorded.`,
+          );
+          skipped++;
+          continue;
+        }
+        throw claimErr;
+      }
       if (!claim) {
         skipped++;
         continue;

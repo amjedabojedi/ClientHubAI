@@ -157,11 +157,19 @@ async function rowFor(therapistId: number, sendDate: string) {
   return row;
 }
 
-// Unique, far-future Eastern dates so our rows never collide with real data and
-// can be removed wholesale by date in cleanup.
+// Per-process-unique, far-future Eastern dates. These must be unique not just
+// vs. real data but vs. any OTHER concurrent instance of this suite (the
+// workflow and a validation trigger can run it twice at once — see
+// .agents/memory/privacy-test-concurrency.md). A random offset across a
+// ~130-year future window makes cross-run date collisions effectively
+// impossible, so one run's cleanup-by-date can never delete another run's rows.
+const PROC_DATE_OFFSET =
+  (process.pid * 31 + Math.floor(Math.random() * 50000)) % 50000;
 let dateCounter = 0;
 function nextTestDate(): string {
-  const d = `2099-01-${String(10 + dateCounter++).padStart(2, "0")}`;
+  const base = new Date(Date.UTC(2050, 0, 1));
+  base.setUTCDate(base.getUTCDate() + PROC_DATE_OFFSET + dateCounter++);
+  const d = base.toISOString().slice(0, 10);
   testDates.push(d);
   return d;
 }

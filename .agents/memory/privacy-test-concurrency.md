@@ -20,6 +20,21 @@ and run in parallel). Instead chain them in a single serial validation command
 with `&&` (registered as validation `test-privacy`). If adding more app-level
 integration tests that create clients, fold them into the same serial chain.
 
+**Belt-and-suspenders (don't rely on serial-only):** in practice the suite CAN
+still run twice at once — the `test-privacy` workflow and a `mark_task_complete`
+validation trigger overlap. So make each suite robust to a concurrent twin, not
+just serial:
+- The `daily-schedule-email-*` tests call `processDailyScheduleEmails`, which
+  loops over ALL therapists. A concurrent twin deleting its own seeded
+  therapists mid-loop used to crash the whole run on the therapist_id FK (PG
+  `23503`). Production now skips a therapist whose claim insert hits `23503`
+  (deleted between `getTherapists()` and the claim) instead of aborting everyone.
+- Those tests isolate `daily_schedule_emails` rows by date and clean up by date.
+  Hardcoded dates collided across concurrent runs (one run's cleanup-by-date
+  wiped the other's rows → bogus assert failures). Fix: derive a
+  per-process-unique far-future date offset (`process.pid` + random over a
+  ~130-year window) so two instances never share a send date.
+
 **Tooling gotcha:** the serial chain must be a *validation* (`isValidation`),
 created via `setValidationCommand`, NOT a plain workflow. A workflow created
 with `configureWorkflow` is a non-validation workflow and cannot later be
