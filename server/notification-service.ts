@@ -612,7 +612,7 @@ export class NotificationService {
           .from(users)
           .where(
             and(
-              sql`${users.id} = ANY(${recipientRules.specificUsers})`,
+              inArray(users.id, recipientRules.specificUsers),
               eq(users.isActive, true),
             ),
           );
