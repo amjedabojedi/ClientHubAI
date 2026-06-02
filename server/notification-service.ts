@@ -31,6 +31,38 @@ const PRACTICE_TZ = "America/New_York";
 const DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS = 3;
 // notificationPreferences.triggerType key for the daily schedule digest.
 const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
+// notificationPreferences.triggerType key for the user's account-wide delivery
+// settings (quiet hours window + weekend muting). These are not tied to a single
+// event; one reserved row per user carries them.
+const GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER = "__global__";
+
+// Parses a stored 'HH:MM' or 'HH:MM:SS' string into minutes-since-midnight, or
+// null if it isn't a valid time-of-day.
+function parseTimeToMinutes(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+// True when `nowMinutes` falls inside the quiet-hours window. Windows may wrap
+// past midnight (e.g. 22:00 -> 08:00), which is the common after-hours case.
+function isWithinQuietWindow(
+  nowMinutes: number,
+  startMinutes: number,
+  endMinutes: number,
+): boolean {
+  if (startMinutes === endMinutes) return false; // Empty/degenerate window.
+  if (startMinutes < endMinutes) {
+    // Same-day window, e.g. 13:00 -> 14:00.
+    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+  }
+  // Wrapping window, e.g. 22:00 -> 08:00.
+  return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+}
 
 // Helper function to get the email sender address from environment
 function getEmailFromAddress(): string {
@@ -880,6 +912,22 @@ export class NotificationService {
               `[EMAIL] Skipping ${recipient.email} - email notifications disabled`,
             );
             continue;
+          }
+
+          // Respect the recipient's account-wide quiet hours / weekend muting.
+          // Only gate real staff accounts — clients have no global preference row
+          // and should always receive their transactional emails. The in-app
+          // record (created above) preserves the event so nothing is lost.
+          if (recipient.role !== "client") {
+            const suppression = await this.isDeliverySuppressedByQuietHours(
+              recipient.id,
+            );
+            if (suppression.suppressed) {
+              console.log(
+                `[EMAIL] Skipping ${recipient.email} - suppressed by ${suppression.reason}`,
+              );
+              continue;
+            }
           }
 
           if (!recipient.email) {
@@ -2213,6 +2261,58 @@ If you have any questions about joining the virtual session, please contact your
     }
 
     return { sent, skipped, failed };
+  }
+
+  /**
+   * Whether the user's account-wide delivery settings (quiet hours + weekend
+   * muting) say an outbound email "ping" should be suppressed right now.
+   *
+   * Quiet hours and weekend muting are stored on a single reserved
+   * GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER row per user. Times are interpreted
+   * in the practice timezone so the window matches the therapist's local clock.
+   * Returns false (deliver) when the user has no global row.
+   */
+  private async isDeliverySuppressedByQuietHours(
+    userId: number,
+    now: Date = new Date(),
+  ): Promise<{ suppressed: boolean; reason?: string }> {
+    const rows = await db
+      .select()
+      .from(notificationPreferences)
+      .where(
+        and(
+          eq(notificationPreferences.userId, userId),
+          eq(
+            notificationPreferences.triggerType,
+            GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER,
+          ),
+        ),
+      );
+
+    const pref = rows[0];
+    if (!pref) return { suppressed: false };
+
+    const zonedNow = toZonedTime(now, PRACTICE_TZ);
+
+    // Weekend muting: weekendsEnabled === false means mute Sat/Sun.
+    if (pref.weekendsEnabled === false) {
+      const day = zonedNow.getDay(); // 0 = Sunday, 6 = Saturday
+      if (day === 0 || day === 6) {
+        return { suppressed: true, reason: "weekend muting" };
+      }
+    }
+
+    // Quiet hours: only active when both ends of the window are valid times.
+    const startMinutes = parseTimeToMinutes(pref.quietHoursStart);
+    const endMinutes = parseTimeToMinutes(pref.quietHoursEnd);
+    if (startMinutes !== null && endMinutes !== null) {
+      const nowMinutes = zonedNow.getHours() * 60 + zonedNow.getMinutes();
+      if (isWithinQuietWindow(nowMinutes, startMinutes, endMinutes)) {
+        return { suppressed: true, reason: "quiet hours" };
+      }
+    }
+
+    return { suppressed: false };
   }
 
   /**

@@ -57,10 +57,25 @@ interface UserNotificationPreference {
   enableInApp: boolean;
   enableEmail: boolean;
   enableSms: boolean;
+  quietHoursStart?: string | null;
+  quietHoursEnd?: string | null;
+  weekendsEnabled?: boolean;
 }
 
 // notificationPreferences.triggerType key for the 8 AM daily schedule digest.
 const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
+
+// Reserved triggerType carrying the user's account-wide delivery settings
+// (quiet hours window + weekend muting). Mirrors the server constant.
+const GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER = "__global__";
+
+// Stored quiet-hours times are 'HH:MM:SS'; <input type="time"> works in 'HH:MM'.
+function toTimeInputValue(value: string | null | undefined): string {
+  if (!value) return "";
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return "";
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
 
 // Curated list of notification events a user can control per-channel. Each
 // triggerType matches the notificationTriggers.eventType the server delivers on,
@@ -662,6 +677,53 @@ export default function NotificationsPage() {
     return deliveryMethodsIncludeEmail(dailyDigestPref.deliveryMethods);
   })();
 
+  // Account-wide delivery settings (quiet hours + weekend muting) live on a
+  // single reserved row. No row means quiet hours off and weekends enabled.
+  const globalPref = userPreferences.find(
+    (pref) => pref.triggerType === GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER
+  );
+  const quietHoursEnabled = Boolean(
+    globalPref?.quietHoursStart && globalPref?.quietHoursEnd
+  );
+  const weekendsEnabled = globalPref?.weekendsEnabled ?? true;
+
+  // Local editable state for the quiet-hours time inputs, seeded from the saved
+  // preference. Defaults to a typical after-hours window when first enabled.
+  const [quietStart, setQuietStart] = useState("22:00");
+  const [quietEnd, setQuietEnd] = useState("08:00");
+
+  useEffect(() => {
+    if (globalPref?.quietHoursStart) {
+      setQuietStart(toTimeInputValue(globalPref.quietHoursStart));
+    }
+    if (globalPref?.quietHoursEnd) {
+      setQuietEnd(toTimeInputValue(globalPref.quietHoursEnd));
+    }
+  }, [globalPref?.quietHoursStart, globalPref?.quietHoursEnd]);
+
+  const setGlobalPreferenceMutation = useMutation({
+    mutationFn: (payload: {
+      quietHoursStart?: string | null;
+      quietHoursEnd?: string | null;
+      weekendsEnabled?: boolean;
+    }) =>
+      apiRequest(
+        `/api/notifications/preferences/${GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER}`,
+        "PUT",
+        payload
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
+    },
+    onError: () => {
+      toast({
+        title: "Couldn't update preference",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Derive per-channel state for a given trigger. No row means both channels are
   // on (matches the server's default-enabled delivery behavior).
   const getTriggerChannelState = (triggerType: string) => {
@@ -1148,6 +1210,143 @@ export default function NotificationsPage() {
                     onCheckedChange={(checked) => setDailyDigestMutation.mutate(checked)}
                     data-testid="switch-daily-schedule-email"
                   />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Quiet hours & weekends
+              </CardTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Pause email notifications during off-hours. In-app notifications
+                still appear so you don't miss anything when you're back.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {preferencesLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading preferences...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-4 p-4 border rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 mt-0.5 text-gray-500" />
+                      <div>
+                        <Label htmlFor="quiet-hours-toggle" className="text-base font-medium">
+                          Quiet hours
+                        </Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                          Don't send email notifications during this daily window
+                          (practice time). Overnight windows are supported.
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="quiet-hours-toggle"
+                      checked={quietHoursEnabled}
+                      disabled={setGlobalPreferenceMutation.isPending}
+                      onCheckedChange={(checked) =>
+                        setGlobalPreferenceMutation.mutate(
+                          checked
+                            ? {
+                                quietHoursStart: `${quietStart}:00`,
+                                quietHoursEnd: `${quietEnd}:00`,
+                              }
+                            : { quietHoursStart: null, quietHoursEnd: null }
+                        )
+                      }
+                      data-testid="switch-quiet-hours"
+                    />
+                  </div>
+
+                  {quietHoursEnabled && (
+                    <div className="flex flex-wrap items-end gap-4 p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <Label htmlFor="quiet-start" className="text-sm font-medium">
+                          From
+                        </Label>
+                        <Input
+                          id="quiet-start"
+                          type="time"
+                          className="w-36"
+                          value={quietStart}
+                          onChange={(e) => setQuietStart(e.target.value)}
+                          data-testid="input-quiet-start"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="quiet-end" className="text-sm font-medium">
+                          Until
+                        </Label>
+                        <Input
+                          id="quiet-end"
+                          type="time"
+                          className="w-36"
+                          value={quietEnd}
+                          onChange={(e) => setQuietEnd(e.target.value)}
+                          data-testid="input-quiet-end"
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        disabled={
+                          setGlobalPreferenceMutation.isPending ||
+                          !quietStart ||
+                          !quietEnd
+                        }
+                        onClick={() =>
+                          setGlobalPreferenceMutation.mutate(
+                            {
+                              quietHoursStart: `${quietStart}:00`,
+                              quietHoursEnd: `${quietEnd}:00`,
+                            },
+                            {
+                              onSuccess: () =>
+                                toast({
+                                  title: "Quiet hours updated",
+                                  description: `Emails paused from ${quietStart} to ${quietEnd}.`,
+                                }),
+                            }
+                          )
+                        }
+                        data-testid="button-save-quiet-hours"
+                      >
+                        Save window
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-4 p-4 border rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Calendar className="h-5 w-5 mt-0.5 text-gray-500" />
+                      <div>
+                        <Label htmlFor="weekend-toggle" className="text-base font-medium">
+                          Weekend notifications
+                        </Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                          When off, email notifications are muted on Saturdays and
+                          Sundays.
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="weekend-toggle"
+                      checked={weekendsEnabled}
+                      disabled={setGlobalPreferenceMutation.isPending}
+                      onCheckedChange={(checked) =>
+                        setGlobalPreferenceMutation.mutate({
+                          weekendsEnabled: checked,
+                        })
+                      }
+                      data-testid="switch-weekend-notifications"
+                    />
+                  </div>
                 </div>
               )}
             </CardContent>
