@@ -438,13 +438,7 @@ function Router() {
             }
             return <DuplicateDetectionPage />;
           }} />
-          <Route path="/notifications" component={() => {
-            const { user } = useAuth();
-            if (!isAdminOnly(user)) {
-              return <AccessRestricted message="Notification management is restricted to administrators only." />;
-            }
-            return <NotificationsPage />;
-          }} />
+          <Route path="/notifications" component={NotificationsPage} />
           <Route path="/settings" component={() => {
             const { user } = useAuth();
             if (!isAdminOnly(user)) {
