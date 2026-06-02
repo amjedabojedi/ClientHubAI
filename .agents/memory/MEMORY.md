@@ -5,3 +5,4 @@
 - [Scheduled email idempotency](scheduled-email-idempotency.md) — recurring outbound emails claim a unique (recipient, day) row to 'processing' BEFORE sending, then mark 'sent'; never send-then-record.
 - [Privacy test concurrency](privacy-test-concurrency.md) — app-level privacy/transcription tsx tests must run serially; createClient races on CL-<year>-<MAX+1>.
 - [External client privacy](external-client-privacy.md) — anything leaving SmartHub (feeds, emails) must use clientInitials() "J.D." only; not the internal formatClientInitial "John D."
+- [Notification pref delivery](notification-pref-delivery.md) — enableInApp/enableEmail booleans are the source of truth (deliveryMethods is fragile legacy); no row => both channels ON.

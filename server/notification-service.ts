@@ -706,8 +706,34 @@ export class NotificationService {
 
       // Create in-app notifications for actual users (not clients)
       // Clients don't have user accounts, so they can't see in-app notifications
+      // Respect each user's in-app preference for this trigger type. Default is
+      // enabled when the user has no preference row (matches email behavior).
+      let inAppUsers = actualUsers;
       if (actualUsers.length > 0) {
-        const notificationsData: InsertNotification[] = actualUsers.map(
+        const inAppPrefs = await db
+          .select()
+          .from(notificationPreferences)
+          .where(
+            and(
+              inArray(
+                notificationPreferences.userId,
+                actualUsers.map((u) => u.id),
+              ),
+              eq(notificationPreferences.triggerType, trigger.eventType),
+            ),
+          );
+        const inAppDisabledUserIds = new Set(
+          inAppPrefs
+            .filter((pref) => pref.enableInApp === false)
+            .map((pref) => pref.userId),
+        );
+        inAppUsers = actualUsers.filter(
+          (u) => !inAppDisabledUserIds.has(u.id),
+        );
+      }
+
+      if (inAppUsers.length > 0) {
+        const notificationsData: InsertNotification[] = inAppUsers.map(
           (recipient) => {
             // Use template if available, otherwise generate smart defaults
             let title: string;
@@ -840,6 +866,7 @@ export class NotificationService {
           const hasEmailEnabled =
             preferences.length === 0 || // Default to enabled if no preference set
             preferences.some((pref) => {
+              if (pref.enableEmail) return true;
               if (!pref.deliveryMethods) return false;
               const methods =
                 typeof pref.deliveryMethods === "string"

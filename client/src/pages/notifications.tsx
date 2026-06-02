@@ -62,6 +62,63 @@ interface UserNotificationPreference {
 // notificationPreferences.triggerType key for the 8 AM daily schedule digest.
 const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
 
+// Curated list of notification events a user can control per-channel. Each
+// triggerType matches the notificationTriggers.eventType the server delivers on,
+// so a notificationPreferences row keyed by triggerType controls that event.
+const USER_NOTIFICATION_TRIGGER_GROUPS: {
+  category: string;
+  items: { triggerType: string; label: string; description: string }[];
+}[] = [
+  {
+    category: "Sessions",
+    items: [
+      { triggerType: "session_scheduled", label: "Session scheduled", description: "When a new session is booked for you." },
+      { triggerType: "session_rescheduled", label: "Session rescheduled", description: "When one of your sessions is moved to a new time." },
+      { triggerType: "session_cancelled", label: "Session cancelled", description: "When one of your sessions is cancelled." },
+    ],
+  },
+  {
+    category: "Clients",
+    items: [
+      { triggerType: "client_assigned", label: "Client assigned", description: "When a client is assigned to you." },
+    ],
+  },
+  {
+    category: "Tasks",
+    items: [
+      { triggerType: "task_assigned", label: "Task assigned", description: "When a task is assigned to you." },
+      { triggerType: "task_overdue", label: "Task overdue", description: "When one of your tasks becomes overdue." },
+    ],
+  },
+  {
+    category: "Assessments",
+    items: [
+      { triggerType: "assessment_assigned", label: "Assessment assigned", description: "When an assessment is assigned to you." },
+      { triggerType: "assessment_completed", label: "Assessment completed", description: "When a client completes an assessment." },
+    ],
+  },
+  {
+    category: "Documents",
+    items: [
+      { triggerType: "document_needs_review", label: "Document needs review", description: "When a document needs your supervisory review." },
+    ],
+  },
+  {
+    category: "Billing",
+    items: [
+      { triggerType: "payment_overdue", label: "Payment overdue", description: "When a client payment becomes overdue." },
+    ],
+  },
+];
+
+// Mirror the server's email check: a row enables email when the enableEmail flag
+// is set or the legacy deliveryMethods list includes "email".
+function deliveryMethodsIncludeEmail(methods: string[] | string | null | undefined): boolean {
+  if (!methods) return false;
+  const list = typeof methods === "string" ? [methods] : methods;
+  return Array.isArray(list) && list.includes("email");
+}
+
 interface NotificationTrigger {
   id: number;
   name: string;
@@ -602,11 +659,45 @@ export default function NotificationsPage() {
   const dailyDigestEnabled = (() => {
     if (!dailyDigestPref) return true;
     if (dailyDigestPref.enableEmail) return true;
-    const methods = dailyDigestPref.deliveryMethods;
-    if (!methods) return false;
-    const list = typeof methods === "string" ? [methods] : methods;
-    return Array.isArray(list) && list.includes("email");
+    return deliveryMethodsIncludeEmail(dailyDigestPref.deliveryMethods);
   })();
+
+  // Derive per-channel state for a given trigger. No row means both channels are
+  // on (matches the server's default-enabled delivery behavior).
+  const getTriggerChannelState = (triggerType: string) => {
+    const pref = userPreferences.find((p) => p.triggerType === triggerType);
+    if (!pref) return { inApp: true, email: true };
+    return {
+      inApp: pref.enableInApp,
+      email: pref.enableEmail || deliveryMethodsIncludeEmail(pref.deliveryMethods),
+    };
+  };
+
+  const setTriggerPreferenceMutation = useMutation({
+    mutationFn: ({
+      triggerType,
+      enableInApp,
+      enableEmail,
+    }: {
+      triggerType: string;
+      enableInApp: boolean;
+      enableEmail: boolean;
+    }) =>
+      apiRequest(`/api/notifications/preferences/${triggerType}`, "PUT", {
+        enableInApp,
+        enableEmail,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
+    },
+    onError: () => {
+      toast({
+        title: "Couldn't update preference",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const setDailyDigestMutation = useMutation({
     mutationFn: (enabled: boolean) =>
@@ -1057,6 +1148,100 @@ export default function NotificationsPage() {
                     onCheckedChange={(checked) => setDailyDigestMutation.mutate(checked)}
                     data-testid="switch-daily-schedule-email"
                   />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Event notifications
+              </CardTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Choose how you'd like to be notified for each event. In-app shows
+                up in your notification center; email is sent to your inbox.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {preferencesLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                  <span>Loading preferences...</span>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Column headers for the channel toggles */}
+                  <div className="hidden sm:flex items-center justify-end gap-8 pr-1 text-xs font-medium text-gray-500">
+                    <span className="w-16 text-center flex items-center justify-center gap-1">
+                      <Bell className="h-3.5 w-3.5" /> In-app
+                    </span>
+                    <span className="w-16 text-center flex items-center justify-center gap-1">
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </span>
+                  </div>
+
+                  {USER_NOTIFICATION_TRIGGER_GROUPS.map((group) => (
+                    <div key={group.category} className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {group.category}
+                      </h3>
+                      <div className="space-y-2">
+                        {group.items.map((item) => {
+                          const state = getTriggerChannelState(item.triggerType);
+                          return (
+                            <div
+                              key={item.triggerType}
+                              className="flex items-center justify-between gap-4 p-3 border rounded-lg"
+                              data-testid={`pref-row-${item.triggerType}`}
+                            >
+                              <div className="min-w-0">
+                                <Label className="text-sm font-medium">
+                                  {item.label}
+                                </Label>
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                                  {item.description}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-8 shrink-0">
+                                <div className="w-16 flex justify-center">
+                                  <Switch
+                                    checked={state.inApp}
+                                    disabled={setTriggerPreferenceMutation.isPending}
+                                    onCheckedChange={(checked) =>
+                                      setTriggerPreferenceMutation.mutate({
+                                        triggerType: item.triggerType,
+                                        enableInApp: checked,
+                                        enableEmail: state.email,
+                                      })
+                                    }
+                                    aria-label={`In-app notifications for ${item.label}`}
+                                    data-testid={`switch-inapp-${item.triggerType}`}
+                                  />
+                                </div>
+                                <div className="w-16 flex justify-center">
+                                  <Switch
+                                    checked={state.email}
+                                    disabled={setTriggerPreferenceMutation.isPending}
+                                    onCheckedChange={(checked) =>
+                                      setTriggerPreferenceMutation.mutate({
+                                        triggerType: item.triggerType,
+                                        enableInApp: state.inApp,
+                                        enableEmail: checked,
+                                      })
+                                    }
+                                    aria-label={`Email notifications for ${item.label}`}
+                                    data-testid={`switch-email-${item.triggerType}`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
