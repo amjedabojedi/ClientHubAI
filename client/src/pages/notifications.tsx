@@ -60,6 +60,7 @@ interface UserNotificationPreference {
   quietHoursStart?: string | null;
   quietHoursEnd?: string | null;
   weekendsEnabled?: boolean;
+  quietHoursDeferToSummary?: boolean;
 }
 
 // notificationPreferences.triggerType key for the 8 AM daily schedule digest.
@@ -686,6 +687,10 @@ export default function NotificationsPage() {
     globalPref?.quietHoursStart && globalPref?.quietHoursEnd
   );
   const weekendsEnabled = globalPref?.weekendsEnabled ?? true;
+  // When on, emails paused by quiet hours/weekends are queued and delivered as a
+  // single catch-up summary once you're back, instead of being skipped entirely.
+  const deferToSummary = globalPref?.quietHoursDeferToSummary ?? false;
+  const mutingActive = quietHoursEnabled || !weekendsEnabled;
 
   // Local editable state for the quiet-hours time inputs, seeded from the saved
   // preference. Defaults to a typical after-hours window when first enabled.
@@ -706,6 +711,7 @@ export default function NotificationsPage() {
       quietHoursStart?: string | null;
       quietHoursEnd?: string | null;
       weekendsEnabled?: boolean;
+      quietHoursDeferToSummary?: boolean;
     }) =>
       apiRequest(
         `/api/notifications/preferences/${GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER}`,
@@ -1345,6 +1351,44 @@ export default function NotificationsPage() {
                         })
                       }
                       data-testid="switch-weekend-notifications"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 p-4 border rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Mail className="h-5 w-5 mt-0.5 text-gray-500" />
+                      <div>
+                        <Label htmlFor="defer-summary-toggle" className="text-base font-medium">
+                          Send a catch-up summary
+                        </Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                          {mutingActive
+                            ? "Instead of skipping paused emails, collect them and send one summary email once quiet hours end (or the weekend passes)."
+                            : "Turn on quiet hours or weekend muting above to use catch-up summaries for paused emails."}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="defer-summary-toggle"
+                      checked={deferToSummary}
+                      disabled={setGlobalPreferenceMutation.isPending || !mutingActive}
+                      onCheckedChange={(checked) =>
+                        setGlobalPreferenceMutation.mutate(
+                          { quietHoursDeferToSummary: checked },
+                          {
+                            onSuccess: () =>
+                              toast({
+                                title: checked
+                                  ? "Catch-up summary on"
+                                  : "Catch-up summary off",
+                                description: checked
+                                  ? "Paused emails will arrive as one summary once you're back."
+                                  : "Paused emails will be skipped instead of summarized.",
+                              }),
+                          }
+                        )
+                      }
+                      data-testid="switch-defer-summary"
                     />
                   </div>
                 </div>

@@ -48,7 +48,8 @@ import {
   sessionTranscripts,
   commTranscribeUploads,
   paymentTransactions,
-  dailyScheduleEmails
+  dailyScheduleEmails,
+  deferredNotificationEmails
 } from "@shared/schema";
 
 // Database Schema - Types
@@ -143,7 +144,9 @@ import type {
   InsertNotificationTemplate,
   PaymentTransaction,
   DailyScheduleEmail,
-  InsertDailyScheduleEmail
+  InsertDailyScheduleEmail,
+  DeferredNotificationEmail,
+  InsertDeferredNotificationEmail
 } from "@shared/schema";
 
 export interface ClientsQueryParams {
@@ -255,7 +258,22 @@ export interface IStorage {
     sendDate: string,
     maxAttempts: number,
   ): Promise<DailyScheduleEmail | undefined>;
-  
+
+  // ===== Deferred (quiet-hours) notification emails =====
+  // Queue an email "ping" that was suppressed by quiet hours/weekend muting so a
+  // catch-up summary can deliver it later instead of dropping it.
+  enqueueDeferredNotificationEmail(data: InsertDeferredNotificationEmail): Promise<void>;
+  // Distinct user ids that currently have at least one 'pending' queued email.
+  getPendingDeferredEmailUserIds(): Promise<number[]>;
+  // Atomically claim all of a user's 'pending' rows (-> 'processing'), bumping
+  // attempts, and return them. Only the caller that wins the claim gets rows.
+  claimPendingDeferredEmails(userId: number): Promise<DeferredNotificationEmail[]>;
+  // Mark a set of claimed rows as 'sent'.
+  markDeferredEmailsSent(ids: number[]): Promise<void>;
+  // Release claimed rows after a send failure: back to 'pending' for retry, or
+  // 'failed' once they have reached maxAttempts (so they stop being retried).
+  releaseDeferredEmails(ids: number[], maxAttempts: number, error: string): Promise<void>;
+
   // ===== USER PROFILES =====
   getUserProfile(userId: number): Promise<UserProfile | undefined>;
   createUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
@@ -745,6 +763,81 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return rows[0];
+  }
+
+  // ===== Deferred (quiet-hours) notification emails =====
+  async enqueueDeferredNotificationEmail(
+    data: InsertDeferredNotificationEmail,
+  ): Promise<void> {
+    await db.insert(deferredNotificationEmails).values(data);
+  }
+
+  async getPendingDeferredEmailUserIds(): Promise<number[]> {
+    const rows = await db
+      .selectDistinct({ userId: deferredNotificationEmails.userId })
+      .from(deferredNotificationEmails)
+      .where(eq(deferredNotificationEmails.status, "pending"));
+    return rows.map((r) => r.userId);
+  }
+
+  // Atomically claim a user's pending rows. The single UPDATE ... RETURNING is
+  // the idempotency guard: only ONE caller flips 'pending' -> 'processing', so
+  // two overlapping ticks (or instances) can't both send the same summary.
+  async claimPendingDeferredEmails(
+    userId: number,
+  ): Promise<DeferredNotificationEmail[]> {
+    return await db
+      .update(deferredNotificationEmails)
+      .set({
+        status: "processing",
+        attempts: sql`${deferredNotificationEmails.attempts} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(deferredNotificationEmails.userId, userId),
+          eq(deferredNotificationEmails.status, "pending"),
+        ),
+      )
+      .returning();
+  }
+
+  async markDeferredEmailsSent(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    await db
+      .update(deferredNotificationEmails)
+      .set({ status: "sent", error: null, updatedAt: new Date() })
+      .where(inArray(deferredNotificationEmails.id, ids));
+  }
+
+  // After a send failure: rows still under the cap go back to 'pending' for a
+  // later retry; rows that have hit the cap are marked 'failed' so they stop
+  // being retried (no storm). Crash-after-send rows are NOT handled here — they
+  // stay 'processing' and are intentionally never re-sent (at-most-once).
+  async releaseDeferredEmails(
+    ids: number[],
+    maxAttempts: number,
+    error: string,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    await db
+      .update(deferredNotificationEmails)
+      .set({ status: "pending", error, updatedAt: new Date() })
+      .where(
+        and(
+          inArray(deferredNotificationEmails.id, ids),
+          lt(deferredNotificationEmails.attempts, maxAttempts),
+        ),
+      );
+    await db
+      .update(deferredNotificationEmails)
+      .set({ status: "failed", error, updatedAt: new Date() })
+      .where(
+        and(
+          inArray(deferredNotificationEmails.id, ids),
+          gte(deferredNotificationEmails.attempts, maxAttempts),
+        ),
+      );
   }
 
   // User Profile Methods

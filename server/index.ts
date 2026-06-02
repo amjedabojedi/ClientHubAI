@@ -102,6 +102,7 @@ let server: any = null;
 let scheduledNotificationInterval: NodeJS.Timeout | null = null;
 let documentReviewReminderInterval: NodeJS.Timeout | null = null;
 let dailyScheduleEmailInterval: NodeJS.Timeout | null = null;
+let deferredSummaryEmailInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
 
 // Graceful shutdown handler
@@ -113,6 +114,7 @@ async function gracefulShutdown(signal: string) {
   if (scheduledNotificationInterval) clearInterval(scheduledNotificationInterval);
   if (documentReviewReminderInterval) clearInterval(documentReviewReminderInterval);
   if (dailyScheduleEmailInterval) clearInterval(dailyScheduleEmailInterval);
+  if (deferredSummaryEmailInterval) clearInterval(deferredSummaryEmailInterval);
 
   const forceTimer = setTimeout(() => {
     log("Forcing shutdown due to timeout");
@@ -275,6 +277,24 @@ process.on("SIGUSR2", () => void gracefulShutdown("SIGUSR2")); // For nodemon
       log("Daily schedule email job started (sends once per day after 8 AM ET)");
     } catch (cronError) {
       log(`Warning: Failed to start daily schedule email job: ${cronError}`);
+    }
+
+    // Deferred quiet-hours catch-up summary: emails suppressed by a user's quiet
+    // hours / weekend muting (when they chose "defer to summary") are queued
+    // instead of dropped; this poll flushes each user's queue as a single
+    // consolidated email once they are no longer muted. Checking every minute
+    // keeps the catch-up prompt after the window ends.
+    try {
+      deferredSummaryEmailInterval = setInterval(async () => {
+        try {
+          await notificationService.runDeferredSummaryEmailsIfDue();
+        } catch (err) {
+          console.error("[CRON] Error sending deferred summary emails:", err);
+        }
+      }, 60 * 1000); // Check every 60 seconds
+      log("Deferred summary email job started (flushes catch-up emails once unmuted)");
+    } catch (cronError) {
+      log(`Warning: Failed to start deferred summary email job: ${cronError}`);
     }
 
     log("Registering routes...");

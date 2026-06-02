@@ -29,6 +29,9 @@ const PRACTICE_TZ = "America/New_York";
 // Daily-email idempotency: how many times we'll retry a failed therapist send
 // within the same Eastern day before giving up (avoids retry storms).
 const DAILY_SCHEDULE_EMAIL_MAX_ATTEMPTS = 3;
+// Deferred catch-up summary: how many times we'll retry a failed summary send
+// for a user before marking their queued rows 'failed' (avoids a retry storm).
+const DEFERRED_SUMMARY_EMAIL_MAX_ATTEMPTS = 3;
 // notificationPreferences.triggerType key for the daily schedule digest.
 const DAILY_SCHEDULE_EMAIL_TRIGGER = "daily_schedule_email";
 // notificationPreferences.triggerType key for the user's account-wide delivery
@@ -914,22 +917,6 @@ export class NotificationService {
             continue;
           }
 
-          // Respect the recipient's account-wide quiet hours / weekend muting.
-          // Only gate real staff accounts — clients have no global preference row
-          // and should always receive their transactional emails. The in-app
-          // record (created above) preserves the event so nothing is lost.
-          if (recipient.role !== "client") {
-            const suppression = await this.isDeliverySuppressedByQuietHours(
-              recipient.id,
-            );
-            if (suppression.suppressed) {
-              console.log(
-                `[EMAIL] Skipping ${recipient.email} - suppressed by ${suppression.reason}`,
-              );
-              continue;
-            }
-          }
-
           if (!recipient.email) {
             console.log(
               `[EMAIL] Skipping recipient ${recipient.id} - no email address`,
@@ -951,6 +938,40 @@ export class NotificationService {
 
           // Note: Zoom details are now integrated into generatePurposeSpecificEmailBody
           // No need to append separately as it was causing duplicate content
+
+          // Respect the recipient's account-wide quiet hours / weekend muting.
+          // Only gate real staff accounts — clients have no global preference row
+          // and should always receive their transactional emails. The in-app
+          // record (created above) preserves the event so nothing is lost.
+          if (recipient.role !== "client") {
+            const suppression = await this.isDeliverySuppressedByQuietHours(
+              recipient.id,
+            );
+            if (suppression.suppressed) {
+              if (suppression.deferToSummary) {
+                // Defer instead of drop: queue the already-rendered email so a
+                // catch-up summary can deliver it once the user is no longer
+                // muted (see processDeferredSummaryEmails).
+                await storage.enqueueDeferredNotificationEmail({
+                  userId: recipient.id,
+                  triggerType: trigger.eventType,
+                  subject,
+                  body,
+                  reason: suppression.reason ?? "quiet hours",
+                  status: "pending",
+                  attempts: 0,
+                });
+                console.log(
+                  `[EMAIL] Deferring ${recipient.email} to summary - suppressed by ${suppression.reason}`,
+                );
+              } else {
+                console.log(
+                  `[EMAIL] Skipping ${recipient.email} - suppressed by ${suppression.reason}`,
+                );
+              }
+              continue;
+            }
+          }
 
           console.log(
             `[EMAIL] Sending ${trigger.eventType} email to ${recipient.email}...`,
@@ -2274,6 +2295,174 @@ If you have any questions about joining the virtual session, please contact your
     return { sent, skipped, failed };
   }
 
+  // ============================================================
+  // Deferred quiet-hours catch-up summary
+  // ============================================================
+
+  // Prevents overlapping summary ticks within this process.
+  private deferredSummaryInFlight = false;
+
+  /**
+   * Called every minute by the background poller. Flushes any queued (deferred)
+   * emails for users who are no longer muted by quiet hours/weekends, sending
+   * each such user ONE consolidated catch-up email. Safe to call repeatedly.
+   */
+  async runDeferredSummaryEmailsIfDue(now: Date = new Date()): Promise<void> {
+    if (this.deferredSummaryInFlight) return;
+    this.deferredSummaryInFlight = true;
+    try {
+      await this.processDeferredSummaryEmails(now);
+    } finally {
+      this.deferredSummaryInFlight = false;
+    }
+  }
+
+  /**
+   * For each user with pending deferred emails, send a single consolidated
+   * summary IF they are no longer muted right now (the quiet window has ended /
+   * it's a non-muted day). Users still inside their quiet window or muted
+   * weekend are left untouched so their summary waits until they're back.
+   *
+   * Idempotency mirrors the daily digest (see
+   * .agents/memory/scheduled-email-idempotency.md): the pending rows are claimed
+   * (flipped to 'processing') BEFORE the send, so an overlapping tick or a
+   * crash can't double-send. A crash after the provider accepts but before the
+   * rows are marked 'sent' leaves them 'processing' and they are never re-sent
+   * (at-most-once). An explicit provider rejection releases the rows back to
+   * 'pending' for a capped retry. Returns counts for tests/observability.
+   */
+  async processDeferredSummaryEmails(
+    now: Date = new Date(),
+  ): Promise<{ sent: number; skipped: number; failed: number }> {
+    let sent = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    if (!process.env.SPARKPOST_API_KEY) {
+      console.log(
+        "[DEFERRED-SUMMARY] SparkPost API key not configured - skipping",
+      );
+      return { sent, skipped, failed };
+    }
+
+    let fromEmail: string;
+    try {
+      fromEmail = getEmailFromAddress();
+    } catch (err) {
+      console.error("[DEFERRED-SUMMARY] EMAIL_FROM not configured:", err);
+      return { sent, skipped, failed };
+    }
+
+    const userIds = await storage.getPendingDeferredEmailUserIds();
+    if (userIds.length === 0) return { sent, skipped, failed };
+
+    const sp = new SparkPost(process.env.SPARKPOST_API_KEY);
+
+    for (const userId of userIds) {
+      // Only flush once the user is no longer muted. Still-muted users keep
+      // their pending rows for a later tick (when the window ends / weekend
+      // passes).
+      const suppression = await this.isDeliverySuppressedByQuietHours(
+        userId,
+        now,
+      );
+      if (suppression.suppressed) {
+        skipped++;
+        continue;
+      }
+
+      // Claim the user's pending rows BEFORE sending (idempotency guard).
+      const claimed = await storage.claimPendingDeferredEmails(userId);
+      if (claimed.length === 0) {
+        skipped++;
+        continue;
+      }
+      const ids = claimed.map((r) => r.id);
+
+      const recipient = await storage.getUser(userId);
+      if (!recipient || !recipient.email) {
+        // No address to send to — mark these at the cap so they aren't retried.
+        await storage.releaseDeferredEmails(
+          ids,
+          DEFERRED_SUMMARY_EMAIL_MAX_ATTEMPTS,
+          "Recipient has no email address",
+        );
+        failed++;
+        continue;
+      }
+
+      try {
+        const { subject, body } = this.buildDeferredSummaryEmail(
+          recipient,
+          claimed,
+        );
+        const result = await sp.transmissions.send({
+          content: {
+            from: fromEmail,
+            subject,
+            html: this.formatEmailAsHtml(body, {}),
+            text: body,
+          },
+          recipients: [{ address: recipient.email }],
+        });
+        console.log(
+          `[DEFERRED-SUMMARY] ✓ Sent ${claimed.length}-item catch-up to ${recipient.email} (ID: ${result.results.id})`,
+        );
+        await storage.markDeferredEmailsSent(ids);
+        sent++;
+      } catch (err) {
+        console.error(
+          `[DEFERRED-SUMMARY] ✗ Failed to send catch-up to user ${userId}:`,
+          err,
+        );
+        await storage.releaseDeferredEmails(
+          ids,
+          DEFERRED_SUMMARY_EMAIL_MAX_ATTEMPTS,
+          err instanceof Error ? err.message : String(err),
+        );
+        failed++;
+      }
+    }
+
+    return { sent, skipped, failed };
+  }
+
+  /**
+   * Builds the consolidated catch-up email from a user's queued items. Each
+   * queued row already holds the subject/body that the original per-event email
+   * would have sent to THIS SAME recipient, so we simply stitch them together —
+   * no extra privacy reduction is needed (same recipient, same content).
+   */
+  private buildDeferredSummaryEmail(
+    recipient: User,
+    items: { subject: string; body: string }[],
+  ): { subject: string; body: string } {
+    const greetingName = recipient.fullName || "there";
+    const count = items.length;
+    const subject =
+      count === 1
+        ? "1 notification while you were away"
+        : `${count} notifications while you were away`;
+
+    const sections = items
+      .map((item, i) => {
+        const heading = `${i + 1}. ${item.subject}`;
+        return `${heading}\n${item.body}`;
+      })
+      .join("\n\n──────────\n\n");
+
+    const body = `Hi ${greetingName},
+
+While your email notifications were paused (quiet hours / weekend muting), ${
+      count === 1 ? "1 update" : `${count} updates`
+    } came in. Here ${count === 1 ? "it is" : "they are"}:
+
+${sections}
+
+— SmartHub`;
+    return { subject, body };
+  }
+
   /**
    * Whether the user's account-wide delivery settings (quiet hours + weekend
    * muting) say an outbound email "ping" should be suppressed right now.
@@ -2286,7 +2475,7 @@ If you have any questions about joining the virtual session, please contact your
   private async isDeliverySuppressedByQuietHours(
     userId: number,
     now: Date = new Date(),
-  ): Promise<{ suppressed: boolean; reason?: string }> {
+  ): Promise<{ suppressed: boolean; reason?: string; deferToSummary: boolean }> {
     const rows = await db
       .select()
       .from(notificationPreferences)
@@ -2301,7 +2490,12 @@ If you have any questions about joining the virtual session, please contact your
       );
 
     const pref = rows[0];
-    if (!pref) return { suppressed: false };
+    if (!pref) return { suppressed: false, deferToSummary: false };
+
+    // When defer-to-summary is on, a suppressed email is queued for a later
+    // catch-up summary instead of being dropped. Surfaced to the caller so the
+    // send loop knows whether to enqueue.
+    const deferToSummary = pref.quietHoursDeferToSummary === true;
 
     const zonedNow = toZonedTime(now, PRACTICE_TZ);
 
@@ -2309,7 +2503,7 @@ If you have any questions about joining the virtual session, please contact your
     if (pref.weekendsEnabled === false) {
       const day = zonedNow.getDay(); // 0 = Sunday, 6 = Saturday
       if (day === 0 || day === 6) {
-        return { suppressed: true, reason: "weekend muting" };
+        return { suppressed: true, reason: "weekend muting", deferToSummary };
       }
     }
 
@@ -2319,11 +2513,11 @@ If you have any questions about joining the virtual session, please contact your
     if (startMinutes !== null && endMinutes !== null) {
       const nowMinutes = zonedNow.getHours() * 60 + zonedNow.getMinutes();
       if (isWithinQuietWindow(nowMinutes, startMinutes, endMinutes)) {
-        return { suppressed: true, reason: "quiet hours" };
+        return { suppressed: true, reason: "quiet hours", deferToSummary };
       }
     }
 
-    return { suppressed: false };
+    return { suppressed: false, deferToSummary };
   }
 
   /**

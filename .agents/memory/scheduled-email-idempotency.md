@@ -38,6 +38,12 @@ should be a manual/observability action, not an automatic resend.
   multiple instances.
 - Privacy still applies to the body — see external-client-privacy.
 
+**Reused for the quiet-hours catch-up summary** (`processDeferredSummaryEmails`,
+see quiet-hours-global-prefs.md): same claim-first / at-most-once contract — rows are
+claimed pending→processing before send, a crash leaves them 'processing' and they are
+never auto-re-sent. The difference is the period key: the catch-up flush is gated by
+"user no longer muted", not a calendar day.
+
 **Testing the send loop (DB-backed):** to drive `processDailyScheduleEmails`
 without hitting SparkPost, stub `SparkPost.prototype.post` (the single method
 that `transmissions.send` funnels through); the formatted payload arrives as

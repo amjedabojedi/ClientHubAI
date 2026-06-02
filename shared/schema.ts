@@ -1088,6 +1088,10 @@ export const notificationPreferences = pgTable("notification_preferences", {
   quietHoursStart: varchar("quiet_hours_start", { length: 8 }), // '22:00:00'
   quietHoursEnd: varchar("quiet_hours_end", { length: 8 }), // '08:00:00'
   weekendsEnabled: boolean("weekends_enabled").notNull().default(true),
+  // When true, emails suppressed by quiet hours/weekend muting are queued and
+  // delivered later as a single consolidated catch-up summary instead of being
+  // dropped. Lives on the reserved "__global__" row alongside the window above.
+  quietHoursDeferToSummary: boolean("quiet_hours_defer_to_summary").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -2016,6 +2020,36 @@ export const insertDailyScheduleEmailSchema = createInsertSchema(dailyScheduleEm
 });
 export type InsertDailyScheduleEmail = z.infer<typeof insertDailyScheduleEmailSchema>;
 export type DailyScheduleEmail = typeof dailyScheduleEmails.$inferSelect;
+
+// Queue of outbound email "pings" that were suppressed by a user's quiet
+// hours / weekend muting but should NOT be dropped, because the user chose
+// "defer to summary" (quietHoursDeferToSummary). A scheduled job consolidates
+// each user's pending rows into ONE catch-up email once they are no longer
+// muted, then marks them sent. Each row stores the already-rendered subject and
+// body so the summary delivers exactly what the original per-event email would
+// have to the SAME recipient (so no extra privacy reduction is required).
+export const deferredNotificationEmails = pgTable("deferred_notification_emails", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  triggerType: varchar("trigger_type", { length: 50 }).notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  reason: varchar("reason", { length: 32 }).notNull(), // 'quiet hours' | 'weekend muting'
+  status: varchar("status", { length: 16 }).notNull().default("pending"), // pending | processing | sent | failed
+  attempts: integer("attempts").notNull().default(0),
+  error: text("error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userStatusIdx: index("deferred_notification_emails_user_status_idx").on(table.userId, table.status),
+}));
+export const insertDeferredNotificationEmailSchema = createInsertSchema(deferredNotificationEmails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertDeferredNotificationEmail = z.infer<typeof insertDeferredNotificationEmailSchema>;
+export type DeferredNotificationEmail = typeof deferredNotificationEmails.$inferSelect;
 
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
