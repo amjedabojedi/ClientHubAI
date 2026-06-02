@@ -2083,9 +2083,16 @@ If you have any questions about joining the virtual session, please contact your
    * Eastern calendar day (yyyy-MM-dd). Therapists already marked 'sent' for the
    * day are skipped; failed sends are retried up to a small cap. Safe to call
    * directly (e.g. from tests) for any date.
+   *
+   * `therapistIds` optionally restricts the send loop to a specific set of
+   * therapists. Production always passes nothing (every active therapist is
+   * processed); tests pass their own seeded ids so concurrent rows — the live
+   * scheduler, leftover users, or a parallel twin of the same suite — can never
+   * interfere with the run under assertion.
    */
   async processDailyScheduleEmails(
     easternDateStr: string,
+    therapistIds?: number[],
   ): Promise<{ sent: number; skipped: number; failed: number }> {
     let sent = 0;
     let skipped = 0;
@@ -2098,7 +2105,11 @@ If you have any questions about joining the virtual session, please contact your
       return { sent, skipped, failed };
     }
 
-    const therapists = await storage.getTherapists();
+    const allTherapists = await storage.getTherapists();
+    const therapists =
+      therapistIds === undefined
+        ? allTherapists
+        : allTherapists.filter((t) => therapistIds.includes(t.id));
     if (therapists.length === 0) return { sent, skipped, failed };
 
     // Eastern-day boundaries expressed as UTC instants for the session query.

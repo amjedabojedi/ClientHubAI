@@ -25,10 +25,15 @@ still run twice at once — the `test-privacy` workflow and a `mark_task_complet
 validation trigger overlap. So make each suite robust to a concurrent twin, not
 just serial:
 - The `daily-schedule-email-*` tests call `processDailyScheduleEmails`, which
-  loops over ALL therapists. A concurrent twin deleting its own seeded
-  therapists mid-loop used to crash the whole run on the therapist_id FK (PG
-  `23503`). Production now skips a therapist whose claim insert hits `23503`
-  (deleted between `getTherapists()` and the claim) instead of aborting everyone.
+  loops over ALL therapists. The idempotency test now passes its own seeded
+  therapist id(s) as the optional second arg (`processDailyScheduleEmails(date,
+  [t.id])`) so the send loop is scoped to just those therapists — the live
+  scheduler, leftover users, and a parallel twin can no longer touch the run
+  under assertion. Prefer this scoping for any new send-loop test. Belt-and-
+  suspenders still in place: production skips a therapist whose claim insert hits
+  the therapist_id FK (PG `23503`, deleted between `getTherapists()` and the
+  claim) instead of aborting everyone; and the SparkPost stub counts per
+  recipient email.
 - Those tests isolate `daily_schedule_emails` rows by date and clean up by date.
   Hardcoded dates collided across concurrent runs (one run's cleanup-by-date
   wiped the other's rows → bogus assert failures). Fix: derive a

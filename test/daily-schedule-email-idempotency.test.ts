@@ -28,17 +28,25 @@
  *   duplicate-send window. This test therefore asserts the actual, intended
  *   guarantee: a stuck 'processing' row is left alone, never re-sent.
  *
+ * ISOLATION: every call passes the test therapist's own id to
+ * `processDailyScheduleEmails(date, [t.id])`, which scopes the send loop to just
+ * that therapist. Without scoping the loop enumerates ALL active therapists, so
+ * the live app scheduler and any leftover/concurrent users would interfere with
+ * the run under assertion (and a concurrent deletion could trip the
+ * daily_schedule_emails.therapist_id FK mid-loop). Scoping makes each assertion
+ * depend only on rows this suite created.
+ *
  * The SparkPost provider is stubbed at `SparkPost.prototype.post` (the single
  * method `transmissions.send` funnels through), so no real email is sent and no
- * cost is incurred. Stubbing per-recipient lets us isolate OUR test therapists
- * from any other therapists that happen to exist in the shared dev DB.
+ * cost is incurred. Counting per-recipient is a belt-and-suspenders check on top
+ * of the therapist scoping.
  *
  * Run with: npx tsx test/daily-schedule-email-idempotency.test.ts
  *
  * NOTES:
  * - This is DB-backed: it seeds dedicated, uniquely-named therapist users and
- *   removes them (and every daily_schedule_emails row created on the test dates,
- *   including incidental ones for other therapists) at the end.
+ *   removes them (and every daily_schedule_emails row created on the test dates)
+ *   at the end.
  * - Must run serially with the other app-level tests (see
  *   .agents/memory/privacy-test-concurrency.md); it is chained into the
  *   `test-privacy` validation.
@@ -186,7 +194,7 @@ async function main() {
       const t = await makeTherapist("idem-therapist");
       const date = nextTestDate();
 
-      await notificationService.processDailyScheduleEmails(date);
+      await notificationService.processDailyScheduleEmails(date, [t.id]);
       const afterFirst = callsFor(t.email);
       const row1 = await rowFor(t.id, date);
 
@@ -194,7 +202,7 @@ async function main() {
       assertEqual(row1?.status, "sent", "Row is marked 'sent' after first run");
 
       // Second run for the same Eastern day.
-      await notificationService.processDailyScheduleEmails(date);
+      await notificationService.processDailyScheduleEmails(date, [t.id]);
       const afterSecond = callsFor(t.email);
       const row2 = await rowFor(t.id, date);
 
@@ -222,7 +230,7 @@ async function main() {
       // Run the loop more times than the cap; only the first MAX_ATTEMPTS
       // should actually attempt a send.
       for (let i = 0; i < MAX_ATTEMPTS + 2; i++) {
-        await notificationService.processDailyScheduleEmails(date);
+        await notificationService.processDailyScheduleEmails(date, [t.id]);
       }
 
       const attemptsMade = callsFor(t.email);
@@ -261,7 +269,7 @@ async function main() {
         error: null,
       });
 
-      await notificationService.processDailyScheduleEmails(date);
+      await notificationService.processDailyScheduleEmails(date, [t.id]);
 
       const sends = callsFor(t.email);
       const row = await rowFor(t.id, date);
