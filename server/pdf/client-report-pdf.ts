@@ -13,8 +13,34 @@ function getChromiumExecutablePath(): string | undefined {
   return undefined;
 }
 
+async function renderReportPDF(html: string, launchOptions: any): Promise<Buffer> {
+  const browser = await puppeteer.launch(launchOptions);
+  try {
+    const page = await browser.newPage();
+    await page.setDefaultTimeout(60000);
+    await page.setViewport({ width: 1200, height: 800 });
+    await page.emulateMediaType('print');
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Allow fonts and styling to settle before rendering
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20mm', right: '10mm', bottom: '20mm', left: '10mm' },
+      timeout: 60000,
+    });
+    return Buffer.from(pdfBuffer);
+  } finally {
+    await browser.close();
+  }
+}
+
 /**
  * Render the client report HTML to a real PDF file buffer using headless Chromium.
+ *
+ * If the first attempt fails because Chromium times out or cannot launch, this
+ * retries once with lighter launch args (mirroring the invoice-email PDF path).
  */
 export async function generateClientReportPDF(html: string): Promise<Buffer> {
   const chromiumPath = getChromiumExecutablePath();
@@ -42,25 +68,37 @@ export async function generateClientReportPDF(html: string): Promise<Buffer> {
     launchOptions.executablePath = chromiumPath;
   }
 
-  const browser = await puppeteer.launch(launchOptions);
   try {
-    const page = await browser.newPage();
-    await page.setDefaultTimeout(60000);
-    await page.setViewport({ width: 1200, height: 800 });
-    await page.emulateMediaType('print');
-    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    // Allow fonts and styling to settle before rendering
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return await renderReportPDF(html, launchOptions);
+  } catch (error: any) {
+    const message: string = error?.message || '';
+    const isTimeout = message.includes('timeout') || message.includes('timed out');
+    const isLaunchFailure =
+      message.includes('Failed to launch') ||
+      message.includes('spawn') ||
+      message.includes('Target closed') ||
+      message.includes('Protocol error');
 
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20mm', right: '10mm', bottom: '20mm', left: '10mm' },
-      timeout: 60000,
+    if (!isTimeout && !isLaunchFailure) {
+      throw error;
+    }
+
+    console.error('Client report PDF generation failed, retrying with lighter args:', {
+      error: message,
+      errorType: error?.name || 'Unknown',
     });
-    return Buffer.from(pdfBuffer);
-  } finally {
-    await browser.close();
+
+    const retryLaunchOptions: any = {
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      headless: true,
+      timeout: 60000,
+      protocolTimeout: 60000,
+    };
+    if (chromiumPath) {
+      retryLaunchOptions.executablePath = chromiumPath;
+    }
+
+    return await renderReportPDF(html, retryLaunchOptions);
   }
 }
 
