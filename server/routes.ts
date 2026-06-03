@@ -12263,6 +12263,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const existing = await storage.getReportSupportingFile(id);
       if (!existing) return res.status(404).json({ message: "Supporting file not found" });
       if (!(await userCanAccessClient(req.user, existing.clientId))) {
+        // HIPAA: record the blocked attempt. A denied attempt to delete a client's
+        // document is exactly the kind of event the access log must retain.
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'unauthorized_access',
+          result: 'denied',
+          resourceType: 'report_supporting_file',
+          resourceId: existing.id.toString(),
+          clientId: existing.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            reason: 'client_not_authorized',
+            endpoint: '/api/supporting-files/:id',
+            userRole: req.user.role,
+          }),
+          accessReason: 'Supporting file deletion attempted for unauthorized client',
+        });
         return res.status(403).json({ message: "Access denied. You can only delete files for your assigned clients." });
       }
 
