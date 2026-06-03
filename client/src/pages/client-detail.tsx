@@ -446,6 +446,28 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
   const [htmlContent, setHtmlContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const { toast } = useToast();
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadFile(
+        `/api/clients/${clientId}/documents/${document.id}/file`,
+        document.fileName || `document-${document.id}`,
+        "Failed to download document. Please try again.",
+      );
+    } catch (err: any) {
+      toast({
+        title: "Download Failed",
+        description: err?.message || "Failed to download document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchDocxContent = async () => {
@@ -480,10 +502,12 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
       <div className="text-center text-red-600 p-4">
         <p>Error loading document: {error}</p>
         <Button 
-          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/file`, '_blank')}
+          onClick={handleDownload}
+          disabled={downloading}
           className="mt-2"
         >
-          Download Document
+          {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          {downloading ? "Downloading..." : "Download Document"}
         </Button>
       </div>
     );
@@ -494,12 +518,17 @@ function DocxFileViewer({ clientId, document }: { clientId: string; document: Do
       <div className="mb-4 flex justify-between items-center">
         <h3 className="text-lg font-semibold">{document.fileName}</h3>
         <Button 
-          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/file`, '_blank')}
+          onClick={handleDownload}
+          disabled={downloading}
           variant="outline"
           size="sm"
         >
-          <Download className="w-4 h-4 mr-2" />
-          Download
+          {downloading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          {downloading ? "Downloading..." : "Download"}
         </Button>
       </div>
       <div 
@@ -520,6 +549,28 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
   const [textContent, setTextContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const { toast } = useToast();
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadFile(
+        `/api/clients/${clientId}/documents/${document.id}/download`,
+        document.fileName || `document-${document.id}`,
+        "Failed to download document. Please try again.",
+      );
+    } catch (err: any) {
+      toast({
+        title: "Download Failed",
+        description: err?.message || "Failed to download document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchTextContent = async () => {
@@ -563,10 +614,15 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
         <Button 
           variant="outline" 
           size="sm"
-          onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
+          onClick={handleDownload}
+          disabled={downloading}
         >
-          <Download className="w-4 h-4 mr-2" />
-          Download File
+          {downloading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          {downloading ? "Downloading..." : "Download File"}
         </Button>
       </div>
     );
@@ -588,10 +644,15 @@ function TextFileViewer({ clientId, document }: { clientId: string; document: Do
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => window.open(`/api/clients/${clientId}/documents/${document.id}/download`, '_blank')}
+            onClick={handleDownload}
+            disabled={downloading}
           >
-            <Download className="w-4 h-4 mr-2" />
-            Download
+            {downloading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            {downloading ? "Downloading..." : "Download"}
           </Button>
         </div>
         
@@ -1075,6 +1136,27 @@ export default function ClientDetailPage() {
   const recordingActiveRef = useRef(false);
   const [downloadingAssessmentPdfId, setDownloadingAssessmentPdfId] = useState<number | null>(null);
   const [downloadingAssessmentDocxId, setDownloadingAssessmentDocxId] = useState<number | null>(null);
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState<number | null>(null);
+
+  const handleDownloadDocument = async (doc: { id: number; fileName?: string; originalName?: string }) => {
+    if (downloadingDocumentId !== null) return;
+    setDownloadingDocumentId(doc.id);
+    try {
+      await downloadFile(
+        `/api/clients/${clientId}/documents/${doc.id}/download`,
+        doc.originalName || doc.fileName || `document-${doc.id}`,
+        "Failed to download document. Please try again.",
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to download document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingDocumentId(null);
+    }
+  };
 
   const handleDownloadAssessmentDocx = async (assignmentId: number) => {
     if (downloadingAssessmentDocxId !== null) return;
@@ -4180,10 +4262,15 @@ export default function ClientDetailPage() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                onClick={() => window.open(`/api/clients/${clientId}/documents/${doc.id}/download`, '_blank')}
+                                disabled={downloadingDocumentId === doc.id}
+                                onClick={() => handleDownloadDocument(doc)}
                               >
-                                <Download className="w-4 h-4 mr-2" />
-                                Download
+                                {downloadingDocumentId === doc.id ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Download className="w-4 h-4 mr-2" />
+                                )}
+                                {downloadingDocumentId === doc.id ? "Downloading..." : "Download"}
                               </Button>
                               <Button 
                                 variant="ghost" 
@@ -4916,8 +5003,12 @@ export default function ClientDetailPage() {
               <span>Uploaded: <span className="font-medium text-slate-700">{reviewDialogDoc?.createdAt ? formatDateDisplay(reviewDialogDoc.createdAt) : '—'}</span></span>
             </div>
             <div className="flex gap-2 pt-1">
-              <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => reviewDialogDoc && window.open(`/api/clients/${clientId}/documents/${reviewDialogDoc.id}/download`, '_blank')}>
-                <Download className="w-3 h-3 mr-1" /> Download
+              <Button size="sm" variant="outline" className="text-xs h-7" disabled={!reviewDialogDoc || downloadingDocumentId === reviewDialogDoc?.id} onClick={() => reviewDialogDoc && handleDownloadDocument(reviewDialogDoc)}>
+                {reviewDialogDoc && downloadingDocumentId === reviewDialogDoc.id ? (
+                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                ) : (
+                  <Download className="w-3 h-3 mr-1" />
+                )} Download
               </Button>
               <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => { if (reviewDialogDoc) { setPreviewDocument(reviewDialogDoc); setIsPreviewDialogOpen(true); } }}>
                 <Eye className="w-3 h-3 mr-1" /> Preview
@@ -5037,10 +5128,15 @@ export default function ClientDetailPage() {
             </Button>
             {previewDocument && (
               <Button 
-                onClick={() => window.open(`/api/clients/${clientId}/documents/${previewDocument.id}/download`, '_blank')}
+                disabled={downloadingDocumentId === previewDocument.id}
+                onClick={() => handleDownloadDocument(previewDocument)}
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download
+                {downloadingDocumentId === previewDocument.id ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {downloadingDocumentId === previewDocument.id ? "Downloading..." : "Download"}
               </Button>
             )}
           </DialogFooter>

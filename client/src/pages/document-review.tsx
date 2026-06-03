@@ -13,8 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   ClipboardCheck, Clock, AlertTriangle, CheckCircle, X, Eye, Download,
-  FileText, RefreshCw, ExternalLink, User
+  FileText, RefreshCw, ExternalLink, User, Loader2
 } from "lucide-react";
+import { downloadFile } from "@/lib/download-pdf";
 
 interface PendingDocument {
   id: number;
@@ -64,6 +65,27 @@ export default function DocumentReviewPage() {
   const [reviewDoc, setReviewDoc] = useState<PendingDocument | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [downloadingDocId, setDownloadingDocId] = useState<number | null>(null);
+
+  const handleDownloadDocument = async (doc: PendingDocument) => {
+    if (downloadingDocId !== null) return;
+    setDownloadingDocId(doc.id);
+    try {
+      await downloadFile(
+        `/api/clients/${doc.clientId}/documents/${doc.id}/download`,
+        doc.originalName || doc.fileName || `document-${doc.id}`,
+        "Failed to download document. Please try again.",
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to download document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingDocId(null);
+    }
+  };
 
   const { data: pendingDocs = [], isLoading, refetch } = useQuery<PendingDocument[]>({
     queryKey: ["/api/documents/pending-review"],
@@ -144,10 +166,15 @@ export default function DocumentReviewPage() {
           size="sm"
           variant="outline"
           className="text-xs h-7 px-2"
-          onClick={() => window.open(`/api/clients/${doc.clientId}/documents/${doc.id}/download`, '_blank')}
+          disabled={downloadingDocId === doc.id}
+          onClick={() => handleDownloadDocument(doc)}
           title="Download document"
         >
-          <Download className="w-3 h-3" />
+          {downloadingDocId === doc.id ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Download className="w-3 h-3" />
+          )}
         </Button>
         <Button
           size="sm"
@@ -287,9 +314,14 @@ export default function DocumentReviewPage() {
                     size="sm"
                     variant="outline"
                     className="text-xs h-7"
-                    onClick={() => window.open(`/api/clients/${reviewDoc.clientId}/documents/${reviewDoc.id}/download`, '_blank')}
+                    disabled={downloadingDocId === reviewDoc.id}
+                    onClick={() => handleDownloadDocument(reviewDoc)}
                   >
-                    <Download className="w-3 h-3 mr-1" /> Download
+                    {downloadingDocId === reviewDoc.id ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Download className="w-3 h-3 mr-1" />
+                    )} Download
                   </Button>
                   <Button
                     size="sm"

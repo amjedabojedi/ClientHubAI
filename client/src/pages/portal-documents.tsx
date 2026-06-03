@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Upload, FileText, File, Download, Eye, X, HelpCircle, ChevronDown } from "lucide-react";
+import { ArrowLeft, Upload, FileText, File, Download, Eye, X, HelpCircle, ChevronDown, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { formatDateDisplay } from "@/lib/datetime";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { downloadFile } from "@/lib/download-pdf";
 
 interface Document {
   id: number;
@@ -34,6 +35,7 @@ export default function PortalDocuments() {
   const [isUploading, setIsUploading] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<number | null>(null);
 
   const { data: documents, isLoading } = useQuery<Document[]>({
     queryKey: ["/api/portal/documents"],
@@ -150,14 +152,24 @@ export default function PortalDocuments() {
     }
   };
 
-  const handleDownload = (docId: number, fileName: string) => {
-    // Download document with proper filename
-    const link = document.createElement('a');
-    link.href = `/api/portal/documents/${docId}/download`;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async (docId: number, fileName: string) => {
+    if (downloadingDocId !== null) return;
+    setDownloadingDocId(docId);
+    try {
+      await downloadFile(
+        `/api/portal/documents/${docId}/download`,
+        fileName,
+        "Failed to download document. Please try again.",
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to download document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingDocId(null);
+    }
   };
 
   const getPreviewUrl = (doc: Document) => {
@@ -410,11 +422,16 @@ export default function PortalDocuments() {
                             <Button
                               size="sm"
                               variant="outline"
+                              disabled={downloadingDocId === doc.id}
                               onClick={() => handleDownload(doc.id, doc.originalName)}
                               data-testid={`button-download-${doc.id}`}
                               title="Download document"
                             >
-                              <Download className="h-4 w-4" />
+                              {downloadingDocId === doc.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="h-4 w-4" />
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -469,11 +486,16 @@ export default function PortalDocuments() {
                   This file type cannot be previewed in the browser.
                 </p>
                 <Button
+                  disabled={downloadingDocId === previewDocument.id}
                   onClick={() => previewDocument && handleDownload(previewDocument.id, previewDocument.originalName)}
                   data-testid="button-download-from-preview"
                 >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download File
+                  {downloadingDocId === previewDocument.id ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  {downloadingDocId === previewDocument.id ? "Downloading..." : "Download File"}
                 </Button>
               </div>
             )}
