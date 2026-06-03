@@ -37,12 +37,13 @@ async function renderReportPDF(html: string, launchOptions: any): Promise<Buffer
 }
 
 /**
- * Render the client report HTML to a real PDF file buffer using headless Chromium.
+ * Render arbitrary print-ready HTML to a real PDF buffer using headless Chromium.
  *
  * If the first attempt fails because Chromium times out or cannot launch, this
  * retries once with lighter launch args (mirroring the invoice-email PDF path).
+ * Shared by the client report, assessment report, and form assignment PDF routes.
  */
-export async function generateClientReportPDF(html: string): Promise<Buffer> {
+export async function generatePDFFromHTML(html: string): Promise<Buffer> {
   const chromiumPath = getChromiumExecutablePath();
   const launchOptions: any = {
     args: [
@@ -100,6 +101,14 @@ export async function generateClientReportPDF(html: string): Promise<Buffer> {
 
     return await renderReportPDF(html, retryLaunchOptions);
   }
+}
+
+/**
+ * Render the client report HTML to a real PDF file buffer using headless Chromium.
+ * Thin wrapper retained for backwards compatibility; see {@link generatePDFFromHTML}.
+ */
+export async function generateClientReportPDF(html: string): Promise<Buffer> {
+  return generatePDFFromHTML(html);
 }
 
 interface ClientReportClient {

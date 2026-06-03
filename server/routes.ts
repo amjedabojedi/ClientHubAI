@@ -11299,11 +11299,22 @@ You can download a copy if you have it saved locally and re-upload it.`;
         } as any;
       }
 
-      // Generate professional HTML (browser will handle PDF printing - matching session notes pattern)
+      // Generate professional HTML (also used as the print-ready fallback)
       const { generateAssessmentReportHTML } = await import("./pdf/assessment-report-pdf");
+      const { generatePDFFromHTML } = await import("./pdf/client-report-pdf");
       const html = generateAssessmentReportHTML(assignment as any, report, practiceSettings);
-      
-      // HIPAA Audit: Log PDF download
+
+      const baseFilename = `assessment-report-${(assignment.template?.name || 'assessment').replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
+
+      // Try to render a real PDF (with internal retry); fall back to print-ready HTML on failure
+      let pdfBuffer: Buffer | null = null;
+      try {
+        pdfBuffer = await generatePDFFromHTML(html);
+      } catch (pdfError) {
+        console.error('Assessment report PDF rendering failed after retry, falling back to print-ready HTML:', pdfError);
+      }
+
+      // HIPAA Audit: Log PDF download (record whether a PDF or HTML fallback was served)
       await AuditLogger.logDocumentAccess(
         req.user.id,
         req.user.username,
@@ -11314,19 +11325,28 @@ You can download a copy if you have it saved locally and re-upload it.`;
         userAgent,
         { 
           assignmentId,
-          format: 'pdf',
+          format: pdfBuffer ? 'pdf' : 'html',
           documentType: 'assessment_report',
           templateName: assignment.template?.name
         }
       );
-      
-      // Return HTML with proper headers (browser will handle PDF conversion via print)
-      res.setHeader('Content-Type', 'text/html');
+
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.removeHeader('ETag');
-      res.send(html);
+
+      if (pdfBuffer) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      } else {
+        // Fallback: return the print-ready HTML so the user can still print to PDF
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="${baseFilename}.html"`);
+        res.send(html);
+      }
       
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -18341,8 +18361,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         // Use defaults if practice settings not found
       }
 
-      // Import HTML generation module
+      // Import HTML generation module (HTML doubles as the print-ready fallback)
       const { generateFormAssignmentHTML } = await import("./pdf/form-assignment-pdf");
+      const { generatePDFFromHTML } = await import("./pdf/client-report-pdf");
 
       // Prepare assignment data for PDF
       const assignmentData = {
@@ -18384,7 +18405,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         responseValue: r.value
       }));
 
-      // Generate HTML
+      // Generate HTML (also used as the print-ready fallback)
       const html = generateFormAssignmentHTML(
         assignmentData as any,
         formattedResponses as any,
@@ -18392,7 +18413,17 @@ You can download a copy if you have it saved locally and re-upload it.`;
         practiceSettings
       );
 
-      // HIPAA Audit: Log PDF download
+      const baseFilename = `form-${(template?.name || 'form').replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
+
+      // Try to render a real PDF (with internal retry); fall back to print-ready HTML on failure
+      let pdfBuffer: Buffer | null = null;
+      try {
+        pdfBuffer = await generatePDFFromHTML(html);
+      } catch (pdfError) {
+        console.error('Form assignment PDF rendering failed after retry, falling back to print-ready HTML:', pdfError);
+      }
+
+      // HIPAA Audit: Log PDF download (record whether a PDF or HTML fallback was served)
       await AuditLogger.logDocumentAccess(
         req.user.id,
         req.user.username,
@@ -18405,15 +18436,28 @@ You can download a copy if you have it saved locally and re-upload it.`;
           assignmentId,
           templateId: assignment.templateId,
           templateName: template?.name,
-          format: 'pdf',
+          format: pdfBuffer ? 'pdf' : 'html',
           documentType: 'form_assignment',
           assignedById: assignment.assignedById
         }
       );
 
-      // Return HTML for browser print dialog
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.removeHeader('ETag');
+
+      if (pdfBuffer) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+      } else {
+        // Fallback: return the print-ready HTML so the user can still print to PDF
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="${baseFilename}.html"`);
+        res.send(html);
+      }
 
     } catch (error) {
       console.error('Error generating form PDF:', error);
