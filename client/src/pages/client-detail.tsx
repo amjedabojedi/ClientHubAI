@@ -4368,22 +4368,23 @@ export default function ClientDetailPage() {
                           >
                             {report.isFinalized ? "View" : "Review & Edit"}
                           </Button>
-                          {!report.isFinalized && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this report? This action cannot be undone.")) {
-                                  deleteReportMutation.mutate(report.id);
-                                }
-                              }}
-                              disabled={deleteReportMutation.isPending}
-                              data-testid={`button-delete-report-${report.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              const msg = report.isFinalized
+                                ? "This report is finalized. Are you sure you want to permanently delete it? This action cannot be undone."
+                                : "Are you sure you want to delete this report? This action cannot be undone.";
+                              if (window.confirm(msg)) {
+                                deleteReportMutation.mutate(report.id);
+                              }
+                            }}
+                            disabled={deleteReportMutation.isPending}
+                            data-testid={`button-delete-report-${report.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
                     ))}
