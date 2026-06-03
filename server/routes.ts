@@ -12208,8 +12208,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
       }
 
       const practiceSettings = await getPracticeSettingsForReport();
-      const { generateClientReportHTML } = await import("./pdf/client-report-pdf");
+      const { generateClientReportHTML, generateClientReportPDF } = await import("./pdf/client-report-pdf");
       const html = generateClientReportHTML(report.client, report, practiceSettings);
+      const pdfBuffer = await generateClientReportPDF(html);
 
       await AuditLogger.logDocumentAccess(
         req.user.id, req.user.username, report.id, report.clientId,
@@ -12217,12 +12218,15 @@ You can download a copy if you have it saved locally and re-upload it.`;
         { format: 'pdf', documentType: 'client_report', templateName: report.templateName },
       );
 
-      res.setHeader('Content-Type', 'text/html');
+      const filename = `client-report-${(report.client.fullName || 'client').replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.removeHeader('ETag');
-      res.send(html);
+      res.send(pdfBuffer);
     } catch (error) {
       console.error('Error generating client report PDF:', error);
       res.status(500).json({ message: "Failed to generate PDF" });

@@ -232,7 +232,11 @@ export default function ClientReportPage() {
               ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => window.open(`/api/reports/${reportId}/download/pdf`, "_blank")}
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = `/api/reports/${reportId}/download/pdf`;
+                  link.click();
+                }}
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF

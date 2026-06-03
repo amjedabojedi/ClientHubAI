@@ -1,6 +1,68 @@
 import { formatInTimeZone } from 'date-fns-tz';
+import fs from 'fs';
+import puppeteer from 'puppeteer';
 
 const PRACTICE_TIMEZONE = 'America/New_York';
+
+function getChromiumExecutablePath(): string | undefined {
+  const nixPath = '/nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium';
+  if (fs.existsSync(nixPath)) {
+    return nixPath;
+  }
+  // Return undefined to let Puppeteer find system-installed Chrome/Chromium automatically
+  return undefined;
+}
+
+/**
+ * Render the client report HTML to a real PDF file buffer using headless Chromium.
+ */
+export async function generateClientReportPDF(html: string): Promise<Buffer> {
+  const chromiumPath = getChromiumExecutablePath();
+  const launchOptions: any = {
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--disable-default-apps',
+      '--single-process',
+      '--no-zygote',
+      '--disable-logging',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-renderer-backgrounding',
+      '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+    ],
+    headless: true,
+    timeout: 90000,
+    protocolTimeout: 120000,
+  };
+  if (chromiumPath) {
+    launchOptions.executablePath = chromiumPath;
+  }
+
+  const browser = await puppeteer.launch(launchOptions);
+  try {
+    const page = await browser.newPage();
+    await page.setDefaultTimeout(60000);
+    await page.setViewport({ width: 1200, height: 800 });
+    await page.emulateMediaType('print');
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Allow fonts and styling to settle before rendering
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20mm', right: '10mm', bottom: '20mm', left: '10mm' },
+      timeout: 60000,
+    });
+    return Buffer.from(pdfBuffer);
+  } finally {
+    await browser.close();
+  }
+}
 
 interface ClientReportClient {
   fullName: string;
