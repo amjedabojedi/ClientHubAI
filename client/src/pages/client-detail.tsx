@@ -1958,6 +1958,61 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
+  // Report templates (active only for staff) + this client's generated reports
+  const { data: reportTemplates = [] } = useQuery<any[]>({
+    queryKey: ["/api/report-templates"],
+    queryFn: getQueryFn({ on401: "throw" }),
+  });
+
+  const { data: clientReports = [] } = useQuery<any[]>({
+    queryKey: [`/api/clients/${clientId}/reports`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
+  const generateReportMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      const res = await apiRequest(`/api/clients/${clientId}/reports/generate`, "POST", { templateId });
+      return res.json();
+    },
+    onSuccess: (report: any) => {
+      toast({
+        title: "Report generated",
+        description: "Review and edit the AI-generated report.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/reports`] });
+      if (report?.id) {
+        setLocation(`/clients/${clientId}/reports/${report.id}`);
+      }
+    },
+    onError: (error: any) => {
+      const rawMessage = error?.message || "Failed to generate report. Please try again.";
+      const isConsentError = rawMessage.toLowerCase().includes("consent");
+      toast({
+        title: isConsentError ? "AI Processing Consent Required" : "Report Generation Failed",
+        description: rawMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteReportMutation = useMutation({
+    mutationFn: async (reportId: number) => {
+      return apiRequest(`/api/reports/${reportId}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({ title: "Report deleted" });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/reports`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete report.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Queries for session editing
   const { data: therapists = [] } = useQuery<User[]>({
     queryKey: ["/api/therapists"],
@@ -2304,6 +2359,10 @@ export default function ClientDetailPage() {
             <TabsTrigger value="assessments" className="flex items-center space-x-2 px-4">
               <ClipboardList className="w-4 h-4" />
               <span>Assessments</span>
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center space-x-2 px-4" data-testid="tab-reports">
+              <FileText className="w-4 h-4" />
+              <span>Reports</span>
             </TabsTrigger>
             <TabsTrigger value="forms" className="flex items-center space-x-2 px-4">
               <FileText className="w-4 h-4" />
@@ -3788,6 +3847,109 @@ export default function ClientDetailPage() {
                     <ClipboardList className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 font-medium">No assessments assigned yet</p>
                     <p className="text-slate-400 text-sm">Use the dropdown above to assign an assessment template</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Reports Tab */}
+          <TabsContent value="reports" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Client Reports</h2>
+                <p className="text-sm text-slate-600">
+                  Generate an AI report from an uploaded template, then review and finalize.
+                </p>
+              </div>
+              <Select onValueChange={(templateId) => generateReportMutation.mutate(parseInt(templateId))}>
+                <SelectTrigger className="w-72" data-testid="select-generate-report">
+                  <SelectValue placeholder={generateReportMutation.isPending ? "Generating..." : "Generate from Template"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {reportTemplates.length === 0 ? (
+                    <div className="px-2 py-3 text-sm text-slate-500">No templates available</div>
+                  ) : (
+                    reportTemplates.map((template: any) => (
+                      <SelectItem key={template.id} value={template.id.toString()}>
+                        <div className="flex items-center space-x-2">
+                          <FileText className="w-4 h-4" />
+                          <span>{template.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Reports</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {clientReports.length > 0 ? (
+                  <div className="space-y-3">
+                    {clientReports.map((report: any) => (
+                      <div
+                        key={report.id}
+                        className="flex items-center justify-between border rounded-lg p-4 hover:shadow-sm transition-shadow"
+                        data-testid={`report-row-${report.id}`}
+                      >
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <FileText className="w-5 h-5 text-blue-600 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <p className="font-medium text-slate-900 truncate">
+                                {report.templateName || "Client Report"}
+                              </p>
+                              {report.isFinalized ? (
+                                <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Finalized</Badge>
+                              ) : (
+                                <Badge variant="secondary">Draft</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500">
+                              {report.generatedAt
+                                ? `Generated ${formatDateDisplay(report.generatedAt)}`
+                                : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setLocation(`/clients/${clientId}/reports/${report.id}`)}
+                            data-testid={`button-open-report-${report.id}`}
+                          >
+                            {report.isFinalized ? "View" : "Review & Edit"}
+                          </Button>
+                          {!report.isFinalized && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => deleteReportMutation.mutate(report.id)}
+                              disabled={deleteReportMutation.isPending}
+                              data-testid={`button-delete-report-${report.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500 font-medium">No reports yet</p>
+                    <p className="text-slate-400 text-sm">
+                      {reportTemplates.length === 0
+                        ? "An administrator must upload a report template first."
+                        : "Use the dropdown above to generate a report from a template."}
+                    </p>
                   </div>
                 )}
               </CardContent>

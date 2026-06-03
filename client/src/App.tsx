@@ -49,6 +49,8 @@ import DuplicateDetectionPage from "@/pages/duplicate-detection";
 import FormsManagementPage from "@/pages/forms-management";
 import FormsBuilderPage from "@/pages/forms-builder";
 import DocumentReviewPage from "@/pages/document-review";
+import ReportTemplatesPage from "@/pages/report-templates";
+import ClientReportPage from "@/pages/client-report";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
 import NotificationBell from "@/components/notifications/notification-bell";
@@ -164,6 +166,7 @@ function Navigation() {
         submenu: [
           { path: "/library", label: "Library", icon: BookOpen },
           { path: "/assessments", label: "Assessments", icon: ClipboardList },
+          { path: "/report-templates", label: "Report Templates", icon: FileText },
           { path: "/forms-management", label: "Clinical Forms", icon: ClipboardCheck },
           { path: "/checklist-management", label: "Process Checklists", icon: FileText },
           { path: "/duplicate-detection", label: "Duplicate Detection", icon: Users },
@@ -349,6 +352,20 @@ function Router() {
               return <AccessRestricted message="Client information is restricted. Your role only has access to scheduling, billing, and tasks." />;
             }
             return <ClientDetailPage />;
+          }} />
+          <Route path="/clients/:clientId/reports/:reportId" component={() => {
+            const { user } = useAuth();
+            if (isAccountant(user)) {
+              return <AccessRestricted message="Client information is restricted. Your role only has access to scheduling, billing, and tasks." />;
+            }
+            return <ClientReportPage />;
+          }} />
+          <Route path="/report-templates" component={() => {
+            const { user } = useAuth();
+            if (!isAdminOnly(user)) {
+              return <AccessRestricted message="Report templates are restricted to administrators." />;
+            }
+            return <ReportTemplatesPage />;
           }} />
           <Route path="/scheduling" component={SchedulingPage} />
           <Route path="/billing" component={BillingDashboard} />

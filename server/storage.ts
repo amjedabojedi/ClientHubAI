@@ -27,6 +27,8 @@ import {
   assessmentAssignments,
   assessmentResponses,
   assessmentReports,
+  reportTemplates,
+  clientReports,
   services,
   rooms,
   roomBookings,
@@ -91,6 +93,10 @@ import type {
   InsertAssessmentResponse,
   AssessmentReport,
   InsertAssessmentReport,
+  ReportTemplate,
+  InsertReportTemplate,
+  ClientReport,
+  InsertClientReport,
   ChecklistTemplate,
   InsertChecklistTemplate,
   ChecklistItem,
@@ -553,6 +559,20 @@ export interface IStorage {
   deleteAssessmentReport(id: number): Promise<void>;
   updateAssessmentReportDraft(assignmentId: number, draftContent: string): Promise<AssessmentReport>;
   getAssessmentReportById(id: number): Promise<AssessmentReport | undefined>;
+
+  // Report Templates (admin-managed AI report templates)
+  getReportTemplates(includeInactive?: boolean): Promise<(ReportTemplate & { createdBy?: User })[]>;
+  getReportTemplate(id: number): Promise<ReportTemplate | undefined>;
+  createReportTemplate(template: InsertReportTemplate): Promise<ReportTemplate>;
+  updateReportTemplate(id: number, template: Partial<InsertReportTemplate>): Promise<ReportTemplate>;
+  deleteReportTemplate(id: number): Promise<void>;
+
+  // Client Reports (AI-generated from templates)
+  getClientReports(clientId: number): Promise<(ClientReport & { createdBy?: User; template?: ReportTemplate })[]>;
+  getClientReport(id: number): Promise<(ClientReport & { client?: Client; createdBy?: User; template?: ReportTemplate }) | undefined>;
+  createClientReport(report: InsertClientReport): Promise<ClientReport>;
+  updateClientReport(id: number, report: Partial<InsertClientReport>): Promise<ClientReport>;
+  deleteClientReport(id: number): Promise<void>;
 
   // ===== ROOM MANAGEMENT =====
   getRooms(): Promise<SelectRoom[]>;
@@ -4947,6 +4967,94 @@ export class DatabaseStorage implements IStorage {
       .from(assessmentReports)
       .where(eq(assessmentReports.id, id));
     return report || undefined;
+  }
+
+  // ===== Report Templates =====
+  async getReportTemplates(includeInactive = false): Promise<(ReportTemplate & { createdBy?: User })[]> {
+    const rows = await db
+      .select()
+      .from(reportTemplates)
+      .leftJoin(users, eq(reportTemplates.createdById, users.id))
+      .where(includeInactive ? undefined : eq(reportTemplates.isActive, true))
+      .orderBy(desc(reportTemplates.createdAt));
+    return rows.map((r) => ({ ...r.report_templates, createdBy: r.users || undefined }));
+  }
+
+  async getReportTemplate(id: number): Promise<ReportTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(reportTemplates)
+      .where(eq(reportTemplates.id, id));
+    return template || undefined;
+  }
+
+  async createReportTemplate(template: InsertReportTemplate): Promise<ReportTemplate> {
+    const [created] = await db.insert(reportTemplates).values(template).returning();
+    return created;
+  }
+
+  async updateReportTemplate(id: number, template: Partial<InsertReportTemplate>): Promise<ReportTemplate> {
+    const [updated] = await db
+      .update(reportTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(reportTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteReportTemplate(id: number): Promise<void> {
+    await db.delete(reportTemplates).where(eq(reportTemplates.id, id));
+  }
+
+  // ===== Client Reports =====
+  async getClientReports(clientId: number): Promise<(ClientReport & { createdBy?: User; template?: ReportTemplate })[]> {
+    const rows = await db
+      .select()
+      .from(clientReports)
+      .leftJoin(users, eq(clientReports.createdById, users.id))
+      .leftJoin(reportTemplates, eq(clientReports.templateId, reportTemplates.id))
+      .where(eq(clientReports.clientId, clientId))
+      .orderBy(desc(clientReports.generatedAt));
+    return rows.map((r) => ({
+      ...r.client_reports,
+      createdBy: r.users || undefined,
+      template: r.report_templates || undefined,
+    }));
+  }
+
+  async getClientReport(id: number): Promise<(ClientReport & { client?: Client; createdBy?: User; template?: ReportTemplate }) | undefined> {
+    const [row] = await db
+      .select()
+      .from(clientReports)
+      .leftJoin(clients, eq(clientReports.clientId, clients.id))
+      .leftJoin(users, eq(clientReports.createdById, users.id))
+      .leftJoin(reportTemplates, eq(clientReports.templateId, reportTemplates.id))
+      .where(eq(clientReports.id, id));
+    if (!row) return undefined;
+    return {
+      ...row.client_reports,
+      client: row.clients || undefined,
+      createdBy: row.users || undefined,
+      template: row.report_templates || undefined,
+    };
+  }
+
+  async createClientReport(report: InsertClientReport): Promise<ClientReport> {
+    const [created] = await db.insert(clientReports).values(report).returning();
+    return created;
+  }
+
+  async updateClientReport(id: number, report: Partial<InsertClientReport>): Promise<ClientReport> {
+    const [updated] = await db
+      .update(clientReports)
+      .set(report)
+      .where(eq(clientReports.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteClientReport(id: number): Promise<void> {
+    await db.delete(clientReports).where(eq(clientReports.id, id));
   }
 
   // Assessment Section Methods

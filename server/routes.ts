@@ -79,6 +79,8 @@ import {
   insertAssessmentAssignmentSchema, 
   insertAssessmentResponseSchema, 
   insertAssessmentReportSchema,
+  insertReportTemplateSchema,
+  insertClientReportSchema,
   insertServiceSchema,
   insertRoomSchema,
   insertRoomBookingSchema,
@@ -11691,6 +11693,541 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
     } catch (error) {
       console.error('Error generating Word document:', error);
+      res.status(500).json({ message: "Failed to generate Word document" });
+    }
+  });
+
+  // ==================== REPORT TEMPLATES (AI client reports) ====================
+  // Shared helper: assemble practice settings (mirrors assessment download routes)
+  async function getPracticeSettingsForReport() {
+    const practiceSettings = {
+      name: 'Resilience Counseling Research & Consultation',
+      description: 'Licensed Mental Health Practice',
+      subtitle: 'Licensed Mental Health Practice',
+      address: '111 Waterloo St Unit 406, London, ON N6B 2M4',
+      phone: '+1 (548)866-0366',
+      email: 'mail@resiliencec.com',
+      website: 'www.resiliencec.com',
+    };
+    try {
+      const practiceOptions = await storage.getSystemOptionsByCategory('practice_settings');
+      practiceSettings.name = practiceOptions.find(o => o.optionKey === 'practice_name')?.optionLabel || practiceSettings.name;
+      practiceSettings.description = practiceOptions.find(o => o.optionKey === 'practice_description')?.optionLabel || practiceSettings.description;
+      practiceSettings.subtitle = practiceOptions.find(o => o.optionKey === 'practice_subtitle')?.optionLabel || practiceSettings.subtitle;
+      practiceSettings.address = practiceOptions.find(o => o.optionKey === 'practice_address')?.optionLabel || practiceSettings.address;
+      practiceSettings.phone = practiceOptions.find(o => o.optionKey === 'practice_phone')?.optionLabel || practiceSettings.phone;
+      practiceSettings.email = practiceOptions.find(o => o.optionKey === 'practice_email')?.optionLabel || practiceSettings.email;
+      practiceSettings.website = practiceOptions.find(o => o.optionKey === 'practice_website')?.optionLabel || practiceSettings.website;
+    } catch {
+      // defaults
+    }
+    return practiceSettings;
+  }
+
+  const isAdminRole = (role?: string) => role === 'administrator' || role === 'admin';
+
+  // Client-scope check for report access (mirrors GET /api/clients/:id):
+  // therapists only their assigned clients, supervisors only their supervisees' clients, admins all.
+  const userCanAccessClient = async (user: AuthenticatedRequest['user'], clientId: number): Promise<boolean> => {
+    if (!user) return false;
+    if (user.role === 'therapist') {
+      const client = await storage.getClient(clientId);
+      return !!client && client.assignedTherapistId === user.id;
+    }
+    if (user.role === 'supervisor') {
+      const client = await storage.getClient(clientId);
+      if (!client) return false;
+      const supervisorAssignments = await storage.getSupervisorAssignments(user.id);
+      const supervisedTherapistIds = supervisorAssignments.map(a => a.therapistId);
+      return !client.assignedTherapistId || supervisedTherapistIds.includes(client.assignedTherapistId);
+    }
+    return true;
+  };
+
+  // Sanitize report HTML before persistence (XSS defense for stored/rendered/exported content)
+  const sanitizeReportHtml = async (html: string | null | undefined): Promise<string> => {
+    if (!html) return '';
+    const DOMPurify = (await import('isomorphic-dompurify')).default;
+    return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+  };
+
+  // List active report templates (staff). Admins see inactive too via ?includeInactive=true
+  app.get("/api/report-templates", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const includeInactive = req.query.includeInactive === 'true' && isAdminRole(req.user?.role);
+      const templates = await storage.getReportTemplates(includeInactive);
+      res.json(templates);
+    } catch (error) {
+      console.error('Error fetching report templates:', error);
+      res.status(500).json({ message: "Failed to fetch report templates" });
+    }
+  });
+
+  // Upload a new report template (admin only). Body: { name, description?, aiInstructions?, fileContent(base64), originalName, mimeType }
+  app.post("/api/report-templates", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      if (!isAdminRole(req.user.role)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+
+      const { name, description, aiInstructions, fileContent, originalName, mimeType } = req.body || {};
+      if (!name || !fileContent || !originalName || !mimeType) {
+        return res.status(400).json({ message: "name, fileContent, originalName and mimeType are required" });
+      }
+
+      const isDocx = mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || originalName.toLowerCase().endsWith('.docx');
+      const isPdf = mimeType === 'application/pdf' || originalName.toLowerCase().endsWith('.pdf');
+      if (!isDocx && !isPdf) {
+        return res.status(400).json({ message: "Only Word (.docx) or PDF (.pdf) templates are supported." });
+      }
+
+      const base64 = String(fileContent).includes(',') ? String(fileContent).split(',')[1] : String(fileContent);
+      const buffer = Buffer.from(base64, 'base64');
+      if (buffer.length > 15 * 1024 * 1024) {
+        return res.status(400).json({ message: "Template file too large (max 15MB)." });
+      }
+
+      const { extractTemplateStructure } = await import("./report-templates/extract");
+      const { structureText } = await extractTemplateStructure(buffer, mimeType, originalName);
+
+      const validated = insertReportTemplateSchema.parse({
+        name,
+        description: description || null,
+        aiInstructions: aiInstructions || null,
+        originalName,
+        mimeType,
+        fileSize: buffer.length,
+        structureText,
+        isActive: true,
+        createdById: req.user.id,
+      });
+      const template = await storage.createReportTemplate(validated);
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'report_template_created',
+        result: 'success',
+        resourceType: 'report_template',
+        resourceId: template.id.toString(),
+        ipAddress,
+        userAgent,
+        hipaaRelevant: false,
+        riskLevel: 'low',
+        details: JSON.stringify({ operation: 'report_template_created', name }),
+        accessReason: 'Report template management',
+      });
+
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error('Error creating report template:', error);
+      res.status(error?.message?.includes('Unsupported') || error?.message?.includes('Could not read') ? 400 : 500)
+        .json({ message: error?.message || "Failed to create report template" });
+    }
+  });
+
+  // Update a report template's metadata (admin only)
+  app.patch("/api/report-templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      if (!isAdminRole(req.user.role)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid template ID" });
+
+      const { name, description, aiInstructions, isActive } = req.body || {};
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (description !== undefined) updates.description = description;
+      if (aiInstructions !== undefined) updates.aiInstructions = aiInstructions;
+      if (isActive !== undefined) updates.isActive = isActive;
+
+      const updated = await storage.updateReportTemplate(id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating report template:', error);
+      res.status(500).json({ message: "Failed to update report template" });
+    }
+  });
+
+  // Delete a report template (admin only)
+  app.delete("/api/report-templates/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      if (!isAdminRole(req.user.role)) {
+        return res.status(403).json({ message: "Access denied. Admin privileges required." });
+      }
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid template ID" });
+
+      await storage.deleteReportTemplate(id);
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'report_template_deleted',
+        result: 'success',
+        resourceType: 'report_template',
+        resourceId: id.toString(),
+        ipAddress,
+        userAgent,
+        hipaaRelevant: false,
+        riskLevel: 'low',
+        details: JSON.stringify({ operation: 'report_template_deleted' }),
+        accessReason: 'Report template management',
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting report template:', error);
+      res.status(500).json({ message: "Failed to delete report template" });
+    }
+  });
+
+  // ==================== CLIENT REPORTS (AI-generated) ====================
+  // List a client's reports
+  app.get("/api/clients/:clientId/reports", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
+      if (!(await userCanAccessClient(req.user, clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only view reports for your assigned clients." });
+      }
+      const reports = await storage.getClientReports(clientId);
+      res.json(reports);
+    } catch (error) {
+      console.error('Error fetching client reports:', error);
+      res.status(500).json({ message: "Failed to fetch client reports" });
+    }
+  });
+
+  // Generate a new client report from a template (consent-gated, fail closed)
+  app.post("/api/clients/:clientId/reports/generate", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
+
+      const { templateId } = req.body || {};
+      if (!templateId) return res.status(400).json({ message: "templateId is required" });
+
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.status(503).json({ message: "AI features not available. Please configure OPENAI_API_KEY." });
+      }
+
+      const client = await storage.getClient(clientId);
+      if (!client) return res.status(404).json({ message: "Client not found" });
+      if (!(await userCanAccessClient(req.user, clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only generate reports for your assigned clients." });
+      }
+
+      const template = await storage.getReportTemplate(parseInt(String(templateId)));
+      if (!template) return res.status(404).json({ message: "Report template not found" });
+      if (!template.isActive) return res.status(400).json({ message: "This template is no longer active" });
+
+      // GDPR/HIPAA: AI processing consent (fail closed)
+      const consentCheck = await checkAIProcessingConsent(clientId);
+      if (!consentCheck.hasConsent) {
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'ai_processing_blocked',
+          result: 'denied',
+          resourceType: 'client_report',
+          resourceId: `client_${clientId}`,
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({ reason: 'consent_not_granted', templateId, consentType: 'ai_processing' }),
+          accessReason: 'AI client report generation attempted without consent',
+        });
+        return res.status(403).json({ message: consentCheck.message, consentRequired: true, consentType: 'ai_processing' });
+      }
+
+      // Gather client data
+      const [sessions, notes, assessments] = await Promise.all([
+        storage.getSessionsByClient(clientId),
+        storage.getSessionNotesByClient(clientId),
+        storage.getAssessmentAssignments(clientId),
+      ]);
+
+      const { generateClientReportFromTemplate } = await import("./ai/openai");
+      const rawGenerated = await generateClientReportFromTemplate({
+        client,
+        sessions,
+        notes,
+        assessments,
+        templateStructure: template.structureText || '',
+        aiInstructions: template.aiInstructions,
+      });
+      const generatedContent = await sanitizeReportHtml(rawGenerated);
+
+      const validated = insertClientReportSchema.parse({
+        clientId,
+        templateId: template.id,
+        templateName: template.name,
+        generatedContent,
+        draftContent: null,
+        finalContent: null,
+        isDraft: true,
+        isFinalized: false,
+        generatedAt: new Date(),
+        createdById: req.user.id,
+      });
+      const report = await storage.createClientReport(validated);
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'client_report_generated',
+        result: 'success',
+        resourceType: 'client_report',
+        resourceId: report.id.toString(),
+        clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({ templateId: template.id, reportId: report.id, aiModel: 'gpt-4o' }),
+        accessReason: 'AI client report generation',
+      });
+
+      res.status(201).json(report);
+    } catch (error: any) {
+      console.error('Error generating client report:', error);
+      const msg = error?.message || "Failed to generate client report";
+      if (msg.includes('not configured') || msg.includes('API key')) return res.status(503).json({ message: msg });
+      if (msg.includes('timeout')) return res.status(504).json({ message: msg });
+      if (msg.includes('quota') || msg.includes('billing')) return res.status(402).json({ message: msg });
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  // Get a single client report
+  app.get("/api/reports/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+      const report = await storage.getClientReport(id);
+      if (!report) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, report.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only view reports for your assigned clients." });
+      }
+      res.json(report);
+    } catch (error) {
+      console.error('Error fetching client report:', error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
+  // Save draft content for a client report
+  app.put("/api/reports/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+      const { draftContent } = req.body || {};
+      if (draftContent === undefined) return res.status(400).json({ message: "draftContent is required" });
+
+      const existing = await storage.getClientReport(id);
+      if (!existing) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, existing.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only edit reports for your assigned clients." });
+      }
+      if (existing.isFinalized) return res.status(400).json({ message: "Cannot edit a finalized report. Reopen it first." });
+
+      const cleanDraft = await sanitizeReportHtml(draftContent);
+      const updated = await storage.updateClientReport(id, { draftContent: cleanDraft, isDraft: true, editedAt: new Date() });
+      res.json(updated);
+    } catch (error) {
+      console.error('Error saving client report draft:', error);
+      res.status(500).json({ message: "Failed to save report" });
+    }
+  });
+
+  // Finalize a client report
+  app.post("/api/reports/:id/finalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+
+      const existing = await storage.getClientReport(id);
+      if (!existing) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, existing.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only finalize reports for your assigned clients." });
+      }
+      if (existing.isFinalized) return res.status(400).json({ message: "Report is already finalized" });
+
+      const finalContent = existing.draftContent || existing.generatedContent || '';
+      const updated = await storage.updateClientReport(id, {
+        isFinalized: true,
+        isDraft: false,
+        finalContent,
+        finalizedAt: new Date(),
+        finalizedById: req.user.id,
+      });
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'client_report_finalized',
+        result: 'success',
+        resourceType: 'client_report',
+        resourceId: id.toString(),
+        clientId: existing.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({ operation: 'client_report_finalized', reportId: id }),
+        accessReason: 'Clinical report finalization',
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error('Error finalizing client report:', error);
+      res.status(500).json({ message: "Failed to finalize report" });
+    }
+  });
+
+  // Unfinalize (reopen) a client report
+  app.post("/api/reports/:id/unfinalize", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+
+      const existing = await storage.getClientReport(id);
+      if (!existing) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, existing.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only reopen reports for your assigned clients." });
+      }
+      if (!existing.isFinalized) return res.status(400).json({ message: "Report is not finalized" });
+
+      const draftContent = existing.finalContent || existing.draftContent || existing.generatedContent || '';
+      const updated = await storage.updateClientReport(id, {
+        isFinalized: false,
+        isDraft: true,
+        draftContent,
+        finalContent: null,
+        finalizedAt: null,
+        finalizedById: null,
+      });
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'client_report_reopened',
+        result: 'success',
+        resourceType: 'client_report',
+        resourceId: id.toString(),
+        clientId: existing.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'high',
+        details: JSON.stringify({ operation: 'client_report_reopened', reportId: id }),
+        accessReason: 'Clinical report reopened for editing',
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error('Error unfinalizing client report:', error);
+      res.status(500).json({ message: "Failed to reopen report" });
+    }
+  });
+
+  // Delete a client report
+  app.delete("/api/reports/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+      const existing = await storage.getClientReport(id);
+      if (!existing) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, existing.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only delete reports for your assigned clients." });
+      }
+      await storage.deleteClientReport(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting client report:', error);
+      res.status(500).json({ message: "Failed to delete report" });
+    }
+  });
+
+  // Download client report as PDF (HTML; browser prints)
+  app.get("/api/reports/:id/download/pdf", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+
+      const report = await storage.getClientReport(id);
+      if (!report || !report.client) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, report.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only download reports for your assigned clients." });
+      }
+
+      const practiceSettings = await getPracticeSettingsForReport();
+      const { generateClientReportHTML } = await import("./pdf/client-report-pdf");
+      const html = generateClientReportHTML(report.client, report, practiceSettings);
+
+      await AuditLogger.logDocumentAccess(
+        req.user.id, req.user.username, report.id, report.clientId,
+        'document_downloaded', ipAddress, userAgent,
+        { format: 'pdf', documentType: 'client_report', templateName: report.templateName },
+      );
+
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.removeHeader('ETag');
+      res.send(html);
+    } catch (error) {
+      console.error('Error generating client report PDF:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // Download client report as Word
+  app.get("/api/reports/:id/download/docx", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid report ID" });
+
+      const report = await storage.getClientReport(id);
+      if (!report || !report.client) return res.status(404).json({ message: "Report not found" });
+      if (!(await userCanAccessClient(req.user, report.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only download reports for your assigned clients." });
+      }
+
+      const practiceSettings = await getPracticeSettingsForReport();
+      const { generateClientReportDocx } = await import("./docx/report-docx");
+      const buffer = await generateClientReportDocx(report.client, report, practiceSettings);
+
+      await AuditLogger.logDocumentAccess(
+        req.user.id, req.user.username, report.id, report.clientId,
+        'document_downloaded', ipAddress, userAgent,
+        { format: 'docx', documentType: 'client_report', templateName: report.templateName },
+      );
+
+      const filename = `client-report-${(report.client.fullName || 'client').replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error generating client report Word doc:', error);
       res.status(500).json({ message: "Failed to generate Word document" });
     }
   });

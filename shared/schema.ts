@@ -1003,6 +1003,51 @@ export const assessmentReports = pgTable("assessment_reports", {
   finalizedById: integer("finalized_by_id").references(() => users.id),
 });
 
+// ===== AI CLIENT REPORT TEMPLATES =====
+
+// Admin-managed report templates uploaded as Word/PDF. The AI mimics the
+// template's layout/headings and fills it with one client's data.
+export const reportTemplates = pgTable("report_templates", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  aiInstructions: text("ai_instructions"), // optional guidance for the AI
+  originalName: varchar("original_name", { length: 500 }).notNull(), // uploaded file name
+  mimeType: varchar("mime_type", { length: 150 }).notNull(),
+  fileSize: integer("file_size"),
+  structureText: text("structure_text"), // extracted layout/headings the AI mimics
+  isActive: boolean("is_active").notNull().default(true),
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Generated client reports (mirrors the assessment report status flow)
+export const clientReports = pgTable("client_reports", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  templateId: integer("template_id").references(() => reportTemplates.id, { onDelete: 'set null' }),
+  templateName: varchar("template_name", { length: 255 }), // snapshot of template name at generation
+
+  // Content fields (matching assessment report pattern)
+  generatedContent: text("generated_content"),
+  draftContent: text("draft_content"),
+  finalContent: text("final_content"),
+
+  // Status tracking
+  isDraft: boolean("is_draft").notNull().default(true),
+  isFinalized: boolean("is_finalized").notNull().default(false),
+
+  // Timestamps
+  generatedAt: timestamp("generated_at"),
+  editedAt: timestamp("edited_at"),
+  finalizedAt: timestamp("finalized_at"),
+
+  // User tracking
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  finalizedById: integer("finalized_by_id").references(() => users.id),
+});
+
 // ===== NOTIFICATION SYSTEM TABLES =====
 
 // Main notifications table - stores individual notification instances
@@ -1326,6 +1371,14 @@ export const AUDIT_ACTIONS = [
   'consent_granted',
   'consent_withdrawn',
   'ai_processing_blocked',
+
+  // Report templates & AI client reports
+  'report_template_created',
+  'report_template_updated',
+  'report_template_deleted',
+  'client_report_generated',
+  'client_report_finalized',
+  'client_report_reopened',
 
   // Calendar feed (per-therapist iCal subscription)
   'calendar_feed_accessed',
@@ -1757,6 +1810,33 @@ export const assessmentReportsRelations = relations(assessmentReports, ({ one })
   }),
   createdBy: one(users, {
     fields: [assessmentReports.createdById],
+    references: [users.id],
+  }),
+}));
+
+export const reportTemplatesRelations = relations(reportTemplates, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [reportTemplates.createdById],
+    references: [users.id],
+  }),
+  reports: many(clientReports),
+}));
+
+export const clientReportsRelations = relations(clientReports, ({ one }) => ({
+  client: one(clients, {
+    fields: [clientReports.clientId],
+    references: [clients.id],
+  }),
+  template: one(reportTemplates, {
+    fields: [clientReports.templateId],
+    references: [reportTemplates.id],
+  }),
+  createdBy: one(users, {
+    fields: [clientReports.createdById],
+    references: [users.id],
+  }),
+  finalizedBy: one(users, {
+    fields: [clientReports.finalizedById],
     references: [users.id],
   }),
 }));
@@ -2224,6 +2304,16 @@ export const insertAssessmentReportSchema = createInsertSchema(assessmentReports
   id: true,
 });
 
+export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertClientReportSchema = createInsertSchema(clientReports).omit({
+  id: true,
+});
+
 // Notification Schemas
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
@@ -2414,6 +2504,12 @@ export type InsertAssessmentResponse = z.infer<typeof insertAssessmentResponseSc
 
 export type AssessmentReport = typeof assessmentReports.$inferSelect;
 export type InsertAssessmentReport = z.infer<typeof insertAssessmentReportSchema>;
+
+export type ReportTemplate = typeof reportTemplates.$inferSelect;
+export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
+
+export type ClientReport = typeof clientReports.$inferSelect;
+export type InsertClientReport = z.infer<typeof insertClientReportSchema>;
 
 // Service and Room Types
 export type SelectService = typeof services.$inferSelect;
