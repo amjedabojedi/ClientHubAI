@@ -39,6 +39,7 @@ import {
   AlertCircle,
   Lock,
   MoreVertical,
+  Loader2,
 } from "lucide-react";
 
 // Utils
@@ -66,6 +67,49 @@ export default function ClientReportPage() {
 
   const [editorContent, setEditorContent] = useState("");
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/download/pdf`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        let message = "Failed to generate PDF. Please try again.";
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // response was not JSON; keep default message
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] || `client-report-${reportId}.pdf`;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const { data: report, isLoading } = useQuery<any>({
     queryKey: [`/api/reports/${reportId}`],
@@ -232,14 +276,19 @@ export default function ClientReportPage() {
               ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = `/api/reports/${reportId}/download/pdf`;
-                  link.click();
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleDownloadPdf();
                 }}
+                disabled={isDownloadingPdf}
+                data-testid="button-download-pdf"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
+                {isDownloadingPdf ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {isDownloadingPdf ? "Preparing PDF..." : "Download PDF"}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
