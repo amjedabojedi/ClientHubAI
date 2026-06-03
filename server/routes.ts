@@ -11796,7 +11796,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const {
         name, description, aiInstructions, fileContent, originalName, mimeType,
         defaultIncludeProfile, defaultIncludeNotes, defaultIncludeAssessments,
-        supportingFilesGuidance, supportingFilesExpected,
+        supportingFilesGuidance, supportingFilesExpected, supportingFileTypes,
       } = req.body || {};
       if (!name || !fileContent || !originalName || !mimeType) {
         return res.status(400).json({ message: "name, fileContent, originalName and mimeType are required" });
@@ -11830,6 +11830,9 @@ You can download a copy if you have it saved locally and re-upload it.`;
         defaultIncludeAssessments: defaultIncludeAssessments === undefined ? true : !!defaultIncludeAssessments,
         supportingFilesGuidance: supportingFilesGuidance || null,
         supportingFilesExpected: !!supportingFilesExpected,
+        supportingFileTypes: Array.isArray(supportingFileTypes)
+          ? supportingFileTypes.map((t: any) => String(t).trim()).filter(Boolean)
+          : null,
         isActive: true,
         createdById: req.user.id,
       });
@@ -11893,7 +11896,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const {
         name, description, aiInstructions, isActive,
         defaultIncludeProfile, defaultIncludeNotes, defaultIncludeAssessments,
-        supportingFilesGuidance, supportingFilesExpected,
+        supportingFilesGuidance, supportingFilesExpected, supportingFileTypes,
       } = req.body || {};
       const updates: any = {};
       if (name !== undefined) updates.name = name;
@@ -11905,6 +11908,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (defaultIncludeAssessments !== undefined) updates.defaultIncludeAssessments = !!defaultIncludeAssessments;
       if (supportingFilesGuidance !== undefined) updates.supportingFilesGuidance = supportingFilesGuidance || null;
       if (supportingFilesExpected !== undefined) updates.supportingFilesExpected = !!supportingFilesExpected;
+      if (supportingFileTypes !== undefined) {
+        updates.supportingFileTypes = Array.isArray(supportingFileTypes)
+          ? supportingFileTypes.map((t: any) => String(t).trim()).filter(Boolean)
+          : null;
+      }
 
       const updated = await storage.updateReportTemplate(id, updates);
 
@@ -11991,6 +11999,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         originalName: f.originalName,
         mimeType: f.mimeType,
         fileSize: f.fileSize,
+        documentType: f.documentType,
         createdById: f.createdById,
         createdAt: f.createdAt,
       }));
@@ -12073,9 +12082,26 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(403).json({ message: "Access denied. You can only add files for your assigned clients." });
       }
 
-      const { fileContent, originalName, mimeType } = req.body || {};
+      const { fileContent, originalName, mimeType, documentType, templateId } = req.body || {};
       if (!fileContent || !originalName || !mimeType) {
         return res.status(400).json({ message: "fileContent, originalName and mimeType are required" });
+      }
+      const normalizedDocumentType =
+        typeof documentType === 'string' && documentType.trim() ? documentType.trim() : null;
+
+      // If a document type was chosen, it must be one of the types the admin
+      // defined on the template the therapist is generating from. This stops a
+      // tampered request from saving an arbitrary, off-list label.
+      if (normalizedDocumentType) {
+        const parsedTemplateId = parseInt(String(templateId));
+        if (isNaN(parsedTemplateId)) {
+          return res.status(400).json({ message: "A templateId is required when choosing a document type." });
+        }
+        const template = await storage.getReportTemplate(parsedTemplateId);
+        const allowedTypes = template?.supportingFileTypes || [];
+        if (!allowedTypes.includes(normalizedDocumentType)) {
+          return res.status(400).json({ message: "That document type is not allowed for this template." });
+        }
       }
 
       const { isSupportedDocumentType, extractDocumentText } = await import("./report-templates/extract");
@@ -12096,6 +12122,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         originalName,
         mimeType,
         fileSize: buffer.length,
+        documentType: normalizedDocumentType,
         extractedText,
         createdById: req.user.id,
       });
@@ -12142,6 +12169,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         originalName: file.originalName,
         mimeType: file.mimeType,
         fileSize: file.fileSize,
+        documentType: file.documentType,
         createdById: file.createdById,
         createdAt: file.createdAt,
       });
@@ -12275,7 +12303,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       ]);
 
       // Resolve any selected supporting files (must belong to this client).
-      let supportingFiles: { name: string; text: string }[] = [];
+      let supportingFiles: { name: string; text: string; type?: string | null }[] = [];
       const requestedFileIds = Array.isArray(supportingFileIds)
         ? supportingFileIds.map((v: any) => parseInt(String(v))).filter((n: number) => !isNaN(n))
         : [];
@@ -12283,7 +12311,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         const clientFiles = await storage.getReportSupportingFilesByClient(clientId);
         supportingFiles = clientFiles
           .filter((f) => requestedFileIds.includes(f.id) && !!f.extractedText)
-          .map((f) => ({ name: f.originalName, text: f.extractedText as string }));
+          .map((f) => ({ name: f.originalName, text: f.extractedText as string, type: f.documentType }));
       }
 
       const { generateClientReportFromTemplate } = await import("./ai/openai");

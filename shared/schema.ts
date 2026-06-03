@@ -1028,6 +1028,10 @@ export const reportTemplates = pgTable("report_templates", {
   supportingFilesGuidance: text("supporting_files_guidance"),
   // When true, the generate screen nudges therapists to attach supporting files.
   supportingFilesExpected: boolean("supporting_files_expected").notNull().default(false),
+  // Admin-defined list of document types therapists pick from when uploading a
+  // supporting file (e.g. "Intake form", "GP letter"). The chosen label is sent
+  // to the AI so it knows what each supporting document is.
+  supportingFileTypes: text("supporting_file_types").array(),
   isActive: boolean("is_active").notNull().default(true),
   createdById: integer("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -1045,6 +1049,9 @@ export const reportSupportingFiles = pgTable("report_supporting_files", {
   fileSize: integer("file_size"),
   fileBlobName: varchar("file_blob_name", { length: 1000 }), // Azure blob reference
   fileUrl: text("file_url"), // Azure blob URL
+  // What kind of document this is (e.g. "Intake form"), picked from the
+  // template's admin-defined list. Sent to the AI to label the document.
+  documentType: varchar("document_type", { length: 150 }),
   extractedText: text("extracted_text"), // text fed to the AI as reference context
   createdById: integer("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),

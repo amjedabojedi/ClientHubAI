@@ -57,6 +57,18 @@ function formatFileSize(bytes?: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Turn the newline-separated document-type textarea into a clean string array.
+function parseDocumentTypes(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split("\n")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 export default function ReportTemplatesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -72,6 +84,7 @@ export default function ReportTemplatesPage() {
   const [includeAssessments, setIncludeAssessments] = useState(true);
   const [supportingFilesGuidance, setSupportingFilesGuidance] = useState("");
   const [supportingFilesExpected, setSupportingFilesExpected] = useState(false);
+  const [supportingFileTypes, setSupportingFileTypes] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ReportTemplate | null>(null);
 
   const [editTarget, setEditTarget] = useState<ReportTemplate | null>(null);
@@ -83,6 +96,7 @@ export default function ReportTemplatesPage() {
   const [editIncludeAssessments, setEditIncludeAssessments] = useState(true);
   const [editSupportingFilesGuidance, setEditSupportingFilesGuidance] = useState("");
   const [editSupportingFilesExpected, setEditSupportingFilesExpected] = useState(false);
+  const [editSupportingFileTypes, setEditSupportingFileTypes] = useState("");
 
   const openEdit = (template: ReportTemplate) => {
     setEditTarget(template);
@@ -94,6 +108,7 @@ export default function ReportTemplatesPage() {
     setEditIncludeAssessments(template.defaultIncludeAssessments ?? true);
     setEditSupportingFilesGuidance(template.supportingFilesGuidance || "");
     setEditSupportingFilesExpected(template.supportingFilesExpected ?? false);
+    setEditSupportingFileTypes((template.supportingFileTypes || []).join("\n"));
   };
 
   const { data: templates = [], isLoading } = useQuery<ReportTemplate[]>({
@@ -111,6 +126,7 @@ export default function ReportTemplatesPage() {
     setIncludeAssessments(true);
     setSupportingFilesGuidance("");
     setSupportingFilesExpected(false);
+    setSupportingFileTypes("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -130,6 +146,7 @@ export default function ReportTemplatesPage() {
         defaultIncludeAssessments: includeAssessments,
         supportingFilesGuidance: supportingFilesGuidance.trim() || null,
         supportingFilesExpected,
+        supportingFileTypes: parseDocumentTypes(supportingFileTypes),
       });
     },
     onSuccess: () => {
@@ -176,6 +193,7 @@ export default function ReportTemplatesPage() {
         defaultIncludeAssessments: editIncludeAssessments,
         supportingFilesGuidance: editSupportingFilesGuidance.trim() || null,
         supportingFilesExpected: editSupportingFilesExpected,
+        supportingFileTypes: parseDocumentTypes(editSupportingFileTypes),
       });
     },
     onSuccess: () => {
@@ -329,7 +347,7 @@ export default function ReportTemplatesPage() {
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Report Template</DialogTitle>
             <DialogDescription>
@@ -437,6 +455,21 @@ export default function ReportTemplatesPage() {
                   data-testid="switch-supporting-expected"
                 />
               </div>
+              <div className="space-y-1 pt-1">
+                <Label htmlFor="template-supporting-types">Document types (one per line)</Label>
+                <Textarea
+                  id="template-supporting-types"
+                  value={supportingFileTypes}
+                  onChange={(e) => setSupportingFileTypes(e.target.value)}
+                  placeholder={"Intake form\nGP letter\nPrevious report"}
+                  rows={3}
+                  data-testid="input-template-supporting-types"
+                />
+                <p className="text-xs text-slate-500">
+                  Therapists pick one of these when uploading a supporting file. The chosen type is
+                  sent to the AI so it knows what each document is.
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -457,7 +490,7 @@ export default function ReportTemplatesPage() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Report Template</DialogTitle>
             <DialogDescription>
@@ -549,6 +582,21 @@ export default function ReportTemplatesPage() {
                   onCheckedChange={setEditSupportingFilesExpected}
                   data-testid="switch-edit-supporting-expected"
                 />
+              </div>
+              <div className="space-y-1 pt-1">
+                <Label htmlFor="edit-template-supporting-types">Document types (one per line)</Label>
+                <Textarea
+                  id="edit-template-supporting-types"
+                  value={editSupportingFileTypes}
+                  onChange={(e) => setEditSupportingFileTypes(e.target.value)}
+                  placeholder={"Intake form\nGP letter\nPrevious report"}
+                  rows={3}
+                  data-testid="input-edit-template-supporting-types"
+                />
+                <p className="text-xs text-slate-500">
+                  Therapists pick one of these when uploading a supporting file. The chosen type is
+                  sent to the AI so it knows what each document is.
+                </p>
               </div>
             </div>
 

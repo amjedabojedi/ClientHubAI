@@ -2103,6 +2103,7 @@ export default function ClientDetailPage() {
   const [reportIncludeNotes, setReportIncludeNotes] = useState(true);
   const [reportIncludeAssessments, setReportIncludeAssessments] = useState(true);
   const [selectedSupportingFileIds, setSelectedSupportingFileIds] = useState<number[]>([]);
+  const [uploadDocumentType, setUploadDocumentType] = useState<string>("");
 
   const { data: supportingFiles = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/supporting-files`],
@@ -2148,11 +2149,14 @@ export default function ClientDetailPage() {
         fileContent,
         originalName: file.name,
         mimeType: file.type || "application/octet-stream",
+        documentType: uploadDocumentType.trim() || null,
+        templateId: selectedReportTemplate?.id ?? null,
       });
     },
     onSuccess: () => {
       toast({ title: "File added", description: "The supporting file is ready to use." });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/supporting-files`] });
+      setUploadDocumentType("");
       if (supportingFileInputRef.current) supportingFileInputRef.current.value = "";
     },
     onError: (error: any) => {
@@ -4218,6 +4222,14 @@ export default function ClientDetailPage() {
                                 className="text-sm font-normal text-slate-700 truncate cursor-pointer"
                               >
                                 {file.originalName}
+                                {file.documentType && (
+                                  <span
+                                    className="ml-2 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600"
+                                    data-testid={`supporting-file-type-${file.id}`}
+                                  >
+                                    {file.documentType}
+                                  </span>
+                                )}
                               </Label>
                             </div>
                             <div className="flex items-center shrink-0">
@@ -4243,7 +4255,29 @@ export default function ClientDetailPage() {
                             </div>
                           </div>
                         ))}
-                        <div className="flex items-center space-x-3 pt-1">
+                        <div className="flex flex-wrap items-center gap-3 pt-1">
+                          {Array.isArray(selectedReportTemplate.supportingFileTypes) &&
+                            selectedReportTemplate.supportingFileTypes.length > 0 && (
+                              <Select
+                                value={uploadDocumentType}
+                                onValueChange={setUploadDocumentType}
+                                disabled={uploadSupportingFileMutation.isPending}
+                              >
+                                <SelectTrigger
+                                  className="w-[180px]"
+                                  data-testid="select-document-type"
+                                >
+                                  <SelectValue placeholder="Document type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {selectedReportTemplate.supportingFileTypes.map((type: string) => (
+                                    <SelectItem key={type} value={type}>
+                                      {type}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           <Input
                             ref={supportingFileInputRef}
                             type="file"

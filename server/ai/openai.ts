@@ -1386,7 +1386,7 @@ export async function generateClientReportFromTemplate(params: {
   includeProfile?: boolean;
   includeNotes?: boolean;
   includeAssessments?: boolean;
-  supportingFiles?: { name: string; text: string }[];
+  supportingFiles?: { name: string; text: string; type?: string | null }[];
 }): Promise<string> {
   const {
     client, sessions, notes, assessments, templateStructure, aiInstructions,
@@ -1522,7 +1522,9 @@ ${assessmentsText}
     const MAX_SUPPORTING_CHARS = 30000;
     const supportingText = supportingFiles
       .map((f, i) => {
-        const label = sanitize(f.name) || `Supporting document ${i + 1}`;
+        const name = sanitize(f.name) || `Supporting document ${i + 1}`;
+        const docType = sanitize(f.type || '');
+        const label = docType ? `${name} (document type: ${docType})` : name;
         const body = String(f.text || '').slice(0, MAX_SUPPORTING_CHARS);
         return `--- ${label} ---\n${body}`;
       })

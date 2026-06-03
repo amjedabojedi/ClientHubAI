@@ -63,6 +63,10 @@ async function main() {
   await db.execute(
     sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS supporting_files_expected BOOLEAN NOT NULL DEFAULT FALSE`,
   );
+  // Admin-defined list of supporting-file document types therapists pick from.
+  await db.execute(
+    sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS supporting_file_types TEXT[]`,
+  );
 
   // ----- report_supporting_files -----
   // Per-client reference files (referral letters, prior reports, intake docs)
@@ -81,6 +85,11 @@ async function main() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `);
+
+  // Document type label (picked from the template's admin-defined list).
+  await db.execute(
+    sql`ALTER TABLE report_supporting_files ADD COLUMN IF NOT EXISTS document_type VARCHAR(150)`,
+  );
 
   await db.execute(
     sql`CREATE INDEX IF NOT EXISTS idx_report_supporting_files_client_id ON report_supporting_files(client_id)`,
