@@ -12001,6 +12001,67 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // Securely download/preview a supporting file. Streams the blob through the server
+  // after verifying the caller can access the file's client. Never hands out the raw
+  // Azure blob URL (the container allows blob-level reads by URL).
+  app.get("/api/supporting-files/:id/download", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid file ID" });
+
+      const file = await storage.getReportSupportingFile(id);
+      if (!file) return res.status(404).json({ message: "Supporting file not found" });
+      if (!(await userCanAccessClient(req.user, file.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only download files for your assigned clients." });
+      }
+
+      // Resolve the blob: prefer the stored blob name, fall back to name variations.
+      let blobName = file.fileBlobName || null;
+      if (!blobName || !(await azureStorage.fileExists(blobName))) {
+        blobName = await azureStorage.findBlobName(file.id, file.originalName, file.originalName);
+      }
+      if (!blobName) {
+        return res.status(404).json({ message: "File not found in storage" });
+      }
+
+      const downloadResult = await azureStorage.downloadFile(blobName);
+      if (!downloadResult.success || !downloadResult.data) {
+        return res.status(404).json({ message: "File not found in storage" });
+      }
+
+      const disposition = req.query.inline === '1' ? 'inline' : 'attachment';
+      const safeName = String(file.originalName).replace(/"/g, '');
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'report_supporting_file_downloaded',
+        result: 'success',
+        resourceType: 'report_supporting_file',
+        resourceId: file.id.toString(),
+        clientId: file.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'medium',
+        details: JSON.stringify({ operation: 'report_supporting_file_downloaded', originalName: file.originalName, mimeType: file.mimeType }),
+        accessReason: 'Supporting file management for AI reports',
+      });
+
+      res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `${disposition}; filename="${safeName}"`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.send(downloadResult.data);
+    } catch (error) {
+      console.error('Error downloading supporting file:', error);
+      res.status(500).json({ message: "Failed to download supporting file" });
+    }
+  });
+
   // Upload a supporting file for a client. Body: { fileContent(base64), originalName, mimeType }
   app.post("/api/clients/:clientId/supporting-files", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
     const { ipAddress, userAgent } = getRequestInfo(req);

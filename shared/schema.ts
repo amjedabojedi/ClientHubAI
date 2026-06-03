@@ -1409,6 +1409,7 @@ export const AUDIT_ACTIONS = [
   'client_report_reopened',
   'report_supporting_file_uploaded',
   'report_supporting_file_deleted',
+  'report_supporting_file_downloaded',
 
   // Calendar feed (per-therapist iCal subscription)
   'calendar_feed_accessed',

@@ -2182,6 +2182,37 @@ export default function ClientDetailPage() {
     },
   });
 
+  const downloadSupportingFile = async (file: any) => {
+    try {
+      const res = await fetch(`/api/supporting-files/${file.id}/download`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        let message = "Failed to download file.";
+        try {
+          const data = await res.json();
+          message = data?.message || message;
+        } catch {}
+        throw new Error(message);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.originalName || "supporting-file";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error?.message || "Failed to download file.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const generateReportMutation = useMutation({
     mutationFn: async (payload: { templateId: number; sources: { includeProfile: boolean; includeNotes: boolean; includeAssessments: boolean }; supportingFileIds: number[] }) => {
       const res = await apiRequest(`/api/clients/${clientId}/reports/generate`, "POST", payload);
@@ -4135,16 +4166,27 @@ export default function ClientDetailPage() {
                             {file.originalName}
                           </span>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => deleteSupportingFileMutation.mutate(file.id)}
-                          disabled={deleteSupportingFileMutation.isPending}
-                          data-testid={`button-delete-supporting-file-${file.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-slate-600 hover:text-slate-900"
+                            onClick={() => downloadSupportingFile(file)}
+                            data-testid={`button-download-supporting-file-${file.id}`}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => deleteSupportingFileMutation.mutate(file.id)}
+                            disabled={deleteSupportingFileMutation.isPending}
+                            data-testid={`button-delete-supporting-file-${file.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
