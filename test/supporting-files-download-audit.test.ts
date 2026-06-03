@@ -171,6 +171,24 @@ async function findDownloadAudit(userId: number, clientId: number, since: Date) 
   return rows.length > 0 ? rows[0] : null;
 }
 
+// Find the most recent denial audit row for (userId, clientId) since `since`.
+async function findDenialAudit(userId: number, clientId: number, since: Date) {
+  const rows = await db
+    .select()
+    .from(auditLogs)
+    .where(
+      and(
+        eq(auditLogs.userId, userId),
+        eq(auditLogs.clientId, clientId),
+        eq(auditLogs.action, "unauthorized_access" as any),
+        gte(auditLogs.timestamp, since),
+      ),
+    )
+    .orderBy(desc(auditLogs.timestamp))
+    .limit(1);
+  return rows.length > 0 ? rows[0] : null;
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -196,11 +214,13 @@ async function run() {
     // --- Seed users --------------------------------------------------------
     const assignedTherapist = await makeUser("therapist", "dla-assigned");
     const admin = await makeUser("admin", "dla-admin");
+    const otherTherapist = await makeUser("therapist", "dla-other");
 
     const client = await makeClient(assignedTherapist.id, "dla-client");
 
     const assignedToken = createSessionToken(assignedTherapist);
     const adminToken = createSessionToken(admin);
+    const otherToken = createSessionToken(otherTherapist);
 
     // --- Seed a supporting file THROUGH the upload endpoint ----------------
     console.log("Seeding a supporting file via the upload endpoint...");
@@ -279,6 +299,31 @@ async function run() {
           !adminRows.some((row) => row.userId === assignedTherapist.id),
         "Therapist and admin downloads are recorded under distinct user ids",
       );
+    }
+
+    // =======================================================================
+    // 3. A BLOCKED attempt (unassigned therapist) writes a denial audit row
+    // =======================================================================
+    console.log("\nTest 3: Blocked download attempt writes a denial audit row");
+    {
+      const r = await download(downloadPath, otherToken);
+      assertEqual(r.status, 403, "Unassigned therapist download is denied (403)");
+
+      const denial = await findDenialAudit(otherTherapist.id, client.id, testStart);
+      assert(!!denial, "Denial audit row exists for the blocked attempt");
+      if (denial) {
+        assertEqual(denial.action, "unauthorized_access", "Denial action is 'unauthorized_access'");
+        assertEqual(denial.result, "denied", "Denial result is 'denied'");
+        assertEqual(Number(denial.clientId), Number(client.id), "Denial row carries the correct clientId");
+        assertEqual(denial.resourceId, String(fileId), "Denial row carries the file id as resourceId");
+        assertEqual(denial.resourceType, "report_supporting_file", "Denial row resourceType is 'report_supporting_file'");
+        assertEqual(denial.userId, otherTherapist.id, "Denial row is attributed to the blocked user");
+        assertEqual(denial.hipaaRelevant, true, "Denial row is flagged HIPAA-relevant");
+      }
+
+      // The blocked attempt must NOT produce a success download row.
+      const sneakSuccess = await findDownloadAudit(otherTherapist.id, client.id, testStart);
+      assert(!sneakSuccess, "Blocked attempt does not produce a success download row");
     }
   } catch (error) {
     console.error("\n❌ Test suite error:", error);

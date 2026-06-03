@@ -12023,6 +12023,27 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const file = await storage.getReportSupportingFile(id);
       if (!file) return res.status(404).json({ message: "Supporting file not found" });
       if (!(await userCanAccessClient(req.user, file.clientId))) {
+        // HIPAA: record the blocked attempt. A denied attempt to pull a client's
+        // document is exactly the kind of event the access log must retain.
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'unauthorized_access',
+          result: 'denied',
+          resourceType: 'report_supporting_file',
+          resourceId: file.id.toString(),
+          clientId: file.clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            reason: 'client_not_authorized',
+            endpoint: '/api/supporting-files/:id/download',
+            userRole: req.user.role,
+          }),
+          accessReason: 'Supporting file download attempted for unauthorized client',
+        });
         return res.status(403).json({ message: "Access denied. You can only download files for your assigned clients." });
       }
 
