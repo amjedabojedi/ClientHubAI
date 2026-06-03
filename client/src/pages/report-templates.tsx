@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // Icons
-import { FileText, Upload, Trash2, Plus, FileType } from "lucide-react";
+import { FileText, Upload, Trash2, Plus, FileType, Pencil } from "lucide-react";
 
 // Utils
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
@@ -68,6 +68,18 @@ export default function ReportTemplatesPage() {
   const [aiInstructions, setAiInstructions] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ReportTemplate | null>(null);
+
+  const [editTarget, setEditTarget] = useState<ReportTemplate | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAiInstructions, setEditAiInstructions] = useState("");
+
+  const openEdit = (template: ReportTemplate) => {
+    setEditTarget(template);
+    setEditName(template.name);
+    setEditDescription(template.description || "");
+    setEditAiInstructions(template.aiInstructions || "");
+  };
 
   const { data: templates = [], isLoading } = useQuery<ReportTemplate[]>({
     queryKey: ["/api/report-templates", { includeInactive: true }],
@@ -116,6 +128,30 @@ export default function ReportTemplatesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/report-templates"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Update Failed",
+        description: error.message || "Failed to update template.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editTarget) throw new Error("No template selected.");
+      if (!editName.trim()) throw new Error("Template name is required.");
+      return apiRequest(`/api/report-templates/${editTarget.id}`, "PATCH", {
+        name: editName.trim(),
+        description: editDescription.trim() || null,
+        aiInstructions: editAiInstructions.trim() || null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Template updated" });
+      queryClient.invalidateQueries({ queryKey: ["/api/report-templates"] });
+      setEditTarget(null);
     },
     onError: (error: any) => {
       toast({
@@ -228,15 +264,26 @@ export default function ReportTemplatesPage() {
                       {template.isActive ? "Available" : "Hidden"}
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => setDeleteTarget(template)}
-                    data-testid={`button-delete-${template.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      onClick={() => openEdit(template)}
+                      data-testid={`button-edit-${template.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setDeleteTarget(template)}
+                      data-testid={`button-delete-${template.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -320,6 +367,68 @@ export default function ReportTemplatesPage() {
             >
               <Upload className="w-4 h-4 mr-2" />
               {uploadMutation.isPending ? "Uploading..." : "Upload"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Report Template</DialogTitle>
+            <DialogDescription>
+              Update the template's name, description, and AI instructions. To change the
+              uploaded file, delete this template and upload a new one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-template-name">Template Name *</Label>
+              <Input
+                id="edit-template-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="e.g. Initial Clinical Assessment Report"
+                data-testid="input-edit-template-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-template-description">Description</Label>
+              <Textarea
+                id="edit-template-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Optional notes about when to use this template"
+                rows={2}
+                data-testid="input-edit-template-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-template-ai">AI Instructions</Label>
+              <Textarea
+                id="edit-template-ai"
+                value={editAiInstructions}
+                onChange={(e) => setEditAiInstructions(e.target.value)}
+                placeholder="Optional guidance for the AI, e.g. tone, sections to emphasize"
+                rows={3}
+                data-testid="input-edit-template-ai"
+              />
+            </div>
+            <div className="text-xs text-slate-500">
+              File: {editTarget?.originalName}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => editMutation.mutate()}
+              disabled={!editName.trim() || editMutation.isPending}
+              data-testid="button-save-template"
+            >
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

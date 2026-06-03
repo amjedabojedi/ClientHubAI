@@ -11868,6 +11868,23 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (isActive !== undefined) updates.isActive = isActive;
 
       const updated = await storage.updateReportTemplate(id, updates);
+
+      const { ipAddress, userAgent } = getRequestInfo(req);
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'report_template_updated',
+        result: 'success',
+        resourceType: 'report_template',
+        resourceId: id.toString(),
+        ipAddress,
+        userAgent,
+        hipaaRelevant: false,
+        riskLevel: 'low',
+        details: JSON.stringify({ operation: 'report_template_updated', fields: Object.keys(updates) }),
+        accessReason: 'Report template management',
+      });
+
       res.json(updated);
     } catch (error) {
       console.error('Error updating report template:', error);
