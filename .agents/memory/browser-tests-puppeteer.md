@@ -9,6 +9,14 @@ Browser tests live in `test/*.test.ts`, run via `npx tsx`, and drive a real
 Chromium against a real dev server. They are chained into the `test-privacy`
 validation and must run serially (see privacy-test-concurrency.md).
 
+## Use the shared helper — don't re-implement setup
+`test/helpers/browser.ts` is the single source of truth for the fragile setup:
+`startDevServer()` (picks a free port, spawns the dev server, waits on /health,
+returns `{ baseUrl, port, stop() }`), `launchBrowser()`/`resolveChromium()`,
+`loginAs(page, {username,password})`, and `clickTab(page, /regex/)`. The pitfalls
+below are encoded there inline. New browser suites should import these instead of
+copying the boilerplate so a fix lands in one place.
+
 ## Spawning the app
 Spawn `npx tsx server/index.ts` with a unique `PORT` (pick a free ephemeral port
 yourself; the dev server reads `process.env.PORT`) and `NODE_ENV=development`,

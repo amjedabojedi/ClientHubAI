@@ -47,9 +47,14 @@
  *   falling back to puppeteer's bundled binary) with --no-sandbox.
  */
 
-import { spawn, execSync, type ChildProcess } from "child_process";
-import { createServer } from "net";
-import puppeteer, { type Browser } from "puppeteer";
+import type { Browser } from "puppeteer";
+import {
+  startDevServer,
+  launchBrowser,
+  loginAs,
+  clickTab,
+  type DevServer,
+} from "./helpers/browser";
 import { db } from "../server/db";
 import { users, notificationPreferences } from "../shared/schema";
 import { storage } from "../server/storage";
@@ -79,107 +84,6 @@ function assertEqual(actual: any, expected: any, message: string) {
 
 const SUFFIX = `dsepref-ui-${Date.now()}`;
 const createdUserIds: number[] = [];
-
-// ---------------------------------------------------------------------------
-// Pick a free ephemeral port for our own dev-server instance.
-// ---------------------------------------------------------------------------
-function findFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = createServer();
-    srv.unref();
-    srv.on("error", reject);
-    srv.listen(0, () => {
-      const port = (srv.address() as any).port as number;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Resolve a Chromium binary that works in this environment.
-// ---------------------------------------------------------------------------
-function resolveChromium(): string | undefined {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  try {
-    const which = execSync("which chromium || which chromium-browser", {
-      encoding: "utf8",
-    }).trim();
-    if (which) return which;
-  } catch {
-    // fall through to puppeteer's bundled binary
-  }
-  try {
-    return puppeteer.executablePath();
-  } catch {
-    return undefined;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Spawn the real dev server and wait until it answers /health.
-// ---------------------------------------------------------------------------
-let serverProc: ChildProcess | null = null;
-
-async function startDevServer(port: number): Promise<string> {
-  const baseUrl = `http://127.0.0.1:${port}`;
-  serverProc = spawn("npx", ["tsx", "server/index.ts"], {
-    env: {
-      ...process.env,
-      PORT: String(port),
-      NODE_ENV: "development",
-      // Stub email provider config so cron startup is harmless; no email is sent.
-      SPARKPOST_API_KEY: process.env.SPARKPOST_API_KEY || "test-sparkpost-key",
-      EMAIL_FROM: process.env.EMAIL_FROM || "schedule@example.test",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  serverProc.stdout?.on("data", () => {});
-  serverProc.stderr?.on("data", (d) => {
-    const s = d.toString();
-    if (/error/i.test(s)) console.error(`[devserver] ${s.trim()}`);
-  });
-
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    if (serverProc.exitCode !== null) {
-      throw new Error(`Dev server exited early with code ${serverProc.exitCode}`);
-    }
-    try {
-      const res = await fetch(`${baseUrl}/health`);
-      if (res.ok || res.status === 503) return baseUrl;
-    } catch {
-      // not up yet
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error("Dev server did not become ready within 120s");
-}
-
-async function stopDevServer() {
-  if (!serverProc || serverProc.exitCode !== null) return;
-  await new Promise<void>((resolve) => {
-    const proc = serverProc!;
-    const killTimer = setTimeout(() => {
-      try {
-        proc.kill("SIGKILL");
-      } catch {}
-      resolve();
-    }, 10_000);
-    proc.on("exit", () => {
-      clearTimeout(killTimer);
-      resolve();
-    });
-    try {
-      proc.kill("SIGTERM");
-    } catch {
-      clearTimeout(killTimer);
-      resolve();
-    }
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Seed helper
@@ -213,26 +117,14 @@ async function getPersistedEmailEnabled(userId: number): Promise<boolean | null>
 // Browser helpers
 // ---------------------------------------------------------------------------
 let browser: Browser;
+let devServer: DevServer | null = null;
 
 // Open /notifications, switch to the Preferences tab, and wait for the
 // daily-schedule-email Switch to render. Returns its aria-checked state.
+// clickTab (shared helper) drives a trusted ElementHandle click — required
+// because the Radix Tabs only mount the active tab's content.
 async function openPreferencesAndReadSwitch(page: any): Promise<string | null> {
-  // The Radix Tabs only mount the active tab's content, so we must click the
-  // "Preferences" tab before the Switch exists in the DOM. Use a real
-  // ElementHandle click (a trusted mouse event) — a synthetic .click() inside
-  // page.evaluate does not drive the Radix Tabs state change.
-  await page.waitForSelector('[role="tab"]', { timeout: 30_000 });
-  const tabHandles = await page.$$('[role="tab"]');
-  let clicked = false;
-  for (const handle of tabHandles) {
-    const text = await handle.evaluate((el: Element) => el.textContent || "");
-    if (/preferences/i.test(text)) {
-      await handle.click();
-      clicked = true;
-      break;
-    }
-  }
-  if (!clicked) throw new Error('Could not find the "Preferences" tab to click');
+  await clickTab(page, /preferences/i);
   await page.waitForSelector(SWITCH_SELECTOR, { timeout: 30_000 });
   return page.$eval(SWITCH_SELECTOR, (el: Element) =>
     el.getAttribute("aria-checked"),
@@ -256,20 +148,10 @@ async function toggleSwitchAndAwaitPut(page: any) {
 
 // ---------------------------------------------------------------------------
 async function main() {
-  const port = await findFreePort();
-  const baseUrl = await startDevServer(port);
+  devServer = await startDevServer();
+  const baseUrl = devServer.baseUrl;
 
-  const execPath = resolveChromium();
-  browser = await puppeteer.launch({
-    executablePath: execPath,
-    headless: "new" as any,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-    ],
-  });
+  browser = await launchBrowser();
 
   try {
     const t = await makeTherapist("ui-therapist");
@@ -278,24 +160,15 @@ async function main() {
     page.setDefaultNavigationTimeout(60_000);
 
     // Establish the origin (login page renders for an unauthenticated visit),
-    // then log in through the REAL /api/auth/login endpoint. This sets the
+    // then log in through the REAL /api/auth/login endpoint (loginAs sets the
     // httpOnly sessionToken + readable csrfToken cookies via genuine Set-Cookie
-    // headers (exactly like a real login) and seeds localStorage.currentUser,
-    // which the frontend's useAuth reads to consider the user authenticated.
+    // headers and seeds localStorage.currentUser, which the frontend's useAuth
+    // reads to consider the user authenticated).
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
-    const loginStatus = await page.evaluate(async (creds) => {
-      const r = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(creds),
-      });
-      if (r.ok) {
-        const user = await r.json();
-        localStorage.setItem("currentUser", JSON.stringify(user));
-      }
-      return r.status;
-    }, { username: t.username, password: "x" });
+    const loginStatus = await loginAs(page, {
+      username: t.username,
+      password: "x",
+    });
     assertEqual(loginStatus, 200, "Therapist logs in via /api/auth/login");
 
     // -------------------------------------------------------------------
@@ -354,7 +227,7 @@ async function main() {
     );
   } finally {
     if (browser) await browser.close().catch(() => {});
-    await stopDevServer();
+    if (devServer) await devServer.stop();
     // Cleanup: remove our notification_preferences rows, then our users.
     try {
       if (createdUserIds.length > 0) {
