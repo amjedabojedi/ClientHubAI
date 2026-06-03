@@ -11984,10 +11984,32 @@ You can download a copy if you have it saved locally and re-upload it.`;
   // ==================== REPORT SUPPORTING FILES (per-client AI context) ====================
   // List a client's supporting files (staff with client access). Extracted text is omitted from the list payload.
   app.get("/api/clients/:clientId/supporting-files", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
     try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
       const clientId = parseInt(req.params.clientId);
       if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
       if (!(await userCanAccessClient(req.user, clientId))) {
+        // HIPAA: record the blocked attempt. A denied attempt to list a client's
+        // documents is as worth retaining as a denied download.
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'unauthorized_access',
+          result: 'denied',
+          resourceType: 'report_supporting_file',
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            reason: 'client_not_authorized',
+            endpoint: '/api/clients/:clientId/supporting-files',
+            userRole: req.user.role,
+          }),
+          accessReason: 'Supporting file list attempted for unauthorized client',
+        });
         return res.status(403).json({ message: "Access denied. You can only view files for your assigned clients." });
       }
       const files = await storage.getReportSupportingFilesByClient(clientId);
@@ -12100,6 +12122,26 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const clientId = parseInt(req.params.clientId);
       if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
       if (!(await userCanAccessClient(req.user, clientId))) {
+        // HIPAA: record the blocked attempt. A denied attempt to upload a
+        // document for a client is as worth retaining as a denied download.
+        await AuditLogger.logAction({
+          userId: req.user.id,
+          username: req.user.username,
+          action: 'unauthorized_access',
+          result: 'denied',
+          resourceType: 'report_supporting_file',
+          clientId,
+          ipAddress,
+          userAgent,
+          hipaaRelevant: true,
+          riskLevel: 'high',
+          details: JSON.stringify({
+            reason: 'client_not_authorized',
+            endpoint: '/api/clients/:clientId/supporting-files',
+            userRole: req.user.role,
+          }),
+          accessReason: 'Supporting file upload attempted for unauthorized client',
+        });
         return res.status(403).json({ message: "Access denied. You can only add files for your assigned clients." });
       }
 
