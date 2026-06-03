@@ -76,12 +76,14 @@ import {
   HelpCircle,
   FileAudio,
   Mic,
-  Unlock
+  Unlock,
+  Loader2
 } from "lucide-react";
 
 // Utils and Hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { downloadPdf } from "@/lib/download-pdf";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
@@ -1071,6 +1073,26 @@ export default function ClientDetailPage() {
   const [transcriptViewerSessionId, setTranscriptViewerSessionId] = useState<number | null>(null);
   const [recordingSessionId, setRecordingSessionId] = useState<number | null>(null);
   const recordingActiveRef = useRef(false);
+  const [downloadingAssessmentPdfId, setDownloadingAssessmentPdfId] = useState<number | null>(null);
+
+  const handleDownloadAssessmentPdf = async (assignmentId: number) => {
+    if (downloadingAssessmentPdfId !== null) return;
+    setDownloadingAssessmentPdfId(assignmentId);
+    try {
+      await downloadPdf(
+        `/api/assessments/assignments/${assignmentId}/download/pdf`,
+        `assessment-report-${assignmentId}.pdf`,
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingAssessmentPdfId(null);
+    }
+  };
 
   // Session editing form
   const sessionForm = useForm<SessionFormData>({
@@ -3738,11 +3760,16 @@ export default function ClientDetailPage() {
                                     variant="default"
                                     size="sm"
                                     className="bg-green-600 hover:bg-green-700"
-                                    onClick={() => window.open(`/api/assessments/assignments/${assessment.id}/download/pdf`, '_blank')}
+                                    disabled={downloadingAssessmentPdfId === assessment.id}
+                                    onClick={() => handleDownloadAssessmentPdf(assessment.id)}
                                     data-testid={`button-finalized-${assessment.id}`}
                                   >
-                                    <CheckSquare className="w-4 h-4 mr-2" />
-                                    Finalized
+                                    {downloadingAssessmentPdfId === assessment.id ? (
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <CheckSquare className="w-4 h-4 mr-2" />
+                                    )}
+                                    {downloadingAssessmentPdfId === assessment.id ? "Preparing PDF..." : "Finalized"}
                                   </Button>
                                 );
                               } else if (assessment.status === 'waiting_for_therapist') {
@@ -3804,9 +3831,19 @@ export default function ClientDetailPage() {
                                       <FileText className="w-4 h-4 mr-2" />
                                       View Report
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => window.open(`/api/assessments/assignments/${assessment.id}/download/pdf`, '_blank')}>
-                                      <Download className="w-4 h-4 mr-2" />
-                                      Download PDF
+                                    <DropdownMenuItem
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        handleDownloadAssessmentPdf(assessment.id);
+                                      }}
+                                      disabled={downloadingAssessmentPdfId === assessment.id}
+                                    >
+                                      {downloadingAssessmentPdfId === assessment.id ? (
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <Download className="w-4 h-4 mr-2" />
+                                      )}
+                                      {downloadingAssessmentPdfId === assessment.id ? "Preparing PDF..." : "Download PDF"}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                       const link = document.createElement('a');

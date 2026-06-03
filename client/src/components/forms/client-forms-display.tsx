@@ -19,9 +19,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download, X, Trash2 } from "lucide-react";
+import { FileText, Clock, CheckCircle2, AlertCircle, Eye, Download, X, Trash2, Loader2 } from "lucide-react";
 import { formatDateDisplay } from "@/lib/datetime";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { downloadPdf } from "@/lib/download-pdf";
 
 interface FormField {
   id: number;
@@ -62,6 +63,26 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
   const { toast } = useToast();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [previewAssignmentId, setPreviewAssignmentId] = useState<number | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<number | null>(null);
+
+  const handleDownloadPdf = async (assignmentId: number) => {
+    if (downloadingPdfId !== null) return;
+    setDownloadingPdfId(assignmentId);
+    try {
+      await downloadPdf(
+        `/api/forms/assignments/${assignmentId}/download/pdf`,
+        `form-${assignmentId}.pdf`,
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<FormTemplate[]>({
     queryKey: ["/api/forms/templates"],
@@ -252,12 +273,15 @@ export function ClientFormsDisplay({ clientId }: ClientFormsDisplayProps) {
                           variant="outline"
                           size="sm"
                           data-testid={`button-download-pdf-${assignment.id}`}
-                          onClick={() => {
-                            window.open(`/api/forms/assignments/${assignment.id}/download/pdf`, '_blank');
-                          }}
+                          disabled={downloadingPdfId === assignment.id}
+                          onClick={() => handleDownloadPdf(assignment.id)}
                         >
-                          <Download className="w-4 h-4 mr-2" />
-                          Download PDF
+                          {downloadingPdfId === assignment.id ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4 mr-2" />
+                          )}
+                          {downloadingPdfId === assignment.id ? "Preparing PDF..." : "Download PDF"}
                         </Button>
                       )}
                       <Button

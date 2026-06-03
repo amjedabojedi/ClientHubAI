@@ -37,12 +37,14 @@ import {
   MoreVertical,
   ChevronDown,
   HelpCircle,
-  Edit
+  Edit,
+  Loader2
 } from "lucide-react";
 
 // Utils
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { downloadPdf } from "@/lib/download-pdf";
 import { useAuth } from "@/hooks/useAuth";
 import { formatResponseDisplay } from "@/lib/assessment-response";
 
@@ -76,6 +78,26 @@ export default function AssessmentReportPage() {
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedResponses, setEditedResponses] = useState<Record<number, any>>({});
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      await downloadPdf(
+        `/api/assessments/assignments/${assignmentId}/download/pdf`,
+        `assessment-report-${assignmentId}.pdf`,
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   // Fetch assessment assignment details
   const { data: assignment, isLoading: assignmentLoading } = useQuery<any>({
@@ -571,12 +593,19 @@ export default function AssessmentReportPage() {
                   <DropdownMenuSeparator />
                   
                   <DropdownMenuItem 
-                    onClick={() => {
-                      window.open(`/api/assessments/assignments/${assignmentId}/download/pdf`, '_blank');
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleDownloadPdf();
                     }}
+                    disabled={isDownloadingPdf}
+                    data-testid="button-download-pdf"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
+                    {isDownloadingPdf ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    {isDownloadingPdf ? "Preparing PDF..." : "Download PDF"}
                   </DropdownMenuItem>
                   
                   <DropdownMenuItem 
