@@ -1015,6 +1015,8 @@ export const reportTemplates = pgTable("report_templates", {
   originalName: varchar("original_name", { length: 500 }).notNull(), // uploaded file name
   mimeType: varchar("mime_type", { length: 150 }).notNull(),
   fileSize: integer("file_size"),
+  fileBlobName: varchar("file_blob_name", { length: 1000 }), // Azure blob reference to the stored original file
+  fileUrl: text("file_url"), // Azure blob URL for the stored original file
   structureText: text("structure_text"), // extracted layout/headings the AI mimics
   isActive: boolean("is_active").notNull().default(true),
   createdById: integer("created_by_id").notNull().references(() => users.id),

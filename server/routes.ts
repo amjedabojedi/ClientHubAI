@@ -11803,7 +11803,29 @@ You can download a copy if you have it saved locally and re-upload it.`;
         isActive: true,
         createdById: req.user.id,
       });
-      const template = await storage.createReportTemplate(validated);
+      let template = await storage.createReportTemplate(validated);
+
+      // Persist the original uploaded file in Azure blob storage and save its reference.
+      try {
+        const uploadResult = await azureStorage.uploadFile(
+          buffer,
+          originalName,
+          mimeType,
+          template.id,
+          { kind: 'report_template', createdById: req.user.id.toString() },
+        );
+        if (!uploadResult.success) {
+          await storage.deleteReportTemplate(template.id);
+          throw new Error(`Azure Blob Storage upload failed: ${uploadResult.error}`);
+        }
+        template = await storage.updateReportTemplate(template.id, {
+          fileBlobName: uploadResult.blobName,
+          fileUrl: uploadResult.url,
+        });
+      } catch (uploadError) {
+        await storage.deleteReportTemplate(template.id);
+        throw uploadError;
+      }
 
       await AuditLogger.logAction({
         userId: req.user.id,
@@ -11864,7 +11886,16 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid template ID" });
 
+      const existing = await storage.getReportTemplate(id);
       await storage.deleteReportTemplate(id);
+      // Best-effort cleanup of the stored original file; do not fail the request if blob removal fails.
+      if (existing?.fileBlobName) {
+        try {
+          await azureStorage.deleteFile(existing.fileBlobName);
+        } catch (blobError) {
+          console.warn('[report-templates] Failed to delete template blob:', blobError);
+        }
+      }
       await AuditLogger.logAction({
         userId: req.user.id,
         username: req.user.username,

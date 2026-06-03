@@ -8,3 +8,6 @@ npx tsx scripts/ensure-audit-enums.ts
 # Guard: fail the merge setup loudly if the audit enums still don't cover every
 # value the code can write (prevents silently-dropped audit rows from shipping).
 npx tsx scripts/verify-audit-enums.ts
+# Ensure the report-template feature tables exist (idempotent DDL; avoids relying
+# on db:push for these tables given known practice_configuration drift).
+npx tsx scripts/ensure-report-tables.ts
