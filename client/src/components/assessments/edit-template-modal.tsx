@@ -33,11 +33,11 @@ export function EditTemplateModal({ open, onOpenChange, template }: EditTemplate
   useEffect(() => {
     if (template) {
       setFormData({
-        name: template.name,
-        description: template.description,
-        category: template.category,
-        isStandardized: template.isStandardized,
-        version: template.version
+        name: template.name ?? "",
+        description: template.description ?? "",
+        category: template.category ?? "clinical",
+        isStandardized: template.isStandardized ?? false,
+        version: template.version ?? "1.0"
       });
     }
   }, [template]);

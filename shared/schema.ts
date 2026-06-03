@@ -13,7 +13,8 @@ import {
   index,
   unique,
   uniqueIndex,
-  jsonb
+  jsonb,
+  type AnyPgColumn
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -357,7 +358,7 @@ export const clients = pgTable("clients", {
   
   // Duplicate Detection & Management
   isDuplicate: boolean("is_duplicate").default(false), // Whether this client is marked as a duplicate
-  duplicateOfClientId: integer("duplicate_of_client_id").references(() => clients.id), // References the primary client record
+  duplicateOfClientId: integer("duplicate_of_client_id").references((): AnyPgColumn => clients.id), // References the primary client record
   duplicateMarkedAt: timestamp("duplicate_marked_at"), // When this was marked as duplicate
   duplicateMarkedBy: integer("duplicate_marked_by").references(() => users.id), // Admin who marked as duplicate
   

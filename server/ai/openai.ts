@@ -522,7 +522,7 @@ Generate a professional clinical summary and provide smart suggestions for each 
     const result = JSON.parse(response.choices[0].message.content || '{}');
     return result as AIGeneratedContent;
   } catch (error) {
-    throw new Error(`AI content generation failed: ${error.message}`);
+    throw new Error(`AI content generation failed: ${(error as Error).message}`);
   }
 }
 
@@ -691,7 +691,7 @@ ASSESSMENT SECTIONS TO GENERATE:
   // Add each section with its responses and AI prompt
   sections.forEach(section => {
     let sectionResponses = responses.filter(r => 
-      section.questions?.some(q => Number(q.id) === Number(r.questionId))
+      section.questions?.some((q: any) => Number(q.id) === Number(r.questionId))
     );
 
     // DEDUPLICATE: If multiple responders answered the same question, use only ONE response per question
@@ -762,11 +762,11 @@ ASSESSMENT SECTIONS TO GENERATE:
       
       sectionResponses.forEach((response, idx) => {
         console.log(`[AI DEBUG] Response ${idx + 1}: questionId=${response.questionId}`);
-        const question = section.questions?.find(q => Number(q.id) === Number(response.questionId));
+        const question = section.questions?.find((q: any) => Number(q.id) === Number(response.questionId));
         
         if (!question) {
           console.log(`[AI DEBUG] WARNING: Question not found for questionId ${response.questionId}`);
-          console.log(`[AI DEBUG] Available question IDs:`, section.questions?.map(q => q.id));
+          console.log(`[AI DEBUG] Available question IDs:`, section.questions?.map((q: any) => q.id));
           return; // Skip this response
         }
         
@@ -781,7 +781,7 @@ ASSESSMENT SECTIONS TO GENERATE:
         } else if (question.questionType === 'multiple_choice') {
           if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
             const selectedTexts = response.selectedOptions
-              .map(optionId => {
+              .map((optionId: any) => {
                 const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
                 return option?.optionText;
               })
@@ -793,7 +793,7 @@ ASSESSMENT SECTIONS TO GENERATE:
         } else if (question.questionType === 'checkbox') {
           if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
             const selectedTexts = response.selectedOptions
-              .map(optionId => {
+              .map((optionId: any) => {
                 const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
                 return option?.optionText;
               })
@@ -852,7 +852,7 @@ ASSESSMENT SECTIONS TO GENERATE:
     // If section has questions, include them specifically
     if (section.questions && section.questions.length > 0) {
       userPrompt += `Section-Specific Data:\n`;
-      section.questions.forEach(question => {
+      section.questions.forEach((question: any) => {
         const response = responses.find(r => r.questionId === question.id);
         if (response) {
           userPrompt += `Q: ${question.questionText}\nA: `;
@@ -864,7 +864,7 @@ ASSESSMENT SECTIONS TO GENERATE:
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
               // selectedOptions contains OPTION IDs, need to map to option texts
               const selectedTexts = response.selectedOptions
-                .map(optionId => {
+                .map((optionId: any) => {
                   const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
                   return option?.optionText;
                 })
@@ -879,7 +879,7 @@ ASSESSMENT SECTIONS TO GENERATE:
             if (response.selectedOptions && Array.isArray(response.selectedOptions) && response.selectedOptions.length > 0) {
               // selectedOptions contains OPTION IDs, need to map to option texts
               const selectedTexts = response.selectedOptions
-                .map(optionId => {
+                .map((optionId: any) => {
                   const option = question.allOptions?.find((opt: any) => opt.id === Number(optionId));
                   return option?.optionText;
                 })
@@ -1048,7 +1048,7 @@ ${sessionNoteData.recommendations ? `Treatment Recommendations: ${sessionNoteDat
 
     return response.choices[0].message.content || '';
   } catch (error) {
-    throw new Error(`Clinical report generation failed: ${error.message}`);
+    throw new Error(`Clinical report generation failed: ${(error as Error).message}`);
   }
 }
 
@@ -1192,7 +1192,7 @@ RECOMMENDATIONS: [your text here]`;
 
 // Generate content using connected templates
 export async function generateFromTemplate(templateId: string, field: string, context?: string): Promise<string> {
-  const template = clinicalTemplates[templateId];
+  const template: any = (clinicalTemplates as any)[templateId];
   if (!template) {
     throw new Error(`Template ${templateId} not found`);
   }
@@ -1207,13 +1207,13 @@ export async function generateFromTemplate(templateId: string, field: string, co
 
   // For now, return the first available option template
   // This could be enhanced to use AI to select the most appropriate option
-  const firstOption = Object.values(fieldOptions)[0];
+  const firstOption: any = Object.values(fieldOptions)[0];
   return firstOption?.template || `${field} content for ${template.name}`;
 }
 
 // Get connected content suggestions based on current field value
 export async function getConnectedSuggestions(templateId: string, sourceField: string, sourceValue: string): Promise<{[key: string]: string[]}> {
-  const template = clinicalTemplates[templateId];
+  const template: any = (clinicalTemplates as any)[templateId];
   if (!template) {
     return {};
   }
@@ -1226,7 +1226,7 @@ export async function getConnectedSuggestions(templateId: string, sourceField: s
   }
 
   // Find matching option based on sourceValue
-  const matchingOption = Object.values(sourceOptions).find((option: any) => 
+  const matchingOption: any = Object.values(sourceOptions).find((option: any) => 
     option.label.toLowerCase().includes(sourceValue.toLowerCase()) || 
     option.template.toLowerCase().includes(sourceValue.toLowerCase())
   );
@@ -1242,8 +1242,8 @@ export async function getConnectedSuggestions(templateId: string, sourceField: s
     const targetOptionsKey = `${targetField}Options`;
     const targetOptions = template[targetOptionsKey];
     
-    if (targetOptions && targetOptions[optionKey]) {
-      suggestions[targetField] = [targetOptions[optionKey].template];
+    if (targetOptions && targetOptions[optionKey as string]) {
+      suggestions[targetField] = [targetOptions[optionKey as string].template];
     }
   }
 
@@ -1252,7 +1252,7 @@ export async function getConnectedSuggestions(templateId: string, sourceField: s
 
 // Get all options for a specific field in a template
 export function getFieldOptions(templateId: string, field: string): Array<{key: string, label: string, template: string}> {
-  const template = clinicalTemplates[templateId];
+  const template: any = (clinicalTemplates as any)[templateId];
   if (!template) {
     return [];
   }

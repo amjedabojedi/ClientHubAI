@@ -467,7 +467,7 @@ export interface IStorage {
   // Note Management
   getNotesByClient(params: NoteQueryParams): Promise<(Note & { author: User })[]>;
   getNote(id: number): Promise<(Note & { author: User }) | undefined>;
-  createNote(note: InsertNote): Promise<Note>;
+  createNote(note: InsertNote & { authorId: number }): Promise<Note>;
   updateNote(id: number, note: Partial<InsertNote>): Promise<Note>;
   deleteNote(id: number): Promise<void>;
 
@@ -3699,7 +3699,7 @@ export class DatabaseStorage implements IStorage {
     return { ...r.note, author: r.author };
   }
 
-  async createNote(note: InsertNote): Promise<Note> {
+  async createNote(note: InsertNote & { authorId: number }): Promise<Note> {
     const [newNote] = await db
       .insert(notes)
       .values(note)
@@ -4802,7 +4802,7 @@ export class DatabaseStorage implements IStorage {
           // New is empty, existing has data → keep existing (do nothing)
         } else {
           // Both have data OR both empty → use most recent
-          if (result.assessment_responses.createdAt > existing.assessment_responses.createdAt) {
+          if (result.assessment_responses.createdAt! > existing.assessment_responses.createdAt!) {
             latestResponsesByQuestion.set(questionId, result);
           }
         }
@@ -4841,7 +4841,7 @@ export class DatabaseStorage implements IStorage {
     // Build responses with options (using deduplicated results)
     const responsesWithOptions = deduplicatedResults.map(result => {
       const question = result.assessment_questions!;
-      const options = optionsByQuestion.get(question.id) || [];
+      const options = optionsByQuestion.get(question.id as any) || [];
       
       const questionWithOptions = {
         ...question,

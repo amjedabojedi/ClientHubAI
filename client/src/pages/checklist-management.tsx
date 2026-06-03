@@ -351,7 +351,7 @@ const ChecklistManagement = () => {
                   {template.items && template.items.length > 0 && (
                     <CardContent>
                       <div className="text-sm text-slate-600 mb-3">
-                        {template.items.length} items • {template.items.filter(item => item.isRequired).length} required
+                        {template.items.length} items • {template.items.filter((item: any) => item.isRequired).length} required
                       </div>
                       <div className="space-y-2">
                         {template.items.slice(0, 3).map((item: any) => (

@@ -21,7 +21,7 @@ npm run build:server
 
 **Typecheck:**
 ```bash
-npm run typecheck
+npm run check
 ```
 
 **Generate Drizzle Migrations:**

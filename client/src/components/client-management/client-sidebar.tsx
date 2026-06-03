@@ -5,7 +5,7 @@ import { Users, CalendarCheck, ClipboardList, Lightbulb, TrendingUp } from "luci
 export default function ClientSidebar() {
   const { user } = useAuth();
   
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<{ totalClients?: number; activeClients?: number }>({
     queryKey: ["/api/clients/stats"],
     enabled: !!user && !!user?.id,
   });

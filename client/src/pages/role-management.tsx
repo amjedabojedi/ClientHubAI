@@ -64,11 +64,11 @@ export default function RoleManagement() {
   });
 
   // Queries
-  const { data: roles = [], isLoading: rolesLoading } = useQuery({
+  const { data: roles = [], isLoading: rolesLoading } = useQuery<Role[]>({
     queryKey: ["/api/roles"],
   });
 
-  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
+  const { data: permissions = [], isLoading: permissionsLoading } = useQuery<Permission[]>({
     queryKey: ["/api/permissions"],
   });
 

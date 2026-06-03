@@ -327,7 +327,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     <FormItem>
                       <FormLabel>Full Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Enter full name" />
+                        <Input {...field} value={field.value ?? ""} placeholder="Enter full name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -342,7 +342,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Date of Birth</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" />
+                          <Input {...field} value={field.value ?? ""} type="date" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -404,7 +404,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Pronouns</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., he/him, she/her, they/them" />
+                          <Input {...field} value={field.value ?? ""} placeholder="e.g., he/him, she/her, they/them" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -576,7 +576,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                           <FormControl>
                             <Checkbox
-                              checked={field.value}
+                              checked={field.value ?? false}
                               onCheckedChange={field.onChange}
                             />
                           </FormControl>
@@ -630,6 +630,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             <Input
                               type="date"
                               {...field}
+                              value={field.value ?? ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -647,6 +648,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                             <Input
                               placeholder="Brief follow-up notes..."
                               {...field}
+                              value={field.value ?? ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -744,7 +746,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Policy Number</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Policy number" />
+                            <Input {...field} value={field.value ?? ""} placeholder="Policy number" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -758,7 +760,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Group Number</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Group number" />
+                            <Input {...field} value={field.value ?? ""} placeholder="Group number" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -774,7 +776,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Copay Amount</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="25.00" />
+                            <Input {...field} value={field.value ?? ""} placeholder="25.00" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -788,7 +790,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Deductible</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="500.00" />
+                            <Input {...field} value={field.value ?? ""} placeholder="500.00" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -802,7 +804,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Insurance Phone</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="1-800-123-4567" />
+                            <Input {...field} value={field.value ?? ""} placeholder="1-800-123-4567" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -821,7 +823,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>General Notes</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="General notes about the client..." />
+                          <Textarea {...field} value={field.value ?? ""} placeholder="General notes about the client..." />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -842,7 +844,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Primary Phone</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="555-0123" />
+                          <Input {...field} value={field.value ?? ""} placeholder="555-0123" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -856,7 +858,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Emergency Phone</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="555-0456" />
+                          <Input {...field} value={field.value ?? ""} placeholder="555-0456" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -871,7 +873,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     <FormItem>
                       <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input {...field} type="email" placeholder="client@example.com" />
+                        <Input {...field} value={field.value ?? ""} type="email" placeholder="client@example.com" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -888,7 +890,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Street Address 1</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Primary address line" />
+                          <Input {...field} value={field.value ?? ""} placeholder="Primary address line" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -902,7 +904,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Street Address 2</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Apartment, suite, etc. (optional)" />
+                          <Input {...field} value={field.value ?? ""} placeholder="Apartment, suite, etc. (optional)" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -917,7 +919,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>City</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="City name" />
+                            <Input {...field} value={field.value ?? ""} placeholder="City name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -931,7 +933,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>State/Province</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="State or Province" />
+                            <Input {...field} value={field.value ?? ""} placeholder="State or Province" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -947,7 +949,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Postal Code</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="ZIP/Postal Code" />
+                            <Input {...field} value={field.value ?? ""} placeholder="ZIP/Postal Code" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -961,7 +963,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Country</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Country name" />
+                            <Input {...field} value={field.value ?? ""} placeholder="Country name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -980,7 +982,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Address (Legacy)</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Old address field (replaced by structured address)" />
+                          <Input {...field} value={field.value ?? ""} placeholder="Old address field (replaced by structured address)" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -995,7 +997,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>State (Legacy)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="State" />
+                            <Input {...field} value={field.value ?? ""} placeholder="State" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1009,7 +1011,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>ZIP Code (Legacy)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="ZIP" />
+                            <Input {...field} value={field.value ?? ""} placeholder="ZIP" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1028,7 +1030,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Contact Name</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Emergency contact name" />
+                          <Input {...field} value={field.value ?? ""} placeholder="Emergency contact name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1043,7 +1045,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Contact Phone</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="555-0123" />
+                            <Input {...field} value={field.value ?? ""} placeholder="555-0123" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1057,7 +1059,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Relationship</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g., Spouse, Parent" />
+                            <Input {...field} value={field.value ?? ""} placeholder="e.g., Spouse, Parent" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1079,7 +1081,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Start Date</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" />
+                          <Input {...field} value={field.value ?? ""} type="date" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1093,7 +1095,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Referral Date</FormLabel>
                         <FormControl>
-                          <Input {...field} type="date" />
+                          <Input {...field} value={field.value ?? ""} type="date" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1108,7 +1110,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     <FormItem>
                       <FormLabel>Referrer Name</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Who referred this client" />
+                        <Input {...field} value={field.value ?? ""} placeholder="Who referred this client" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1122,7 +1124,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                     <FormItem>
                       <FormLabel>Reference Number</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Case reference ID" />
+                        <Input {...field} value={field.value ?? ""} placeholder="Case reference ID" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1163,7 +1165,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Referral Source (Legacy)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g., Self-referral, Physician" />
+                            <Input {...field} value={field.value ?? ""} placeholder="e.g., Self-referral, Physician" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1177,7 +1179,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                         <FormItem>
                           <FormLabel>Referral Type (Legacy)</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g., Medical, EAP" />
+                            <Input {...field} value={field.value ?? ""} placeholder="e.g., Medical, EAP" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1192,7 +1194,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Referring Person (Legacy)</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="Name of referring person" />
+                          <Input {...field} value={field.value ?? ""} placeholder="Name of referring person" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1206,7 +1208,7 @@ export default function AddClientModal({ isOpen, onClose }: AddClientModalProps)
                       <FormItem>
                         <FormLabel>Referral Notes</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="Additional referral information..." />
+                          <Textarea {...field} value={field.value ?? ""} placeholder="Additional referral information..." />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -697,6 +697,8 @@ export class NotificationService {
             zoomAccessToken: null,
             zoomTokenExpiry: null,
             createdBy: null,
+            calendarFeedToken: null,
+            calendarFeedEnabledAt: null,
           };
           recipients.push(clientAsUser);
         }

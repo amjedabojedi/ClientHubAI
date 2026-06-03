@@ -75,7 +75,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
 
   const bulkUploadMutation = useMutation({
     mutationFn: (sessions: SessionUploadData[]) => 
-      apiRequest('/api/sessions/bulk-upload', 'POST', { sessions }),
+      apiRequest('/api/sessions/bulk-upload', 'POST', { sessions }) as unknown as Promise<BulkUploadResult>,
     onSuccess: (data: BulkUploadResult) => {
       setUploadResults(data);
       setCurrentStep(4);
@@ -210,8 +210,8 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
     const transformedData = uploadData.map(row => {
       const transformed: any = {};
       Object.entries(fieldMapping).forEach(([targetField, sourceColumn]) => {
-        if (sourceColumn && row[sourceColumn] !== undefined) {
-          transformed[targetField] = row[sourceColumn];
+        if (sourceColumn && (row as any)[sourceColumn as string] !== undefined) {
+          transformed[targetField] = (row as any)[sourceColumn as string];
         }
       });
       return transformed;
@@ -394,7 +394,7 @@ const SessionBulkUploadModal: React.FC<SessionBulkUploadModalProps> = ({ trigger
                         <tr key={index} className="border-b">
                           {requiredFields.slice(0, 4).map((field) => (
                             <td key={field.key} className="p-2">
-                              {fieldMapping[field.key] ? session[fieldMapping[field.key]] || '-' : '-'}
+                              {fieldMapping[field.key] ? (session as any)[fieldMapping[field.key]] || '-' : '-'}
                             </td>
                           ))}
                         </tr>

@@ -81,7 +81,7 @@ export default function HIPAAAuditPage() {
   }) as { data: AuditLog[]; isLoading: boolean };
 
   // Fetch audit statistics
-  const { data: auditStats = {} } = useQuery({
+  const { data: auditStats } = useQuery({
     queryKey: ['/api/audit/stats', filters],
   }) as { data: { totalActivities: number; phiAccess: number; highRiskEvents: number; failedAttempts: number; userActivity: UserActivity[] } };
 

@@ -46,18 +46,18 @@ export default function SupervisorAssignments() {
   const queryClient = useQueryClient();
 
   // Fetch all supervisor assignments
-  const { data: assignments = [], isLoading } = useQuery({
+  const { data: assignments = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/supervisor-assignments"],
   });
 
   // Fetch users to populate supervisor and therapist dropdowns
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
   });
 
   // Filter users by role
-  const supervisors = users.filter((user: User) => user.role === "supervisor");
-  const therapists = users.filter((user: User) => user.role === "therapist");
+  const supervisors = users.filter((user: any) => user.role === "supervisor");
+  const therapists = users.filter((user: any) => user.role === "therapist");
 
   // Create supervisor assignment mutation
   const createAssignmentMutation = useMutation({
@@ -176,7 +176,7 @@ export default function SupervisorAssignments() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {supervisors.filter(supervisor => supervisor.id && supervisor.id.toString().trim() !== '').map((supervisor) => (
+                          {supervisors.filter((supervisor: any) => supervisor.id && supervisor.id.toString().trim() !== '').map((supervisor: any) => (
                             <SelectItem key={supervisor.id} value={supervisor.id.toString()}>
                               <div className="flex items-center gap-2">
                                 <Shield className="w-4 h-4" />
@@ -207,7 +207,7 @@ export default function SupervisorAssignments() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {therapists.filter(therapist => therapist.id && therapist.id.toString().trim() !== '').map((therapist) => (
+                          {therapists.filter((therapist: any) => therapist.id && therapist.id.toString().trim() !== '').map((therapist: any) => (
                             <SelectItem key={therapist.id} value={therapist.id.toString()}>
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4" />

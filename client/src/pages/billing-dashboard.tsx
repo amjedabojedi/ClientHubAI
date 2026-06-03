@@ -156,8 +156,8 @@ function PaymentDialog({ isOpen, onClose, billingRecord, onPaymentRecorded }: Pa
       : 0;
   const clientPortion = hasInsurance && hasKnownCopay ? copayValue : amountAfterDiscount;
   const insurancePortion = hasInsurance && hasKnownCopay ? Math.max(amountAfterDiscount - copayValue, 0) : 0;
-  const clientAlreadyPaid = Number(billingRecord?.clientPaidAmount || 0);
-  const insuranceAlreadyPaid = Number(billingRecord?.insurancePaidAmount || 0);
+  const clientAlreadyPaid = Number((billingRecord as any)?.clientPaidAmount || 0);
+  const insuranceAlreadyPaid = Number((billingRecord as any)?.insurancePaidAmount || 0);
   const alreadyPaid = Number(billingRecord?.paymentAmount || 0) || (clientAlreadyPaid + insuranceAlreadyPaid);
   const clientRemaining = Math.max(clientPortion - clientAlreadyPaid, 0);
   const insuranceRemaining = Math.max(insurancePortion - insuranceAlreadyPaid, 0);

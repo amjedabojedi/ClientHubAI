@@ -112,7 +112,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
   console.warn('STRIPE_SECRET_KEY not found - payment functionality will be disabled');
 }
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2023-10-16" as any,
 }) : null;
 
 // Initialize Azure Blob Storage
@@ -497,7 +497,7 @@ async function checkAssessmentResponsePermission(
   // Client role - check if they are the client assigned to this assessment
   if (userRole === 'client') {
     const client = await storage.getClient(assignment.clientId);
-    if (client && client.portalUserId === userId) {
+    if (client && (client as any).portalUserId === userId) {
       return { allowed: true, assignment };
     }
     return { 
@@ -5004,7 +5004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .orderBy(asc(documents.createdAt));
 
       // Batch-fetch uploader names
-      const uploaderIds = [...new Set(rows.map(r => r.uploadedById).filter(Boolean))] as number[];
+      const uploaderIds = Array.from(new Set(rows.map(r => r.uploadedById).filter(Boolean))) as number[];
       const uploaderMap: Record<number, string> = {};
       if (uploaderIds.length) {
         const uploaders = await db.select({ id: users.id, fullName: users.fullName }).from(users).where(inArray(users.id, uploaderIds));
@@ -5311,7 +5311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: session.id,
                 clientId: session.clientId,
                 clientCaseId: session.client?.clientId,
-                clientName: session.client.fullName,
+                clientName: session.client!.fullName,
                 therapistId: session.therapistId,
                 therapistName: session.therapist.fullName,
                 sessionDate: session.sessionDate,
@@ -8900,7 +8900,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
             sessionId: noteSessionId,
             audioFileSize: req.file.size,
             transcriptionLength: result.rawTranscription.length,
-            fieldsExtracted: Object.keys(result.mappedFields).filter(k => result.mappedFields[k])
+            fieldsExtracted: Object.keys(result.mappedFields).filter(k => (result.mappedFields as Record<string, any>)[k])
           }
         );
       } else {
@@ -10053,7 +10053,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
               action: 'ai_processing_blocked',
               result: 'denied',
               resourceType: 'assessment_transcription',
-              resourceId: assignmentId,
+              resourceId: String(assignmentId),
               clientId,
               ipAddress,
               userAgent,
@@ -10096,7 +10096,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           action: 'assessment_voice_transcribed',
           result: 'success',
           resourceType: 'assessment',
-          resourceId: assignmentId,
+          resourceId: String(assignmentId),
           clientId,
           ipAddress,
           userAgent,
@@ -10722,7 +10722,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       const createdOptions: any[] = [];
       
-      for (const [questionId, newOptions] of optionsByQuestion) {
+      for (const [questionId, newOptions] of Array.from(optionsByQuestion)) {
         // Get existing options for this question
         const existingOptions = await storage.getAssessmentQuestionOptions(questionId);
         
@@ -11291,7 +11291,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         
         assignment.assignedBy = {
           ...therapist,
-          signatureImage: userProfile?.signatureImage,
+          signatureImage: (userProfile as any)?.signatureImage,
           profile: {
             licenseType: userProfile?.licenseType,
             licenseNumber: userProfile?.licenseNumber
@@ -11301,7 +11301,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Generate professional HTML (browser will handle PDF printing - matching session notes pattern)
       const { generateAssessmentReportHTML } = await import("./pdf/assessment-report-pdf");
-      const html = generateAssessmentReportHTML(assignment, report, practiceSettings);
+      const html = generateAssessmentReportHTML(assignment as any, report, practiceSettings);
       
       // HIPAA Audit: Log PDF download
       await AuditLogger.logDocumentAccess(
@@ -11382,7 +11382,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         
         assignment.assignedBy = {
           ...therapist,
-          signatureImage: userProfile?.signatureImage,
+          signatureImage: (userProfile as any)?.signatureImage,
           profile: {
             licenseType: userProfile?.licenseType,
             licenseNumber: userProfile?.licenseNumber
@@ -11632,10 +11632,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
           spacing: { after: 100 }
         }));
 
-        if (assignment.assignedBy.profile?.licenseType) {
+        if ((assignment.assignedBy as any).profile?.licenseType) {
           paragraphs.push(new Paragraph({
             children: [new TextRun({ 
-              text: `${assignment.assignedBy.profile.licenseType}${assignment.assignedBy.profile.licenseNumber ? ' #' + assignment.assignedBy.profile.licenseNumber : ''}`, 
+              text: `${(assignment.assignedBy as any).profile.licenseType}${(assignment.assignedBy as any).profile.licenseNumber ? ' #' + (assignment.assignedBy as any).profile.licenseNumber : ''}`, 
               size: 22 
             })],
             spacing: { after: 100 }
@@ -15283,7 +15283,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       // Low score alert: if total < 36, create a task for the therapist
       if (totalScore < 36) {
         const client = await storage.getClient(portalSession.clientId);
-        const initials = client ? `${client.firstName} ${client.lastName?.charAt(0)}.` : 'Client';
+        const initials = client ? `${(client as any).firstName} ${(client as any).lastName?.charAt(0)}.` : 'Client';
         const sessionDate = sessionResult[0].sessionDate ? new Date(sessionResult[0].sessionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'recent session';
         await storage.createTask({
           title: `Review SRS feedback — ${initials} — ${sessionDate}`,
@@ -15292,7 +15292,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           clientId: portalSession.clientId,
           priority: totalScore < 30 ? 'high' : 'medium',
           status: 'pending',
-          dueDate: null,
+          dueDate: undefined,
         });
       }
 
@@ -15827,7 +15827,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           .select()
           .from(sessions)
           .where(and(
-            eq(sessions.therapistId, client.assignedTherapistId),
+            eq(sessions.therapistId, client.assignedTherapistId!),
             inArray(sessions.status, ['scheduled', 'confirmed', 'in-progress'])
           ));
 
@@ -15887,7 +15887,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           .insert(sessions)
           .values({
             clientId: session.clientId,
-            therapistId: client.assignedTherapistId,
+            therapistId: client.assignedTherapistId!,
             serviceId: serviceId,
             roomId: assignedRoomId,
             sessionDate: sessionDateTime,
@@ -16108,7 +16108,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
             price_data: {
               currency: 'usd',
               product_data: {
-                name: `${invoice.serviceName || invoice.serviceCode} - ${invoice.sessionType}`,
+                name: `${(invoice as any).serviceName || invoice.serviceCode} - ${invoice.sessionType}`,
                 description: `Session on ${formatInTimeZone(invoice.sessionDate, 'America/New_York', 'MMM dd, yyyy')}`,
               },
               unit_amount: Math.round(parseFloat(invoice.totalAmount) * 100), // Convert to cents
@@ -16120,7 +16120,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
         success_url: `${req.protocol}://${req.get('host')}/portal/invoices?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${req.protocol}://${req.get('host')}/portal/invoices?payment=cancelled`,
         client_reference_id: invoiceId.toString(),
-        customer_email: client.portalEmail || client.email,
+        customer_email: client.portalEmail || client.email || undefined,
         metadata: {
           invoiceId: invoiceId.toString(),
           clientId: session.clientId.toString(),
@@ -16188,7 +16188,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           .set({
             paymentStatus: 'paid',
             paymentAmount: (session.amount_total / 100).toString(), // Convert cents to dollars
-            paymentDate: new Date(),
+            paymentDate: new Date().toISOString().split('T')[0],
             paymentReference: session.payment_intent as string,
             paymentMethod: 'stripe',
           })
@@ -16225,12 +16225,12 @@ You can download a copy if you have it saved locally and re-upload it.`;
               invoice: sessionBilling,
               sessionDate: sessions.sessionDate,
               sessionType: sessions.sessionType,
-              serviceName: services.name,
-              serviceCode: services.code,
+              serviceName: services.serviceName,
+              serviceCode: services.serviceCode,
             })
             .from(sessionBilling)
             .leftJoin(sessions, eq(sessionBilling.sessionId, sessions.id))
-            .leftJoin(services, eq(sessionBilling.serviceCode, services.code))
+            .leftJoin(services, eq(sessionBilling.serviceCode, services.serviceCode))
             .where(eq(sessionBilling.id, invoiceId))
             .limit(1);
 
@@ -17824,7 +17824,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       
       // Server-side sanitization: Sanitize HTML content for info_text fields to prevent XSS
       if (fieldType === 'info_text' && validatedData.helpText !== undefined) {
-        validatedData.helpText = sanitizeHtml(validatedData.helpText);
+        validatedData.helpText = sanitizeHtml(validatedData.helpText as string);
       }
       
       // Enforce required=false for heading/info_text fields
@@ -18321,7 +18321,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
           clientId: client.clientId,
           dateOfBirth: client.dateOfBirth,
           email: client.portalEmail || client.email,
-          phoneNumber: client.phoneNumber
+          phoneNumber: (client as any).phoneNumber
         },
         therapist: therapist ? {
           id: therapist.id,
@@ -18354,8 +18354,8 @@ You can download a copy if you have it saved locally and re-upload it.`;
 
       // Generate HTML
       const html = generateFormAssignmentHTML(
-        assignmentData,
-        formattedResponses,
+        assignmentData as any,
+        formattedResponses as any,
         signature || null,
         practiceSettings
       );

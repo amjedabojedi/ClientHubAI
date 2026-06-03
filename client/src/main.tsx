@@ -7,7 +7,7 @@ import "./index.css";
 if (/Edg\//.test(navigator.userAgent) && window.self === window.top) {
   // Override the sendError function before it's defined
   const originalDefineProperty = Object.defineProperty;
-  Object.defineProperty = function(obj, prop, descriptor) {
+  Object.defineProperty = function(obj: any, prop: any, descriptor: any) {
     if (prop === 'sendError' || (descriptor && descriptor.value && descriptor.value.toString().includes('runtime-error'))) {
       // Block sendError function definition in Edge
       return obj;
@@ -17,7 +17,7 @@ if (/Edg\//.test(navigator.userAgent) && window.self === window.top) {
   
   // Block all script injections that contain runtime-error
   const originalCreateElement = document.createElement;
-  document.createElement = function(tagName) {
+  document.createElement = function(tagName: any) {
     const element = originalCreateElement.call(this, tagName);
     if (tagName.toLowerCase() === 'script') {
       const originalSetAttribute = element.setAttribute;
@@ -63,7 +63,7 @@ window.addEventListener('error', (event) => {
   // Enhanced filtering for Edge browser compatibility
   const message = event.message?.toString() || '';
   const filename = event.filename?.toString() || '';
-  const source = event.source?.toString() || '';
+  const source = (event as any).source?.toString() || '';
   
   if (message.includes('Extension context invalidated') || 
       message.includes('message port closed') ||
@@ -119,7 +119,7 @@ if (isEdgeBrowser && isFullPage) {
   
   // Method 3: Override error event handling
   const originalAddEventListener = window.addEventListener;
-  window.addEventListener = function(type, listener, options) {
+  window.addEventListener = function(type: any, listener: any, options: any) {
     if (type === 'error' && listener.toString().includes('runtime-error')) {
       // Skip runtime error listeners in Edge
       return;

@@ -11,7 +11,16 @@ interface ClientFilterProps {
 export default function ClientFilter({ activeFilter, onFilterChange }: ClientFilterProps) {
   const { user } = useAuth();
   
-  const { data: stats = {} } = useQuery({
+  const { data: stats = {} } = useQuery<{
+    totalClients?: number;
+    intake?: number;
+    assessment?: number;
+    psychotherapy?: number;
+    closed?: number;
+    needsFollowUp?: number;
+    noSessions?: number;
+    unassignedClients?: number;
+  }>({
     queryKey: ["/api/clients/stats"],
     enabled: !!user,
   });

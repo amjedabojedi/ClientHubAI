@@ -1119,8 +1119,8 @@ function BulkAddForm({
   const subdomainWithoutDomain = hasSubdomainMapping && !hasDomainMapping;
   const noCategoryPath = !hasDomainMapping && !hasSubdomainMapping && !categoryId;
 
-  const uniqueDomains = [...new Set(validEntries.map(e => e.domain).filter(Boolean))];
-  const uniqueSubdomains = [...new Set(validEntries.map(e => `${e.domain} > ${e.subdomain}`).filter(s => !s.startsWith(' > ')))];
+  const uniqueDomains = Array.from(new Set(validEntries.map(e => e.domain).filter(Boolean)));
+  const uniqueSubdomains = Array.from(new Set(validEntries.map(e => `${e.domain} > ${e.subdomain}`).filter(s => !s.startsWith(' > '))));
 
   const handleImport = async () => {
     if (validEntries.length === 0) {
