@@ -206,9 +206,29 @@ async function main() {
 
   let root: ReturnType<typeof createRoot> | null = null;
 
+  // Restore handle for the patched global fetch (see below).
+  const realFetch: typeof fetch = global.fetch.bind(global);
+
   try {
     const staff = await makeStaff("qh-win-staff");
     const token = createSessionToken(staff);
+
+    // The REAL NotificationsPage calls apiRequest() → fetch() with a RELATIVE
+    // url ("/api/notifications/preferences/__global__"). In a browser that
+    // resolves against the page origin and carries the auth cookie; under jsdom
+    // it would resolve against http://localhost/ (NOT our ephemeral test server)
+    // and carry no session. Patch global.fetch so the component's own relative
+    // requests reach the real Express app authenticated as this staff user —
+    // i.e. the click drives the SAME endpoint the browser would.
+    global.fetch = (async (input: any, init?: any) => {
+      const url = typeof input === "string" ? input : input?.url ?? String(input);
+      if (typeof url === "string" && url.startsWith("/")) {
+        const headers = new dom.window.Headers(init?.headers || {});
+        headers.set("Cookie", `sessionToken=${token}`);
+        return realFetch(`${baseUrl}${url}`, { ...init, headers } as any);
+      }
+      return realFetch(input, init);
+    }) as typeof fetch;
 
     // The non-admin staff member (therapist) gets the 2-tab layout; we render
     // with a fully-populated AuthContext so useAuth() resolves to this user.
@@ -373,7 +393,92 @@ async function main() {
       false,
       "Gating: Save window re-ENABLES once Until is set again",
     );
+
+    // ===================================================================
+    // 3. SAVE ROUND-TRIP: edit the window to NEW values, click the enabled
+    //    "Save window" button, and prove the click actually persisted the
+    //    edited 'HH:MM:SS' window through the REAL save endpoint — by reading
+    //    it back via GET /api/notifications/preferences. This is the gap the
+    //    hydration + gating tests leave open: a click handler that sends the
+    //    wrong payload (drops the ':00' suffix, swaps start/end, fires the
+    //    wrong mutation, or doesn't fire at all) would show a success toast
+    //    yet save nothing — and only this assertion would catch it.
+    //
+    //    Pick NEW values that differ from BOTH the seeded window (22:00/06:30)
+    //    and the useState defaults (22:00/08:00), so a no-op "save" can't pass.
+    // ===================================================================
+    const NEW_START = "23:15"; // → expected persisted "23:15:00"
+    const NEW_END = "07:45"; //   → expected persisted "07:45:00"
+
+    await act(async () => {
+      setInputValue(getEl<HTMLInputElement>("input-quiet-start")!, NEW_START);
+    });
+    await act(async () => {
+      setInputValue(getEl<HTMLInputElement>("input-quiet-end")!, NEW_END);
+    });
+    assertEqual(
+      getEl<HTMLInputElement>("input-quiet-start")!.value,
+      NEW_START,
+      "Edit: From input reflects the new 23:15 value before saving",
+    );
+    assertEqual(
+      getEl<HTMLInputElement>("input-quiet-end")!.value,
+      NEW_END,
+      "Edit: Until input reflects the new 07:45 value before saving",
+    );
+
+    const saveBtnBefore = getEl<HTMLButtonElement>("button-save-quiet-hours");
+    assertEqual(
+      isDisabled(saveBtnBefore),
+      false,
+      "Save round-trip: Save window is ENABLED with the edited window",
+    );
+
+    // Click the SAME mounted, enabled Save button. This fires the component's
+    // real onClick → setGlobalPreferenceMutation.mutate(...) → apiRequest PUT
+    // through our patched fetch to the real Express app.
+    await act(async () => {
+      saveBtnBefore!.click();
+    });
+
+    // Wait for the mutation's PUT to land server-side. Poll the REAL read
+    // endpoint until the persisted window reflects the edit (or time out).
+    let persisted: any = null;
+    for (let i = 0; i < 50; i++) {
+      const prefs = await fetchPrefs(token);
+      const g2 = prefs.find(
+        (p) => p.triggerType === GLOBAL_NOTIFICATION_PREFERENCES_TRIGGER,
+      );
+      if (
+        g2 &&
+        g2.quietHoursStart === `${NEW_START}:00` &&
+        g2.quietHoursEnd === `${NEW_END}:00`
+      ) {
+        persisted = g2;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    assertEqual(
+      Boolean(persisted),
+      true,
+      "Save round-trip: clicking Save persisted a __global__ row via the real PUT endpoint",
+    );
+    assertEqual(
+      persisted?.quietHoursStart,
+      `${NEW_START}:00`,
+      "Save round-trip: persisted quietHoursStart is the edited 23:15:00 (':00' suffix kept, not swapped)",
+    );
+    assertEqual(
+      persisted?.quietHoursEnd,
+      `${NEW_END}:00`,
+      "Save round-trip: persisted quietHoursEnd is the edited 07:45:00 (':00' suffix kept, not swapped)",
+    );
   } finally {
+    // Restore the un-patched fetch so cleanup/other tests are unaffected.
+    global.fetch = realFetch;
+
     // Unmount + cleanup.
     try {
       if (root) {
