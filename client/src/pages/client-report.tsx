@@ -68,6 +68,7 @@ export default function ClientReportPage() {
   const [editorContent, setEditorContent] = useState("");
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
 
   const handleDownloadPdf = async () => {
     if (isDownloadingPdf) return;
@@ -108,6 +109,49 @@ export default function ClientReportPage() {
       });
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    if (isDownloadingDocx) return;
+    setIsDownloadingDocx(true);
+    try {
+      const response = await fetch(`/api/reports/${reportId}/download/docx`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        let message = "Failed to generate Word document. Please try again.";
+        try {
+          const data = await response.json();
+          if (data?.message) message = data.message;
+        } catch {
+          // response was not JSON; keep default message
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] || `client-report-${reportId}.docx`;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description:
+          error?.message || "Failed to generate Word document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingDocx(false);
     }
   };
 
@@ -291,14 +335,19 @@ export default function ClientReportPage() {
                 {isDownloadingPdf ? "Preparing PDF..." : "Download PDF"}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = `/api/reports/${reportId}/download/docx`;
-                  link.click();
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleDownloadDocx();
                 }}
+                disabled={isDownloadingDocx}
+                data-testid="button-download-docx"
               >
-                <Download className="w-4 h-4 mr-2" />
-                Download Word
+                {isDownloadingDocx ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                {isDownloadingDocx ? "Preparing Word..." : "Download Word"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
