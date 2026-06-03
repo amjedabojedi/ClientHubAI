@@ -13,7 +13,11 @@ function getChromiumExecutablePath(): string | undefined {
   return undefined;
 }
 
-async function renderReportPDF(html: string, launchOptions: any): Promise<Buffer> {
+interface RenderOptions {
+  pageNumbers?: boolean;
+}
+
+async function renderReportPDF(html: string, launchOptions: any, options: RenderOptions = {}): Promise<Buffer> {
   const browser = await puppeteer.launch(launchOptions);
   try {
     const page = await browser.newPage();
@@ -24,12 +28,21 @@ async function renderReportPDF(html: string, launchOptions: any): Promise<Buffer
     // Allow fonts and styling to settle before rendering
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const pdfBuffer = await page.pdf({
+    const pdfOptions: any = {
       format: 'A4',
       printBackground: true,
       margin: { top: '20mm', right: '10mm', bottom: '20mm', left: '10mm' },
       timeout: 60000,
-    });
+    };
+    if (options.pageNumbers) {
+      pdfOptions.displayHeaderFooter = true;
+      pdfOptions.headerTemplate = '<div></div>';
+      pdfOptions.footerTemplate =
+        '<div style="width:100%; font-size:9px; color:#9ca3af; text-align:center; padding:0 10mm;">' +
+        'Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>';
+    }
+
+    const pdfBuffer = await page.pdf(pdfOptions);
     return Buffer.from(pdfBuffer);
   } finally {
     await browser.close();
@@ -43,7 +56,7 @@ async function renderReportPDF(html: string, launchOptions: any): Promise<Buffer
  * retries once with lighter launch args (mirroring the invoice-email PDF path).
  * Shared by the client report, assessment report, and form assignment PDF routes.
  */
-export async function generatePDFFromHTML(html: string): Promise<Buffer> {
+export async function generatePDFFromHTML(html: string, options: RenderOptions = {}): Promise<Buffer> {
   const chromiumPath = getChromiumExecutablePath();
   const launchOptions: any = {
     args: [
@@ -70,7 +83,7 @@ export async function generatePDFFromHTML(html: string): Promise<Buffer> {
   }
 
   try {
-    return await renderReportPDF(html, launchOptions);
+    return await renderReportPDF(html, launchOptions, options);
   } catch (error: any) {
     const message: string = error?.message || '';
     const isTimeout = message.includes('timeout') || message.includes('timed out');
@@ -99,7 +112,7 @@ export async function generatePDFFromHTML(html: string): Promise<Buffer> {
       retryLaunchOptions.executablePath = chromiumPath;
     }
 
-    return await renderReportPDF(html, retryLaunchOptions);
+    return await renderReportPDF(html, retryLaunchOptions, options);
   }
 }
 
@@ -108,7 +121,7 @@ export async function generatePDFFromHTML(html: string): Promise<Buffer> {
  * Thin wrapper retained for backwards compatibility; see {@link generatePDFFromHTML}.
  */
 export async function generateClientReportPDF(html: string): Promise<Buffer> {
-  return generatePDFFromHTML(html);
+  return generatePDFFromHTML(html, { pageNumbers: true });
 }
 
 interface ClientReportClient {
@@ -129,7 +142,12 @@ interface ClientReportData {
   generatedAt?: Date | string | null;
   isFinalized?: boolean;
   finalizedAt?: Date | string | null;
-  createdBy?: { fullName?: string | null; title?: string | null } | null;
+  createdBy?: {
+    fullName?: string | null;
+    title?: string | null;
+    signatureImage?: string | null;
+    profile?: { licenseType?: string | null; licenseNumber?: string | null } | null;
+  } | null;
 }
 
 interface PracticeSettings {
@@ -196,10 +214,12 @@ export function generateClientReportHTML(
         .report-content ul, .report-content ol { margin: 5px 0 5px 20px; padding: 0; }
         .report-content li { margin: 3px 0; color: #374151; }
         .signature-section { margin-top: 30px; padding: 15px 20px; border-top: 2px solid #2563eb; background-color: #f9fafb; page-break-inside: avoid; }
+        .signature-content { display: flex; align-items: flex-end; gap: 20px; }
+        .signature-image { max-width: 200px; max-height: 60px; object-fit: contain; }
+        .signature-details { flex: 1; }
         .signature-name { font-weight: 600; color: #1f2937; font-size: 15px; margin-bottom: 2px; }
         .signature-title { color: #6b7280; font-size: 13px; margin-bottom: 4px; }
         .signature-date { color: #9ca3af; font-size: 12px; font-style: italic; }
-        .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #9ca3af; }
         @media print { body { padding: 15px 20px; } }
       </style>
     </head>
@@ -241,15 +261,18 @@ export function generateClientReportHTML(
 
       ${report.isFinalized && finalizedDate ? `
         <div class="signature-section">
-          <div class="signature-name">${report.createdBy?.fullName || ''}</div>
-          ${report.createdBy?.title ? `<div class="signature-title">${report.createdBy.title}</div>` : ''}
-          <div class="signature-date">Finalized on ${finalizedDate}</div>
+          <div class="signature-content">
+            ${report.createdBy?.signatureImage ? `
+              <img src="${report.createdBy.signatureImage}" alt="Signature" class="signature-image" />
+            ` : ''}
+            <div class="signature-details">
+              <div class="signature-name">${report.createdBy?.fullName || ''}</div>
+              ${report.createdBy?.profile?.licenseType ? `<div class="signature-title">${report.createdBy.profile.licenseType}${report.createdBy.profile.licenseNumber ? ` #${report.createdBy.profile.licenseNumber}` : ''}</div>` : (report.createdBy?.title ? `<div class="signature-title">${report.createdBy.title}</div>` : '')}
+              <div class="signature-date">Digitally signed on ${finalizedDate}</div>
+            </div>
+          </div>
         </div>
       ` : ''}
-
-      <div class="footer">
-        <p>${practiceSettings.name} | ${practiceSettings.phone} | ${practiceSettings.email}</p>
-      </div>
     </body>
     </html>
   `;

@@ -579,7 +579,7 @@ export interface IStorage {
 
   // Client Reports (AI-generated from templates)
   getClientReports(clientId: number): Promise<(ClientReport & { createdBy?: User; template?: ReportTemplate })[]>;
-  getClientReport(id: number): Promise<(ClientReport & { client?: Client; createdBy?: User; template?: ReportTemplate }) | undefined>;
+  getClientReport(id: number): Promise<(ClientReport & { client?: Client; createdBy?: (User & { profile?: UserProfile | null }); template?: ReportTemplate }) | undefined>;
   createClientReport(report: InsertClientReport): Promise<ClientReport>;
   updateClientReport(id: number, report: Partial<InsertClientReport>): Promise<ClientReport>;
   deleteClientReport(id: number): Promise<void>;
@@ -5067,19 +5067,20 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getClientReport(id: number): Promise<(ClientReport & { client?: Client; createdBy?: User; template?: ReportTemplate }) | undefined> {
+  async getClientReport(id: number): Promise<(ClientReport & { client?: Client; createdBy?: (User & { profile?: UserProfile | null }); template?: ReportTemplate }) | undefined> {
     const [row] = await db
       .select()
       .from(clientReports)
       .leftJoin(clients, eq(clientReports.clientId, clients.id))
       .leftJoin(users, eq(clientReports.createdById, users.id))
+      .leftJoin(userProfiles, eq(users.id, userProfiles.userId))
       .leftJoin(reportTemplates, eq(clientReports.templateId, reportTemplates.id))
       .where(eq(clientReports.id, id));
     if (!row) return undefined;
     return {
       ...row.client_reports,
       client: row.clients || undefined,
-      createdBy: row.users || undefined,
+      createdBy: row.users ? { ...row.users, profile: row.user_profiles || null } : undefined,
       template: row.report_templates || undefined,
     };
   }
