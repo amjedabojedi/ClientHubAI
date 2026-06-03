@@ -1,7 +1,11 @@
-export async function downloadPdf(url: string, fallbackFilename: string): Promise<void> {
+export async function downloadFile(
+  url: string,
+  fallbackFilename: string,
+  defaultErrorMessage = "Failed to generate file. Please try again.",
+): Promise<void> {
   const response = await fetch(url, { credentials: "include" });
   if (!response.ok) {
-    let message = "Failed to generate PDF. Please try again.";
+    let message = defaultErrorMessage;
     try {
       const data = await response.json();
       if (data?.message) message = data.message;
@@ -24,4 +28,8 @@ export async function downloadPdf(url: string, fallbackFilename: string): Promis
   link.click();
   link.remove();
   window.URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadPdf(url: string, fallbackFilename: string): Promise<void> {
+  return downloadFile(url, fallbackFilename, "Failed to generate PDF. Please try again.");
 }

@@ -83,7 +83,7 @@ import {
 // Utils and Hooks
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { downloadPdf } from "@/lib/download-pdf";
+import { downloadPdf, downloadFile } from "@/lib/download-pdf";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
@@ -1074,6 +1074,28 @@ export default function ClientDetailPage() {
   const [recordingSessionId, setRecordingSessionId] = useState<number | null>(null);
   const recordingActiveRef = useRef(false);
   const [downloadingAssessmentPdfId, setDownloadingAssessmentPdfId] = useState<number | null>(null);
+  const [downloadingAssessmentDocxId, setDownloadingAssessmentDocxId] = useState<number | null>(null);
+
+  const handleDownloadAssessmentDocx = async (assignmentId: number) => {
+    if (downloadingAssessmentDocxId !== null) return;
+    setDownloadingAssessmentDocxId(assignmentId);
+    try {
+      const fallbackName = `assessment-report-${client?.fullName?.replace(/\s+/g, '-') || assignmentId}-${new Date().toISOString().split('T')[0]}.docx`;
+      await downloadFile(
+        `/api/assessments/assignments/${assignmentId}/download/docx`,
+        fallbackName,
+        "Failed to generate Word document. Please try again.",
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to generate Word document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingAssessmentDocxId(null);
+    }
+  };
 
   const handleDownloadAssessmentPdf = async (assignmentId: number) => {
     if (downloadingAssessmentPdfId !== null) return;
@@ -3845,14 +3867,20 @@ export default function ClientDetailPage() {
                                       )}
                                       {downloadingAssessmentPdfId === assessment.id ? "Preparing PDF..." : "Download PDF"}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = `/api/assessments/assignments/${assessment.id}/download/docx`;
-                                      link.download = `assessment-report-${client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
-                                      link.click();
-                                    }}>
-                                      <Download className="w-4 h-4 mr-2" />
-                                      Download Word
+                                    <DropdownMenuItem
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        handleDownloadAssessmentDocx(assessment.id);
+                                      }}
+                                      disabled={downloadingAssessmentDocxId === assessment.id}
+                                      data-testid={`button-download-docx-${assessment.id}`}
+                                    >
+                                      {downloadingAssessmentDocxId === assessment.id ? (
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <Download className="w-4 h-4 mr-2" />
+                                      )}
+                                      {downloadingAssessmentDocxId === assessment.id ? "Preparing Word..." : "Download Word"}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleCompleteAssessment(assessment.id)}>

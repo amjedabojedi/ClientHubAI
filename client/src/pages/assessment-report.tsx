@@ -44,7 +44,7 @@ import {
 // Utils
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { downloadPdf } from "@/lib/download-pdf";
+import { downloadPdf, downloadFile } from "@/lib/download-pdf";
 import { useAuth } from "@/hooks/useAuth";
 import { formatResponseDisplay } from "@/lib/assessment-response";
 
@@ -79,6 +79,28 @@ export default function AssessmentReportPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedResponses, setEditedResponses] = useState<Record<number, any>>({});
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false);
+
+  const handleDownloadDocx = async () => {
+    if (isDownloadingDocx) return;
+    setIsDownloadingDocx(true);
+    try {
+      const fallbackName = `assessment-report-${assignment?.client?.fullName?.replace(/\s+/g, '-') || assignmentId}-${new Date().toISOString().split('T')[0]}.docx`;
+      await downloadFile(
+        `/api/assessments/assignments/${assignmentId}/download/docx`,
+        fallbackName,
+        "Failed to generate Word document. Please try again.",
+      );
+    } catch (error: any) {
+      toast({
+        title: "Download Failed",
+        description: error?.message || "Failed to generate Word document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingDocx(false);
+    }
+  };
 
   const handleDownloadPdf = async () => {
     if (isDownloadingPdf) return;
@@ -609,15 +631,19 @@ export default function AssessmentReportPage() {
                   </DropdownMenuItem>
                   
                   <DropdownMenuItem 
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = `/api/assessments/assignments/${assignmentId}/download/docx`;
-                      link.download = `assessment-report-${assignment.client?.fullName?.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.docx`;
-                      link.click();
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleDownloadDocx();
                     }}
+                    disabled={isDownloadingDocx}
+                    data-testid="button-download-docx"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Word
+                    {isDownloadingDocx ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    {isDownloadingDocx ? "Preparing Word..." : "Download Word"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
