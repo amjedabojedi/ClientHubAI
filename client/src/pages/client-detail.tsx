@@ -4373,7 +4373,11 @@ export default function ClientDetailPage() {
                               size="sm"
                               variant="ghost"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => deleteReportMutation.mutate(report.id)}
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this report? This action cannot be undone.")) {
+                                  deleteReportMutation.mutate(report.id);
+                                }
+                              }}
                               disabled={deleteReportMutation.isPending}
                               data-testid={`button-delete-report-${report.id}`}
                             >
