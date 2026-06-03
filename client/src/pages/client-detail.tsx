@@ -4128,74 +4128,6 @@ export default function ClientDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Supporting files</CardTitle>
-                <p className="text-sm text-slate-600">
-                  Add extra documents (Word, PDF, or plain text) to give the AI more context for this
-                  client's reports. Max 10MB each.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Input
-                    ref={supportingFileInputRef}
-                    type="file"
-                    accept=".docx,.pdf,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    className="max-w-xs"
-                    disabled={uploadSupportingFileMutation.isPending}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) uploadSupportingFileMutation.mutate(f);
-                    }}
-                    data-testid="input-supporting-file"
-                  />
-                  {uploadSupportingFileMutation.isPending && (
-                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                  )}
-                </div>
-                {supportingFiles.length > 0 && (
-                  <div className="space-y-2">
-                    {supportingFiles.map((file: any) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center justify-between border rounded-md px-3 py-2"
-                        data-testid={`supporting-file-${file.id}`}
-                      >
-                        <div className="flex items-center space-x-2 min-w-0">
-                          <FileText className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span className="text-sm text-slate-700 truncate">
-                            {file.originalName}
-                          </span>
-                        </div>
-                        <div className="flex items-center shrink-0">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-slate-600 hover:text-slate-900"
-                            onClick={() => downloadSupportingFile(file)}
-                            data-testid={`button-download-supporting-file-${file.id}`}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => deleteSupportingFileMutation.mutate(file.id)}
-                            disabled={deleteSupportingFileMutation.isPending}
-                            data-testid={`button-delete-supporting-file-${file.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
                 <CardTitle className="text-base">Generate a report</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -4231,7 +4163,7 @@ export default function ClientDetailPage() {
                     )}
                     {selectedReportTemplate.supportingFilesExpected && supportingFiles.length === 0 && (
                       <div className="rounded-md bg-amber-50 border border-amber-100 p-3 text-sm text-amber-800">
-                        This template usually works best with supporting files. Consider adding one above.
+                        This template usually works best with supporting files. Consider adding one below.
                       </div>
                     )}
 
@@ -4262,11 +4194,19 @@ export default function ClientDetailPage() {
                         />
                       </div>
 
-                      {supportingFiles.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t">
-                          <span className="text-sm text-slate-700">Supporting files</span>
-                          {supportingFiles.map((file: any) => (
-                            <div key={file.id} className="flex items-center space-x-2">
+                      <div className="space-y-2 pt-2 border-t">
+                        <span className="text-sm text-slate-700">Supporting files</span>
+                        <p className="text-xs text-slate-500">
+                          Add extra documents (Word, PDF, or plain text) to give the AI more context.
+                          Max 15MB each. Tick the ones you want this report to use.
+                        </p>
+                        {supportingFiles.map((file: any) => (
+                          <div
+                            key={file.id}
+                            className="flex items-center justify-between gap-2"
+                            data-testid={`supporting-file-${file.id}`}
+                          >
+                            <div className="flex items-center space-x-2 min-w-0">
                               <Checkbox
                                 id={`include-file-${file.id}`}
                                 checked={selectedSupportingFileIds.includes(file.id)}
@@ -4280,9 +4220,47 @@ export default function ClientDetailPage() {
                                 {file.originalName}
                               </Label>
                             </div>
-                          ))}
+                            <div className="flex items-center shrink-0">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-slate-600 hover:text-slate-900"
+                                onClick={() => downloadSupportingFile(file)}
+                                data-testid={`button-download-supporting-file-${file.id}`}
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => deleteSupportingFileMutation.mutate(file.id)}
+                                disabled={deleteSupportingFileMutation.isPending}
+                                data-testid={`button-delete-supporting-file-${file.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex items-center space-x-3 pt-1">
+                          <Input
+                            ref={supportingFileInputRef}
+                            type="file"
+                            accept=".docx,.pdf,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            className="max-w-xs"
+                            disabled={uploadSupportingFileMutation.isPending}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) uploadSupportingFileMutation.mutate(f);
+                            }}
+                            data-testid="input-supporting-file"
+                          />
+                          {uploadSupportingFileMutation.isPending && (
+                            <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   </>
                 )}
