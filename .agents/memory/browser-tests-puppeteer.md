@@ -53,3 +53,16 @@ needs a trusted event. Use a real `ElementHandle.click()` (find the
 Toggle, `page.waitForResponse` for the PUT (200), then `page.goto` to reload and
 re-read the control's `aria-checked` from a fresh server fetch — that's what
 proves server-side persistence vs. local React state. Cross-check the DB row too.
+
+## Mocking the network for pure-frontend behavior (no DB/auth needed)
+For UI-state assertions (loading spinner/disabled, error toasts) you don't need
+to seed data. `/portal/*` routes render without staff auth (App.tsx Router gates
+only staff routes), so `page.setRequestInterception(true)` + a `page.on('request')`
+handler can fully fake the page: `req.respond()` the list endpoint with a fake
+row, `req.continue()` everything else. To observe an *in-flight* loading state
+deterministically, HOLD the action's response open — in the handler resolve a
+"started" promise, then `await` a release promise the test resolves only after it
+asserts the disabled/spinner state; then `respond()` 200. For the failure path,
+`respond({status:500, body: JSON.stringify({message})})` and assert the toast
+text (downloadFile surfaces `response.json().message`). Wrap the handler body in
+try/catch with a fallback `continue()` so an already-handled request never hangs.
