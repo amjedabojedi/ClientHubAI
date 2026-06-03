@@ -12115,7 +12115,16 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(400).json({ message: "File too large (max 15MB)." });
       }
 
-      const extractedText = await extractDocumentText(buffer, mimeType, originalName);
+      let extractedText: string;
+      try {
+        extractedText = await extractDocumentText(buffer, mimeType, originalName);
+      } catch (extractError: any) {
+        // Supported file type but no readable text (empty file or image-only
+        // PDF). This is bad user input, not a server error — return a clear 400.
+        return res.status(400).json({
+          message: extractError?.message || "Could not read any text from the uploaded file. Please ensure it is not empty or image-only.",
+        });
+      }
 
       const validated = insertReportSupportingFileSchema.parse({
         clientId,

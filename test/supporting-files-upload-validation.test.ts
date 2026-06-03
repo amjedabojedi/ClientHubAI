@@ -271,6 +271,31 @@ async function run() {
     }
 
     // =======================================================================
+    // 3b. Supported type but no readable text (empty .txt) -> 400, nothing persisted
+    // =======================================================================
+    console.log("\nTest 3b: Empty (no readable text) supported file is rejected (400)");
+    {
+      const before = await rowCount();
+
+      // A .txt with a supported type but only whitespace -> normalizes to empty,
+      // so extractDocumentText throws "Could not read any text...". The route must
+      // surface that as a 400, not a generic 500.
+      const empty = await req("POST", uploadPath, token, {
+        fileContent: Buffer.from("   \n\t  \n  ", "utf-8").toString("base64"),
+        originalName: `empty-${SUFFIX}.txt`,
+        mimeType: "text/plain",
+      });
+      assertEqual(empty.status, 400, "Empty/no-text supported file rejected (400, not 500)");
+      assert(
+        /could not read any text/i.test(messageOf(empty.body)),
+        "Empty-file error has the clear 'Could not read any text' message",
+      );
+
+      const after = await rowCount();
+      assertEqual(after, before, "No row persisted for empty/no-text uploads");
+    }
+
+    // =======================================================================
     // 4. Sanity: a valid upload still succeeds (guards against false 400s)
     // =======================================================================
     console.log("\nTest 4: A valid upload still succeeds (201)");
