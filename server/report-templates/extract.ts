@@ -27,10 +27,16 @@ async function extractDocx(buffer: Buffer): Promise<string> {
 }
 
 async function extractPdf(buffer: Buffer): Promise<string> {
-  // pdfjs-dist v5 legacy build works in Node without a worker.
   const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // pdfjs v5 no longer accepts an empty workerSrc — it must point at a real,
+  // importable worker module or the "fake worker" fallback throws. Resolve the
+  // bundled legacy worker to a file:// URL so it loads in Node.
   if (pdfjs.GlobalWorkerOptions) {
-    pdfjs.GlobalWorkerOptions.workerSrc = '';
+    const moduleApi: any = await import('module');
+    const { pathToFileURL } = await import('url');
+    const require = moduleApi.createRequire(import.meta.url);
+    const workerPath = require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
   }
   const data = new Uint8Array(buffer);
   const loadingTask = pdfjs.getDocument({
