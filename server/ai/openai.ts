@@ -1439,12 +1439,39 @@ Status: ${sanitize(client.status)}
     ? sessionLines.join('\n')
     : 'No sessions on record.';
 
-  // Session notes summary
+  // Session notes summary.
+  // Session notes store their text across several fields, not a single "content"
+  // column. Prefer the finalized note the therapist signed off on, then fall back
+  // to draft/AI text, and finally to the structured clinical fields.
+  // Returns clean text only if the value has real content once HTML/placeholders
+  // are stripped (e.g. an empty rich-text "<p><br></p>" counts as empty).
+  const meaningful = (value: any): string => {
+    if (value === null || value === undefined) return '';
+    const cleaned = String(value).replace(/&nbsp;/gi, ' ');
+    const text = sanitize(cleaned);
+    return text === 'Not provided' ? '' : text;
+  };
+  const noteBody = (n: any): string => {
+    // Prefer the finalized note, then draft, then AI-generated text.
+    const finalized = meaningful(n.finalContent) || meaningful(n.draftContent) || meaningful(n.generatedContent);
+    if (finalized) return finalized;
+    // Fall back to the structured clinical fields.
+    const structured = [
+      n.sessionFocus ? `Focus: ${n.sessionFocus}` : '',
+      n.symptoms ? `Symptoms: ${n.symptoms}` : '',
+      n.shortTermGoals ? `Goals: ${n.shortTermGoals}` : '',
+      n.intervention ? `Intervention: ${n.intervention}` : '',
+      n.progress ? `Progress: ${n.progress}` : '',
+      n.remarks ? `Remarks: ${n.remarks}` : '',
+      n.recommendations ? `Recommendations: ${n.recommendations}` : '',
+    ].filter(Boolean).join('. ');
+    return meaningful(structured) || 'No written content recorded.';
+  };
   const noteLines = (notes || []).slice(0, 20).map((n: any) => {
-    const date = fmtDate(n.session?.sessionDate || n.createdAt || n.date);
+    const date = fmtDate(n.session?.sessionDate || n.date || n.createdAt);
     const therapist = sanitize(n.therapist?.fullName);
-    const body = sanitize(n.content || n.note || n.summary);
-    return `- ${date} (by ${therapist}): ${body.slice(0, 1200)}`;
+    const body = noteBody(n);
+    return `- ${date} (by ${therapist}): ${body.slice(0, 1500)}`;
   });
   const notesText = noteLines.length ? noteLines.join('\n\n') : 'No session notes on record.';
 
