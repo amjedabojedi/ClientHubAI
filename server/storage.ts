@@ -28,6 +28,7 @@ import {
   assessmentResponses,
   assessmentReports,
   reportTemplates,
+  reportSupportingFiles,
   clientReports,
   services,
   rooms,
@@ -95,6 +96,8 @@ import type {
   InsertAssessmentReport,
   ReportTemplate,
   InsertReportTemplate,
+  ReportSupportingFile,
+  InsertReportSupportingFile,
   ClientReport,
   InsertClientReport,
   ChecklistTemplate,
@@ -566,6 +569,13 @@ export interface IStorage {
   createReportTemplate(template: InsertReportTemplate): Promise<ReportTemplate>;
   updateReportTemplate(id: number, template: Partial<InsertReportTemplate>): Promise<ReportTemplate>;
   deleteReportTemplate(id: number): Promise<void>;
+
+  // Report Supporting Files (per-client reference material for AI reports)
+  getReportSupportingFilesByClient(clientId: number): Promise<ReportSupportingFile[]>;
+  getReportSupportingFile(id: number): Promise<ReportSupportingFile | undefined>;
+  createReportSupportingFile(file: InsertReportSupportingFile): Promise<ReportSupportingFile>;
+  updateReportSupportingFile(id: number, file: Partial<InsertReportSupportingFile>): Promise<ReportSupportingFile>;
+  deleteReportSupportingFile(id: number): Promise<void>;
 
   // Client Reports (AI-generated from templates)
   getClientReports(clientId: number): Promise<(ClientReport & { createdBy?: User; template?: ReportTemplate })[]>;
@@ -5004,6 +5014,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReportTemplate(id: number): Promise<void> {
     await db.delete(reportTemplates).where(eq(reportTemplates.id, id));
+  }
+
+  // ===== Report Supporting Files =====
+  async getReportSupportingFilesByClient(clientId: number): Promise<ReportSupportingFile[]> {
+    return db
+      .select()
+      .from(reportSupportingFiles)
+      .where(eq(reportSupportingFiles.clientId, clientId))
+      .orderBy(desc(reportSupportingFiles.createdAt));
+  }
+
+  async getReportSupportingFile(id: number): Promise<ReportSupportingFile | undefined> {
+    const [file] = await db
+      .select()
+      .from(reportSupportingFiles)
+      .where(eq(reportSupportingFiles.id, id));
+    return file || undefined;
+  }
+
+  async createReportSupportingFile(file: InsertReportSupportingFile): Promise<ReportSupportingFile> {
+    const [created] = await db.insert(reportSupportingFiles).values(file).returning();
+    return created;
+  }
+
+  async updateReportSupportingFile(id: number, file: Partial<InsertReportSupportingFile>): Promise<ReportSupportingFile> {
+    const [updated] = await db
+      .update(reportSupportingFiles)
+      .set(file)
+      .where(eq(reportSupportingFiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteReportSupportingFile(id: number): Promise<void> {
+    await db.delete(reportSupportingFiles).where(eq(reportSupportingFiles.id, id));
   }
 
   // ===== Client Reports =====

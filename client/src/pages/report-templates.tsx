@@ -67,18 +67,33 @@ export default function ReportTemplatesPage() {
   const [description, setDescription] = useState("");
   const [aiInstructions, setAiInstructions] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [includeProfile, setIncludeProfile] = useState(true);
+  const [includeNotes, setIncludeNotes] = useState(true);
+  const [includeAssessments, setIncludeAssessments] = useState(true);
+  const [supportingFilesGuidance, setSupportingFilesGuidance] = useState("");
+  const [supportingFilesExpected, setSupportingFilesExpected] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ReportTemplate | null>(null);
 
   const [editTarget, setEditTarget] = useState<ReportTemplate | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAiInstructions, setEditAiInstructions] = useState("");
+  const [editIncludeProfile, setEditIncludeProfile] = useState(true);
+  const [editIncludeNotes, setEditIncludeNotes] = useState(true);
+  const [editIncludeAssessments, setEditIncludeAssessments] = useState(true);
+  const [editSupportingFilesGuidance, setEditSupportingFilesGuidance] = useState("");
+  const [editSupportingFilesExpected, setEditSupportingFilesExpected] = useState(false);
 
   const openEdit = (template: ReportTemplate) => {
     setEditTarget(template);
     setEditName(template.name);
     setEditDescription(template.description || "");
     setEditAiInstructions(template.aiInstructions || "");
+    setEditIncludeProfile(template.defaultIncludeProfile ?? true);
+    setEditIncludeNotes(template.defaultIncludeNotes ?? true);
+    setEditIncludeAssessments(template.defaultIncludeAssessments ?? true);
+    setEditSupportingFilesGuidance(template.supportingFilesGuidance || "");
+    setEditSupportingFilesExpected(template.supportingFilesExpected ?? false);
   };
 
   const { data: templates = [], isLoading } = useQuery<ReportTemplate[]>({
@@ -91,6 +106,11 @@ export default function ReportTemplatesPage() {
     setDescription("");
     setAiInstructions("");
     setSelectedFile(null);
+    setIncludeProfile(true);
+    setIncludeNotes(true);
+    setIncludeAssessments(true);
+    setSupportingFilesGuidance("");
+    setSupportingFilesExpected(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -105,6 +125,11 @@ export default function ReportTemplatesPage() {
         fileContent,
         originalName: selectedFile.name,
         mimeType: selectedFile.type || "application/octet-stream",
+        defaultIncludeProfile: includeProfile,
+        defaultIncludeNotes: includeNotes,
+        defaultIncludeAssessments: includeAssessments,
+        supportingFilesGuidance: supportingFilesGuidance.trim() || null,
+        supportingFilesExpected,
       });
     },
     onSuccess: () => {
@@ -146,6 +171,11 @@ export default function ReportTemplatesPage() {
         name: editName.trim(),
         description: editDescription.trim() || null,
         aiInstructions: editAiInstructions.trim() || null,
+        defaultIncludeProfile: editIncludeProfile,
+        defaultIncludeNotes: editIncludeNotes,
+        defaultIncludeAssessments: editIncludeAssessments,
+        supportingFilesGuidance: editSupportingFilesGuidance.trim() || null,
+        supportingFilesExpected: editSupportingFilesExpected,
       });
     },
     onSuccess: () => {
@@ -355,6 +385,59 @@ export default function ReportTemplatesPage() {
                 </p>
               )}
             </div>
+
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <Label className="text-sm font-medium">Default data to include</Label>
+                <p className="text-xs text-slate-500">
+                  Therapists can turn these on or off each time they generate a report.
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Client profile</span>
+                <Switch
+                  checked={includeProfile}
+                  onCheckedChange={setIncludeProfile}
+                  data-testid="switch-default-profile"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Sessions &amp; session notes</span>
+                <Switch
+                  checked={includeNotes}
+                  onCheckedChange={setIncludeNotes}
+                  data-testid="switch-default-notes"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Assessments</span>
+                <Switch
+                  checked={includeAssessments}
+                  onCheckedChange={setIncludeAssessments}
+                  data-testid="switch-default-assessments"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="template-supporting-guidance">Supporting files note</Label>
+              <Textarea
+                id="template-supporting-guidance"
+                value={supportingFilesGuidance}
+                onChange={(e) => setSupportingFilesGuidance(e.target.value)}
+                placeholder="Optional note shown to therapists, e.g. which extra documents to attach for this template"
+                rows={2}
+                data-testid="input-template-supporting-guidance"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Remind therapists to attach supporting files</span>
+                <Switch
+                  checked={supportingFilesExpected}
+                  onCheckedChange={setSupportingFilesExpected}
+                  data-testid="switch-supporting-expected"
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUploadOpen(false)}>
@@ -415,6 +498,60 @@ export default function ReportTemplatesPage() {
                 data-testid="input-edit-template-ai"
               />
             </div>
+
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <Label className="text-sm font-medium">Default data to include</Label>
+                <p className="text-xs text-slate-500">
+                  Therapists can turn these on or off each time they generate a report.
+                </p>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Client profile</span>
+                <Switch
+                  checked={editIncludeProfile}
+                  onCheckedChange={setEditIncludeProfile}
+                  data-testid="switch-edit-default-profile"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Sessions &amp; session notes</span>
+                <Switch
+                  checked={editIncludeNotes}
+                  onCheckedChange={setEditIncludeNotes}
+                  data-testid="switch-edit-default-notes"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Assessments</span>
+                <Switch
+                  checked={editIncludeAssessments}
+                  onCheckedChange={setEditIncludeAssessments}
+                  data-testid="switch-edit-default-assessments"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-template-supporting-guidance">Supporting files note</Label>
+              <Textarea
+                id="edit-template-supporting-guidance"
+                value={editSupportingFilesGuidance}
+                onChange={(e) => setEditSupportingFilesGuidance(e.target.value)}
+                placeholder="Optional note shown to therapists, e.g. which extra documents to attach for this template"
+                rows={2}
+                data-testid="input-edit-template-supporting-guidance"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-700">Remind therapists to attach supporting files</span>
+                <Switch
+                  checked={editSupportingFilesExpected}
+                  onCheckedChange={setEditSupportingFilesExpected}
+                  data-testid="switch-edit-supporting-expected"
+                />
+              </div>
+            </div>
+
             <div className="text-xs text-slate-500">
               File: {editTarget?.originalName}
             </div>

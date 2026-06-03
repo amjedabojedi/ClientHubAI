@@ -46,6 +46,46 @@ async function main() {
     sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS file_url TEXT`,
   );
 
+  // Additive columns for the "smarter report inputs" feature: default source
+  // toggles and supporting-files guidance shown to therapists.
+  await db.execute(
+    sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS default_include_profile BOOLEAN NOT NULL DEFAULT TRUE`,
+  );
+  await db.execute(
+    sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS default_include_notes BOOLEAN NOT NULL DEFAULT TRUE`,
+  );
+  await db.execute(
+    sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS default_include_assessments BOOLEAN NOT NULL DEFAULT TRUE`,
+  );
+  await db.execute(
+    sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS supporting_files_guidance TEXT`,
+  );
+  await db.execute(
+    sql`ALTER TABLE report_templates ADD COLUMN IF NOT EXISTS supporting_files_expected BOOLEAN NOT NULL DEFAULT FALSE`,
+  );
+
+  // ----- report_supporting_files -----
+  // Per-client reference files (referral letters, prior reports, intake docs)
+  // whose extracted text can be fed to the AI as extra report context.
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS report_supporting_files (
+      id SERIAL PRIMARY KEY,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      original_name VARCHAR(500) NOT NULL,
+      mime_type VARCHAR(150) NOT NULL,
+      file_size INTEGER,
+      file_blob_name VARCHAR(1000),
+      file_url TEXT,
+      extracted_text TEXT,
+      created_by_id INTEGER NOT NULL REFERENCES users(id),
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.execute(
+    sql`CREATE INDEX IF NOT EXISTS idx_report_supporting_files_client_id ON report_supporting_files(client_id)`,
+  );
+
   // ----- client_reports -----
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS client_reports (
@@ -70,7 +110,7 @@ async function main() {
     sql`CREATE INDEX IF NOT EXISTS idx_client_reports_client_id ON client_reports(client_id)`,
   );
 
-  console.log("[report-tables] Ensured report_templates and client_reports tables.");
+  console.log("[report-tables] Ensured report_templates, report_supporting_files and client_reports tables.");
 }
 
 main()

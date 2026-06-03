@@ -82,3 +82,54 @@ export async function extractTemplateStructure(
   }
   return { structureText };
 }
+
+// True when the file type is a supported supporting-document format
+// (Word .docx, PDF, or plain text).
+export function isSupportedDocumentType(mimeType: string, originalName: string): boolean {
+  const name = (originalName || '').toLowerCase();
+  return (
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    name.endsWith('.docx') ||
+    mimeType === 'application/pdf' ||
+    name.endsWith('.pdf') ||
+    mimeType === 'text/plain' ||
+    name.endsWith('.txt')
+  );
+}
+
+// Extracts plain text from a supporting document (Word .docx, PDF, or .txt) so
+// it can be supplied to the AI as extra reference context for a client report.
+export async function extractDocumentText(
+  buffer: Buffer,
+  mimeType: string,
+  originalName: string,
+): Promise<string> {
+  const name = (originalName || '').toLowerCase();
+  const isDocx =
+    mimeType ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    name.endsWith('.docx');
+  const isPdf = mimeType === 'application/pdf' || name.endsWith('.pdf');
+  const isTxt = mimeType === 'text/plain' || name.endsWith('.txt');
+
+  let raw = '';
+  if (isDocx) {
+    raw = await extractDocx(buffer);
+  } else if (isPdf) {
+    raw = await extractPdf(buffer);
+  } else if (isTxt) {
+    raw = buffer.toString('utf-8');
+  } else {
+    throw new Error(
+      'Unsupported file format. Please upload a Word (.docx), PDF (.pdf), or plain text (.txt) file.',
+    );
+  }
+
+  const text = normalizeWhitespace(raw);
+  if (!text) {
+    throw new Error(
+      'Could not read any text from the uploaded file. Please ensure it is not empty or image-only.',
+    );
+  }
+  return text;
+}

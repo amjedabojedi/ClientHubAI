@@ -80,6 +80,7 @@ import {
   insertAssessmentResponseSchema, 
   insertAssessmentReportSchema,
   insertReportTemplateSchema,
+  insertReportSupportingFileSchema,
   insertClientReportSchema,
   insertServiceSchema,
   insertRoomSchema,
@@ -11792,7 +11793,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(403).json({ message: "Access denied. Admin privileges required." });
       }
 
-      const { name, description, aiInstructions, fileContent, originalName, mimeType } = req.body || {};
+      const {
+        name, description, aiInstructions, fileContent, originalName, mimeType,
+        defaultIncludeProfile, defaultIncludeNotes, defaultIncludeAssessments,
+        supportingFilesGuidance, supportingFilesExpected,
+      } = req.body || {};
       if (!name || !fileContent || !originalName || !mimeType) {
         return res.status(400).json({ message: "name, fileContent, originalName and mimeType are required" });
       }
@@ -11820,6 +11825,11 @@ You can download a copy if you have it saved locally and re-upload it.`;
         mimeType,
         fileSize: buffer.length,
         structureText,
+        defaultIncludeProfile: defaultIncludeProfile === undefined ? true : !!defaultIncludeProfile,
+        defaultIncludeNotes: defaultIncludeNotes === undefined ? true : !!defaultIncludeNotes,
+        defaultIncludeAssessments: defaultIncludeAssessments === undefined ? true : !!defaultIncludeAssessments,
+        supportingFilesGuidance: supportingFilesGuidance || null,
+        supportingFilesExpected: !!supportingFilesExpected,
         isActive: true,
         createdById: req.user.id,
       });
@@ -11880,12 +11890,21 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Invalid template ID" });
 
-      const { name, description, aiInstructions, isActive } = req.body || {};
+      const {
+        name, description, aiInstructions, isActive,
+        defaultIncludeProfile, defaultIncludeNotes, defaultIncludeAssessments,
+        supportingFilesGuidance, supportingFilesExpected,
+      } = req.body || {};
       const updates: any = {};
       if (name !== undefined) updates.name = name;
       if (description !== undefined) updates.description = description;
       if (aiInstructions !== undefined) updates.aiInstructions = aiInstructions;
       if (isActive !== undefined) updates.isActive = isActive;
+      if (defaultIncludeProfile !== undefined) updates.defaultIncludeProfile = !!defaultIncludeProfile;
+      if (defaultIncludeNotes !== undefined) updates.defaultIncludeNotes = !!defaultIncludeNotes;
+      if (defaultIncludeAssessments !== undefined) updates.defaultIncludeAssessments = !!defaultIncludeAssessments;
+      if (supportingFilesGuidance !== undefined) updates.supportingFilesGuidance = supportingFilesGuidance || null;
+      if (supportingFilesExpected !== undefined) updates.supportingFilesExpected = !!supportingFilesExpected;
 
       const updated = await storage.updateReportTemplate(id, updates);
 
@@ -11954,6 +11973,170 @@ You can download a copy if you have it saved locally and re-upload it.`;
     }
   });
 
+  // ==================== REPORT SUPPORTING FILES (per-client AI context) ====================
+  // List a client's supporting files (staff with client access). Extracted text is omitted from the list payload.
+  app.get("/api/clients/:clientId/supporting-files", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
+      if (!(await userCanAccessClient(req.user, clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only view files for your assigned clients." });
+      }
+      const files = await storage.getReportSupportingFilesByClient(clientId);
+      // Return only safe metadata. Never expose extractedText (large PHI) or the
+      // blob URL/name (the Azure container allows blob-level reads by URL).
+      const list = files.map((f) => ({
+        id: f.id,
+        clientId: f.clientId,
+        originalName: f.originalName,
+        mimeType: f.mimeType,
+        fileSize: f.fileSize,
+        createdById: f.createdById,
+        createdAt: f.createdAt,
+      }));
+      res.json(list);
+    } catch (error) {
+      console.error('Error fetching supporting files:', error);
+      res.status(500).json({ message: "Failed to fetch supporting files" });
+    }
+  });
+
+  // Upload a supporting file for a client. Body: { fileContent(base64), originalName, mimeType }
+  app.post("/api/clients/:clientId/supporting-files", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
+      if (!(await userCanAccessClient(req.user, clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only add files for your assigned clients." });
+      }
+
+      const { fileContent, originalName, mimeType } = req.body || {};
+      if (!fileContent || !originalName || !mimeType) {
+        return res.status(400).json({ message: "fileContent, originalName and mimeType are required" });
+      }
+
+      const { isSupportedDocumentType, extractDocumentText } = await import("./report-templates/extract");
+      if (!isSupportedDocumentType(mimeType, originalName)) {
+        return res.status(400).json({ message: "Only Word (.docx), PDF (.pdf), or plain text (.txt) files are supported." });
+      }
+
+      const base64 = String(fileContent).includes(',') ? String(fileContent).split(',')[1] : String(fileContent);
+      const buffer = Buffer.from(base64, 'base64');
+      if (buffer.length > 15 * 1024 * 1024) {
+        return res.status(400).json({ message: "File too large (max 15MB)." });
+      }
+
+      const extractedText = await extractDocumentText(buffer, mimeType, originalName);
+
+      const validated = insertReportSupportingFileSchema.parse({
+        clientId,
+        originalName,
+        mimeType,
+        fileSize: buffer.length,
+        extractedText,
+        createdById: req.user.id,
+      });
+      let file = await storage.createReportSupportingFile(validated);
+
+      // Persist the original file in Azure blob storage (best effort — keep the row even if blob upload fails).
+      try {
+        const uploadResult = await azureStorage.uploadFile(
+          buffer,
+          originalName,
+          mimeType,
+          file.id,
+          { kind: 'report_supporting_file', clientId: clientId.toString(), createdById: req.user.id.toString() },
+        );
+        if (uploadResult.success) {
+          file = await storage.updateReportSupportingFile(file.id, {
+            fileBlobName: uploadResult.blobName ?? null,
+            fileUrl: uploadResult.url ?? null,
+          });
+        }
+      } catch (uploadError) {
+        console.warn('[supporting-files] Failed to upload blob:', uploadError);
+      }
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'report_supporting_file_uploaded',
+        result: 'success',
+        resourceType: 'report_supporting_file',
+        resourceId: file.id.toString(),
+        clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'medium',
+        details: JSON.stringify({ operation: 'report_supporting_file_uploaded', originalName, mimeType }),
+        accessReason: 'Supporting file management for AI reports',
+      });
+
+      res.status(201).json({
+        id: file.id,
+        clientId: file.clientId,
+        originalName: file.originalName,
+        mimeType: file.mimeType,
+        fileSize: file.fileSize,
+        createdById: file.createdById,
+        createdAt: file.createdAt,
+      });
+    } catch (error: any) {
+      console.error('Error uploading supporting file:', error);
+      const msg = error?.message || "Failed to upload supporting file";
+      res.status(msg.includes('Unsupported') || msg.includes('Could not read') ? 400 : 500).json({ message: msg });
+    }
+  });
+
+  // Delete a supporting file (staff with access to the file's client)
+  app.delete("/api/supporting-files/:id", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
+    const { ipAddress, userAgent } = getRequestInfo(req);
+    try {
+      if (!req.user) return res.status(401).json({ message: "Authentication required" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid file ID" });
+
+      const existing = await storage.getReportSupportingFile(id);
+      if (!existing) return res.status(404).json({ message: "Supporting file not found" });
+      if (!(await userCanAccessClient(req.user, existing.clientId))) {
+        return res.status(403).json({ message: "Access denied. You can only delete files for your assigned clients." });
+      }
+
+      await storage.deleteReportSupportingFile(id);
+      if (existing.fileBlobName) {
+        try {
+          await azureStorage.deleteFile(existing.fileBlobName);
+        } catch (blobError) {
+          console.warn('[supporting-files] Failed to delete blob:', blobError);
+        }
+      }
+
+      await AuditLogger.logAction({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'report_supporting_file_deleted',
+        result: 'success',
+        resourceType: 'report_supporting_file',
+        resourceId: id.toString(),
+        clientId: existing.clientId,
+        ipAddress,
+        userAgent,
+        hipaaRelevant: true,
+        riskLevel: 'medium',
+        details: JSON.stringify({ operation: 'report_supporting_file_deleted', originalName: existing.originalName }),
+        accessReason: 'Supporting file management for AI reports',
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting supporting file:', error);
+      res.status(500).json({ message: "Failed to delete supporting file" });
+    }
+  });
+
   // ==================== CLIENT REPORTS (AI-generated) ====================
   // List a client's reports
   app.get("/api/clients/:clientId/reports", requireAuth, blockAccountant, async (req: AuthenticatedRequest, res) => {
@@ -11979,7 +12162,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       const clientId = parseInt(req.params.clientId);
       if (isNaN(clientId)) return res.status(400).json({ message: "Invalid client ID" });
 
-      const { templateId } = req.body || {};
+      const { templateId, sources, supportingFileIds } = req.body || {};
       if (!templateId) return res.status(400).json({ message: "templateId is required" });
 
       if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
@@ -12017,12 +12200,30 @@ You can download a copy if you have it saved locally and re-upload it.`;
         return res.status(403).json({ message: consentCheck.message, consentRequired: true, consentType: 'ai_processing' });
       }
 
-      // Gather client data
+      // Resolve which data sources to include. Defaults come from the template;
+      // the therapist can override per generation via `sources`.
+      const includeProfile = sources?.includeProfile ?? template.defaultIncludeProfile ?? true;
+      const includeNotes = sources?.includeNotes ?? template.defaultIncludeNotes ?? true; // sessions + notes
+      const includeAssessments = sources?.includeAssessments ?? template.defaultIncludeAssessments ?? true;
+
+      // Gather only the requested client data.
       const [sessions, notes, assessments] = await Promise.all([
-        storage.getSessionsByClient(clientId),
-        storage.getSessionNotesByClient(clientId),
-        storage.getAssessmentAssignments(clientId),
+        includeNotes ? storage.getSessionsByClient(clientId) : Promise.resolve([]),
+        includeNotes ? storage.getSessionNotesByClient(clientId) : Promise.resolve([]),
+        includeAssessments ? storage.getAssessmentAssignments(clientId) : Promise.resolve([]),
       ]);
+
+      // Resolve any selected supporting files (must belong to this client).
+      let supportingFiles: { name: string; text: string }[] = [];
+      const requestedFileIds = Array.isArray(supportingFileIds)
+        ? supportingFileIds.map((v: any) => parseInt(String(v))).filter((n: number) => !isNaN(n))
+        : [];
+      if (requestedFileIds.length > 0) {
+        const clientFiles = await storage.getReportSupportingFilesByClient(clientId);
+        supportingFiles = clientFiles
+          .filter((f) => requestedFileIds.includes(f.id) && !!f.extractedText)
+          .map((f) => ({ name: f.originalName, text: f.extractedText as string }));
+      }
 
       const { generateClientReportFromTemplate } = await import("./ai/openai");
       const rawGenerated = await generateClientReportFromTemplate({
@@ -12032,6 +12233,10 @@ You can download a copy if you have it saved locally and re-upload it.`;
         assessments,
         templateStructure: template.structureText || '',
         aiInstructions: template.aiInstructions,
+        includeProfile,
+        includeNotes,
+        includeAssessments,
+        supportingFiles,
       });
       const generatedContent = await sanitizeReportHtml(rawGenerated);
 
@@ -12061,7 +12266,13 @@ You can download a copy if you have it saved locally and re-upload it.`;
         userAgent,
         hipaaRelevant: true,
         riskLevel: 'high',
-        details: JSON.stringify({ templateId: template.id, reportId: report.id, aiModel: 'gpt-4o' }),
+        details: JSON.stringify({
+          templateId: template.id,
+          reportId: report.id,
+          aiModel: 'gpt-4o',
+          sources: { includeProfile, includeNotes, includeAssessments },
+          supportingFileIds: supportingFiles.length > 0 ? requestedFileIds : [],
+        }),
         accessReason: 'AI client report generation',
       });
 

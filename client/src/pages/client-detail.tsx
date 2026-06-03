@@ -2096,9 +2096,95 @@ export default function ClientDetailPage() {
     enabled: !!clientId,
   });
 
+  // Supporting files (per-client reference material for AI report generation)
+  const supportingFileInputRef = useRef<HTMLInputElement>(null);
+  const [reportTemplateId, setReportTemplateId] = useState<string>("");
+  const [reportIncludeProfile, setReportIncludeProfile] = useState(true);
+  const [reportIncludeNotes, setReportIncludeNotes] = useState(true);
+  const [reportIncludeAssessments, setReportIncludeAssessments] = useState(true);
+  const [selectedSupportingFileIds, setSelectedSupportingFileIds] = useState<number[]>([]);
+
+  const { data: supportingFiles = [] } = useQuery<any[]>({
+    queryKey: [`/api/clients/${clientId}/supporting-files`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!clientId,
+  });
+
+  const selectedReportTemplate = reportTemplates.find((t: any) => String(t.id) === reportTemplateId);
+  const supportingFileIdsKey = supportingFiles.map((f: any) => f.id).join(",");
+
+  // Default-select all supporting files whenever the set of files changes.
+  useEffect(() => {
+    setSelectedSupportingFileIds(supportingFiles.map((f: any) => f.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supportingFileIdsKey]);
+
+  const handleSelectReportTemplate = (val: string) => {
+    setReportTemplateId(val);
+    const t = reportTemplates.find((x: any) => String(x.id) === val);
+    setReportIncludeProfile(t?.defaultIncludeProfile ?? true);
+    setReportIncludeNotes(t?.defaultIncludeNotes ?? true);
+    setReportIncludeAssessments(t?.defaultIncludeAssessments ?? true);
+  };
+
+  const toggleSupportingFile = (id: number) => {
+    setSelectedSupportingFileIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const uploadSupportingFileMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fileContent = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.includes(",") ? result.split(",")[1] : result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      return apiRequest(`/api/clients/${clientId}/supporting-files`, "POST", {
+        fileContent,
+        originalName: file.name,
+        mimeType: file.type || "application/octet-stream",
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "File added", description: "The supporting file is ready to use." });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/supporting-files`] });
+      if (supportingFileInputRef.current) supportingFileInputRef.current.value = "";
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload failed",
+        description: error?.message || "Failed to add file. Please try again.",
+        variant: "destructive",
+      });
+      if (supportingFileInputRef.current) supportingFileInputRef.current.value = "";
+    },
+  });
+
+  const deleteSupportingFileMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/supporting-files/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({ title: "File removed" });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/supporting-files`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete failed",
+        description: error?.message || "Failed to remove file.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const generateReportMutation = useMutation({
-    mutationFn: async (templateId: number) => {
-      const res = await apiRequest(`/api/clients/${clientId}/reports/generate`, "POST", { templateId });
+    mutationFn: async (payload: { templateId: number; sources: { includeProfile: boolean; includeNotes: boolean; includeAssessments: boolean }; supportingFileIds: number[] }) => {
+      const res = await apiRequest(`/api/clients/${clientId}/reports/generate`, "POST", payload);
       return res.json();
     },
     onSuccess: (report: any) => {
@@ -4002,33 +4088,189 @@ export default function ClientDetailPage() {
 
           {/* Reports Tab */}
           <TabsContent value="reports" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">Client Reports</h2>
-                <p className="text-sm text-slate-600">
-                  Generate an AI report from an uploaded template, then review and finalize.
-                </p>
-              </div>
-              <Select onValueChange={(templateId) => generateReportMutation.mutate(parseInt(templateId))}>
-                <SelectTrigger className="w-72" data-testid="select-generate-report">
-                  <SelectValue placeholder={generateReportMutation.isPending ? "Generating..." : "Generate from Template"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {reportTemplates.length === 0 ? (
-                    <div className="px-2 py-3 text-sm text-slate-500">No templates available</div>
-                  ) : (
-                    reportTemplates.map((template: any) => (
-                      <SelectItem key={template.id} value={template.id.toString()}>
-                        <div className="flex items-center space-x-2">
-                          <FileText className="w-4 h-4" />
-                          <span>{template.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Client Reports</h2>
+              <p className="text-sm text-slate-600">
+                Generate an AI report from an uploaded template, then review and finalize.
+              </p>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Supporting files</CardTitle>
+                <p className="text-sm text-slate-600">
+                  Add extra documents (Word, PDF, or plain text) to give the AI more context for this
+                  client's reports. Max 10MB each.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center space-x-3">
+                  <Input
+                    ref={supportingFileInputRef}
+                    type="file"
+                    accept=".docx,.pdf,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="max-w-xs"
+                    disabled={uploadSupportingFileMutation.isPending}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadSupportingFileMutation.mutate(f);
+                    }}
+                    data-testid="input-supporting-file"
+                  />
+                  {uploadSupportingFileMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                  )}
+                </div>
+                {supportingFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {supportingFiles.map((file: any) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between border rounded-md px-3 py-2"
+                        data-testid={`supporting-file-${file.id}`}
+                      >
+                        <div className="flex items-center space-x-2 min-w-0">
+                          <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span className="text-sm text-slate-700 truncate">
+                            {file.originalName}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => deleteSupportingFileMutation.mutate(file.id)}
+                          disabled={deleteSupportingFileMutation.isPending}
+                          data-testid={`button-delete-supporting-file-${file.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Generate a report</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Template</Label>
+                  <Select value={reportTemplateId} onValueChange={handleSelectReportTemplate}>
+                    <SelectTrigger className="w-full sm:w-96" data-testid="select-generate-report">
+                      <SelectValue placeholder="Choose a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reportTemplates.length === 0 ? (
+                        <div className="px-2 py-3 text-sm text-slate-500">No templates available</div>
+                      ) : (
+                        reportTemplates.map((template: any) => (
+                          <SelectItem key={template.id} value={template.id.toString()}>
+                            <div className="flex items-center space-x-2">
+                              <FileText className="w-4 h-4" />
+                              <span>{template.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedReportTemplate && (
+                  <>
+                    {selectedReportTemplate.supportingFilesGuidance && (
+                      <div className="rounded-md bg-blue-50 border border-blue-100 p-3 text-sm text-blue-800">
+                        {selectedReportTemplate.supportingFilesGuidance}
+                      </div>
+                    )}
+                    {selectedReportTemplate.supportingFilesExpected && supportingFiles.length === 0 && (
+                      <div className="rounded-md bg-amber-50 border border-amber-100 p-3 text-sm text-amber-800">
+                        This template usually works best with supporting files. Consider adding one above.
+                      </div>
+                    )}
+
+                    <div className="space-y-3 rounded-md border p-3">
+                      <Label className="text-sm font-medium">Include in this report</Label>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-700">Client profile</span>
+                        <Switch
+                          checked={reportIncludeProfile}
+                          onCheckedChange={setReportIncludeProfile}
+                          data-testid="switch-include-profile"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-700">Sessions &amp; session notes</span>
+                        <Switch
+                          checked={reportIncludeNotes}
+                          onCheckedChange={setReportIncludeNotes}
+                          data-testid="switch-include-notes"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-700">Assessments</span>
+                        <Switch
+                          checked={reportIncludeAssessments}
+                          onCheckedChange={setReportIncludeAssessments}
+                          data-testid="switch-include-assessments"
+                        />
+                      </div>
+
+                      {supportingFiles.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t">
+                          <span className="text-sm text-slate-700">Supporting files</span>
+                          {supportingFiles.map((file: any) => (
+                            <div key={file.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`include-file-${file.id}`}
+                                checked={selectedSupportingFileIds.includes(file.id)}
+                                onCheckedChange={() => toggleSupportingFile(file.id)}
+                                data-testid={`checkbox-include-file-${file.id}`}
+                              />
+                              <Label
+                                htmlFor={`include-file-${file.id}`}
+                                className="text-sm font-normal text-slate-700 truncate cursor-pointer"
+                              >
+                                {file.originalName}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <Button
+                  onClick={() =>
+                    generateReportMutation.mutate({
+                      templateId: parseInt(reportTemplateId),
+                      sources: {
+                        includeProfile: reportIncludeProfile,
+                        includeNotes: reportIncludeNotes,
+                        includeAssessments: reportIncludeAssessments,
+                      },
+                      supportingFileIds: selectedSupportingFileIds,
+                    })
+                  }
+                  disabled={!reportTemplateId || generateReportMutation.isPending}
+                  data-testid="button-generate-report"
+                >
+                  {generateReportMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    "Generate report"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>

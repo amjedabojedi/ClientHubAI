@@ -1019,10 +1019,35 @@ export const reportTemplates = pgTable("report_templates", {
   fileBlobName: varchar("file_blob_name", { length: 1000 }), // Azure blob reference to the stored original file
   fileUrl: text("file_url"), // Azure blob URL for the stored original file
   structureText: text("structure_text"), // extracted layout/headings the AI mimics
+  // Default data sources to feed the AI for reports made from this template.
+  // Therapists can override these per generation.
+  defaultIncludeProfile: boolean("default_include_profile").notNull().default(true),
+  defaultIncludeNotes: boolean("default_include_notes").notNull().default(true), // sessions + session notes
+  defaultIncludeAssessments: boolean("default_include_assessments").notNull().default(true),
+  // Admin note shown to therapists about which supporting files to attach.
+  supportingFilesGuidance: text("supporting_files_guidance"),
+  // When true, the generate screen nudges therapists to attach supporting files.
+  supportingFilesExpected: boolean("supporting_files_expected").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdById: integer("created_by_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Per-client supporting files uploaded as extra reference material for AI report
+// generation (e.g. referral letters, prior reports, intake paperwork). Only the
+// extracted text is sent to the AI; the original file is kept in Azure blob storage.
+export const reportSupportingFiles = pgTable("report_supporting_files", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  originalName: varchar("original_name", { length: 500 }).notNull(),
+  mimeType: varchar("mime_type", { length: 150 }).notNull(),
+  fileSize: integer("file_size"),
+  fileBlobName: varchar("file_blob_name", { length: 1000 }), // Azure blob reference
+  fileUrl: text("file_url"), // Azure blob URL
+  extractedText: text("extracted_text"), // text fed to the AI as reference context
+  createdById: integer("created_by_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 // Generated client reports (mirrors the assessment report status flow)
@@ -1382,6 +1407,8 @@ export const AUDIT_ACTIONS = [
   'client_report_generated',
   'client_report_finalized',
   'client_report_reopened',
+  'report_supporting_file_uploaded',
+  'report_supporting_file_deleted',
 
   // Calendar feed (per-therapist iCal subscription)
   'calendar_feed_accessed',
@@ -1823,6 +1850,17 @@ export const reportTemplatesRelations = relations(reportTemplates, ({ one, many 
     references: [users.id],
   }),
   reports: many(clientReports),
+}));
+
+export const reportSupportingFilesRelations = relations(reportSupportingFiles, ({ one }) => ({
+  client: one(clients, {
+    fields: [reportSupportingFiles.clientId],
+    references: [clients.id],
+  }),
+  createdBy: one(users, {
+    fields: [reportSupportingFiles.createdById],
+    references: [users.id],
+  }),
 }));
 
 export const clientReportsRelations = relations(clientReports, ({ one }) => ({
@@ -2317,6 +2355,11 @@ export const insertClientReportSchema = createInsertSchema(clientReports).omit({
   id: true,
 });
 
+export const insertReportSupportingFileSchema = createInsertSchema(reportSupportingFiles).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Notification Schemas
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
@@ -2510,6 +2553,8 @@ export type InsertAssessmentReport = z.infer<typeof insertAssessmentReportSchema
 
 export type ReportTemplate = typeof reportTemplates.$inferSelect;
 export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
+export type ReportSupportingFile = typeof reportSupportingFiles.$inferSelect;
+export type InsertReportSupportingFile = z.infer<typeof insertReportSupportingFileSchema>;
 
 export type ClientReport = typeof clientReports.$inferSelect;
 export type InsertClientReport = z.infer<typeof insertClientReportSchema>;

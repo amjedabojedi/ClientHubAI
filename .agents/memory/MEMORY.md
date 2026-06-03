@@ -11,3 +11,4 @@
 - [jsdom React render tests](jsdom-react-render-tests.md) — rendering real client pages under tsx needs jsdom globals first, global.React (classic JSX), global.location (posthog), and tab-click to mount radix Tabs.
 - [Notification recipient rules](notification-recipient-rules.md) — calculateRecipients swallows errors → 0 recipients; specificUsers ANY() bind throws on Neon, use assignedTherapist/roles instead.
 - [Browser tests with puppeteer](browser-tests-puppeteer.md) — auth via in-page /api/auth/login fetch + localStorage.currentUser (NOT page.setCookie); Radix tabs need a trusted ElementHandle click, not synthetic .click().
+- [Supporting files blob exposure](supporting-files-blob-exposure.md) — Azure container is public at blob level; never return fileUrl/fileBlobName/extractedText in API responses for blob-backed rows.
