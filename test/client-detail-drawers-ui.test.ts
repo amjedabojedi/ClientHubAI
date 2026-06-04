@@ -174,12 +174,41 @@ async function clickButtonByText(
   rootSelector?: string,
 ): Promise<void> {
   const root = rootSelector ?? "body";
-  await page.waitForSelector(`${root} button`, { timeout: 30_000 });
+  // Wait for a button whose text actually MATCHES, not merely for any button to
+  // exist. After a route navigation or a tab switch the target button mounts
+  // (and its async data loads) a beat later, so failing on the first poll would
+  // be a flake. waitForFunction polls until the matching button appears.
+  await page.waitForFunction(
+    (sel: string, src: string) => {
+      const re = new RegExp(src);
+      return Array.from(document.querySelectorAll(`${sel} button`)).some((b) =>
+        re.test((b.textContent || "").trim()),
+      );
+    },
+    { timeout: 30_000 },
+    root,
+    pattern.source,
+  );
   const handles = await page.$$(`${root} button`);
   for (const handle of handles) {
     const text = await handle.evaluate((el: Element) => (el.textContent || "").trim());
     if (pattern.test(text)) {
-      await handle.click();
+      // Prefer a trusted ElementHandle click. Some buttons live inside the
+      // drawer's scroll/overlay region where puppeteer can't compute a
+      // clickable point ("Node is either not clickable…"); for a plain <button>
+      // a DOM click still fires its React onClick, so fall back to that. (The
+      // trusted-click requirement only applies to Radix Tabs/Select.) We only
+      // swallow the specific clickable-point error so genuine failures (e.g. a
+      // detached/missing element) still surface.
+      try {
+        await handle.evaluate((el: Element) =>
+          el.scrollIntoView({ block: "center", inline: "center" }),
+        );
+        await handle.click();
+      } catch (err) {
+        if (!/not clickable or not an Element/i.test(String(err))) throw err;
+        await handle.evaluate((el: Element) => (el as HTMLElement).click());
+      }
       return;
     }
   }
@@ -252,6 +281,79 @@ async function main() {
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     const loginStatus = await loginAs(page, { username: admin.username, password: "x" });
     assertEqual(loginStatus, 200, "Admin logs in via /api/auth/login");
+
+    // -------------------------------------------------------------------
+    // NESTED FLOW — the "empty nested drawer" bug.
+    //
+    // Open the client's profile as a WIDE DRAWER from the Clients LIST
+    // (depth 1), then open "Record Payment" on top of it (depth 2). The
+    // lower client-detail drawer is the component that PORTALS the payment
+    // body into the host outlet, so it must stay mounted while the child is
+    // on top — otherwise the Record Payment drawer comes up empty. The
+    // other scenarios below drive the /clients/:id ROUTE flow (where the
+    // page stays mounted because it owns the route), so only THIS scenario
+    // exercises the drawer-over-drawer case the fix targets. Placed first so
+    // a later (unrelated) failure can't mask it.
+    // -------------------------------------------------------------------
+    await page.goto(`${baseUrl}/clients`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(`[data-testid="button-view-${client.id}"]`, {
+      timeout: 30_000,
+    });
+    {
+      const viewBtn = await page.$(`[data-testid="button-view-${client.id}"]`);
+      await viewBtn!.click();
+    }
+    await waitForDrawerTitle(page, `Drawer Client ${SUFFIX}`);
+    assertEqual(
+      await getDrawerTitle(page),
+      `Drawer Client ${SUFFIX}`,
+      "Clients list opens the client profile as a wide drawer",
+    );
+
+    // Switch to the Billing tab inside the drawer, then click "Pay".
+    await page.waitForSelector(`${DRAWER} [data-testid="tab-billing"]`, {
+      timeout: 30_000,
+    });
+    {
+      const billingTab = await page.$(`${DRAWER} [data-testid="tab-billing"]`);
+      await billingTab!.click();
+    }
+    // The billing records load asynchronously once the tab is active;
+    // clickButtonByText polls for the matching "Pay" button before clicking.
+    await clickButtonByText(page, /^Pay$/, DRAWER);
+    await waitForDrawerTitle(page, "Record Payment");
+    assertEqual(
+      await getDrawerTitle(page),
+      "Record Payment",
+      "Record Payment opens as a second drawer over the client profile",
+    );
+    // Depth 2 is confirmed by the breadcrumb back to the client profile.
+    assertEqual(
+      (await page.$('[data-testid="breadcrumb-drawer-0"]')) !== null,
+      true,
+      "Nested Record Payment shows a breadcrumb back to the client profile",
+    );
+    // THE FIX: the payment form body actually renders (not an empty drawer).
+    const nestedBodyRendered = await page
+      .waitForSelector(`${DRAWER} #payment-amount`, { timeout: 30_000 })
+      .then(() => true)
+      .catch(() => false);
+    assertEqual(
+      nestedBodyRendered,
+      true,
+      "Nested Record Payment renders its form body (the empty-nested-drawer fix)",
+    );
+    // Pop one level: the client profile beneath is revealed, still mounted.
+    await pressEscape(page);
+    await waitForDrawerTitle(page, `Drawer Client ${SUFFIX}`);
+    assertEqual(
+      await getDrawerTitle(page),
+      `Drawer Client ${SUFFIX}`,
+      "Closing Record Payment reveals the client profile beneath it",
+    );
+    // Pop the last level: stack empty.
+    await pressEscape(page);
+    await waitForDrawerClosed(page);
 
     // -------------------------------------------------------------------
     // Drawer 1: upload-document

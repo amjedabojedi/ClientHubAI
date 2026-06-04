@@ -98,9 +98,20 @@ export function RecordDrawerHost() {
             )}
           </div>
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto px-6 py-4" key={top.id}>
-            <DrawerBody entry={top} />
+          {/* Body. Every open level stays mounted so a lower level that
+              supplies an upper level's inline body (via a portal into the host
+              outlet) keeps rendering. Only the top level is visible; the levels
+              beneath it are kept mounted but hidden, instead of being unmounted
+              (which would tear down the page that owns the upper level's body). */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {stack.map((entry, index) => {
+              const isTop = index === stack.length - 1;
+              return (
+                <div key={entry.id} className={isTop ? undefined : "hidden"}>
+                  <DrawerBody entry={entry} isTop={isTop} />
+                </div>
+              );
+            })}
           </div>
         </SheetContent>
       )}
@@ -108,16 +119,22 @@ export function RecordDrawerHost() {
   );
 }
 
-function DrawerBody({ entry }: { entry: DrawerEntry }) {
+function DrawerBody({ entry, isTop }: { entry: DrawerEntry; isTop: boolean }) {
   const { registerOutletEl } = useRecordDrawer();
 
   // Inline drawers have no registered component. The host renders an empty
   // outlet element and the page that opened the drawer portals its body into
-  // it (keeping the body coupled to the page's local state/mutations). The
-  // ref callback publishes the element when mounted and clears it on unmount,
-  // which happens automatically when this drawer stops being the top entry
-  // (the body is keyed by entry id in the host).
+  // it (keeping the body coupled to the page's local state/mutations). Only the
+  // top inline level publishes the outlet: the owning page always portals into
+  // the topmost drawer, and a lower (hidden) level must never clobber the
+  // outlet ref. The ref callback publishes the element when mounted and clears
+  // it on unmount (when this drawer stops being the top of the stack).
   if (entry.type === INLINE_DRAWER_TYPE) {
+    // Only the top inline level has a visible body: the owning page portals into
+    // the top outlet (it gates on the top inline key, which only matches the
+    // topmost drawer). A lower inline level renders nothing and never publishes
+    // the outlet, so it can't clobber the live outlet ref.
+    if (!isTop) return null;
     return <div ref={registerOutletEl} data-testid="record-drawer-inline-outlet" />;
   }
 

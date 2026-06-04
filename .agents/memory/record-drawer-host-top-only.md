@@ -1,19 +1,18 @@
 ---
-name: Record drawer host renders only stack top
-description: Why nesting a stateful page as a drawer level remounts it, and the tradeoffs chosen for client-detail-as-drawer.
+name: Record drawer host renders the full stack
+description: How RecordDrawerHost keeps lower drawer levels mounted so nested drawer bodies aren't lost, and why.
 ---
 
-# Record drawer host renders only the top of the stack
+# Record drawer host renders the full stack (lower levels hidden)
 
-`RecordDrawerHost` renders only `stack[stack.length - 1]` inside a single Radix Sheet. Lower stack levels are NOT in the React tree while a higher level is open.
+`RecordDrawerHost` maps over EVERY stack entry and renders each entry's DrawerBody, keyed by `entry.id`. The top entry is visible; lower levels are rendered with `className="hidden"` (display:none). Keying by id means levels are NOT remounted as the stack pushes/pops.
 
-**Consequence:** If you put a stateful page (e.g. the client-detail page) into the stack as a level-1 drawer, it UNMOUNTS when a child record opens at level 2 and REMOUNTS when that child closes. Scroll position, in-progress inline edits, and open sub-panels are lost on remount; react-query keeps fetched data warm so there is no spinner for cached queries.
+**Why this matters (the bug it fixes):** Pages like client-detail render their child drawer bodies by `createPortal`-ing into the host's inline outlet. If the host renders ONLY the top entry, opening a child drawer over a stateful parent UNMOUNTS that parent — which destroys the portal source — so the nested drawer renders EMPTY. Rendering the full stack keeps the parent (and its portal source) alive, so nested inline bodies render.
 
-**Mitigations chosen (lowest-risk path):**
-- Persist the active tab per client in sessionStorage (`smarthub.clientDetail.tab.<id>`) so the most visible bit of context survives the remount.
-- A fully faithful fix is to render the whole stack and keep lower levels mounted (e.g. `visibility:hidden` keep-alive layers — preserves scroll and removes hidden controls from tab order). This was deliberately NOT done because it changes the shared host for all drawers and **drawer stacking is not interactively testable here** (static screenshots + login wall).
+**Outlet ref rule:** `DrawerBody` only renders/publishes the inline outlet (`ref={registerOutletEl}`) when `isTop`. Non-top inline entries return `null`. This prevents a hidden lower level from clobbering `outletEl`. Holds with `MAX_DRAWER_DEPTH=2` and at-cap `openDrawer` REPLACING the top rather than stacking.
 
-**Navigation + history:** Drawer open/close uses empty-url `pushState`/`history.back` so the path never changes. `resetDrawers()` clears drawer state WITHOUT touching history; the host calls it whenever the wouter pathname changes (genuine navigation, e.g. sidebar click while a drawer is open) so a drawer never hangs over a different page. The orphaned synthetic entries it leaves share the original path, so the first Back press still lands correctly and the popstate handler's `depthRef<=0` branch prevents loops. Removing those past entries cleanly is not possible via the DOM without re-navigating.
+**Accessibility/overlay:** still a single Radix `SheetContent` + single overlay; hidden lower levels are `display:none` so they're out of tab order and the a11y tree (no multi-dialog focus-trap conflict).
 
-**Why:** the user is strongly risk-averse and wanted minimal, reviewable changes; both residual symptoms are benign (no data loss, correct first-Back, no crash).
-**How to apply:** before making any drawer body a long-lived stateful surface, decide whether remount-on-nesting is acceptable; if not, upgrade the host to render the full stack first.
+**Navigation + history:** Drawer open/close uses empty-url `pushState`/`history.back` so the path never changes. `resetDrawers()` clears drawer state WITHOUT touching history; the host calls it whenever the wouter pathname changes (genuine navigation) so a drawer never hangs over a different page. Orphaned synthetic entries share the original path, so the first Back press still lands correctly and the popstate handler's `depthRef<=0` branch prevents loops.
+
+**How to apply:** any drawer body that owns state or portals content can now be safely nested; it will not remount when a child opens. If you ever revert to top-only rendering, the empty-nested-drawer bug returns.
