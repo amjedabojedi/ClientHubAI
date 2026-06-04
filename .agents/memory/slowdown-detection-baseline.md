@@ -46,3 +46,16 @@ layers in `run-privacy-tests.sh`:
 **Why:** without persisted prev, `FAIL_ON_SLOWDOWN=1` in CI can never escalate a new
 sustained slow-down past a warning. Verified by `test/privacy-baseline-persistence.test.sh`
 (simulates two fresh checkouts sharing a store; runs first in the privacy runner).
+
+**Rule 4 — auto-refreshing the committed baseline must NEVER absorb a real regression.**
+`AUTO_UPDATE_BASELINE=1` (enabled in the CI `test-privacy` workflow) rolls the committed
+`scripts/privacy-test-baseline.json` forward from the rolling history so it doesn't drift
+stale and emit false warnings. The gate (`sd_baseline_refresh_mode` in the lib) is the
+load-bearing part: AUTO refreshes ONLY when no suite failed AND `SLOWDOWN_DETECTED=0`, so a
+sustained slow-down is skipped (and fails CI under `FAIL_ON_SLOWDOWN`) instead of being
+silently baked into the baseline. Manual `UPDATE_BASELINE=1` is the deliberate opposite — it
+re-blesses even on a slow-down (that is its purpose), and takes precedence over AUTO.
+**Why:** an auto-refresh that absorbed regressions would defeat the whole detector. The
+copy (`sd_refresh_baseline_if_changed`) compares only `.suites` (not the per-run `updated`
+timestamp) so it only rewrites on real number changes — no commit churn. Verified by
+`test/baseline-refresh.test.sh` (runs first in the privacy runner).

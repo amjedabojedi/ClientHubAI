@@ -79,13 +79,31 @@ BASELINE_FILE="$(dirname "${BASH_SOURCE[0]}")/privacy-test-baseline.json"
 
 # When UPDATE_BASELINE is truthy (1/true/yes) AND no suite failed, this run's
 # rolling history is written back to the committed BASELINE_FILE so the next
-# fresh checkout starts from up-to-date numbers. Use this to (re-)bless the
-# baseline after an intentional, accepted runtime change. Default is read-only:
-# the baseline is only consumed for seeding, never modified.
+# fresh checkout starts from up-to-date numbers. Use this to deliberately
+# (re-)bless the baseline after an intentional, ACCEPTED runtime change — it
+# absorbs the new numbers even if they tripped a slow-down (that is the whole
+# point of re-blessing). Default is read-only: the baseline is only consumed for
+# seeding, never modified.
 UPDATE_BASELINE="${UPDATE_BASELINE:-0}"
 case "${UPDATE_BASELINE}" in
   1 | true | TRUE | yes | YES) UPDATE_BASELINE=1 ;;
   *) UPDATE_BASELINE=0 ;;
+esac
+
+# AUTO_UPDATE_BASELINE keeps the committed baseline fresh WITHOUT manual upkeep.
+# When truthy (1/true/yes) the committed BASELINE_FILE is rolled forward from
+# this run's rolling history automatically — but ONLY on a fully GREEN run: no
+# suite failed AND no slow-down was detected. The "no slow-down" gate is the
+# safety net required by design: a genuine sustained slow-down sets
+# SLOWDOWN_DETECTED, which (a) skips this auto-refresh so the regression is
+# never silently absorbed into the baseline, and (b) fails the run when
+# FAIL_ON_SLOWDOWN is enabled, forcing it to be fixed or deliberately re-blessed
+# with UPDATE_BASELINE=1 first. The CI `test-privacy` workflow (see .replit)
+# enables this so the baseline tracks legitimate, gradual slow-downs on its own.
+AUTO_UPDATE_BASELINE="${AUTO_UPDATE_BASELINE:-0}"
+case "${AUTO_UPDATE_BASELINE}" in
+  1 | true | TRUE | yes | YES) AUTO_UPDATE_BASELINE=1 ;;
+  *) AUTO_UPDATE_BASELINE=0 ;;
 esac
 
 # Cross-run persistence (the real fix for ephemeral CI). The committed
@@ -197,9 +215,12 @@ format_duration() {
 #   - slowdown-detection.test.sh:          the detector math/baseline rules
 #   - privacy-baseline-persistence.test.sh: cross-run persistence (sustained
 #     slow-down is caught across fresh checkouts)
+#   - baseline-refresh.test.sh:            committed-baseline auto-refresh gating
+#     (a sustained slow-down is never silently absorbed; no-churn copy)
 for selftest in \
   "$(dirname "${BASH_SOURCE[0]}")/../test/slowdown-detection.test.sh" \
-  "$(dirname "${BASH_SOURCE[0]}")/../test/privacy-baseline-persistence.test.sh"; do
+  "$(dirname "${BASH_SOURCE[0]}")/../test/privacy-baseline-persistence.test.sh" \
+  "$(dirname "${BASH_SOURCE[0]}")/../test/baseline-refresh.test.sh"; do
   [ -f "${selftest}" ] || continue
   echo "▶ Self-test: $(basename "${selftest}")"
   if bash "${selftest}"; then
@@ -366,14 +387,38 @@ if command -v jq >/dev/null 2>&1; then
     fi
   fi
 
-  # Optionally (re-)bless the committed baseline from this run's rolling history
-  # so the next fresh checkout starts from up-to-date numbers. Gated behind
-  # UPDATE_BASELINE=1 and only when no suite failed, so the committed baseline is
-  # only refreshed deliberately and never captures a broken run.
-  if [ "${UPDATE_BASELINE}" -eq 1 ] && [ "${#FAILED[@]}" -eq 0 ] && [ -f "${HISTORY_FILE}" ]; then
-    cp "${HISTORY_FILE}" "${BASELINE_FILE}"
+  # ── Refresh the committed cold-start baseline ──────────────────────────────
+  # The committed BASELINE_FILE seeds the rolling history on fresh checkouts; if
+  # it is never refreshed it drifts stale as suites legitimately get slower and
+  # eventually emits false slow-down warnings. Roll it forward from this run's
+  # rolling history in two situations (never when a suite failed, so a broken run
+  # can't poison it):
+  #   • UPDATE_BASELINE=1      — manual, deliberate re-bless after an ACCEPTED
+  #                              runtime change; absorbs the new numbers even if
+  #                              they tripped a slow-down (that is the point).
+  #   • AUTO_UPDATE_BASELINE=1 — automatic roll-forward, but ONLY on a fully
+  #                              GREEN run (also requires no slow-down detected),
+  #                              so a sustained slow-down fails CI and is fixed
+  #                              or re-blessed BEFORE it can be absorbed.
+  # The decision and the change-only copy live in scripts/lib/slowdown-detect.sh
+  # (sd_baseline_refresh_mode / sd_refresh_baseline_if_changed) so they can be
+  # unit-tested without running the real suite.
+  refresh_mode="$(sd_baseline_refresh_mode \
+    "${#FAILED[@]}" "${SLOWDOWN_DETECTED}" "${UPDATE_BASELINE}" "${AUTO_UPDATE_BASELINE}")"
+  refresh_label=""
+  case "${refresh_mode}" in
+    UPDATE) refresh_label="UPDATE_BASELINE=1" ;;
+    AUTO) refresh_label="AUTO_UPDATE_BASELINE=1 (green run)" ;;
+  esac
+  if [ -n "${refresh_label}" ]; then
+    refresh_outcome="$(sd_refresh_baseline_if_changed "${HISTORY_FILE}" "${BASELINE_FILE}")"
     echo ""
-    echo "ℹ️  UPDATE_BASELINE=1 — refreshed committed baseline ${BASELINE_FILE} from this run."
+    case "${refresh_outcome}" in
+      REFRESHED)
+        echo "ℹ️  ${refresh_label} — refreshed committed baseline ${BASELINE_FILE} from this run." ;;
+      NOCHANGE)
+        echo "ℹ️  ${refresh_label} — committed baseline ${BASELINE_FILE} already current, left unchanged." ;;
+    esac
   fi
 else
   echo ""

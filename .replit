@@ -45,7 +45,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "FAIL_ON_SLOWDOWN=1 bash scripts/run-privacy-tests.sh"
+args = "FAIL_ON_SLOWDOWN=1 AUTO_UPDATE_BASELINE=1 bash scripts/run-privacy-tests.sh"
 
 [[ports]]
 localPort = 5000

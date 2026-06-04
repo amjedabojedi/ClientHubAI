@@ -57,14 +57,21 @@ The CI `test-privacy` workflow runs with `FAIL_ON_SLOWDOWN=1` enabled, so sustai
 1. **Cross-run persistence (object storage).** Before classifying, the runner restores the previous run's rolling history from Replit Object Storage (key `ci/privacy-test-durations.json`), and after a clean run it saves the updated history back. This is what carries the "previous run" forward across independent fresh checkouts, so a *newly introduced* sustained slow-down can actually FAIL in CI: run 1 records the slow run and only WARNs, run 2 sees the slow previous run and FAILs. A failed run never pushes, so a broken run can't poison the persisted baseline. The helper is `scripts/privacy-history-store.ts` (`pull`/`push`); set `PERSIST_HISTORY=0` to disable for fully offline local runs.
 2. **Cold-start seed (committed baseline file).** When the store is empty (first ever run) or persistence is unavailable, the runner seeds the rolling history from the tracked `scripts/privacy-test-baseline.json` (same JSON shape) so even the very first run has a usable baseline. Neither layer ever clobbers an already-populated local history.
 
-To re-bless the committed cold-start baseline after an intentional, accepted runtime change, run with `UPDATE_BASELINE=1`; the run's rolling history is written back to `scripts/privacy-test-baseline.json` (only when no suite failed), and the platform commits it:
+**Keeping the cold-start baseline fresh automatically.** As suites legitimately get a little slower over time (more tests, more data), the committed `scripts/privacy-test-baseline.json` drifts out of date and can start producing false slow-down warnings until someone re-blesses it. To avoid that manual upkeep, the runner can roll the committed baseline forward on its own:
+
+- `AUTO_UPDATE_BASELINE=1` refreshes the committed baseline from this run's rolling history **only on a fully green run** — no suite failed **and** no slow-down was detected. The "no slow-down" gate is the safety net: a genuine sustained slow-down sets `SLOWDOWN_DETECTED`, which (a) skips the auto-refresh so the regression is never silently absorbed into the baseline, and (b) fails the run when `FAIL_ON_SLOWDOWN=1`. The regression must therefore be fixed (or deliberately re-blessed) **before** the baseline can move.
+- The CI `test-privacy` workflow runs with both `FAIL_ON_SLOWDOWN=1` and `AUTO_UPDATE_BASELINE=1`, so on every green main-line run the committed baseline tracks legitimate gradual slow-downs automatically, while a real sustained regression still fails CI first.
+- To avoid needless churn/commits, the file is only rewritten when the per-suite numbers actually changed (the rolling history's timestamp changes every run, so a plain copy would always diff).
+
+To re-bless the committed cold-start baseline manually after an intentional, accepted runtime change, run with `UPDATE_BASELINE=1`; the run's rolling history is written back to `scripts/privacy-test-baseline.json` (only when no suite failed) and the platform commits it. Unlike the automatic path, the manual re-bless **deliberately absorbs** the new numbers even if they tripped a slow-down — that is the whole point of re-blessing:
 ```bash
 UPDATE_BASELINE=1 bash scripts/run-privacy-tests.sh
 ```
 
-The detection logic itself lives in `scripts/lib/slowdown-detect.sh`. Two deterministic, hermetic self-tests cover it (neither touches the database or real object storage) and the privacy runner runs both first, aborting early if either fails:
+The detection logic itself lives in `scripts/lib/slowdown-detect.sh`. Three deterministic, hermetic self-tests cover it (none touch the database or real object storage) and the privacy runner runs all of them first, aborting early if any fails:
 - `test/slowdown-detection.test.sh` — the detector math / baseline rules.
 - `test/privacy-baseline-persistence.test.sh` — cross-run persistence: simulates two independent fresh checkouts sharing a store and proves the first slow run WARNs while the second FAILs (and that without persistence it could only ever WARN).
+- `test/baseline-refresh.test.sh` — the committed-baseline auto-refresh gating (`sd_baseline_refresh_mode` / `sd_refresh_baseline_if_changed`): proves a sustained slow-down is never auto-absorbed, a failed run never writes the baseline, manual `UPDATE_BASELINE` deliberately absorbs accepted numbers, and the change-only copy avoids churn when the numbers are unchanged.
 
 **Required Environment Variables:**
 `DATABASE_URL`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `SENDGRID_API_KEY`, `AZURE_STORAGE_CONNECTION_STRING`

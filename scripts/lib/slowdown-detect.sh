@@ -128,3 +128,52 @@ sd_evaluate() {
     'BEGIN { if (base > 0) printf "%d", ((now - base) / base) * 100; else printf "0" }')"
   echo "${verdict}|${baseline}|${prev}|${pct}"
 }
+
+# sd_baseline_refresh_mode FAILED_COUNT SLOWDOWN_DETECTED UPDATE_BASELINE AUTO_UPDATE_BASELINE
+# Decides whether (and how) the committed cold-start baseline should be rolled
+# forward from this run's rolling history. Echoes one of:
+#   UPDATE — manual, deliberate re-bless (UPDATE_BASELINE=1, no suite failed);
+#            absorbs this run's numbers even if they tripped a slow-down, because
+#            re-blessing is an explicit "accept the new runtime" action.
+#   AUTO   — automatic roll-forward on a fully GREEN run (AUTO_UPDATE_BASELINE=1,
+#            no suite failed AND no slow-down detected). The slow-down gate is
+#            the safety net: a sustained slow-down yields NONE here, so it is
+#            never silently absorbed and (under FAIL_ON_SLOWDOWN) fails the run.
+#   NONE   — do not refresh.
+# A failed suite ALWAYS yields NONE — a broken run must never write the baseline.
+# UPDATE takes precedence over AUTO when both are requested.
+sd_baseline_refresh_mode() {
+  local failed=$1 slowdown=$2 update=$3 auto=$4
+  [ "${failed}" -eq 0 ] 2>/dev/null || { echo "NONE"; return; }
+  if [ "${update}" -eq 1 ] 2>/dev/null; then
+    echo "UPDATE"
+    return
+  fi
+  if [ "${auto}" -eq 1 ] 2>/dev/null && [ "${slowdown}" -eq 0 ] 2>/dev/null; then
+    echo "AUTO"
+    return
+  fi
+  echo "NONE"
+}
+
+# sd_refresh_baseline_if_changed HISTORY_FILE BASELINE_FILE
+# Copies HISTORY_FILE -> BASELINE_FILE, but only when the per-suite numbers
+# actually differ (the rolling history's `updated` timestamp changes every run,
+# so a plain copy would always produce a diff/commit). Echoes:
+#   REFRESHED — the committed baseline was rewritten.
+#   NOCHANGE  — the committed baseline already matched; left untouched.
+#   SKIP      — no rolling history to copy from.
+# Always returns 0. Requires jq.
+sd_refresh_baseline_if_changed() {
+  local history=$1 baseline=$2
+  [ -f "${history}" ] || { echo "SKIP"; return 0; }
+  if [ -f "${baseline}" ] \
+    && cmp -s \
+      <(jq -S '.suites // {}' "${history}" 2>/dev/null) \
+      <(jq -S '.suites // {}' "${baseline}" 2>/dev/null); then
+    echo "NOCHANGE"
+    return 0
+  fi
+  cp "${history}" "${baseline}"
+  echo "REFRESHED"
+}
