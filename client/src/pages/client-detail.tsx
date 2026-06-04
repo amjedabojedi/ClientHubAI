@@ -3920,23 +3920,11 @@ export default function ClientDetailPage({
                             setIsEditSessionModalOpen(false);
                             setIsFullEditModalOpen(true);
                           }}
-                          className="text-sm px-3 py-2 h-9"
+                          className="text-sm px-3 py-2 h-9 col-span-2"
                           data-testid="button-edit-session-inline"
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Edit This Session
-                        </Button>
-                        <Button 
-                          variant="outline"
-                          onClick={() => {
-                            setIsEditSessionModalOpen(false);
-                            window.location.href = `/scheduling?editSessionId=${selectedSessionForModal.id}`;
-                          }}
-                          className="text-sm px-3 py-2 h-9"
-                          data-testid="button-view-in-calendar"
-                        >
-                          <Calendar className="w-4 h-4 mr-2" />
-                          View in Calendar
                         </Button>
                         
                         {/* Secondary Row: Additional Actions */}
