@@ -11894,7 +11894,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (isNaN(id)) return res.status(400).json({ message: "Invalid template ID" });
 
       const {
-        name, description, aiInstructions, isActive,
+        name, description, aiInstructions, isActive, structureText,
         defaultIncludeProfile, defaultIncludeNotes, defaultIncludeAssessments,
         supportingFilesGuidance, supportingFilesExpected, supportingFileTypes,
       } = req.body || {};
@@ -11902,6 +11902,7 @@ You can download a copy if you have it saved locally and re-upload it.`;
       if (name !== undefined) updates.name = name;
       if (description !== undefined) updates.description = description;
       if (aiInstructions !== undefined) updates.aiInstructions = aiInstructions;
+      if (structureText !== undefined) updates.structureText = (typeof structureText === "string" ? structureText.trim() : "") || null;
       if (isActive !== undefined) updates.isActive = isActive;
       if (defaultIncludeProfile !== undefined) updates.defaultIncludeProfile = !!defaultIncludeProfile;
       if (defaultIncludeNotes !== undefined) updates.defaultIncludeNotes = !!defaultIncludeNotes;

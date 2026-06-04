@@ -91,6 +91,7 @@ export default function ReportTemplatesPage() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAiInstructions, setEditAiInstructions] = useState("");
+  const [editStructureText, setEditStructureText] = useState("");
   const [editIncludeProfile, setEditIncludeProfile] = useState(true);
   const [editIncludeNotes, setEditIncludeNotes] = useState(true);
   const [editIncludeAssessments, setEditIncludeAssessments] = useState(true);
@@ -103,6 +104,7 @@ export default function ReportTemplatesPage() {
     setEditName(template.name);
     setEditDescription(template.description || "");
     setEditAiInstructions(template.aiInstructions || "");
+    setEditStructureText(template.structureText || "");
     setEditIncludeProfile(template.defaultIncludeProfile ?? true);
     setEditIncludeNotes(template.defaultIncludeNotes ?? true);
     setEditIncludeAssessments(template.defaultIncludeAssessments ?? true);
@@ -188,6 +190,7 @@ export default function ReportTemplatesPage() {
         name: editName.trim(),
         description: editDescription.trim() || null,
         aiInstructions: editAiInstructions.trim() || null,
+        structureText: editStructureText.trim() || null,
         defaultIncludeProfile: editIncludeProfile,
         defaultIncludeNotes: editIncludeNotes,
         defaultIncludeAssessments: editIncludeAssessments,
@@ -494,8 +497,9 @@ export default function ReportTemplatesPage() {
           <DialogHeader>
             <DialogTitle>Edit Report Template</DialogTitle>
             <DialogDescription>
-              Update the template's name, description, and AI instructions. To change the
-              uploaded file, delete this template and upload a new one.
+              Update the template's name, description, AI instructions, and the template
+              content the AI follows. To replace the original uploaded file, delete this
+              template and upload a new one.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -529,6 +533,23 @@ export default function ReportTemplatesPage() {
                 placeholder="Optional guidance for the AI, e.g. tone, sections to emphasize"
                 rows={3}
                 data-testid="input-edit-template-ai"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-template-structure">Template content</Label>
+              <p className="text-xs text-slate-500">
+                The layout, headings, and example wording the AI follows when writing the
+                report. This was read from the uploaded file — edit it here to fine-tune the
+                report structure without re-uploading.
+              </p>
+              <Textarea
+                id="edit-template-structure"
+                value={editStructureText}
+                onChange={(e) => setEditStructureText(e.target.value)}
+                placeholder="The headings and layout the AI should follow"
+                rows={10}
+                className="font-mono text-xs"
+                data-testid="input-edit-template-structure"
               />
             </div>
 
