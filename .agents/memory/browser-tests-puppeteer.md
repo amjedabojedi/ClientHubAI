@@ -72,6 +72,15 @@ nested drawer from a control in its parent. Read live depth from a page-rendered
 `page.evaluate(() => history.back())` and `waitForFunction` on the depth readout —
 don't use `page.goBack()` for same-URL `pushState` entries (no navigation fires).
 
+## The serial test-privacy chain is flaky under back-to-back load
+Each browser suite passes in isolation, but running ~30 of them serially in the
+`test-privacy` chain intermittently fails a single suite (e.g. a `waitForSelector`
+timing out like "Could not find a button matching /^Upload Document$/", or the
+documented `clients_client_id_unique` createClient race). The `&&` chain then
+aborts before later suites run. Re-run the failing suite standalone to confirm
+it's the flake, not a real break, before chasing it. Treat lone chain failures as
+environment/timing flakes when the suite passes alone.
+
 ## Asserting persistence
 Toggle, `page.waitForResponse` for the PUT (200), then `page.goto` to reload and
 re-read the control's `aria-checked` from a fresh server fetch — that's what
