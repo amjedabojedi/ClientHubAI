@@ -50,8 +50,24 @@ SUITES=(
 PASSED=()
 FAILED=()
 
+# Parallel arrays keyed by suite index: how long each suite took (whole
+# seconds) and a "slowest-first" view assembled after the run.
+DURATIONS=()
+
 TOTAL=${#SUITES[@]}
 INDEX=0
+
+# Formats a whole-second duration as e.g. "1m 05s" or "42s".
+format_duration() {
+  local total=$1
+  local mins=$((total / 60))
+  local secs=$((total % 60))
+  if [ "${mins}" -gt 0 ]; then
+    printf '%dm %02ds' "${mins}" "${secs}"
+  else
+    printf '%ds' "${secs}"
+  fi
+}
 
 for suite in "${SUITES[@]}"; do
   INDEX=$((INDEX + 1))
@@ -60,14 +76,18 @@ for suite in "${SUITES[@]}"; do
   echo "▶ [${INDEX}/${TOTAL}] Running ${suite}"
   echo "════════════════════════════════════════════════════════════════════════"
 
+  start=$(date +%s)
   npx tsx "${suite}"
   status=$?
+  end=$(date +%s)
+  elapsed=$((end - start))
+  DURATIONS+=("${elapsed}")
 
   if [ "${status}" -eq 0 ]; then
-    echo "✅ PASS: ${suite}"
+    echo "✅ PASS: ${suite} ($(format_duration "${elapsed}"))"
     PASSED+=("${suite}")
   else
-    echo "❌ FAIL (exit ${status}): ${suite}"
+    echo "❌ FAIL (exit ${status}): ${suite} ($(format_duration "${elapsed}"))"
     FAILED+=("${suite}")
   fi
 done
@@ -79,6 +99,22 @@ echo "════════════════════════�
 echo "Total suites:  ${TOTAL}"
 echo "✅ Passed:     ${#PASSED[@]}"
 echo "❌ Failed:     ${#FAILED[@]}"
+
+TOTAL_ELAPSED=0
+for d in "${DURATIONS[@]}"; do
+  TOTAL_ELAPSED=$((TOTAL_ELAPSED + d))
+done
+echo "⏱  Total time: $(format_duration "${TOTAL_ELAPSED}")"
+
+echo ""
+echo "Suite durations (slowest first):"
+# Build "seconds<TAB>suite" lines, sort numerically descending, then print
+# each with a human-readable duration alongside the raw seconds.
+for i in "${!SUITES[@]}"; do
+  printf '%s\t%s\n' "${DURATIONS[$i]}" "${SUITES[$i]}"
+done | sort -rn | while IFS=$'\t' read -r secs suite; do
+  printf '  %8s  %s\n' "$(format_duration "${secs}")" "${suite}"
+done
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
   echo ""
