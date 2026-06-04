@@ -50,9 +50,21 @@ A slow-down only fails the run when it **persists across two consecutive runs** 
 
 The baseline a run is judged against is the median of a suite's **older** recorded runs, explicitly excluding the most recent recorded run, so a fresh slow sample can't re-anchor the baseline and hide itself. At least a few older data points are required before anything is flagged.
 
-The CI `test-privacy` workflow runs with `FAIL_ON_SLOWDOWN=1` enabled, so sustained performance regressions fail the run automatically. Early runs on a fresh checkout have no baseline (the history file is untracked working state), so nothing can be flagged until history accumulates — those early runs always pass.
+The CI `test-privacy` workflow runs with `FAIL_ON_SLOWDOWN=1` enabled, so sustained performance regressions fail the run automatically.
 
-The detection logic itself lives in `scripts/lib/slowdown-detect.sh` and is covered by deterministic tests in `test/slowdown-detection.test.sh` (run directly with `bash test/slowdown-detection.test.sh`). The privacy runner also runs this self-test first and aborts early if the detector logic is broken.
+**Baseline survives fresh checkouts (two layers).** The rolling history lives in `.local/privacy-test-durations.json`, which is gitignored working state — on an ephemeral CI checkout it starts empty every time, so on its own the rolling-median baseline would never accumulate, the "previous run" needed to confirm a *sustained* slow-down would never exist, and the safety net would never fire in CI. Two layers fix this:
+
+1. **Cross-run persistence (object storage).** Before classifying, the runner restores the previous run's rolling history from Replit Object Storage (key `ci/privacy-test-durations.json`), and after a clean run it saves the updated history back. This is what carries the "previous run" forward across independent fresh checkouts, so a *newly introduced* sustained slow-down can actually FAIL in CI: run 1 records the slow run and only WARNs, run 2 sees the slow previous run and FAILs. A failed run never pushes, so a broken run can't poison the persisted baseline. The helper is `scripts/privacy-history-store.ts` (`pull`/`push`); set `PERSIST_HISTORY=0` to disable for fully offline local runs.
+2. **Cold-start seed (committed baseline file).** When the store is empty (first ever run) or persistence is unavailable, the runner seeds the rolling history from the tracked `scripts/privacy-test-baseline.json` (same JSON shape) so even the very first run has a usable baseline. Neither layer ever clobbers an already-populated local history.
+
+To re-bless the committed cold-start baseline after an intentional, accepted runtime change, run with `UPDATE_BASELINE=1`; the run's rolling history is written back to `scripts/privacy-test-baseline.json` (only when no suite failed), and the platform commits it:
+```bash
+UPDATE_BASELINE=1 bash scripts/run-privacy-tests.sh
+```
+
+The detection logic itself lives in `scripts/lib/slowdown-detect.sh`. Two deterministic, hermetic self-tests cover it (neither touches the database or real object storage) and the privacy runner runs both first, aborting early if either fails:
+- `test/slowdown-detection.test.sh` — the detector math / baseline rules.
+- `test/privacy-baseline-persistence.test.sh` — cross-run persistence: simulates two independent fresh checkouts sharing a store and proves the first slow run WARNs while the second FAILs (and that without persistence it could only ever WARN).
 
 **Required Environment Variables:**
 `DATABASE_URL`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `SENDGRID_API_KEY`, `AZURE_STORAGE_CONNECTION_STRING`

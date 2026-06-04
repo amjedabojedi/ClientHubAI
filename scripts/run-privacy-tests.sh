@@ -67,6 +67,62 @@ DURATIONS=()
 # transparently as a one-element list.
 HISTORY_FILE=".local/privacy-test-durations.json"
 
+# A TRACKED, committed baseline that survives fresh checkouts. The rolling
+# HISTORY_FILE above lives under .local/ which is gitignored, so on an ephemeral
+# CI checkout it starts empty every time and the rolling-median baseline never
+# accumulates — the slow-down safety net would never fire in CI. This committed
+# file fixes that: when the rolling history is missing/empty (i.e. a fresh
+# checkout), it is seeded from here so the detector has a meaningful baseline
+# from the very first run. Same JSON shape as HISTORY_FILE. Refresh it by
+# running this script with UPDATE_BASELINE=1 (see below).
+BASELINE_FILE="$(dirname "${BASH_SOURCE[0]}")/privacy-test-baseline.json"
+
+# When UPDATE_BASELINE is truthy (1/true/yes) AND no suite failed, this run's
+# rolling history is written back to the committed BASELINE_FILE so the next
+# fresh checkout starts from up-to-date numbers. Use this to (re-)bless the
+# baseline after an intentional, accepted runtime change. Default is read-only:
+# the baseline is only consumed for seeding, never modified.
+UPDATE_BASELINE="${UPDATE_BASELINE:-0}"
+case "${UPDATE_BASELINE}" in
+  1 | true | TRUE | yes | YES) UPDATE_BASELINE=1 ;;
+  *) UPDATE_BASELINE=0 ;;
+esac
+
+# Cross-run persistence (the real fix for ephemeral CI). The committed
+# BASELINE_FILE only provides a COLD-START baseline; on its own it can't let CI
+# catch a *newly introduced* sustained slow-down, because confirming "sustained"
+# needs the *previous run's* duration and ephemeral checkouts never carry one
+# forward. This helper restores the previous run's rolling history from Replit
+# Object Storage BEFORE classifying and saves the updated history AFTER, so the
+# "previous run" survives across independent CI runs:
+#   run 1 (empty store): seed from committed baseline, record slow run -> WARN
+#   run 2 (store has slow prev): slow now + slow prev -> FAIL.
+# It degrades gracefully: if object storage is unavailable (helper exits
+# non-zero) the run still works using only the committed-baseline seed. Disable
+# entirely with PERSIST_HISTORY=0 (e.g. for fully offline local runs).
+HISTORY_STORE_HELPER="$(dirname "${BASH_SOURCE[0]}")/privacy-history-store.ts"
+PERSIST_HISTORY="${PERSIST_HISTORY:-1}"
+case "${PERSIST_HISTORY}" in
+  1 | true | TRUE | yes | YES) PERSIST_HISTORY=1 ;;
+  *) PERSIST_HISTORY=0 ;;
+esac
+
+# history_pull — restore persisted history into HISTORY_FILE. Returns 0 only
+# when a non-empty history was actually restored from the store.
+history_pull() {
+  [ "${PERSIST_HISTORY}" -eq 1 ] || return 1
+  [ -f "${HISTORY_STORE_HELPER}" ] || return 1
+  npx tsx "${HISTORY_STORE_HELPER}" pull "${HISTORY_FILE}" >/dev/null 2>&1
+}
+
+# history_push — persist the current HISTORY_FILE to the store. Best-effort:
+# never fails the run.
+history_push() {
+  [ "${PERSIST_HISTORY}" -eq 1 ] || return 0
+  [ -f "${HISTORY_STORE_HELPER}" ] || return 0
+  npx tsx "${HISTORY_STORE_HELPER}" push "${HISTORY_FILE}" >/dev/null 2>&1
+}
+
 # How many recent durations to keep per suite. The baseline a run is compared
 # against is the MEDIAN of the OLDER part of this window (excluding the most
 # recent recorded run), which makes detection robust to a single noisy run: one
@@ -103,10 +159,13 @@ REGRESSION_MIN_SECONDS=5
 # fails as intended.
 #
 # CI: the `test-privacy` workflow (see .replit) runs this script with
-# FAIL_ON_SLOWDOWN=1, so a sustained slow-down fails the run there. The very
-# first run on a fresh checkout has no baseline (.local/privacy-test-durations.json
-# is untracked working state), so nothing can be flagged until a baseline exists
-# — early runs always pass while history accumulates.
+# FAIL_ON_SLOWDOWN=1, so a sustained slow-down fails the run there. The rolling
+# HISTORY_FILE is untracked working state (.local/ is gitignored) and starts
+# empty on a fresh CI checkout, so on its own it would never accumulate a
+# baseline in CI. To fix that, this script seeds the rolling history from the
+# committed BASELINE_FILE on a fresh checkout (see seeding step below), so CI
+# runs have a meaningful baseline — and a sustained slow-down recorded in that
+# committed baseline is caught — from the very first run.
 FAIL_ON_SLOWDOWN="${FAIL_ON_SLOWDOWN:-0}"
 case "${FAIL_ON_SLOWDOWN}" in
   1 | true | TRUE | yes | YES) FAIL_ON_SLOWDOWN=1 ;;
@@ -133,16 +192,55 @@ format_duration() {
 }
 
 # Fail fast if the slow-down detector's own logic is broken, before spending
-# time on the long privacy suites. This is a quick, hermetic bash test that
-# does not touch the live database.
-DETECTOR_TEST="$(dirname "${BASH_SOURCE[0]}")/../test/slowdown-detection.test.sh"
-if [ -f "${DETECTOR_TEST}" ]; then
-  echo "▶ Self-test: slow-down detector logic"
-  if bash "${DETECTOR_TEST}"; then
-    echo "✅ slow-down detector self-test passed"
+# time on the long privacy suites. These are quick, hermetic bash tests that do
+# not touch the live database or real object storage:
+#   - slowdown-detection.test.sh:          the detector math/baseline rules
+#   - privacy-baseline-persistence.test.sh: cross-run persistence (sustained
+#     slow-down is caught across fresh checkouts)
+for selftest in \
+  "$(dirname "${BASH_SOURCE[0]}")/../test/slowdown-detection.test.sh" \
+  "$(dirname "${BASH_SOURCE[0]}")/../test/privacy-baseline-persistence.test.sh"; do
+  [ -f "${selftest}" ] || continue
+  echo "▶ Self-test: $(basename "${selftest}")"
+  if bash "${selftest}"; then
+    echo "✅ self-test passed: $(basename "${selftest}")"
   else
-    echo "🚨 slow-down detector self-test FAILED — aborting before running suites."
+    echo "🚨 self-test FAILED ($(basename "${selftest}")) — aborting before running suites."
     exit 1
+  fi
+done
+
+# ── Restore / seed the rolling history before running ────────────────────────
+# Two layers, in priority order, so the slow-down detector always has a usable
+# baseline AND can confirm sustained regressions across independent CI runs:
+#   1. Cross-run persistence: restore the previous run's history from object
+#      storage (history_pull). This is what carries the "previous run" forward
+#      across ephemeral checkouts so a sustained slow-down can actually FAIL.
+#   2. Cold-start seed: if nothing was restored (first ever run, or persistence
+#      disabled/unavailable) and the local history is empty, seed from the
+#      committed BASELINE_FILE so even the very first run has a baseline.
+# Neither layer ever clobbers an already-populated local history.
+if command -v jq >/dev/null 2>&1; then
+  history_suites=0
+  if [ -f "${HISTORY_FILE}" ]; then
+    history_suites="$(jq -r '(.suites // {}) | length' "${HISTORY_FILE}" 2>/dev/null || echo 0)"
+  fi
+
+  # 1. Restore persisted history when local history is empty.
+  if [ "${history_suites:-0}" -eq 0 ] 2>/dev/null; then
+    if history_pull; then
+      history_suites="$(jq -r '(.suites // {}) | length' "${HISTORY_FILE}" 2>/dev/null || echo 0)"
+      if [ "${history_suites:-0}" -gt 0 ] 2>/dev/null; then
+        echo "ℹ️  Restored slow-down history from object storage (${history_suites} suites)."
+      fi
+    fi
+  fi
+
+  # 2. Cold-start seed from the committed baseline if still empty.
+  if [ "${history_suites:-0}" -eq 0 ] 2>/dev/null && [ -f "${BASELINE_FILE}" ]; then
+    mkdir -p "$(dirname "${HISTORY_FILE}")"
+    cp "${BASELINE_FILE}" "${HISTORY_FILE}"
+    echo "ℹ️  No persisted slow-down history yet — seeded from committed baseline ${BASELINE_FILE}."
   fi
 fi
 
@@ -257,6 +355,26 @@ if command -v jq >/dev/null 2>&1; then
   for i in "${!SUITES[@]}"; do
     sd_history_append "${HISTORY_FILE}" "${SUITES[$i]}" "${DURATIONS[$i]}" "${HISTORY_WINDOW}"
   done
+
+  # Persist the updated rolling history to object storage so the NEXT run (even
+  # on a fresh, independent checkout) sees this run as its "previous run". Only
+  # when no suite failed, so a broken run never poisons the persisted baseline.
+  # This is what lets a sustained slow-down actually FAIL in CI.
+  if [ "${#FAILED[@]}" -eq 0 ]; then
+    if history_push; then
+      [ "${PERSIST_HISTORY}" -eq 1 ] && echo "ℹ️  Persisted updated slow-down history to object storage."
+    fi
+  fi
+
+  # Optionally (re-)bless the committed baseline from this run's rolling history
+  # so the next fresh checkout starts from up-to-date numbers. Gated behind
+  # UPDATE_BASELINE=1 and only when no suite failed, so the committed baseline is
+  # only refreshed deliberately and never captures a broken run.
+  if [ "${UPDATE_BASELINE}" -eq 1 ] && [ "${#FAILED[@]}" -eq 0 ] && [ -f "${HISTORY_FILE}" ]; then
+    cp "${HISTORY_FILE}" "${BASELINE_FILE}"
+    echo ""
+    echo "ℹ️  UPDATE_BASELINE=1 — refreshed committed baseline ${BASELINE_FILE} from this run."
+  fi
 else
   echo ""
   echo "(jq not found — skipping slow-down regression tracking.)"

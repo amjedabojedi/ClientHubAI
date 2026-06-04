@@ -27,3 +27,22 @@ number of older baseline points (currently 3) before flagging so fresh checkouts
 false-fail; classify BEFORE appending the current run so it never pollutes its own
 baseline. Deterministic tests live in `test/slowdown-detection.test.sh` and run first
 inside the privacy runner.
+
+**Rule 3 — the baseline must survive fresh/ephemeral checkouts (two layers).**
+The rolling history file lives under `.local/` which is gitignored, so on an ephemeral
+CI checkout it starts empty and the detector never accumulates a baseline — the CI
+safety net effectively never fires. A committed baseline ALONE is not enough: confirming
+a *sustained* slow-down needs the *previous run's* duration, and a cold-start seed always
+makes "prev" look good, so a newly-introduced regression could only ever WARN. Fix is two
+layers in `run-privacy-tests.sh`:
+1. **Cross-run persistence via Replit Object Storage** (`scripts/privacy-history-store.ts`,
+   key `ci/privacy-test-durations.json`): pull the previous run's history before
+   classifying, push after a CLEAN run (failed runs never push, so they can't poison the
+   store). This carries "prev" across independent fresh checkouts → run 1 WARNs, run 2
+   FAILs. Disable with `PERSIST_HISTORY=0`.
+2. **Cold-start seed** from TRACKED `scripts/privacy-test-baseline.json` when the store is
+   empty/unavailable. `UPDATE_BASELINE=1` re-blesses it (clean runs only). Neither layer
+   clobbers an already-populated local history.
+**Why:** without persisted prev, `FAIL_ON_SLOWDOWN=1` in CI can never escalate a new
+sustained slow-down past a warning. Verified by `test/privacy-baseline-persistence.test.sh`
+(simulates two fresh checkouts sharing a store; runs first in the privacy runner).

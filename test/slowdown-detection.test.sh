@@ -140,6 +140,23 @@ assert_eq "history capped to WINDOW" "${len}" "10"
 assert_eq "oldest entries dropped" "${first}" "3"
 
 echo ""
+echo "── Scenario 8: a committed baseline gives a usable verdict on the FIRST run ──"
+# Mirrors what run-privacy-tests.sh does on a fresh CI checkout: it seeds the
+# (gitignored, empty) rolling history from the committed baseline file. Once
+# seeded, the very first run already has a meaningful baseline instead of the
+# "no history → always OK" behaviour that made the CI safety net never fire.
+reset_hist
+# A known-good committed baseline (all fast): a single slow run is one-off → WARN.
+seed 10 10 10 10 10
+assert_verdict "good committed baseline → first slow run WARNs (one-off)" 30 "WARN"
+reset_hist
+# A committed baseline whose most recent recorded run is ALSO slow (a regression
+# that persisted into the committed baseline): a continued-slow run is sustained
+# and FAILs on the first CI run — this is what makes CI actually catch it.
+seed 10 10 10 10 30
+assert_verdict "committed baseline with slow prev → first slow run FAILs (sustained)" 30 "FAIL"
+
+echo ""
 echo "════════════════════════════════════════════════════════════════════════"
 echo "Passed: ${PASS}   Failed: ${FAIL}"
 if [ "${FAIL}" -gt 0 ]; then
