@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,6 +32,7 @@ import {
   Users, 
   Filter, 
   Search, 
+  Check,
   ChevronLeft, 
   ChevronRight,
   User,
@@ -182,6 +183,8 @@ export default function SchedulingPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "list">("month");
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [bookingStep, setBookingStep] = useState(1);
+  useEffect(() => { if (isNewSessionModalOpen) setBookingStep(1); }, [isNewSessionModalOpen]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTherapist, setSelectedTherapist] = useState<string>("all");
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -1341,8 +1344,40 @@ export default function SchedulingPage() {
                   <DialogHeader>
                     <DialogTitle>{editingSessionId ? "Edit Session" : "Schedule New Session"}</DialogTitle>
                   </DialogHeader>
+                  {/* Step indicator */}
+                  <div className="flex items-center justify-center gap-1 pb-1">
+                    {["Who & What", "When & Where", "Details"].map((label, i) => {
+                      const n = i + 1;
+                      const active = bookingStep === n;
+                      const done = bookingStep > n;
+                      return (
+                        <div key={label} className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => { if (n < bookingStep) setBookingStep(n); }}
+                            className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : done ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                            data-testid={`booking-step-${n}`}
+                          >
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${active ? "bg-primary-foreground text-primary" : done ? "bg-primary text-primary-foreground" : "bg-muted-foreground/20"}`}>
+                              {done ? <Check className="h-3 w-3" /> : n}
+                            </span>
+                            <span className="hidden sm:inline">{label}</span>
+                          </button>
+                          {i < 2 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                        </div>
+                      );
+                    })}
+                  </div>
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form
+                      onSubmit={(e) => {
+                        if (bookingStep !== 3) { e.preventDefault(); return; }
+                        form.handleSubmit(onSubmit)(e);
+                      }}
+                      className="space-y-4"
+                    >
+                      {/* Step 1: Who & What */}
+                      <div className={bookingStep === 1 ? "space-y-4" : "hidden"}>
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -1416,7 +1451,10 @@ export default function SchedulingPage() {
                           </FormItem>
                         )}
                       />
+                      </div>
 
+                      {/* Step 2: When & Where */}
+                      <div className={bookingStep === 2 ? "space-y-4" : "hidden"}>
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -1648,7 +1686,10 @@ export default function SchedulingPage() {
                           </FormItem>
                         )}
                       />
+                      </div>
 
+                      {/* Step 3: Details & Repeat */}
+                      <div className={bookingStep === 3 ? "space-y-4" : "hidden"}>
                       <FormField
                         control={form.control}
                         name="notes"
@@ -2022,18 +2063,46 @@ export default function SchedulingPage() {
                         </div>
                       )}
 
-                      <div className="flex justify-end space-x-4 pt-4">
+                      </div>
+
+                      {/* Wizard navigation */}
+                      <div className="flex items-center justify-between pt-4">
                         <Button type="button" variant="outline" onClick={() => setIsNewSessionModalOpen(false)}>
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending}>
-                          {(createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending) ?
-                            (editingSessionId ? "Updating..." : "Scheduling...") :
-                            (editingSessionId
-                              ? (editingSession?.recurrenceGroupId && editScope === "future" ? "Update Series" : "Update Session")
-                              : (repeatEnabled ? "Book Series" : "Schedule Session"))
-                          }
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {bookingStep > 1 && (
+                            <Button type="button" variant="ghost" onClick={() => setBookingStep((s) => Math.max(1, s - 1))} data-testid="booking-back">
+                              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+                            </Button>
+                          )}
+                          {bookingStep < 3 ? (
+                            <Button
+                              type="button"
+                              data-testid="booking-next"
+                              onClick={async () => {
+                                const fieldsByStep: Record<number, ("clientId" | "therapistId" | "serviceId" | "sessionDate" | "roomId" | "sessionTime" | "sessionType")[]> = {
+                                  1: ["clientId", "therapistId", "serviceId"],
+                                  2: ["sessionDate", "roomId", "sessionTime", "sessionType"],
+                                };
+                                const fields = fieldsByStep[bookingStep];
+                                if (fields && !(await form.trigger(fields))) return;
+                                setBookingStep((s) => Math.min(3, s + 1));
+                              }}
+                            >
+                              Next <ChevronRight className="w-4 h-4 ml-1" />
+                            </Button>
+                          ) : (
+                            <Button type="submit" disabled={createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending}>
+                              {(createSessionMutation.isPending || createRecurringMutation.isPending || editSeriesFutureMutation.isPending) ?
+                                (editingSessionId ? "Updating..." : "Scheduling...") :
+                                (editingSessionId
+                                  ? (editingSession?.recurrenceGroupId && editScope === "future" ? "Update Series" : "Update Session")
+                                  : (repeatEnabled ? "Book Series" : "Schedule Session"))
+                              }
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </form>
                   </Form>
