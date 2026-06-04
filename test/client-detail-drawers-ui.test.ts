@@ -53,6 +53,7 @@ import {
   startDevServer,
   launchBrowser,
   loginAs,
+  clickButtonByText,
   type DevServer,
 } from "./helpers/browser";
 import { db } from "../server/db";
@@ -164,56 +165,6 @@ async function seed() {
 // ---------------------------------------------------------------------------
 // Browser helpers
 // ---------------------------------------------------------------------------
-
-// Click the first <button> whose visible text matches `pattern`, optionally
-// scoped under `rootSelector`. Uses a trusted ElementHandle click (a synthetic
-// element.click() inside page.evaluate is not enough for some handlers).
-async function clickButtonByText(
-  page: Page,
-  pattern: RegExp,
-  rootSelector?: string,
-): Promise<void> {
-  const root = rootSelector ?? "body";
-  // Wait for a button whose text actually MATCHES, not merely for any button to
-  // exist. After a route navigation or a tab switch the target button mounts
-  // (and its async data loads) a beat later, so failing on the first poll would
-  // be a flake. waitForFunction polls until the matching button appears.
-  await page.waitForFunction(
-    (sel: string, src: string) => {
-      const re = new RegExp(src);
-      return Array.from(document.querySelectorAll(`${sel} button`)).some((b) =>
-        re.test((b.textContent || "").trim()),
-      );
-    },
-    { timeout: 30_000 },
-    root,
-    pattern.source,
-  );
-  const handles = await page.$$(`${root} button`);
-  for (const handle of handles) {
-    const text = await handle.evaluate((el: Element) => (el.textContent || "").trim());
-    if (pattern.test(text)) {
-      // Prefer a trusted ElementHandle click. Some buttons live inside the
-      // drawer's scroll/overlay region where puppeteer can't compute a
-      // clickable point ("Node is either not clickable…"); for a plain <button>
-      // a DOM click still fires its React onClick, so fall back to that. (The
-      // trusted-click requirement only applies to Radix Tabs/Select.) We only
-      // swallow the specific clickable-point error so genuine failures (e.g. a
-      // detached/missing element) still surface.
-      try {
-        await handle.evaluate((el: Element) =>
-          el.scrollIntoView({ block: "center", inline: "center" }),
-        );
-        await handle.click();
-      } catch (err) {
-        if (!/not clickable or not an Element/i.test(String(err))) throw err;
-        await handle.evaluate((el: Element) => (el as HTMLElement).click());
-      }
-      return;
-    }
-  }
-  throw new Error(`Could not find a button matching ${pattern} under ${root}`);
-}
 
 // Wait until the drawer is open AND its title equals `expected`. The drawer
 // element stays mounted across stack pushes/pops, so we must wait on the TITLE

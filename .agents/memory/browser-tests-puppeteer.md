@@ -81,6 +81,26 @@ aborts before later suites run. Re-run the failing suite standalone to confirm
 it's the flake, not a real break, before chasing it. Treat lone chain failures as
 environment/timing flakes when the suite passes alone.
 
+## Click helpers MUST be poll-and-retry loops, not check-then-act
+Under the heavy chain load (the daily-schedule-email-preference test fans out
+digests to hundreds of seeded rows just before the drawer suites), React
+re-renders fire constantly from async TanStack Query data loads. A click helper
+shaped as "waitForFunction the element exists → page.$$ snapshot → click once"
+has a time-of-check/time-of-use race: the matched node is DETACHED/replaced in
+the window between the wait resolving and the snapshot being read, so its
+`textContent` reads `""`, nothing matches, and it throws "Could not find a
+button matching …" even though the button was visibly there. A freshly mounted
+Radix tab can likewise have no clickable point yet → "Node is either not
+clickable or not an Element".
+**Why:** these are TOCTOU/layout-timing races, not real regressions — the suites
+all pass in isolation.
+**How to apply:** `clickButtonByText` and `clickTab` in `test/helpers/browser.ts`
+are now LOOPS that, until a single overall deadline, re-query the element list
+each pass, swallow detached-node errors, `scrollIntoView` then click, and retry.
+Keep that shape. Radix tabs still need a TRUSTED `ElementHandle.click()` (no
+synthetic DOM-click fallback); plain buttons may fall back to an in-page DOM
+click when puppeteer can't compute a clickable point.
+
 ## Asserting persistence
 Toggle, `page.waitForResponse` for the PUT (200), then `page.goto` to reload and
 re-read the control's `aria-checked` from a fresh server fetch — that's what

@@ -53,6 +53,7 @@ import {
   startDevServer,
   launchBrowser,
   loginAs,
+  clickButtonByText,
   type DevServer,
 } from "./helpers/browser";
 import { db } from "../server/db";
@@ -193,27 +194,6 @@ async function seed() {
 // ---------------------------------------------------------------------------
 // Browser helpers
 // ---------------------------------------------------------------------------
-
-// Click the first <button> whose visible text matches `pattern`, optionally
-// scoped under `rootSelector`. Uses a trusted ElementHandle click (a synthetic
-// element.click() inside page.evaluate is not enough for some handlers).
-async function clickButtonByText(
-  page: Page,
-  pattern: RegExp,
-  rootSelector?: string,
-): Promise<void> {
-  const root = rootSelector ?? "body";
-  await page.waitForSelector(`${root} button`, { timeout: 30_000 });
-  const handles = await page.$$(`${root} button`);
-  for (const handle of handles) {
-    const text = await handle.evaluate((el: Element) => (el.textContent || "").trim());
-    if (pattern.test(text)) {
-      await handle.click();
-      return;
-    }
-  }
-  throw new Error(`Could not find a button matching ${pattern} under ${root}`);
-}
 
 // Wait until the drawer is open AND its title equals `expected`.
 async function waitForDrawerTitle(page: Page, expected: string): Promise<void> {
