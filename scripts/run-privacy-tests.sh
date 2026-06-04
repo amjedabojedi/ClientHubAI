@@ -12,6 +12,11 @@
 
 set -u
 
+# Pure slow-down detection helpers (median / baseline / classify / history),
+# extracted so they can be unit-tested without running the real suite.
+# shellcheck source=scripts/lib/slowdown-detect.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/slowdown-detect.sh"
+
 SUITES=(
   "test/communications-transcribe-privacy.test.ts"
   "test/communications-transcribe-recovery.test.ts"
@@ -54,13 +59,31 @@ FAILED=()
 # seconds) and a "slowest-first" view assembled after the run.
 DURATIONS=()
 
-# Where per-suite durations from the previous run are persisted, so this run
-# can flag suites that have gotten significantly slower over time. Lives under
-# .local/ (untracked working state) and is keyed by suite path.
+# Where per-suite durations are persisted, so this run can flag suites that
+# have gotten significantly slower over time. Lives under .local/ (untracked
+# working state) and is keyed by suite path. Each suite stores a rolling list
+# of its most recent durations (oldest first), e.g. {"suites": {"a.test.ts":
+# [12, 13, 11]}}. Legacy files that stored a single number per suite are read
+# transparently as a one-element list.
 HISTORY_FILE=".local/privacy-test-durations.json"
 
-# A suite is flagged as a regression when it is at least this fraction slower
-# than its previous recorded run. 0.5 == "more than 50% slower".
+# How many recent durations to keep per suite. The baseline a run is compared
+# against is the MEDIAN of the OLDER part of this window (excluding the most
+# recent recorded run), which makes detection robust to a single noisy run: one
+# slow outlier barely moves the median, and because the latest sample is left
+# out of the baseline it cannot re-anchor the baseline and mask itself. A wider
+# window also keeps old "normal" samples around longer, so a genuine sustained
+# slow-down keeps failing for several consecutive runs rather than quickly
+# becoming the new normal.
+HISTORY_WINDOW=10
+
+# Minimum number of OLDER baseline points (i.e. excluding the most recent
+# recorded run) required before a suite can be flagged at all. Prevents
+# spurious failures on fresh checkouts before enough history has accumulated.
+MIN_BASELINE_POINTS=3
+
+# A suite is flagged as slower-than-baseline when it is at least this fraction
+# slower than its rolling-median baseline. 0.5 == "more than 50% slower".
 REGRESSION_THRESHOLD="0.5"
 
 # Suites this fast (whole seconds) are ignored for regression flagging: a jump
@@ -68,15 +91,22 @@ REGRESSION_THRESHOLD="0.5"
 REGRESSION_MIN_SECONDS=5
 
 # Opt-in: when FAIL_ON_SLOWDOWN is set to a truthy value (1/true/yes), a
-# detected slow-down regression makes the overall run exit non-zero. Default
+# SUSTAINED slow-down regression makes the overall run exit non-zero. Default
 # (unset/0) is warning-only — the run still passes. Useful in CI to catch
 # performance regressions automatically.
 #
+# "Sustained" matters: a slow-down only fails the run when BOTH this run and
+# the immediately previous recorded run are slower than the rolling-median
+# baseline. A single noisy run (scheduling jitter on the shared CI machine)
+# shows up as a warning but never fails the build, because the run before it
+# was normal. A genuine, persistent slow-down trips two runs in a row and
+# fails as intended.
+#
 # CI: the `test-privacy` workflow (see .replit) runs this script with
-# FAIL_ON_SLOWDOWN=1, so a flagged slow-down fails the run there. The very
+# FAIL_ON_SLOWDOWN=1, so a sustained slow-down fails the run there. The very
 # first run on a fresh checkout has no baseline (.local/privacy-test-durations.json
 # is untracked working state), so nothing can be flagged until a baseline exists
-# — the baseline run always passes.
+# — early runs always pass while history accumulates.
 FAIL_ON_SLOWDOWN="${FAIL_ON_SLOWDOWN:-0}"
 case "${FAIL_ON_SLOWDOWN}" in
   1 | true | TRUE | yes | YES) FAIL_ON_SLOWDOWN=1 ;;
@@ -101,6 +131,20 @@ format_duration() {
     printf '%ds' "${secs}"
   fi
 }
+
+# Fail fast if the slow-down detector's own logic is broken, before spending
+# time on the long privacy suites. This is a quick, hermetic bash test that
+# does not touch the live database.
+DETECTOR_TEST="$(dirname "${BASH_SOURCE[0]}")/../test/slowdown-detection.test.sh"
+if [ -f "${DETECTOR_TEST}" ]; then
+  echo "▶ Self-test: slow-down detector logic"
+  if bash "${DETECTOR_TEST}"; then
+    echo "✅ slow-down detector self-test passed"
+  else
+    echo "🚨 slow-down detector self-test FAILED — aborting before running suites."
+    exit 1
+  fi
+fi
 
 for suite in "${SUITES[@]}"; do
   INDEX=$((INDEX + 1))
@@ -150,64 +194,69 @@ done | sort -rn | while IFS=$'\t' read -r secs suite; do
 done
 
 # ── Slow-down regression detection ──────────────────────────────────────────
-# Compare each suite's duration against the previous recorded run (if any) and
-# flag suites that have gotten significantly slower. Then persist this run's
-# durations so the next run has a baseline to compare against.
+# Compare each suite's duration against a STABLE baseline: the median of its
+# older recorded runs, EXCLUDING the most recent recorded run (so a fresh slow
+# sample can't re-anchor the baseline and hide itself). A slow-down is only
+# treated as a real regression when it persists across two consecutive runs
+# (this run AND the previous recorded run both slow); a single noisy run is a
+# warning only. Then append this run's duration to each suite's rolling history.
 if command -v jq >/dev/null 2>&1; then
   echo ""
 
-  # Read the previous run's duration for a suite (empty string if unknown).
-  prev_duration() {
-    local suite=$1
-    if [ -f "${HISTORY_FILE}" ]; then
-      jq -r --arg s "${suite}" '.suites[$s] // empty' "${HISTORY_FILE}" 2>/dev/null
-    fi
-  }
-
+  # Suites slow this run but not (yet) sustained — surfaced as warnings only.
+  WARNINGS=()
+  # Suites slow this run AND the previous recorded run — these fail CI when
+  # FAIL_ON_SLOWDOWN is enabled.
   REGRESSIONS=()
+
+  # Classify each suite against its stable baseline BEFORE recording this run,
+  # so the current duration never pollutes its own baseline. sd_evaluate lives
+  # in scripts/lib/slowdown-detect.sh and returns "VERDICT|baseline|prev|pct".
   for i in "${!SUITES[@]}"; do
     suite="${SUITES[$i]}"
     now="${DURATIONS[$i]}"
-    prev="$(prev_duration "${suite}")"
 
-    # Skip if no prior baseline, or current run is too fast to be meaningful.
-    [ -n "${prev}" ] || continue
-    [ "${prev}" -gt 0 ] 2>/dev/null || continue
-    [ "${now}" -ge "${REGRESSION_MIN_SECONDS}" ] || continue
+    result="$(sd_evaluate "${HISTORY_FILE}" "${suite}" "${now}" \
+      "${REGRESSION_MIN_SECONDS}" "${REGRESSION_THRESHOLD}" "${MIN_BASELINE_POINTS}")"
+    IFS='|' read -r verdict baseline _prev pct <<< "${result}"
 
-    # Flag when (now - prev) / prev > REGRESSION_THRESHOLD.
-    if awk -v now="${now}" -v prev="${prev}" -v t="${REGRESSION_THRESHOLD}" \
-        'BEGIN { exit !((now - prev) / prev > t) }'; then
-      pct="$(awk -v now="${now}" -v prev="${prev}" \
-        'BEGIN { printf "%d", ((now - prev) / prev) * 100 }')"
-      REGRESSIONS+=("${suite}|${prev}|${now}|${pct}")
-    fi
+    case "${verdict}" in
+      FAIL) REGRESSIONS+=("${suite}|${baseline}|${now}|${pct}") ;;
+      WARN) WARNINGS+=("${suite}|${baseline}|${now}|${pct}") ;;
+    esac
   done
+
+  pct_threshold="$(awk -v t="${REGRESSION_THRESHOLD}" 'BEGIN { printf "%d", t * 100 }')"
 
   if [ "${#REGRESSIONS[@]}" -gt 0 ]; then
     SLOWDOWN_DETECTED=1
-    echo "⚠️  Slow-down regressions (>$(awk -v t="${REGRESSION_THRESHOLD}" 'BEGIN { printf "%d", t * 100 }')% slower than last run):"
+    echo "⚠️  Sustained slow-down regressions (>${pct_threshold}% above median baseline for 2+ runs):"
     for entry in "${REGRESSIONS[@]}"; do
-      IFS='|' read -r suite prev now pct <<< "${entry}"
-      printf '  🐌 %s  %s → %s  (+%s%%)\n' \
-        "${suite}" "$(format_duration "${prev}")" "$(format_duration "${now}")" "${pct}"
+      IFS='|' read -r suite base now pct <<< "${entry}"
+      printf '  🐌 %s  baseline %s → %s  (+%s%%)\n' \
+        "${suite}" "$(format_duration "${base}")" "$(format_duration "${now}")" "${pct}"
     done
-  else
+  fi
+
+  if [ "${#WARNINGS[@]}" -gt 0 ]; then
+    echo "ℹ️  One-off slow runs (>${pct_threshold}% above median baseline, not yet sustained — warning only):"
+    for entry in "${WARNINGS[@]}"; do
+      IFS='|' read -r suite base now pct <<< "${entry}"
+      printf '  ⏳ %s  baseline %s → %s  (+%s%%)\n' \
+        "${suite}" "$(format_duration "${base}")" "$(format_duration "${now}")" "${pct}"
+    done
+  fi
+
+  if [ "${#REGRESSIONS[@]}" -eq 0 ] && [ "${#WARNINGS[@]}" -eq 0 ]; then
     echo "No slow-down regressions detected."
   fi
 
-  # Persist this run's durations as the new baseline for next time.
-  mkdir -p "$(dirname "${HISTORY_FILE}")"
-  {
-    printf '{\n  "updated": "%s",\n  "suites": {\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    for i in "${!SUITES[@]}"; do
-      sep=","
-      [ "${i}" -eq $(( ${#SUITES[@]} - 1 )) ] && sep=""
-      printf '    %s: %s%s\n' \
-        "$(printf '%s' "${SUITES[$i]}" | jq -R .)" "${DURATIONS[$i]}" "${sep}"
-    done
-    printf '  }\n}\n'
-  } > "${HISTORY_FILE}"
+  # Persist this run's durations AFTER classifying, appending to each suite's
+  # rolling list and capping to HISTORY_WINDOW (legacy single-number entries
+  # are upgraded transparently). See sd_history_append in the lib.
+  for i in "${!SUITES[@]}"; do
+    sd_history_append "${HISTORY_FILE}" "${SUITES[$i]}" "${DURATIONS[$i]}" "${HISTORY_WINDOW}"
+  done
 else
   echo ""
   echo "(jq not found — skipping slow-down regression tracking.)"

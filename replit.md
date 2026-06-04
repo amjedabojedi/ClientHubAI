@@ -38,13 +38,21 @@ npm run db:push
 ```bash
 bash scripts/run-privacy-tests.sh
 ```
-Runs all privacy/regression suites serially and prints a pass/fail summary plus per-suite durations. It also tracks each suite's runtime in `.local/privacy-test-durations.json` and flags suites that get significantly slower than the previous run.
+Runs all privacy/regression suites serially and prints a pass/fail summary plus per-suite durations. It also tracks each suite's recent runtimes in `.local/privacy-test-durations.json` (a rolling list of the last few runs per suite) and flags suites that get significantly slower than their **rolling-median baseline**.
 
-Set `FAIL_ON_SLOWDOWN=1` to make a flagged slow-down fail the run (default is warning-only):
+Using the median of recent runs (instead of just the single previous run) makes detection robust to a one-off slow run: a single noisy outlier barely moves the median, so it can't drag the baseline up or down on its own.
+
+Set `FAIL_ON_SLOWDOWN=1` to make a **sustained** slow-down fail the run (default is warning-only):
 ```bash
 FAIL_ON_SLOWDOWN=1 bash scripts/run-privacy-tests.sh
 ```
-The CI `test-privacy` workflow runs with `FAIL_ON_SLOWDOWN=1` enabled, so performance regressions fail the run automatically. The first run on a fresh checkout has no baseline, so nothing can be flagged yet — that baseline run always passes.
+A slow-down only fails the run when it **persists across two consecutive runs** — both the current run and the immediately previous recorded run must be more than the threshold (50%) slower than the median baseline. A single noisy run (scheduling jitter on the shared CI machine) is reported as an informational warning but never fails the build, because the run before it was normal. A genuine, sustained slow-down trips two runs in a row and fails as intended.
+
+The baseline a run is judged against is the median of a suite's **older** recorded runs, explicitly excluding the most recent recorded run, so a fresh slow sample can't re-anchor the baseline and hide itself. At least a few older data points are required before anything is flagged.
+
+The CI `test-privacy` workflow runs with `FAIL_ON_SLOWDOWN=1` enabled, so sustained performance regressions fail the run automatically. Early runs on a fresh checkout have no baseline (the history file is untracked working state), so nothing can be flagged until history accumulates — those early runs always pass.
+
+The detection logic itself lives in `scripts/lib/slowdown-detect.sh` and is covered by deterministic tests in `test/slowdown-detection.test.sh` (run directly with `bash test/slowdown-detection.test.sh`). The privacy runner also runs this self-test first and aborts early if the detector logic is broken.
 
 **Required Environment Variables:**
 `DATABASE_URL`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `SENDGRID_API_KEY`, `AZURE_STORAGE_CONNECTION_STRING`
