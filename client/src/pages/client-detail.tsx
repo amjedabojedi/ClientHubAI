@@ -88,6 +88,7 @@ import { downloadPdf, downloadFile } from "@/lib/download-pdf";
 import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecentItems } from "@/hooks/useRecentItems";
+import { useRecordDrawer } from "@/contexts/RecordDrawerContext";
 import { useRealTimeConflictCheck } from "@/hooks/useConflictDetection";
 import { getClientStageColor } from "@/lib/task-utils";
 import { cn } from "@/lib/utils";
@@ -1121,6 +1122,9 @@ export default function ClientDetailPage() {
   
   // Recent items tracking
   const { addRecentClient } = useRecentItems();
+
+  // Stacked record drawers (child records open in slide-over drawers)
+  const { openDrawer } = useRecordDrawer();
   
   // Check URL parameters for tab selection and session highlighting
   const urlParams = new URLSearchParams(window.location.search);
@@ -3490,6 +3494,27 @@ export default function ClientDetailPage() {
                                   
                                   return (
                                     <>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          openDrawer({
+                                            type: "session",
+                                            title: "Session Details",
+                                            subtitle: client.fullName,
+                                            props: {
+                                              session,
+                                              clientName: client.fullName,
+                                              noteStatus: sessionNote
+                                                ? (sessionNote.isFinalized ? "finalized" : "draft")
+                                                : "none",
+                                            },
+                                          })
+                                        }
+                                        data-testid={`menu-view-session-${session.id}`}
+                                      >
+                                        <Eye className="w-4 h-4 mr-2" />
+                                        View Session Details
+                                      </DropdownMenuItem>
+                                      <div className="border-t my-1"></div>
                                       {/* Zoom Meeting - Top priority in menu */}
                                       {!isNoteFinalized && (session as any).zoomEnabled && (session as any).zoomJoinUrl && (
                                         <>

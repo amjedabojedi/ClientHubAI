@@ -16,3 +16,4 @@
 - [pdfjs-dist worker in Node](pdfjs-node-worker.md) — pdfjs v5 needs workerSrc set to a real worker file:// URL; empty string throws "fake worker failed" → 500 on PDF uploads.
 - [Supporting files blob exposure](supporting-files-blob-exposure.md) — Azure container is public at blob level; never return fileUrl/fileBlobName/extractedText in API responses for blob-backed rows.
 - [Session count classification](session-count-classification.md) — AI must NOT count sessions; counts/date-ranges computed server-side. session_type & service NAME unreliable, classify by structured services.serviceCode, fail closed.
+- [Stale todo vs project task](stale-todo-vs-project-task.md) — read_task_list can be stale leftover from an old task; trust the assigned project task + git history for what to build.

@@ -53,6 +53,8 @@ import ReportTemplatesPage from "@/pages/report-templates";
 import ClientReportPage from "@/pages/client-report";
 import { AuthContext, useAuth, useAuthState } from "@/hooks/useAuth";
 import { RecentItemsProvider } from "@/contexts/RecentItemsContext";
+import { RecordDrawerProvider } from "@/contexts/RecordDrawerContext";
+import { RecordDrawerHost } from "@/components/record-drawer/record-drawer-host";
 import NotificationBell from "@/components/notifications/notification-bell";
 import { PostHogProvider } from "@/lib/posthog";
 
@@ -508,8 +510,11 @@ function App() {
         <TooltipProvider>
           <AuthContext.Provider value={authState}>
             <RecentItemsProvider>
-              <Toaster />
-              <Router />
+              <RecordDrawerProvider>
+                <Toaster />
+                <Router />
+                <RecordDrawerHost />
+              </RecordDrawerProvider>
             </RecentItemsProvider>
           </AuthContext.Provider>
         </TooltipProvider>
