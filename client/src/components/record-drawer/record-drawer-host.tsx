@@ -41,10 +41,17 @@ export function RecordDrawerHost() {
 
   const top = stack[stack.length - 1];
   const open = stack.length > 0;
+  // Depth 1 is the top-level browsing panel (e.g. a client profile slid over the
+  // client list): keep it NON-MODAL so the list behind stays visible and
+  // clickable and the user can jump straight to another record. Deeper levels
+  // (child records / heavy report & assessment editors) stay MODAL so the dimmed
+  // backdrop protects in-progress edits from an accidental outside click.
+  const isModal = stack.length > 1;
 
   return (
     <Sheet
       open={open}
+      modal={isModal}
       onOpenChange={(next) => {
         if (!next) closeTopDrawer();
       }}
@@ -52,13 +59,21 @@ export function RecordDrawerHost() {
       {top && (
         <SheetContent
           side="right"
+          overlay={isModal}
           className={cn(sizeClass[top.size ?? "normal"], "p-0 flex flex-col gap-0 h-full")}
           data-testid="record-drawer"
           onPointerDownOutside={(e) => {
+            // Non-modal browsing panel: a click on the list/page behind must
+            // never close it (the list row handler switches records in place).
+            if (!isModal) { e.preventDefault(); return; }
             // Wide drawers host heavy editors (reports/assessments) where an
             // accidental click outside could discard unsaved edits. Require an
             // explicit close (X / Back) for those. Normal drawers close freely.
             if ((top.size ?? "normal") === "wide") e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            // Same guard for non-pointer outside interactions (focus, etc.).
+            if (!isModal) e.preventDefault();
           }}
         >
           {/* Header + breadcrumb */}

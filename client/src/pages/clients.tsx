@@ -42,7 +42,7 @@ function loadPersistedView(): { activeTab?: string; searchQuery?: string; filter
 }
 
 export default function ClientsPage() {
-  const { openDrawer } = useRecordDrawer();
+  const { openDrawer, replaceTopDrawer, isOpen } = useRecordDrawer();
   const { user } = useAuth();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
@@ -71,14 +71,23 @@ export default function ClientsPage() {
 
   const handleViewClient = (client: Client) => {
     // Slide the client's detail over the list as a wide drawer (the list stays
-    // mounted behind it). Child records open as a second drawer level on top.
-    // The standalone /clients/:id route remains for deep links.
-    openDrawer({
+    // mounted AND clickable behind it, since the top-level panel is non-modal).
+    // Child records open as a second drawer level on top. The standalone
+    // /clients/:id route remains for deep links.
+    const input = {
       type: "client-detail",
       title: client.fullName,
-      size: "wide",
+      size: "wide" as const,
       props: { clientId: client.id },
-    });
+    };
+    // If a profile is already open, clicking another client in the list switches
+    // the panel to that client in place (no new stack level, no flicker) so the
+    // user can browse straight from one client to the next.
+    if (isOpen) {
+      replaceTopDrawer(input);
+    } else {
+      openDrawer(input);
+    }
   };
 
   const handleEditClient = (client: Client) => {

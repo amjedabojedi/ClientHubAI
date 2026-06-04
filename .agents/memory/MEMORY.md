@@ -20,4 +20,6 @@
 - [Stale todo vs project task](stale-todo-vs-project-task.md) — read_task_list can be stale leftover from an old task; trust the assigned project task + git history for what to build.
 - [Record drawer host full-stack](record-drawer-host-top-only.md) — host renders ALL stack levels (lower ones hidden, keyed by id, outlet only when isTop) so a nested drawer body's portal source survives; top-only rendering = empty-nested-drawer bug.
 - [RecordDrawer inline portal](record-drawer-inline-portal.md) — migrate stateful client-detail dialogs into slide-overs via createPortal into a host outlet (keep body inline, drop DialogHeader), not registry extraction.
+- [Non-modal depth-1 drawer](non-modal-depth1-drawer.md) — top record-drawer level is non-modal (list stays clickable, swap via replaceTopDrawer); depth 2+ stays modal to protect editor edits.
+- [Wizard button type morph](wizard-button-type-morph.md) — never share one JSX slot for a wizard's Next(type=button) and Submit(type=submit); React mutates type in place and the advance-click submits.
 - [Slow-down detector baseline](slowdown-detection-baseline.md) — privacy-suite regression baseline must EXCLUDE the latest run (else a slow sample masks itself) and only fail on a SUSTAINED 2-run slow-down.
