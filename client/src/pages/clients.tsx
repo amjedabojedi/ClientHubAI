@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useRecordDrawer } from "@/contexts/RecordDrawerContext";
 
 // Icons
 import { Download, Upload, Plus, HelpCircle, ChevronDown } from "lucide-react";
@@ -42,7 +42,7 @@ function loadPersistedView(): { activeTab?: string; searchQuery?: string; filter
 }
 
 export default function ClientsPage() {
-  const [, setLocation] = useLocation();
+  const { openDrawer } = useRecordDrawer();
   const { user } = useAuth();
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
@@ -70,7 +70,15 @@ export default function ClientsPage() {
   }, [activeTab, searchQuery, filters]);
 
   const handleViewClient = (client: Client) => {
-    setLocation(`/clients/${client.id}`);
+    // Slide the client's detail over the list as a wide drawer (the list stays
+    // mounted behind it). Child records open as a second drawer level on top.
+    // The standalone /clients/:id route remains for deep links.
+    openDrawer({
+      type: "client-detail",
+      title: client.fullName,
+      size: "wide",
+      props: { clientId: client.id },
+    });
   };
 
   const handleEditClient = (client: Client) => {

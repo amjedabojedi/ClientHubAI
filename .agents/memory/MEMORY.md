@@ -17,3 +17,4 @@
 - [Supporting files blob exposure](supporting-files-blob-exposure.md) — Azure container is public at blob level; never return fileUrl/fileBlobName/extractedText in API responses for blob-backed rows.
 - [Session count classification](session-count-classification.md) — AI must NOT count sessions; counts/date-ranges computed server-side. session_type & service NAME unreliable, classify by structured services.serviceCode, fail closed.
 - [Stale todo vs project task](stale-todo-vs-project-task.md) — read_task_list can be stale leftover from an old task; trust the assigned project task + git history for what to build.
+- [Record drawer host top-only](record-drawer-host-top-only.md) — host renders only stack top → a page nested as a drawer level remounts when a child opens; mitigate w/ per-key persistence, full fix = render whole stack.

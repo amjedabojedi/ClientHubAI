@@ -1111,11 +1111,19 @@ const TAB_GROUPS = [
   },
 ];
 
-export default function ClientDetailPage() {
+export default function ClientDetailPage({
+  clientId: clientIdProp,
+  onClose,
+}: { clientId?: number; onClose?: () => void } = {}) {
   // Routing
   const [match, params] = useRoute("/clients/:id");
   const [, setLocation] = useLocation();
-  const clientId = params?.id ? parseInt(params.id) : null;
+  // When embedded in a record drawer the id comes in as a prop; standalone
+  // (URL) usage still reads it from the route.
+  const clientId = clientIdProp ?? (params?.id ? parseInt(params.id) : null);
+  // In a drawer, leaving the client closes the drawer; standalone it navigates
+  // back to the list.
+  const goBackToList = onClose ?? (() => setLocation("/clients"));
   
   // Authentication
   const { user } = useAuth();
@@ -1130,13 +1138,35 @@ export default function ClientDetailPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const requestedTab = urlParams.get('tab');
   const validTabValues = TAB_GROUPS.flatMap((g) => g.items.map((i) => i.value));
-  const initialTab = requestedTab && validTabValues.includes(requestedTab) ? requestedTab : "overview";
+  // Persist the active tab per client so this page restores the user's place
+  // when it re-mounts (e.g. after a child-record drawer closes over it).
+  const tabStorageKey = clientId ? `smarthub.clientDetail.tab.${clientId}` : null;
+  const initialTab = (() => {
+    if (requestedTab && validTabValues.includes(requestedTab)) return requestedTab;
+    if (tabStorageKey) {
+      try {
+        const stored = sessionStorage.getItem(tabStorageKey);
+        if (stored && validTabValues.includes(stored)) return stored;
+      } catch {
+        // ignore storage failures (e.g. private mode quota)
+      }
+    }
+    return "overview";
+  })();
   const sessionIdFromUrl = urlParams.get('sessionId');
   const fromPage = urlParams.get('from'); // Track where user came from
   
   // State
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab);
+  useEffect(() => {
+    if (!tabStorageKey) return;
+    try {
+      sessionStorage.setItem(tabStorageKey, activeTab);
+    } catch {
+      // ignore storage failures (e.g. private mode quota)
+    }
+  }, [tabStorageKey, activeTab]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -1464,7 +1494,7 @@ export default function ClientDetailPage() {
   
   const handleEditClient = () => setIsEditModalOpen(true);
   const handleDeleteClient = () => setIsDeleteDialogOpen(true);
-  const handleDeleteSuccess = () => setLocation("/clients");
+  const handleDeleteSuccess = () => goBackToList();
   const handleUploadDocument = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -2034,7 +2064,7 @@ export default function ClientDetailPage() {
         description: "You don't have permission to view this client profile.",
         variant: "destructive",
       });
-      setLocation("/clients");
+      goBackToList();
     }
   }, [client, user, setLocation, toast]);
 
@@ -2508,7 +2538,7 @@ export default function ClientDetailPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Client Not Found</h2>
           <p className="text-slate-600 mb-4">The requested client could not be found.</p>
-          <Button onClick={() => window.history.back()}>
+          <Button onClick={goBackToList}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
           </Button>
@@ -2583,7 +2613,7 @@ export default function ClientDetailPage() {
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => setLocation("/clients")}
+            onClick={goBackToList}
             className="flex items-center space-x-1 h-8 px-2 -ml-2"
           >
             <ArrowLeft className="w-3 h-3" />

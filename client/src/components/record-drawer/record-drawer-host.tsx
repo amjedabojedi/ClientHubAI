@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -17,8 +18,20 @@ const sizeClass: Record<string, string> = {
  * beneath is revealed (the page underneath always stays mounted).
  */
 export function RecordDrawerHost() {
-  const { stack, closeTopDrawer, closeToIndex } = useRecordDrawer();
+  const { stack, closeTopDrawer, closeToIndex, resetDrawers } = useRecordDrawer();
   const [location] = useLocation();
+
+  // Clear any open drawers when a genuine navigation occurs. Our own drawer
+  // history operations never change the path, so this only fires on real route
+  // changes (e.g. an in-drawer "go to Tasks/Billing" link), preventing a drawer
+  // from hanging over a different page.
+  const prevLocationRef = useRef(location);
+  useEffect(() => {
+    if (prevLocationRef.current !== location) {
+      prevLocationRef.current = location;
+      resetDrawers();
+    }
+  }, [location, resetDrawers]);
 
   // The drawer system is staff-only. The client/patient portal must never be
   // affected, so the host never renders on portal routes.

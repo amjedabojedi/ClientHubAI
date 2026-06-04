@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { SessionDetailDrawer } from "./session-detail-drawer";
 import {
+  ClientDetailDrawer,
   ClientReportDrawer,
   AssessmentCompletionDrawer,
   AssessmentReportDrawer,
@@ -16,6 +17,7 @@ export type DrawerComponent = ComponentType<any>;
  * Add new record types here as they are migrated onto the drawer system.
  */
 export const recordDrawerRegistry: Record<string, DrawerComponent> = {
+  "client-detail": ClientDetailDrawer,
   session: SessionDetailDrawer,
   "client-report": ClientReportDrawer,
   "assessment-completion": AssessmentCompletionDrawer,

@@ -34,6 +34,8 @@ interface RecordDrawerContextValue {
   closeAllDrawers: () => void;
   /** Pop drawers until only the first `index + 1` remain (used by breadcrumbs). */
   closeToIndex: (index: number) => void;
+  /** Drop all drawers immediately WITHOUT touching history (used on real navigation). */
+  resetDrawers: () => void;
   isOpen: boolean;
 }
 
@@ -155,6 +157,18 @@ export function RecordDrawerProvider({ children }: { children: ReactNode }) {
     window.history.back();
   }, []);
 
+  const resetDrawers = useCallback(() => {
+    // Drop all drawers without touching history. Used when a genuine route
+    // change navigates away from the page the drawers belonged to, so they do
+    // not hang over a different page. The synthetic history entries are left
+    // behind harmlessly (their path is unchanged) and the popstate handler
+    // treats depth 0 as normal navigation.
+    if (depthRef.current === 0) return;
+    depthRef.current = 0;
+    intendedDepthRef.current = 0;
+    setStack([]);
+  }, []);
+
   return (
     <RecordDrawerContext.Provider
       value={{
@@ -164,6 +178,7 @@ export function RecordDrawerProvider({ children }: { children: ReactNode }) {
         closeTopDrawer,
         closeAllDrawers,
         closeToIndex,
+        resetDrawers,
         isOpen: stack.length > 0,
       }}
     >

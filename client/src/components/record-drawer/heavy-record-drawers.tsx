@@ -1,4 +1,5 @@
 import { useRecordDrawer } from "@/contexts/RecordDrawerContext";
+import ClientDetailPage from "@/pages/client-detail";
 import ClientReportPage from "@/pages/client-report";
 import AssessmentCompletionPage from "@/pages/assessment-completion";
 import AssessmentReportPage from "@/pages/assessment-report";
@@ -11,6 +12,11 @@ import AssessmentReportPage from "@/pages/assessment-report";
  * The original pages remain registered as standalone routes in App.tsx, so
  * their URLs keep working unchanged as deep-link entry points.
  */
+
+export function ClientDetailDrawer(props: { clientId?: number }) {
+  const { closeTopDrawer } = useRecordDrawer();
+  return <ClientDetailPage clientId={props.clientId} onClose={closeTopDrawer} />;
+}
 
 export function ClientReportDrawer(props: { clientId?: number; reportId?: number }) {
   const { closeTopDrawer } = useRecordDrawer();
