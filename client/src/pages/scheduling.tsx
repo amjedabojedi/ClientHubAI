@@ -1491,20 +1491,18 @@ export default function SchedulingPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Room *</FormLabel>
-                              <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseInt(value))}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select room" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {rooms?.map((room) => (
-                                    <SelectItem key={room.id} value={room.id.toString()}>
-                                      Room {room.roomNumber} - {room.roomName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <FormControl>
+                                <SearchableSelect
+                                  value={field.value?.toString() || ""}
+                                  onValueChange={(value) => field.onChange(parseInt(value))}
+                                  options={rooms?.map((room) => ({
+                                    value: room.id.toString(),
+                                    label: `Room ${room.roomNumber} - ${room.roomName}`
+                                  })) || []}
+                                  placeholder="Select room"
+                                  searchPlaceholder="Search rooms..."
+                                />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -1519,20 +1517,18 @@ export default function SchedulingPage() {
                           <FormItem>
                             <FormLabel>Time *</FormLabel>
                             <div className="space-y-2">
-                              <Select value={field.value} onValueChange={field.onChange}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select time" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {getTimeSlotsWithLabels().map((timeSlot) => (
-                                    <SelectItem key={timeSlot.value} value={timeSlot.value}>
-                                      {timeSlot.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <FormControl>
+                                <SearchableSelect
+                                  value={field.value}
+                                  onValueChange={field.onChange}
+                                  options={getTimeSlotsWithLabels().map((timeSlot) => ({
+                                    value: timeSlot.value,
+                                    label: timeSlot.label
+                                  }))}
+                                  placeholder="Select time"
+                                  searchPlaceholder="Search times..."
+                                />
+                              </FormControl>
                               
                               {/* Quick Duration Tags */}
                               <div className="space-y-2">
