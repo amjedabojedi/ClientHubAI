@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 
 export type DrawerSize = "normal" | "wide";
 
@@ -28,6 +28,8 @@ export interface OpenDrawerInput {
 interface RecordDrawerContextValue {
   stack: DrawerEntry[];
   openDrawer: (input: OpenDrawerInput) => void;
+  /** Swap the contents of the top drawer without changing the stack depth. */
+  replaceTopDrawer: (input: OpenDrawerInput) => void;
   closeTopDrawer: () => void;
   closeAllDrawers: () => void;
   /** Pop drawers until only the first `index + 1` remain (used by breadcrumbs). */
@@ -46,38 +48,111 @@ function nextDrawerId(): string {
   return `drawer-${drawerIdCounter}`;
 }
 
+function buildEntry(input: OpenDrawerInput): DrawerEntry {
+  return {
+    id: nextDrawerId(),
+    type: input.type,
+    title: input.title,
+    subtitle: input.subtitle,
+    size: input.size ?? "normal",
+    props: input.props,
+  };
+}
+
 export function RecordDrawerProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<DrawerEntry[]>([]);
 
-  const openDrawer = useCallback((input: OpenDrawerInput) => {
-    setStack((prev) => {
-      const entry: DrawerEntry = {
-        id: nextDrawerId(),
-        type: input.type,
-        title: input.title,
-        subtitle: input.subtitle,
-        size: input.size ?? "normal",
-        props: input.props,
-      };
-      // Enforce the depth cap: if we are already at the maximum, replace the
-      // top entry instead of growing the stack beyond the limit.
-      if (prev.length >= MAX_DRAWER_DEPTH) {
-        return [...prev.slice(0, MAX_DRAWER_DEPTH - 1), entry];
+  // --- Browser history / Back-button integration ---------------------------
+  // Each time a drawer LEVEL opens we push one history entry with the SAME URL
+  // (empty url arg), so the route never changes and the page underneath stays
+  // mounted. The browser Back button then fires `popstate`, which we use to
+  // close the top drawer instead of leaving the client page.
+  //
+  // `depthRef` is the source of truth for the number of open levels (== number
+  // of history entries we pushed == stack length). `intendedDepthRef` is the
+  // depth we want to settle at. Every close (X / Escape / breadcrumb / page
+  // "Back" / browser Back) ultimately removes levels via a SINGLE
+  // `history.back()` step at a time — never `history.go(-n)` — so the number of
+  // popstate events is always exactly one per step, regardless of browser. A
+  // programmatic multi-level close chains additional `history.back()` calls
+  // from the popstate handler until `depthRef` reaches `intendedDepthRef`.
+  const depthRef = useRef(0);
+  const intendedDepthRef = useRef(0);
+
+  useEffect(() => {
+    // If we reloaded while sitting on a synthetic drawer history entry, strip
+    // the marker from the current entry so it is never misread as an open
+    // drawer. (Drawer state itself does not survive a reload; the standalone
+    // routes are the refresh-safe / shareable entry points.)
+    if (typeof window !== "undefined" && window.history.state && (window.history.state as any).recordDrawer) {
+      window.history.replaceState(null, "");
+    }
+
+    const onPopState = () => {
+      if (depthRef.current <= 0) {
+        // No drawer is open: this is normal app navigation. Keep refs at rest
+        // and let the navigation proceed untouched.
+        depthRef.current = 0;
+        intendedDepthRef.current = 0;
+        return;
       }
-      return [...prev, entry];
-    });
+      // One history step back == close one drawer level.
+      depthRef.current -= 1;
+      setStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev));
+      if (depthRef.current > intendedDepthRef.current) {
+        // A programmatic multi-level close is still in progress: take the next
+        // step. Each back() yields exactly one more popstate.
+        window.history.back();
+      } else {
+        // Settled (also covers a genuine single Back press): align intent.
+        intendedDepthRef.current = depthRef.current;
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const openDrawer = useCallback((input: OpenDrawerInput) => {
+    const entry = buildEntry(input);
+    if (depthRef.current >= MAX_DRAWER_DEPTH) {
+      // At the cap: replace the top entry in place; depth and history unchanged.
+      setStack((prev) => [...prev.slice(0, MAX_DRAWER_DEPTH - 1), entry]);
+      return;
+    }
+    depthRef.current += 1;
+    intendedDepthRef.current = depthRef.current;
+    // Empty URL keeps the current route; we only want a history entry to
+    // intercept the Back button, not a navigation.
+    window.history.pushState({ recordDrawer: depthRef.current }, "");
+    setStack((prev) => [...prev, entry]);
+  }, []);
+
+  const replaceTopDrawer = useCallback((input: OpenDrawerInput) => {
+    // Invariant: never create depth without a matching history entry. If no
+    // drawer is open, do nothing (callers should use openDrawer instead).
+    if (depthRef.current <= 0) return;
+    const entry = buildEntry(input);
+    setStack((prev) => (prev.length === 0 ? prev : [...prev.slice(0, -1), entry]));
   }, []);
 
   const closeTopDrawer = useCallback(() => {
-    setStack((prev) => prev.slice(0, -1));
+    if (depthRef.current <= 0) return;
+    intendedDepthRef.current = depthRef.current - 1;
+    window.history.back();
   }, []);
 
   const closeAllDrawers = useCallback(() => {
-    setStack([]);
+    if (depthRef.current <= 0) return;
+    intendedDepthRef.current = 0;
+    window.history.back();
   }, []);
 
   const closeToIndex = useCallback((index: number) => {
-    setStack((prev) => prev.slice(0, Math.max(0, index + 1)));
+    const target = Math.max(0, index + 1);
+    if (target >= depthRef.current) return;
+    intendedDepthRef.current = target;
+    window.history.back();
   }, []);
 
   return (
@@ -85,6 +160,7 @@ export function RecordDrawerProvider({ children }: { children: ReactNode }) {
       value={{
         stack,
         openDrawer,
+        replaceTopDrawer,
         closeTopDrawer,
         closeAllDrawers,
         closeToIndex,
