@@ -2002,14 +2002,14 @@ export default function ClientDetailPage() {
   const { data: transcriptStatusMap = {} } = useQuery<Record<number, boolean>>({
     queryKey: [`/api/clients/${clientId}/session-transcripts/status`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'sessions',
   });
 
   // Session Notes query (for inline note management in Session History)
   const { data: sessionNotes = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/session-notes`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'sessions',
   });
 
   // Helper function to find note for a session
@@ -2021,7 +2021,7 @@ export default function ClientDetailPage() {
   const { data: sessionRatingsData = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/session-ratings`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'sessions',
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchInterval: 60000,
@@ -2039,7 +2039,7 @@ export default function ClientDetailPage() {
   }>({
     queryKey: [`/api/clients/${clientId}/session-conflicts`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'sessions',
   });
 
   const { data: notes = [] } = useQuery<any[]>({
@@ -2051,13 +2051,13 @@ export default function ClientDetailPage() {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: [`/api/clients/${clientId}/tasks`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'tasks',
   });
 
   const { data: documents = [] } = useQuery<Document[]>({
     queryKey: [`/api/clients/${clientId}/documents`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'documents',
   });
 
   const { data: therapistSupervisors = [] } = useQuery<User[]>({
@@ -2078,13 +2078,14 @@ export default function ClientDetailPage() {
       if (!response.ok) throw new Error('Failed to fetch billing records');
       return response.json();
     },
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'billing',
   });
 
   // Assessment queries
   const { data: availableTemplates = [] } = useQuery({
     queryKey: ['/api/assessments/templates'],
     queryFn: getQueryFn({ on401: "throw" }),
+    enabled: activeTab === 'assessments',
     select: (data: any[]) => data.map(template => ({
       ...template,
       title: template.name || template.title, // Map name to title for consistency
@@ -2102,19 +2103,20 @@ export default function ClientDetailPage() {
   const { data: assignedAssessments = [] } = useQuery<AssessmentAssignment[]>({
     queryKey: [`/api/clients/${clientId}/assessments`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'assessments',
   });
 
   // Report templates (active only for staff) + this client's generated reports
   const { data: reportTemplates = [] } = useQuery<any[]>({
     queryKey: ["/api/report-templates"],
     queryFn: getQueryFn({ on401: "throw" }),
+    enabled: activeTab === 'reports',
   });
 
   const { data: clientReports = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/reports`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'reports',
   });
 
   // Supporting files (per-client reference material for AI report generation)
@@ -2129,7 +2131,7 @@ export default function ClientDetailPage() {
   const { data: supportingFiles = [] } = useQuery<any[]>({
     queryKey: [`/api/clients/${clientId}/supporting-files`],
     queryFn: getQueryFn({ on401: "throw" }),
-    enabled: !!clientId,
+    enabled: !!clientId && activeTab === 'reports',
   });
 
   const selectedReportTemplate = reportTemplates.find((t: any) => String(t.id) === reportTemplateId);
@@ -2623,52 +2625,66 @@ export default function ClientDetailPage() {
       {/* Main Content */}
       <div>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-11 gap-2 p-2">
-            <TabsTrigger value="overview" className="flex items-center space-x-2 px-4">
-              <UserIcon className="w-4 h-4" />
-              <span>Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="sessions" className="flex items-center space-x-2 px-4">
-              <Calendar className="w-4 h-4" />
-              <span>Sessions</span>
-            </TabsTrigger>
-
-            <TabsTrigger value="assessments" className="flex items-center space-x-2 px-4">
-              <ClipboardList className="w-4 h-4" />
-              <span>Assessments</span>
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center space-x-2 px-4" data-testid="tab-reports">
-              <FileText className="w-4 h-4" />
-              <span>Reports</span>
-            </TabsTrigger>
-            <TabsTrigger value="forms" className="flex items-center space-x-2 px-4">
-              <FileText className="w-4 h-4" />
-              <span>Forms</span>
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="flex items-center space-x-2 px-4">
-              <FolderOpen className="w-4 h-4" />
-              <span>Documents</span>
-            </TabsTrigger>
-            <TabsTrigger value="billing" className="flex items-center space-x-2 px-4">
-              <CreditCard className="w-4 h-4" />
-              <span>Billing</span>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center space-x-2 px-4">
-              <CheckSquare className="w-4 h-4" />
-              <span>Tasks</span>
-            </TabsTrigger>
-            <TabsTrigger value="checklist" className="flex items-center space-x-2 px-4">
-              <ClipboardList className="w-4 h-4" />
-              <span>Checklists</span>
-            </TabsTrigger>
-            <TabsTrigger value="communications" className="flex items-center space-x-2 px-4" data-testid="tab-communications">
-              <Mail className="w-4 h-4" />
-              <span>Communications</span>
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center space-x-2 px-4" data-testid="tab-history">
-              <Clock className="w-4 h-4" />
-              <span>History</span>
-            </TabsTrigger>
+          <TabsList className="flex flex-wrap items-start w-full h-auto gap-x-6 gap-y-3 p-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Clinical</span>
+              <div className="flex flex-wrap gap-1.5">
+                <TabsTrigger value="overview" className="flex items-center space-x-2 px-4">
+                  <UserIcon className="w-4 h-4" />
+                  <span>Overview</span>
+                </TabsTrigger>
+                <TabsTrigger value="sessions" className="flex items-center space-x-2 px-4">
+                  <Calendar className="w-4 h-4" />
+                  <span>Sessions</span>
+                </TabsTrigger>
+                <TabsTrigger value="assessments" className="flex items-center space-x-2 px-4">
+                  <ClipboardList className="w-4 h-4" />
+                  <span>Assessments</span>
+                </TabsTrigger>
+                <TabsTrigger value="reports" className="flex items-center space-x-2 px-4" data-testid="tab-reports">
+                  <FileText className="w-4 h-4" />
+                  <span>Reports</span>
+                </TabsTrigger>
+                <TabsTrigger value="forms" className="flex items-center space-x-2 px-4">
+                  <FileText className="w-4 h-4" />
+                  <span>Forms</span>
+                </TabsTrigger>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Admin</span>
+              <div className="flex flex-wrap gap-1.5">
+                <TabsTrigger value="billing" className="flex items-center space-x-2 px-4">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Billing</span>
+                </TabsTrigger>
+                <TabsTrigger value="tasks" className="flex items-center space-x-2 px-4">
+                  <CheckSquare className="w-4 h-4" />
+                  <span>Tasks</span>
+                </TabsTrigger>
+                <TabsTrigger value="checklist" className="flex items-center space-x-2 px-4">
+                  <ClipboardList className="w-4 h-4" />
+                  <span>Checklists</span>
+                </TabsTrigger>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Files &amp; Records</span>
+              <div className="flex flex-wrap gap-1.5">
+                <TabsTrigger value="documents" className="flex items-center space-x-2 px-4">
+                  <FolderOpen className="w-4 h-4" />
+                  <span>Documents</span>
+                </TabsTrigger>
+                <TabsTrigger value="communications" className="flex items-center space-x-2 px-4" data-testid="tab-communications">
+                  <Mail className="w-4 h-4" />
+                  <span>Communications</span>
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex items-center space-x-2 px-4" data-testid="tab-history">
+                  <Clock className="w-4 h-4" />
+                  <span>History</span>
+                </TabsTrigger>
+              </div>
+            </div>
           </TabsList>
 
           {/* Overview Tab */}
